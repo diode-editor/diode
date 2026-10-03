@@ -95,6 +95,10 @@ export class GraphViewComponent extends Component {
             containerId: SCM_VIEWLET_ID,
             title: "GRAPH",
             order: 20,
+            // История репозитория дороже списка изменений и нужна реже: секция
+            // открывается свёрнутой, а `git log` в расширении до раскрытия не
+            // запускается вовсе (см. `ScmGraphService.setActive`).
+            collapsed: true,
             body: this.view,
             focus: () => {
                 this.focus();

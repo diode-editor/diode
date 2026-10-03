@@ -160,8 +160,17 @@ export const EDITOR_GROUPS_STATE: IStateDescriptor<IEditorGroupsState | null> = 
 
 /** Состояние view-секций одного контейнера сайдбара (см. `ViewsService`). */
 export interface IViewContainerViewsState {
-    /** Id свёрнутых секций. */
-    readonly collapsed: readonly string[];
+    /**
+     * Свёрнутость секций по id. Явное значение — выбор пользователя и перебивает
+     * дефолт дескриптора (`IViewDescriptor.collapsed`); отсутствие id значит
+     * «стор про эту секцию ничего не знает», и действует дефолт. Различать это
+     * обязательно: иначе секция с дефолтом «свёрнута» сворачивалась бы на каждом
+     * старте, даже если пользователь её развернул.
+     *
+     * Стор прошлых версий держал здесь массив id свёрнутых секций — он читается
+     * как «перечисленные свёрнуты, про остальные ничего не известно».
+     */
+    readonly collapsed: Readonly<Partial<Record<string, boolean>>> | readonly string[];
     /** Веса (доли высоты) секций; после drag — фактические строки. */
     readonly weights: Readonly<Record<string, number>>;
     /**

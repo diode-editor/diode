@@ -158,7 +158,10 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
-        // Расширение активно, когда GRAPH показал последний коммит.
+        // Расширение активно, когда GRAPH показал последний коммит. Секция
+        // открывается свёрнутой (дефолт её дескриптора) — раскрываем шевроном:
+        // до раскрытия расширение `git log` не запускает вовсе.
+        await session.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
         await session.waitForText((t) => t.includes("feat: second"));
 
         // Amend с новым сообщением (индекс пуст — allowEmpty не нужен: --amend разрешает).

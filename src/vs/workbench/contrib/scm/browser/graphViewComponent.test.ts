@@ -9,7 +9,7 @@ import type { IViewDescriptor, ViewsService } from "../../../browser/parts/views
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 import { SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
 
-import { PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
+import { GRAPH_ENABLED_COMMAND, PUBLISH_LOG_COMMAND, ScmGraphService } from "./graphService.ts";
 import { GRAPH_LOAD_MORE_COMMAND, GraphViewComponent } from "./graphViewComponent.ts";
 import { LOAD_MORE_LABEL, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
 
@@ -108,6 +108,8 @@ describe("GraphViewComponent", () => {
             containerId: SCM_VIEWLET_ID,
             title: "GRAPH",
             order: 20,
+            // История дороже списка изменений — секция открывается свёрнутой.
+            collapsed: true,
         });
     });
 
@@ -372,6 +374,15 @@ describe("GraphViewComponent: ленивость", () => {
         setExpanded(true);
         publish(commands, page);
         expect(component.list.rowCount).toBe(1);
+    });
+
+    it("свёрнутой с самого старта секции расширение истории не считает", () => {
+        const { commands } = make(false);
+        // Единственный pull-канал: расширение спрашивает при активации, нужен ли
+        // ему `git log`. Свёрнутый по дефолту GRAPH отвечает «не нужен».
+        expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
+
+        expect(make(true).commands.execute(GRAPH_ENABLED_COMMAND)).toBe(true);
     });
 
     it("раскрытость едет расширению операцией logSetEnabled", () => {

@@ -86,6 +86,16 @@ export interface IViewDescriptor {
      * Аналог `canToggleVisibility` у `IViewDescriptor` VS Code.
      */
     readonly canToggleVisibility?: boolean;
+    /**
+     * `true` — секция создаётся свёрнутой (по умолчанию `false`). Аналог
+     * `collapsed` у `IViewDescriptor` VS Code и, как там, это ТОЛЬКО начальное
+     * состояние: сохранённую свёрнутость пользователя дефолт не перебивает (см.
+     * {@link ViewsService.restoreViewsState}).
+     *
+     * С {@link canToggleVisibility} не путать: тот про «можно ли секцию
+     * СКРЫТЬ», этот — про «развёрнута ли она при появлении».
+     */
+    readonly collapsed?: boolean;
 }
 
 /** Снимок view для потребителей меню/переключателей (см. {@link ViewsService.getContainerViews}). */
@@ -106,6 +116,8 @@ interface ViewRecord {
     readonly minBodyHeight: number | undefined;
     readonly placeholder: string | undefined;
     readonly canToggleVisibility: boolean;
+    /** Дефолт свёрнутости (см. {@link IViewDescriptor.collapsed}). */
+    readonly collapsed: boolean;
     body: TUIElement | null;
     titleWidget: TUIElement | null;
     /** Кадр спиннера занятости; живёт в записи, чтобы пережить пересборку секций. */
@@ -220,6 +232,7 @@ export class ViewsService {
             minBodyHeight: descriptor.minBodyHeight,
             placeholder: descriptor.placeholder,
             canToggleVisibility: descriptor.canToggleVisibility ?? true,
+            collapsed: descriptor.collapsed ?? false,
             body: descriptor.body,
             titleWidget: null,
             spinner: null,
@@ -460,7 +473,10 @@ export class ViewsService {
             this.rebuildPanes(entry);
             paneView.setWeights(state.weights);
             for (const paneId of paneView.getPaneIds()) {
-                paneView.setCollapsed(paneId, state.collapsed.includes(paneId));
+                const collapsed = storedCollapsed(state.collapsed, paneId);
+                // Стор про секцию ничего не знает — остаётся дефолт дескриптора,
+                // уже поставленный пересборкой выше.
+                if (collapsed !== undefined) paneView.setCollapsed(paneId, collapsed);
             }
             // Программный путь `setCollapsed` не зовёт `onDidChangeState` —
             // о восстановленной свёрнутости подписчиков извещаем сами.
@@ -749,7 +765,10 @@ export class ViewsService {
      */
     private rebuildPanes(entry: ContainerEntry): void {
         const paneView = attached(entry).paneView;
-        const collapsed = new Set(paneView.getPaneIds().filter((id) => paneView.isCollapsed(id)));
+        // Свёрнутость секции, которая в контейнере уже стоит, переживает
+        // пересборку; та, которой в нём ещё нет (первый build, показ скрытой),
+        // встаёт по дефолту своего дескриптора.
+        const previous = new Map(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)]));
         const weights = paneView.getWeights();
         for (const paneId of [...paneView.getPaneIds()]) {
             paneView.removePane(paneId);
@@ -773,7 +792,7 @@ export class ViewsService {
         }
         paneView.setWeights(weights);
         for (const view of visible) {
-            paneView.setCollapsed(view.id, collapsed.has(view.id));
+            paneView.setCollapsed(view.id, previous.get(view.id) ?? view.collapsed);
         }
         this.refreshContainerTitleActions(entry);
         this.syncContainerFrame(entry);
@@ -784,7 +803,9 @@ export class ViewsService {
     private persistContainerState(containerId: string, entry: ContainerEntry): void {
         const paneView = attached(entry).paneView;
         const state: IViewContainerViewsState = {
-            collapsed: paneView.getPaneIds().filter((id) => paneView.isCollapsed(id)),
+            // Пишем ОБА состояния, а не только свёрнутые: развёрнутость — тоже
+            // выбор пользователя, и она обязана перебивать дефолт дескриптора.
+            collapsed: Object.fromEntries(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)])),
             weights: paneView.getWeights(),
             hidden: [...entry.hidden],
         };
@@ -793,6 +814,23 @@ export class ViewsService {
             [containerId]: state,
         });
     }
+}
+
+/**
+ * Свёрнутость секции по стору: `undefined` — стор про неё не знает, и действует
+ * дефолт дескриптора. Стор прошлых версий держал здесь массив id свёрнутых
+ * секций: перечисленные в нём свёрнуты, про остальные ничего не известно.
+ */
+function storedCollapsed(stored: StoredCollapsed, viewId: string): boolean | undefined {
+    if (isLegacyCollapsedList(stored)) return stored.includes(viewId) ? true : undefined;
+    return stored[viewId];
+}
+
+type StoredCollapsed = IViewContainerViewsState["collapsed"];
+
+/** Формат стора прошлых версий — массив id свёрнутых секций. */
+function isLegacyCollapsedList(stored: StoredCollapsed): stored is readonly string[] {
+    return Array.isArray(stored);
 }
 
 /**

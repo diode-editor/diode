@@ -9,7 +9,12 @@ import { resolveUserDataPaths } from "../../platform/environment/node/userDataPa
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
 import { computeWorkspaceId } from "../../platform/workspace/common/workspaceId.ts";
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
+import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+
+import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
+import type { PaneViewElement } from "./parts/views/paneViewElement.ts";
+import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 
 /**
  * End-to-end персистентность сессии: открыть файлы + поменять layout в одном
@@ -30,6 +35,18 @@ describe("Workbench — session state persistence", () => {
         ws.dispose();
         userData.dispose();
     });
+
+    /**
+     * Контейнер секций Source Control живого сайдбара — через него идёт
+     * пользовательский путь сворачивания (шеврон заголовка). В дереве сайдбара
+     * лежит только активный вьюлет, поэтому сначала показываем нужный.
+     */
+    function paneViewOf(h: IAppHarness): PaneViewElement {
+        h.container.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID, false);
+        const element = h.workbench.view.querySelector(`#viewContainer-${SCM_VIEWLET_ID}`);
+        if (element === null) throw new Error("сайдбар не собрал контейнер Source Control");
+        return element as PaneViewElement;
+    }
 
     function newState(): StateService {
         return loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
@@ -269,6 +286,31 @@ describe("Workbench — session state persistence", () => {
         const part = (h2.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
             .editorPartComponent;
         expect(part.weights[1]).toBeGreaterThan(part.weights[0]);
+        h2.dispose();
+    });
+
+    it("свёрнутость секций переживает рестарт и перебивает дефолт дескриптора", () => {
+        // ── Запуск 1: GRAPH встаёт свёрнутым (дефолт своего дескриптора) ───
+        const state1 = newState();
+        const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
+        const views1 = h1.container.get(ViewsServiceDIToken);
+        expect(views1.isViewExpanded(SCM_GRAPH_VIEW_ID)).toBe(false);
+        expect(views1.isViewExpanded(SCM_CHANGES_VIEW_ID)).toBe(true);
+
+        // Пользователь раскрыл GRAPH и свернул CHANGES — пользовательский путь
+        // (шеврон заголовка), с write-through'ом персиста.
+        const panes1 = paneViewOf(h1);
+        panes1.toggleCollapsed(SCM_GRAPH_VIEW_ID);
+        panes1.toggleCollapsed(SCM_CHANGES_VIEW_ID);
+        state1.flushSync();
+        h1.dispose();
+
+        // ── Запуск 2: обе секции — как их оставил пользователь ────────────
+        const state2 = newState();
+        const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state2 });
+        const views2 = h2.container.get(ViewsServiceDIToken);
+        expect(views2.isViewExpanded(SCM_GRAPH_VIEW_ID)).toBe(true);
+        expect(views2.isViewExpanded(SCM_CHANGES_VIEW_ID)).toBe(false);
         h2.dispose();
     });
 
