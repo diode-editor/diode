@@ -74,7 +74,12 @@ export const removeCommentLineAction: CommandAction = {
 export const blockCommentAction: CommandAction = {
     id: "editor.action.blockComment",
     title: "Toggle Block Comment",
-    keybinding: parseKeybinding("shift+alt+a"),
+    // Shift+Alt+<буква> в legacy-потоке приходит как `ESC <буква>` без shift-флага —
+    // канонический бинд объявлен там, где терминал различает Shift, а досягаемый
+    // путь — безусловный лидер-аккорд (Alt во второй части: голая вторая часть
+    // утекает парным keypress'ом, см. docs/TODO/README.md, «Клавиатура»).
+    keybinding: parseChord("ctrl+k alt+a"),
+    keybindings: [{ keys: parseKeybinding("shift+alt+a"), when: "tier != 'legacy'" }],
     when: "textInputFocus && !editorReadonly",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "4_comment", order: 20 }],
     run(accessor) {

@@ -3,6 +3,7 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
+import { requiresExtendedKeys } from "./keybindingPortability.ts";
 import { macKeysAtLeast, macKeysBelow } from "./macKeys.ts";
 
 export const KeybindingRegistryDIToken = token<KeybindingRegistry>("KeybindingRegistry");
@@ -451,12 +452,22 @@ export class KeybindingRegistry implements IDisposable {
     }
 
     /**
-     * Returns the chord to display for a command, in priority order:
-     *  1. the first registered binding whose `when` clause passes in the current
-     *     context — a context-specific binding (e.g. a tier-specific fallback)
-     *     is the one actually usable, so it wins over an unconditional default;
-     *  2. else the first registered unconditional binding;
-     *  3. else the first registered binding regardless of `when`.
+     * Returns the chord to display for a command. Ступени приоритета, сверху вниз:
+     *  1. бинд, объявленный ПОД TIER-ГЕЙТОМ и действующий сейчас — это
+     *     канонический бинд VS Code (мы гейтим только такие), и на терминале,
+     *     который его передаёт, подписывать надо именно его, а не фолбэк;
+     *  2. остальные бинды с проходящим `when` — контекстный бинд полезнее
+     *     безусловного дефолта;
+     *  3. безусловные бинды;
+     *  4. любой зарегистрированный, независимо от `when`.
+     *
+     * Поперёк ступеней действует доставляемость: комбинация, которую терминал
+     * текущего tier'а не передаёт, проигрывает любой доставляемой — иначе
+     * палитра и меню подписывали бы команду нерабочим биндом (так было у Format
+     * Document: Shift+Alt+F и чорд делят один action-wide `when`, и первым шёл
+     * недостижимый; и у палитры, где условный Ctrl+Shift+P обгонял безусловный
+     * F1). Если доставляемой комбинации нет вовсе, подпись остаётся прежней —
+     * честнее показать канонический бинд, чем ничего.
      *
      * `overlay` — контекст «что если» (см. `ContextKeyService.evaluate`): подпись
      * бинда поля, которое сейчас не в фокусе, считается с его фокус-ключом.
@@ -466,18 +477,33 @@ export class KeybindingRegistry implements IDisposable {
         contextKeys?: ContextKeyService,
         overlay?: Readonly<Record<string, boolean | string | number>>,
     ): KeybindingChord | undefined {
-        let unconditional: KeybindingChord | undefined;
-        let firstAny: KeybindingChord | undefined;
+        // Без контекста tier неизвестен — считаем, что доезжает всё (подпись
+        // как раньше, по порядку регистрации).
+        const legacyTerminal = contextKeys?.get("tier") === "legacy";
+        const deliverable = (chord: KeybindingChord): boolean => !legacyTerminal || !requiresExtendedKeys(chord);
+        // Отличить канонический бинд от фолбэка по тексту `when` нельзя: оба
+        // несут ещё и область команды. Зато можно по смыслу — канонический
+        // перестаёт действовать, если «ухудшить» терминал до legacy.
+        const asLegacy = { ...overlay, tier: "legacy" };
+
+        const gated: KeybindingChord[] = [];
+        const passing: KeybindingChord[] = [];
+        const unconditional: KeybindingChord[] = [];
+        const any: KeybindingChord[] = [];
         for (const entry of this.entries) {
             if (entry.commandId !== commandId) continue;
-            firstAny ??= entry.chord;
-            if (entry.when) {
-                if (contextKeys?.evaluate(entry.when, overlay)) return entry.chord;
-            } else {
-                unconditional ??= entry.chord;
+            any.push(entry.chord);
+            if (!entry.when) {
+                unconditional.push(entry.chord);
+                continue;
             }
+            if (contextKeys?.evaluate(entry.when, overlay) !== true) continue;
+            (contextKeys.evaluate(entry.when, asLegacy) ? passing : gated).push(entry.chord);
         }
-        return unconditional ?? firstAny;
+        // `any` включает все ступени выше, поэтому `ranked[0]` — это и есть
+        // «первый по приоритету», когда доставляемого нет ни одного.
+        const ranked = [...gated, ...passing, ...unconditional, ...any];
+        return ranked.find(deliverable) ?? ranked.at(0);
     }
 
     public dispose(): void {

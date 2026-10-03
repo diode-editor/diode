@@ -159,7 +159,9 @@ export const toggleSearchDetailsAction: CommandAction = {
     id: "workbench.action.search.toggleQueryDetails",
     title: "Search: Toggle Search Details",
     when: "searchViewletFocus",
-    keybinding: parseKeybinding("mod+shift+j"),
+    // Как у Search/SCM выше: безусловный аккорд + канонический под tier-гейтом.
+    keybinding: parseChord("ctrl+k alt+j"),
+    keybindings: [{ keys: parseKeybinding("mod+shift+j"), when: "tier != 'legacy'" }],
     run(accessor) {
         accessor.get(SearchComponentDIToken).toggleQueryDetails();
     },

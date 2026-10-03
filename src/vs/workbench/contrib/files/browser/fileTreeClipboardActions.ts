@@ -59,13 +59,16 @@ export const filePasteAction: CommandAction = {
 /**
  * Копирует полный (абсолютный) путь выбранного файла в системный буфер обмена.
  * Байнд VS Code — Shift+Alt+C (специально не Ctrl+*, чтобы не схлопнуться с
- * `fileOperations.copy` на Ctrl+C в legacy-терминалах).
+ * `fileOperations.copy` на Ctrl+C в legacy-терминалах); shift под Alt терминал
+ * без extended keys не передаёт, поэтому рядом — безусловный Ctrl+K Alt+C,
+ * парный к Ctrl+K Ctrl+C у copyRelativePath.
  */
 export const fileCopyPathAction: CommandAction = {
     id: "fileOperations.copyPath",
     title: "File: Copy Path",
     shortTitle: "Copy Path",
-    keybinding: parseKeybinding("shift+alt+c"),
+    keybinding: parseChord("ctrl+k alt+c"),
+    keybindings: [{ keys: parseKeybinding("shift+alt+c"), when: "tier != 'legacy'" }],
     when: "listFocus",
     menus: [
         { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 10, args: explorerPathArg },
@@ -85,15 +88,15 @@ export const fileCopyPathAction: CommandAction = {
 
 /**
  * Копирует путь выбранного файла относительно корня workspace в системный буфер обмена.
- * Байнд VS Code — аккорд Ctrl+K Ctrl+Shift+C; в legacy-терминалах вторая часть
- * не различает Shift, поэтому там fallback на Ctrl+K Ctrl+C.
+ * Байнд VS Code — аккорд Ctrl+K Ctrl+Shift+C; вторая часть не различает Shift без
+ * extended keys, поэтому рядом безусловный fallback на Ctrl+K Ctrl+C.
  */
 export const fileCopyRelativePathAction: CommandAction = {
     id: "fileOperations.copyRelativePath",
     title: "File: Copy Relative Path",
     shortTitle: "Copy Relative Path",
     keybinding: parseChord("ctrl+k ctrl+shift+c"),
-    keybindings: [{ keys: parseChord("ctrl+k ctrl+c"), when: "tier == 'legacy'" }],
+    keybindings: [parseChord("ctrl+k ctrl+c")],
     when: "listFocus",
     menus: [
         { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 20, args: explorerPathArg },

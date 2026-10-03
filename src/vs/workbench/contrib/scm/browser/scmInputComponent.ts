@@ -254,12 +254,14 @@ export class ScmInputComponent extends Component {
                 this.updateActionButton();
             }),
         );
-        // Подпись бинда зависит от клавиатуры: ОС уточняется после старта, Cmd — по
-        // первому нажатию (рунг), и commit переезжает с Ctrl+Enter на ⌘Enter.
+        // Подпись бинда зависит от клавиатуры и от терминала: ОС уточняется после
+        // старта, Cmd — по первому нажатию (рунг), и commit переезжает с Ctrl+Enter
+        // на ⌘Enter; а tier поднимается по первой пришедшей CSI-u клавише, и
+        // подпись переезжает с досягаемого Alt+Enter на канонический Ctrl+Enter.
         this.register(
             this.contextKeys.onDidChange((changed) => {
                 // Stryker disable next-line ConditionalExpression: лишний пересчёт на постороннем ключе даёт тот же текст — ненаблюдаем.
-                if (changed.has("isMac") || changed.has("macKeys")) this.updatePlaceholder();
+                if (changed.has("isMac") || changed.has("macKeys") || changed.has("tier")) this.updatePlaceholder();
             }),
         );
         this.updateActionButton();

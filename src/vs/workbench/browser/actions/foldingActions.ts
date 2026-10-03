@@ -2,10 +2,15 @@ import type { CommandAction } from "../../../platform/actions/common/commandActi
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
+// Канонические Ctrl+Shift+[ / Ctrl+Shift+] недостижимы без extended keys (Ctrl+[
+// это сам ESC, а Shift с печатным символом в legacy-поток не попадает), поэтому
+// рядом — безусловные лидер-аккорды. Вторая часть не `alt+[`/`alt+]`: `ESC [` и
+// `ESC ]` — вводители CSI и OSC, разбор ввода их не отдаёт как Alt+символ.
 export const foldAction: CommandAction = {
     id: "editor.fold",
     title: "Fold",
-    keybinding: parseKeybinding("ctrl+shift+["),
+    keybinding: parseChord("ctrl+k alt+f"),
+    keybindings: [{ keys: parseKeybinding("ctrl+shift+["), when: "tier != 'legacy'" }],
     when: "textInputFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.foldAtCursor();
@@ -15,7 +20,8 @@ export const foldAction: CommandAction = {
 export const unfoldAction: CommandAction = {
     id: "editor.unfold",
     title: "Unfold",
-    keybinding: parseKeybinding("ctrl+shift+]"),
+    keybinding: parseChord("ctrl+k alt+u"),
+    keybindings: [{ keys: parseKeybinding("ctrl+shift+]"), when: "tier != 'legacy'" }],
     when: "textInputFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.unfoldAtCursor();

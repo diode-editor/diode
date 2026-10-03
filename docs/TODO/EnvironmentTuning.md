@@ -126,6 +126,12 @@
     (`TerminalEnvironmentService.noteExtendedKeysObserved()` + хук в `WorkbenchComponent`) — индикатор
     и tier-gated биндинги поднимаются по реальному вводу, а не только по пробе/хинту.
   - Диагностический демо `src/demos/keyDiagnosticsDemo.ts`.
+  - Ловушка выше (индикатор ≠ доставка) больше не стоит пользователю команд:
+    фолбэки дефолтных биндов безусловны, а канонический бинд, который терминал
+    без extended keys не передаёт, объявлен под `tier != 'legacy'` — чтобы
+    подсказка в палитре и меню не обещала нерабочее. Правило и его гейт сборки —
+    в [arch/Workbench.md](../arch/Workbench.md#конвенции-системы-команд)
+    (узел M5 в [ParityBacklog.md](ParityBacklog.md)).
 
 - **Что подкрутить (пользователю).**
   - **tmux 3.5+** для самого Ctrl+Tab. В `~/.tmux.conf`:

@@ -94,8 +94,8 @@ export function selectionRange(
 export const formatDocumentAction: CommandAction = {
     id: "editor.action.formatDocument",
     title: "Format Document",
-    keybinding: parseKeybinding("shift+alt+f"),
-    keybindings: [parseChord("ctrl+k ctrl+e")],
+    keybinding: parseChord("ctrl+k ctrl+e"),
+    keybindings: [{ keys: parseKeybinding("shift+alt+f"), when: "tier != 'legacy'" }],
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         return runFormat(accessor, false, "Format Document");

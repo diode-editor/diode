@@ -50,8 +50,9 @@ describe("Find: навигация по совпадениям", () => {
     }, 120_000);
 
     // Ctrl+Backspace доезжает только в CSI-u форме: легаси-байт 0x08 неотличим от
-    // Ctrl+H, и бинд `ctrl+backspace` по нему не срабатывает.
-    it("Ctrl+Backspace стирает слово в поле поиска", async () => {
+    // Ctrl+H, поэтому сам бинд под tier-гейтом, а доезжающий везде путь —
+    // Alt+Backspace (`ESC 0x7f`). Окружение e2e пинуется к tier=legacy.
+    it("Alt+Backspace стирает слово в поле поиска", async () => {
         const { session } = await useHeadlessApp({ files, open: ["notes.txt"], cols: 100, rows: 24 });
         await session.waitForText((t) => t.includes("gamma"));
 
@@ -59,7 +60,7 @@ describe("Find: навигация по совпадениям", () => {
         await session.text("alpha beta");
         await session.waitForText((t) => t.includes("alpha beta"));
 
-        await session.key("Ctrl+Backspace");
+        await session.key("Alt+Backspace");
         await session.waitForText((t) => t.includes("alpha ") && !t.includes("alpha beta"));
     }, 120_000);
 

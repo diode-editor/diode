@@ -65,14 +65,15 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
 
 /**
  * Организует импорты активного документа source-действием провайдера.
- * Matches VS Code's `editor.action.organizeImports` (Shift+Alt+O; на
- * legacy-tier'е шифтованные alt-буквы терминал не передаёт — команда доступна
- * из палитры).
+ * Matches VS Code's `editor.action.organizeImports` (Shift+Alt+O). Шифтованные
+ * alt-буквы терминал без extended keys не передаёт, поэтому канонический бинд
+ * под tier-гейтом, а досягаемый везде путь — лидер-аккорд Ctrl+K Alt+O.
  */
 export const organizeImportsAction: CommandAction = {
     id: "editor.action.organizeImports",
     title: "Organize Imports",
-    keybinding: parseKeybinding("shift+alt+o"),
+    keybinding: parseChord("ctrl+k alt+o"),
+    keybindings: [{ keys: parseKeybinding("shift+alt+o"), when: "tier != 'legacy'" }],
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         return runSourceAction(accessor, "source.organizeImports", "organize imports");

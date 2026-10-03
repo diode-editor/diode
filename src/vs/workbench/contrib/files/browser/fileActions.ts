@@ -219,7 +219,12 @@ export const fileSaveAsAction: CommandAction = {
     title: "File: Save As...",
     shortTitle: "Save As...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "3_save", order: 20 }],
-    keybinding: parseKeybinding("mod+shift+s"),
+    // Парой к Ctrl+K S (save): Alt во второй части обязателен — голая вторая
+    // часть аккорда утекает парным keypress'ом в документ (docs/TODO/README.md,
+    // «Клавиатура»), а Save As меняет вкладку. Канонический Ctrl+Shift+S — там,
+    // где терминал различает Shift.
+    keybinding: parseChord("ctrl+k alt+s"),
+    keybindings: [{ keys: parseKeybinding("mod+shift+s"), when: "tier != 'legacy'" }],
     run(accessor) {
         void runSaveAs(accessor);
     },

@@ -64,9 +64,12 @@ function make(): IHarness {
     const changes = new ScmChangesService(commands);
     const repoState = new ScmRepoStateService(commands, new ContextKeyService());
     const progress = new ProgressService();
-    // Бинд commit — как объявлен экшеном (mod+enter под scmInputFocus): плейсхолдер подписывает его.
+    // Бинды commit — как объявлены экшеном: досягаемый всюду Alt+Enter и
+    // канонический mod+Enter под tier-гейтом (в legacy Ctrl+Enter — это сам
+    // Enter). Плейсхолдер подписывает тот, который в этом окружении работает.
     const keybindings = new KeybindingRegistry();
-    keybindings.register(parseKeybinding("mod+enter"), "git.commit", "scmInputFocus");
+    keybindings.register(parseKeybinding("alt+enter"), "git.commit", "scmInputFocus");
+    keybindings.register(parseKeybinding("mod+enter"), "git.commit", "scmInputFocus && tier != 'legacy'");
     const contextKeys = new ContextKeyService();
     const component = new ScmInputComponent(service, changes, repoState, commands, progress, keybindings, contextKeys);
 
@@ -152,6 +155,18 @@ describe("ScmInputComponent — поле", () => {
         h.contextKeys.set("macKeys", 3); // увидели Cmd — одной сменой рунга
         await Promise.resolve();
         expect(h.component.input.placeholder).toBe("Message (⌘Enter to commit)");
+    });
+
+    it("на legacy-терминале плейсхолдер подписывает Alt+Enter, а не недоезжающий Ctrl+Enter", async () => {
+        // Ctrl+Enter в legacy-потоке — это сам Enter: бинд под tier-гейтом, и
+        // подсказка обязана назвать тот путь, который там работает.
+        const h = make();
+        h.contextKeys.set("tier", "legacy");
+        await Promise.resolve();
+        expect(h.component.input.placeholder).toBe("Message (Alt+Enter to commit)");
+        h.contextKeys.set("tier", "kitty");
+        await Promise.resolve();
+        expect(h.component.input.placeholder).toBe("Message (Ctrl+Enter to commit)");
     });
 
     it("без бинда commit плейсхолдер — просто «Message»", () => {

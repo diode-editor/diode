@@ -1034,10 +1034,39 @@ hide-toggle (`isHiddenByDefault`). См.
   обновляет `WorkbenchContextKeys.update()`.
 - Кейбинды адаптируются к терминалу по трём осям — **capability** / **tier**
   (`legacy < csi-u < kitty`) / **mode** (`local`/`ssh`/`tmux`) — доступны в
-  when-клаузах (`tier == 'kitty'`, `cap_osc52`, `mode_ssh`, `os == 'mac'`).
-  Default-бинды задают tier-зависимые fallback'и через per-binding `when`;
-  пользовательские — через `keybindings.json` (VS Code-семантика `-command`
-  для unbind).
+  when-клаузах (`tier == 'kitty'`, `cap_osc52`, `mode_ssh`, `os == 'mac'`);
+  пользовательские бинды — через `keybindings.json` (VS Code-семантика
+  `-command` для unbind).
+- **Гейт по tier у дефолтного бинда — только в одну сторону.** Канонический
+  бинд VS Code, который терминал без extended keys физически не передаёт
+  (`Ctrl+Shift+<буква>`, `Shift+Alt+<буква>`, `Ctrl+Enter`, `Ctrl+Backspace`,
+  `Ctrl+\``), объявляется под `when: "tier != 'legacy'"`, а рядом ставится
+  **безусловный** досягаемый путь — он же первичный, потому что идёт в подпись
+  палитры и меню. Образец — `searchActions.ts` / `changesActions.ts`:
+  `Ctrl+K F` / `Ctrl+K G` безусловны, `Ctrl+Shift+F` / `Ctrl+Shift+G` — под
+  гейтом. Обратного гейта (`tier == 'legacy'` НА ФОЛБЭКЕ) быть не должно:
+  индикатор tier ≠ доставка клавиш — под tmux он поднимается и по env-хинту
+  внешнего терминала, и по первой пришедшей CSI-u клавише
+  (`noteExtendedKeysObserved`), а расширенные клавиши tmux при этом не
+  доставляет. Такой гейт снимал фолбэк ровно в том окружении, где он
+  единственный рабочий путь (F1 у палитры — редактор оставался без палитры
+  вовсе). Несколько биндов на команду — норма VS Code.
+- **Досягаемость — гейт сборки.** `browser/actions/keybindingReachability.test.ts`
+  краснеет, если у встроенной команды все активные в окружении бинды требуют
+  extended keys, и если подпись бинда в палитре/меню оказалась недостижимой.
+  Критерий доставки — `requiresExtendedKeys`
+  (`platform/keybinding/common/keybindingPortability.ts`), калиброванный по
+  разбору ввода движка: `Ctrl+Space` (NUL) и `Shift+Tab` (CSI Z) доезжают, а
+  `Ctrl+Tab`, `Alt+Tab`, `Alt+[`/`Alt+]` (вводители CSI/OSC) и любой Shift с
+  печатным символом — нет. Выбор подписи живёт в
+  `KeybindingRegistry.getKeybindingForCommand`: сначала доставляемая
+  комбинация, и только потом порядок регистрации.
+- Лидер-аккорд досягаемого пути — `Ctrl+K <клавиша>`: вьюлеты и панели берут
+  букву без модификатора (`Ctrl+K F` Search, `Ctrl+K G` SCM, `Ctrl+K E`
+  Explorer, `Ctrl+K M` Problems, `Ctrl+K T` Terminal), остальные — вторую
+  часть с модификатором (`Ctrl+K Alt+S` Save As, `Ctrl+K Ctrl+E` Format
+  Document). Занятость второй части проверяется гейтом коллизий в том же
+  тесте: аккорды разбирают общий префикс, и занятую букву легко не заметить.
 - Четвёртая ось — **ОС клавиатуры** и её **мак-лестница**. `os` — ОС клавиатуры,
   а не процесса: по ssh с мака раскладка маковская. Её резолвит лестница
   сигналов с провенансом (`keyboard.platform` → `LC_DIODE_PLATFORM` → имя
@@ -1049,15 +1078,17 @@ hide-toggle (`isHiddenByDefault`). См.
   `macKeysAtLeast`/`macKeysIs`, а не строки. Механическая половина мак-раскладки —
   токен `mod` (Ctrl на pc, Cmd на `mac-cmd`), ручная — одна таблица мак-дельт
   `browser/actions/macKeybindings.ts`. Отсутствие семейства в условии значит
-  «действует в обоих»: tier-фоллбэки (`tier == 'legacy'`) не трогаем. Подробно —
-  [TODO/MacKeybindings.md](../TODO/MacKeybindings.md).
+  «действует в обоих», поэтому бинд, досягаемый на любой платформе
+  (`Alt+Backspace` у `deleteWordLeft`), объявляется при команде, а не дельтой.
+  Подробно — [TODO/MacKeybindings.md](../TODO/MacKeybindings.md).
 - Tier определяется по env, но **под мультиплексором env-флаги хост-терминала
   (`KITTY_WINDOW_ID` и родня) не считаются доказательством**: расширенные клавиши
   доходят, только если их пропускает сам tmux (`extended-keys on`). Внутри tmux
   ждём подтверждения — probe `CSI ? u` или реально увиденный CSI-u ввод
-  (`noteExtendedKeysObserved`). Иначе tier завышался, Ctrl+Shift+F приезжал
-  неотличимым от Ctrl+F, а legacy-фоллбэки были выключены — то есть терялись
-  и комбинация, и запасной путь.
+  (`noteExtendedKeysObserved`). Иначе tier завышался и Ctrl+Shift+F приезжал
+  неотличимым от Ctrl+F. Полагаться на точность tier'а в фолбэках нельзя и с
+  этой осторожностью — поэтому они безусловны (см. правило про односторонний
+  гейт выше).
 - **Вторая часть аккорда — с модификатором, если команда переключает вкладку.**
   Парный `keypress` закреплён за целью своего `keydown`
   (`TuiApplication.pinnedKeypressTarget`), и когда команда меняет активную панель,

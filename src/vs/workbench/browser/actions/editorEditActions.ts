@@ -31,10 +31,15 @@ export const deleteRightAction: CommandAction = {
     },
 };
 
+// Ctrl+Backspace в legacy-потоке приходит байтом 0x08, то есть Ctrl+H, — бинд
+// недостижим, поэтому он под tier-гейтом, а досягаемый везде путь — Alt+Backspace
+// (`ESC 0x7f`, отдельный токен). На маке это и есть канонический бинд VS Code,
+// поэтому он объявлен здесь, а не в таблице мак-дельт.
 export const deleteWordLeftAction: CommandAction = {
     id: "deleteWordLeft",
     title: "Delete Word Left",
-    keybinding: parseKeybinding("ctrl+backspace"),
+    keybinding: parseKeybinding("alt+backspace"),
+    keybindings: [{ keys: parseKeybinding("ctrl+backspace"), when: "tier != 'legacy'" }],
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();

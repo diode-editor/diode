@@ -341,7 +341,10 @@ export const editorLayoutSingleAction: CommandAction = {
 export const toggleEditorGroupLayoutAction: CommandAction = {
     id: "workbench.action.toggleEditorGroupLayout",
     title: "View: Toggle Vertical/Horizontal Editor Layout",
-    keybinding: { keys: parseKeybinding("shift+alt+0"), when: EXTENDED_TIERS },
+    // Канонический Shift+Alt+0 — только на расширенных tier'ах (в legacy `ESC )`
+    // неотличим от ввода символа), досягаемый везде путь — лидер-аккорд.
+    keybinding: parseChord("ctrl+k alt+0"),
+    keybindings: [{ keys: parseKeybinding("shift+alt+0"), when: EXTENDED_TIERS }],
     run(accessor) {
         accessor.get(EditorPartComponentDIToken).toggleOrientation();
     },
@@ -455,7 +458,10 @@ export const closeAllEditorsAction: CommandAction = {
 export const explorerOpenToSideAction: CommandAction = {
     id: "explorer.openToSide",
     title: "File: Open to the Side",
-    keybinding: parseKeybinding("ctrl+enter"),
+    // Ctrl+Enter в legacy-потоке — это сам Enter (0x0d), поэтому канонический бинд
+    // под tier-гейтом, а досягаемый путь — Alt+Enter (`ESC CR`, отдельный токен).
+    keybinding: parseKeybinding("alt+enter"),
+    keybindings: [{ keys: parseKeybinding("ctrl+enter"), when: "tier != 'legacy'" }],
     when: "filesExplorerFocus",
     run(accessor) {
         const filePath = accessor.get(ExplorerServiceDIToken).getSelectedFilePath();

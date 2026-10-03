@@ -87,7 +87,10 @@ function commitAction(
  */
 export const gitCommitAction: CommandAction = {
     ...commitAction("git.commit", "Git: Commit", "Commit", { smart: true }, { group: "1_commit", order: 10 }),
-    keybinding: { keys: parseKeybinding("mod+enter"), when: "scmInputFocus" },
+    // Ctrl+Enter в legacy-потоке — это сам Enter, то есть перевод строки в input
+    // box: канонический бинд под tier-гейтом, досягаемый путь — Alt+Enter.
+    keybinding: { keys: parseKeybinding("alt+enter"), when: "scmInputFocus" },
+    keybindings: [{ keys: parseKeybinding("mod+enter"), when: "scmInputFocus && tier != 'legacy'" }],
 };
 
 export const gitCommitStagedAction = commitAction(
