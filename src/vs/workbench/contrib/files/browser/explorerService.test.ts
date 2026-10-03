@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
+import { createConfigurationChangeEvent } from "../../../../platform/configuration/common/configurationChangeEvent.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
-import { createConfigurationChangeEvent } from "../../../../platform/configuration/node/configurationService.ts";
 import type { LogEntry } from "../../../../platform/log/common/iLogService.ts";
 import { LogService } from "../../../../platform/log/common/logService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";

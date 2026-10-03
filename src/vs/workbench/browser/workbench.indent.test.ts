@@ -45,7 +45,8 @@ describe("Workbench — Tab / Shift+Tab indentation", () => {
 
         h.testApp.sendKey("Tab");
 
-        expect(editor.viewState.document.getText()).toBe("\thello");
+        // Дефолты реестра, как в приложении: `editor.insertSpaces: true`, `tabSize: 4`.
+        expect(editor.viewState.document.getText()).toBe("    hello");
     });
 
     it("Tab keeps focus on the editor instead of cycling", () => {
@@ -64,7 +65,7 @@ describe("Workbench — Tab / Shift+Tab indentation", () => {
 
         h.testApp.sendKey("Tab");
 
-        expect(editor.viewState.document.getText()).toBe("\taa\n\tbb");
+        expect(editor.viewState.document.getText()).toBe("    aa\n    bb");
     });
 
     it("Shift+Tab outdents the focused editor", () => {

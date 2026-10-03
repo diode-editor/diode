@@ -2,19 +2,20 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 /**
  * Сервис настроек приложения. Аналог `IConfigurationService` из VS Code,
- * урезанный до набора, который реально нужен на текущем этапе:
- * чтение значений, иммутабельная модель, событие изменения (зарезервировано
- * под будущий watch/reload).
+ * урезанный до набора, который реально нужен: чтение значений по слоям
+ * (defaults реестра → user → profile), запись в settings.json активного
+ * профиля и событие изменения (live-reload файла и собственные записи).
  *
- * Запись и persist пока не предусмотрены — `settings.json` редактируется
- * руками, изменения подхватываются после перезапуска.
+ * Реализации: `ConfigurationService` (node, файлы на диске) и
+ * `InMemoryConfigurationService` (тестовый профиль и юниты — те же дефолты
+ * реестра, запись в память).
  */
 export interface IConfigurationService {
     /**
-     * Достаёт значение по точечному ключу (`"editor.tabSize"`). Если ключ
-     * не найден или тип не совпадает — возвращает `defaultValue` (или
-     * `undefined`, если он не передан). `T` — для удобства, проверки типа
-     * на стороне реализации нет.
+     * Достаёт значение по точечному ключу (`"editor.tabSize"`). Если ключа нет
+     * ни в одном слое (включая дефолты реестра) — возвращает `defaultValue`
+     * (или `undefined`). `T` — приведение для удобства: тип значения
+     * реализация не проверяет.
      */
     get<T>(key: string, defaultValue?: T): T | undefined;
 
@@ -34,22 +35,20 @@ export interface IConfigurationService {
     inspect<T>(key: string): IConfigurationInspectResult<T>;
 
     /**
-     * Подписка на изменения. В этой итерации событие не эмитится (нет
-     * live-reload), но API стабилен — будущий watcher включится без правок
-     * потребителей.
+     * Подписка на изменения: правка settings.json на диске (live-reload) и
+     * собственные записи через {@link updateValue}. Событие несёт только ключи,
+     * значение которых действительно поменялось.
      */
     onDidChangeConfiguration(listener: (event: IConfigurationChangeEvent) => void): IDisposable;
 
     /**
-     * Записывает значение в settings.json активного профиля (аналог
-     * `ConfigurationTarget.USER` в VS Code) и обновляет in-memory модель, чтобы
-     * последующие `get`/`inspect` сразу видели новое значение. JSONC-правка
-     * сохраняет комментарии и форматирование файла (`jsonc-parser.modify`).
-     *
-     * Опционально: заглушки (`NULL_CONFIGURATION_SERVICE`, тестовые моки) persist
-     * не поддерживают — потребитель вызывает через optional chaining.
+     * Записывает значение в настройки активного профиля (аналог `updateValue`
+     * VS Code с неявной целью `ConfigurationTarget.USER`) и обновляет модель,
+     * чтобы последующие `get`/`inspect` сразу видели новое значение. У файловой
+     * реализации — JSONC-правка settings.json с сохранением комментариев и
+     * форматирования (`jsonc-parser.modify`).
      */
-    updateUserValue?(key: string, value: unknown): Promise<void>;
+    updateValue(key: string, value: unknown): Promise<void>;
 }
 
 export interface IConfigurationInspectResult<T> {

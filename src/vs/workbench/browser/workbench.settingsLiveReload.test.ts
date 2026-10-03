@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createConfigurationChangeEvent } from "../../platform/configuration/common/configurationChangeEvent.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationService,
@@ -12,7 +13,6 @@ import type {
 import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
 import {
     type ConfigurationService,
-    createConfigurationChangeEvent,
     loadConfiguration,
 } from "../../platform/configuration/node/configurationService.ts";
 import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
@@ -35,6 +35,11 @@ class EmittingConfig implements IConfigurationService {
     public onDidChangeConfiguration(listener: (e: IConfigurationChangeEvent) => void): { dispose: () => void } {
         this.listeners.push(listener);
         return { dispose: () => {} };
+    }
+    public updateValue(key: string, value: unknown): Promise<void> {
+        this.values[key] = value;
+        this.emit([key]);
+        return Promise.resolve();
     }
     public emit(keys: string[]): void {
         const event = createConfigurationChangeEvent(keys);

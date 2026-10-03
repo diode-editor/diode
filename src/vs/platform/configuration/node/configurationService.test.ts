@@ -14,12 +14,7 @@ import { ConfigurationModel } from "../common/configurationModel.ts";
 import { ConfigurationRegistry } from "../common/configurationRegistry.ts";
 import type { IConfigurationChangeEvent } from "../common/iConfigurationService.ts";
 
-import {
-    ConfigurationService,
-    createConfigurationChangeEvent,
-    diffConfigurationKeys,
-    loadConfiguration,
-} from "./configurationService.ts";
+import { ConfigurationService, loadConfiguration } from "./configurationService.ts";
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -214,7 +209,7 @@ describe("loadConfiguration", () => {
     });
 });
 
-describe("ConfigurationService.updateUserValue", () => {
+describe("ConfigurationService.updateValue", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -232,7 +227,7 @@ describe("ConfigurationService.updateUserValue", () => {
     it("writes the key to settings.json when the file did not exist", async () => {
         const p = paths();
         const cfg = await loadCfg(p);
-        await cfg.updateUserValue("workbench.colorTheme", "Monokai");
+        await cfg.updateValue("workbench.colorTheme", "Monokai");
 
         const written = fs.readFileSync(p.settingsFile, "utf-8");
         expect(JSON.parse(written)).toEqual({ "workbench.colorTheme": "Monokai" });
@@ -252,7 +247,7 @@ describe("ConfigurationService.updateUserValue", () => {
 `,
         );
         const cfg = await loadCfg(p);
-        await cfg.updateUserValue("workbench.colorTheme", "Light Modern");
+        await cfg.updateValue("workbench.colorTheme", "Light Modern");
 
         const written = fs.readFileSync(p.settingsFile, "utf-8");
         expect(written).toContain("// keep me");
@@ -265,7 +260,7 @@ describe("ConfigurationService.updateUserValue", () => {
     it("writes to the profile settings file for a named profile", async () => {
         const p = paths("compact");
         const cfg = await loadCfg(p);
-        await cfg.updateUserValue("workbench.colorTheme", "Dark+");
+        await cfg.updateValue("workbench.colorTheme", "Dark+");
 
         expect(fs.existsSync(p.settingsFile)).toBe(true);
         expect(JSON.parse(fs.readFileSync(p.settingsFile, "utf-8"))).toEqual({ "workbench.colorTheme": "Dark+" });
@@ -282,7 +277,7 @@ describe("ConfigurationService.updateUserValue", () => {
                 profileLayer: ConfigurationModel.EMPTY,
             }),
         );
-        await expect(cfg.updateUserValue("workbench.colorTheme", "Monokai")).resolves.toBeUndefined();
+        await expect(cfg.updateValue("workbench.colorTheme", "Monokai")).resolves.toBeUndefined();
         expect(cfg.get<string>("workbench.colorTheme")).toBeUndefined();
     });
 
@@ -291,15 +286,15 @@ describe("ConfigurationService.updateUserValue", () => {
         const cfg = await loadCfg(p);
         // Make the settings path a directory so reading it fails with EISDIR (not ENOENT).
         fs.mkdirSync(p.settingsFile, { recursive: true });
-        await expect(cfg.updateUserValue("workbench.colorTheme", "Monokai")).rejects.toThrow();
+        await expect(cfg.updateValue("workbench.colorTheme", "Monokai")).rejects.toThrow();
     });
 
-    it("updateUserValue emits onDidChangeConfiguration with the changed key", async () => {
+    it("updateValue emits onDidChangeConfiguration with the changed key", async () => {
         const cfg = await loadCfg(paths());
         const events: IConfigurationChangeEvent[] = [];
         disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
-        await cfg.updateUserValue("workbench.colorTheme", "Monokai");
+        await cfg.updateValue("workbench.colorTheme", "Monokai");
 
         expect(events).toHaveLength(1);
         expect(events[0].affectedKeys).toContain("workbench.colorTheme");
@@ -307,7 +302,7 @@ describe("ConfigurationService.updateUserValue", () => {
         expect(events[0].affectsConfiguration("workbench")).toBe(true);
     });
 
-    it("updateUserValue does not emit when the value is unchanged (empty diff)", async () => {
+    it("updateValue does not emit when the value is unchanged (empty diff)", async () => {
         const p = paths();
         fs.mkdirSync(path.dirname(p.settingsFile), { recursive: true });
         fs.writeFileSync(p.settingsFile, `{ "editor.tabSize": 4 }`); // same as default
@@ -316,7 +311,7 @@ describe("ConfigurationService.updateUserValue", () => {
         disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         // Write the same value that is already effective — merged doesn't change.
-        await cfg.updateUserValue("editor.tabSize", 4);
+        await cfg.updateValue("editor.tabSize", 4);
 
         expect(events).toHaveLength(0);
     });
@@ -496,41 +491,5 @@ describe("ConfigurationService — live reload", () => {
         expect(() => {
             sub.dispose();
         }).not.toThrow();
-    });
-});
-
-describe("diffConfigurationKeys", () => {
-    it("reports added, removed and changed leaf keys (including arrays/objects)", () => {
-        const prev = ConfigurationModel.fromRaw({
-            "editor.tabSize": 2,
-            "editor.rulers": [80],
-            "a.b": 1,
-        });
-        const next = ConfigurationModel.fromRaw({
-            "editor.tabSize": 4, // changed
-            "editor.rulers": [80, 120], // changed (array)
-            "c.d": true, // added
-            // a.b removed
-        });
-        expect(new Set(diffConfigurationKeys(prev, next))).toEqual(
-            new Set(["editor.tabSize", "editor.rulers", "c.d", "a.b"]),
-        );
-    });
-
-    it("returns an empty list for structurally equal models", () => {
-        const a = ConfigurationModel.fromRaw({ "x.y": [1, 2], "x.z": "s" });
-        const b = ConfigurationModel.fromRaw({ "x.y": [1, 2], "x.z": "s" });
-        expect(diffConfigurationKeys(a, b)).toEqual([]);
-    });
-});
-
-describe("createConfigurationChangeEvent", () => {
-    it("affectsConfiguration matches exact key, ancestor and descendant", () => {
-        const event = createConfigurationChangeEvent(["editor.tabSize"]);
-        expect(event.affectsConfiguration("editor.tabSize")).toBe(true); // exact
-        expect(event.affectsConfiguration("editor")).toBe(true); // ancestor
-        expect(event.affectsConfiguration("editor.tabSize.deep")).toBe(true); // descendant
-        expect(event.affectsConfiguration("workbench")).toBe(false); // unrelated
-        expect(event.affectsConfiguration("editorX")).toBe(false); // prefix but not a segment boundary
     });
 });
