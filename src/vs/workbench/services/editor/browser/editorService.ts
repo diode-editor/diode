@@ -1636,7 +1636,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public closeEditor(group: EditorGroup, target: IEditorPane | number): Promise<boolean> {
         const pane = typeof target === "number" ? group.getPane(target) : target;
-        return this.closeEditors(group, pane === null ? [] : [pane]);
+        if (pane === null) return Promise.resolve(true);
+        return this.closeEditors(group, [pane]);
     }
 
     /**

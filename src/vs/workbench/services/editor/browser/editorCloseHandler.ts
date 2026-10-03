@@ -128,7 +128,7 @@ export class EditorCloseHandler {
     private saveTargetsOf(pane: IEditorPane): TextEditorPane[] {
         if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane);
         /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели */
-        // Stryker disable next-line ArrayDeclaration: ветка недостижима — см. v8 ignore выше
+        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: ветка недостижима — см. v8 ignore выше
         if (!(pane instanceof TextEditorPane)) return [];
         /* v8 ignore stop */
         return [pane];

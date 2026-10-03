@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { TextLabelElement } from "@tuidom/elements/label/textLabelElement";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 
@@ -122,6 +124,27 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(await closed).toBe(false);
         expect(group().getPanes()).toEqual([untitled]);
         expect(untitled.isModified).toBe(true);
+    });
+
+    it("дифф из двух грязных untitled-сторон: диалог называет обе, Save без пути — вето", async () => {
+        h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
+        await vi.waitFor(() => {
+            expect(group().activePane instanceof DiffEditorPane2).toBe(true);
+        });
+        const diff = group().activePane as DiffEditorPane2;
+        for (const side of diff.sidePanes()) edit(side, "dirty");
+
+        const closed = service().closeEditor(group(), diff);
+        await settle();
+        const dialog = h.testApp.querySelector("#confirmSaveDialog");
+        const text = (dialog?.querySelectorAll("TextLabelElement") ?? [])
+            .map((label) => (label as TextLabelElement).getText())
+            .join("\n");
+        expect(text).toContain("Untitled-1, Untitled-2");
+        dialogs().getOpenConfirmSaveDialog()?.onSave?.();
+
+        expect(await closed).toBe(false);
+        expect(group().getPanes()).toContain(diff);
     });
 
     it("документ виден в другой группе — грязная вкладка закрывается без диалога", async () => {

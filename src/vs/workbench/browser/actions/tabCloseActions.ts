@@ -84,7 +84,7 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
         // закрытием, — так что набор закрытых вкладок от порядка не зависит.
         const unmodified = target.group.getPanes().filter((pane) => !pane.isModified);
         // Stryker disable next-line MethodExpression: см. выше
-        const panes = unmodified.reverse();
+        const panes = unmodified.toReversed();
         void service.closeEditors(target.group, panes);
     },
 };
