@@ -49,7 +49,12 @@
 `resolveWorkspaceStorageDir`, `resolveWorkspaceStatePath` — надстройка над ним.
 
 По решению проекта состояние UI/сессии — `workspace` scope. Если проект не
-открыт, `workspace`-дескрипторы прозрачно обслуживает `global`-стор (fallback).
+открыт, `workspace`-дескрипторы обслуживает **стор пустого окна**
+`workspaceStorage/empty-window/state.json` (`EMPTY_WINDOW_WORKSPACE_ID`, зеркало
+`UNKNOWN_EMPTY_WINDOW_WORKSPACE` у vscode): раскладка пустого окна переживает
+перезапуск, а с глобальными ключами не смешивается. Это id стора, а не
+воркспейса — у пустого окна `IWorkspace.id` по-прежнему `null`. `openWorkspace`
+сбрасывает стор пустого окна на диск и переключается на стор проекта.
 
 Исключение — настройки, которые описывают вкус пользователя, а не проект: у них
 `global`. Сегодня такая одна — `STATUS_BAR_HIDDEN_STATE` (какие сегменты
@@ -102,8 +107,8 @@ main.ts: build container ─► process.on("exit", stateService.flushSync)
    │
    ├─ первый CLI-arg — папка? ─► WorkbenchComponent.setWorkspaceFolder(dir)
    │                              └─► WorkbenchStateService.openWorkspace(dir)  (load per-project стор)
-   │                              (папки нет — пустое окно: per-project стор не открывается,
-   │                               workspace-дескрипторы обслуживает global-стор)
+   │                              (папки нет — пустое окно: workspace-дескрипторы обслуживает
+   │                               стор пустого окна workspaceStorage/empty-window/)
    ├─ mount()  ─► LayoutService.restoreLayout()   (перед первым кадром; + sync истины в PanelService)
    ├─ run()
    ├─ await activate()
@@ -177,7 +182,7 @@ main.ts: build container ─► process.on("exit", stateService.flushSync)
 - `NULL_STATE_SERVICE` (`Configuration/NullStateService.ts`) + `stateModuleDefault`
   — no-op для тестов/demo, которым персистентность не нужна (`get` отдаёт дефолт).
 - Юниты: `StateService.test.ts` (round-trip, tolerant-load, unknown-key
-  preservation, workspace↔global fallback, версии),
+  preservation, стор пустого окна и переключение на проект, версии),
   `Workbench/Services/WorkbenchStateService.test.ts` (открытые редакторы),
   `Workbench/Services/LayoutService.test.ts` (restore/capture layout, сайдбар/панель).
 - Integration: `Workbench.StatePersistence.test.ts` — реальный `StateService`

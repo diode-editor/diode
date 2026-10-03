@@ -7,8 +7,8 @@ import type { IStateDescriptor } from "../../platform/state/common/iStateService
  * редакторы) и {@link LayoutService} (layout); движок и правила —
  * docs/arch/State.md.
  *
- * Scope по решению: всё состояние UI/сессии — **`workspace`** (по-проектно), с
- * fallback на `global`-стор, когда проект не открыт. Дефолты дублируют встроенные
+ * Scope по решению: всё состояние UI/сессии — **`workspace`** (по-проектно);
+ * без открытого проекта его обслуживает стор пустого окна (`empty-window`). Дефолты дублируют встроенные
  * значения `WorkbenchLayoutElement` (30 / 12), чтобы «нет сохранённого значения»
  * воспроизводило исходное поведение.
  */

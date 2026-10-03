@@ -10,7 +10,7 @@ import {
     resolveWorkspaceStatePath,
 } from "../../environment/node/userDataPaths.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
-import { computeWorkspaceId } from "../../workspace/common/workspaceId.ts";
+import { computeWorkspaceId, EMPTY_WINDOW_WORKSPACE_ID } from "../../workspace/common/workspaceId.ts";
 import type { IStateDescriptor } from "../common/iStateService.ts";
 
 import { loadState, StateService } from "./stateService.ts";
@@ -79,14 +79,33 @@ describe("StateService", () => {
     });
 
     describe("workspace scope", () => {
-        it("falls back to the global store until a workspace is opened", () => {
+        it("пустое окно пишет workspace-скоуп в свой стор empty-window, global не трогает", () => {
             const p = paths();
             const svc = loadState(p);
             svc.store(wsWidth, 50);
             svc.flushSync();
-            // No workspace open → the value landed in the global file.
-            expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toMatchObject({
+
+            const emptyWindowFile = resolveWorkspaceStatePath(p.workspaceStorageDir, EMPTY_WINDOW_WORKSPACE_ID);
+            expect(JSON.parse(fs.readFileSync(emptyWindowFile, "utf-8"))).toMatchObject({
                 "workbench.sideBar.width": 50,
+            });
+            expect(fs.existsSync(p.globalStateFile)).toBe(false);
+            // Раскладка пустого окна переживает перезапуск.
+            expect(loadState(p).get(wsWidth)).toBe(50);
+        });
+
+        it("openWorkspace переключает с пустого окна на проект, сбросив стор пустого окна", () => {
+            const p = paths();
+            const svc = loadState(p);
+            svc.store(wsWidth, 40);
+            svc.openWorkspace(computeWorkspaceId("/projects/alpha"));
+
+            // Проект свой: значение пустого окна в него не протекло…
+            expect(svc.get(wsWidth)).toBe(30);
+            // …а само оно уже на диске, без flushSync.
+            const emptyWindowFile = resolveWorkspaceStatePath(p.workspaceStorageDir, EMPTY_WINDOW_WORKSPACE_ID);
+            expect(JSON.parse(fs.readFileSync(emptyWindowFile, "utf-8"))).toMatchObject({
+                "workbench.sideBar.width": 40,
             });
         });
 
