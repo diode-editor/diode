@@ -1,9 +1,14 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
+import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
 import type { HoverComponent } from "./hoverComponent.ts";
 import { HoverComponentDIToken } from "./hoverComponent.ts";
@@ -49,8 +54,8 @@ export function stripMarkdown(value: string): string {
  * по блоку на провайдера, блоки разделяются линией (VS Code мержит hover'ы
  * так же). Закрывается по Escape, правке, движению каретки и уходу фокуса.
  */
-export class HoverService extends Disposable {
-    public static dependencies = [HoverComponentDIToken, EditorServiceDIToken] as const;
+export class HoverService extends Disposable implements IContextKeyContributor {
+    public static dependencies = [HoverComponentDIToken, EditorServiceDIToken, FocusTrackerDIToken] as const;
 
     /** Guard от устаревших ответов: пока ходили за hover'ом, запрос мог смениться. */
     private requestSeq = 0;
@@ -59,8 +64,15 @@ export class HoverService extends Disposable {
     public constructor(
         private readonly component: HoverComponent,
         private readonly group: EditorService,
+        focusTracker: FocusTracker,
     ) {
         super();
+        // Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец.
+        this.register(
+            focusTracker.onDidChangeFocus((active) => {
+                if (!(active instanceof EditorElement) && this.isOpen()) this.close();
+            }),
+        );
         // «Всегда-включённая» подписка на активный редактор: правка или движение
         // каретки закрывают попап (VS Code-like; сам показ — только по команде).
         const activeEditorSub = this.group.onActiveEditorChanged((editor) => {
@@ -140,15 +152,15 @@ export class HoverService extends Disposable {
         this.requestSeq++;
     }
 
-    /** Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец. */
-    public onFocusChanged(editorFocused: boolean): void {
-        if (!editorFocused && this.isOpen()) this.close();
+    /** IContextKeyContributor: `editorHoverVisible` — гейт Escape и навигации по попапу. */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        contextKeys.set("editorHoverVisible", this.isOpen());
     }
 
     private bindEditor(editor: TextEditorPane | null): void {
         this.unbindEditor();
         // Смена редактора при открытом попапе в приложении уже сопровождается
-        // сменой фокуса (её ловит onFocusChanged), поэтому в юните пропуск этого
+        // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
         // закрытия не наблюдается — вызов держим для программной смены редактора
         // без участия фокуса (восстановление сессии, split).
         // Stryker disable next-line CallExpression: см. выше

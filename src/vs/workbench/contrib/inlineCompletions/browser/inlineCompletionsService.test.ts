@@ -10,6 +10,9 @@ import type {
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKey } from "../../../../platform/contextkey/common/contextKeys.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { editorConfiguration } from "../../../common/configuration/editorConfiguration.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -22,6 +25,13 @@ import {
     InlineCompletionsService,
     readMillisecondsSetting,
 } from "./inlineCompletionsService.ts";
+
+/** Значение ключа, который сервис выставляет как IContextKeyContributor. */
+function contextKey(contributor: IContextKeyContributor, key: ContextKey): unknown {
+    const keys = new ContextKeyService();
+    contributor.updateContextKeys(keys, null);
+    return keys.get(key);
+}
 
 /** Пауза больше нулевого дебаунса — авто-запрос успевает уйти и вернуться. */
 async function tick(ms = 5): Promise<void> {
@@ -244,6 +254,7 @@ describe("InlineCompletionsService — показ", () => {
             return Promise.resolve([{ insertText: " = 42;" }]);
         };
         const service = makeService(makeGroup(fake.editor, source).group);
+        expect(contextKey(service, "inlineSuggestionVisible")).toBe(false);
 
         fake.type("const x ", 8);
         await tick();
@@ -257,6 +268,7 @@ describe("InlineCompletionsService — показ", () => {
         });
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 8, lines: [" = 42;"] });
         expect(service.isOpen()).toBe(true);
+        expect(contextKey(service, "inlineSuggestionVisible")).toBe(true);
     });
 
     it("многострочный insertText режется на строки ghost-а", async () => {
@@ -1056,7 +1068,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         fake.type("const x ", 8);
         await tick();
         expect(pending.tokens).toHaveLength(1);
-        expect(service.isRequestPending()).toBe(true);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(true);
 
         fake.type("const x =", 9);
         await tick();
@@ -1069,7 +1081,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         // в полёте всё ещё последний запрос.
         pending.respond(0, [{ insertText: "= 42;" }]);
         await tick();
-        expect(service.isRequestPending()).toBe(true);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(true);
         expect(service.isOpen()).toBe(false);
     });
 
@@ -1096,12 +1108,12 @@ describe("InlineCompletionsService — отмена запроса", () => {
 
         fake.type("const x ", 8);
         await tick();
-        expect(service.isRequestPending()).toBe(true);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(true);
         expect(service.isOpen()).toBe(false); // призрака ещё нет
 
         service.hide();
         expect(pending.tokens[0].isCancellationRequested).toBe(true);
-        expect(service.isRequestPending()).toBe(false);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(false);
 
         // Упрямый провайдер ответил вопреки отмене — на экран это не попадает.
         pending.respond(0, [{ insertText: "= 42;" }]);
@@ -1136,7 +1148,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         fake.move(0, 3);
 
         expect(pending.tokens[0].isCancellationRequested).toBe(true);
-        expect(service.isRequestPending()).toBe(false);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(false);
     });
 
     it("смена активного редактора (переключение вкладки) отменяет запрос", async () => {
@@ -1148,12 +1160,12 @@ describe("InlineCompletionsService — отмена запроса", () => {
 
         fake.type("const x ", 8);
         await tick();
-        expect(service.isRequestPending()).toBe(true);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(true);
 
         fakeGroup.setActiveEditor(other.editor);
 
         expect(pending.tokens[0].isCancellationRequested).toBe(true);
-        expect(service.isRequestPending()).toBe(false);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(false);
     });
 
     it("дождавшийся ответа запрос не отменяется — нормальный путь цел", async () => {
@@ -1162,12 +1174,12 @@ describe("InlineCompletionsService — отмена запроса", () => {
         const service = makeService(makeGroup(fake.editor, pending.source).group);
 
         const triggered = service.trigger();
-        expect(service.isRequestPending()).toBe(true);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(true);
         pending.respond(0, [{ insertText: " = 42;" }]);
         await triggered;
 
         expect(pending.tokens[0].isCancellationRequested).toBe(false);
-        expect(service.isRequestPending()).toBe(false);
+        expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(false);
         expect(service.isOpen()).toBe(true);
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 7, lines: [" = 42;"] });
     });
@@ -1189,12 +1201,12 @@ describe("InlineCompletionsService — гейт Tab против отступа"
     it("подсказка с ≥ таба отступа при каретке в отступе выключает ключ", async () => {
         const fake = makeEditor("    ", 4);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "    return n;" })).group);
-        expect(service.hasIndentationLessThanTabSize()).toBe(true); // дефолт без сессии
+        expect(contextKey(service, "inlineSuggestionHasIndentationLessThanTabSize")).toBe(true); // дефолт без сессии
 
         await service.trigger();
 
         expect(service.isOpen()).toBe(true);
-        expect(service.hasIndentationLessThanTabSize()).toBe(false);
+        expect(contextKey(service, "inlineSuggestionHasIndentationLessThanTabSize")).toBe(false);
     });
 
     it("подсказка после текста строки ключ не трогает", async () => {
@@ -1202,7 +1214,7 @@ describe("InlineCompletionsService — гейт Tab против отступа"
         const service = makeService(makeGroup(fake.editor, items({ insertText: "    }" })).group);
         await service.trigger();
 
-        expect(service.hasIndentationLessThanTabSize()).toBe(true);
+        expect(contextKey(service, "inlineSuggestionHasIndentationLessThanTabSize")).toBe(true);
     });
 });
 

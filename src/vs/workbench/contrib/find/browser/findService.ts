@@ -6,6 +6,8 @@ import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import { findMatches } from "../../../../editor/contrib/find/findMatches.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup, GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
@@ -40,7 +42,7 @@ interface IFindSession {
  * в группе B; Escape закрывает только виджет своей группы. Команды (Ctrl+F, F3,
  * Escape) оперируют активной группой.
  */
-export class FindService extends Disposable {
+export class FindService extends Disposable implements IContextKeyContributor {
     public static dependencies = [FindComponentDIToken, EditorServiceDIToken] as const;
 
     private readonly component: FindComponent;
@@ -82,6 +84,11 @@ export class FindService extends Disposable {
     /** Открыт ли find-виджет АКТИВНОЙ группы (контекст-ключ findWidgetVisible). */
     public isVisible(): boolean {
         return this.component.isOpen(this.editorService.activeGroup.id);
+    }
+
+    /** IContextKeyContributor: `findWidgetVisible` — гейт Escape/Enter/F3 виджета. */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        contextKeys.set("findWidgetVisible", this.isVisible());
     }
 
     /** Ctrl+F: открывает/фокусирует find активной группы. */

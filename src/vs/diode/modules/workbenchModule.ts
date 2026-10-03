@@ -239,6 +239,7 @@ import {
     ExternalOpenerService,
     spawnDetached,
 } from "../../workbench/services/externalOpener/node/externalOpenerService.ts";
+import { FocusTracker, FocusTrackerDIToken } from "../../workbench/services/focus/browser/focusTracker.ts";
 import {
     HistoryEditorSourceDIToken,
     HistoryService,
@@ -528,6 +529,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ViewProgressContributionDIToken, ViewProgressContribution);
     container.bind(ViewTitleActionsContributionDIToken, ViewTitleActionsContribution);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
+    // Смена фокуса как событие: на неё подписываются попапы редактора.
+    container.bind(FocusTrackerDIToken, FocusTracker);
     // Фичи, которые сами выставляют свои контекст-ключи (опрашивает WorkbenchContextKeys).
     container.bind(ContextKeyContributorsDIToken, () => WORKBENCH_CONTEXT_KEY_CONTRIBUTORS);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);

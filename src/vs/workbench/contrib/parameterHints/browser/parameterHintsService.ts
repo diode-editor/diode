@@ -1,5 +1,6 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
 import type {
@@ -7,10 +8,14 @@ import type {
     SignatureHelpTriggerKind as TriggerKind,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
+import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 import { stripMarkdown } from "../../hover/browser/hoverService.ts";
 import { isSingleCharInsert } from "../../suggest/browser/completionService.ts";
 
@@ -31,8 +36,8 @@ export const ParameterHintsServiceDIToken = token<ParameterHintsService>("Parame
  * Пара к {@link ParameterHintsComponent} по образцу suggest/hover: компонент
  * владеет попапом и его overlay-сессией, сервис — запросами и состоянием.
  */
-export class ParameterHintsService extends Disposable {
-    public static dependencies = [ParameterHintsComponentDIToken, EditorServiceDIToken] as const;
+export class ParameterHintsService extends Disposable implements IContextKeyContributor {
+    public static dependencies = [ParameterHintsComponentDIToken, EditorServiceDIToken, FocusTrackerDIToken] as const;
 
     /** Задержка авто-запроса, мс (в тестах — 0). Как `autoSuggestDelayMs` у suggest. */
     public triggerDelayMs = 120;
@@ -60,8 +65,15 @@ export class ParameterHintsService extends Disposable {
     public constructor(
         private readonly component: ParameterHintsComponent,
         private readonly group: EditorService,
+        focusTracker: FocusTracker,
     ) {
         super();
+        // Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец.
+        this.register(
+            focusTracker.onDidChangeFocus((active) => {
+                if (!(active instanceof EditorElement) && this.isOpen()) this.close();
+            }),
+        );
         const activeEditorSub = this.group.onActiveEditorChanged((editor) => {
             this.bindEditor(editor);
         });
@@ -141,9 +153,14 @@ export class ParameterHintsService extends Disposable {
         return this.component.isOpen();
     }
 
-    /** Есть ли перегрузки (для `parameterHintsMultipleSignatures` — стрелки листают только их). */
-    public hasMultipleSignatures(): boolean {
-        return (this.currentHelp?.signatures.length ?? 0) > 1;
+    /**
+     * IContextKeyContributor: `parameterHintsVisible` и
+     * `parameterHintsMultipleSignatures` — стрелки листают перегрузки, только
+     * когда их больше одной.
+     */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        contextKeys.set("parameterHintsVisible", this.isOpen());
+        contextKeys.set("parameterHintsMultipleSignatures", (this.currentHelp?.signatures.length ?? 0) > 1);
     }
 
     /** Следующая перегрузка — локально, без запроса к серверу. */
@@ -164,11 +181,6 @@ export class ParameterHintsService extends Disposable {
         // Ответ «в полёте» больше не нужен: его seq устареет и будет отброшен.
         // Stryker disable next-line UpdateOperator: сдвиг счётчика в любую сторону делает «летящий» seq неравным — направление роли не играет
         this.requestSeq++;
-    }
-
-    /** Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец. */
-    public onFocusChanged(editorFocused: boolean): void {
-        if (!editorFocused && this.isOpen()) this.close();
     }
 
     private stepSignature(delta: 1 | -1): void {
@@ -203,7 +215,7 @@ export class ParameterHintsService extends Disposable {
     private bindEditor(editor: TextEditorPane | null): void {
         this.unbindEditor();
         // Смена редактора при открытом попапе в приложении уже сопровождается
-        // сменой фокуса (её ловит onFocusChanged), поэтому в юните пропуск этого
+        // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
         // закрытия не наблюдается — вызов держим для программной смены редактора
         // без участия фокуса (восстановление сессии, split).
         // Stryker disable next-line CallExpression: см. выше
