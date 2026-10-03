@@ -455,6 +455,19 @@ describe("EditorService", () => {
             ctrl.closeTab(0);
             expect(item.isStillDirty()).toBe(false);
         });
+
+        it("save перезаписывает файл, изменённый на диске извне: выбор Save не теряется", async () => {
+            const ctrl = createEditorService();
+            const file = writeFile("a.ts", "a\nb");
+            ctrl.openFile(file);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            fs.writeFileSync(file, "changed outside");
+
+            const [item] = ctrl.collectDirty();
+
+            expect(await item.save()).toBe(true);
+            expect(fs.readFileSync(file, "utf8")).toBe("a\r\nb");
+        });
     });
 
     describe("getEditor", () => {
