@@ -967,6 +967,45 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceContains)');
     });
 
+    it("без смерти субпроцесса событие проход по папкам не запускает — ни первое, ни последующие", async () => {
+        const child = new FakeChild();
+        let scans = 0;
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: {
+                exists: () => {
+                    scans++;
+                    // Совпало бы — проход поднял бы расширение.
+                    return Promise.resolve(true);
+                },
+                readDirectory: () => Promise.resolve([]),
+            },
+        });
+        host.registerExtension({ ...makeReg("ext.java", "/j.js"), activationEvents: ["workspaceContains:pom.xml"] });
+        host.registerExtension(makeReg("ext.a", "/a.js"));
+
+        await host.activateByEvent("*");
+        await host.activateByEvent("onLanguage:markdown");
+
+        expect(scans).toBe(0);
+        expect(host.hasExtension("ext.a")).toBe(true);
+        expect(host.hasExtension("ext.java")).toBe(false);
+        host.dispose();
+    });
+
+    it("событие не ждёт чужую активацию в полёте — только своих расширений", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension({ ...makeReg("ext.slow", "/s.js"), activationEvents: ["onLanguage:java"] });
+        child.autoRespond = false;
+        void host.activateByEvent("onLanguage:java");
+        await waitUntil(() => activated(child, "ext.slow"));
+
+        // Событию без своих расширений ждать нечего — `ext.slow` его не держит.
+        await expect(host.activateByEvent("onLanguage:markdown")).resolves.toBeUndefined();
+        host.dispose();
+    });
+
     it("поднятое проходом workspaceContains оживает на любом событии: журнал проигрывается вместе с проходом", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1052,7 +1091,8 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const second = host.activateByEvent("*").then(() => {
             secondDone = true;
         });
-        await Promise.resolve();
+        // Даём промисам отыграть целиком (макротаск, а не один микротаск).
+        await new Promise((resolve) => setTimeout(resolve, 10));
         // Ответа на activateExtension ещё нет — второй вызов не врёт «готово».
         expect(secondDone).toBe(false);
 

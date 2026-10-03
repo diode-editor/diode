@@ -794,7 +794,7 @@ export class ExtensionHost extends Disposable {
         // эталона) — встаёт сразу, а не ждёт повтора, которого может и не быть.
         const heard = readActivationEvents(reg).find((event) => this.requestedEvents.has(event));
         if (heard !== undefined) {
-            void this.activateByEvent(heard).catch((err: unknown) => {
+            void this.activateRegistrations([reg], heard).catch((err: unknown) => {
                 // Stryker disable next-line OptionalChaining: логгер необязателен (у хоста в тестах его часто нет); без него сбой глотается, а мутант кинул бы внутри `.catch` — это только unhandled rejection, не наблюдаемое поведение хоста
                 this.logger?.error(`failed to activate extension "${reg.id}" on registration`, err);
             });
