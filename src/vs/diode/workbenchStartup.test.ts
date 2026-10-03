@@ -83,7 +83,6 @@ function setup(stateService?: IStateService): IStartup {
         },
         afterRestored: () => {
             log.push("afterRestored");
-            return Promise.resolve();
         },
         afterFirstFrame: (callback) => {
             log.push("afterFirstFrame");

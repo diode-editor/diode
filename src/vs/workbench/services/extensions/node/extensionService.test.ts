@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../../../../base/common/performance.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
@@ -79,7 +79,7 @@ afterEach(() => {
 });
 
 describe("ExtensionService", () => {
-    it("регистрирует набор по порядку, пропуская расширения без main, и стартует *, onStartupFinished, workspaceContains", async () => {
+    it("регистрирует набор по порядку, пропуская расширения без main; * и workspaceContains параллельно, onStartupFinished — после них", async () => {
         const host = new FakeHost();
         const logger = recordingLogger();
         const service = new ExtensionService(
@@ -91,7 +91,7 @@ describe("ExtensionService", () => {
 
         await service.start();
 
-        expect(host.log).toEqual(["register:a", "register:git", "*", "onStartupFinished", "workspaceContains"]);
+        expect(host.log).toEqual(["register:a", "register:git", "*", "workspaceContains", "onStartupFinished"]);
         // Декларативное пропущено молча, а не «упало при регистрации».
         expect(logger.errors).toEqual([]);
     });
@@ -117,10 +117,10 @@ describe("ExtensionService", () => {
         expect(host.log).toEqual([
             "register:a",
             "*",
+            "workspaceContains",
             "onLanguage:python",
             "onLanguage:json",
             "onStartupFinished",
-            "workspaceContains",
         ]);
     });
 
@@ -190,7 +190,7 @@ describe("ExtensionService", () => {
         expect(logger.errors).toEqual(["u: failed to register"]);
     });
 
-    it("сбой host'а — в лог; барьер всё равно открывается, ждущие не виснут, дальше события идут в host", async () => {
+    it("сбой host'а на событии — в лог с событием, остальные стартовые события всё равно идут, барьер открывается", async () => {
         const host = new FakeHost();
         host.failOn = "*";
         const logger = recordingLogger();
@@ -200,10 +200,47 @@ describe("ExtensionService", () => {
         await service.start();
         await early;
 
-        expect(logger.errors).toEqual(["extension host activation failed"]);
-        expect(host.log).toEqual(["*"]);
+        expect(logger.errors).toEqual(["extension host activation failed (*)"]);
+        expect(host.log).toEqual(["*", "workspaceContains", "onLanguage:ts", "onStartupFinished"]);
         await service.activateByEvent("onLanguage:rust");
-        expect(host.log).toEqual(["*", "onLanguage:rust"]);
+        expect(host.log.at(-1)).toBe("onLanguage:rust");
+    });
+
+    it("повисший * не держит onStartupFinished дольше тайм-аута", async () => {
+        const host = new FakeHost();
+        const eager = deferred();
+        host.held.set("*", eager.promise);
+        const service = new ExtensionService(host, [], ENV, recordingLogger(), 20);
+
+        const started = service.start();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(host.log).not.toContain("onStartupFinished");
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        expect(host.log).toContain("onStartupFinished");
+
+        // Старт завершается, только когда доедет и сам `*`.
+        let done = false;
+        void started.then(() => {
+            done = true;
+        });
+        await Promise.resolve();
+        expect(done).toBe(false);
+        eager.resolve();
+        await started;
+    });
+
+    it("уложившаяся eager-активация не ждёт тайм-аута: его таймер снимается", async () => {
+        vi.useFakeTimers();
+        try {
+            const service = new ExtensionService(new FakeHost(), [], ENV, recordingLogger());
+
+            await service.start();
+
+            // Висящий 10-секундный таймер держал бы event loop процесса.
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it("ставит вехи регистрации и активации, которые читает бенч", async () => {

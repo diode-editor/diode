@@ -420,13 +420,6 @@ async function runEditor(): Promise<void> {
     lifecycle.onDidChangePhase((phase) => {
         if (phase === "eventually") void tokenizationContributor.preloadAll();
     });
-    // Конец лестницы: выгружаем трассу целиком (бенч ждёт `complete: true`) —
-    // после вехи `main:startup-complete`, которую ставит переход в `eventually`.
-    if (startupTraceFile !== null) {
-        void lifecycle.when("eventually").then(() => {
-            writeStartupTrace(startupTraceFile, true);
-        });
-    }
 
     await startWorkbench(
         container,
@@ -500,7 +493,17 @@ async function runEditor(): Promise<void> {
                 }
             },
             preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
-            afterRestored: () => extensionService.start(),
+            afterRestored: () => {
+                const activation = extensionService.start();
+                // Конец лестницы: выгружаем трассу целиком (бенч ждёт `complete: true`)
+                // — когда есть и `main:startup-complete` (переход в `eventually`), и
+                // `exthost:activated`: друг друга они больше не ждут.
+                if (startupTraceFile !== null) {
+                    void Promise.all([activation, lifecycle.when("eventually")]).then(() => {
+                        writeStartupTrace(startupTraceFile, true);
+                    });
+                }
+            },
             afterFirstFrame: (callback) => {
                 setImmediate(callback);
             },

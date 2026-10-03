@@ -417,6 +417,30 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(child.signals).toEqual(["SIGKILL"]);
     });
 
+    it("расширения одного события активируются параллельно: соседи не ждут чужой activate()", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension(makeReg("ext.slow", "/slow.js"));
+        host.registerExtension(makeReg("ext.fast", "/fast.js"));
+        child.autoRespond = false;
+
+        const activation = host.activateByEvent("*");
+        await waitUntil(
+            () => child.sent.filter((m) => m.kind === "req" && m.method === "host.activateExtension").length === 2,
+        );
+        // Оба запроса ушли до первого ответа — второй не ждал первого.
+        const requests = child.sent.filter((m) => m.kind === "req" && m.method === "host.activateExtension");
+        expect(host.hasExtension("ext.slow")).toBe(false);
+        expect(host.hasExtension("ext.fast")).toBe(false);
+
+        for (const req of requests.reverse()) {
+            if (req.kind === "req") child.receiveFromHostPeer({ kind: "res", id: req.id, result: null });
+        }
+        await activation;
+        expect(host.hasExtension("ext.slow")).toBe(true);
+        expect(host.hasExtension("ext.fast")).toBe(true);
+    });
+
     it("disposeNow без поднятого субпроцесса просто гасит host", () => {
         const host = spawnReadyHost(new FakeChild(), new FakeEditorOptions());
 
