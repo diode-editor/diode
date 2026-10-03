@@ -177,7 +177,7 @@ export class WorkspaceEditService {
 
     /** Пойдёт ли удаление в корзину (настройка разрешает И корзина реально доступна). */
     public willMoveToTrash(): boolean {
-        const enabled = this.config.get<boolean>("files.enableTrash", true) ?? true;
+        const enabled = this.config.get("files.enableTrash");
         return enabled && this.trash.isAvailable();
     }
 

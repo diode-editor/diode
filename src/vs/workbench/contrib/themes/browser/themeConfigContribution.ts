@@ -37,8 +37,7 @@ export class ThemeConfigContribution extends Disposable implements IWorkbenchCon
      * `updateValue`), лишнего перекраса не делаем. Неизвестное имя игнорируем.
      */
     private applyColorThemeFromConfiguration(): void {
-        const name = this.configurationService.get<string>("workbench.colorTheme");
-        if (name === undefined) return;
+        const name = this.configurationService.get("workbench.colorTheme");
         if (name === this.themeService.theme.name) return;
         const theme = this.themeRegistry.resolve(name);
         if (theme) this.themeService.setTheme(theme);

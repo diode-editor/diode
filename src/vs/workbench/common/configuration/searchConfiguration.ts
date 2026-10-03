@@ -1,6 +1,6 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
-export const searchConfiguration: IConfigurationNode = {
+export const searchConfiguration = {
     id: "search",
     title: "Search",
     properties: {
@@ -52,4 +52,4 @@ export const searchConfiguration: IConfigurationNode = {
                 "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
         },
     },
-};
+} as const satisfies IConfigurationNode;

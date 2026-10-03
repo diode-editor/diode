@@ -1,9 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
@@ -15,13 +16,13 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { loadConfiguration } from "../../../../platform/configuration/node/configurationService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
@@ -42,7 +43,7 @@ function createEditorService(
         overrides.registry ?? new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         overrides.languageService ?? NULL_LANGUAGE_SERVICE,
-        overrides.configurationService ?? NULL_CONFIGURATION_SERVICE,
+        overrides.configurationService ?? createTestConfigurationService(),
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
@@ -52,12 +53,7 @@ function createEditorService(
 
 /** Minimal IConfigurationService that serves a fixed key/value map. */
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            return key in values ? (values[key] as T) : defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 describe("EditorService", () => {
@@ -490,6 +486,21 @@ describe("EditorService", () => {
             const editor = ctrl.getActiveEditor()!;
             expect(editor.viewState.tabSize).toBe(2);
             expect(editor.viewState.insertSpaces).toBe(true);
+        });
+
+        it("editor.occurrencesHighlight: off гасит подсветку вхождений, дефолт — включает", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
+            try {
+                createEditorService({
+                    configurationService: stubConfigurationService({ "editor.occurrencesHighlight": "off" }),
+                }).openFile(writeFile("a.ts", "const x = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(false);
+
+                createEditorService().openFile(writeFile("b.ts", "const y = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(true);
+            } finally {
+                spy.mockRestore();
+            }
         });
 
         it("seeds cursorSurroundingLines from the configuration service", () => {

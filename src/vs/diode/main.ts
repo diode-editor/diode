@@ -282,7 +282,7 @@ async function runEditor(): Promise<void> {
     // Неизвестное имя (тема из ещё не установленного или удалённого расширения,
     // опечатка) — откат на дефолт; настройку не трогаем: поставит расширение
     // обратно — получит свою тему без действий (решение 5).
-    const colorThemeLabel = configurationService.get<string>("workbench.colorTheme") ?? DEFAULT_COLOR_THEME;
+    const colorThemeLabel = configurationService.get("workbench.colorTheme");
     let initialTheme = themeRegistry.resolve(colorThemeLabel);
     if (initialTheme === undefined) {
         extensionsLogger.warn(`Color theme "${colorThemeLabel}" not found, falling back to "${DEFAULT_COLOR_THEME}"`);

@@ -12,10 +12,17 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
  */
 export interface IConfigurationService {
     /**
-     * Достаёт значение по точечному ключу (`"editor.tabSize"`). Если ключа нет
-     * ни в одном слое (включая дефолты реестра) — возвращает `defaultValue`
-     * (или `undefined`). `T` — приведение для удобства: тип значения
-     * реализация не проверяет.
+     * Ключ из схемы приложения ({@link IConfigurationKeys}): тип выведен из узла
+     * конфигурации, `undefined` не бывает — дефолт гарантирует реестр, а
+     * значение вне схемы (не тот тип, не из `enum`, вне `minimum`/`maximum`)
+     * реализация заменяет дефолтом.
+     */
+    get<K extends keyof IConfigurationKeys>(key: K): IConfigurationKeys[K];
+    /**
+     * Чужой ключ (настройки расширений, `git.*`) или ключ с явным типом:
+     * значение по точечному ключу (`"editor.tabSize"`), а если его нет ни в
+     * одном слое — `defaultValue` (или `undefined`). `T` здесь — приведение для
+     * удобства: тип значения вне схемы приложения не проверяется.
      */
     get<T>(key: string, defaultValue?: T): T | undefined;
 
@@ -50,6 +57,16 @@ export interface IConfigurationService {
      */
     updateValue(key: string, value: unknown): Promise<void>;
 }
+
+/**
+ * Типы ключей настроек приложения по их схемам. В platform — пусто: слой не
+ * знает узлов конфигурации фич. Наполняет его `workbench/common/configuration`
+ * (module augmentation от `CONFIGURATION_CONTRIBUTIONS`), так что
+ * `get("editor.tabSize")` типизирован как `number`, а опечатка в ключе
+ * уходит во вторую, нетипизированную перегрузку `get<T>` — и требует явного `T`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- точка расширения для module augmentation
+export interface IConfigurationKeys {}
 
 export interface IConfigurationInspectResult<T> {
     /** Значение из default-слоя (хардкод приложения). */

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigurationModel } from "../../../platform/configuration/common/configurationModel.ts";
+import { ConfigurationRegistry } from "../../../platform/configuration/common/configurationRegistry.ts";
 
 import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
 import {
@@ -96,11 +97,7 @@ describe("дефолты files.exclude / search.exclude", () => {
     /** Собирает значение так же, как ConfigurationService: defaults + user. */
     function merged(userValue: Readonly<Record<string, unknown>> = {}): IExcludeConfigReader {
         const defaults = ConfigurationModel.fromRaw(
-            Object.fromEntries(
-                CONFIGURATION_CONTRIBUTIONS.flatMap((node) =>
-                    Object.entries(node.properties).map(([key, schema]) => [key, schema.default]),
-                ),
-            ),
+            new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getDefaultConfiguration(),
         );
         const user = ConfigurationModel.fromRaw(userValue);
         const model = ConfigurationModel.merge(defaults, user);
