@@ -135,17 +135,19 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
      * Вкладка или группа, которой уже нет, — идемпотентный успех.
      */
     public async closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
-        const targets = new Map<EditorGroup, IEditorPane[]>();
+        const targets: { group: EditorGroup; pane: IEditorPane }[] = [];
         for (const target of params.tabs) {
             const group = this.editors.groups.find((candidate) => candidate.id === target.groupId);
             if (group === undefined) continue;
             const pane = group.getPane(group.findPaneIndex(Uri.parse(target.uri)));
-            if (pane === null) continue;
-            targets.set(group, [...(targets.get(group) ?? []), pane]);
+            if (pane !== null) targets.push({ group, pane });
         }
-        const results: boolean[] = [];
-        for (const [group, panes] of targets) results.push(await this.editors.closeEditors(group, panes));
-        return results.every((closed) => closed);
+        let allClosed = true;
+        for (const [group, entries] of Map.groupBy(targets, (entry) => entry.group)) {
+            const panes = entries.map((entry) => entry.pane);
+            if (!(await this.editors.closeEditors(group, panes))) allClosed = false;
+        }
+        return allClosed;
     }
 
     /**
@@ -154,13 +156,13 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
      * группа схлопывается сама.
      */
     public async closeGroups(params: IWireCloseGroupsParams): Promise<boolean> {
-        const results: boolean[] = [];
+        let allClosed = true;
         for (const groupId of params.groupIds) {
             const group = this.editors.groups.find((candidate) => candidate.id === groupId);
             if (group === undefined) continue;
-            results.push(await this.editors.closeAllEditors(group));
+            if (!(await this.editors.closeAllEditors(group))) allClosed = false;
         }
-        return results.every((closed) => closed);
+        return allClosed;
     }
 
     // ─── Снимки ──────────────────────────────────────────────────────────────
