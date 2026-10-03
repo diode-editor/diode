@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -109,9 +110,9 @@ export interface ITextFileEditTarget {
 export class TextFileModel extends Disposable {
     private doc: TextDocument;
     private languageSubscription: IDisposable | null = null;
-    private languageChangeListeners: ((change: IDocumentLanguageChange) => void)[] = [];
+    private readonly onDidChangeLanguageEmitter = this.register(new Emitter<IDocumentLanguageChange>());
     private eolSubscription: IDisposable | null = null;
-    private eolChangeListeners: (() => void)[] = [];
+    private readonly onDidChangeEolEmitter = this.register(new Emitter<void>());
     /**
      * Кодировка байтового представления на диске (id из SUPPORTED_ENCODINGS).
      * В отличие от EOL это состояние модели, а не документа: документ видит
@@ -120,10 +121,10 @@ export class TextFileModel extends Disposable {
      * Save with Encoding сохраняет сразу (как в VS Code).
      */
     private encodingValue: string = DEFAULT_ENCODING;
-    private encodingChangeListeners: (() => void)[] = [];
+    private readonly onDidChangeEncodingEmitter = this.register(new Emitter<void>());
     private contentSubscription: IDisposable | null = null;
-    private contentChangeListeners: (() => void)[] = [];
-    private reloadListeners: ((reason: DocumentReloadReason) => void)[] = [];
+    private readonly onDidChangeContentEmitter = this.register(new Emitter<void>());
+    private readonly onDidReloadDocumentEmitter = this.register(new Emitter<DocumentReloadReason>());
     /**
      * Идентичность ресурса этой модели — первичное состояние, из которого выводится
      * всё остальное (путь, имя, признак безымянности). Не `null`: у свежей модели
@@ -140,7 +141,7 @@ export class TextFileModel extends Disposable {
      */
     private diskStat: IDiskStat | null = null;
     private diskConflictValue = false;
-    private diskStateListeners: (() => void)[] = [];
+    private readonly onDidChangeDiskStateEmitter = this.register(new Emitter<void>());
     private fileWatch: IDisposable | null = null;
     private readonly languageService: ILanguageService;
     private readonly undoRedoService: UndoRedoService;
@@ -202,11 +203,11 @@ export class TextFileModel extends Disposable {
     private applyEncoding(encoding: string): void {
         if (this.encodingValue === encoding) return;
         this.encodingValue = encoding;
-        for (const listener of [...this.encodingChangeListeners]) listener();
+        this.onDidChangeEncodingEmitter.fire();
     }
 
     public onDidSave?: () => void;
-    private saveListeners: (() => void)[] = [];
+    private readonly onDidSaveDocumentEmitter = this.register(new Emitter<void>());
 
     /**
      * Событие «документ записан на диск» (save/saveAs) — многоподписочное, в
@@ -215,19 +216,11 @@ export class TextFileModel extends Disposable {
      * изменённости, после saveAs меняется имя) — у каждой из N вкладок
      * документа.
      */
-    public onDidSaveDocument(listener: () => void): IDisposable {
-        this.saveListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.saveListeners.indexOf(listener);
-                if (i >= 0) this.saveListeners.splice(i, 1);
-            },
-        };
-    }
+    public readonly onDidSaveDocument = this.onDidSaveDocumentEmitter.event;
 
     private fireSaved(): void {
         this.onDidSave?.();
-        for (const listener of [...this.saveListeners]) listener();
+        this.onDidSaveDocumentEmitter.fire();
     }
 
     /**
@@ -252,15 +245,7 @@ export class TextFileModel extends Disposable {
      * (чистый буфер) либо взведён/снят флаг конфликта. Подписка живёт на
      * модели и переживает пересоздание документа в openFile.
      */
-    public onDidChangeDiskState(listener: () => void): IDisposable {
-        this.diskStateListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.diskStateListeners.indexOf(listener);
-                if (i >= 0) this.diskStateListeners.splice(i, 1);
-            },
-        };
-    }
+    public readonly onDidChangeDiskState = this.onDidChangeDiskStateEmitter.event;
 
     /**
      * Провайдер save-участников (`onWillSaveTextDocument`, code actions / формат
@@ -275,15 +260,7 @@ export class TextFileModel extends Disposable {
      */
     public saveParticipants?: () => readonly SaveParticipant[];
 
-    public onDidChangeContent(listener: () => void): IDisposable {
-        this.contentChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.contentChangeListeners.indexOf(listener);
-                if (i >= 0) this.contentChangeListeners.splice(i, 1);
-            },
-        };
-    }
+    public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;
 
     /**
      * Событие «документ пересоздан» (openFile / revertToDisk / reopenWithEncoding /
@@ -293,18 +270,10 @@ export class TextFileModel extends Disposable {
      * вью сохраняет скролл: содержимое то же по смыслу) от смены содержимого
      * владельцем (`"owned"` — скролл сбрасывается: содержимое другое).
      */
-    public onDidReloadDocument(listener: (reason: DocumentReloadReason) => void): IDisposable {
-        this.reloadListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.reloadListeners.indexOf(listener);
-                if (i >= 0) this.reloadListeners.splice(i, 1);
-            },
-        };
-    }
+    public readonly onDidReloadDocument = this.onDidReloadDocumentEmitter.event;
 
     private fireDocumentReloaded(reason: DocumentReloadReason): void {
-        for (const listener of [...this.reloadListeners]) listener(reason);
+        this.onDidReloadDocumentEmitter.fire(reason);
     }
 
     /** Language id открытого документа (`plaintext`, если язык не определён). */
@@ -325,44 +294,20 @@ export class TextFileModel extends Disposable {
      * Событие смены языка документа. Подписка живёт на модели, а не на
      * конкретном документе — переживает пересоздание документа в openFile.
      */
-    public onDidChangeLanguage(listener: (change: IDocumentLanguageChange) => void): IDisposable {
-        this.languageChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.languageChangeListeners.indexOf(listener);
-                if (i >= 0) this.languageChangeListeners.splice(i, 1);
-            },
-        };
-    }
+    public readonly onDidChangeLanguage = this.onDidChangeLanguageEmitter.event;
 
     /**
      * Событие смены EOL документа (командой, undo/redo — любым путём через
      * doc.setEol). Подписка живёт на модели, а не на конкретном
      * документе — переживает пересоздание документа в openFile.
      */
-    public onDidChangeEol(listener: () => void): IDisposable {
-        this.eolChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.eolChangeListeners.indexOf(listener);
-                if (i >= 0) this.eolChangeListeners.splice(i, 1);
-            },
-        };
-    }
+    public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
 
     /**
      * Событие смены кодировки (setEncoding, reopenWithEncoding или детект при
      * открытии другого файла). Подписка живёт на модели.
      */
-    public onDidChangeEncoding(listener: () => void): IDisposable {
-        this.encodingChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.encodingChangeListeners.indexOf(listener);
-                if (i >= 0) this.encodingChangeListeners.splice(i, 1);
-            },
-        };
-    }
+    public readonly onDidChangeEncoding = this.onDidChangeEncodingEmitter.event;
 
     /** Идентичность ресурса: `file:` — файл на диске, `untitled:` — безымянный буфер. */
     public get uri(): Uri {
@@ -840,7 +785,7 @@ export class TextFileModel extends Disposable {
     }
 
     private fireDiskStateChange(): void {
-        for (const listener of [...this.diskStateListeners]) listener();
+        this.onDidChangeDiskStateEmitter.fire();
     }
 
     public getText(): string {
@@ -957,15 +902,15 @@ export class TextFileModel extends Disposable {
         this.languageSubscription?.dispose();
         this.languageSubscription = this.doc.onDidChangeLanguage((change) => {
             this.languageService.requestLanguageFeatures(change.newLanguageId);
-            for (const listener of [...this.languageChangeListeners]) listener(change);
+            this.onDidChangeLanguageEmitter.fire(change);
         });
         this.eolSubscription?.dispose();
         this.eolSubscription = this.doc.onDidChangeEol(() => {
-            for (const listener of [...this.eolChangeListeners]) listener();
+            this.onDidChangeEolEmitter.fire();
         });
         this.contentSubscription?.dispose();
         this.contentSubscription = this.doc.onDidChangeContent(() => {
-            for (const listener of [...this.contentChangeListeners]) listener();
+            this.onDidChangeContentEmitter.fire();
         });
     }
 }
