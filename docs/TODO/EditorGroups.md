@@ -44,7 +44,8 @@ find-виджет на группу, персист полосы (`workbench.edi
 - **Закрытие с подтверждением** — одна точка `EditorService.closeEditor` /
   `closeEditors` / `closeAllEditors` (`EditorCloseHandler`, E8). Люфты: Save в
   диалоге закрытия untitled не предлагает Save As — вкладка просто остаётся
-  (вето на `"no-file"`; Save As переедет внутрь `EditorInput.save` с E2); у
+  (вето на `"no-file"`; у upstream Save As живёт внутри `EditorInput.save`, а
+  облегчённый E2 input-объекта с save не вводит — нужен свой шов); у
   Close All — последовательные диалоги, а не один со списком файлов, как у
   upstream; `DialogService.showConfirmSaveDialog` при уже открытом диалоге
   перезаписывает колбэки — промис первого `confirmSave` не резолвится (повторный
