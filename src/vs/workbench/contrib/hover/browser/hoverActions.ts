@@ -15,7 +15,7 @@ import { HoverServiceDIToken } from "./hoverService.ts";
  * кириллице такой бинд молчит, а на macOS Option по умолчанию не Meta.
  * Кому нужно одно нажатие — добавляет своё в `keybindings.json` профиля.
  *
- * Контент отдают hover-провайдеры расширений через `EditorService.hoverSource`.
+ * Контент отдают hover-провайдеры расширений из реестра ядра `ILanguageFeaturesService.hoverProvider`.
  */
 export const showHoverAction: CommandAction = {
     id: "editor.action.showHover",

@@ -8,7 +8,7 @@ import type {
     ICoreSignatureHelp,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
-import { matchDocumentSelector } from "./documentSelector.ts";
+import { matchDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -38,6 +38,7 @@ import type {
     WireFoldingRange,
     WireHover,
     WireInlineCompletionItem,
+    WireLanguageFeatureKind,
     WireMarker,
     WireReference,
     WireResolvedCompletionItem,
@@ -238,6 +239,8 @@ interface IWireDefinitionParams {
 
 /** Wire-параметры запроса hover (host → subprocess). */
 interface IWireHoverParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle?: number;
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
@@ -700,7 +703,6 @@ export function createLanguagesNamespace(
     inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
     definitionRegistrations: readonly IDefinitionRegistration[];
-    hoverRegistrations: readonly IHoverRegistration[];
     referenceRegistrations: readonly IReferenceRegistration[];
     signatureHelpRegistrations: readonly ISignatureHelpRegistration[];
     formattingRegistrations: readonly IFormattingRegistration[];
@@ -712,7 +714,30 @@ export function createLanguagesNamespace(
     const inlineCompletionRegistrations: IInlineCompletionRegistration[] = [];
     const foldingRegistrations: IFoldingRegistration[] = [];
     const definitionRegistrations: IDefinitionRegistration[] = [];
-    const hoverRegistrations: IHoverRegistration[] = [];
+    // Провайдеры фич, переехавших в реестр ядра: по handle, который ядро
+    // присылает в запросе (upstream ExtHostLanguageFeatures._adapter).
+    const hoverProviders = new Map<number, IHoverRegistration>();
+    let nextProviderHandle = 0;
+
+    /**
+     * Регистрирует провайдера под новым handle и объявляет его реестру ядра
+     * (`languages.register`): скоринг по селектору делает ядро, а субпроцесс
+     * зовут уже с выбранным handle. Dispose снимает провайдера и в ядре
+     * (`languages.unregister`).
+     */
+    function registerByHandle<T>(
+        providers: Map<number, T>,
+        kind: WireLanguageFeatureKind,
+        selector: vscode.DocumentSelector,
+        registration: T,
+    ): vscode.Disposable {
+        const handle = nextProviderHandle++;
+        providers.set(handle, registration);
+        rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector) });
+        return new DisposableImpl(() => {
+            if (providers.delete(handle)) rpc.notify("languages.unregister", { handle });
+        }) as unknown as vscode.Disposable;
+    }
     const referenceRegistrations: IReferenceRegistration[] = [];
     const signatureHelpRegistrations: ISignatureHelpRegistration[] = [];
     const formattingRegistrations: IFormattingRegistration[] = [];
@@ -790,7 +815,6 @@ export function createLanguagesNamespace(
             hasCompletionProviders: registrations.length > 0,
             hasFoldingProviders: foldingRegistrations.length > 0,
             hasDefinitionProviders: definitionRegistrations.length > 0,
-            hasHoverProviders: hoverRegistrations.length > 0,
             hasReferenceProviders: referenceRegistrations.length > 0,
             // Символы, после которых ядро обязано само открыть попап («.» у
             // tsserver). Сервер объявляет их в completionProvider, стоковый
@@ -846,8 +870,11 @@ export function createLanguagesNamespace(
         return locations;
     });
 
-    rpc.handleRequest("languages.provideHover", async (params): Promise<WireHover[]> => {
+    rpc.handleRequest("languages.provideHover", async (params): Promise<WireHover | null> => {
         const p = params as IWireHoverParams;
+        // Провайдер мог сняться, пока запрос летел: отвечаем «hover'а нет».
+        const reg = hoverProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
@@ -855,32 +882,24 @@ export function createLanguagesNamespace(
             text: p.text ?? "",
         });
         const position = new Position(p.line ?? 0, p.character ?? 0);
-        const token = neverCancelledToken();
-
-        const hovers: WireHover[] = [];
-        for (const reg of hoverRegistrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
-            let result: unknown;
-            try {
-                result = await Promise.resolve(
-                    reg.provider.provideHover(
-                        doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
-                        token,
-                    ),
-                );
-            } catch {
-                // Сбойный провайдер не роняет остальные: `result` остаётся
-                // неприсвоенным, и его отсеивает общая проверка ниже — своего
-                // `continue` тут нет намеренно, иначе ветка неотличима от неё.
-            }
-            if (result == null) continue;
-            const contents = serializeHoverContents((result as { contents?: unknown }).contents);
-            if (contents.length === 0) continue;
-            const range = serializeDefinitionRange((result as { range?: unknown }).range);
-            hovers.push({ contents, ...(range === null ? {} : { range }) });
+        let result: unknown;
+        try {
+            result = await Promise.resolve(
+                reg.provider.provideHover(
+                    doc as unknown as vscode.TextDocument,
+                    position as unknown as vscode.Position,
+                    neverCancelledToken(),
+                ),
+            );
+        } catch {
+            // Сбойный провайдер = «hover'а нет»: `result` остаётся неприсвоенным,
+            // и его отсеивает общая проверка ниже.
         }
-        return hovers;
+        if (result == null) return null;
+        const contents = serializeHoverContents((result as { contents?: unknown }).contents);
+        if (contents.length === 0) return null;
+        const range = serializeDefinitionRange((result as { range?: unknown }).range);
+        return { contents, ...(range === null ? {} : { range }) };
     });
 
     rpc.handleRequest("languages.provideSignatureHelp", async (params): Promise<ICoreSignatureHelp | null> => {
@@ -1546,21 +1565,8 @@ export function createLanguagesNamespace(
                 }
             }) as unknown as vscode.Disposable;
         },
-        registerHoverProvider: (
-            selector: vscode.DocumentSelector,
-            provider: vscode.HoverProvider,
-        ): vscode.Disposable => {
-            const registration: IHoverRegistration = { selector, provider };
-            hoverRegistrations.push(registration);
-            if (hoverRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = hoverRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    hoverRegistrations.splice(idx, 1);
-                    if (hoverRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
-        },
+        registerHoverProvider: (selector: vscode.DocumentSelector, provider: vscode.HoverProvider): vscode.Disposable =>
+            registerByHandle(hoverProviders, "hover", selector, { selector, provider }),
         registerReferenceProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.ReferenceProvider,
@@ -1698,7 +1704,6 @@ export function createLanguagesNamespace(
         inlineCompletionRegistrations,
         foldingRegistrations,
         definitionRegistrations,
-        hoverRegistrations,
         referenceRegistrations,
         signatureHelpRegistrations,
         formattingRegistrations,

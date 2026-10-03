@@ -58,6 +58,7 @@ import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
+import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
     type IWireClipboardText,
     type IWireColorTheme,
@@ -83,6 +84,8 @@ import {
     parseWireEditorEdits,
     parseWireFileDecorations,
     parseWireInputBoxRequest,
+    parseWireLanguageProviderRegistration,
+    parseWireLanguageProviderUnregistration,
     parseWireOutputAppend,
     parseWireOutputShow,
     parseWireProgressEnd,
@@ -604,8 +607,6 @@ export class ExtensionHost extends Disposable {
     private foldingSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные definition-провайдеры (см. `languages.updateSubscriptions`). */
     private definitionSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные hover-провайдеры (см. `languages.updateSubscriptions`). */
-    private hoverSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные references-провайдеры (см. `languages.updateSubscriptions`). */
     private referencesSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные провайдеры подсказки параметров (см. `languages.updateSubscriptions`). */
@@ -676,6 +677,12 @@ export class ExtensionHost extends Disposable {
     // Stryker disable next-line ArrayDeclaration: начальный список наблюдаем только через `hasTextContentProvider(scheme)`, а мутант подкладывает в него строку, которая схемой ресурса не бывает — отличить её от пустого списка нечем
     private textContentSchemesValue: readonly string[] = [];
     private readonly textContentChangeListeners: ((uri: Uri) => void)[] = [];
+    /**
+     * Языковые провайдеры субпроцесса, переехавшие в реестр ядра (`languages.register`),
+     * по handle. Потребитель — `LanguageFeaturesAdapter`.
+     */
+    private readonly languageProviders = new Map<number, IWireLanguageProviderRegistration>();
+    private readonly languageProvidersListeners: (() => void)[] = [];
     /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */
     private readonly foldingProvidersChangedListeners: (() => void)[] = [];
     private readonly completionTriggerCharactersListeners: ((characters: readonly string[]) => void)[] = [];
@@ -1392,26 +1399,27 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса hover'ы для позиции курсора
-     * (`languages.provideHover`). Возвращает `[]`, если субпроцесса нет, никто
-     * не зарегистрировал провайдеры, документ слишком большой или расширение не
-     * ответило за `hoverTimeoutMs`. Подключается в `EditorService.hoverSource`
-     * (wiring в module/харнессе).
+     * Запрашивает у hover-провайдера субпроцесса `handle` hover для позиции
+     * курсора (`languages.provideHover`). Возвращает `undefined`, если
+     * субпроцесса нет, документ слишком большой или расширение не ответило за
+     * `hoverTimeoutMs`. Зовёт его прокси, который `LanguageFeaturesAdapter`
+     * держит в реестре ядра.
      */
-    public async provideHover(req: IHoverRequest): Promise<readonly ICoreHover[]> {
+    public async provideHover(handle: number, req: IHoverRequest): Promise<ICoreHover | undefined> {
         const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null || !this.hoverSubscribed) return [];
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return undefined;
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping hover: document too large", {
                 uri: req.uri,
                 length: req.text.length,
             });
-            return [];
+            return undefined;
         }
         return requestHover(
             (method, params) => rpc.request(method, params),
             {
+                handle,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -1658,6 +1666,31 @@ export class ExtensionHost extends Disposable {
                 if (idx >= 0) this.completionTriggerCharactersListeners.splice(idx, 1);
             },
         };
+    }
+
+    // ─── Языковые провайдеры (мост под ILanguageFeaturesService) ──────────────
+
+    /**
+     * Языковые провайдеры, объявленные субпроцессом (`languages.register`).
+     * Потребитель — адаптер, регистрирующий их прокси в реестре ядра.
+     */
+    public getLanguageProviders(): readonly IWireLanguageProviderRegistration[] {
+        return [...this.languageProviders.values()];
+    }
+
+    /** Состав провайдеров изменился: регистрация, снятие или смерть субпроцесса. */
+    public onLanguageProvidersChanged(cb: () => void): IDisposable {
+        this.languageProvidersListeners.push(cb);
+        return {
+            dispose: (): void => {
+                const idx = this.languageProvidersListeners.indexOf(cb);
+                if (idx >= 0) this.languageProvidersListeners.splice(idx, 1);
+            },
+        };
+    }
+
+    private fireLanguageProvidersChanged(): void {
+        for (const cb of [...this.languageProvidersListeners]) cb();
     }
 
     // ─── Провайдеры ФС расширений (мост под IFileSystemProviderRegistry) ──────
@@ -2022,7 +2055,6 @@ export class ExtensionHost extends Disposable {
                 hasCompletionProviders?: unknown;
                 hasFoldingProviders?: unknown;
                 hasDefinitionProviders?: unknown;
-                hasHoverProviders?: unknown;
                 hasReferenceProviders?: unknown;
                 completionTriggerCharacters?: unknown;
                 hasSignatureHelpProviders?: unknown;
@@ -2042,7 +2074,6 @@ export class ExtensionHost extends Disposable {
                 }
             }
             this.definitionSubscribed = p.hasDefinitionProviders === true;
-            this.hoverSubscribed = p.hasHoverProviders === true;
             this.referencesSubscribed = p.hasReferenceProviders === true;
             this.signatureHelpSubscribed = p.hasSignatureHelpProviders === true;
             this.formattingSubscribed = p.hasFormattingProviders === true;
@@ -2068,6 +2099,21 @@ export class ExtensionHost extends Disposable {
             // уже после открытия файла): просим пере-пересчитать фолды открытых
             // редакторов, иначе провайдерские области не подъедут до первой правки.
             if (foldingBefore !== this.foldingSubscribed) this.fireFoldingProvidersChanged();
+        });
+        // Языковые провайдеры, переехавшие в реестр ядра: субпроцесс объявляет
+        // каждого с handle и селектором, ядро само решает, кого спрашивать.
+        rpc.handleNotification("languages.register", (params) => {
+            const registration = parseWireLanguageProviderRegistration(params);
+            // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` до события — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+            if (registration === null) return;
+            this.languageProviders.set(registration.handle, registration);
+            this.fireLanguageProvidersChanged();
+        });
+        rpc.handleNotification("languages.unregister", (params) => {
+            const unregistration = parseWireLanguageProviderUnregistration(params);
+            // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` до события — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+            if (unregistration === null || !this.languageProviders.delete(unregistration.handle)) return;
+            this.fireLanguageProvidersChanged();
         });
         // Субпроцесс объявляет схемы, для которых расширения зарегистрировали
         // FileSystemProvider (у встроенного git — `git:`). Ядро по ним читает
@@ -2472,21 +2518,25 @@ export class ExtensionHost extends Disposable {
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
         this.completionSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed ниже
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed ниже
         this.inlineCompletionSubscribed = false;
         this.foldingSubscribed = false;
         this.definitionSubscribed = false;
         // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
-        this.hoverSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed строкой выше
         this.referencesSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed выше
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed выше
         this.signatureHelpSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed выше
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed выше
         this.formattingSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и hoverSubscribed выше
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed выше
         this.codeActionsSubscribed = false;
         this.documentSyncSubscribed = false;
+        // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из
+        // реестра ядра, и запросы к мёртвым handle не уйдут.
+        if (this.languageProviders.size > 0) {
+            this.languageProviders.clear();
+            this.fireLanguageProvidersChanged();
+        }
         this.pendingDidChange.clear();
         // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.
         for (const handle of this.activeProgressHandles) this.progressSink?.end(handle);

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
-import { matchDocumentSelector } from "./documentSelector.ts";
+import { matchDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import { DocumentRegistry } from "./extHostDocuments.ts";
-import { Uri } from "./vscodeTypes.ts";
+import { RelativePattern, Uri } from "./vscodeTypes.ts";
 
 function doc(fileName: string, languageId: string) {
     const registry = new DocumentRegistry();
@@ -65,5 +65,34 @@ describe("matchDocumentSelector", () => {
 
     it("пустой фильтр не матчит", () => {
         expect(matchDocumentSelector({} as vscode.DocumentFilter, editorconfig)).toBe(false);
+    });
+});
+
+describe("toWireLanguageFilters", () => {
+    it("строка → { language }, одиночный фильтр → массив из одного", () => {
+        expect(toWireLanguageFilters("typescript")).toEqual([{ language: "typescript" }]);
+        expect(toWireLanguageFilters({ language: "ts", scheme: "file" })).toEqual([{ language: "ts", scheme: "file" }]);
+    });
+
+    it("массив разворачивается поэлементно, пустые поля не появляются", () => {
+        expect(toWireLanguageFilters(["ini", { scheme: "untitled" }, { pattern: "**/*.json" }])).toEqual([
+            { language: "ini" },
+            { scheme: "untitled" },
+            { pattern: "**/*.json" },
+        ]);
+    });
+
+    it("RelativePattern → { base: fsPath, pattern }", () => {
+        const pattern = new RelativePattern(Uri.file("/home/u/proj"), "*.json") as unknown as vscode.RelativePattern;
+        expect(toWireLanguageFilters({ pattern })).toEqual([{ pattern: { base: "/home/u/proj", pattern: "*.json" } }]);
+    });
+
+    it("notebookType и exclusive вне активной поверхности читаются структурно", () => {
+        const filter = { language: "python", notebookType: "jupyter", exclusive: true } as vscode.DocumentFilter;
+        expect(toWireLanguageFilters(filter)).toEqual([
+            { language: "python", notebookType: "jupyter", exclusive: true },
+        ]);
+        const junk = { language: "python", notebookType: 1, exclusive: "yes" } as unknown as vscode.DocumentFilter;
+        expect(toWireLanguageFilters(junk)).toEqual([{ language: "python" }]);
     });
 });

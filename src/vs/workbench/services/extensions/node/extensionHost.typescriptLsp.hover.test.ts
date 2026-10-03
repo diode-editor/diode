@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideHovers,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
@@ -95,9 +99,7 @@ describe("ExtensionHost — hover от стокового typescript-language-se
 
             // Каретка на `answer` — ждём от настоящего tsserver его тип.
             const hovers = await until("hover над `answer`", async () => {
-                const source = harness.group.hoverSource;
-                if (source === undefined) return null;
-                const found: readonly ICoreHover[] = await source({
+                const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: MAIN_TS,

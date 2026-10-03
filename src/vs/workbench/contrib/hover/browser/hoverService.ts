@@ -1,6 +1,8 @@
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -10,6 +12,7 @@ import { EditorServiceDIToken } from "../../../services/editor/browser/editorSer
 import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
+import { getHovers } from "./getHover.ts";
 import type { HoverComponent } from "./hoverComponent.ts";
 import { HoverComponentDIToken } from "./hoverComponent.ts";
 
@@ -49,13 +52,18 @@ export function stripMarkdown(value: string): string {
 
 /**
  * Логика hover'а. По команде (`editor.action.showHover` / Ctrl+K Ctrl+I)
- * запрашивает hover'ы у `EditorService.hoverSource` (провайдеры расширений
- * через host) для позиции каретки и показывает попап {@link HoverComponent}:
+ * запрашивает hover'ы у подошедших документу провайдеров реестра
+ * `ILanguageFeaturesService.hoverProvider` для позиции каретки и показывает попап {@link HoverComponent}:
  * по блоку на провайдера, блоки разделяются линией (VS Code мержит hover'ы
  * так же). Закрывается по Escape, правке, движению каретки и уходу фокуса.
  */
 export class HoverService extends Disposable implements IContextKeyContributor {
-    public static dependencies = [HoverComponentDIToken, EditorServiceDIToken, FocusTrackerDIToken] as const;
+    public static dependencies = [
+        HoverComponentDIToken,
+        EditorServiceDIToken,
+        FocusTrackerDIToken,
+        LanguageFeaturesServiceDIToken,
+    ] as const;
 
     /** Guard от устаревших ответов: пока ходили за hover'ом, запрос мог смениться. */
     private readonly latest = new LatestRequest();
@@ -65,6 +73,7 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         private readonly component: HoverComponent,
         private readonly group: EditorService,
         focusTracker: FocusTracker,
+        private readonly languageFeatures: ILanguageFeaturesService,
     ) {
         super();
         // Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец.
@@ -97,18 +106,16 @@ export class HoverService extends Disposable implements IContextKeyContributor {
 
     /**
      * Запрашивает hover'ы для позиции каретки и показывает попап. No-op, если
-     * нет активного редактора, источника, провайдеры ничего не вернули или
-     * каретка вне вьюпорта.
+     * нет активного редактора, провайдеры ничего не вернули или каретка вне
+     * вьюпорта. Документ без подошедших провайдеров запросов не порождает.
      */
     public async showHover(): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
-        const source = this.group.hoverSource;
-        if (source === undefined) return;
 
         const caret = editor.viewState.selections[0].active;
         const ticket = this.latest.start();
-        const hovers = await source({
+        const hovers = await getHovers(this.languageFeatures.hoverProvider, editor, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             text: editor.getText(),
