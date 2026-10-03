@@ -46,11 +46,13 @@ describe("indentLines – insertSpaces=true", () => {
         expect(state.document.getText()).toBe("    hello");
     });
 
-    it("inserts spaces at cursor position mid-line", () => {
+    it("добирает пробелами до табстопа, а не вставляет tabSize штук", () => {
         const state = createState("ab", { insertSpaces: true, tabSize: 2 });
         state.selections = [createCursorSelection(0, 1)];
         state.indentLines();
-        expect(state.document.getText()).toBe("a  b");
+        // Каретка на колонке 1, табстоп — колонка 2: один пробел, не два.
+        expect(state.document.getText()).toBe("a b");
+        expect(state.selections[0].active).toEqual({ line: 0, character: 2 });
     });
 });
 
