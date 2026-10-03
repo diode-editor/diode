@@ -33,7 +33,7 @@ export interface IEditorPaneOverrides {
  * же, как `EditorService.createPaneForModel`, и отдаёт
  * {@link TextEditorPane} — сценарии работают с единой поверхностью пары.
  */
-export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEditorPane {
+export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEditorPane<TextFileModel> {
     const themeService = overrides.themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const model = new TextFileModel(
         overrides.languageService ?? NULL_LANGUAGE_SERVICE,

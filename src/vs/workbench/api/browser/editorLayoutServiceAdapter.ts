@@ -6,7 +6,7 @@ import { clampPositionToDocument } from "../../../editor/common/core/iPosition.t
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
-import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
+import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { IEditorLayoutService } from "../common/iEditorLayoutService.ts";
@@ -88,7 +88,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
         const opened = this.editors.activeGroup;
         const editor = opened.activePane;
-        if (editor instanceof TextEditorPane && params.selection !== undefined) {
+        if (isTextEditorPane(editor) && params.selection !== undefined) {
             const s = params.selection;
             // Позиции приехали от расширения и про наш текст ничего не знают:
             // `showTextDocument` со ставшей неверной позицией (устаревший индекс
