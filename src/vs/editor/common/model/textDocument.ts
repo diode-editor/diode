@@ -1,4 +1,4 @@
-import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { Emitter } from "../../../base/common/event.ts";
 import { detectEndOfLine, EndOfLine, eolToSequence } from "../core/endOfLine.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import { comparePositions } from "../core/iPosition.ts";
@@ -19,9 +19,12 @@ import type { IApplyEditsResult, ITextDocument } from "./iTextDocument.ts";
  */
 export class TextDocument implements ITextDocument {
     private lines: string[];
-    private contentChangeListeners: ((change: IDocumentContentChange) => void)[] = [];
-    private languageChangeListeners: ((change: IDocumentLanguageChange) => void)[] = [];
-    private eolChangeListeners: (() => void)[] = [];
+    private readonly onDidChangeContentEmitter = new Emitter<IDocumentContentChange>();
+    public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;
+    private readonly onDidChangeLanguageEmitter = new Emitter<IDocumentLanguageChange>();
+    public readonly onDidChangeLanguage = this.onDidChangeLanguageEmitter.event;
+    private readonly onDidChangeEolEmitter = new Emitter<void>();
+    public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
     private innerVersionId = 0;
     private eolValue: EndOfLine;
     private languageIdValue: string;
@@ -52,19 +55,7 @@ export class TextDocument implements ITextDocument {
         if (languageId === this.languageIdValue) return;
         const oldLanguageId = this.languageIdValue;
         this.languageIdValue = languageId;
-        for (const listener of this.languageChangeListeners) {
-            listener({ oldLanguageId, newLanguageId: languageId });
-        }
-    }
-
-    public onDidChangeLanguage(listener: (change: IDocumentLanguageChange) => void): IDisposable {
-        this.languageChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.languageChangeListeners.indexOf(listener);
-                if (i >= 0) this.languageChangeListeners.splice(i, 1);
-            },
-        };
+        this.onDidChangeLanguageEmitter.fire({ oldLanguageId, newLanguageId: languageId });
     }
 
     public get lineCount(): number {
@@ -92,17 +83,7 @@ export class TextDocument implements ITextDocument {
     public setEol(eol: EndOfLine): void {
         if (eol === this.eolValue) return;
         this.eolValue = eol;
-        for (const listener of [...this.eolChangeListeners]) listener();
-    }
-
-    public onDidChangeEol(listener: () => void): IDisposable {
-        this.eolChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.eolChangeListeners.indexOf(listener);
-                if (i >= 0) this.eolChangeListeners.splice(i, 1);
-            },
-        };
+        this.onDidChangeEolEmitter.fire();
     }
 
     public setText(text: string): void {
@@ -129,16 +110,6 @@ export class TextDocument implements ITextDocument {
         }
         result.push(this.lines[end.line].substring(0, end.character));
         return result.join("\n");
-    }
-
-    public onDidChangeContent(listener: (change: IDocumentContentChange) => void): IDisposable {
-        this.contentChangeListeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.contentChangeListeners.indexOf(listener);
-                if (i >= 0) this.contentChangeListeners.splice(i, 1);
-            },
-        };
     }
 
     public applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult {
@@ -281,7 +252,7 @@ export class TextDocument implements ITextDocument {
     }
 
     private fireChange(change: IDocumentContentChange): void {
-        for (const listener of this.contentChangeListeners) listener(change);
+        this.onDidChangeContentEmitter.fire(change);
     }
 
     private assertValidLineIndex(lineIndex: number): void {
