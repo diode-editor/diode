@@ -26,7 +26,8 @@ import { extensionRootPath } from "./iExtensionEntry.ts";
  *   (он владеет раскладкой user-data) — субпроцесс их не выдумывает и не создаёт.
  * - `host.deactivateExtension({ id })` -> `null`. Вызывает `deactivate()` +
  *   disposes `context.subscriptions`. Idempotent.
- * - `host.shutdown()` -> `null`. Снимает все расширения и инициирует exit.
+ * - `host.shutdown()` -> `null`. Снимает все расширения (`deactivate()`); выход
+ *   доводит родитель сигналом сразу по ответу.
  * - `extensions.catalog` / `extensions.activated` (уведомления) — состав
  *   установленных расширений и их активность для `vscode.extensions`.
  * - `secrets.changed` (уведомление) — `SecretStorage.onDidChange`.
@@ -172,19 +173,26 @@ export function runExtensionHostSubprocess(): void {
         return null;
     });
 
+    // Канал здесь не закрываем: ответ на запрос уходит ПОСЛЕ обработчика, и
+    // закрытый RPC его бы проглотил — родитель ждал бы свой тайм-аут впустую.
+    // Выход доводит родитель (SIGTERM сразу по ответу) или `disconnect`.
     rpc.handleRequest("host.shutdown", async (): Promise<unknown> => {
-        await shutdown();
+        await deactivateAll();
         return null;
     });
 
     const shutdownOnce = (): void => {
-        void shutdown().finally(() => process.exit(0));
+        void deactivateAll().finally(() => {
+            rpc.dispose();
+            channel.dispose();
+            process.exit(0);
+        });
     };
     process.once("disconnect", shutdownOnce);
     process.once("SIGTERM", shutdownOnce);
     process.once("SIGINT", shutdownOnce);
 
-    async function shutdown(): Promise<void> {
+    async function deactivateAll(): Promise<void> {
         const all = [...extensions.values()];
         extensions.clear();
         extensionExports.clear();
@@ -195,8 +203,6 @@ export function runExtensionHostSubprocess(): void {
                 // глотаем — мы уже завершаемся
             }
         }
-        rpc.dispose();
-        channel.dispose();
     }
 
     // Сигнал готовности parent'у: можно слать activateExtension.
