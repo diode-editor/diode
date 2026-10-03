@@ -45,6 +45,18 @@ await …; if (ticket.isStale()) return;` — а не рукописным сч�
 каждой фиче. Остальные примитивы upstream (`Delayer`, `Throttler`, `createCancelablePromise`) не
 заводим, пока нет потребителя.
 
+## События: `event.ts`
+`vs/base/common/event.ts` — `Emitter<T>`/`Event<T>` с именами эталона vscode, но свой узкий код (шим, план миграции — [../TODO/Events.md](../TODO/Events.md)). Событие — функция подписки `(listener) => IDisposable`; владелец держит эмиттер приватным и отдаёт поле `event`:
+
+```ts
+private readonly onDidChangeEmitter = new Emitter<string>();
+public readonly onDidChange = this.onDidChangeEmitter.event;
+```
+
+Гарантии: подписавшийся во время `fire` в нём не зовётся (copy-on-write, без копии на `fire`); снятый во время `fire` и ещё не достигнутый — не зовётся; исключение слушателя уходит в `onListenerError ?? onUnexpectedError`, остальные событие получают; `dispose()` снимает всех; хуки `onWillAddFirstListener`/`onDidRemoveLastListener`. Комбинаторы — `Event.None`, `Event.once`, остальные по мере надобности. Не берём от эталона очередь доставки (вложенный `fire` идёт вглубь), монитор утечек и `thisArgs`/`disposables` в сигнатуре.
+
+`onUnexpectedError` (`errors.ts`) в проде уходит в лог (`main.ts`, субпроцесс extension host'а), в тестах — роняет тест (см. [../TESTING.md](../TESTING.md)).
+
 ## Вехи старта: `performance.ts`
 
 `mark(name, detail?)` — тонкая обёртка над стандартным `performance.mark` (аналог

@@ -84,6 +84,16 @@ describe("MarkerService", () => {
         expect(listener).toHaveBeenCalledTimes(1);
     });
 
+    it("notifies subscribers when a resource's markers are cleared", () => {
+        const service = new MarkerService();
+        service.changeOne("settings", "/a.json", [warning("w")]);
+        const listener = vi.fn();
+        service.onDidChangeMarkers(listener);
+
+        service.changeOne("settings", "/a.json", []);
+        expect(listener).toHaveBeenCalledExactlyOnceWith(["/a.json"]);
+    });
+
     it("tolerates disposing a subscription twice", () => {
         const service = new MarkerService();
         const subscription = service.onDidChangeMarkers(() => {});

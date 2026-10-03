@@ -1,4 +1,4 @@
-import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { Emitter } from "../../../base/common/event.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { IMarker, IMarkerData, MarkerSeverity } from "./iMarker.ts";
@@ -33,7 +33,9 @@ export interface IMarkerReadFilter {
  */
 export class MarkerService {
     private byOwner = new Map<string, Map<string, IMarker[]>>();
-    private listeners: ((resources: readonly string[]) => void)[] = [];
+    private readonly onDidChangeMarkersEmitter = new Emitter<readonly string[]>();
+    /** Fires with the resources whose markers changed. */
+    public readonly onDidChangeMarkers = this.onDidChangeMarkersEmitter.event;
 
     /**
      * Replaces all markers owned by `owner` for `resource`. Passing an empty
@@ -46,7 +48,7 @@ export class MarkerService {
             if (byResource?.has(resource) !== true) return;
             byResource.delete(resource);
             if (byResource.size === 0) this.byOwner.delete(owner);
-            this.fireChange([resource]);
+            this.onDidChangeMarkersEmitter.fire([resource]);
             return;
         }
 
@@ -58,7 +60,7 @@ export class MarkerService {
             resource,
             markers.map((data) => ({ ...data, owner, resource })),
         );
-        this.fireChange([resource]);
+        this.onDidChangeMarkersEmitter.fire([resource]);
     }
 
     /** Reads markers matching `filter` across all owners/resources. */
@@ -75,20 +77,6 @@ export class MarkerService {
             }
         }
         return result;
-    }
-
-    public onDidChangeMarkers(listener: (resources: readonly string[]) => void): IDisposable {
-        this.listeners.push(listener);
-        return {
-            dispose: () => {
-                const i = this.listeners.indexOf(listener);
-                if (i >= 0) this.listeners.splice(i, 1);
-            },
-        };
-    }
-
-    private fireChange(resources: readonly string[]): void {
-        for (const listener of this.listeners) listener(resources);
     }
 }
 

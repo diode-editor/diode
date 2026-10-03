@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts", "extensions/**/*.test.ts"],
+    // Непредвиденная ошибка (onUnexpectedError — в т.ч. исключение слушателя
+    // Emitter) роняет тест, а не тонет в консоли. См. docs/TESTING.md.
+    setupFiles: ["src/TestUtils/unexpectedErrors.setup.ts"],
     coverage: {
       skipFull: true,
       reportOnFailure: true,

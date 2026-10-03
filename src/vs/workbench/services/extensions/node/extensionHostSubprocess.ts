@@ -2,6 +2,7 @@ import { createRequire, Module, registerHooks } from "node:module";
 import * as path from "node:path";
 
 import { describeRejection } from "../../../../base/common/describeRejection.ts";
+import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { importModule } from "../../../../base/node/importModule.ts";
 import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
@@ -101,6 +102,11 @@ export function runExtensionHostSubprocess(): void {
     // folding-провайдер). Логируем в stderr — host зеркалит его в свой лог-канал.
     process.on("unhandledRejection", (reason: unknown) => {
         console.error(`[ext-host] unhandled rejection in extension code: ${describeRejection(reason)}`);
+    });
+    // Пойманные кодом непредвиденные ошибки (исключение слушателя Emitter) —
+    // тем же путём, с префиксом, по которому host узнаёт свои строки.
+    setUnexpectedErrorHandler((e: unknown) => {
+        console.error(`[ext-host] unexpected error: ${describeRejection(e)}`);
     });
 
     const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
