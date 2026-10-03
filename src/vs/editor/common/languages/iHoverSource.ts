@@ -35,3 +35,11 @@ export interface ICoreHover {
  * hover'а нет.
  */
 export type HoverSource = (request: IHoverRequest) => Promise<readonly ICoreHover[]>;
+
+/**
+ * Один hover-провайдер в реестре `ILanguageFeaturesService.hoverProvider`
+ * (upstream `languages.HoverProvider`). Нет ответа — `undefined`.
+ */
+export interface HoverProvider {
+    provideHover(request: IHoverRequest): Promise<ICoreHover | undefined>;
+}

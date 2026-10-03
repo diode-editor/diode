@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { Uri } from "../../base/common/uri.ts";
 import {
     LanguageConfigurationServiceDIToken,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
@@ -7,6 +8,8 @@ import {
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
+import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
 import {
     LanguageServiceDIToken,
     TokenizationRegistryDIToken,
@@ -41,5 +44,14 @@ describe("tokenizationModule", () => {
         expect(container.get(TokenStyleResolverDIToken)).toBe(NULL_TOKEN_STYLE_RESOLVER);
         expect(container.get(LanguageServiceDIToken)).toBe(NULL_LANGUAGE_SERVICE);
         expect(container.get(LanguageConfigurationServiceDIToken)).toBe(languageConfigurationService);
+    });
+
+    it("реестры языковых провайдеров — один инстанс на контейнер, стартуют пустыми", () => {
+        const { container } = createTestContainer();
+        const service = container.get(LanguageFeaturesServiceDIToken);
+
+        expect(service).toBeInstanceOf(LanguageFeaturesService);
+        expect(container.get(LanguageFeaturesServiceDIToken)).toBe(service);
+        expect(service.hoverProvider.has({ uri: Uri.file("/a.ts"), languageId: "typescript" })).toBe(false);
     });
 });

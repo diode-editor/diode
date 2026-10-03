@@ -35,6 +35,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Крупные задачи
 
+- [~] [LanguageFeaturesRegistry](LanguageFeaturesRegistry.md) — реестр языковых провайдеров в ядре (G2, аналог `ILanguageFeaturesService`): селекторы и score в ядре, прокси провайдеров субпроцесса по handle вместо полей-швов `*Source` на `EditorService` и флагов `languages.updateSubscriptions`; фичи переезжают по одной
 - [ ] [ParityBacklog](ParityBacklog.md) — заход по списку шероховатостей от пользователя (15 пунктов, живой ssh+tmux): диагноз по каждому снят до работы (часть — живым прогоном редактора), разбивка на три волны. Волна 1 — общие механизмы: bulk workspace edit (из-за него «Code action failed»), NLS манифестов (`%java.*%` в палитре), fuzzy+сплит запроса по пробелам (палитра вообще на `includes`), `files.exclude`/`search.exclude`, достижимость биндов (F1 под `tier == 'legacy'` — в tmux редактор остаётся без палитры вовсе)
 - [ ] [Formatting](Formatting.md) — prettier и выбор форматтера (пункт 5 ParityBacklog, охват сужен: сначала prettier). Замерено: TS/JS форматирует tsserver, markdown/json не покрыты никем; провайдер выбирается первым матчащим, `editor.defaultFormatter` нет — отсюда риск конфликта prettier×tsserver
 - [ ] [PreviewEditors](PreviewEditors.md) — режим предпросмотра вкладок (пункт 14 ParityBacklog): нет вовсе. Фаза 1 наша (preview-флаг + замещение + прикалывание правкой/Ctrl+K Enter), курсив в табе и двойной клик дерева требуют PR в tuidom
