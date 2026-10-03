@@ -3,6 +3,7 @@ import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -102,11 +103,11 @@ export class EditorComponent extends Component {
      */
     public foldingOwnedExternally = false;
     /**
-     * Монотонный номер folding-запроса: асинхронный ответ провайдера применяется
-     * только если запрос ещё актуален (не устарел из-за нового пересчёта после
-     * правки). Отсекает гонку sync-indentation ↔ async-provider.
+     * Последний folding-запрос: асинхронный ответ провайдера применяется только
+     * если запрос ещё актуален (не перебит новым пересчётом после правки и
+     * компонент не снят). Отсекает гонку sync-indentation ↔ async-provider.
      */
-    private foldingRequestSeq = 0;
+    private readonly foldingRequest = new LatestRequest();
     private componentDisposed = false;
     /**
      * Редактирующая поверхность этой вью, прикреплённая к модели (см.
@@ -267,6 +268,7 @@ export class EditorComponent extends Component {
         this.register({
             dispose: () => {
                 this.componentDisposed = true;
+                this.foldingRequest.dispose();
                 this.viewStateCursorSubscription?.dispose();
                 this.editorViewState.dispose();
             },
@@ -675,17 +677,17 @@ export class EditorComponent extends Component {
         const source = this.foldingRangeSourceValue;
         if (source === undefined) return;
 
-        // Snapshot request identity: a later recompute (after an edit or a
-        // provider re-registration) bumps the sequence and invalidates this
-        // in-flight request, so a stale async answer never clobbers fresh state.
-        const requestSeq = ++this.foldingRequestSeq;
+        // A later recompute (after an edit or a provider re-registration)
+        // supersedes this in-flight request, so a stale async answer never
+        // clobbers fresh state.
+        const ticket = this.foldingRequest.start();
         void source({
             uri: this.model.uri.toString(),
             languageId: this.model.languageId,
             text: this.model.document.getText(),
         })
             .then((providerRegions) => {
-                if (requestSeq !== this.foldingRequestSeq || this.componentDisposed) return;
+                if (ticket.isStale()) return;
                 if (providerRegions.length === 0) return; // nothing to merge, indentation stays
                 this.applyFoldingRegions(mergeFoldingRegions(indentation, providerRegions), collapsedStarts);
             })

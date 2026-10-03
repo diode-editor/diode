@@ -10,6 +10,7 @@ import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { listRowId } from "../../../../base/common/listRowId.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -180,8 +181,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
     private rowParents = new Map<string, string | null>();
     /** Первая строка результатов — ключ firstMatchFocus (возврат Up в инпуты). */
     private firstRowId: string | null = null;
-    /** Bumped per search so a stale in-flight callback/complete is ignored. */
-    private searchGen = 0;
+    /** Последний поиск: колбэки и complete перебитого поиска игнорируются. */
+    private readonly latestSearch = new LatestRequest();
 
     public constructor(
         private readonly searchService: ITextSearchService,
@@ -514,7 +515,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
     private runSearch(): void {
         this.cancelSearch();
-        const gen = ++this.searchGen;
+        const ticket = this.latestSearch.start();
         this.groups.clear();
         this.rowMeta.clear();
         this.rowParents.clear();
@@ -535,10 +536,10 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
         this.updateCount(true);
         this.handle = this.searchService.search(query, root, (match) => {
-            if (gen === this.searchGen) this.onResult(match, root);
+            if (!ticket.isStale()) this.onResult(match, root);
         });
         void this.handle.complete.then(() => {
-            if (gen === this.searchGen) {
+            if (!ticket.isStale()) {
                 this.flushTreeRebuild();
                 this.updateCount(false);
             }

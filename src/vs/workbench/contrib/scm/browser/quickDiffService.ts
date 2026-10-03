@@ -1,5 +1,6 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
@@ -88,8 +89,8 @@ export class QuickDiffService extends Disposable {
     private readonly originals = new Map<string, string>();
     private activeContentSubscription: IDisposable | null = null;
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
-    /** Монотонный номер пересчёта: устаревший асинхронный ответ не применяется. */
-    private computeSeq = 0;
+    /** Последний пересчёт: устаревший асинхронный ответ не применяется. */
+    private readonly latest = new LatestRequest();
 
     public constructor(
         private readonly editorSource: IQuickDiffEditorSource,
@@ -168,7 +169,7 @@ export class QuickDiffService extends Disposable {
      */
     private async refresh(editor: IQuickDiffEditor | null): Promise<void> {
         if (editor === null) return;
-        const seq = ++this.computeSeq;
+        const ticket = this.latest.start();
 
         if (!this.isEnabled()) {
             editor.setGutterChangeDecorations([]);
@@ -178,7 +179,7 @@ export class QuickDiffService extends Disposable {
         const original = await this.originalText(editor.uri);
         // Пока ходили за оригиналом, мог смениться редактор или прийти новая
         // правка — устаревший ответ не применяем.
-        if (seq !== this.computeSeq) return;
+        if (ticket.isStale()) return;
         if (original === null) {
             editor.setGutterChangeDecorations([]);
             return;

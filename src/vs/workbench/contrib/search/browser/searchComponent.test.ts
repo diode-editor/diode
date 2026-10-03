@@ -355,6 +355,29 @@ describe("SearchComponent", () => {
         expect(render(component).screenToString()).not.toContain("stale.ts");
     });
 
+    it("completion of a superseded search does not end the fresh one", async () => {
+        const completes: ((c: ITextSearchComplete) => void)[] = [];
+        const service: ITextSearchService = {
+            search(): ISearchHandle {
+                return {
+                    complete: new Promise((resolve) => {
+                        completes.push(resolve);
+                    }),
+                    cancel: () => {},
+                };
+            },
+        };
+        const component = make(service, fakeWorkspace(ROOT));
+        typeQuery(component, "foo"); // search #1
+        typeQuery(component, "bar"); // search #2 supersedes #1, still running
+        completes[0]({ matchCount: 0, fileCount: 0, limitHit: false });
+        await vi.runAllTimersAsync();
+        // #2 is still in flight: «No results» would be a lie.
+        const screen = render(component).screenToString();
+        expect(screen).toContain("Searching…");
+        expect(screen).not.toContain("No results");
+    });
+
     it("clears a pending debounce so a cancelled search never spawns", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
