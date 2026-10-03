@@ -85,10 +85,8 @@ import { builtinActions } from "./actions/builtinActions.ts";
 import { withMacKeybindings } from "./actions/macKeybindings.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
-import { DiffEditorPane2 } from "./parts/editor/diffEditorPane2.ts";
 import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
-import { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import {
     type NotificationsComponent,
     NotificationsComponentDIToken,
@@ -402,42 +400,6 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
         this.view.addEventListener("focus", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.view.addEventListener("blur", this.workbenchContextKeys.handleFocusChange, { capture: true });
-        this.editorService.onRequestConfirmClose = (group, index) => {
-            // Диалог предлагает СОХРАНИТЬ, поэтому здесь сохраняемые поверхности
-            // вкладки: сама текстовая панель либо dirty-стороны диффа v2, не
-            // видимые больше нигде (untitled-пара, файл без обычной вкладки).
-            // Координата — (группа, индекс): крестик работает и в неактивной группе.
-            const pane = group.getPane(index);
-            let saveTargets: TextEditorPane[];
-            if (pane instanceof TextEditorPane) saveTargets = [pane];
-            else if (pane instanceof DiffEditorPane2) saveTargets = this.editorService.dirtyExclusiveDiffSides(pane);
-            /* v8 ignore start -- defensive: прочие вкладки не бывают изменёнными и сюда не попадают */ else return;
-            if (saveTargets.length === 0) return;
-            /* v8 ignore stop */
-            this.showConfirmSaveDialog(saveTargets.map((target) => target.label).join(", "), {
-                onSave: () => {
-                    // Explicit "Save" while closing a modified tab: honour the
-                    // user's edits even against an external change (overwrite),
-                    // so choosing Save never silently drops their work. A side
-                    // that cannot be saved (untitled without a path — "no-file")
-                    // keeps the tab open instead of silently dropping the text.
-                    void (async () => {
-                        for (const target of saveTargets) {
-                            if ((await target.save({ overwrite: true })) !== "saved") return;
-                        }
-                        group.closeTab(index);
-                    })();
-                },
-                onDontSave: () => {
-                    group.closeTab(index);
-                },
-                /* v8 ignore start -- placeholder no-op: cancelling keeps the editor open, nothing to do */
-                onCancel: () => {
-                    // noop
-                },
-                /* v8 ignore stop */
-            });
-        };
         // Применяем сохранённый layout до первого кадра (run() идёт после mount()).
         // Workspace-стор уже открыт: setWorkspaceFolder вызывается до mount().
         // restoreLayout также синхронизирует истину видимости панели в PanelService.
@@ -594,12 +556,5 @@ export class WorkbenchComponent extends Component {
 
     public focusEditor(): void {
         this.editorService.focusEditor();
-    }
-
-    public showConfirmSaveDialog(
-        filename: string,
-        callbacks: { onSave: () => void; onDontSave: () => void; onCancel: () => void },
-    ): void {
-        this.dialogService.showConfirmSaveDialog(filename, callbacks);
     }
 }

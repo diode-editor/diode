@@ -161,7 +161,7 @@ describe("EditorService", () => {
 
             ctrl.newUntitled();
             ctrl.newUntitled();
-            ctrl.closeTab(0);
+            ctrl.activeGroup.closeTab(0);
             ctrl.newUntitled();
 
             expect(ctrl.getEditors().map((e) => ctrl.displayName(e))).toEqual(["Untitled-2", "Untitled-3"]);
@@ -238,7 +238,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
 
-            ctrl.closeTab(0);
+            ctrl.activeGroup.closeTab(0);
 
             expect(ctrl.editorCount).toBe(0);
             expect(ctrl.activeIndex).toBe(-1);
@@ -252,7 +252,7 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("c.ts", "c"));
             ctrl.activateTab(1);
 
-            ctrl.closeTab(1);
+            ctrl.activeGroup.closeTab(1);
 
             expect(ctrl.editorCount).toBe(2);
             expect(ctrl.activeIndex).toBe(0);
@@ -264,7 +264,7 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
 
-            ctrl.closeTab(1);
+            ctrl.activeGroup.closeTab(1);
 
             expect(ctrl.editorCount).toBe(1);
             expect(ctrl.activeIndex).toBe(0);
@@ -277,7 +277,7 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("b.ts", "b"));
             ctrl.activateTab(1);
 
-            ctrl.closeTab(0);
+            ctrl.activeGroup.closeTab(0);
 
             expect(ctrl.editorCount).toBe(1);
             expect(ctrl.activeIndex).toBe(0);
@@ -408,7 +408,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             openThree(ctrl); // MRU: c, b, a
 
-            ctrl.closeTab(2); // close active c → b becomes active
+            ctrl.activeGroup.closeTab(2); // close active c → b becomes active
             expect(ctrl.getActiveEditor()?.fileName).toBe("b.ts");
             expect(mruNames(ctrl)).toEqual(["b.ts", "a.ts"]);
 
@@ -452,7 +452,7 @@ describe("EditorService", () => {
             expect(await item.save()).toBe(true);
             expect(editor.isModified).toBe(false);
 
-            ctrl.closeTab(0);
+            ctrl.activeGroup.closeTab(0);
             expect(item.isStillDirty()).toBe(false);
         });
 
@@ -761,7 +761,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
 
-            ctrl.closeTab(99);
+            ctrl.activeGroup.closeTab(99);
 
             expect(ctrl.editorCount).toBe(1);
             expect(ctrl.activeIndex).toBe(0);
@@ -775,7 +775,7 @@ describe("EditorService", () => {
             ctrl.activateTab(0);
 
             // index 2 is after the active index 0 → active index is untouched.
-            ctrl.closeTab(2);
+            ctrl.activeGroup.closeTab(2);
 
             expect(ctrl.editorCount).toBe(2);
             expect(ctrl.activeIndex).toBe(0);

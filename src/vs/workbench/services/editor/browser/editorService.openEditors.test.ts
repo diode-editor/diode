@@ -135,7 +135,7 @@ describe("EditorService — список открытых редакторов �
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
         const closed = ctrl.getPanes()[0];
-        ctrl.closeTab(0);
+        ctrl.activeGroup.closeTab(0);
         const activeBefore = ctrl.activeGroup.activePane;
 
         ctrl.revealPane(closed);

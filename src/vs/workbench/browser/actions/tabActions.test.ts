@@ -42,11 +42,17 @@ interface GroupStub {
     activeGroup?: TabGroupStub;
     /** Полоса групп — по ней резолвится явный адрес `(groupId, index)` из меню. */
     groups?: readonly TabGroupStub[];
-    /** Единая формула диалога закрытия; в стабе — прямо по isModified вкладки. */
-    needsCloseConfirm?: (pane: { isModified: boolean }) => boolean;
-    /** Координата confirm-close — (группа, индекс). */
-    onRequestConfirmClose?: (group: unknown, index: number) => void;
+    /**
+     * Единая точка закрытия с подтверждением; в стабе — сразу закрытие по
+     * группе (диалоги проверяют харнесс-тесты `EditorService.closeEditor`).
+     */
+    closeEditor?: (group: TabGroupStub, index: number) => Promise<boolean>;
 }
+
+const closeEditorStub = (group: TabGroupStub, index: number): Promise<boolean> => {
+    group.closeTab(index);
+    return Promise.resolve(true);
+};
 
 function setupActionTest(group: GroupStub) {
     const commands = new CommandRegistry();
@@ -224,7 +230,7 @@ describe("TabActions", () => {
             activateTab: vi.fn(),
             closeTab: vi.fn(),
             activeGroup,
-            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
+            closeEditor: closeEditorStub,
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);
@@ -257,7 +263,7 @@ describe("TabActions", () => {
             closeTab: vi.fn(),
             activeGroup,
             groups: [activeGroup, otherGroup],
-            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
+            closeEditor: closeEditorStub,
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);
@@ -269,58 +275,6 @@ describe("TabActions", () => {
 
         expect(otherClose).toHaveBeenCalledWith(1);
         expect(activeClose).not.toHaveBeenCalled();
-    });
-
-    it("closeActiveEditor routes a modified editor through the confirm-close dialog", () => {
-        const closeTab = vi.fn();
-        const onRequestConfirmClose = vi.fn();
-        const activeGroup: TabGroupStub = {
-            activeIndex: 2,
-            closeTab,
-            getPane: () => ({ isModified: true }),
-        };
-        const group: GroupStub = {
-            activeIndex: 2,
-            editorCount: 3,
-            activateTab: vi.fn(),
-            closeTab: vi.fn(),
-            activeGroup,
-            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
-            onRequestConfirmClose,
-        };
-
-        const { commands, keybindings, accessor } = setupActionTest(group);
-        registerAction(commands, keybindings, accessor, closeActiveEditorAction);
-
-        commands.execute("workbench.action.closeActiveEditor");
-
-        expect(onRequestConfirmClose).toHaveBeenCalledWith(activeGroup, 2);
-        expect(closeTab).not.toHaveBeenCalled();
-    });
-
-    it("closeActiveEditor closes directly when modified but no confirm handler is wired", () => {
-        const closeTab = vi.fn();
-        const activeGroup: TabGroupStub = {
-            activeIndex: 0,
-            closeTab,
-            getPane: () => ({ isModified: true }),
-        };
-        const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 1,
-            activateTab: vi.fn(),
-            closeTab: vi.fn(),
-            activeGroup,
-            needsCloseConfirm: (pane: { isModified: boolean }) => pane.isModified,
-            // onRequestConfirmClose intentionally absent → else branch.
-        };
-
-        const { commands, keybindings, accessor } = setupActionTest(group);
-        registerAction(commands, keybindings, accessor, closeActiveEditorAction);
-
-        commands.execute("workbench.action.closeActiveEditor");
-
-        expect(closeTab).toHaveBeenCalledWith(0);
     });
 
     it("closeActiveEditor is a no-op when the group is empty", () => {
@@ -336,6 +290,7 @@ describe("TabActions", () => {
             activateTab: vi.fn(),
             closeTab: vi.fn(),
             activeGroup,
+            closeEditor: closeEditorStub,
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);
@@ -355,6 +310,7 @@ describe("TabActions", () => {
             activateTab: vi.fn(),
             closeTab: vi.fn(),
             activeGroup,
+            closeEditor: closeEditorStub,
             groups: [activeGroup],
         };
 

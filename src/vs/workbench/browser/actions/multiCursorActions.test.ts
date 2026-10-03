@@ -125,7 +125,7 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
 
     it("без активного редактора все команды — тихий no-op", () => {
         const { commands, service } = openEditor("foo\nfoo");
-        service.closeTab(0);
+        service.activeGroup.closeTab(0);
         for (const action of MULTI_CURSOR_ACTIONS) {
             expect(() => commands.execute(action.id)).not.toThrow();
         }

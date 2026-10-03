@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 
 import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 
@@ -139,7 +140,7 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
     });
 
     it("a modal confirm dialog swallows Ctrl+B", () => {
-        h.workbench.showConfirmSaveDialog("alpha.txt", {
+        h.container.get(DialogServiceDIToken).showConfirmSaveDialog("alpha.txt", {
             onSave: () => {},
             onDontSave: () => {},
             onCancel: () => {},

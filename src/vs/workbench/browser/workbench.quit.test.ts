@@ -228,8 +228,8 @@ describe("Workbench quit with save dialog", () => {
 
         // Tabs 1 and 2 disappear before we answer, so their snapshotted items are now stale.
         const editorGroup = (workbench as unknown as { editorService: EditorService }).editorService;
-        editorGroup.closeTab(2);
-        editorGroup.closeTab(1);
+        editorGroup.activeGroup.closeTab(2);
+        editorGroup.activeGroup.closeTab(1);
 
         // Advancing the sequence walks past the now-missing editors and quits at the end.
         dialog.onDontSave?.();
@@ -292,7 +292,7 @@ describe("Workbench close-tab confirm flow", () => {
         expect(tabStrip).not.toBeNull();
     });
 
-    it("Don't Save on the close-tab dialog closes the tab", () => {
+    it("Don't Save on the close-tab dialog closes the tab", async () => {
         const { testApp, workbench, accessor } = createTestContext();
         workbench.openFile("/tmp/close-confirm-c.txt");
         workbench.openFile("/tmp/close-confirm-d.txt");
@@ -307,6 +307,7 @@ describe("Workbench close-tab confirm flow", () => {
         testApp.sendKey("Ctrl+W");
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         dialog.onDontSave?.();
+        await tick();
         testApp.render();
 
         expect(tabStrip.getItemElements()).toHaveLength(1);

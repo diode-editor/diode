@@ -89,7 +89,6 @@ bootstrap-последовательность приложения (mount → a
 | Хук | Кто ставит | Куда уходит |
 |---|---|---|
 | `EditorService.canAddGroupHook`, `focusGroupContentHook` | `EditorPartComponent` | E1 (группы и полоса групп — одна сущность, как `EditorParts`) |
-| `EditorService.onRequestConfirmClose` | `WorkbenchComponent` | E8 (confirm-close в одной точке) |
 | `EditorService.onOpenFailed` | `OpenFailureNotificationContribution` | C1 (перевод `?:`-хуков на `Emitter`) |
 
 ### Late-init `attach*`
@@ -839,8 +838,8 @@ hide-toggle (`isHiddenByDefault`). См.
     focusable у пустой группы)]: по `group.onDidChangeEditors` вставляет view
     активной вкладки и перерисовывает табы (метки с минимальной разводкой тёзок
     пер-стрип, иконки, маркер изменённости — `getTabStripStyles`); клики по
-    табам возвращает в группу (`activateTab`/`closeTab`, закрытие «грязной»
-    вкладки — `EditorService.onRequestConfirmClose(group, index)`); любой фокус
+    табам возвращает в группу (`activateTab`; крестик — `EditorService.closeEditor(group,
+    index)`, тот же confirm-флоу, что у Ctrl+W); любой фокус
     в поддереве капчурится → `notifyGroupFocused` (клик мышью делает группу
     активной). Разводка меток тёзок вынесена в `parts/editor/tabLabels.ts`
     (`computeTabLabels`) — общая с оверлеем переключателя.
