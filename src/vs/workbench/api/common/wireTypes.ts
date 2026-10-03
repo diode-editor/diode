@@ -1705,7 +1705,9 @@ export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireWorkspaceE
 }
 
 function parseWireWorkspaceEditOp(raw: unknown): IWireWorkspaceEditOp | null {
-    if (typeof raw !== "object" || raw === null) return null;
+    // Достаточно отсечь то, у чего вообще нет свойств: у примитива `kind` не
+    // совпадёт ни с одним видом, и операция выпадет сама.
+    if (raw === null || raw === undefined) return null;
     const obj = raw as Record<string, unknown>;
     if (obj.kind === "text") {
         if (typeof obj.resource !== "string") return null;
