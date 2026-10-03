@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 
 import { FileSearchService } from "./fileSearchService.ts";
 
@@ -24,7 +25,7 @@ describe("FileSearchService — notify / onIndexChanged", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-filesearch-notify-" });
-        service = new FileSearchService();
+        service = new FileSearchService(NULL_CONFIGURATION_SERVICE);
     });
 
     afterEach(() => {
@@ -138,7 +139,7 @@ describe("FileSearchService — walk branches", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-filesearch-notify-" });
-        service = new FileSearchService();
+        service = new FileSearchService(NULL_CONFIGURATION_SERVICE);
     });
 
     afterEach(() => {

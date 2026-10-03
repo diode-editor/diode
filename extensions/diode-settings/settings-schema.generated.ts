@@ -133,6 +133,22 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Move files to the OS trash when available; when disabled, delete permanently.",
     },
     {
+        key: "files.exclude",
+        type: "object",
+        default: {
+            "**/.git": true,
+            "**/.svn": true,
+            "**/.hg": true,
+            "**/.DS_Store": true,
+            "**/Thumbs.db": true,
+            "**/__pycache__": true,
+            "**/.mypy_cache": true,
+            "**/.pytest_cache": true,
+            "**/.ruff_cache": true,
+        },
+        description: "Glob patterns to hide from the file tree and from search. Matched relative to the folder.",
+    },
+    {
         key: "files.watcherExclude",
         type: "object",
         default: {
@@ -209,6 +225,28 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "number",
         default: 50,
         description: "The number of commits to load in the Source Control Graph view at a time (clamped to 1..1000).",
+    },
+    {
+        key: "search.exclude",
+        type: "object",
+        default: {
+            "**/node_modules": true,
+            "**/bower_components": true,
+            "**/.venv": true,
+            "**/dist": true,
+            "**/out": true,
+            "**/build": true,
+            "**/target": true,
+            "**/coverage": true,
+            "**/.next": true,
+            "**/.gradle": true,
+            "**/.cache": true,
+            "**/.turbo": true,
+            "**/.stryker-tmp": true,
+            "**/.claude/worktrees": true,
+        },
+        description:
+            "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
     },
     {
         key: "terminal.capabilities",

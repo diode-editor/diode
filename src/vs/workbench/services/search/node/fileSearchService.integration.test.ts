@@ -12,6 +12,8 @@ import * as path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
+
 import { FileSearchService } from "./fileSearchService.ts";
 
 const ROOT = path.join(process.cwd()); // /workspaces/vexx
@@ -33,7 +35,7 @@ describe("FileSearchService — integration against real project", () => {
     let service: FileSearchService;
 
     beforeAll(async () => {
-        service = new FileSearchService();
+        service = new FileSearchService(NULL_CONFIGURATION_SERVICE);
         await service.activate(SRC);
     });
 

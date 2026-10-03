@@ -10,6 +10,46 @@ export const filesConfiguration: IConfigurationNode = {
             default: true,
             description: "Move files to the OS trash when available; when disabled, delete permanently.",
         },
+        // Глобы, которых «нет»: вход не показывается в дереве Explorer'а, не
+        // попадает в индекс файлов (Quick Open), не находится поиском и не
+        // виден `workspace.findFiles` расширения. Семантика ключей и разбор
+        // значения — в `excludeSettings.ts`; «не надо только в поиске» — это
+        // соседняя `search.exclude` (searchConfiguration.ts).
+        //
+        // Форма шаблона — `**/<имя>`, как у эталона: `files.exclude` скрывает
+        // САМ вход, и форма `**/<имя>/**` (только содержимое) для этого не
+        // годится — каталог остался бы в дереве пустым, а обход всё равно
+        // спускался бы в него. Это та же причина, по которой переякорены
+        // дефолты `files.watcherExclude` ниже, только там она про inotify, а
+        // здесь — про то, что видит человек.
+        //
+        // От набора эталона (`.git`, `.svn`, `.hg`, `.DS_Store`, `Thumbs.db`)
+        // отличие одно: добавлены четыре кеша Python-инструментов. Критерий
+        // добавки жёсткий — содержимое машинное и человеком не читается
+        // НИКОГДА, поэтому цена ошибки нулевая: `__pycache__` это байткод,
+        // остальные три — служебные базы линтеров. Всё прочее машинное
+        // (результат сборки, кеши сборщиков, копии репозитория) из дерева НЕ
+        // убираем: его открывают — оно уходит в `search.exclude`, где лишний
+        // шаблон стоит только отсутствия шума в результатах.
+        "files.exclude": {
+            scope: "resource",
+            type: "object",
+            default: {
+                // Набор эталона: служебные каталоги VCS и мусор файловых
+                // менеджеров.
+                "**/.git": true,
+                "**/.svn": true,
+                "**/.hg": true,
+                "**/.DS_Store": true,
+                "**/Thumbs.db": true,
+                // Наша добавка: кеши, чьё содержимое не читают.
+                "**/__pycache__": true,
+                "**/.mypy_cache": true,
+                "**/.pytest_cache": true,
+                "**/.ruff_cache": true,
+            },
+            description: "Glob patterns to hide from the file tree and from search. Matched relative to the folder.",
+        },
         // Глобы, в которые файловый watcher не заходит. Шаблон матчится против
         // пути ОТНОСИТЕЛЬНО корня watch'а (`isExcluded` в
         // `platform/files/node/chokidarTreeWatcher.ts`), поэтому дефолты пишем

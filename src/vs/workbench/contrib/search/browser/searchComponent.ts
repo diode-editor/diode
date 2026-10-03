@@ -14,6 +14,8 @@ import { listRowId } from "../../../../base/common/listRowId.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -24,6 +26,7 @@ import { Component } from "../../../browser/component.ts";
 import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyViewElement.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { searchExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
@@ -130,6 +133,7 @@ export class SearchComponent extends Component {
         ContextKeyServiceDIToken,
         ViewsServiceDIToken,
         JumpRecorderDIToken,
+        IConfigurationServiceDIToken,
     ] as const;
 
     private readonly root: HeaderBodyViewElement;
@@ -186,6 +190,7 @@ export class SearchComponent extends Component {
         private readonly contextKeys: ContextKeyService,
         viewsService: ViewsService,
         private readonly jumps: IJumpRecorder,
+        private readonly configurationService: IConfigurationService,
     ) {
         super();
 
@@ -712,7 +717,14 @@ export class SearchComponent extends Component {
             isCaseSensitive: this.caseSensitive,
             isWholeWord: this.wholeWord,
             includes: splitGlobs(this.includeInput.inputState.value),
-            excludes: splitGlobs(this.excludeInput.inputState.value),
+            // Настройки идут ПЕРЕД набранным в «files to exclude», а не вместо:
+            // у эталона поиск по содержимому применяет оба набора настроек, а
+            // поле — это уточнение запроса поверх них. Настройка читается на
+            // каждый запрос, поэтому правка применяется к следующему же поиску.
+            excludes: [
+                ...searchExcludeGlobs(this.configurationService),
+                ...splitGlobs(this.excludeInput.inputState.value),
+            ],
         };
     }
 

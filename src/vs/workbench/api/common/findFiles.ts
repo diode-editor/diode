@@ -1,7 +1,7 @@
 import * as nodeFs from "node:fs/promises";
 import * as path from "node:path";
 
-import { matchGlob } from "../../../base/common/glob.ts";
+import { matchAnyGlob, matchGlob } from "../../../base/common/glob.ts";
 
 /**
  * `vscode.workspace.findFiles` на стороне subprocess.
@@ -32,19 +32,6 @@ export interface IFindFilesScanner {
 }
 
 /**
- * Исключение по умолчанию — когда `exclude` не задан вовсе (`undefined`).
- * Контракт эталона: «When `undefined`, default file-excludes (e.g. the
- * `files.exclude`-setting but not `search.exclude`) will apply». Настройки
- * `files.exclude` у Diode нет, поэтому берём те же два каталога, что и обход
- * активации (`DEFAULT_WORKSPACE_CONTAINS_EXCLUDES`): в `.git` и `node_modules`
- * расширение ищет не то, что там найдётся.
- *
- * Явный `exclude` эти дефолты ЗАМЕНЯЕТ (так же, как в эталоне), а `null`
- * снимает совсем.
- */
-export const DEFAULT_FIND_FILES_EXCLUDE = "**/{.git,node_modules}";
-
-/**
  * Сколько каталогов максимум читаем на один запрос. Страховка от гигантского
  * дерева: `findFiles("**\/*.java")` на домашнем каталоге не должен держать
  * активацию вечно. Совпадает по духу с бюджетом `workspaceContains:`-активации.
@@ -57,12 +44,15 @@ export interface IFindFilesRequest {
     /** Шаблон относительно базы (`**\/pom.xml`). */
     readonly include: string;
     /**
-     * Шаблон исключения относительно той же базы, `null` — не исключать ничего.
-     * Отдельной обработки пустой строки нет и не нужно (её шлёт `redhat.java`,
-     * когда исключений не набралось): пустой glob компилируется в `^$` и ни с
-     * каким путём не совпадает.
+     * Шаблоны исключения относительно той же базы; пустой набор — не исключать
+     * ничего. Набор, а не один шаблон, потому что дефолт берётся из настройки
+     * `files.exclude` — это карта шаблонов (см. `excludeSettings.ts`).
+     *
+     * Отдельной обработки пустой строки среди них нет и не нужно (её шлёт
+     * `redhat.java`, когда исключений не набралось): пустой glob компилируется
+     * в `^$` и ни с каким путём не совпадает.
      */
-    readonly exclude: string | null;
+    readonly excludes: readonly string[];
     /** Верхняя граница результата; `undefined` или `Infinity` — без границы. */
     readonly maxResults?: number;
 }
@@ -95,7 +85,7 @@ export async function findFiles(
 
     const maxDirectories = options.maxDirectories ?? DEFAULT_MAX_DIRECTORIES;
     const isCancelled = (): boolean => options.isCancelled?.() === true;
-    const exclude = request.exclude;
+    const excludes = request.excludes;
     const maxDepth = maxGlobDepth(request.include);
 
     let frontier: { absolutePath: string; relativePath: string }[] = [{ absolutePath: request.base, relativePath: "" }];
@@ -115,7 +105,7 @@ export async function findFiles(
                 // не заходит вовсе. Форма `**\/node_modules/**` с каталогом не
                 // совпадает — тогда отсекается каждый файл внутри, результат тот
                 // же, просто дороже.
-                if (exclude !== null && matchGlob(exclude, relativePath)) continue;
+                if (matchAnyGlob(excludes, relativePath)) continue;
                 if (entry.isDirectory) {
                     next.push({ absolutePath: path.join(dir.absolutePath, entry.name), relativePath });
                     continue;

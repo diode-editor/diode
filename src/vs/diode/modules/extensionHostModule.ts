@@ -17,7 +17,7 @@ import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOut
 import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
-import { FileWatcherAdapter, parseWatcherExclude } from "../../workbench/api/browser/fileWatcherAdapter.ts";
+import { FileWatcherAdapter } from "../../workbench/api/browser/fileWatcherAdapter.ts";
 import { NotificationExtensionAdapter } from "../../workbench/api/browser/notificationExtensionAdapter.ts";
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
@@ -25,6 +25,7 @@ import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColo
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
 import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
+import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
 import {
     ClipboardDIToken,
     FileSystemProviderRegistryDIToken,
@@ -172,7 +173,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Слежение за деревом для `workspace.createFileSystemWatcher`: сам обход
         // ведёт ядро, excludes берутся из живой настройки `files.watcherExclude`.
         const fileWatcher = new FileWatcherAdapter(container.get(ITreeFileWatcherDIToken), () =>
-            parseWatcherExclude(configService.get("files.watcherExclude")),
+            watcherExcludeGlobs(configService),
         );
 
         // Приватные каталоги расширений (`globalStorageUri`/`storageUri`/`logUri`).

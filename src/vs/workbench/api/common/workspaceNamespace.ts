@@ -5,11 +5,12 @@ import type * as vscode from "vscode";
 
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
+import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
 
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
-import { createNodeFindFilesScanner, DEFAULT_FIND_FILES_EXCLUDE, findFiles as walkForFiles } from "./findFiles.ts";
+import { createNodeFindFilesScanner, findFiles as walkForFiles } from "./findFiles.ts";
 import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
@@ -37,6 +38,7 @@ import {
     parseWireWatcherEvents,
     type WireTextEdit,
 } from "./wireTypes.ts";
+import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 /** Тайм-аут на один waitUntil-thenable участника will-save, мс. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
@@ -64,9 +66,17 @@ function findFilesBases(
 }
 
 /**
- * Шаблон исключения по трём значениям аргумента, как в контракте: `undefined` —
+ * Шаблоны исключения по трём значениям аргумента, как в контракте: `undefined` —
  * дефолты `files.exclude`, `null` — не исключать ничего, шаблон — только он
- * (дефолты при этом НЕ добавляются).
+ * (настройка при этом НЕ добавляется).
+ *
+ * Дефолт — буквально настройка `files.exclude` и только она: «default
+ * file-excludes (e.g. the `files.exclude`-setting but not `search.exclude`)»
+ * в контракте. `search.exclude` сюда не входит сознательно — расширение ищет
+ * файл, чтобы с ним работать, а не чтобы показать человеку результат поиска.
+ * Настройка приезжает в субпроцесс снапшотом (см. {@link WorkspaceConfigStore}),
+ * поэтому читается синхронно и на каждый вызов — правка применяется к
+ * следующему же `findFiles`.
  *
  * Явной ветки под `null` нет: `resolveGlobPattern` отвечает на него тем же
  * `null`, что и на любое неразбираемое значение, — а «разобрать нечем» и
@@ -76,9 +86,11 @@ function findFilesBases(
  * относительно базы ПОИСКА, а не базы исключения — своя база у исключения
  * значила бы второй корень, которого у обхода нет.
  */
-function findFilesExclude(exclude: unknown, base: string): string | null {
-    if (exclude === undefined) return DEFAULT_FIND_FILES_EXCLUDE;
-    return resolveGlobPattern(exclude, base)?.pattern ?? null;
+function findFilesExcludes(exclude: unknown, base: string, configStore: WorkspaceConfigStore): readonly string[] {
+    if (exclude === undefined) return filesExcludeGlobs(configStore);
+    const pattern = resolveGlobPattern(exclude, base)?.pattern;
+    // Stryker disable next-line ArrayDeclaration: мутант эквивалентен — «ни одного шаблона» и «шаблон, не совпадающий ни с одним путём» для обхода неразличимы; сам контракт («мусорный exclude не исключает ничего») закрыт тестом
+    return pattern === undefined ? [] : [pattern];
 }
 
 /** Промис, резолвящийся пустым набором правок по истечении per-listener тайм-аута. */
@@ -660,7 +672,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                     {
                         base: resolved.base,
                         include: resolved.pattern,
-                        exclude: findFilesExclude(exclude, resolved.base),
+                        excludes: findFilesExcludes(exclude, resolved.base, configStore),
                         // Остаток на все папки вместе: `maxResults` в контракте
                         // ограничивает результат целиком, а не каждую папку.
                         maxResults: (maxResults ?? Number.POSITIVE_INFINITY) - results.length,

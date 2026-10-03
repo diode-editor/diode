@@ -4,8 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
-import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type {
+    IConfigurationChangeEvent,
+    IConfigurationService,
+} from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
+import { createConfigurationChangeEvent } from "../../../../platform/configuration/node/configurationService.ts";
 import type { LogEntry } from "../../../../platform/log/common/iLogService.ts";
 import { LogService } from "../../../../platform/log/common/logService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
@@ -312,5 +316,70 @@ describe("ExplorerService — file watcher error logging", () => {
         expect(entries[0].message).toBe("file watcher error");
         expect(entries[0].args[0]).toMatchObject({ dirPath: "/repo/vendor", code: "EACCES" });
         dispose();
+    });
+});
+
+describe("ExplorerService — files.exclude", () => {
+    /** Настройки с живым событием: правка эмитит onDidChangeConfiguration. */
+    function emittingConfig(values: Record<string, unknown>): IConfigurationService & {
+        set(key: string, value: unknown): void;
+    } {
+        const listeners: ((event: IConfigurationChangeEvent) => void)[] = [];
+        return {
+            ...NULL_CONFIGURATION_SERVICE,
+            get: (key: string) => values[key] as never,
+            onDidChangeConfiguration: (listener: (event: IConfigurationChangeEvent) => void) => {
+                listeners.push(listener);
+                return {
+                    dispose: () => {
+                        /* подписка живёт до конца теста */
+                    },
+                };
+            },
+            set: (key: string, value: unknown) => {
+                values[key] = value;
+                const event = createConfigurationChangeEvent([key]);
+                for (const listener of [...listeners]) listener(event);
+            },
+        };
+    }
+
+    it("провайдер дерева скрывает входы по шаблонам настройки", () => {
+        const ws = createTempWorkspace({ prefix: "diode-explorer-exclude-" });
+        ws.writeFile("__pycache__/app.cpython-312.pyc", "");
+        ws.writeFile("app.py", "");
+        const service = createService({
+            configurationService: emittingConfig({ "files.exclude": { "**/__pycache__": true } }),
+        });
+
+        service.setRootPath(ws.dir);
+
+        expect(service.provider?.getChildren().map((n) => n.name)).toEqual(["app.py"]);
+        service.dispose();
+        ws.dispose();
+    });
+
+    it("правка настройки перечитывает дерево — без перезапуска", () => {
+        const config = emittingConfig({ "files.exclude": { "**/__pycache__": true } });
+        const service = createService({ configurationService: config });
+        const view = fakeView();
+        service.attachView(view);
+
+        config.set("files.exclude", { "**/__pycache__": false });
+
+        expect(view.refreshCount).toBe(1);
+        service.dispose();
+    });
+
+    it("чужая настройка дерево не трогает", () => {
+        const config = emittingConfig({});
+        const service = createService({ configurationService: config });
+        const view = fakeView();
+        service.attachView(view);
+
+        config.set("editor.tabSize", 2);
+
+        expect(view.refreshCount).toBe(0);
+        service.dispose();
     });
 });

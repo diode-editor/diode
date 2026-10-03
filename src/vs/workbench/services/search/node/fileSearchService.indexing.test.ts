@@ -4,10 +4,47 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import type {
+    IConfigurationChangeEvent,
+    IConfigurationInspectResult,
+    IConfigurationService,
+} from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { createConfigurationChangeEvent } from "../../../../platform/configuration/node/configurationService.ts";
+import { FILES_EXCLUDE_SETTING, SEARCH_EXCLUDE_SETTING } from "../../../common/configuration/excludeSettings.ts";
 
-import { EXCLUDED_FS_NAMES, FileSearchService } from "./fileSearchService.ts";
+import { FileSearchService } from "./fileSearchService.ts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Настройки с изменяемой картой и живым событием — exclude'ы правятся на ходу. */
+class StubConfig implements IConfigurationService {
+    public values: Record<string, unknown> = {};
+    private readonly listeners: ((event: IConfigurationChangeEvent) => void)[] = [];
+
+    public get<T>(key: string, defaultValue?: T): T | undefined {
+        return key in this.values ? (this.values[key] as T) : defaultValue;
+    }
+    public getValue(): unknown {
+        return this.values;
+    }
+    public inspect<T>(): IConfigurationInspectResult<T> {
+        return { default: undefined, user: undefined, profile: undefined, value: undefined };
+    }
+    public onDidChangeConfiguration(listener: (event: IConfigurationChangeEvent) => void): { dispose: () => void } {
+        this.listeners.push(listener);
+        return {
+            dispose: () => {
+                /* подписки живут до конца теста */
+            },
+        };
+    }
+    /** Ставит значение и эмитит событие — как reload() настоящего сервиса. */
+    public set(key: string, value: unknown): void {
+        this.values[key] = value;
+        const event = createConfigurationChangeEvent([key]);
+        for (const listener of [...this.listeners]) listener(event);
+    }
+}
 
 function mkdir(dir: string, relPath: string): string {
     const fullPath = path.join(dir, relPath);
@@ -24,10 +61,12 @@ function indexedPaths(service: FileSearchService): string[] {
 describe("FileSearchService — indexing", () => {
     let ws: ITempWorkspace;
     let service: FileSearchService;
+    let config: StubConfig;
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-filesearch-index-" });
-        service = new FileSearchService();
+        config = new StubConfig();
+        service = new FileSearchService(config);
     });
 
     afterEach(() => {
@@ -214,37 +253,105 @@ describe("FileSearchService — indexing", () => {
     });
 
     describe("exclusions", () => {
-        it("EXCLUDED_FS_NAMES contains node_modules, .git, .DS_Store", () => {
-            expect(EXCLUDED_FS_NAMES.has("node_modules")).toBe(true);
-            expect(EXCLUDED_FS_NAMES.has(".git")).toBe(true);
-            expect(EXCLUDED_FS_NAMES.has(".DS_Store")).toBe(true);
-        });
-
-        it("excludes node_modules directory", async () => {
+        it("индекс режет по ОБОИМ наборам: files.exclude и search.exclude", () => {
+            // Поиск по именам файлов — это поиск, поэтому `search.exclude`
+            // сюда входит наравне с `files.exclude`.
+            config.values[FILES_EXCLUDE_SETTING] = { "**/.git": true };
+            config.values[SEARCH_EXCLUDE_SETTING] = { "**/node_modules": true };
+            ws.writeFile(".git/COMMIT_EDITMSG", "");
             ws.writeFile("node_modules/some-pkg/index.js", "");
             ws.writeFile("src/main.ts", "");
-            await service.activate(ws.dir);
 
-            const paths = indexedPaths(service);
-            expect(paths.some((p) => p.includes("node_modules"))).toBe(false);
-            expect(paths).toContain("src/main.ts");
+            return service.activate(ws.dir).then(() => {
+                expect(indexedPaths(service)).toEqual(["src/main.ts"]);
+            });
         });
 
-        it("excludes .git directory", async () => {
+        it("в исключённый каталог обход не заходит вовсе", async () => {
+            config.values[SEARCH_EXCLUDE_SETTING] = { "**/node_modules": true };
+            const readdir = vi.spyOn(fs.promises, "readdir");
+            ws.writeFile("node_modules/some-pkg/index.js", "");
+            await service.activate(ws.dir);
+
+            const visited = readdir.mock.calls.map(([dir]) => String(dir));
+            expect(visited.some((dir) => dir.includes("node_modules"))).toBe(false);
+            readdir.mockRestore();
+        });
+
+        it("без настроек не исключает ничего — захардкоженного списка больше нет", async () => {
+            ws.writeFile("node_modules/some-pkg/index.js", "");
             ws.writeFile(".git/COMMIT_EDITMSG", "");
-            ws.writeFile("src/main.ts", "");
             await service.activate(ws.dir);
 
-            const paths = indexedPaths(service);
-            expect(paths.some((p) => p.includes(".git"))).toBe(false);
+            expect(indexedPaths(service).toSorted()).toEqual([".git/COMMIT_EDITMSG", "node_modules/some-pkg/index.js"]);
         });
 
-        it("does not exclude files just because they start with a dot", async () => {
-            ws.writeFile(".eslintrc.json", "");
+        it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня, в posix-форме", async () => {
+            // `**/<имя>` обязан достать каталог НА ГЛУБИНЕ, а `<имя>` — только
+            // вход в корне. Сегменты склеиваются через `/` (на Windows
+            // `path.sep` другой) — иначе `pkg/out` превратился бы в `pkgout` и
+            // ни один шаблон его бы не задел.
+            config.values[FILES_EXCLUDE_SETTING] = { "**/__pycache__": true, out: true };
+            ws.writeFile("pkg/__pycache__/app.cpython-312.pyc", "");
+            ws.writeFile("pkg/out/keep.txt", "");
+            ws.writeFile("out/bundle.js", "");
+            ws.writeFile("pkg/app.py", "");
             await service.activate(ws.dir);
 
-            const paths = indexedPaths(service);
-            expect(paths).toContain(".eslintrc.json");
+            expect(indexedPaths(service).toSorted()).toEqual(["pkg/app.py", "pkg/out/keep.txt"]);
+        });
+
+        it("шаблон не задевает одноимённый ФАЙЛ в другом каталоге", async () => {
+            config.values[FILES_EXCLUDE_SETTING] = { "**/.git": true };
+            ws.writeFile(".gitignore", "");
+            await service.activate(ws.dir);
+
+            expect(indexedPaths(service)).toContain(".gitignore");
+        });
+
+        it("правка настройки пересобирает индекс сразу, без перезапуска", async () => {
+            ws.writeFile("__pycache__/app.cpython-312.pyc", "");
+            ws.writeFile("app.py", "");
+            await service.activate(ws.dir);
+            expect(indexedPaths(service)).toHaveLength(2);
+
+            config.set(FILES_EXCLUDE_SETTING, { "**/__pycache__": true });
+            await service.ready;
+            expect(indexedPaths(service)).toEqual(["app.py"]);
+
+            // И обратно: погашенный шаблон возвращает файлы в индекс.
+            config.set(FILES_EXCLUDE_SETTING, { "**/__pycache__": false });
+            await service.ready;
+            expect(indexedPaths(service)).toHaveLength(2);
+        });
+
+        it("чужая настройка индекс не трогает", async () => {
+            ws.writeFile("app.py", "");
+            await service.activate(ws.dir);
+            const before = service.ready;
+
+            config.set("editor.tabSize", 2);
+
+            expect(service.ready).toBe(before);
+        });
+
+        it("правка до activate() обхода не запускает", () => {
+            // Корня ещё нет (пустое окно) — пересобирать нечего.
+            expect(() => {
+                config.set(FILES_EXCLUDE_SETTING, { "**/x": true });
+            }).not.toThrow();
+            expect(service.isIndexed).toBe(false);
+        });
+
+        it("правка после dispose() обхода не запускает", async () => {
+            ws.writeFile("app.py", "");
+            await service.activate(ws.dir);
+            service.dispose();
+            const before = service.ready;
+
+            config.set(FILES_EXCLUDE_SETTING, { "**/app.py": true });
+
+            expect(service.ready).toBe(before);
         });
     });
 });

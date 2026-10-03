@@ -1,6 +1,7 @@
 import { afterAll, bench, describe } from "vitest";
 
 import { cleanupDir, createTempDir, generateFileTree } from "../../../../../TestUtils/perfFixtures.ts";
+import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 
 import { FileSearchService } from "./fileSearchService.ts";
 
@@ -27,7 +28,7 @@ const dir10k = createTempDir("diode-perf-index-10k-");
 generateFileTree(dir10k, { files: 10_000 });
 
 // Готовый индекс для бенчей поиска (ждём завершения фонового обхода).
-const searchService = new FileSearchService();
+const searchService = new FileSearchService(NULL_CONFIGURATION_SERVICE);
 await searchService.activate(dir10k);
 
 afterAll(() => {
@@ -42,13 +43,13 @@ describe("FileSearchService.activate (index build)", () => {
     // Меряем полный фоновый обход (await ready). Обход чанкованный и уступает
     // event loop — bench измеряет суммарное время до готовности индекса.
     bench("activate / index 1000 files", async () => {
-        const service = new FileSearchService();
+        const service = new FileSearchService(NULL_CONFIGURATION_SERVICE);
         await service.activate(dir1k);
         service.dispose();
     });
 
     bench("activate / index 10000 files", async () => {
-        const service = new FileSearchService();
+        const service = new FileSearchService(NULL_CONFIGURATION_SERVICE);
         await service.activate(dir10k);
         service.dispose();
     });

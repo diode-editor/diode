@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { fuzzyMatchBestLower } from "../../../../base/common/fuzzySearch.ts";
+import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 
 import { FileSearchService } from "./fileSearchService.ts";
 
@@ -18,7 +19,7 @@ async function makeService(files: string[]): Promise<{ service: FileSearchServic
     for (const f of files) {
         ws.writeFile(f, "");
     }
-    const service = new FileSearchService();
+    const service = new FileSearchService(NULL_CONFIGURATION_SERVICE);
     await service.activate(ws.dir);
     return { service, ws };
 }
@@ -255,7 +256,7 @@ describe("FileSearchService — search()", () => {
 
     describe("search before activate", () => {
         it("returns empty array when not yet indexed", () => {
-            const s = new FileSearchService();
+            const s = new FileSearchService(NULL_CONFIGURATION_SERVICE);
             expect(s.search("anything")).toHaveLength(0);
             s.dispose();
         });
