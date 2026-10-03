@@ -9,6 +9,7 @@ import { VFlexElement, vflexFit, vflexFixed } from "@tuidom/elements/layout/vFle
 
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -43,7 +44,7 @@ export const ScmInputComponentDIToken = token<ScmInputComponent>("ScmInputCompon
 export const SCM_INPUT_HEIGHT = 4;
 
 /**
- * Маркер-подкласс поля сообщения коммита: по нему `WorkbenchContextKeys`
+ * Маркер-подкласс поля сообщения коммита: по нему {@link ScmInputComponent}
  * выставляет ключ `scmInputFocus` (Ctrl+Enter = commit живёт на when этого
  * ключа), а `inputWidgetFocus` наследуется от {@link InputElement} — вся
  * редактирующая механика (клипборд, undo, навигация) приходит даром.
@@ -189,7 +190,7 @@ export function computeActionButton(
  * персистится по-проектно (write-through на каждый ввод, восстановление —
  * строго после `openWorkspace`).
  */
-export class ScmInputComponent extends Component {
+export class ScmInputComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
         StateServiceDIToken,
         ScmChangesServiceDIToken,
@@ -265,6 +266,11 @@ export class ScmInputComponent extends Component {
             }),
         );
         this.updateActionButton();
+    }
+
+    /** IContextKeyContributor: `scmInputFocus` — гейт Ctrl+Enter = commit. */
+    public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        contextKeys.set("scmInputFocus", active instanceof ScmCommitInputElement);
     }
 
     /**

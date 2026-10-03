@@ -460,7 +460,8 @@ hide-toggle (`isHiddenByDefault`). См.
     (+ `buildPasteEdits`), workspace-undo/redo, `resolveInputPath` (`~`, корень
     воркспейса).
   - `Services/InputWidgetService.ts` — целевой сервис input-команд: держит
-    активный `InputElement` (ставит `WorkbenchContextKeys.update()`) и
+    активный `InputElement` (забирает его сам как контрибьютор в опросе
+    `WorkbenchContextKeys.update()`) и
     исполняет курсор/правки/выделение/клипборд для него (читают экшены
     `Workbench/Actions/InputActions.ts` под `when: inputWidgetFocus`).
 - **QuickInput-кластер (этап 8)** — квик-инпут/квик-опен поверх ОДНОГО общего
@@ -1254,7 +1255,15 @@ hide-toggle (`isHiddenByDefault`). См.
     контейнера (`IViewContainerDescriptor.visibleContextKey`, например
     `searchViewletVisible`), истинен он при видимом сайдбаре и активном
     вьюлете. Видимость сайдбара меняется и мимо `SidebarService` (Ctrl+B,
-    восстановление layout'а), поэтому ключ опрашивается, а не пушится.
+    восстановление layout'а), поэтому ключ опрашивается, а не пушится;
+    `ExplorerComponent` (`filesExplorerFocus`), `ScmInputComponent`
+    (`scmInputFocus`), `TerminalService` (`terminalIsOpen`),
+    `TabSwitcherComponent` (`tabSwitcherVisible`); `InputWidgetService` ключей
+    не ставит, но активное поле забирает в том же опросе. В центре остались
+    только общефокусные ключи (`textInputFocus`/`textViewFocus`/
+    `inputWidgetFocus`/`listFocus`/`terminalFocus`), фокусный редактор
+    (`editorReadonly`/`editorHasMultipleSelections`), группы и история,
+    `panelVisible` и окружение терминала; импортов из `contrib/` у него нет.
     **Смена фокуса как событие** — `FocusTracker`
     (`services/focus/browser/focusTracker.ts`, `onDidChangeFocus(active)`):
     `handleFocusChange` сначала освежает ключи, потом зовёт `fire`. Попапы

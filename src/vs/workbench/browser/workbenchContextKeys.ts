@@ -18,11 +18,6 @@ import type { ServiceAccessor, Token } from "../../platform/instantiation/common
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { macKeysLevel } from "../../platform/keybinding/common/macKeys.ts";
-import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
-import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
-import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
-import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
-import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import type { FocusTracker } from "../services/focus/browser/focusTracker.ts";
@@ -35,9 +30,6 @@ import type { LayoutService } from "../services/layout/browser/layoutService.ts"
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
-
-import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
-import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 
 export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("WorkbenchContextKeys");
 
@@ -61,13 +53,10 @@ export class WorkbenchContextKeys extends Disposable {
     public static dependencies = [
         ContextKeyServiceDIToken,
         EditorServiceDIToken,
-        TerminalServiceDIToken,
         TerminalEnvironmentServiceDIToken,
-        InputWidgetServiceDIToken,
         KeybindingDispatcherDIToken,
         LayoutServiceDIToken,
         HistoryServiceDIToken,
-        TabSwitcherComponentDIToken,
         FocusTrackerDIToken,
         ServiceAccessorDIToken,
         ContextKeyContributorsDIToken,
@@ -80,13 +69,10 @@ export class WorkbenchContextKeys extends Disposable {
     public constructor(
         private readonly contextKeys: ContextKeyService,
         private readonly editorService: EditorService,
-        private readonly terminalService: TerminalService,
         private readonly terminalEnv: TerminalEnvironmentService,
-        private readonly inputWidgetService: InputWidgetService,
         private readonly dispatcher: KeybindingDispatcher,
         private readonly layoutService: LayoutService,
         private readonly historyService: HistoryService,
-        private readonly tabSwitcher: TabSwitcherComponent,
         private readonly focusTracker: FocusTracker,
         accessor: ServiceAccessor,
         contributorTokens: readonly Token<IContextKeyContributor>[],
@@ -146,9 +132,7 @@ export class WorkbenchContextKeys extends Disposable {
             isTextViewElement(active) && active.viewState.selections.length > 1,
         );
         this.contextKeys.set("inputWidgetFocus", active instanceof InputElement);
-        this.contextKeys.set("scmInputFocus", active instanceof ScmCommitInputElement);
         this.contextKeys.set("listFocus", active instanceof TreeViewElement || active instanceof ListViewElement);
-        this.inputWidgetService.setActive(active instanceof InputElement ? active : null);
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
         this.contextKeys.set("multipleEditorGroups", this.editorService.groups.length > 1);
@@ -160,19 +144,8 @@ export class WorkbenchContextKeys extends Disposable {
             "activeEditorGroupLast",
             this.editorService.activeGroup === this.editorService.groups[this.editorService.groups.length - 1],
         );
-        // Фокус в дереве Explorer — по пути предков до его view (id
-        // "explorerView" ставит ExplorerComponent): нового шва к компоненту не нужно.
-        this.contextKeys.set(
-            "filesExplorerFocus",
-            active?.getAncestorPath().some((element) => element.id === "explorerView") === true,
-        );
         this.contextKeys.set("panelVisible", this.layoutService.isPanelVisible());
-        // Спрашиваем ВИДИМОСТЬ оверлея, а не состояние серии в модели: список
-        // гаснет и помимо конца серии (уход из группы), а стрелки обязаны
-        // вернуться редактору ровно тогда, когда список исчез с экрана.
-        this.contextKeys.set("tabSwitcherVisible", this.tabSwitcher.isOpen());
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
-        this.contextKeys.set("terminalIsOpen", this.terminalService.hasOpenTerminals);
         // Ключи фич — у самих фич (IContextKeyContributor), тайминг тот же.
         for (const contributor of this.contributors) {
             contributor.updateContextKeys(this.contextKeys, active);

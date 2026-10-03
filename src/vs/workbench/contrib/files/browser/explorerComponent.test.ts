@@ -1,5 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -93,6 +95,30 @@ describe("ExplorerComponent", () => {
     it("creates a view body element (id 'explorerView')", () => {
         expect(h.component.view).toBeDefined();
         expect(h.component.view.id).toBe("explorerView");
+    });
+
+    it("filesExplorerFocus — по пути предков до тела секции", () => {
+        const keys = new ContextKeyService();
+        const focusKey = (active: TUIElement | null): unknown => {
+            h.component.updateContextKeys(keys, active);
+            return keys.get("filesExplorerFocus");
+        };
+        const tree = h.component.view.querySelector("TreeViewElement");
+        expect(tree).not.toBeNull();
+
+        expect(focusKey(tree)).toBe(true);
+        expect(focusKey(h.component.view)).toBe(true);
+        // Фокус вне проводника и вовсе без фокуса — ключ опущен, а не undefined.
+        expect(focusKey(new FillerElement())).toBe(false);
+        expect(focusKey(null)).toBe(false);
+    });
+
+    it("filesExplorerFocus опущен, пока дерева ещё нет (корень не задан)", () => {
+        const empty = createExplorer();
+        const keys = new ContextKeyService();
+        empty.component.updateContextKeys(keys, new FillerElement());
+        expect(keys.get("filesExplorerFocus")).toBe(false);
+        empty.dispose();
     });
 
     it("shows root directory contents after refresh", () => {

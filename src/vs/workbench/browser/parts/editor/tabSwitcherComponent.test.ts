@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 
@@ -93,11 +94,18 @@ describe("TabSwitcherComponent — overlay-сессия", () => {
     it("шаг серии открывает сессию, конец серии её закрывает", () => {
         const { component, fireCycle } = withHost();
 
+        const keys = new ContextKeyService();
+        const visibleKey = (): unknown => {
+            component.updateContextKeys(keys);
+            return keys.get("tabSwitcherVisible");
+        };
         fireCycle(cycle(1));
         expect(component.isOpen()).toBe(true);
+        expect(visibleKey()).toBe(true);
 
         fireCycle(null);
         expect(component.isOpen()).toBe(false);
+        expect(visibleKey()).toBe(false);
 
         component.dispose();
     });

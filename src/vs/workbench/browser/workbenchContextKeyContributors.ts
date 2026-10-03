@@ -1,12 +1,17 @@
 import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import type { Token } from "../../platform/instantiation/common/diContainer.ts";
+import { ExplorerComponentDIToken } from "../contrib/files/browser/explorerComponent.ts";
+import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
 import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
 import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
 import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
+import { ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
 import { SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
+import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 
+import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
 /**
@@ -25,4 +30,10 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     InlineCompletionsServiceDIToken,
     // Видимость вьюлетов: ключ объявляет дескриптор контейнера (visibleContextKey).
     SidebarServiceDIToken,
+    ExplorerComponentDIToken,
+    ScmInputComponentDIToken,
+    TerminalServiceDIToken,
+    TabSwitcherComponentDIToken,
+    // Не ключи, а активное поле ввода для редактирующих команд — в том же опросе.
+    InputWidgetServiceDIToken,
 ];
