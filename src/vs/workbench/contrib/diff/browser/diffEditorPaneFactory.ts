@@ -88,6 +88,9 @@ function parseDiff(value: string): ISerializedDiff | undefined {
     let raw: unknown;
     try {
         raw = JSON.parse(value);
+        // Пустой catch дал бы то же: `raw` остался бы undefined, и гард типа ниже
+        // ответил бы тем же undefined.
+        // Stryker disable next-line BlockStatement: эквивалентен — см. выше
     } catch {
         return undefined;
     }

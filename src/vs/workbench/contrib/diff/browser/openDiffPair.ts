@@ -115,8 +115,11 @@ export async function openDiffPair(
         if (!(await refreshSnapshotSides(accessor.get(FileSystemProviderRegistryDIToken), pane, options))) {
             return "unreadable";
         }
+        // Без фокуса: его тут же ставит activateTab — иначе мутант опции
+        // ненаблюдаем (фокус всё равно окажется в диффе).
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral: эквивалентен — см. выше
         if (target === undefined) editors.focusGroup(group.id, { focus: false });
-        group.activateTab(index, { focus: target?.focus ?? true });
+        group.activateTab(index, { focus: target === undefined || target.focus });
         return "opened";
     }
 

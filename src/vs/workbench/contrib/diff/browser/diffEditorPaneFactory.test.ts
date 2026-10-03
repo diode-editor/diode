@@ -96,6 +96,35 @@ describe("Фабрика дифф-вкладки", () => {
         expect(h.testApp.focusedElement).toBeNull();
     });
 
+    it("повтор в группу освежает снимок уже открытого там диффа", async () => {
+        const clip = (text: string): IOpenDiffPairOptions => ({
+            ...files(),
+            original: { text, label: "Clipboard", identity: "clip" },
+        });
+        await openDiffPair(h.container, clip("old"));
+        const pane = service().getActiveTabPane() as DiffEditorPane2;
+        const right = service().newGroup("after", { focus: false })!;
+
+        await openDiffPair(h.container, clip("new"), { group: service().groups[0], focus: false });
+
+        // Та же вкладка, свежий текст; активная группа не сменилась.
+        expect(service().groups[0].editorCount).toBe(1);
+        expect(pane.sidePanes()[0].getText()).toBe("new");
+        expect(service().activeGroup).toBe(right);
+    });
+
+    it("команда сравнения находит дифф в другой группе и делает её активной", async () => {
+        const source = await openFilesDiff();
+        service().newGroup("after");
+        service().openFile(ws.path("a.txt"));
+
+        await openDiffPair(h.container, files());
+
+        expect(service().groups.length).toBe(2);
+        expect(service().activeGroup).toBe(service().groups[0]);
+        expect(service().getActiveTabPane()).toBe(source);
+    });
+
     it("дифф со стороной-моделью справа не повторить", async () => {
         const owned = service().createUntitledModel();
         await openDiffPair(h.container, {
@@ -140,6 +169,18 @@ describe("Фабрика дифф-вкладки", () => {
 
         expect(factory().serialize(clipboard)).toBeUndefined();
         expect(factory().serialize(git)).toBeUndefined();
+        // Ресурс file:, но содержимое стороны — не он: текст или своя модель.
+        const fileUri = Uri.file(ws.path("a.txt"));
+        expect(
+            factory().serialize({ ...files(), original: { uri: fileUri, text: "x", label: "a", identity: "t" } }),
+        ).toBeUndefined();
+        const owned = service().createUntitledModel();
+        expect(
+            factory().serialize({
+                ...files(),
+                modified: { uri: fileUri, ownedModel: owned, label: "a", identity: "o" },
+            }),
+        ).toBeUndefined();
     });
 
     it("чужая или битая строка сессии — undefined, а не исключение", () => {
