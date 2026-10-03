@@ -1,0 +1,1022 @@
+{
+    "pairs": [
+        "alt+down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > editor.action.moveLinesDownAction [textInputFocus && !editorReadonly]",
+        "alt+up: showPrevParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > editor.action.moveLinesUpAction [textInputFocus && !editorReadonly]",
+        "ctrl+down: workbench.action.nextEditorInGroup [(textViewFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineDown [(textViewFocus) && (!(macKeys >= 1))]",
+        "ctrl+k ctrl+f: workbench.action.navigateForward > editor.action.formatSelection [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
+        "ctrl+k ctrl+u: editor.action.showHover [textInputFocus] > editor.action.removeCommentLine [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
+        "ctrl+n: selectNextSuggestion [(suggestWidgetVisible) && (macKeys >= 3)] > cursorDown [(textViewFocus) && (macKeys >= 3)]",
+        "ctrl+n: showNextParameterHint [(parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible) && (macKeys >= 3)] > cursorDown [(textViewFocus) && (macKeys >= 3)]",
+        "ctrl+p: selectPrevSuggestion [(suggestWidgetVisible) && (macKeys >= 3)] > cursorUp [(textViewFocus) && (macKeys >= 3)]",
+        "ctrl+p: showPrevParameterHint [(parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible) && (macKeys >= 3)] > cursorUp [(textViewFocus) && (macKeys >= 3)]",
+        "ctrl+space: toggleSuggestionDetails [suggestWidgetVisible] > editor.action.triggerSuggest [textInputFocus]",
+        "ctrl+up: workbench.action.previousEditorInGroup [(textViewFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineUp [(textViewFocus) && (!(macKeys >= 1))]",
+        "down: selectNextSuggestion [suggestWidgetVisible] > cursorDown [textViewFocus]",
+        "down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorDown [textViewFocus]",
+        "enter: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.nextMatchFindAction [findWidgetVisible]",
+        "escape: closeFindWidget [findWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "escape: closeParameterHints [parameterHintsVisible && !suggestWidgetVisible] > closeFindWidget [findWidgetVisible]",
+        "escape: closeParameterHints [parameterHintsVisible && !suggestWidgetVisible] > editor.action.hideHover [editorHoverVisible]",
+        "escape: closeParameterHints [parameterHintsVisible && !suggestWidgetVisible] > editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)]",
+        "escape: closeParameterHints [parameterHintsVisible && !suggestWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "escape: editor.action.hideHover [editorHoverVisible] > closeFindWidget [findWidgetVisible]",
+        "escape: editor.action.hideHover [editorHoverVisible] > editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)]",
+        "escape: editor.action.hideHover [editorHoverVisible] > hideSuggestWidget [suggestWidgetVisible]",
+        "escape: editor.action.hideHover [editorHoverVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "escape: editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)] > closeFindWidget [findWidgetVisible]",
+        "escape: editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "escape: hideSuggestWidget [suggestWidgetVisible] > closeFindWidget [findWidgetVisible]",
+        "escape: hideSuggestWidget [suggestWidgetVisible] > editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)]",
+        "escape: hideSuggestWidget [suggestWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "pagedown: selectNextPageSuggestion [suggestWidgetVisible] > cursorPageDown [textViewFocus]",
+        "pageup: selectPrevPageSuggestion [suggestWidgetVisible] > cursorPageUp [textViewFocus]",
+        "tab: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.indentLines [textInputFocus && !editorReadonly]",
+        "tab: editor.action.inlineSuggest.commit [inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize] > editor.action.indentLines [textInputFocus && !editorReadonly]",
+        "up: selectPrevSuggestion [suggestWidgetVisible] > cursorUp [textViewFocus]",
+        "up: showPrevParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorUp [textViewFocus]"
+    ],
+    "signatures": {
+        "acceptSelectedSuggestion": "enter",
+        "actions.find": {
+            "*": "ctrl+f",
+            "mac-cmd (kitty) #1": "meta+f"
+        },
+        "closeFindWidget": "escape",
+        "closeParameterHints": "escape",
+        "cursorBottom": {
+            "*": "ctrl+end",
+            "mac-cmd (kitty) #1": "meta+down"
+        },
+        "cursorBottomSelect": {
+            "*": "ctrl+shift+end",
+            "mac-cmd (kitty) #1": "shift+meta+down"
+        },
+        "cursorDown": "down",
+        "cursorDownSelect": "shift+down",
+        "cursorEnd": "end",
+        "cursorEndSelect": "shift+end",
+        "cursorHome": "home",
+        "cursorHomeSelect": "shift+home",
+        "cursorLeft": "left",
+        "cursorLeftSelect": "shift+left",
+        "cursorLineEnd": "ctrl+e",
+        "cursorLineStart": "ctrl+a",
+        "cursorPageDown": "pagedown",
+        "cursorPageDownSelect": "shift+pagedown",
+        "cursorPageUp": "pageup",
+        "cursorPageUpSelect": "shift+pageup",
+        "cursorRight": "right",
+        "cursorRightSelect": "shift+right",
+        "cursorTop": {
+            "*": "ctrl+home",
+            "mac-cmd (kitty) #1": "meta+up"
+        },
+        "cursorTopSelect": {
+            "*": "ctrl+shift+home",
+            "mac-cmd (kitty) #1": "shift+meta+up"
+        },
+        "cursorUp": "up",
+        "cursorUpSelect": "shift+up",
+        "cursorWordLeft": {
+            "*": "ctrl+left",
+            "mac-legacy (Terminal.app) #1": "alt+left",
+            "mac-legacy (tmux) #1": "alt+left",
+            "mac-extended (tmux + extended-keys) #1": "alt+left",
+            "mac-cmd (kitty) #1": "alt+left"
+        },
+        "cursorWordLeftSelect": {
+            "*": "ctrl+shift+left",
+            "mac-legacy (Terminal.app) #1": "ctrl+k shift+left",
+            "mac-legacy (tmux) #1": "ctrl+k shift+left",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+k shift+left",
+            "mac-cmd (kitty) #1": "ctrl+k shift+left"
+        },
+        "cursorWordRight": {
+            "*": "ctrl+right",
+            "mac-legacy (Terminal.app) #1": "alt+right",
+            "mac-legacy (tmux) #1": "alt+right",
+            "mac-extended (tmux + extended-keys) #1": "alt+right",
+            "mac-cmd (kitty) #1": "alt+right"
+        },
+        "cursorWordRightSelect": {
+            "*": "ctrl+shift+right",
+            "mac-legacy (Terminal.app) #1": "ctrl+k shift+right",
+            "mac-legacy (tmux) #1": "ctrl+k shift+right",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+k shift+right",
+            "mac-cmd (kitty) #1": "ctrl+k shift+right"
+        },
+        "deleteAllLeft": "meta+backspace",
+        "deleteLeft": "backspace",
+        "deleteRight": "delete",
+        "deleteWordLeft": {
+            "*": "alt+backspace",
+            "pc csi-u #1": "ctrl+backspace",
+            "pc kitty #1": "ctrl+backspace"
+        },
+        "deleteWordRight": {
+            "*": "ctrl+delete",
+            "mac-legacy (Terminal.app) #1": "alt+delete",
+            "mac-legacy (tmux) #1": "alt+delete",
+            "mac-extended (tmux + extended-keys) #1": "alt+delete",
+            "mac-cmd (kitty) #1": "alt+delete"
+        },
+        "editor.action.addCommentLine": {
+            "*": "ctrl+k ctrl+c",
+            "mac-cmd (kitty) #1": "meta+k meta+c"
+        },
+        "editor.action.addSelectionToNextFindMatch": {
+            "*": "ctrl+d",
+            "mac-cmd (kitty) #1": "meta+d"
+        },
+        "editor.action.blockComment": {
+            "*": "ctrl+k alt+a",
+            "pc csi-u #1": "shift+alt+a",
+            "pc kitty #1": "shift+alt+a",
+            "mac-extended (tmux + extended-keys) #1": "shift+alt+a",
+            "mac-cmd (kitty) #1": "shift+alt+a"
+        },
+        "editor.action.clipboardCopyAction": "ctrl+c",
+        "editor.action.clipboardCutAction": "ctrl+x",
+        "editor.action.clipboardPasteAction": "ctrl+v",
+        "editor.action.commentLine": {
+            "*": "ctrl+/",
+            "mac-cmd (kitty) #1": "meta+/"
+        },
+        "editor.action.copyLinesDownAction": {
+            "*": "ctrl+shift+alt+down",
+            "mac-legacy (Terminal.app) #1": "shift+alt+down",
+            "mac-legacy (tmux) #1": "shift+alt+down",
+            "mac-extended (tmux + extended-keys) #1": "shift+alt+down",
+            "mac-cmd (kitty) #1": "shift+alt+down"
+        },
+        "editor.action.copyLinesUpAction": {
+            "*": "ctrl+shift+alt+up",
+            "mac-legacy (Terminal.app) #1": "shift+alt+up",
+            "mac-legacy (tmux) #1": "shift+alt+up",
+            "mac-extended (tmux + extended-keys) #1": "shift+alt+up",
+            "mac-cmd (kitty) #1": "shift+alt+up"
+        },
+        "editor.action.deleteLines": {
+            "*": "ctrl+shift+k",
+            "pc legacy #0": "ctrl+k ctrl+k",
+            "pc legacy #1": "ctrl+k ctrl+k",
+            "pc legacy #2": "ctrl+k ctrl+k",
+            "pc legacy #3": "ctrl+k ctrl+k",
+            "mac-legacy (Terminal.app) #0": "ctrl+k ctrl+k",
+            "mac-legacy (Terminal.app) #1": "ctrl+k ctrl+k",
+            "mac-legacy (Terminal.app) #2": "ctrl+k ctrl+k",
+            "mac-legacy (Terminal.app) #3": "ctrl+k ctrl+k",
+            "mac-legacy (tmux) #0": "ctrl+k ctrl+k",
+            "mac-legacy (tmux) #1": "ctrl+k ctrl+k",
+            "mac-legacy (tmux) #2": "ctrl+k ctrl+k",
+            "mac-legacy (tmux) #3": "ctrl+k ctrl+k",
+            "mac-cmd (kitty) #1": "shift+meta+k"
+        },
+        "editor.action.formatDocument": {
+            "*": "ctrl+k ctrl+e",
+            "pc csi-u #1": "shift+alt+f",
+            "pc kitty #1": "shift+alt+f",
+            "mac-extended (tmux + extended-keys) #1": "shift+alt+f",
+            "mac-cmd (kitty) #1": "shift+alt+f"
+        },
+        "editor.action.formatSelection": {
+            "*": "ctrl+k ctrl+f",
+            "mac-cmd (kitty) #1": "meta+k meta+f"
+        },
+        "editor.action.hideHover": "escape",
+        "editor.action.indentLines": "tab",
+        "editor.action.inlineSuggest.commit": "tab",
+        "editor.action.inlineSuggest.hide": "escape",
+        "editor.action.inlineSuggest.trigger": "alt+\\",
+        "editor.action.insertCursorAbove": "ctrl+alt+up",
+        "editor.action.insertCursorAtEndOfEachLineSelected": {
+            "*": "ctrl+shift+alt+i",
+            "pc legacy #0": "ctrl+k ctrl+i",
+            "pc legacy #1": "ctrl+k ctrl+i",
+            "pc legacy #2": "ctrl+k ctrl+i",
+            "pc legacy #3": "ctrl+k ctrl+i",
+            "mac-legacy (Terminal.app) #0": "ctrl+k ctrl+i",
+            "mac-legacy (Terminal.app) #1": "ctrl+k ctrl+i",
+            "mac-legacy (Terminal.app) #2": "ctrl+k ctrl+i",
+            "mac-legacy (Terminal.app) #3": "ctrl+k ctrl+i",
+            "mac-legacy (tmux) #0": "ctrl+k ctrl+i",
+            "mac-legacy (tmux) #1": "ctrl+k ctrl+i",
+            "mac-legacy (tmux) #2": "ctrl+k ctrl+i",
+            "mac-legacy (tmux) #3": "ctrl+k ctrl+i"
+        },
+        "editor.action.insertCursorBelow": "ctrl+alt+down",
+        "editor.action.moveLinesDownAction": "alt+down",
+        "editor.action.moveLinesUpAction": "alt+up",
+        "editor.action.moveSelectionToNextFindMatch": {
+            "*": "ctrl+k ctrl+d",
+            "mac-cmd (kitty) #1": "meta+k meta+d"
+        },
+        "editor.action.nextMatchFindAction": {
+            "*": "enter",
+            "pc legacy #1": "f3",
+            "pc csi-u #1": "f3",
+            "pc kitty #1": "f3",
+            "mac-legacy (Terminal.app) #1": "f3",
+            "mac-legacy (tmux) #1": "f3",
+            "mac-extended (tmux + extended-keys) #1": "f3",
+            "mac-cmd (kitty) #0": "meta+g",
+            "mac-cmd (kitty) #1": "f3",
+            "mac-cmd (kitty) #2": "meta+g",
+            "mac-cmd (kitty) #3": "meta+g"
+        },
+        "editor.action.organizeImports": {
+            "*": "ctrl+k alt+o",
+            "pc csi-u #1": "shift+alt+o",
+            "pc kitty #1": "shift+alt+o",
+            "mac-extended (tmux + extended-keys) #1": "shift+alt+o",
+            "mac-cmd (kitty) #1": "shift+alt+o"
+        },
+        "editor.action.outdentLines": "shift+tab",
+        "editor.action.previousMatchFindAction": {
+            "*": "shift+f3",
+            "pc csi-u #0": "shift+enter",
+            "pc csi-u #2": "shift+enter",
+            "pc csi-u #3": "shift+enter",
+            "pc kitty #0": "shift+enter",
+            "pc kitty #2": "shift+enter",
+            "pc kitty #3": "shift+enter",
+            "mac-extended (tmux + extended-keys) #0": "shift+enter",
+            "mac-extended (tmux + extended-keys) #2": "shift+enter",
+            "mac-extended (tmux + extended-keys) #3": "shift+enter",
+            "mac-cmd (kitty) #0": "shift+meta+g",
+            "mac-cmd (kitty) #2": "shift+meta+g",
+            "mac-cmd (kitty) #3": "shift+meta+g"
+        },
+        "editor.action.quickFix": {
+            "*": "ctrl+.",
+            "mac-cmd (kitty) #1": "meta+."
+        },
+        "editor.action.removeCommentLine": {
+            "*": "ctrl+k ctrl+u",
+            "mac-cmd (kitty) #1": "meta+k meta+u"
+        },
+        "editor.action.revealDefinition": "f12",
+        "editor.action.revealDefinitionAside": {
+            "*": "ctrl+k f12",
+            "mac-cmd (kitty) #1": "meta+k f12"
+        },
+        "editor.action.selectAll": {
+            "*": "ctrl+a",
+            "mac-cmd (kitty) #1": "meta+a"
+        },
+        "editor.action.selectHighlights": {
+            "*": "ctrl+shift+l",
+            "pc legacy #0": "ctrl+k ctrl+a",
+            "pc legacy #1": "ctrl+k ctrl+a",
+            "pc legacy #2": "ctrl+k ctrl+a",
+            "pc legacy #3": "ctrl+k ctrl+a",
+            "mac-legacy (Terminal.app) #0": "ctrl+k ctrl+a",
+            "mac-legacy (Terminal.app) #1": "ctrl+k ctrl+a",
+            "mac-legacy (Terminal.app) #2": "ctrl+k ctrl+a",
+            "mac-legacy (Terminal.app) #3": "ctrl+k ctrl+a",
+            "mac-legacy (tmux) #0": "ctrl+k ctrl+a",
+            "mac-legacy (tmux) #1": "ctrl+k ctrl+a",
+            "mac-legacy (tmux) #2": "ctrl+k ctrl+a",
+            "mac-legacy (tmux) #3": "ctrl+k ctrl+a",
+            "mac-cmd (kitty) #1": "shift+meta+l"
+        },
+        "editor.action.showContextMenu": "shift+f10",
+        "editor.action.showHover": "ctrl+k ctrl+u",
+        "editor.action.toggleWordWrap": "alt+z",
+        "editor.action.triggerParameterHints": "ctrl+k ctrl+space",
+        "editor.action.triggerSuggest": "ctrl+space",
+        "editor.fold": {
+            "*": "ctrl+k alt+f",
+            "pc csi-u #1": "ctrl+shift+[",
+            "pc kitty #1": "ctrl+shift+["
+        },
+        "editor.foldAll": {
+            "*": "ctrl+k ctrl+0",
+            "mac-cmd (kitty) #1": "meta+k meta+0"
+        },
+        "editor.foldLevel1": {
+            "*": "ctrl+k ctrl+1",
+            "mac-cmd (kitty) #1": "meta+k meta+1"
+        },
+        "editor.foldLevel2": {
+            "*": "ctrl+k ctrl+2",
+            "mac-cmd (kitty) #1": "meta+k meta+2"
+        },
+        "editor.foldLevel3": {
+            "*": "ctrl+k ctrl+3",
+            "mac-cmd (kitty) #1": "meta+k meta+3"
+        },
+        "editor.foldLevel4": {
+            "*": "ctrl+k ctrl+4",
+            "mac-cmd (kitty) #1": "meta+k meta+4"
+        },
+        "editor.foldLevel5": {
+            "*": "ctrl+k ctrl+5",
+            "mac-cmd (kitty) #1": "meta+k meta+5"
+        },
+        "editor.foldLevel6": {
+            "*": "ctrl+k ctrl+6",
+            "mac-cmd (kitty) #1": "meta+k meta+6"
+        },
+        "editor.foldLevel7": {
+            "*": "ctrl+k ctrl+7",
+            "mac-cmd (kitty) #1": "meta+k meta+7"
+        },
+        "editor.foldRecursively": {
+            "*": "ctrl+k ctrl+[",
+            "mac-cmd (kitty) #1": "meta+k meta+["
+        },
+        "editor.gotoNextFold": "ctrl+k ctrl+.",
+        "editor.gotoPreviousFold": "ctrl+k ctrl+,",
+        "editor.toggleFold": {
+            "*": "ctrl+k ctrl+l",
+            "mac-cmd (kitty) #1": "meta+k meta+l"
+        },
+        "editor.unfold": {
+            "*": "ctrl+k alt+u",
+            "pc csi-u #1": "ctrl+shift+]",
+            "pc kitty #1": "ctrl+shift+]"
+        },
+        "editor.unfoldAll": {
+            "*": "ctrl+k ctrl+j",
+            "mac-cmd (kitty) #1": "meta+k meta+j"
+        },
+        "editor.unfoldRecursively": {
+            "*": "ctrl+k ctrl+]",
+            "mac-cmd (kitty) #1": "meta+k meta+]"
+        },
+        "explorer.openToSide": "alt+enter",
+        "fileOperations.copy": "ctrl+c",
+        "fileOperations.copyPath": {
+            "*": "ctrl+k alt+c",
+            "pc csi-u #3": "shift+alt+c",
+            "pc kitty #3": "shift+alt+c",
+            "mac-extended (tmux + extended-keys) #3": "shift+alt+c",
+            "mac-cmd (kitty) #3": "shift+alt+c"
+        },
+        "fileOperations.copyRelativePath": {
+            "*": "ctrl+k ctrl+shift+c",
+            "pc legacy #0": "ctrl+k ctrl+c",
+            "pc legacy #1": "ctrl+k ctrl+c",
+            "pc legacy #2": "ctrl+k ctrl+c",
+            "pc legacy #3": "ctrl+k ctrl+c",
+            "mac-legacy (Terminal.app) #0": "ctrl+k ctrl+c",
+            "mac-legacy (Terminal.app) #1": "ctrl+k ctrl+c",
+            "mac-legacy (Terminal.app) #2": "ctrl+k ctrl+c",
+            "mac-legacy (Terminal.app) #3": "ctrl+k ctrl+c",
+            "mac-legacy (tmux) #0": "ctrl+k ctrl+c",
+            "mac-legacy (tmux) #1": "ctrl+k ctrl+c",
+            "mac-legacy (tmux) #2": "ctrl+k ctrl+c",
+            "mac-legacy (tmux) #3": "ctrl+k ctrl+c"
+        },
+        "fileOperations.cut": "ctrl+x",
+        "fileOperations.deleteFile": "delete",
+        "fileOperations.paste": "ctrl+v",
+        "fileOperations.redo": {
+            "*": "ctrl+shift+z",
+            "pc legacy #0": "ctrl+y",
+            "pc legacy #1": "ctrl+y",
+            "pc legacy #2": "ctrl+y",
+            "pc legacy #3": "ctrl+y",
+            "mac-legacy (Terminal.app) #0": "ctrl+y",
+            "mac-legacy (Terminal.app) #1": "ctrl+y",
+            "mac-legacy (Terminal.app) #2": "ctrl+y",
+            "mac-legacy (Terminal.app) #3": "ctrl+y",
+            "mac-legacy (tmux) #0": "ctrl+y",
+            "mac-legacy (tmux) #1": "ctrl+y",
+            "mac-legacy (tmux) #2": "ctrl+y",
+            "mac-legacy (tmux) #3": "ctrl+y",
+            "mac-cmd (kitty) #3": "shift+meta+z"
+        },
+        "fileOperations.rename": "f2",
+        "fileOperations.undo": {
+            "*": "ctrl+z",
+            "mac-cmd (kitty) #3": "meta+z"
+        },
+        "git.commit": "alt+enter",
+        "hideSuggestWidget": "escape",
+        "input.copy": "ctrl+c",
+        "input.cursorEnd": "end",
+        "input.cursorHome": "home",
+        "input.cursorLeft": "left",
+        "input.cursorRight": "right",
+        "input.cursorWordLeft": {
+            "*": "ctrl+left",
+            "mac-legacy (Terminal.app) #2": "alt+left",
+            "mac-legacy (tmux) #2": "alt+left",
+            "mac-extended (tmux + extended-keys) #2": "alt+left",
+            "mac-cmd (kitty) #2": "alt+left"
+        },
+        "input.cursorWordRight": {
+            "*": "ctrl+right",
+            "mac-legacy (Terminal.app) #2": "alt+right",
+            "mac-legacy (tmux) #2": "alt+right",
+            "mac-extended (tmux + extended-keys) #2": "alt+right",
+            "mac-cmd (kitty) #2": "alt+right"
+        },
+        "input.cut": "ctrl+x",
+        "input.deleteLeft": "backspace",
+        "input.deleteRight": "delete",
+        "input.deleteWordLeft": {
+            "*": "alt+backspace",
+            "pc csi-u #2": "ctrl+backspace",
+            "pc kitty #2": "ctrl+backspace"
+        },
+        "input.deleteWordRight": {
+            "*": "ctrl+delete",
+            "mac-legacy (Terminal.app) #2": "alt+delete",
+            "mac-legacy (tmux) #2": "alt+delete",
+            "mac-extended (tmux + extended-keys) #2": "alt+delete",
+            "mac-cmd (kitty) #2": "alt+delete"
+        },
+        "input.paste": "ctrl+v",
+        "input.redo": "ctrl+y",
+        "input.selectAll": {
+            "*": "ctrl+a",
+            "mac-cmd (kitty) #2": "meta+a"
+        },
+        "input.selectLeft": "shift+left",
+        "input.selectRight": "shift+right",
+        "input.selectToEnd": "shift+end",
+        "input.selectToHome": "shift+home",
+        "input.selectWordLeft": {
+            "*": "ctrl+shift+left",
+            "mac-legacy (Terminal.app) #2": "shift+alt+left",
+            "mac-legacy (tmux) #2": "shift+alt+left",
+            "mac-extended (tmux + extended-keys) #2": "shift+alt+left",
+            "mac-cmd (kitty) #2": "shift+alt+left"
+        },
+        "input.selectWordRight": {
+            "*": "ctrl+shift+right",
+            "mac-legacy (Terminal.app) #2": "shift+alt+right",
+            "mac-legacy (tmux) #2": "shift+alt+right",
+            "mac-extended (tmux + extended-keys) #2": "shift+alt+right",
+            "mac-cmd (kitty) #2": "shift+alt+right"
+        },
+        "input.undo": {
+            "*": "ctrl+z",
+            "mac-cmd (kitty) #2": "meta+z"
+        },
+        "list.focusFirst": "home",
+        "list.focusLast": "end",
+        "list.focusPageDown": "pagedown",
+        "list.focusPageUp": "pageup",
+        "notifications.focusMessage": "f6",
+        "redo": {
+            "*": "ctrl+shift+z",
+            "pc legacy #0": "ctrl+y",
+            "pc legacy #1": "ctrl+y",
+            "pc legacy #2": "ctrl+y",
+            "pc legacy #3": "ctrl+y",
+            "mac-legacy (Terminal.app) #0": "ctrl+y",
+            "mac-legacy (Terminal.app) #1": "ctrl+y",
+            "mac-legacy (Terminal.app) #2": "ctrl+y",
+            "mac-legacy (Terminal.app) #3": "ctrl+y",
+            "mac-legacy (tmux) #0": "ctrl+y",
+            "mac-legacy (tmux) #1": "ctrl+y",
+            "mac-legacy (tmux) #2": "ctrl+y",
+            "mac-legacy (tmux) #3": "ctrl+y",
+            "mac-cmd (kitty) #1": "shift+meta+z"
+        },
+        "references-view.findReferences": "ctrl+k ctrl+r",
+        "references-view.next": "f4",
+        "references-view.prev": "shift+f4",
+        "removeSecondaryCursors": "escape",
+        "scm.action.focusChanges": "down",
+        "scrollLineDown": {
+            "*": "ctrl+down",
+            "mac-legacy (Terminal.app) #1": "ctrl+pagedown",
+            "mac-legacy (tmux) #1": "ctrl+pagedown",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+pagedown",
+            "mac-cmd (kitty) #1": "ctrl+pagedown"
+        },
+        "scrollLineUp": {
+            "*": "ctrl+up",
+            "mac-legacy (Terminal.app) #1": "ctrl+pageup",
+            "mac-legacy (tmux) #1": "ctrl+pageup",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+pageup",
+            "mac-cmd (kitty) #1": "ctrl+pageup"
+        },
+        "search.action.focusSearchFromResults": "up",
+        "search.focus.nextInputBox": "down",
+        "search.focus.previousInputBox": "up",
+        "selectNextPageSuggestion": "pagedown",
+        "selectNextSuggestion": "down",
+        "selectPrevPageSuggestion": "pageup",
+        "selectPrevSuggestion": "up",
+        "showNextParameterHint": "down",
+        "showPrevParameterHint": "up",
+        "toggleSuggestionDetails": "ctrl+space",
+        "undo": {
+            "*": "ctrl+z",
+            "mac-cmd (kitty) #1": "meta+z"
+        },
+        "workbench.action.closeActiveEditor": {
+            "*": "ctrl+w",
+            "mac-cmd (kitty) #1": "meta+w"
+        },
+        "workbench.action.closeAllEditors": {
+            "*": "ctrl+k ctrl+w",
+            "mac-cmd (kitty) #1": "meta+k meta+w"
+        },
+        "workbench.action.closeEditorsInGroup": {
+            "*": "ctrl+k w",
+            "mac-cmd (kitty) #1": "meta+k w"
+        },
+        "workbench.action.closeOtherEditors": "alt+meta+t",
+        "workbench.action.files.newUntitledFile": {
+            "*": "ctrl+n",
+            "mac-cmd (kitty) #0": "meta+n",
+            "mac-cmd (kitty) #1": "meta+n",
+            "mac-cmd (kitty) #2": "meta+n",
+            "mac-cmd (kitty) #3": "meta+n"
+        },
+        "workbench.action.files.openFile": {
+            "*": "ctrl+o",
+            "mac-cmd (kitty) #0": "meta+o",
+            "mac-cmd (kitty) #1": "meta+o",
+            "mac-cmd (kitty) #2": "meta+o",
+            "mac-cmd (kitty) #3": "meta+o"
+        },
+        "workbench.action.files.openFolder": "ctrl+k ctrl+o",
+        "workbench.action.files.save": {
+            "*": "ctrl+s",
+            "mac-cmd (kitty) #0": "meta+s",
+            "mac-cmd (kitty) #1": "meta+s",
+            "mac-cmd (kitty) #2": "meta+s",
+            "mac-cmd (kitty) #3": "meta+s"
+        },
+        "workbench.action.files.saveAs": {
+            "*": "ctrl+k alt+s",
+            "pc csi-u #0": "ctrl+shift+s",
+            "pc csi-u #1": "ctrl+shift+s",
+            "pc csi-u #2": "ctrl+shift+s",
+            "pc csi-u #3": "ctrl+shift+s",
+            "pc kitty #0": "ctrl+shift+s",
+            "pc kitty #1": "ctrl+shift+s",
+            "pc kitty #2": "ctrl+shift+s",
+            "pc kitty #3": "ctrl+shift+s",
+            "mac-extended (tmux + extended-keys) #0": "ctrl+shift+s",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+s",
+            "mac-extended (tmux + extended-keys) #2": "ctrl+shift+s",
+            "mac-extended (tmux + extended-keys) #3": "ctrl+shift+s",
+            "mac-cmd (kitty) #0": "shift+meta+s",
+            "mac-cmd (kitty) #1": "shift+meta+s",
+            "mac-cmd (kitty) #2": "shift+meta+s",
+            "mac-cmd (kitty) #3": "shift+meta+s"
+        },
+        "workbench.action.focusAboveGroup": {
+            "*": "ctrl+k ctrl+up",
+            "mac-cmd (kitty) #0": "meta+k meta+up",
+            "mac-cmd (kitty) #1": "meta+k meta+up",
+            "mac-cmd (kitty) #2": "meta+k meta+up",
+            "mac-cmd (kitty) #3": "meta+k meta+up"
+        },
+        "workbench.action.focusBelowGroup": {
+            "*": "ctrl+k ctrl+down",
+            "mac-cmd (kitty) #0": "meta+k meta+down",
+            "mac-cmd (kitty) #1": "meta+k meta+down",
+            "mac-cmd (kitty) #2": "meta+k meta+down",
+            "mac-cmd (kitty) #3": "meta+k meta+down"
+        },
+        "workbench.action.focusFifthEditorGroup": {
+            "*": "ctrl+5",
+            "pc legacy #0": "ctrl+k 5",
+            "pc legacy #1": "ctrl+k 5",
+            "pc legacy #2": "ctrl+k 5",
+            "pc legacy #3": "ctrl+k 5",
+            "mac-legacy (Terminal.app) #0": "ctrl+k 5",
+            "mac-legacy (Terminal.app) #1": "ctrl+k 5",
+            "mac-legacy (Terminal.app) #2": "ctrl+k 5",
+            "mac-legacy (Terminal.app) #3": "ctrl+k 5",
+            "mac-legacy (tmux) #0": "ctrl+k 5",
+            "mac-legacy (tmux) #1": "ctrl+k 5",
+            "mac-legacy (tmux) #2": "ctrl+k 5",
+            "mac-legacy (tmux) #3": "ctrl+k 5",
+            "mac-cmd (kitty) #0": "meta+5",
+            "mac-cmd (kitty) #1": "meta+5",
+            "mac-cmd (kitty) #2": "meta+5",
+            "mac-cmd (kitty) #3": "meta+5"
+        },
+        "workbench.action.focusFirstEditorGroup": {
+            "*": "ctrl+1",
+            "pc legacy #0": "ctrl+k 1",
+            "pc legacy #1": "ctrl+k 1",
+            "pc legacy #2": "ctrl+k 1",
+            "pc legacy #3": "ctrl+k 1",
+            "mac-legacy (Terminal.app) #0": "ctrl+k 1",
+            "mac-legacy (Terminal.app) #1": "ctrl+k 1",
+            "mac-legacy (Terminal.app) #2": "ctrl+k 1",
+            "mac-legacy (Terminal.app) #3": "ctrl+k 1",
+            "mac-legacy (tmux) #0": "ctrl+k 1",
+            "mac-legacy (tmux) #1": "ctrl+k 1",
+            "mac-legacy (tmux) #2": "ctrl+k 1",
+            "mac-legacy (tmux) #3": "ctrl+k 1",
+            "mac-cmd (kitty) #0": "meta+1",
+            "mac-cmd (kitty) #1": "meta+1",
+            "mac-cmd (kitty) #2": "meta+1",
+            "mac-cmd (kitty) #3": "meta+1"
+        },
+        "workbench.action.focusFourthEditorGroup": {
+            "*": "ctrl+4",
+            "pc legacy #0": "ctrl+k 4",
+            "pc legacy #1": "ctrl+k 4",
+            "pc legacy #2": "ctrl+k 4",
+            "pc legacy #3": "ctrl+k 4",
+            "mac-legacy (Terminal.app) #0": "ctrl+k 4",
+            "mac-legacy (Terminal.app) #1": "ctrl+k 4",
+            "mac-legacy (Terminal.app) #2": "ctrl+k 4",
+            "mac-legacy (Terminal.app) #3": "ctrl+k 4",
+            "mac-legacy (tmux) #0": "ctrl+k 4",
+            "mac-legacy (tmux) #1": "ctrl+k 4",
+            "mac-legacy (tmux) #2": "ctrl+k 4",
+            "mac-legacy (tmux) #3": "ctrl+k 4",
+            "mac-cmd (kitty) #0": "meta+4",
+            "mac-cmd (kitty) #1": "meta+4",
+            "mac-cmd (kitty) #2": "meta+4",
+            "mac-cmd (kitty) #3": "meta+4"
+        },
+        "workbench.action.focusLeftGroup": {
+            "*": "ctrl+k ctrl+left",
+            "mac-cmd (kitty) #0": "meta+k meta+left",
+            "mac-cmd (kitty) #1": "meta+k meta+left",
+            "mac-cmd (kitty) #2": "meta+k meta+left",
+            "mac-cmd (kitty) #3": "meta+k meta+left"
+        },
+        "workbench.action.focusRightGroup": {
+            "*": "ctrl+k ctrl+right",
+            "mac-cmd (kitty) #0": "meta+k meta+right",
+            "mac-cmd (kitty) #1": "meta+k meta+right",
+            "mac-cmd (kitty) #2": "meta+k meta+right",
+            "mac-cmd (kitty) #3": "meta+k meta+right"
+        },
+        "workbench.action.focusSecondEditorGroup": {
+            "*": "ctrl+2",
+            "pc legacy #0": "ctrl+k 2",
+            "pc legacy #1": "ctrl+k 2",
+            "pc legacy #2": "ctrl+k 2",
+            "pc legacy #3": "ctrl+k 2",
+            "mac-legacy (Terminal.app) #0": "ctrl+k 2",
+            "mac-legacy (Terminal.app) #1": "ctrl+k 2",
+            "mac-legacy (Terminal.app) #2": "ctrl+k 2",
+            "mac-legacy (Terminal.app) #3": "ctrl+k 2",
+            "mac-legacy (tmux) #0": "ctrl+k 2",
+            "mac-legacy (tmux) #1": "ctrl+k 2",
+            "mac-legacy (tmux) #2": "ctrl+k 2",
+            "mac-legacy (tmux) #3": "ctrl+k 2",
+            "mac-cmd (kitty) #0": "meta+2",
+            "mac-cmd (kitty) #1": "meta+2",
+            "mac-cmd (kitty) #2": "meta+2",
+            "mac-cmd (kitty) #3": "meta+2"
+        },
+        "workbench.action.focusThirdEditorGroup": {
+            "*": "ctrl+3",
+            "pc legacy #0": "ctrl+k 3",
+            "pc legacy #1": "ctrl+k 3",
+            "pc legacy #2": "ctrl+k 3",
+            "pc legacy #3": "ctrl+k 3",
+            "mac-legacy (Terminal.app) #0": "ctrl+k 3",
+            "mac-legacy (Terminal.app) #1": "ctrl+k 3",
+            "mac-legacy (Terminal.app) #2": "ctrl+k 3",
+            "mac-legacy (Terminal.app) #3": "ctrl+k 3",
+            "mac-legacy (tmux) #0": "ctrl+k 3",
+            "mac-legacy (tmux) #1": "ctrl+k 3",
+            "mac-legacy (tmux) #2": "ctrl+k 3",
+            "mac-legacy (tmux) #3": "ctrl+k 3",
+            "mac-cmd (kitty) #0": "meta+3",
+            "mac-cmd (kitty) #1": "meta+3",
+            "mac-cmd (kitty) #2": "meta+3",
+            "mac-cmd (kitty) #3": "meta+3"
+        },
+        "workbench.action.gotoLine": "ctrl+g",
+        "workbench.action.moveEditorToNextGroup": {
+            "*": "ctrl+alt+right",
+            "pc legacy #1": "ctrl+k alt+right",
+            "mac-legacy (Terminal.app) #1": "ctrl+k alt+right",
+            "mac-legacy (tmux) #1": "ctrl+k alt+right",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+k alt+right",
+            "mac-cmd (kitty) #1": "ctrl+k alt+right"
+        },
+        "workbench.action.moveEditorToPreviousGroup": {
+            "*": "ctrl+alt+left",
+            "pc legacy #1": "ctrl+k alt+left",
+            "mac-legacy (Terminal.app) #1": "ctrl+k alt+left",
+            "mac-legacy (tmux) #1": "ctrl+k alt+left",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+k alt+left",
+            "mac-cmd (kitty) #1": "ctrl+k alt+left"
+        },
+        "workbench.action.navigateBack": {
+            "*": "ctrl+-",
+            "pc legacy #0": "ctrl+k ctrl+b",
+            "pc legacy #1": "ctrl+k ctrl+b",
+            "pc legacy #2": "ctrl+k ctrl+b",
+            "pc legacy #3": "ctrl+k ctrl+b",
+            "pc csi-u #0": "ctrl+alt+-",
+            "pc csi-u #1": "ctrl+alt+-",
+            "pc csi-u #2": "ctrl+alt+-",
+            "pc csi-u #3": "ctrl+alt+-",
+            "pc kitty #0": "ctrl+alt+-",
+            "pc kitty #1": "ctrl+alt+-",
+            "pc kitty #2": "ctrl+alt+-",
+            "pc kitty #3": "ctrl+alt+-"
+        },
+        "workbench.action.navigateForward": {
+            "*": "ctrl+shift+-",
+            "pc legacy #0": "ctrl+k ctrl+f",
+            "pc legacy #1": "ctrl+k ctrl+f",
+            "pc legacy #2": "ctrl+k ctrl+f",
+            "pc legacy #3": "ctrl+k ctrl+f",
+            "mac-legacy (Terminal.app) #0": "ctrl+k ctrl+f",
+            "mac-legacy (Terminal.app) #1": "ctrl+k ctrl+f",
+            "mac-legacy (Terminal.app) #2": "ctrl+k ctrl+f",
+            "mac-legacy (Terminal.app) #3": "ctrl+k ctrl+f",
+            "mac-legacy (tmux) #0": "ctrl+k ctrl+f",
+            "mac-legacy (tmux) #1": "ctrl+k ctrl+f",
+            "mac-legacy (tmux) #2": "ctrl+k ctrl+f",
+            "mac-legacy (tmux) #3": "ctrl+k ctrl+f"
+        },
+        "workbench.action.nextEditor": {
+            "*": "ctrl+pagedown",
+            "mac-legacy (Terminal.app) #1": "alt+pagedown",
+            "mac-legacy (tmux) #1": "alt+pagedown",
+            "mac-extended (tmux + extended-keys) #1": "alt+pagedown",
+            "mac-cmd (kitty) #1": "alt+pagedown"
+        },
+        "workbench.action.nextEditorInGroup": {
+            "*": "ctrl+tab",
+            "pc legacy #0": "ctrl+down",
+            "pc legacy #1": "ctrl+down",
+            "pc legacy #2": "ctrl+down",
+            "pc legacy #3": "ctrl+down",
+            "mac-legacy (Terminal.app) #0": "ctrl+down",
+            "mac-legacy (Terminal.app) #1": "ctrl+down",
+            "mac-legacy (Terminal.app) #2": "ctrl+down",
+            "mac-legacy (Terminal.app) #3": "ctrl+down",
+            "mac-legacy (tmux) #0": "ctrl+down",
+            "mac-legacy (tmux) #1": "ctrl+down",
+            "mac-legacy (tmux) #2": "ctrl+down",
+            "mac-legacy (tmux) #3": "ctrl+down"
+        },
+        "workbench.action.openGlobalKeybindings": {
+            "*": "ctrl+k ctrl+s",
+            "mac-cmd (kitty) #0": "meta+k meta+s",
+            "mac-cmd (kitty) #1": "meta+k meta+s",
+            "mac-cmd (kitty) #2": "meta+k meta+s",
+            "mac-cmd (kitty) #3": "meta+k meta+s"
+        },
+        "workbench.action.openPreviousRecentlyUsedEditorInGroup": "ctrl+6",
+        "workbench.action.openSettings": {
+            "*": "ctrl+,",
+            "mac-cmd (kitty) #0": "meta+,",
+            "mac-cmd (kitty) #1": "meta+,",
+            "mac-cmd (kitty) #2": "meta+,",
+            "mac-cmd (kitty) #3": "meta+,"
+        },
+        "workbench.action.output.toggleOutput": {
+            "*": "ctrl+k ctrl+h",
+            "mac-cmd (kitty) #0": "shift+meta+u",
+            "mac-cmd (kitty) #1": "shift+meta+u",
+            "mac-cmd (kitty) #2": "shift+meta+u",
+            "mac-cmd (kitty) #3": "shift+meta+u"
+        },
+        "workbench.action.previousEditor": {
+            "*": "ctrl+pageup",
+            "mac-legacy (Terminal.app) #1": "alt+pageup",
+            "mac-legacy (tmux) #1": "alt+pageup",
+            "mac-extended (tmux + extended-keys) #1": "alt+pageup",
+            "mac-cmd (kitty) #1": "alt+pageup"
+        },
+        "workbench.action.previousEditorInGroup": {
+            "*": "ctrl+shift+tab",
+            "pc legacy #0": "ctrl+up",
+            "pc legacy #1": "ctrl+up",
+            "pc legacy #2": "ctrl+up",
+            "pc legacy #3": "ctrl+up",
+            "mac-legacy (Terminal.app) #0": "ctrl+up",
+            "mac-legacy (Terminal.app) #1": "ctrl+up",
+            "mac-legacy (Terminal.app) #2": "ctrl+up",
+            "mac-legacy (Terminal.app) #3": "ctrl+up",
+            "mac-legacy (tmux) #0": "ctrl+up",
+            "mac-legacy (tmux) #1": "ctrl+up",
+            "mac-legacy (tmux) #2": "ctrl+up",
+            "mac-legacy (tmux) #3": "ctrl+up"
+        },
+        "workbench.action.quickOpen": {
+            "*": "ctrl+p",
+            "mac-cmd (kitty) #0": "meta+p",
+            "mac-cmd (kitty) #1": "meta+p",
+            "mac-cmd (kitty) #2": "meta+p",
+            "mac-cmd (kitty) #3": "meta+p"
+        },
+        "workbench.action.quit": {
+            "*": "ctrl+q",
+            "mac-cmd (kitty) #0": "meta+q",
+            "mac-cmd (kitty) #1": "meta+q",
+            "mac-cmd (kitty) #2": "meta+q",
+            "mac-cmd (kitty) #3": "meta+q"
+        },
+        "workbench.action.search.toggleQueryDetails": "ctrl+k alt+j",
+        "workbench.action.selectTheme": {
+            "*": "ctrl+k ctrl+t",
+            "mac-cmd (kitty) #0": "meta+k meta+t",
+            "mac-cmd (kitty) #1": "meta+k meta+t",
+            "mac-cmd (kitty) #2": "meta+k meta+t",
+            "mac-cmd (kitty) #3": "meta+k meta+t"
+        },
+        "workbench.action.showAllEditors": {
+            "*": "ctrl+k ctrl+p",
+            "mac-cmd (kitty) #0": "alt+meta+tab",
+            "mac-cmd (kitty) #1": "alt+meta+tab",
+            "mac-cmd (kitty) #2": "alt+meta+tab",
+            "mac-cmd (kitty) #3": "alt+meta+tab"
+        },
+        "workbench.action.showCommands": {
+            "*": "ctrl+shift+p",
+            "pc legacy #0": "f1",
+            "pc legacy #1": "f1",
+            "pc legacy #2": "f1",
+            "pc legacy #3": "f1",
+            "mac-legacy (Terminal.app) #0": "f1",
+            "mac-legacy (Terminal.app) #1": "f1",
+            "mac-legacy (Terminal.app) #2": "f1",
+            "mac-legacy (Terminal.app) #3": "f1",
+            "mac-legacy (tmux) #0": "f1",
+            "mac-legacy (tmux) #1": "f1",
+            "mac-legacy (tmux) #2": "f1",
+            "mac-legacy (tmux) #3": "f1",
+            "mac-cmd (kitty) #0": "shift+meta+p",
+            "mac-cmd (kitty) #1": "shift+meta+p",
+            "mac-cmd (kitty) #2": "shift+meta+p",
+            "mac-cmd (kitty) #3": "shift+meta+p"
+        },
+        "workbench.action.splitEditor": {
+            "*": "ctrl+\\",
+            "mac-cmd (kitty) #1": "meta+\\"
+        },
+        "workbench.action.terminal.new": {
+            "*": "ctrl+shift+`",
+            "pc legacy #0": "ctrl+k alt+t",
+            "pc legacy #1": "ctrl+k alt+t",
+            "pc legacy #2": "ctrl+k alt+t",
+            "pc legacy #3": "ctrl+k alt+t",
+            "mac-legacy (Terminal.app) #0": "ctrl+k alt+t",
+            "mac-legacy (Terminal.app) #1": "ctrl+k alt+t",
+            "mac-legacy (Terminal.app) #2": "ctrl+k alt+t",
+            "mac-legacy (Terminal.app) #3": "ctrl+k alt+t",
+            "mac-legacy (tmux) #0": "ctrl+k alt+t",
+            "mac-legacy (tmux) #1": "ctrl+k alt+t",
+            "mac-legacy (tmux) #2": "ctrl+k alt+t",
+            "mac-legacy (tmux) #3": "ctrl+k alt+t"
+        },
+        "workbench.action.terminal.toggleTerminal": {
+            "*": "ctrl+`",
+            "pc legacy #0": "ctrl+k t",
+            "pc legacy #1": "ctrl+k t",
+            "pc legacy #2": "ctrl+k t",
+            "pc legacy #3": "ctrl+k t",
+            "mac-legacy (Terminal.app) #0": "ctrl+k t",
+            "mac-legacy (Terminal.app) #1": "ctrl+k t",
+            "mac-legacy (Terminal.app) #2": "ctrl+k t",
+            "mac-legacy (Terminal.app) #3": "ctrl+k t",
+            "mac-legacy (tmux) #0": "ctrl+k t",
+            "mac-legacy (tmux) #1": "ctrl+k t",
+            "mac-legacy (tmux) #2": "ctrl+k t",
+            "mac-legacy (tmux) #3": "ctrl+k t"
+        },
+        "workbench.action.toggleEditorGroupLayout": {
+            "*": "ctrl+k alt+0",
+            "pc csi-u #0": "shift+alt+0",
+            "pc csi-u #1": "shift+alt+0",
+            "pc csi-u #2": "shift+alt+0",
+            "pc csi-u #3": "shift+alt+0",
+            "pc kitty #0": "shift+alt+0",
+            "pc kitty #1": "shift+alt+0",
+            "pc kitty #2": "shift+alt+0",
+            "pc kitty #3": "shift+alt+0",
+            "mac-cmd (kitty) #0": "alt+meta+0",
+            "mac-cmd (kitty) #1": "alt+meta+0",
+            "mac-cmd (kitty) #2": "alt+meta+0",
+            "mac-cmd (kitty) #3": "alt+meta+0"
+        },
+        "workbench.action.togglePanel": {
+            "*": "ctrl+j",
+            "mac-cmd (kitty) #0": "meta+j",
+            "mac-cmd (kitty) #1": "meta+j",
+            "mac-cmd (kitty) #2": "meta+j",
+            "mac-cmd (kitty) #3": "meta+j"
+        },
+        "workbench.action.toggleSidebarVisibility": {
+            "*": "ctrl+b",
+            "mac-cmd (kitty) #0": "meta+b",
+            "mac-cmd (kitty) #1": "meta+b",
+            "mac-cmd (kitty) #2": "meta+b",
+            "mac-cmd (kitty) #3": "meta+b"
+        },
+        "workbench.actions.view.problems": {
+            "*": "ctrl+k m",
+            "pc csi-u #0": "ctrl+shift+m",
+            "pc csi-u #1": "ctrl+shift+m",
+            "pc csi-u #2": "ctrl+shift+m",
+            "pc csi-u #3": "ctrl+shift+m",
+            "pc kitty #0": "ctrl+shift+m",
+            "pc kitty #1": "ctrl+shift+m",
+            "pc kitty #2": "ctrl+shift+m",
+            "pc kitty #3": "ctrl+shift+m",
+            "mac-extended (tmux + extended-keys) #0": "ctrl+shift+m",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+m",
+            "mac-extended (tmux + extended-keys) #2": "ctrl+shift+m",
+            "mac-extended (tmux + extended-keys) #3": "ctrl+shift+m",
+            "mac-cmd (kitty) #0": "shift+meta+m",
+            "mac-cmd (kitty) #1": "shift+meta+m",
+            "mac-cmd (kitty) #2": "shift+meta+m",
+            "mac-cmd (kitty) #3": "shift+meta+m"
+        },
+        "workbench.files.action.compareWithClipboard": {
+            "*": "ctrl+k c",
+            "mac-cmd (kitty) #0": "meta+k c",
+            "mac-cmd (kitty) #1": "meta+k c",
+            "mac-cmd (kitty) #2": "meta+k c",
+            "mac-cmd (kitty) #3": "meta+k c"
+        },
+        "workbench.files.action.compareWithSaved": {
+            "*": "ctrl+k d",
+            "mac-cmd (kitty) #0": "meta+k d",
+            "mac-cmd (kitty) #1": "meta+k d",
+            "mac-cmd (kitty) #2": "meta+k d",
+            "mac-cmd (kitty) #3": "meta+k d"
+        },
+        "workbench.view.explorer": {
+            "*": "ctrl+k e",
+            "pc csi-u #0": "ctrl+shift+e",
+            "pc csi-u #1": "ctrl+shift+e",
+            "pc csi-u #2": "ctrl+shift+e",
+            "pc csi-u #3": "ctrl+shift+e",
+            "pc kitty #0": "ctrl+shift+e",
+            "pc kitty #1": "ctrl+shift+e",
+            "pc kitty #2": "ctrl+shift+e",
+            "pc kitty #3": "ctrl+shift+e",
+            "mac-extended (tmux + extended-keys) #0": "ctrl+shift+e",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+e",
+            "mac-extended (tmux + extended-keys) #2": "ctrl+shift+e",
+            "mac-extended (tmux + extended-keys) #3": "ctrl+shift+e",
+            "mac-cmd (kitty) #0": "shift+meta+e",
+            "mac-cmd (kitty) #1": "shift+meta+e",
+            "mac-cmd (kitty) #2": "shift+meta+e",
+            "mac-cmd (kitty) #3": "shift+meta+e"
+        },
+        "workbench.view.extensions": {
+            "*": "ctrl+k x",
+            "pc csi-u #0": "ctrl+shift+x",
+            "pc csi-u #1": "ctrl+shift+x",
+            "pc csi-u #2": "ctrl+shift+x",
+            "pc csi-u #3": "ctrl+shift+x",
+            "pc kitty #0": "ctrl+shift+x",
+            "pc kitty #1": "ctrl+shift+x",
+            "pc kitty #2": "ctrl+shift+x",
+            "pc kitty #3": "ctrl+shift+x",
+            "mac-extended (tmux + extended-keys) #0": "ctrl+shift+x",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+x",
+            "mac-extended (tmux + extended-keys) #2": "ctrl+shift+x",
+            "mac-extended (tmux + extended-keys) #3": "ctrl+shift+x",
+            "mac-cmd (kitty) #0": "shift+meta+x",
+            "mac-cmd (kitty) #1": "shift+meta+x",
+            "mac-cmd (kitty) #2": "shift+meta+x",
+            "mac-cmd (kitty) #3": "shift+meta+x"
+        },
+        "workbench.view.references": "ctrl+k r",
+        "workbench.view.scm": {
+            "*": "ctrl+shift+g",
+            "pc legacy #0": "ctrl+k g",
+            "pc legacy #1": "ctrl+k g",
+            "pc legacy #2": "ctrl+k g",
+            "pc legacy #3": "ctrl+k g",
+            "mac-legacy (Terminal.app) #0": "ctrl+k g",
+            "mac-legacy (Terminal.app) #1": "ctrl+k g",
+            "mac-legacy (Terminal.app) #2": "ctrl+k g",
+            "mac-legacy (Terminal.app) #3": "ctrl+k g",
+            "mac-legacy (tmux) #0": "ctrl+k g",
+            "mac-legacy (tmux) #1": "ctrl+k g",
+            "mac-legacy (tmux) #2": "ctrl+k g",
+            "mac-legacy (tmux) #3": "ctrl+k g"
+        },
+        "workbench.view.search": {
+            "*": "ctrl+k f",
+            "pc csi-u #0": "ctrl+shift+f",
+            "pc csi-u #1": "ctrl+shift+f",
+            "pc csi-u #2": "ctrl+shift+f",
+            "pc csi-u #3": "ctrl+shift+f",
+            "pc kitty #0": "ctrl+shift+f",
+            "pc kitty #1": "ctrl+shift+f",
+            "pc kitty #2": "ctrl+shift+f",
+            "pc kitty #3": "ctrl+shift+f",
+            "mac-extended (tmux + extended-keys) #0": "ctrl+shift+f",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+f",
+            "mac-extended (tmux + extended-keys) #2": "ctrl+shift+f",
+            "mac-extended (tmux + extended-keys) #3": "ctrl+shift+f",
+            "mac-cmd (kitty) #0": "shift+meta+f",
+            "mac-cmd (kitty) #1": "shift+meta+f",
+            "mac-cmd (kitty) #2": "shift+meta+f",
+            "mac-cmd (kitty) #3": "shift+meta+f"
+        }
+    }
+}
