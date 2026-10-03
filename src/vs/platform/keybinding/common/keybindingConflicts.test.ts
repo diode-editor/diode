@@ -20,6 +20,13 @@ describe("whenMayOverlap", () => {
         // Пробел слева тоже нормализуется (иначе a.trim() не проверен).
         expect(whenMayOverlap("  textViewFocus", "textViewFocus")).toBe(true);
         expect(whenMayOverlap("textViewFocus", "listFocus")).toBe(false);
+        // Каноническая запись: порядок операндов и скобки — не различие.
+        expect(whenMayOverlap("b && a", "(a) && b")).toBe(true);
+        expect(whenMayOverlap("a == 'x'", "a == x")).toBe(true);
+        expect(whenMayOverlap("a && b", "a || b")).toBe(false);
+        // Не разобравшаяся строка сравнивается после трима.
+        expect(whenMayOverlap("a = b ", " a = b")).toBe(true);
+        expect(whenMayOverlap("a = b", "a = c")).toBe(false);
     });
 });
 

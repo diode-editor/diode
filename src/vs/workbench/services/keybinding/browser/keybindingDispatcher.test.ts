@@ -324,6 +324,18 @@ describe("KeybindingDispatcher — модальные оверлеи", () => {
         expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "c", ctrlKey: true }))).toBe(true);
         expect(h.executed).toEqual(["test.inputCopy"]);
     });
+
+    it("фокус-ключ под отрицанием не делает команду focus-scoped — за оверлеем она глотается", () => {
+        const h = createHarness();
+        // Раньше фокус-ключ искался подстрокой, и `!listFocus` пропускал команду за оверлей.
+        h.bind("ctrl+b", "test.notInList", "!listFocus");
+        h.bind("ctrl+e", "test.broken", "listFocus &&");
+        h.dispatcher.hasKeyboardCapturingOverlay = () => true;
+
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "b", ctrlKey: true }))).toBe(false);
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "e", ctrlKey: true }))).toBe(false);
+        expect(h.executed).toEqual([]);
+    });
 });
 
 describe("KeybindingDispatcher — swallow печатающих клавиш и armory", () => {

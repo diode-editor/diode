@@ -332,6 +332,34 @@ export function whenKeys(expr: ContextKeyExpression): string[] {
 }
 
 /**
+ * Ключи, которые выражение требует истинными или сравнивает, — то есть стоящие
+ * не под отрицанием (`!a`, `!(a && b)`, `a not in b`). Нужно потребителю,
+ * которому важно «бинд живёт при фокусе в X», а не «выражение упоминает X».
+ */
+export function whenPositiveKeys(expr: ContextKeyExpression): string[] {
+    const keys = new Set<string>();
+    const visit = (node: ContextKeyExpression, negated: boolean): void => {
+        switch (node.type) {
+            case "true":
+            case "false":
+            case "notIn":
+                return;
+            case "not":
+                visit(node.expr, !negated);
+                return;
+            case "and":
+            case "or":
+                for (const child of node.exprs) visit(child, negated);
+                return;
+            default:
+                if (!negated) keys.add(node.key);
+        }
+    };
+    visit(expr, false);
+    return [...keys];
+}
+
+/**
  * Каноническая запись выражения: лишние скобки и пробелы сняты, операнды
  * `&&`/`||` упорядочены, так что `b && a`, `(a) && b` и `a&&b` пишутся одинаково.
  * Строки — в одинарных кавычках, как у upstream.
