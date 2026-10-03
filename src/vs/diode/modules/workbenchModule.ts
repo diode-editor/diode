@@ -387,7 +387,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
     // Подсказка параметров: та же пара — компонент владеет попапом у каретки,
-    // сервис ходит в signatureHelpSource группы и ловит набор триггер-символов.
+    // сервис спрашивает signature-help-провайдеров реестра и ловит набор триггер-символов.
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
     // References: вьюлет сайдбара со ссылками + сервис, который его наполняет

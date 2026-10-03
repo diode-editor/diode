@@ -1,3 +1,4 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,9 +10,11 @@ import type {
     ICoreSignature,
     ICoreSignatureHelp,
     ISignatureHelpRequest,
+    SignatureHelpProvider,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKey } from "../../../../platform/contextkey/common/contextKeys.ts";
@@ -70,8 +73,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         h.workbench.openFile(ws.path("main.ts"));
         h.workbench.focusEditor();
         service().triggerDelayMs = 0; // детерминированный авто-триггер в тестах
-        group().signatureHelpTriggerCharacters = ["(", ",", "<"];
-        group().signatureHelpRetriggerCharacters = [")"];
     });
 
     afterEach(() => {
@@ -80,12 +81,45 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     const group = () => h.container.get(EditorServiceDIToken);
+    let registration: IDisposable | undefined;
+    /**
+     * Единственный провайдер подсказки для любого документа (снимает прежнего)
+     * с триггерами tsserver: «(», «,», «<» открывают, «)» перезапрашивает.
+     */
+    const useSource = (provideSignatureHelp: SignatureHelpProvider["provideSignatureHelp"]): void => {
+        registration?.dispose();
+        registration = h.container.get(LanguageFeaturesServiceDIToken).signatureHelpProvider.register("*", {
+            triggerCharacters: ["(", ",", "<"],
+            retriggerCharacters: [")"],
+            provideSignatureHelp,
+        });
+    };
+    /** Второй подошедший провайдер — без триггеров и без ответа: символы берутся у любого из подошедших. */
+    const addSilentProvider = (): void => {
+        h.container.get(LanguageFeaturesServiceDIToken).signatureHelpProvider.register("*", {
+            triggerCharacters: [],
+            retriggerCharacters: [],
+            provideSignatureHelp: () => Promise.resolve(null),
+        });
+    };
     const service = () => h.container.get(ParameterHintsServiceDIToken);
     const component = () => h.container.get(ParameterHintsComponentDIToken);
     const lines = () => component().view.linesFor(60);
 
+    it("провайдеров для документа не осталось — вызов no-op: открытый попап не трогает (как upstream)", async () => {
+        useSource(() => Promise.resolve(help()));
+        await service().trigger();
+        expect(service().isOpen()).toBe(true);
+
+        registration?.dispose();
+        registration = undefined;
+        await service().trigger();
+
+        expect(service().isOpen()).toBe(true);
+    });
+
     it("команда показывает попап с меткой сигнатуры у каретки", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help());
+        useSource(() => Promise.resolve(help()));
 
         await service().trigger();
 
@@ -97,10 +131,10 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("запрос несёт снапшот, позицию каретки и контекст ручного вызова", async () => {
         const seen: ISignatureHelpRequest[] = [];
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help());
-        };
+        });
         group().getActiveEditor()?.goToPosition(1, 6);
 
         await service().trigger();
@@ -127,7 +161,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("ручной вызов отменяет отложенный авто-запрос", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
         service().triggerDelayMs = 20;
 
         h.testApp.sendKey("End");
@@ -142,10 +176,10 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("попап закрыли мимо сервиса (клик снаружи) — следующий запрос идёт без эха", async () => {
         const seen: ISignatureHelpRequest[] = [];
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help());
-        };
+        });
 
         await service().trigger();
         // Overlay-сессия закрылась сама (pointerPolicy) — сервис об этом не знает
@@ -157,12 +191,43 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         expect(Object.keys(seen[1])).not.toContain("activeSignatureHelp");
     });
 
+    it("триггер-символ провайдера чужого языка подсказку не будит", async () => {
+        const provide = vi.fn(() => Promise.resolve(help()));
+        registration = h.container.get(LanguageFeaturesServiceDIToken).signatureHelpProvider.register("python", {
+            triggerCharacters: ["("],
+            retriggerCharacters: [")"],
+            provideSignatureHelp: provide,
+        });
+
+        h.testApp.sendKey("End");
+        h.testApp.sendKey("(");
+        await flushTimers();
+        await flushMicrotasks();
+
+        expect(provide).not.toHaveBeenCalled();
+        expect(service().isOpen()).toBe(false);
+    });
+
+    it("провайдеры по очереди: первый пустой или сбойный уступает следующему", async () => {
+        const registry = h.container.get(LanguageFeaturesServiceDIToken).signatureHelpProvider;
+        const meta = { triggerCharacters: [], retriggerCharacters: [] };
+        registry.register("*", { ...meta, provideSignatureHelp: () => Promise.resolve(help()) });
+        registry.register("*", { ...meta, provideSignatureHelp: () => Promise.reject(new Error("boom")) });
+        registry.register("*", { ...meta, provideSignatureHelp: () => Promise.resolve(null) });
+
+        await service().trigger();
+
+        expect(service().isOpen()).toBe(true);
+        expect(lines()[0]).toContain("greet");
+    });
+
     it("набор триггер-символа сервера открывает подсказку сам", async () => {
         const seen: ISignatureHelpRequest[] = [];
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help());
-        };
+        });
+        addSilentProvider();
 
         h.testApp.sendKey("End");
         h.testApp.sendKey("(");
@@ -179,7 +244,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("символ не из списка сервера подсказку не открывает", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
 
         h.testApp.sendKey("End");
         h.testApp.sendKey("x");
@@ -193,10 +258,10 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     it("пока попап открыт, правка перезапрашивает подсказку и двигает активный параметр", async () => {
         const seen: ISignatureHelpRequest[] = [];
         let activeParameter = 0;
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help({ activeParameter }));
-        };
+        });
 
         h.testApp.sendKey("End");
         h.testApp.sendKey("(");
@@ -222,7 +287,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("подсказка открывается и на строке, отличной от первой", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
 
         // Кэш каретки хранит НОМЕР строки: обнулись он на второй строке —
         // вставка перестала бы опознаваться как набор.
@@ -238,10 +303,10 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("обычный символ при открытом попапе — ретриггер ContentChange, а не триггер-символ", async () => {
         const seen: ISignatureHelpRequest[] = [];
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help());
-        };
+        });
 
         await service().trigger();
         h.testApp.sendKey("End");
@@ -260,7 +325,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("мультикурсор: подсказку вызова показывать не для чего", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
 
         await service().trigger();
         expect(service().isOpen()).toBe(true);
@@ -276,10 +341,10 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("движение каретки при открытом попапе — ретриггер с ContentChange", async () => {
         const seen: ISignatureHelpRequest[] = [];
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help());
-        };
+        });
 
         await service().trigger();
         h.testApp.sendKey("ArrowRight");
@@ -298,10 +363,11 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     it("закрывающая скобка гасит попап: сервер отвечает пустотой", async () => {
         const seen: ISignatureHelpRequest[] = [];
         let answer: ICoreSignatureHelp | null = help();
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(answer);
-        };
+        });
+        addSilentProvider();
 
         await service().trigger();
         expect(service().isOpen()).toBe(true);
@@ -322,7 +388,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("ретриггер-символ при закрытом попапе ничего не запрашивает", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
 
         h.testApp.sendKey("End");
         h.testApp.sendKey(")");
@@ -333,7 +399,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("выделение вместо каретки закрывает попап", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help());
+        useSource(() => Promise.resolve(help()));
 
         // Выделение при закрытом попапе — просто ничего не делает.
         h.testApp.sendKey("Shift+ArrowRight");
@@ -353,10 +419,10 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("вставка блока текста — не набор: подсказку не открывает, открытую перезапрашивает", async () => {
         const seen: ISignatureHelpRequest[] = [];
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help());
-        };
+        });
 
         // Вставка целого куска с триггер-символом внутри попап не открывает
         // (та же эвристика, что у автодополнения; в VS Code вставка тоже молчит).
@@ -377,7 +443,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("три перегрузки: next и prev ходят в разные стороны", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET, GREET_SHORT, GREET_EMPTY] }));
+        useSource(() => Promise.resolve(help({ signatures: [GREET, GREET_SHORT, GREET_EMPTY] })));
 
         await service().trigger();
         expect(lines()[0]).toBe("1/3 greet(name: string, age: number): void");
@@ -395,8 +461,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("выбранную сервером перегрузку показываем сразу, выход за список сбрасываем", async () => {
         let activeSignature = 1;
-        group().signatureHelpSource = () =>
-            Promise.resolve(help({ signatures: [GREET, GREET_SHORT], activeSignature }));
+        useSource(() => Promise.resolve(help({ signatures: [GREET, GREET_SHORT], activeSignature })));
 
         await service().trigger();
         expect(lines()[0]).toBe("2/2 greet(name: string): void");
@@ -410,7 +475,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("close() гасит содержимое попапа и отложенный запрос", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
         service().triggerDelayMs = 20;
 
         await service().trigger();
@@ -429,7 +494,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("активного параметра нет (-1): подсветки и описания параметра тоже нет", async () => {
-        group().signatureHelpSource = () =>
+        useSource(() =>
             Promise.resolve(
                 help({
                     activeParameter: -1,
@@ -441,7 +506,8 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
                         },
                     ],
                 }),
-            );
+            ),
+        );
 
         await service().trigger();
 
@@ -451,7 +517,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("сигнатура без описаний не даёт пустых блоков", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET_EMPTY] }));
+        useSource(() => Promise.resolve(help({ signatures: [GREET_EMPTY] })));
 
         await service().trigger();
 
@@ -460,7 +526,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("перегрузки листаются локально, без обращения к источнику", async () => {
         const source = vi.fn(() => Promise.resolve(help({ signatures: [GREET, GREET_SHORT] })));
-        group().signatureHelpSource = source;
+        useSource(source);
 
         await service().trigger();
         expect(contextKey(service(), "parameterHintsMultipleSignatures")).toBe(true);
@@ -488,7 +554,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("одна сигнатура: счётчика нет, попап даже не пересобирается", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET_SHORT] }));
+        useSource(() => Promise.resolve(help({ signatures: [GREET_SHORT] })));
 
         await service().trigger();
         const shown = component().view.hint;
@@ -504,10 +570,10 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("выбранная стрелками перегрузка уезжает серверу в эхе следующего запроса", async () => {
         const seen: ISignatureHelpRequest[] = [];
-        group().signatureHelpSource = (request) => {
+        useSource((request) => {
             seen.push(request);
             return Promise.resolve(help({ signatures: [GREET, GREET_SHORT] }));
-        };
+        });
 
         await service().trigger();
         service().nextSignature();
@@ -517,7 +583,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("описания параметра и сигнатуры приезжают плоским текстом", async () => {
-        group().signatureHelpSource = () =>
+        useSource(() =>
             Promise.resolve(
                 help({
                     signatures: [
@@ -528,7 +594,8 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
                         },
                     ],
                 }),
-            );
+            ),
+        );
 
         await service().trigger();
 
@@ -537,13 +604,14 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("активный параметр самой сигнатуры важнее общего", async () => {
-        group().signatureHelpSource = () =>
+        useSource(() =>
             Promise.resolve(
                 help({
                     activeParameter: 0,
                     signatures: [{ ...GREET, activeParameter: 1 }],
                 }),
-            );
+            ),
+        );
 
         await service().trigger();
 
@@ -555,7 +623,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("активная сигнатура вне диапазона списка не роняет попап", async () => {
         let activeSignature = 7;
-        group().signatureHelpSource = () => Promise.resolve(help({ activeSignature }));
+        useSource(() => Promise.resolve(help({ activeSignature })));
 
         await service().trigger();
         expect(service().isOpen()).toBe(true);
@@ -578,7 +646,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("нет активного редактора — источник не вызывается", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
         h.commands.execute("workbench.action.closeActiveEditor");
         expect(group().getActiveEditor()).toBeNull();
 
@@ -589,7 +657,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("каретка ушла из вьюпорта за время запроса — попап не открывается и закрывается", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help());
+        useSource(() => Promise.resolve(help()));
         const editor = group().getActiveEditor()!;
 
         // Показанный попап без якоря жить не может — уход каретки его гасит.
@@ -606,10 +674,12 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("устаревший ответ не переоткрывает закрытый попап", async () => {
         let release: (value: ICoreSignatureHelp | null) => void = () => undefined;
-        group().signatureHelpSource = () =>
-            new Promise((resolve) => {
-                release = resolve;
-            });
+        useSource(
+            () =>
+                new Promise((resolve) => {
+                    release = resolve;
+                }),
+        );
 
         const pending = service().trigger();
         service().close();
@@ -620,7 +690,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("уход фокуса с редактора закрывает попап, возврат — нет", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help());
+        useSource(() => Promise.resolve(help()));
         await service().trigger();
 
         const focusTracker = h.container.get(FocusTrackerDIToken);
@@ -635,7 +705,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("смена активного редактора закрывает попап и переносит подписки", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
         const first = group().getActiveEditor()!;
         await service().trigger();
         expect(service().isOpen()).toBe(true);
@@ -655,7 +725,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("набор триггер-символа сразу после смены редактора открывает подсказку", async () => {
         const source = vi.fn(() => Promise.resolve(help()));
-        group().signatureHelpSource = source;
+        useSource(source);
 
         // Кэш каретки принадлежит прежнему редактору: без пересборки на привязке
         // первое же нажатие в новом файле не сойдётся по длине строки.
@@ -670,7 +740,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("Escape закрывает попап, стрелки листают перегрузки", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET, GREET_SHORT] }));
+        useSource(() => Promise.resolve(help({ signatures: [GREET, GREET_SHORT] })));
 
         await service().trigger();
         expect(service().isOpen()).toBe(true);
@@ -687,7 +757,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("при открытом попапе автодополнения Escape и стрелки принадлежат ему", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help({ signatures: [GREET, GREET_SHORT] }));
+        useSource(() => Promise.resolve(help({ signatures: [GREET, GREET_SHORT] })));
         group().completionSource = () =>
             Promise.resolve({ items: [{ label: "greet", insertText: "greet" }], isIncomplete: false });
         const completion = h.container.get(CompletionServiceDIToken);
@@ -712,7 +782,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     });
 
     it("аккорд Ctrl+K Ctrl+Space открывает подсказку", async () => {
-        group().signatureHelpSource = () => Promise.resolve(help());
+        useSource(() => Promise.resolve(help()));
 
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("Ctrl+Space");

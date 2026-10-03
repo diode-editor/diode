@@ -12,10 +12,10 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
 /**
- * Гейт запроса подсказки параметров: субпроцесса нет, канал сшит in-process —
- * так проверяются ветки, недостижимые через настоящий fork (подписка ещё не
- * пришла, чужая форма нотификации, отсечка по размеру документа, дефолтный
- * таймаут, доставка триггер-символов). Образец —
+ * Запрос подсказки параметров по handle: субпроцесса нет, канал сшит
+ * in-process — так проверяются ветки, недостижимые через настоящий fork
+ * (отсечка по размеру документа, дефолтный таймаут, доставка триггер-символов
+ * метаданными регистрации). Образец —
  * `extensionHost.referencesInProcess.test.ts`.
  */
 
@@ -76,22 +76,7 @@ function makeHost(options: { warn?: ILogger["warn"]; signatureHelpTimeoutMs?: nu
     return { host, peer };
 }
 
-describe("ExtensionHost — гейт подсказки параметров (in-process)", () => {
-    it("без подписки RPC не гоняется; после hasSignatureHelpProviders — гоняется", async () => {
-        const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve(HELP));
-        peer.handleRequest("languages.provideSignatureHelp", provide);
-
-        expect(await host.provideSignatureHelp(requestOf("greet(\n"))).toBeNull();
-        expect(provide).not.toHaveBeenCalled();
-
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
-
-        expect(await host.provideSignatureHelp(requestOf("greet(\n"))).toEqual(HELP);
-        expect(provide).toHaveBeenCalledTimes(1);
-    });
-
+describe("ExtensionHost — подсказка параметров по handle (in-process)", () => {
     it("LSP-контекст уходит в субпроцесс как есть, пустые поля не выдумываются", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
@@ -99,11 +84,10 @@ describe("ExtensionHost — гейт подсказки параметров (in
             seen.push(params);
             return Promise.resolve(null);
         });
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
 
-        await host.provideSignatureHelp(requestOf("x"));
+        await host.provideSignatureHelp(0, requestOf("x"));
         await host.provideSignatureHelp(
+            0,
             requestOf("x", {
                 triggerKind: SignatureHelpTriggerKind.TriggerCharacter,
                 triggerCharacter: ",",
@@ -113,6 +97,7 @@ describe("ExtensionHost — гейт подсказки параметров (in
         );
 
         expect(seen[0]).toEqual({
+            handle: 0,
             uri: "file:///a.ts",
             languageId: "typescript",
             text: "x",
@@ -125,6 +110,7 @@ describe("ExtensionHost — гейт подсказки параметров (in
         // вовсе: `{ x: undefined }` — лишний байт на каждом нажатии клавиши.
         expect(Object.keys(seen[0] as Record<string, unknown>).sort()).toEqual([
             "character",
+            "handle",
             "isRetrigger",
             "languageId",
             "line",
@@ -133,6 +119,7 @@ describe("ExtensionHost — гейт подсказки параметров (in
             "uri",
         ]);
         expect(seen[1]).toEqual({
+            handle: 0,
             uri: "file:///a.ts",
             languageId: "typescript",
             text: "x",
@@ -146,93 +133,29 @@ describe("ExtensionHost — гейт подсказки параметров (in
         expect(Object.keys(seen[1] as Record<string, unknown>)).toContain("activeSignatureHelp");
     });
 
-    it("чужая форма подписки читается как «провайдеров нет»", async () => {
+    it("триггер-символы едут метаданными регистрации — хост отдаёт их адаптеру как есть", async () => {
         const { host, peer } = makeHost();
-        peer.handleRequest("languages.provideSignatureHelp", () => Promise.resolve(HELP));
 
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
-        expect(await host.provideSignatureHelp(requestOf("x"))).toEqual(HELP);
-
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: "true" });
-        await flushMicrotasks();
-        expect(await host.provideSignatureHelp(requestOf("x"))).toBeNull();
-
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
-        peer.notify("languages.updateSubscriptions", {});
-        await flushMicrotasks();
-        expect(await host.provideSignatureHelp(requestOf("x"))).toBeNull();
-    });
-
-    it("триггер- и ретриггер-символы доезжают до ядра и фаерят событие только на смену", async () => {
-        const { host, peer } = makeHost();
-        const changed = vi.fn();
-        const subscription = host.onSignatureHelpTriggerCharactersChanged(changed);
-
-        expect(host.signatureHelpTriggerCharacters).toEqual([]);
-        expect(host.signatureHelpRetriggerCharacters).toEqual([]);
-
-        peer.notify("languages.updateSubscriptions", {
-            hasSignatureHelpProviders: true,
-            signatureHelpTriggerCharacters: ["(", ",", 7, ""],
-            signatureHelpRetriggerCharacters: [")"],
+        peer.notify("languages.register", {
+            handle: 2,
+            kind: "signatureHelp",
+            selector: [{ language: "typescript" }],
+            triggerCharacters: ["(", ",", 7, ""],
+            retriggerCharacters: [")"],
         });
         await flushMicrotasks();
 
-        // Нестроковый элемент и пустая строка отброшены, остальное доехало:
-        // «пустой символ» совпал бы с любым событием каретки без набора.
-        expect(host.signatureHelpTriggerCharacters).toEqual(["(", ","]);
-        expect(host.signatureHelpRetriggerCharacters).toEqual([")"]);
-        expect(changed).toHaveBeenCalledTimes(1);
-
-        // Тот же набор — события нет.
-        peer.notify("languages.updateSubscriptions", {
-            hasSignatureHelpProviders: true,
-            signatureHelpTriggerCharacters: ["(", ","],
-            signatureHelpRetriggerCharacters: [")"],
-        });
-        await flushMicrotasks();
-        expect(changed).toHaveBeenCalledTimes(1);
-
-        // Сменился только ретриггер — событие обязано прийти.
-        peer.notify("languages.updateSubscriptions", {
-            hasSignatureHelpProviders: true,
-            signatureHelpTriggerCharacters: ["(", ","],
-            signatureHelpRetriggerCharacters: [")", "]"],
-        });
-        await flushMicrotasks();
-        expect(changed).toHaveBeenCalledTimes(2);
-
-        // Границы элементов важны: ["ab"] и ["a", "b"] — разные наборы, хотя
-        // склейка без разделителя уравняла бы их.
-        peer.notify("languages.updateSubscriptions", {
-            hasSignatureHelpProviders: true,
-            signatureHelpTriggerCharacters: ["ab"],
-            signatureHelpRetriggerCharacters: [],
-        });
-        await flushMicrotasks();
-        expect(changed).toHaveBeenCalledTimes(3);
-        peer.notify("languages.updateSubscriptions", {
-            hasSignatureHelpProviders: true,
-            signatureHelpTriggerCharacters: ["a", "b"],
-            signatureHelpRetriggerCharacters: [],
-        });
-        await flushMicrotasks();
-        expect(changed).toHaveBeenCalledTimes(4);
-
-        // Второй слушатель — чтобы двойной dispose первого не снял ЕГО:
-        // `splice` по индексу -1 срезал бы последнего в списке.
-        const other = vi.fn();
-        host.onSignatureHelpTriggerCharactersChanged(other);
-        subscription.dispose();
-        subscription.dispose();
-
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
-        expect(host.signatureHelpTriggerCharacters).toEqual([]);
-        expect(changed).toHaveBeenCalledTimes(4);
-        expect(other).toHaveBeenCalledTimes(1);
+        // Нестроковый элемент и пустая строка отброшены: «пустой символ» совпал
+        // бы с любым событием каретки без набора.
+        expect(host.getLanguageProviders()).toEqual([
+            {
+                handle: 2,
+                kind: "signatureHelp",
+                selector: [{ language: "typescript" }],
+                triggerCharacters: ["(", ","],
+                retriggerCharacters: [")"],
+            },
+        ]);
     });
 
     it("документ ровно в лимит проходит, больше лимита — отсекается с записью в лог", async () => {
@@ -240,14 +163,12 @@ describe("ExtensionHost — гейт подсказки параметров (in
         const { host, peer } = makeHost({ warn });
         const provide = vi.fn(() => Promise.resolve(HELP));
         peer.handleRequest("languages.provideSignatureHelp", provide);
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideSignatureHelp(requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual(HELP);
+        expect(await host.provideSignatureHelp(0, requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual(HELP);
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).not.toHaveBeenCalled();
 
-        expect(await host.provideSignatureHelp(requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toBeNull();
+        expect(await host.provideSignatureHelp(0, requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toBeNull();
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith("skipping signature help: document too large", {
             uri: "file:///a.ts",
@@ -255,17 +176,15 @@ describe("ExtensionHost — гейт подсказки параметров (in
         });
     });
 
-    it("после остановки субпроцесса подписка сброшена — запрос не уходит до новой", async () => {
+    it("после остановки субпроцесса запрос не уходит", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve(HELP));
         peer.handleRequest("languages.provideSignatureHelp", provide);
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
-        expect(await host.provideSignatureHelp(requestOf("x"))).toEqual(HELP);
+        expect(await host.provideSignatureHelp(0, requestOf("x"))).toEqual(HELP);
 
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        expect(await host.provideSignatureHelp(requestOf("x"))).toBeNull();
+        expect(await host.provideSignatureHelp(0, requestOf("x"))).toBeNull();
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
@@ -284,9 +203,7 @@ describe("ExtensionHost — гейт подсказки параметров (in
             await settle(200);
             return HELP;
         });
-        peer.notify("languages.updateSubscriptions", { hasSignatureHelpProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideSignatureHelp(requestOf("x"))).toBeNull();
+        expect(await host.provideSignatureHelp(0, requestOf("x"))).toBeNull();
     });
 });

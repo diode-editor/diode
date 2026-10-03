@@ -4,7 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideSignatureHelp,
+    signatureHelpCharacters,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -100,19 +105,20 @@ describe("ExtensionHost — подсказка параметров от сто�
             await harness.host.activateByEvent("onLanguage:typescript");
 
             // Триггер-символы приезжают от самого сервера, а не зашиты в ядре.
+            const document = { uri: mainUri, languageId: "typescript" };
             await until("объявленные сервером триггер-символы", async () => {
                 await settle(0);
-                return harness.group.signatureHelpTriggerCharacters.length > 0 ? true : null;
+                return signatureHelpCharacters(harness, document).triggerCharacters.length > 0 ? true : null;
             });
-            expect(harness.group.signatureHelpTriggerCharacters).toEqual(["(", ",", "<"]);
-            expect(harness.group.signatureHelpRetriggerCharacters).toEqual([")"]);
+            expect(signatureHelpCharacters(harness, document)).toEqual({
+                triggerCharacters: ["(", ",", "<"],
+                retriggerCharacters: [")"],
+            });
 
             // Каретка сразу за `greet(` — текста с вызовом НА ДИСКЕ нет, сервер
             // видит его только через didChange (правило docs/TODO/LSP.md).
             const help = await until("подсказку после `greet(`", async () => {
-                const source = harness.group.signatureHelpSource;
-                if (source === undefined) return null;
-                const found: ICoreSignatureHelp | null = await source({
+                const found: ICoreSignatureHelp | null = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: MAIN_TYPING,
@@ -133,7 +139,7 @@ describe("ExtensionHost — подсказка параметров от сто�
             // После запятой активным становится второй параметр.
             const afterComma = `${MAIN_TYPING}"world",`;
             const second = await until("активный параметр после запятой", async () => {
-                const found = await harness.group.signatureHelpSource!({
+                const found = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: afterComma,

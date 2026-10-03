@@ -8,7 +8,11 @@ import {
     PY_LANGUAGE_SERVICE,
     until,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideSignatureHelp,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -53,9 +57,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от ст
             await harness.host.activateByEvent("onLanguage:python");
 
             const help = await until("signature help внутри greet(", async () => {
-                const source = harness.group.signatureHelpSource;
-                if (source === undefined) return null;
-                const found = await source({
+                const found = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "python",
                     text: MAIN_PY,

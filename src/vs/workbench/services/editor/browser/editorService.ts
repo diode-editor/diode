@@ -14,7 +14,6 @@ import {
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
-import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
@@ -234,13 +233,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public onOpenFailed?: (uri: Uri, reason: string) => void;
 
     /**
-     * Источник подсказки параметров (host/харнесс подключает сюда провайдеры
-     * расширений через `languages.provideSignatureHelp`). Читается
-     * `ParameterHintsService`; в редакторы не раздаётся (group-level).
-     */
-    public signatureHelpSource?: SignatureHelpSource;
-
-    /**
      * Formatting-источник (host/харнесс подключает сюда провайдеры расширений
      * через `languages.provideFormattingEdits`). Читается командами
      * `editor.action.formatDocument` / `formatSelection`; в редакторы не
@@ -255,18 +247,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * раздаётся (group-level).
      */
     public codeActionSource?: CodeActionSource;
-
-    /**
-     * Символы, после набора которых подсказка параметров открывается сама
-     * («(», «,», «<» у tsserver) — их объявляет language server.
-     */
-    public signatureHelpTriggerCharacters: readonly string[] = [];
-
-    /**
-     * Символы, перезапрашивающие ПОКАЗАННУЮ подсказку («)» у tsserver): по ним
-     * подсказка не открывается, но обновляется, пока висит.
-     */
-    public signatureHelpRetriggerCharacters: readonly string[] = [];
 
     /**
      * Save-участник расширений (host/харнесс подключает сюда

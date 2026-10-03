@@ -1,6 +1,5 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
-import type { LanguageSelector } from "../../../editor/common/languageSelector.ts";
 import type { ILanguageFeaturesService } from "../../../editor/common/services/languageFeatures.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
 import type { IWireLanguageProviderRegistration, WireLanguageFeatureKind } from "../common/wireTypes.ts";
@@ -63,23 +62,29 @@ export class LanguageFeaturesAdapter extends Disposable {
 
     /** По фабрике прокси на вид фичи: реестр нужной фичи + вызов хоста с handle. */
     private readonly proxyFactories: Readonly<
-        Record<WireLanguageFeatureKind, (handle: number, selector: LanguageSelector) => IDisposable>
+        Record<WireLanguageFeatureKind, (reg: IWireLanguageProviderRegistration) => IDisposable>
     > = {
-        hover: (handle, selector) =>
+        hover: ({ handle, selector }) =>
             this.languageFeatures.hoverProvider.register(selector, {
                 provideHover: (request) => this.bridge.provideHover(handle, request),
             }),
-        definition: (handle, selector) =>
+        definition: ({ handle, selector }) =>
             this.languageFeatures.definitionProvider.register(selector, {
                 provideDefinition: (request) => this.bridge.provideDefinition(handle, request),
             }),
-        references: (handle, selector) =>
+        references: ({ handle, selector }) =>
             this.languageFeatures.referenceProvider.register(selector, {
                 provideReferences: (request) => this.bridge.provideReferences(handle, request),
+            }),
+        signatureHelp: ({ handle, selector, triggerCharacters = [], retriggerCharacters = [] }) =>
+            this.languageFeatures.signatureHelpProvider.register(selector, {
+                triggerCharacters,
+                retriggerCharacters,
+                provideSignatureHelp: (request) => this.bridge.provideSignatureHelp(handle, request),
             }),
     };
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {
-        return this.proxyFactories[reg.kind](reg.handle, reg.selector);
+        return this.proxyFactories[reg.kind](reg);
     }
 }

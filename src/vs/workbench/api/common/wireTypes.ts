@@ -952,7 +952,7 @@ export async function requestHover(
  * `$registerHoverProvider(handle, selector)` + `$unregister(handle)`).
  * Список растёт по мере переезда фич с `languages.updateSubscriptions`.
  */
-export const WIRE_LANGUAGE_FEATURE_KINDS = ["hover", "definition", "references"] as const;
+export const WIRE_LANGUAGE_FEATURE_KINDS = ["hover", "definition", "references", "signatureHelp"] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 
 /**
@@ -968,8 +968,20 @@ export interface IWireLanguageFilter {
     readonly exclusive?: boolean;
 }
 
+/**
+ * Метаданные провайдера, которые едут вместе с регистрацией (upstream
+ * `$registerSignatureHelpProvider(handle, selector, metadata)`): ядро читает их
+ * у провайдеров, подошедших документу, без RPC.
+ */
+export interface IWireLanguageProviderMetadata {
+    /** Символы, набор которых сам открывает подсказку/попап. */
+    readonly triggerCharacters?: readonly string[];
+    /** Символы, перезапрашивающие подсказку, пока она показана (signature help). */
+    readonly retriggerCharacters?: readonly string[];
+}
+
 /** `languages.register`: провайдер фичи `kind` под селектором (subprocess → host). */
-export interface IWireLanguageProviderRegistration {
+export interface IWireLanguageProviderRegistration extends IWireLanguageProviderMetadata {
     readonly handle: number;
     readonly kind: WireLanguageFeatureKind;
     readonly selector: readonly IWireLanguageFilter[];
@@ -1024,7 +1036,22 @@ export function parseWireLanguageProviderRegistration(raw: unknown): IWireLangua
         const filter = parseWireLanguageFilter(item);
         if (filter !== null) selector.push(filter);
     }
-    return { handle: obj.handle, kind: obj.kind, selector };
+    return {
+        handle: obj.handle,
+        kind: obj.kind,
+        selector,
+        ...(Array.isArray(obj.triggerCharacters)
+            ? { triggerCharacters: readWireCharacters(obj.triggerCharacters) }
+            : {}),
+        ...(Array.isArray(obj.retriggerCharacters)
+            ? { retriggerCharacters: readWireCharacters(obj.retriggerCharacters) }
+            : {}),
+    };
+}
+
+/** Символы-триггеры: только непустые строки, мусор отбрасывается. */
+function readWireCharacters(raw: readonly unknown[]): string[] {
+    return raw.filter((item): item is string => typeof item === "string" && item !== "");
 }
 
 /** Разбирает `languages.unregister`; `null` — форма не распознана. */
@@ -1119,6 +1146,8 @@ export async function requestReferences(
  * сейчас (по нему сервер удерживает выбранную пользователем перегрузку).
  */
 export interface IWireSignatureHelpParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle: number;
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;

@@ -314,12 +314,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
 
-        // Signature help: провайдеры расширений (languages.provideSignatureHelp)
-        // подключаются как источник подсказки параметров (читает
-        // ParameterHintsService при наборе «(» и по команде).
-        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.signatureHelpSource = (req) => host.provideSignatureHelp(req);
-
         // Formatting: провайдеры расширений (languages.provideFormattingEdits)
         // подключаются как formatting-источник группы (читают команды
         // editor.action.formatDocument / formatSelection).
@@ -336,13 +330,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // Stryker disable next-line ArrowFunction: см. выше
             apply: (id) => host.applyCodeAction(id),
         };
-        // Триггер-символы объявляет сервер уже после активации — как у completion.
-        group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
-        group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
-        host.onSignatureHelpTriggerCharactersChanged(() => {
-            group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
-            group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
-        });
 
         // Folding: провайдеры расширений (languages.provideFoldingRanges)
         // подключаются как источник областей сворачивания группы (читает
