@@ -274,6 +274,30 @@ describe("PanelContainerElement", () => {
             expect(activated).toEqual([]);
         });
 
+        /**
+         * Границы сегмента вкладки — полуинтервал `[start, end)`: первая колонка
+         * её, последняя — уже следующей. У последней вкладки ошибка на единицу
+         * вправо не видна совсем (за ней пустая шапка), а влево — съедает её
+         * первую колонку, поэтому проверяем обе руками.
+         */
+        it("activates a tab by its FIRST column and ignores the one past its last", () => {
+            const { root, panel, activated } = scene();
+            const dispatcher = new MouseEventDispatcher();
+
+            // Отступ таб-строки — ещё не вкладка: x 0 левее её начала.
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 1, y: 2 }), root);
+            expect(activated).toEqual([]);
+
+            // Ровно s.start вкладки OUTPUT (screen x 11) — её колонка.
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 12, y: 2 }), root);
+            expect(activated).toEqual(["b"]);
+            expect(panel.getActiveViewId()).toBe("b");
+
+            // Ровно s.end последней вкладки (screen x 19) — уже не она.
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 20, y: 2 }), root);
+            expect(activated).toEqual(["b"]);
+        });
+
         it("ignores non-left clicks", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();

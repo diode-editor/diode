@@ -157,6 +157,28 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 10, 2).bg).not.toBe(BG);
     });
 
+    it("кончает placeholder на его последнем символе, а не красит хвост строки", () => {
+        const panel = themed();
+        panel.addView({ id: "a", title: "P", content: null, placeholder: "No problems." });
+        const screen = paint(panel, new Size(20, 5));
+
+        expect(row(screen, 2, 0, 14)).toBe("  No problems.");
+        // Колонка сразу за сообщением осталась от заливки фоном — цвет НЕ текстовый.
+        expect(at(screen, 14, 2).fg).not.toBe(TITLE_FG);
+        expect(at(screen, 14, 2).fg).toBe(at(screen, 5, 3).fg);
+    });
+
+    it("placeholder не показывается у вкладки, у которой контент есть", () => {
+        // Welcome-состояние — ровно про пустую view: с контентом оно обязано
+        // молчать, даже если текст у вкладки объявлен.
+        const panel = themed();
+        panel.addView({ id: "a", title: "P", content: new MarkerContent("X"), placeholder: "hidden" });
+        const screen = paint(panel, new Size(20, 5));
+
+        expect(at(screen, 2, 2).char).toBe("X");
+        expect(row(screen, 2, 0, 10)).toBe("  X       ");
+    });
+
     it("не рисует placeholder, когда строки контента нет вовсе", () => {
         // Панель из двух строк — полоса границы и таб-строка; места под контент
         // не осталось. Проверять это можно только на экране больше панели: на

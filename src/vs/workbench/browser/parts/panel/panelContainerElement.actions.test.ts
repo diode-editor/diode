@@ -112,13 +112,18 @@ describe("PanelContainerElement: контролы вкладки в шапке",
     it("клик по контролам не переключает вкладку", () => {
         // Хендлер панели ловит любой клик по строке табов; без проверки источника
         // клик по селектору ещё и менял бы активную вкладку под ним.
+        //
+        // Координату берём ВНУТРИ сегмента вкладки (x 3 — это PROBLEMS): клик по
+        // настоящим колонкам контролов отличить от «проверка источника пропала»
+        // нельзя, потому что справа от табов вкладки всё равно нет. Событие
+        // синтетическое — важно ровно то, что его target не панель.
         const actions = new LabelStub("Bootstrap");
         const { panel } = panelWithActions(actions);
         const onActivate = vi.fn();
         panel.onActivateView = onActivate;
 
         actions.dispatchEvent(
-            new TUIMouseEvent("mousedown", { button: "left", screenX: 50, screenY: 1, localX: 0, localY: 0 }),
+            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 1, localX: 0, localY: 0 }),
         );
 
         expect(onActivate).not.toHaveBeenCalled();
