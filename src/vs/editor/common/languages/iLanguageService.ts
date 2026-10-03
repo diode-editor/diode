@@ -1,3 +1,4 @@
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
 /**
@@ -34,6 +35,18 @@ export interface ILanguageService {
      * безымянного буфера отталкивается от его языка (`plaintext` → `.txt`).
      */
     getExtensionForLanguage(languageId: string): string | undefined;
+
+    /**
+     * Модели понадобились фичи языка (аналог `requestRichLanguageFeatures` у
+     * vscode): документ открылся с этим языком или сменил на него. Так узнают
+     * те, кто поднимает фичи лениво, — сейчас это активация расширений по
+     * `onLanguage:<id>`. Сигнал один на язык за жизнь окна: повторный запрос
+     * того же языка — no-op.
+     */
+    requestLanguageFeatures(languageId: string): void;
+
+    /** Язык запрошен впервые (см. {@link requestLanguageFeatures}). */
+    onDidRequestLanguageFeatures(listener: (languageId: string) => void): IDisposable;
 }
 
 /**
@@ -44,6 +57,8 @@ export const NULL_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => undefined,
     getLanguageDisplayName: () => undefined,
     getExtensionForLanguage: () => undefined,
+    requestLanguageFeatures: () => undefined,
+    onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой

@@ -39,6 +39,8 @@ const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "csharp",
     getLanguageDisplayName: () => "C#",
     getExtensionForLanguage: () => ".cs",
+    requestLanguageFeatures: () => undefined,
+    onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };
 
 // C#-файл со стоковым C#-маркером региона (`/* #region */ … /* #endregion */`).

@@ -37,6 +37,8 @@ const JAVA_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".java") ? "java" : undefined),
     getLanguageDisplayName: () => undefined,
     getExtensionForLanguage: () => undefined,
+    requestLanguageFeatures: () => undefined,
+    onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };
 
 /** Конфиг-стаб: точечные ключи из карты, остальное — как у NULL-сервиса. */

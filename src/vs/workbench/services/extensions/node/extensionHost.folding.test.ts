@@ -10,6 +10,8 @@ const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "csharp",
     getLanguageDisplayName: () => "C#",
     getExtensionForLanguage: () => ".cs",
+    requestLanguageFeatures: () => undefined,
+    onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };
 
 const CSHARP_TEXT = ["/* #region A */", "int a;", "int b;", "/* #endregion */", "int c;"].join("\n");

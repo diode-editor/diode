@@ -1,4 +1,5 @@
 import { createRange } from "../../editor/common/core/iRange.ts";
+import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
@@ -364,13 +365,16 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             logger,
         );
 
-        // Активация по `onLanguage:*` при смене активного редактора (напр.
-        // diode-settings на JSON). Файлы, открытые на старте ДО регистрации
-        // расширений, не теряются: сервис запоминает событие и проигрывает его
-        // сразу за `*`. Ядро про activation-events не знает — тот же seam-паттерн,
-        // что completionSource.
-        container.get(EditorServiceDIToken).onActiveEditorChanged((editor) => {
-            if (editor !== null) void service.activateByEvent(`onLanguage:${editor.languageId}`);
+        // Активация по `onLanguage:<id>` (напр. diode-settings на JSON) — когда
+        // языку впервые понадобились фичи: у любой модели, а не только у
+        // активного редактора (новый документ, смена языка, вкладка, на которую
+        // ещё не переключались), — как `requestRichLanguageFeatures` у vscode,
+        // вместе с голым `onLanguage`. Языки файлов, открытых на старте ДО
+        // регистрации расширений, не теряются: сервис запоминает события и
+        // проигрывает их сразу за `*`. Ядро про activation-events не знает.
+        container.get(LanguageServiceDIToken).onDidRequestLanguageFeatures((languageId) => {
+            void service.activateByEvent(`onLanguage:${languageId}`);
+            void service.activateByEvent("onLanguage");
         });
 
         // `workspaceContains:<паттерн>` по смене набора папок: папка может
