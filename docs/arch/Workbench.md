@@ -89,7 +89,6 @@ bootstrap-последовательность приложения (mount → a
 | Хук | Кто ставит | Куда уходит |
 |---|---|---|
 | `EditorService.canAddGroupHook`, `focusGroupContentHook` | `EditorPartComponent` | E1 (группы и полоса групп — одна сущность, как `EditorParts`) |
-| `EditorService.onRequestConfirmClose` | `WorkbenchComponent` | E8 (confirm-close в одной точке) |
 | `EditorService.onOpenFailed` | `OpenFailureNotificationContribution` | C1 (перевод `?:`-хуков на `Emitter`) |
 
 ### Late-init `attach*`
