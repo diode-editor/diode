@@ -21,7 +21,7 @@ git-версии (`git:`), output-каналы (`output:`), diff, webview, remot
 стокового `redhat.java` (класс из jar, исходник JDK, декомпиляция), Go to Super
 Implementation, `git:`-ревизии.
 
-Устройство: порт `IVirtualDocumentSource` (шов ядра, как `definitionSource` и соседи) →
+Устройство: порт `IVirtualDocumentSource` (шов ядра) →
 `EditorService.openUri` → синтетическая модель (`TextFileModel.openSynthetic`) +
 `readOnly`. Схемы объявляет субпроцесс, содержимое едет обратным запросом
 `workspace.provideTextDocumentContent`; `onDidChange` провайдера перечитывает открытую

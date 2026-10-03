@@ -8,7 +8,7 @@ import type {
     ICoreSignatureHelp,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
-import { matchDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
+import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -1459,8 +1459,9 @@ export function createLanguagesNamespace(
         // Настоящий match: vscode-languageclient фильтрует ИМ документы для
         // синхронизации с сервером (textSynchronization.js) — наивный «всегда 10»
         // скармливал ts-серверу markdown и meta-обёртки, сервер ронял хендлеры.
+        // Score тот же, что у реестра ядра: `*` — 5, точное совпадение — 10.
         match: (selector: vscode.DocumentSelector, document: vscode.TextDocument): number =>
-            matchDocumentSelector(selector, document as unknown as ExtHostTextDocument) ? 10 : 0,
+            scoreDocumentSelector(selector, document as unknown as ExtHostTextDocument),
 
         registerCompletionItemProvider: (
             selector: vscode.DocumentSelector,

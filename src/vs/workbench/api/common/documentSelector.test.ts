@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
-import { matchDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
+import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import { DocumentRegistry } from "./extHostDocuments.ts";
 import { RelativePattern, Uri } from "./vscodeTypes.ts";
 
@@ -9,6 +9,30 @@ function doc(fileName: string, languageId: string) {
     const registry = new DocumentRegistry();
     return registry.upsertMeta({ uri: Uri.file(fileName).toString(), languageId });
 }
+
+/** Подходит ли селектор документу вообще (score > 0) — граница, которую читает languageclient. */
+function matchDocumentSelector(selector: vscode.DocumentSelector, document: ReturnType<typeof doc>): boolean {
+    return scoreDocumentSelector(selector, document) > 0;
+}
+
+describe("scoreDocumentSelector — настоящий score, как у реестра ядра", () => {
+    it("точное совпадение — 10, `*` — 5, мимо — 0", () => {
+        const md = doc("/home/u/proj/README.md", "markdown");
+        expect(scoreDocumentSelector("markdown", md)).toBe(10);
+        expect(scoreDocumentSelector("*", md)).toBe(5);
+        expect(scoreDocumentSelector(["*", "markdown"], md)).toBe(10);
+        expect(scoreDocumentSelector({ language: "markdown", scheme: "file" }, md)).toBe(10);
+        expect(scoreDocumentSelector("typescript", md)).toBe(0);
+    });
+
+    it("RelativePattern матчит путь относительно базы", () => {
+        const md = doc("/home/u/proj/docs/a.md", "markdown");
+        const inDocs = new RelativePattern(Uri.file("/home/u/proj/docs"), "*.md") as unknown as vscode.RelativePattern;
+        const inSrc = new RelativePattern(Uri.file("/home/u/proj/src"), "*.md") as unknown as vscode.RelativePattern;
+        expect(scoreDocumentSelector({ pattern: inDocs }, md)).toBe(10);
+        expect(scoreDocumentSelector({ pattern: inSrc }, md)).toBe(0);
+    });
+});
 
 describe("matchDocumentSelector", () => {
     const editorconfig = doc("/home/u/proj/.editorconfig", "editorconfig");

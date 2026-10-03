@@ -827,7 +827,7 @@ hide-toggle (`isHiddenByDefault`). См.
     вкладка владеет ref-count-ссылкой), `openFile`/`openUri` (`{group:"beside"}` —
     Open to the Side), `newUntitled`, `displayName`/`suggestedSaveName`,
     применение `editor.*`-настроек, группа-уровневые швы host'а
-    (`saveParticipant`, `completionSource`), `IShutdownParticipant`
+    (`saveParticipant`; языковые провайдеры — в реестре `ILanguageFeaturesService`), `IShutdownParticipant`
     (`collectDirty` — дедуп по документу). **Закрытие с подтверждением** —
     одна точка `closeEditor(group, pane|index)` / `closeEditors(group, panes)` /
     `closeAllEditors(group)` → `Promise<boolean>` (аналог upstream
@@ -1018,7 +1018,7 @@ hide-toggle (`isHiddenByDefault`). См.
     `openAt(anchor)`/`setAnchor` — позиционирование у каретки
     (`EditorPane.getCaretAnchor`).
   - `Services/CompletionService.ts` — логика автодополнения (WP8): `trigger()`
-    (провайдеры расширений через `EditorService.completionSource` + word-based
+    (провайдеры из реестра `ILanguageFeaturesService.completionProvider` + word-based
     fallback `collectWordCompletions` из всех открытых редакторов), сессия
     попапа (живой `prefixRange`, re-filter по мере набора, авто-suggest по
     эвристике «вставлен 1 word-символ» с задержкой `autoSuggestDelayMs`),

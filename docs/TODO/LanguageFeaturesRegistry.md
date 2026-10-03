@@ -1,6 +1,6 @@
 # Реестр языковых провайдеров в ядре (G2)
 
-Статус: `[~]` в работе.
+Статус: `[x]` сделано (G2: #384, #399, #419, #424, #427, #443, #464, #471 и этот, 9/9). Устройство и рецепт новой фичи — [arch/Extensions.md](../arch/Extensions.md), «Языковые провайдеры — реестр ядра».
 
 Ядро не знало, какие провайдеры есть и для каких документов: реестр жил в
 субпроцессе, ядру приходил один `languages.updateSubscriptions` с булевыми
@@ -29,19 +29,29 @@ handle (`MainThreadLanguageFeatures`).
 ## План
 
 1. [x] Ядро реестра без потребителей.
-2. [ ] Адаптер + hover.
-3. [ ] definition + references.
-4. [ ] signatureHelp (trigger/retrigger-символы — метаданные регистрации).
-5. [ ] completion + resolve.
-6. [ ] formatting + codeActions + on-save.
-7. [ ] folding (`onDidChange` реестра вместо `onFoldingProvidersChanged`).
-8. [ ] inlineCompletions.
-9. [ ] Уборка: снять `languages.updateSubscriptions`, `languages.match` на
+2. [x] Адаптер + hover.
+3. [x] definition + references.
+4. [x] signatureHelp (trigger/retrigger-символы — метаданные регистрации).
+5. [x] completion + resolve.
+6. [x] formatting + codeActions + on-save.
+7. [x] folding (`onDidChange` реестра вместо `onFoldingProvidersChanged`).
+8. [x] inlineCompletions.
+9. [x] Уборка: снять `languages.updateSubscriptions`, `languages.match` на
    `score`, доки (Extensions.md, Editor.md, LSP.md, VscodeStructureFollowUps.md).
 
 Пока не сделан G3 (document sync дельтами), фичи «на каждый символ»
-(completion, folding, inline, signatureHelp) ходят батчем по списку handle,
-а не RPC на каждый handle — иначе полный текст документа уедет N раз.
+(completion, folding, inline) ходят пачкой по списку handle
+(`ProviderRequestBatcher`), а не RPC на каждый handle — иначе полный текст
+документа уехал бы N раз. SignatureHelp спрашивается по очереди до первого
+ответа (как upstream) — пачка ему не нужна: обычно отвечает первый провайдер.
+
+## Что осталось за рамками
+
+- Пачка `{handles}` снимается после G3 — тогда «один RPC на handle», как upstream.
+- `editor.defaultFormatter`/пикер форматтеров — после G7 (идентичность расширения в регистрации).
+- Закрытие 19 no-op провайдеров — фичи поверх реестра, рецепт в arch/Extensions.md.
+- Контекст-ключи `editorHas*Provider` — теперь возможны (`registry.has`), это F3/C7.
+- Переезд агрегаторов и фич в `editor/contrib` — VscodeStructureFollowUps.md.
 
 ## Не делаем
 

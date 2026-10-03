@@ -18,15 +18,14 @@
   `*ComponentDIToken` (workbench). Нужна развязка — в upstream editor-contrib
   работают с одним `ICodeEditor`, а не с сервисом групп.
 
-  Смежное следствие той же развязки: у vscode реестр провайдеров
-  (`ILanguageFeaturesService.signatureHelpProvider` и соседи) живёт в ядре
-  редактора со скорингом селекторов, а extension host регистрируется в него
-  через `MainThreadLanguageFeatures`. У нас реестра в ядре нет: на фичу — одна
-  функция-шов (`EditorService.signatureHelpSource`, `hoverSource`, …), матчинг
-  селекторов и обход провайдеров живут в субпроцессе, а метаданные вроде
-  триггер-символов пушатся нотификацией `languages.updateSubscriptions`.
-  Переезд в `editor/contrib` без реестра даст фичам editor-слоя зависимость на
-  workbench-шов — то есть решать эти два пункта имеет смысл вместе.
+  Языковой блокер снят (G2): провайдеры фич живут в реестре ядра
+  `editor/common/services/languageFeatures.ts` (`ILanguageFeaturesService`,
+  скоринг селекторов — `editor/common/languageSelector.ts`), а не в полях-швах
+  `EditorService`, так что переезд не потянет за собой workbench-шов. Агрегация
+  ответов частично уже в `editor/contrib` (`format`, `codeAction`,
+  `folding/syntaxRangeProvider`); `getHover`, `goToSymbol`, `getReferences`,
+  `provideSignatureHelp`, `provideCompletions`, `provideInlineCompletions`
+  переедут вместе со своими фичами.
 - [ ] **Направление ядро workbench → contrib** — храповик `DIRECTION_EXCEPTIONS`
   в `scripts/check-layers.mjs`: 9 файлов ядра ещё импортируют фичи. Корень и
   агрегатор (`workbenchComponent.ts`, `workbenchContributions.ts`) — E4
