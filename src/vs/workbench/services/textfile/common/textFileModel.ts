@@ -484,8 +484,8 @@ export class TextFileModel extends Disposable {
         return {
             label,
             resources: filePath === null ? [] : [filePath],
-            canUndo: () => undoToken !== undefined && this.undoManagerValue.canUndoStep(undoToken),
-            canRedo: () => redoToken !== undefined && this.undoManagerValue.canRedoStep(redoToken),
+            canUndo: () => this.undoManagerValue.canUndoStep(undoToken),
+            canRedo: () => this.undoManagerValue.canRedoStep(redoToken),
             undo: () => {
                 this.undoManagerValue.undo(this.actingView);
                 redoToken = this.undoManagerValue.peekRedoStep();

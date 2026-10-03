@@ -40,7 +40,7 @@ describe("UndoManager — токены шагов", () => {
         const step = manager.peekUndoStep();
 
         expect(step).toBeDefined();
-        expect(manager.canUndoStep(step!)).toBe(true);
+        expect(manager.canUndoStep(step)).toBe(true);
     });
 
     it("шаг, накрытый следующим, перестаёт быть отменяемым — и снова становится после undo", () => {
@@ -52,7 +52,7 @@ describe("UndoManager — токены шагов", () => {
 
         // Сверху лежит `second`: следующий undo снимет не наш шаг.
         expect(manager.canUndoStep(first)).toBe(false);
-        expect(manager.canUndoStep(manager.peekUndoStep()!)).toBe(true);
+        expect(manager.canUndoStep(manager.peekUndoStep())).toBe(true);
 
         manager.undo();
         // Версия документа при этом ушла вперёд (undo — тоже правка), но
@@ -83,7 +83,7 @@ describe("UndoManager — токены шагов", () => {
         const redoToken = manager.peekRedoStep();
         expect(redoToken).toBeDefined();
         expect(redoToken).not.toBe(undoToken);
-        expect(manager.canRedoStep(redoToken!)).toBe(true);
+        expect(manager.canRedoStep(redoToken)).toBe(true);
         // Старый токен повтору не принадлежит.
         expect(manager.canRedoStep(undoToken)).toBe(false);
     });
@@ -113,6 +113,6 @@ describe("UndoManager — токены шагов", () => {
         manager.undo();
 
         expect(manager.canRedoStep(second)).toBe(false);
-        expect(manager.canRedoStep(manager.peekRedoStep()!)).toBe(true);
+        expect(manager.canRedoStep(manager.peekRedoStep())).toBe(true);
     });
 });

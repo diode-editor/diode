@@ -94,14 +94,18 @@ export class UndoManager {
      * Снимет ли следующий {@link undo} именно `token`: он верхний в стеке И
      * версия документа совпадает с той, что была сразу после него (иначе
      * документ правили в обход менеджера и `undo` сам откажет).
+     *
+     * `undefined` — валидный аргумент и всегда `false`: владельцу, который ещё
+     * не получил токен (шаг ничего не изменил, откат не делался), отвечать
+     * отдельной проверкой на каждом вызове незачем.
      */
-    public canUndoStep(token: UndoStepToken): boolean {
+    public canUndoStep(token: UndoStepToken | undefined): boolean {
         const top = this.undoStack.at(-1);
         return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
     }
 
     /** То же для {@link redo}. */
-    public canRedoStep(token: UndoStepToken): boolean {
+    public canRedoStep(token: UndoStepToken | undefined): boolean {
         const top = this.redoStack.at(-1);
         return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
     }
