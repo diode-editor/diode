@@ -15,12 +15,16 @@ afterEach(() => {
 });
 
 describe("onUnexpectedError", () => {
-    it("по умолчанию пишет в консоль и не бросает", () => {
+    it("по умолчанию пишет в консоль и не бросает", async () => {
+        // Общий setupFiles ставит свой обработчик на каждый тест — дефолт
+        // видно только у свежего экземпляра модуля.
+        vi.resetModules();
+        const fresh = await import("./errors.ts");
         const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
         try {
             const error = new Error("бум");
             expect(() => {
-                onUnexpectedError(error);
+                fresh.onUnexpectedError(error);
             }).not.toThrow();
             expect(spy).toHaveBeenCalledWith(error);
         } finally {

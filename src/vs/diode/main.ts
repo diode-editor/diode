@@ -13,6 +13,7 @@ import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBacken
 import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess.ts";
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
 import { describeRejection } from "../base/common/describeRejection.ts";
+import { setUnexpectedErrorHandler } from "../base/common/errors.ts";
 import { mark } from "../base/common/performance.ts";
 import { DIODE_VERSION } from "../base/common/version.ts";
 import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAssetAccess.ts";
@@ -188,6 +189,12 @@ async function runEditor(): Promise<void> {
     // молча нельзя — они уезжают в лог и видны в Output.
     process.on("unhandledRejection", (reason: unknown) => {
         bootstrapLogger.error(`unhandled rejection: ${describeRejection(reason)}`);
+    });
+    // Туда же — непредвиденные ошибки, пойманные кодом (исключение слушателя
+    // Emitter, assert перенесённого diff-движка): по умолчанию они пишутся в
+    // console.error, то есть поверх экрана TUI.
+    setUnexpectedErrorHandler((e: unknown) => {
+        bootstrapLogger.error(`unexpected error: ${describeRejection(e)}`);
     });
 
     // ── User data: пути, настройки ─────────────────────────────

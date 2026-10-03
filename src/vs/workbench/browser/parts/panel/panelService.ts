@@ -1,6 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 export const PanelServiceDIToken = token<PanelService>("PanelService");
@@ -54,10 +54,20 @@ export class PanelService {
     private activeId: string | null = null;
     private visibleState = false;
 
-    private viewsListeners = new Set<() => void>();
-    private activeViewListeners = new Set<(id: string) => void>();
-    private activateListeners = new Set<(id: string) => void>();
-    private visibilityListeners = new Set<(visible: boolean) => void>();
+    private readonly onDidChangeViewsEmitter = new Emitter<void>();
+    /** Любое изменение набора вкладок или их контента. */
+    public readonly onDidChangeViews = this.onDidChangeViewsEmitter.event;
+
+    private readonly onDidChangeActiveViewEmitter = new Emitter<string>();
+    /** Смена активной вкладки (и программная, и пользовательская). */
+    public readonly onDidChangeActiveView = this.onDidChangeActiveViewEmitter.event;
+
+    private readonly onDidActivateViewEmitter = new Emitter<string>();
+    /** Пользовательская активация вкладки (см. {@link activateView}). */
+    public readonly onDidActivateView = this.onDidActivateViewEmitter.event;
+
+    private readonly onDidChangeVisibilityEmitter = new Emitter<boolean>();
+    public readonly onDidChangeVisibility = this.onDidChangeVisibilityEmitter.event;
 
     /** Регистрирует вкладку. Первая зарегистрированная становится активной. */
     public addView(view: IPanelViewDescriptor): void {
@@ -69,7 +79,7 @@ export class PanelService {
             placeholder: view.placeholder,
         });
         this.activeId ??= view.id;
-        this.fire(this.viewsListeners);
+        this.onDidChangeViewsEmitter.fire();
     }
 
     /** Подменяет контент зарегистрированной вкладки (null → placeholder). Неизвестный id — no-op. */
@@ -77,7 +87,7 @@ export class PanelService {
         const view = this.viewList.find((v) => v.id === id);
         if (view === undefined) return;
         view.content = content;
-        this.fire(this.viewsListeners);
+        this.onDidChangeViewsEmitter.fire();
     }
 
     /**
@@ -89,7 +99,7 @@ export class PanelService {
         const view = this.viewList.find((v) => v.id === id);
         if (view === undefined) return;
         view.actions = actions;
-        this.fire(this.viewsListeners);
+        this.onDidChangeViewsEmitter.fire();
     }
 
     /** Снимок реестра в порядке регистрации (порядок табов панели). */
@@ -101,7 +111,7 @@ export class PanelService {
     public setActiveView(id: string): void {
         if (this.viewList.every((v) => v.id !== id) || this.activeId === id) return;
         this.activeId = id;
-        for (const listener of [...this.activeViewListeners]) listener(id);
+        this.onDidChangeActiveViewEmitter.fire(id);
     }
 
     public getActiveViewId(): string | null {
@@ -116,7 +126,7 @@ export class PanelService {
      */
     public activateView(id: string): void {
         this.setActiveView(id);
-        for (const listener of [...this.activateListeners]) listener(id);
+        this.onDidActivateViewEmitter.fire(id);
     }
 
     /** Видимость панели (истина реестра; layout следует за ней через подписку). */
@@ -127,34 +137,6 @@ export class PanelService {
     public setVisible(visible: boolean): void {
         if (visible === this.visibleState) return;
         this.visibleState = visible;
-        for (const listener of [...this.visibilityListeners]) listener(visible);
-    }
-
-    /** Любое изменение набора вкладок или их контента. */
-    public onDidChangeViews(listener: () => void): IDisposable {
-        return this.subscribe(this.viewsListeners, listener);
-    }
-
-    /** Смена активной вкладки (и программная, и пользовательская). */
-    public onDidChangeActiveView(listener: (id: string) => void): IDisposable {
-        return this.subscribe(this.activeViewListeners, listener);
-    }
-
-    /** Пользовательская активация вкладки (см. {@link activateView}). */
-    public onDidActivateView(listener: (id: string) => void): IDisposable {
-        return this.subscribe(this.activateListeners, listener);
-    }
-
-    public onDidChangeVisibility(listener: (visible: boolean) => void): IDisposable {
-        return this.subscribe(this.visibilityListeners, listener);
-    }
-
-    private subscribe<T>(listeners: Set<T>, listener: T): IDisposable {
-        listeners.add(listener);
-        return { dispose: () => listeners.delete(listener) };
-    }
-
-    private fire(listeners: Set<() => void>): void {
-        for (const listener of [...listeners]) listener();
+        this.onDidChangeVisibilityEmitter.fire(visible);
     }
 }
