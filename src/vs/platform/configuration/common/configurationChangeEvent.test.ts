@@ -37,4 +37,10 @@ describe("createConfigurationChangeEvent", () => {
         expect(event.affectsConfiguration("workbench")).toBe(false); // unrelated
         expect(event.affectsConfiguration("editorX")).toBe(false); // prefix but not a segment boundary
     });
+
+    it("affectsConfiguration — достаточно одного совпавшего ключа из нескольких", () => {
+        const event = createConfigurationChangeEvent(["editor.tabSize", "files.exclude"]);
+        expect(event.affectsConfiguration("files.exclude")).toBe(true);
+        expect(event.affectsConfiguration("search.exclude")).toBe(false);
+    });
 });
