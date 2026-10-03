@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 
+import { Emitter } from "../../base/common/event.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { NotificationService } from "../services/notification/browser/notificationService.ts";
 
 import { OpenFailureNotificationContribution } from "./openFailureNotificationContribution.ts";
 
-/** Срез `EditorService`, которого хватает проводке: один хук. */
-function makeEditors(): { onOpenFailed?: (uri: Uri, reason: string) => void } {
-    return {};
+/** Срез `EditorService`, которого хватает проводке: одно событие. */
+function makeEditors(): {
+    failures: Emitter<{ uri: Uri; reason: string }>;
+    onDidFailOpen: Emitter<{ uri: Uri; reason: string }>["event"];
+} {
+    const failures = new Emitter<{ uri: Uri; reason: string }>();
+    return { failures, onDidFailOpen: failures.event };
 }
 
 describe("OpenFailureNotificationContribution", () => {
@@ -19,7 +24,10 @@ describe("OpenFailureNotificationContribution", () => {
             notifications as unknown as NotificationService,
         );
 
-        editors.onOpenFailed?.(Uri.parse("jdt:///Foo.java"), 'no content provider is registered for the "jdt:" scheme');
+        editors.failures.fire({
+            uri: Uri.parse("jdt:///Foo.java"),
+            reason: 'no content provider is registered for the "jdt:" scheme',
+        });
 
         const shown = notifications.passive();
         expect(shown).toHaveLength(1);
@@ -35,7 +43,7 @@ describe("OpenFailureNotificationContribution", () => {
         notifications.dispose();
     });
 
-    it("dispose снимает хук — мёртвая проводка сообщений больше не поднимает", () => {
+    it("dispose снимает подписку — мёртвая проводка сообщений больше не поднимает", () => {
         const editors = makeEditors();
         const notifications = new NotificationService();
         const contribution = new OpenFailureNotificationContribution(
@@ -45,7 +53,9 @@ describe("OpenFailureNotificationContribution", () => {
 
         contribution.dispose();
 
-        expect(editors.onOpenFailed).toBeUndefined();
+        expect(editors.failures.hasListeners()).toBe(false);
+        editors.failures.fire({ uri: Uri.parse("jdt:///Foo.java"), reason: "x" });
+        expect(notifications.passive()).toHaveLength(0);
         notifications.dispose();
     });
 });

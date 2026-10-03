@@ -146,7 +146,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
     it("нет источника вовсе — сообщение, а не падение", async () => {
         const service = createEditorService();
         const failures: { uri: string; reason: string }[] = [];
-        service.onOpenFailed = (uri, reason) => failures.push({ uri: uri.toString(), reason });
+        service.onDidFailOpen(({ uri, reason }) => failures.push({ uri: uri.toString(), reason }));
 
         await expect(service.openUri(Uri.parse("jdt:///Foo.java"))).resolves.toBeUndefined();
 
@@ -159,7 +159,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
     it("провайдер есть, но не для этой схемы — сообщение с её именем", async () => {
         const service = createEditorService();
         const failures: string[] = [];
-        service.onOpenFailed = (_uri, reason) => failures.push(reason);
+        service.onDidFailOpen(({ reason }) => failures.push(reason));
         service.virtualDocumentSource = makeSource("jdt", () => Promise.resolve("x"));
 
         await service.openUri(Uri.parse("class:///Foo.class"));
@@ -172,7 +172,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
     it("провайдер сломался — причина доходит до человека, процесс живёт", async () => {
         const service = createEditorService();
         const failures: string[] = [];
-        service.onOpenFailed = (_uri, reason) => failures.push(reason);
+        service.onDidFailOpen(({ reason }) => failures.push(reason));
         service.virtualDocumentSource = makeSource("jdt", () =>
             Promise.reject(new Error("java/classFileContents timed out")),
         );
@@ -187,7 +187,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
     it("провайдер отклонился не-Error значением — причина всё равно читаемая", async () => {
         const service = createEditorService();
         const failures: string[] = [];
-        service.onOpenFailed = (_uri, reason) => failures.push(reason);
+        service.onDidFailOpen(({ reason }) => failures.push(reason));
         // Провайдер — чужой код: отклониться он может чем угодно, не только Error.
         // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
         service.virtualDocumentSource = makeSource("jdt", () => Promise.reject("server is shutting down"));
@@ -201,7 +201,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
     it("провайдер отказался отдать ресурс (null) — вкладки нет, сообщение есть", async () => {
         const service = createEditorService();
         const failures: string[] = [];
-        service.onOpenFailed = (_uri, reason) => failures.push(reason);
+        service.onDidFailOpen(({ reason }) => failures.push(reason));
         service.virtualDocumentSource = makeSource("jdt", () => Promise.resolve(null));
 
         await service.openUri(Uri.parse("jdt:///Foo.java"));
@@ -211,7 +211,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("без хука onOpenFailed неудача всё равно не бросает", async () => {
+    it("без подписчика onDidFailOpen неудача всё равно не бросает", async () => {
         const service = createEditorService();
 
         await expect(service.openUri(Uri.parse("jdt:///Foo.java"))).resolves.toBeUndefined();

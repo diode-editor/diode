@@ -1,6 +1,7 @@
 import * as path from "node:path";
 
 import { joinVirtualPath } from "../../../../base/common/assets/assetBundleFormat.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
@@ -46,7 +47,7 @@ interface MutableLanguageEntry {
 export class LanguageRegistry implements ILanguageService {
     private readonly languages = new Map<string, MutableLanguageEntry>();
     private readonly requestedLanguages = new Set<string>();
-    private readonly requestListeners = new Set<(languageId: string) => void>();
+    private readonly onDidRequestLanguageFeaturesEmitter = new Emitter<string>();
 
     public constructor() {
         // plaintext — core-язык (аналог modesRegistry в VS Code): его не
@@ -87,17 +88,10 @@ export class LanguageRegistry implements ILanguageService {
     public requestLanguageFeatures(languageId: string): void {
         if (this.requestedLanguages.has(languageId)) return;
         this.requestedLanguages.add(languageId);
-        for (const listener of [...this.requestListeners]) listener(languageId);
+        this.onDidRequestLanguageFeaturesEmitter.fire(languageId);
     }
 
-    public onDidRequestLanguageFeatures(listener: (languageId: string) => void): IDisposable {
-        this.requestListeners.add(listener);
-        return {
-            dispose: () => {
-                this.requestListeners.delete(listener);
-            },
-        };
-    }
+    public readonly onDidRequestLanguageFeatures = this.onDidRequestLanguageFeaturesEmitter.event;
 
     public getLanguage(id: string): ILanguageEntry | undefined {
         const entry = this.languages.get(id);

@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { createConfigurationChangeEvent } from "../../../../platform/configuration/common/configurationChangeEvent.ts";
 import type {
@@ -24,7 +25,7 @@ function createService(options?: {
 }): ExplorerService {
     return new ExplorerService(
         options?.clipboard ?? new InMemoryFileClipboard(),
-        options?.configurationService ?? NULL_CONFIGURATION_SERVICE,
+        options?.configurationService ?? createTestConfigurationService(),
         options?.logService ?? NULL_LOG_SERVICE,
     );
 }
@@ -210,11 +211,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
 
 describe("ExplorerService — autoRevealActiveFile", () => {
     function configWith(autoReveal: boolean | undefined): IConfigurationService {
-        return {
-            ...NULL_CONFIGURATION_SERVICE,
-            get: <T>(key: string, defaultValue?: T): T | undefined =>
-                key === "explorer.autoReveal" ? ((autoReveal ?? defaultValue) as T) : defaultValue,
-        };
+        return createTestConfigurationService(autoReveal === undefined ? {} : { "explorer.autoReveal": autoReveal });
     }
 
     it("reveals the active file when explorer.autoReveal is on (default)", () => {

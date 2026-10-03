@@ -107,7 +107,7 @@ describe("TextFileModel.openFile — гейт схемы", () => {
     it("не-file uri не читается с диска по fsPath и не бросает наружу", async () => {
         const service = createEditorService();
         const failures: string[] = [];
-        service.onOpenFailed = (uri, reason) => failures.push(`${uri.scheme}: ${reason}`);
+        service.onDidFailOpen(({ uri, reason }) => failures.push(`${uri.scheme}: ${reason}`));
 
         // Провайдера схемы нет — открывать нечем, но падать нельзя: отказ
         // ЛЮБОГО открытия уносил бы весь редактор через unhandled rejection.

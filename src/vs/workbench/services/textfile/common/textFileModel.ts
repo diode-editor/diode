@@ -179,10 +179,10 @@ export class TextFileModel extends Disposable {
     private readonly onDidSaveDocumentEmitter = this.register(new Emitter<void>());
 
     /**
-     * Событие «документ записан на диск» (save/saveAs). Слушают владелец модели
-     * (после saveAs реестр перепривязывает ресурс) и вкладки: сохранение меняет
-     * вид вкладки (гаснет маркер изменённости, после saveAs меняется имя) — у
-     * каждой из N вкладок документа.
+     * Событие «документ записан на диск» (save/saveAs). Первым подписан
+     * владелец-сервис (перепривязка реестра моделей), дальше — вкладки: сохранение меняет вид вкладки (гаснет маркер
+     * изменённости, после saveAs меняется имя) — у каждой из N вкладок
+     * документа.
      */
     public readonly onDidSaveDocument = this.onDidSaveDocumentEmitter.event;
 

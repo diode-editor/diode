@@ -1,6 +1,6 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
-export const editorConfiguration: IConfigurationNode = {
+export const editorConfiguration = {
     id: "editor",
     title: "Editor",
     properties: {
@@ -31,6 +31,15 @@ export const editorConfiguration: IConfigurationNode = {
             type: "number",
             default: 3,
             description: "Controls the minimal number of visible leading lines around the cursor.",
+        },
+        // Как в VS Code: "off" гасит подсветку вхождений. Область "multiFile" у нас
+        // не поддержана и ведёт себя как "singleFile".
+        "editor.occurrencesHighlight": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["off", "singleFile", "multiFile"],
+            default: "singleFile",
+            description: "Controls whether the editor highlights semantic symbol occurrences.",
         },
         "editor.emptySelectionClipboard": {
             scope: "language-overridable",
@@ -81,6 +90,7 @@ export const editorConfiguration: IConfigurationNode = {
             scope: "language-overridable",
             type: "number",
             default: 50,
+            minimum: 0,
             description:
                 "Milliseconds to wait after a change before automatically requesting an inline suggestion. " +
                 "0 requests on every change; higher values spare a slow or metered provider.",
@@ -89,6 +99,7 @@ export const editorConfiguration: IConfigurationNode = {
             scope: "language-overridable",
             type: "number",
             default: 5000,
+            minimum: 1,
             description:
                 "Milliseconds to wait for an inline suggestion provider to answer. " +
                 "After that the request is given up on and no suggestion is shown.",
@@ -105,4 +116,4 @@ export const editorConfiguration: IConfigurationNode = {
                 "Kinds match hierarchically: `source.fixAll` also runs `source.fixAll.ruff`.",
         },
     },
-};
+} as const satisfies IConfigurationNode;

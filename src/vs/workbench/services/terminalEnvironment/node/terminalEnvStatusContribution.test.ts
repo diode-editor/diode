@@ -1,8 +1,8 @@
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
 
@@ -29,7 +29,7 @@ describe("TerminalEnvStatusContribution", () => {
 
     function segment() {
         const statusBar = new StatusBarService(NULL_STATE_SERVICE);
-        const env = new TerminalEnvironmentService(new MockTerminalBackend(), NULL_CONFIGURATION_SERVICE);
+        const env = new TerminalEnvironmentService(new MockTerminalBackend(), createTestConfigurationService());
         const commands = new CommandRegistry();
         const executed: string[] = [];
         commands.register("diode.keyboardDoctor", () => {

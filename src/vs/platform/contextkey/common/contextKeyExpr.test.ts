@@ -9,6 +9,7 @@ import {
     parseWhen,
     serializeWhen,
     whenKeys,
+    whenPositiveKeys,
 } from "./contextKeyExpr.ts";
 
 function context(values: Record<string, ContextKeyValue>): IContext {
@@ -254,6 +255,16 @@ describe("whenKeys", () => {
         expect(whenKeys(parseWhen("x in list && y not in other")!)).toEqual(["x", "list", "y", "other"]);
         expect(whenKeys(parseWhen("true || false || !false")!)).toEqual([]);
         expect(whenKeys(parseWhen("r =~ /x/ && n > 1")!)).toEqual(["r", "n"]);
+    });
+});
+
+describe("whenPositiveKeys", () => {
+    it("ключи не под отрицанием", () => {
+        expect(whenPositiveKeys(parseWhen("a && !b || c == x")!)).toEqual(["a", "c"]);
+        expect(whenPositiveKeys(parseWhen("!(a && !b)")!)).toEqual(["b"]);
+        expect(whenPositiveKeys(parseWhen("n > 1 && r =~ /x/ && i in list")!)).toEqual(["n", "r", "i"]);
+        expect(whenPositiveKeys(parseWhen("i not in list || true || false")!)).toEqual([]);
+        expect(whenPositiveKeys(parseWhen("a != x")!)).toEqual(["a"]);
     });
 });
 

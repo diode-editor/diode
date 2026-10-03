@@ -10,10 +10,12 @@ import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { createConfigurationChangeEvent, diffConfigurationKeys } from "../common/configurationChangeEvent.ts";
 import { ConfigurationModel } from "../common/configurationModel.ts";
-import type { ConfigurationRegistry } from "../common/configurationRegistry.ts";
+import type { ConfigurationRegistry, IConfigurationPropertySchema } from "../common/configurationRegistry.ts";
+import { sanitizeConfiguration } from "../common/configurationValidation.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationInspectResult,
+    IConfigurationKeys,
     IConfigurationService,
 } from "../common/iConfigurationService.ts";
 
@@ -53,6 +55,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     /** Путь к settings.json именованного профиля; undefined для default-профиля. */
     private readonly profileSettingsPath: string | undefined;
     private readonly logger: ILogger | undefined;
+    private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
     private readonly onDidChangeConfigurationEmitter = new Emitter<IConfigurationChangeEvent>();
     public readonly onDidChangeConfiguration = this.onDidChangeConfigurationEmitter.event;
 
@@ -71,6 +74,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         /** Watcher: если передан вместе с путями — включает live-reload. */
         readonly fileWatcher?: IFileWatcher;
         readonly logger?: ILogger;
+        /** Схемы ключей (из реестра): значение, не прошедшее схему, заменяется дефолтом. */
+        readonly schemas?: ReadonlyMap<string, IConfigurationPropertySchema>;
     }) {
         super();
         this.defaultsLayer = input.defaultsLayer;
@@ -81,7 +86,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.userSettingsPath = input.userSettingsPath;
         this.profileSettingsPath = input.profileSettingsPath;
         this.logger = input.logger;
-        this.merged = ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer);
+        this.schemas = input.schemas ?? new Map();
+        this.merged = this.computeMerged();
 
         if (input.fileWatcher !== undefined) {
             this.startWatching(input.fileWatcher);
@@ -106,6 +112,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         }
     }
 
+    public get<K extends keyof IConfigurationKeys>(key: K): IConfigurationKeys[K];
+    public get<T>(key: string, defaultValue?: T): T | undefined;
     public get<T>(key: string, defaultValue?: T): T | undefined {
         const v = this.merged.get<T>(key);
         return v ?? defaultValue;
@@ -130,6 +138,14 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
      * диффом. Ошибки чтения/парсинга трактуются как пустой слой (тот же
      * best-effort, что в bootstrap). Пустой дифф события не порождает.
      */
+    /** Слои по приоритету, затем значения вне схемы — к дефолту схемы. */
+    private computeMerged(): ConfigurationModel {
+        return sanitizeConfiguration(
+            ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer),
+            this.schemas,
+        );
+    }
+
     public async reload(): Promise<void> {
         const prev = this.merged;
         if (this.userSettingsPath !== undefined) {
@@ -147,7 +163,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
      * {@link updateValue}.
      */
     private recompute(prev: ConfigurationModel): void {
-        this.merged = ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer);
+        this.merged = this.computeMerged();
         const affectedKeys = diffConfigurationKeys(prev, this.merged);
         if (affectedKeys.length === 0) return;
         this.onDidChangeConfigurationEmitter.fire(createConfigurationChangeEvent(affectedKeys));
@@ -233,6 +249,7 @@ export async function loadConfiguration(
         profileSettingsPath,
         fileWatcher,
         logger,
+        schemas: registry?.getConfigurationProperties(),
     });
 }
 

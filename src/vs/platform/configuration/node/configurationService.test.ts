@@ -95,6 +95,19 @@ describe("loadConfiguration", () => {
         expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true); // from defaults
     });
 
+    it("значение вне схемы реестра — дефолт схемы (и после live-reload тоже)", async () => {
+        const p = paths();
+        writeSettings(p.settingsFile, `{ "editor.tabSize": "four", "editor.insertSpaces": false }`);
+        const cfg = await loadCfg(p);
+        expect(cfg.get("editor.tabSize")).toBe(4);
+        expect(cfg.get("editor.insertSpaces")).toBe(false);
+        expect(cfg.inspect("editor.tabSize").user).toBe("four");
+
+        writeSettings(p.settingsFile, `{ "editor.tabSize": null }`);
+        await cfg.reload();
+        expect(cfg.get("editor.tabSize")).toBe(4);
+    });
+
     it("supports JSONC: comments and trailing commas", async () => {
         const p = paths();
         writeSettings(

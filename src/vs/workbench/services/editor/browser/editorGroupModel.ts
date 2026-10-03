@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
@@ -53,9 +54,9 @@ export class EditorGroup extends Disposable {
     private mruCycleList: IEditorPane[] = [];
     private mruCyclePointer = 0;
 
-    private editorsChangedListeners: (() => void)[] = [];
-    private activePaneListeners: ((pane: IEditorPane | null) => void)[] = [];
-    private mruCycleListeners: ((state: MruCycleState | null) => void)[] = [];
+    private readonly onDidChangeEditorsEmitter = new Emitter<void>();
+    private readonly onDidChangeActivePaneEmitter = new Emitter<IEditorPane | null>();
+    private readonly onDidChangeMruCycleEmitter = new Emitter<MruCycleState | null>();
 
     public constructor(public readonly id: GroupId) {
         super();
@@ -76,26 +77,10 @@ export class EditorGroup extends Disposable {
      * {@link onDidChangeActivePane}, чтобы к моменту листенеров (и фокуса) view
      * активной вкладки уже стоял в дереве.
      */
-    public onDidChangeEditors(cb: () => void): IDisposable {
-        this.editorsChangedListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.editorsChangedListeners.indexOf(cb);
-                if (idx >= 0) this.editorsChangedListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeEditors = this.onDidChangeEditorsEmitter.event;
 
     /** Смена активной вкладки группы (в т.ч. `null`, когда группа опустела). */
-    public onDidChangeActivePane(cb: (pane: IEditorPane | null) => void): IDisposable {
-        this.activePaneListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.activePaneListeners.indexOf(cb);
-                if (idx >= 0) this.activePaneListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeActivePane = this.onDidChangeActivePaneEmitter.event;
 
     /**
      * Жизнь серии Ctrl+Tab: снимок замороженного списка с позицией цикла на
@@ -103,15 +88,7 @@ export class EditorGroup extends Disposable {
      * коммиту ({@link endMruCycle}), обычному переключению или структурному
      * изменению группы. Подписчик — видимый список переключателя вкладок.
      */
-    public onDidChangeMruCycle(cb: (state: MruCycleState | null) => void): IDisposable {
-        this.mruCycleListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.mruCycleListeners.indexOf(cb);
-                if (idx >= 0) this.mruCycleListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeMruCycle = this.onDidChangeMruCycleEmitter.event;
 
     public get activeIndex(): number {
         return this.activeIndexValue;
@@ -344,14 +321,14 @@ export class EditorGroup extends Disposable {
     }
 
     private fireEditorsChanged(): void {
-        for (const cb of [...this.editorsChangedListeners]) cb();
+        this.onDidChangeEditorsEmitter.fire();
     }
 
     private fireMruCycleChanged(state: MruCycleState | null): void {
-        for (const cb of [...this.mruCycleListeners]) cb(state);
+        this.onDidChangeMruCycleEmitter.fire(state);
     }
 
     private fireActivePaneChanged(pane: IEditorPane | null): void {
-        for (const cb of [...this.activePaneListeners]) cb(pane);
+        this.onDidChangeActivePaneEmitter.fire(pane);
     }
 }

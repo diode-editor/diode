@@ -81,10 +81,10 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.getCaretAnchor()).toBeNull();
         });
 
-        it("save() is a no-op when no file is open (no file written, no onDidSave)", async () => {
+        it("save() is a no-op when no file is open (no file written, no onDidSave event)", async () => {
             const ctrl = createEditorPane();
             let saved = false;
-            ctrl.model.onDidSaveDocument(() => {
+            ctrl.onDidSave(() => {
                 saved = true;
             });
 
@@ -110,7 +110,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.txt", "content")));
             let saved = 0;
-            ctrl.model.onDidSaveDocument(() => {
+            ctrl.onDidSave(() => {
                 saved++;
             });
 

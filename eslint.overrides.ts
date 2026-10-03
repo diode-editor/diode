@@ -63,6 +63,41 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
             ],
         },
     },
+    {
+        // Рукописный список слушателей (поле `listeners`/`…Listeners` с массивом
+        // или Set) — вместо Emitter из vs/base/common/event.ts: без изоляции
+        // ошибок слушателя и с разной семантикой отписки в обходе
+        // (docs/TODO/Events.md). Правило перекрывает no-restricted-syntax выше
+        // целиком, поэтому селектор inline import() повторён.
+        files: ["src/vs/**/*.ts"],
+        ignores: [
+            "**/*.test.ts",
+            "**/*testUtils.ts",
+            // Сам эмиттер.
+            "src/vs/base/common/event.ts",
+            // Одноразовое событие с повтором для опоздавшего подписчика — свой контракт.
+            "src/vs/base/common/cancellation.ts",
+            // vscode.EventEmitter для расширений — публичный тип API, свой класс.
+            "src/vs/workbench/api/common/vscodeTypes.ts",
+            // Участники выхода: синхронный шаг прощания рассылается в обратном
+            // порядке подписки (LIFO), а Emitter порядок не переворачивает.
+            "src/vs/workbench/services/lifecycle/browser/lifecycleService.ts",
+        ],
+        rules: {
+            "no-restricted-syntax": [
+                "error",
+                {
+                    selector: "TSImportType",
+                    message: "Не используй inline import() для типов. Добавь `import type { ... }` в начало файла.",
+                },
+                ...["listeners", "/Listeners$/"].map((name) => ({
+                    selector: `PropertyDefinition[key.name=${name}][value.type=/^(ArrayExpression|NewExpression)$/]`,
+                    message:
+                        "Рукописный список слушателей: заведи `Emitter` из vs/base/common/event.ts (docs/TODO/Events.md).",
+                })),
+            ],
+        },
+    },
 ];
 
 export default overrides;

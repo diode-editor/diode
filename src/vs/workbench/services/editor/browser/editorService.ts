@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
@@ -171,10 +172,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private readonly paneFactories: readonly IEditorPaneFactory<unknown>[];
     /** Закрытие вкладок с подтверждением (см. {@link closeEditor}). */
     private readonly closeHandler: EditorCloseHandler;
-    private activeEditorListeners: ((editor: TextEditorPane | null) => void)[] = [];
-    private editorSavedListeners: ((meta: IEditorSavedMeta) => void)[] = [];
-    private editorsChangedListeners: (() => void)[] = [];
-    private activeSelectionListeners: ((editor: TextEditorPane) => void)[] = [];
+    private readonly onActiveEditorChangedEmitter = new Emitter<TextEditorPane | null>();
+    private readonly onEditorSavedEmitter = new Emitter<IEditorSavedMeta>();
+    private readonly onDidChangeEditorsEmitter = new Emitter<void>();
+    // Форвардинг выделения перевешивается на каждой смене активного редактора
+    // ({@link fireActiveEditorChanged}), поэтому подписчику, пришедшему позже
+    // openFile, отдельно подцеплять текущий редактор не нужно.
+    private readonly onDidChangeActiveEditorSelectionEmitter = new Emitter<TextEditorPane>();
     /** Подписка на выделение активного редактора; перевешивается при его смене. */
     private activeSelectionSubscription?: IDisposable;
     private saveParticipantValue?: SaveParticipant;
@@ -195,9 +199,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     private untitledCounter = 0;
 
-    private activeGroupListeners: ((group: EditorGroup) => void)[] = [];
-    private groupsChangedListeners: ((event: IGroupsChangeEvent) => void)[] = [];
-    private mruCycleListeners: ((state: MruCycleState | null) => void)[] = [];
+    private readonly onDidActiveGroupChangeEmitter = new Emitter<EditorGroup>();
+    private readonly onDidGroupsChangeEmitter = new Emitter<IGroupsChangeEvent>();
+    private readonly onDidChangeMruCycleEmitter = new Emitter<MruCycleState | null>();
 
     /**
      * Хук view-слоя «влезет ли ещё одна группа» ({@link EditorPartComponent}
@@ -212,8 +216,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * вкладку напрямую.
      */
     public focusGroupContentHook?: (group: EditorGroup) => void;
-
-    public onEditorCreate?: (pane: TextEditorPane) => void;
 
     /**
      * Источник инлайн-подсказок (host/харнесс подключает сюда провайдеры
@@ -230,16 +232,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public virtualDocumentSource: IVirtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
 
+    private readonly onDidFailOpenEmitter = new Emitter<{ readonly uri: Uri; readonly reason: string }>();
     /**
-     * Хук «ресурс открыть не удалось» — композиция вешает сюда показ сообщения
-     * человеку. Своей зависимости от `NotificationService` у сервиса нет
+     * Событие «ресурс открыть не удалось» — композиция вешает на него показ
+     * сообщения человеку. Своей зависимости от `NotificationService` у сервиса нет
      * намеренно: показывать сообщения — не его работа, а вот знать, что
      * открытие провалилось, кроме него не может никто.
      *
      * Молчать здесь нельзя: Go to Definition в библиотеку без установленного
      * провайдера иначе выглядит как «клавиша не работает».
      */
-    public onOpenFailed?: (uri: Uri, reason: string) => void;
+    public readonly onDidFailOpen = this.onDidFailOpenEmitter.event;
 
     /**
      * Formatting-источник (host/харнесс подключает сюда провайдеры расширений
@@ -284,10 +287,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         if (this.codeActionSource !== undefined && enabledCodeActionKindsOnSave(this.configurationService).length > 0) {
             participants.push(this.codeActionsOnSaveParticipant);
         }
-        if (
-            this.formattingSource !== undefined &&
-            this.configurationService.get<boolean>("editor.formatOnSave") === true
-        ) {
+        if (this.formattingSource !== undefined && this.configurationService.get("editor.formatOnSave")) {
             participants.push(this.formatOnSaveParticipant);
         }
         if (this.saveParticipantValue !== undefined) {
@@ -319,44 +319,16 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * потребителю (extension host, проецирующий выделение в субпроцесс) не нужно
      * следить за вкладками.
      */
-    public onDidChangeActiveEditorSelection(cb: (editor: TextEditorPane) => void): IDisposable {
-        this.activeSelectionListeners.push(cb);
-        // Первый подписчик приходит уже после openFile — подцепляем текущий редактор.
-        if (this.activeSelectionSubscription === undefined) {
-            this.rebindActiveSelectionForwarding(this.getActiveEditor());
-        }
-        return {
-            dispose: () => {
-                const idx = this.activeSelectionListeners.indexOf(cb);
-                if (idx >= 0) this.activeSelectionListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeActiveEditorSelection = this.onDidChangeActiveEditorSelectionEmitter.event;
 
-    public onActiveEditorChanged(cb: (editor: TextEditorPane | null) => void): IDisposable {
-        this.activeEditorListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.activeEditorListeners.indexOf(cb);
-                if (idx >= 0) this.activeEditorListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onActiveEditorChanged = this.onActiveEditorChangedEmitter.event;
 
     /**
      * Агрегированное событие сохранения любого редактора группы (host мапит его
-     * в `workspace.didSaveTextDocument`). Отдельно от per-editor `onDidSave`,
-     * который занят синхронизацией вкладок.
+     * в `workspace.didSaveTextDocument`). Отдельно от per-document
+     * `onDidSaveDocument`, на который подписаны вкладки.
      */
-    public onEditorSaved(cb: (meta: IEditorSavedMeta) => void): IDisposable {
-        this.editorSavedListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.editorSavedListeners.indexOf(cb);
-                if (idx >= 0) this.editorSavedListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onEditorSaved = this.onEditorSavedEmitter.event;
 
     /**
      * Любое изменение, требующее пересинхронизации группового view: список
@@ -365,15 +337,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * и вставляет контент). Файрится ДО {@link onActiveEditorChanged}, чтобы к
      * моменту листенеров (и фокуса) view активного редактора уже стоял в дереве.
      */
-    public onDidChangeEditors(cb: () => void): IDisposable {
-        this.editorsChangedListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.editorsChangedListeners.indexOf(cb);
-                if (idx >= 0) this.editorsChangedListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeEditors = this.onDidChangeEditorsEmitter.event;
 
     public constructor(
         themeService: ThemeService,
@@ -474,15 +438,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     /** Смена активной группы (сплит, фокус-команды, клик мышью в другую группу). */
-    public onDidActiveGroupChange(cb: (group: EditorGroup) => void): IDisposable {
-        this.activeGroupListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.activeGroupListeners.indexOf(cb);
-                if (idx >= 0) this.activeGroupListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidActiveGroupChange = this.onDidActiveGroupChangeEmitter.event;
 
     /**
      * Жизнь серии Ctrl+Tab любой группы полосы (практически — активной: цикл
@@ -490,26 +446,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * цикла на каждом шаге и `null`, когда серия кончилась. Подписчик — оверлей
      * переключателя вкладок ({@link import("../../../browser/parts/editor/tabSwitcherComponent.ts").TabSwitcherComponent}).
      */
-    public onDidChangeMruCycle(cb: (state: MruCycleState | null) => void): IDisposable {
-        this.mruCycleListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.mruCycleListeners.indexOf(cb);
-                if (idx >= 0) this.mruCycleListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeMruCycle = this.onDidChangeMruCycleEmitter.event;
 
     /** Структурное изменение полосы: группа добавлена/удалена/переставлена. */
-    public onDidGroupsChange(cb: (event: IGroupsChangeEvent) => void): IDisposable {
-        this.groupsChangedListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.groupsChangedListeners.indexOf(cb);
-                if (idx >= 0) this.groupsChangedListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidGroupsChange = this.onDidGroupsChangeEmitter.event;
 
     /**
      * Сплит: новая группа справа от активной с дублем её активной вкладки
@@ -862,15 +802,15 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     private fireActiveGroupChanged(group: EditorGroup): void {
-        for (const cb of [...this.activeGroupListeners]) cb(group);
+        this.onDidActiveGroupChangeEmitter.fire(group);
     }
 
     private fireMruCycleChanged(state: MruCycleState | null): void {
-        for (const cb of [...this.mruCycleListeners]) cb(state);
+        this.onDidChangeMruCycleEmitter.fire(state);
     }
 
     private fireGroupsChanged(event: IGroupsChangeEvent): void {
-        for (const cb of [...this.groupsChangedListeners]) cb(event);
+        this.onDidGroupsChangeEmitter.fire(event);
     }
 
     /** Позиция активной вкладки активной группы. */
@@ -1108,7 +1048,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * все вызывающие — команды, которые роняют промис в `void`, а необработанный
      * отказ в главном процессе убивает редактор целиком (именно так F12 в
      * `jdt:`-ресурс уносил весь редактор). Любая неудача открытия уезжает в лог
-     * и в {@link onOpenFailed}, но наружу отказом не выходит.
+     * и в {@link onDidFailOpen}, но наружу отказом не выходит.
      *
      * Асинхронен ровно один случай — **впервые открываемый недисковый ресурс**:
      * за его содержимым надо сходить к провайдеру схемы. Всё остальное — файл с
@@ -1195,7 +1135,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * может не быть вовсе (расширение не установлено или ещё не активировалось),
      * он может отказаться отдать ресурс или сломаться. Во всех трёх случаях
      * человек обязан увидеть, почему ничего не открылось, — молчаливый no-op
-     * здесь худший из возможных исходов (см. {@link onOpenFailed}).
+     * здесь худший из возможных исходов (см. {@link onDidFailOpen}).
      */
     private async openVirtualUri(uri: Uri, options: IOpenUriOptions): Promise<void> {
         const source = this.virtualDocumentSource;
@@ -1303,7 +1243,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Сообщает человеку и логу, что ресурс открыть не удалось. */
     private reportOpenFailed(uri: Uri, reason: string): void {
         this.logger.error(`cannot open ${uri.toString()}: ${reason}`);
-        this.onOpenFailed?.(uri, reason);
+        this.onDidFailOpenEmitter.fire({ uri, reason });
     }
 
     /** Группа справа от активной; нет — создаётся (нет места — фолбэк в активную). */
@@ -1384,7 +1324,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private wireModel(model: TextFileModel): void {
         model.fileWatcher = this.fileWatcher;
         model.saveParticipant = this.textFileSaveParticipant;
-        // Подписка живёт, пока жива модель: слушатели — её собственный массив.
+        // Подписка ставится первой — раньше вкладок: реестр должен перепривязать
+        // ключ до того, как вкладки перерисуют имя после saveAs. Живёт, сколько
+        // модель: эмиттер модели снимает её вместе с собой.
         model.onDidSaveDocument(() => {
             // saveAs мог сменить ресурс — реестр перепривязывает ключ.
             this.modelRegistry.handleUriChanged(model);
@@ -1396,8 +1338,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /**
      * Создаёт view-часть вкладки поверх модели ({@link EditorComponent} +
      * транзитный {@link TextEditorPane}) и навешивает вкладочную обвязку
-     * (контекст-меню, подписки → {@link onDidChangeEditors}, folding-источник,
-     * `onEditorCreate`). `modelOwnership` — ссылка реестра, которой владеет
+     * (контекст-меню, подписки → {@link onDidChangeEditors}, folding-источник). `modelOwnership` — ссылка реестра, которой владеет
      * вкладка; без неё вкладка владеет моделью единолично (untitled, detached).
      */
     private createPaneForModel(model: TextFileModel, modelOwnership?: IDisposable): TextEditorPane {
@@ -1413,7 +1354,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // перечитке, сам элемент контроллер берёт из цели события.
         this.contextMenuController.attach(component.view);
         editor.foldingRangeSource = this.foldingRangeSourceValue;
-        this.onEditorCreate?.(editor);
         return editor;
     }
 
@@ -1518,20 +1458,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /**
      * Применяет к редактору настройки из `IConfigurationService`
      * (`editor.cursorSurroundingLines`, `editor.tabSize`, `editor.insertSpaces`,
-     * `editor.detectIndentation`). Если ключ не задан, соответствующая настройка
-     * редактора не трогается.
+     * `editor.detectIndentation`, перенос строк, подсветка вхождений). Значения
+     * всегда есть — дефолты реестра.
      * Публичный: стороны дифф-вкладки создаёт `openDiffPair`, а конфиг — общий.
      */
     public applyConfigurationToEditor(editor: TextEditorPane): void {
         // `editor.occurrencesHighlight`: "off" disables; "singleFile"/"multiFile"
-        // (and unset → VS Code default) enable. We only support single-file scope.
-        const occurrencesHighlight = this.configurationService.get<string>("editor.occurrencesHighlight");
+        // enable. We only support single-file scope.
+        const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight");
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
 
-        const surroundingLines = this.configurationService.get<number>("editor.cursorSurroundingLines");
-        if (surroundingLines !== undefined) {
-            editor.setCursorSurroundingLines(surroundingLines);
-        }
+        editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines"));
 
         // Отступ: конфиг — это БАЗА, а не приказ. При включённом
         // `editor.detectIndentation` (дефолт) содержимое файла главнее, как в
@@ -1540,23 +1477,22 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // автоопределение; поскольку `get()` отдаёт и дефолты реестра (4/true),
         // детекция глохла на каждом открытом файле.
         editor.applyIndentConfiguration({
-            tabSize: this.configurationService.get<number>("editor.tabSize"),
-            insertSpaces: this.configurationService.get<boolean>("editor.insertSpaces"),
-            detectIndentation: this.configurationService.get<boolean>("editor.detectIndentation"),
+            tabSize: this.configurationService.get("editor.tabSize"),
+            insertSpaces: this.configurationService.get("editor.insertSpaces"),
+            detectIndentation: this.configurationService.get("editor.detectIndentation"),
         });
 
         // Session-override от Alt+Z главнее конфига (transient, как в VS Code);
         // мусорное значение из settings.json деградирует к "off".
         editor.setWordWrap(
             this.wordWrapSessionOverride ?? this.configuredWordWrap(),
-            this.configurationService.get<number>("editor.wordWrapColumn") ?? 80,
+            this.configurationService.get("editor.wordWrapColumn"),
         );
     }
 
-    /** `editor.wordWrap` из конфига, просеянный до валидного режима. */
+    /** `editor.wordWrap` из конфига (мусор из settings.json сервис уже заменил дефолтом схемы). */
     private configuredWordWrap(): WordWrapMode {
-        const raw = this.configurationService.get<string>("editor.wordWrap");
-        return raw === "on" || raw === "wordWrapColumn" || raw === "bounded" ? raw : "off";
+        return this.configurationService.get("editor.wordWrap");
     }
 
     /**
@@ -1682,9 +1618,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     private fireEditorsChanged(): void {
-        for (const cb of this.editorsChangedListeners) {
-            cb();
-        }
+        this.onDidChangeEditorsEmitter.fire();
     }
 
     /**
@@ -1696,9 +1630,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private fireActiveEditorChanged(pane: IEditorPane | null): void {
         const editor = pane instanceof TextEditorPane ? pane : null;
         this.rebindActiveSelectionForwarding(editor);
-        for (const cb of this.activeEditorListeners) {
-            cb(editor);
-        }
+        this.onActiveEditorChangedEmitter.fire(editor);
     }
 
     /**
@@ -1712,15 +1644,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.activeSelectionSubscription = undefined;
         if (editor === null) return;
         this.activeSelectionSubscription = editor.onDidChangeSelection(() => {
-            for (const cb of [...this.activeSelectionListeners]) cb(editor);
+            this.onDidChangeActiveEditorSelectionEmitter.fire(editor);
         });
     }
 
     private fireModelSaved(model: TextFileModel): void {
         // Ресурс есть у любого редактора — гейт на "путь не задан" больше не нужен.
         const meta: IEditorSavedMeta = { uri: model.uri.toString(), languageId: model.languageId };
-        for (const cb of [...this.editorSavedListeners]) {
-            cb(meta);
-        }
+        this.onEditorSavedEmitter.fire(meta);
     }
 }

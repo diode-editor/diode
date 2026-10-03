@@ -87,7 +87,7 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
  */
 export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): SaveParticipant {
     return async (snapshot) => {
-        if (host.configuration.get<boolean>("editor.formatOnSave") !== true) return [];
+        if (!host.configuration.get("editor.formatOnSave")) return [];
         const source = host.formattingSource();
         const pane = host.paneForUri(snapshot.uri);
         if (source === undefined || pane === null) return [];

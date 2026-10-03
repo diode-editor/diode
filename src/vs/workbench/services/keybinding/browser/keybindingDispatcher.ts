@@ -4,6 +4,7 @@ import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { deserializeWhen, whenPositiveKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -53,8 +54,13 @@ const CHORD_NOT_FOUND_MS = 4000;
 // still-visible overlay. See dispatchKeyDown.
 const FOCUS_SCOPED_CONTEXT_KEYS = ["inputWidgetFocus", "textInputFocus", "textViewFocus", "listFocus"] as const;
 
+/** Бинд требует фокус-ключ истинным (в позиции не под отрицанием: `!listFocus` — не фокус-скоупный). */
 function isFocusScopedWhen(when: string | undefined): boolean {
-    return when !== undefined && FOCUS_SCOPED_CONTEXT_KEYS.some((key) => when.includes(key));
+    // Stryker disable next-line ConditionalExpression: эквивалентный — разбор undefined тоже даёт undefined (парсер ловит своё исключение), ветка — для типов
+    const expr = when === undefined ? undefined : deserializeWhen(when);
+    if (expr === undefined) return false;
+    const positive = whenPositiveKeys(expr);
+    return FOCUS_SCOPED_CONTEXT_KEYS.some((key) => positive.includes(key));
 }
 
 // Modifier keys that arrive as standalone keydowns (Kitty protocol). They must

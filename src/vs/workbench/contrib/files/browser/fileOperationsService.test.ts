@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
@@ -34,7 +34,7 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
         workspaceEdits,
         {} as UndoRedoService,
         {} as DialogService,
-        NULL_CONFIGURATION_SERVICE,
+        createTestConfigurationService(),
         new InMemoryFileClipboard(),
         new CommandRegistry(),
         cancelledPrompt,
@@ -76,7 +76,7 @@ describe("FileOperationsService — подсказка отмены в диал�
             { willMoveToTrash: () => true } as unknown as WorkspaceEditService,
             {} as UndoRedoService,
             { showConfirmDialog: (options: { message?: unknown }) => shown.push(options) } as unknown as DialogService,
-            NULL_CONFIGURATION_SERVICE,
+            createTestConfigurationService(),
             new InMemoryFileClipboard(),
             new CommandRegistry(),
             { input: () => Promise.resolve(undefined) },

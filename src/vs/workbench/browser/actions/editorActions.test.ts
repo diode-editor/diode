@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { createCursorSelection } from "../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
@@ -9,7 +10,6 @@ import { TokenizationRegistry } from "../../../editor/common/languages/tokenizat
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -66,7 +66,7 @@ function createGroup(): EditorService {
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         NULL_LANGUAGE_SERVICE,
-        NULL_CONFIGURATION_SERVICE,
+        createTestConfigurationService(),
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),

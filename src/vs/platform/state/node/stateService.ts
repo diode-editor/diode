@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { type IUserDataPaths, resolveWorkspaceStatePath } from "../../environment/node/userDataPaths.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
+import { EMPTY_WINDOW_WORKSPACE_ID } from "../../workspace/common/workspaceId.ts";
 import type { IStateDescriptor, IStateService, StateScope } from "../common/iStateService.ts";
 
 /**
@@ -26,8 +27,7 @@ const WRITE_DEBOUNCE_MS = 500;
 interface ScopeStore {
     /** Полное дерево из файла: известные ключи + `$versions` + unknown-ключи. */
     data: Record<string, unknown>;
-    /** Путь к файлу; `undefined` — стор не привязан к файлу (закрытый workspace). */
-    filePath: string | undefined;
+    filePath: string;
     dirty: boolean;
 }
 
@@ -54,7 +54,10 @@ export class StateService implements IStateService {
             filePath: input.globalStateFile,
             dirty: false,
         };
-        this.workspace = { data: {}, filePath: undefined, dirty: false };
+        // Пока проект не открыт, workspace-скоуп — стор пустого окна, а не global:
+        // ключи пустого окна не смешиваются с глобальными.
+        const emptyWindowFile = resolveWorkspaceStatePath(this.workspaceStorageDir, EMPTY_WINDOW_WORKSPACE_ID);
+        this.workspace = { data: loadStateFile(emptyWindowFile, this.logger), filePath: emptyWindowFile, dirty: false };
     }
 
     public get<T>(descriptor: IStateDescriptor<T>): T {
@@ -103,13 +106,9 @@ export class StateService implements IStateService {
         this.writeStoreSync(this.workspace);
     }
 
-    /**
-     * `global` → global-стор. `workspace` → workspace-стор, если проект открыт,
-     * иначе global (fallback без открытого проекта).
-     */
+    /** `global` → global-стор, `workspace` → стор открытого проекта (или пустого окна). */
     private resolveStore(scope: StateScope): ScopeStore {
-        if (scope === "workspace" && this.workspace.filePath !== undefined) return this.workspace;
-        return this.global;
+        return scope === "workspace" ? this.workspace : this.global;
     }
 
     private scheduleWrite(): void {
@@ -124,7 +123,7 @@ export class StateService implements IStateService {
     }
 
     private async writeStoreAsync(store: ScopeStore): Promise<void> {
-        if (!store.dirty || store.filePath === undefined) return;
+        if (!store.dirty) return;
         store.dirty = false;
         const filePath = store.filePath;
         try {
@@ -137,7 +136,7 @@ export class StateService implements IStateService {
     }
 
     private writeStoreSync(store: ScopeStore): void {
-        if (!store.dirty || store.filePath === undefined) return;
+        if (!store.dirty) return;
         store.dirty = false;
         const filePath = store.filePath;
         try {

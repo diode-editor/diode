@@ -88,10 +88,16 @@
 
 ## Опциональные углубления (перенос из upstream, упрощён парностью путей)
 
-- [ ] `Emitter`/`event.ts` из `vs/base/common/event.ts` вместо ad-hoc массивов
-  колбэков (паттерн `onDidX(listener): IDisposable` уже совместим) —
-  исследование и план: [Events.md](Events.md).
+- [x] `Emitter`/`event.ts` из `vs/base/common/event.ts` вместо ad-hoc массивов
+  колбэков — сделано, свой узкий шим с именами эталона: [Events.md](Events.md).
 - [ ] PieceTree (`pieceTreeTextBuffer`) — см. [PieceTree.md](PieceTree.md).
+- [ ] Эталонный дефолт событий активации (пусто значит пусто, без неявного
+  `*`): механизм готов (`computeActivationEvents`), но дефолт `*` оставлен —
+  на нём держатся опубликованные в магазине записи без `activationEvents`
+  (`test.tab-setter`). Снимается после того, как записи реестра объявят `"*"`
+  сами (PR в репозиторий реестра — мерж за его владельцем), вместе с явным
+  `"*"` у четырёх e2e-фикстур (`will-save-trim`, `tab-setter`,
+  `inline-ghost`, `chat-panel`).
 - [ ] Выход мимо прощания: SIGTERM/SIGHUP в главном процессе не обработаны
   (смерть по сигналу не фаерит даже `process.on("exit")` — теряется до 500 мс
   состояния и не снимается терминал), SIGINT-обработчик `NodeTerminalBackend`

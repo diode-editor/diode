@@ -1,9 +1,31 @@
 # Единый примитив событий (`Emitter` / `Event`) — исследование
 
-Статус: **в работе** — план из раздела 7. PR 1 (ядро `base/common/event.ts`,
-провод `onUnexpectedError`, vitest `setupFiles`, пилот `MarkerService` +
-`PanelService`) — влит. Документ отвечает на вопрос «чем заменить рукописные
-списки слушателей в `src/vs`, сколько это стоит и в каком порядке делать».
+Статус: **сделано** (план — раздел 7). Ядро `base/common/event.ts`, провод
+`onUnexpectedError` и vitest `setupFiles`, пилот — #420; `platform` — #430;
+`editor/common` — #431; `TextFileModel` — #434; остальные `workbench/services`
+и слот `FileSearchService.onIndexChanged` — #435; `ExtensionHost` — #436;
+`browser/parts` + `EditorElement` — #439; `contrib` — #440; `api` — #441;
+`EditorService`/`EditorGroupModel` и слоты `onOpenFailed`/`onEditorCreate`/
+`TextFileModel.onDidSave` — #442; lint-предохранитель — завершающий PR.
+
+Отклонения от плана:
+- **`Event.debounce` и его потребители не сделаны.** Все кандидаты из §3.6
+  (`diffSnapshotRefreshContribution`, `quickDiffService`, `diffEditorPane2`,
+  `fileSearchService.notify`, `chokidarTreeWatcher`) — это отложенный вызов
+  метода, а не преобразование события, и ровно они — пилоты задачи
+  async-примитивов (C10; `RunOnceScheduler` уже в `base/common/async.ts`).
+  Мигрировать одни таймеры двумя способами не стали — остаются ей.
+- **`LifecycleService` не переведён:** синхронный шаг выхода рассылается в
+  обратном порядке подписки (LIFO), `Emitter` порядок не переворачивает —
+  исключение lint-правила.
+- `vscode.EventEmitter` для расширений (`vscodeTypes.ts`) и события
+  `windowNamespace.ts` — отдельный контракт (`thisArgs`/`disposables`),
+  не трогали (план помечал их «опционально»).
+- Открытые вопросы раздела 10 человек не решал: ошибка слушателя в проде
+  уходит только в лог (без тоста); lint-предохранитель — в конце, сразу `error`.
+
+Документ отвечает на вопрос «чем заменить рукописные списки слушателей в
+`src/vs`, сколько это стоит и в каком порядке делать».
 
 База исследования — `19df1033` (main на 03.10.2026). Эталон — `/workspaces/vscode`
 (`src/vs/base/common/event.ts`, 1991 строка).

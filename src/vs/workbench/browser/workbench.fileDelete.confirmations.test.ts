@@ -6,12 +6,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
@@ -29,13 +29,7 @@ function createWorkspace(): ITempWorkspace {
 
 /** Конфиг-стаб: заданные ключи возвращают свои значения, остальные — default. */
 function stubConfig(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            if (key in values) return values[key] as T;
-            return defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 interface Ctx {
@@ -96,7 +90,7 @@ describe.skipIf(process.platform !== "linux")("Delete confirmations — explorer
 
     it("treats a missing confirmDelete setting as true and asks", async () => {
         // Конфиг возвращает undefined для всех ключей — сервис должен подставить true сам.
-        const ctx = createApp(ws.dir, { ...NULL_CONFIGURATION_SERVICE, get: () => undefined });
+        const ctx = createApp(ws.dir, createTestConfigurationService());
         await activate(ctx);
         const alpha = ws.path("a.txt");
 
@@ -197,7 +191,7 @@ describe.skipIf(process.platform !== "linux")("Workspace undo — confirmation e
     });
 
     it("treats a missing confirmUndo setting as true and asks before a destructive undo", async () => {
-        const ctx = createApp(ws.dir, { ...NULL_CONFIGURATION_SERVICE, get: () => undefined });
+        const ctx = createApp(ws.dir, createTestConfigurationService());
         await activate(ctx);
 
         // Копируем и вставляем a.txt в target/ — undo такой операции деструктивен.

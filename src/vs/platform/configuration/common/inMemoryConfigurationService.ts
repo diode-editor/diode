@@ -2,10 +2,12 @@ import { Emitter } from "../../../base/common/event.ts";
 
 import { createConfigurationChangeEvent, diffConfigurationKeys } from "./configurationChangeEvent.ts";
 import { ConfigurationModel } from "./configurationModel.ts";
-import type { ConfigurationRegistry } from "./configurationRegistry.ts";
+import type { ConfigurationRegistry, IConfigurationPropertySchema } from "./configurationRegistry.ts";
+import { sanitizeConfiguration } from "./configurationValidation.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationInspectResult,
+    IConfigurationKeys,
     IConfigurationService,
 } from "./iConfigurationService.ts";
 
@@ -20,6 +22,7 @@ import type {
  */
 export class InMemoryConfigurationService implements IConfigurationService {
     private readonly defaultsLayer: ConfigurationModel;
+    private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
     /** Содержимое user-слоя в форме settings.json — запись заменяет ключ целиком, как в файле. */
     private readonly userSettings: Record<string, unknown>;
     private userLayer: ConfigurationModel;
@@ -34,11 +37,19 @@ export class InMemoryConfigurationService implements IConfigurationService {
      */
     public constructor(registry?: ConfigurationRegistry, initial: Readonly<Record<string, unknown>> = {}) {
         this.defaultsLayer = ConfigurationModel.fromRaw(registry?.getDefaultConfiguration() ?? {});
+        this.schemas = registry?.getConfigurationProperties() ?? new Map();
         this.userSettings = { ...initial };
         this.userLayer = ConfigurationModel.fromRaw(this.userSettings);
-        this.merged = ConfigurationModel.merge(this.defaultsLayer, this.userLayer);
+        this.merged = this.computeMerged();
     }
 
+    /** Слои по приоритету, затем значения вне схемы — к дефолту схемы (как у файловой реализации). */
+    private computeMerged(): ConfigurationModel {
+        return sanitizeConfiguration(ConfigurationModel.merge(this.defaultsLayer, this.userLayer), this.schemas);
+    }
+
+    public get<K extends keyof IConfigurationKeys>(key: K): IConfigurationKeys[K];
+    public get<T>(key: string, defaultValue?: T): T | undefined;
     public get<T>(key: string, defaultValue?: T): T | undefined {
         return this.merged.get<T>(key) ?? defaultValue;
     }
@@ -61,7 +72,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
         // Тот же плоский точечный ключ, что пишет файловая реализация в settings.json.
         this.userSettings[key] = value;
         this.userLayer = ConfigurationModel.fromRaw(this.userSettings);
-        this.merged = ConfigurationModel.merge(this.defaultsLayer, this.userLayer);
+        this.merged = this.computeMerged();
         const affectedKeys = diffConfigurationKeys(prev, this.merged);
         if (affectedKeys.length > 0) {
             this.onDidChangeConfigurationEmitter.fire(createConfigurationChangeEvent(affectedKeys));
