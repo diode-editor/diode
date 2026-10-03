@@ -86,7 +86,8 @@
 ## Опциональные углубления (перенос из upstream, упрощён парностью путей)
 
 - [ ] `Emitter`/`event.ts` из `vs/base/common/event.ts` вместо ad-hoc массивов
-  колбэков (паттерн `onDidX(listener): IDisposable` уже совместим).
+  колбэков (паттерн `onDidX(listener): IDisposable` уже совместим) —
+  исследование и план: [Events.md](Events.md).
 - [ ] `ContextKeyExpr`-парсер вместо `new Function` — см.
   [WhenContext.md](WhenContext.md).
 - [ ] PieceTree (`pieceTreeTextBuffer`) — см. [PieceTree.md](PieceTree.md).
