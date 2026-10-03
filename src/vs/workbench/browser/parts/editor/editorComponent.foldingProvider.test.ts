@@ -108,4 +108,19 @@ describe("EditorComponent – extension folding provider merge", () => {
 
         expect(starts(ctrl)).toEqual([0]); // indentation не потерян
     });
+
+    it("ответ, пришедший после закрытия редактора, не применяется", async () => {
+        const ctrl = open("a\nb\nc\nd\ne");
+        let resolve: (regions: IFoldingRegion[]) => void = () => undefined;
+        ctrl.foldingRangeSource = () =>
+            new Promise((r) => {
+                resolve = r;
+            });
+
+        ctrl.component.dispose();
+        resolve([{ startLine: 0, endLine: 3, isCollapsed: false }]);
+        await flush();
+
+        expect(starts(ctrl)).toEqual([]);
+    });
 });
