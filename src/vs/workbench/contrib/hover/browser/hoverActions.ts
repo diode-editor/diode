@@ -1,7 +1,11 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 
 import { HoverServiceDIToken } from "./hoverService.ts";
+
+/** Вес hover-попапа: при одновременно открытых hover и suggest Escape закрывает hover. Так было при порядке регистрации; у upstream наоборот (suggest + 90 сильнее hover) — расхождение записано в docs/TODO/KeybindingsEditor.md. */
+const HOVER_WEIGHT = KeybindingWeight.EditorContrib + 92;
 
 /**
  * Показывает hover-попап для символа под кареткой (`editor.action.showHover`).
@@ -19,6 +23,7 @@ import { HoverServiceDIToken } from "./hoverService.ts";
  */
 export const showHoverAction: CommandAction = {
     id: "editor.action.showHover",
+    weight: HOVER_WEIGHT,
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Show Hover",
     keybinding: parseChord("ctrl+k ctrl+u"),
@@ -28,13 +33,10 @@ export const showHoverAction: CommandAction = {
     },
 };
 
-/**
- * Закрывает hover-попап по Escape. Регистрируется ПОСЛЕ builtin editor-экшенов
- * (хвост builtinActions), чтобы победить removeSecondaryCursors при открытом
- * попапе (KeybindingRegistry.resolveKey: последний с проходящим `when` выигрывает).
- */
+/** Закрывает hover-попап по Escape; вес HOVER_WEIGHT перебивает removeSecondaryCursors. */
 export const hideHoverAction: CommandAction = {
     id: "editor.action.hideHover",
+    weight: HOVER_WEIGHT,
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Hover: Close",
     keybinding: parseKeybinding("escape"),

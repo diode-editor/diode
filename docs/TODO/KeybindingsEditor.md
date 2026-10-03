@@ -49,3 +49,12 @@ Preferences-кластер. Ключевое:
   приоритет среди конфликтующих дефолтов может сместиться до Reload.
 - **Терминал** — на legacy-tier часть комбинаций неразличима; рекордер
   предупреждает (`keybindingPortability.ts`), но не запрещает запись.
+- **Коллизии дефолтов, вскрытые срезом приоритета (F1)** — сохранены как были
+  (веса повторяют прежний порядок регистрации), развести — отдельной правкой:
+  - Ctrl+K Ctrl+F: `workbench.action.navigateForward` (безусловный, вес
+    `WorkbenchContrib`) перебивает pc-бинд `editor.action.formatSelection`, то
+    есть в редакторе на pc чорд уходит в навигацию, а не в форматирование;
+  - Ctrl+K Ctrl+U: `editor.action.showHover` перебивает
+    `editor.action.removeCommentLine`;
+  - Escape при одновременно открытых hover и suggest закрывает hover (у нас
+    hover `EditorContrib + 92` сильнее suggest `+ 90`), у upstream — наоборот.
