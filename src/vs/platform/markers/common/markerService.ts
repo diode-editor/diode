@@ -1,5 +1,4 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
-
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { IMarker, IMarkerData, MarkerSeverity } from "./iMarker.ts";
