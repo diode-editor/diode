@@ -43,6 +43,9 @@ export interface IImplicitActivationEventGenerator {
     generate(contributes: IExtensionContributions): Iterable<string>;
 }
 
+/** Пустой вклад — точка не заявлена. */
+const NO_CONTRIBUTIONS: readonly never[] = [];
+
 /**
  * Явный список генераторов (без синглтон-реестра с саморегистрацией):
  * - `commands` ⇒ `onCommand:<id>` — иначе видимая в палитре команда не-eager
@@ -56,7 +59,7 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
     {
         point: "commands",
         *generate(contributes) {
-            for (const command of contributes.commands ?? []) {
+            for (const command of contributes.commands ?? NO_CONTRIBUTIONS) {
                 if (typeof command.command === "string") yield `${ON_COMMAND_PREFIX}${command.command}`;
             }
         },
@@ -64,7 +67,7 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
     {
         point: "languages",
         *generate(contributes) {
-            for (const language of contributes.languages ?? []) {
+            for (const language of contributes.languages ?? NO_CONTRIBUTIONS) {
                 if (typeof language.id === "string") yield `${ON_LANGUAGE_PREFIX}${language.id}`;
             }
         },
