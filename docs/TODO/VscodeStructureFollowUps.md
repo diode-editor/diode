@@ -72,7 +72,10 @@
   долга с адресами задач — [arch/Workbench.md](../arch/Workbench.md#состав-фичи).
   Необязательные хвосты H6 (узлы конфигурации фич в `contrib/<f>/common/`,
   revision-команды из `diff/compareActions.ts` в scm, DI-дескриптор фичи вместо
-  блоков `workbenchModule.ts`) записаны там же в таблице долга.
+  блоков `workbenchModule.ts`) записаны там же в таблице долга. Разнос
+  `workbenchModule.ts` на модули фич отдельно от этого дескриптора не делаем
+  (исследование C5): без него число правок на фичу не уменьшается — те же
+  строки переезжают из одного центрального места в другое.
 - Жизненный цикл (`LifecycleService`, C6) — узкий срез upstream: четыре фазы
   `LifecyclePhase` с `when()`/`onDidChangePhase` и прощание
   `onWillShutdown`+`join`/`onShutdownSync`. Не переносим: `WorkbenchPhase` ×4 с

@@ -90,10 +90,10 @@ interface Harness {
     service: DiagnosticsService;
 }
 
-function createHarness(settingsResource: string | null = SETTINGS_PATH): Harness {
+function createHarness(settingsResource: string = SETTINGS_PATH): Harness {
     const source = new FakeEditorSource();
     const markerService = new MarkerService();
-    const service = new DiagnosticsService(source, markerService, settingsResource, appConfigurationRegistry());
+    const service = new DiagnosticsService(source, markerService, { settingsResource }, appConfigurationRegistry());
     return { source, markerService, service };
 }
 
@@ -144,15 +144,6 @@ describe("DiagnosticsService — settings.json validation", () => {
         h.service.dispose();
     });
 
-    it("does not validate anything when no settings resource is configured", () => {
-        const h = createHarness(null);
-        h.source.open(new FakeEditor(SETTINGS_PATH, UNKNOWN_SETTINGS));
-
-        expect(h.markerService.read()).toEqual([]);
-
-        h.service.dispose();
-    });
-
     it("re-validates and repositions markers as the document changes", () => {
         const h = createHarness();
         const editor = new FakeEditor(SETTINGS_PATH, UNKNOWN_SETTINGS);
@@ -195,7 +186,12 @@ describe("DiagnosticsService — settings.json validation", () => {
         const editor = new FakeEditor(SETTINGS_PATH, UNKNOWN_SETTINGS);
         source.open(editor);
 
-        const service = new DiagnosticsService(source, markerService, SETTINGS_PATH, appConfigurationRegistry());
+        const service = new DiagnosticsService(
+            source,
+            markerService,
+            { settingsResource: SETTINGS_PATH },
+            appConfigurationRegistry(),
+        );
 
         expect(markerService.read({ resource: resourceOf(SETTINGS_PATH) })).toHaveLength(1);
         expect(editor.decorations).toHaveLength(1);

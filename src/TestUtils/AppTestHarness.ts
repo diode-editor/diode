@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+
 import { Size } from "@tuidom/core/common/geometryPromitives";
 
 import { createTestContainer } from "../vs/diode/modules/testProfile.ts";
@@ -5,6 +7,7 @@ import type { CommandRegistry } from "../vs/platform/commands/common/commandRegi
 import { CommandRegistryDIToken } from "../vs/platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../vs/platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { type IEnvironmentService, IEnvironmentServiceDIToken } from "../vs/platform/environment/common/environment.ts";
 import type { Container } from "../vs/platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../vs/platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../vs/platform/state/common/iStateService.ts";
@@ -12,7 +15,6 @@ import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts
 import type { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEditorPane.ts";
 import type { WorkbenchComponent } from "../vs/workbench/browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../vs/workbench/browser/workbenchComponent.ts";
-import { KeybindingsResourceDIToken, SettingsResourceDIToken } from "../vs/workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../vs/workbench/services/editor/browser/editorService.ts";
 import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/themeTokens.ts";
 
@@ -36,10 +38,11 @@ export interface IAppHarnessOptions {
      * EditorService получают один и тот же экземпляр.
      */
     readonly configurationService?: IConfigurationService;
-    /** Переопределить путь settings.json (по умолчанию `null` из TestProfile). */
-    readonly settingsResource?: string;
-    /** Переопределить путь keybindings.json (по умолчанию `null` из TestProfile). */
-    readonly keybindingsResource?: string;
+    /**
+     * Перебить поля окружения (например `settingsResource`/`keybindingsResource`)
+     * поверх тестового окружения профиля — пути во временном каталоге.
+     */
+    readonly environment?: Partial<IEnvironmentService>;
     /**
      * Произвольная перебивка биндингов ДО резолва `WorkbenchComponent` — для
      * сервисов, у которых нет своей именованной опции (например настоящий
@@ -74,7 +77,7 @@ export interface IAppHarness {
  * `fileIndexReady`) остаётся в тесте поверх харнесса.
  */
 export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarness {
-    const { container, bindApp } = createTestContainer();
+    const { container, bindApp } = createTestContainer({ environment: options.environment });
     // Rebind before the WorkbenchComponent is resolved (it reads these at construction).
     // По умолчанию состояние не персистится (NULL_STATE_SERVICE из stateModuleDefault);
     // тест может подсунуть реальный StateService, перебив биндинг ДО резолва WorkbenchComponent.
@@ -85,14 +88,6 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
     if (options.configurationService !== undefined) {
         const configurationService = options.configurationService;
         container.bind(IConfigurationServiceDIToken, () => configurationService);
-    }
-    if (options.settingsResource !== undefined) {
-        const resource = options.settingsResource;
-        container.bind(SettingsResourceDIToken, () => resource);
-    }
-    if (options.keybindingsResource !== undefined) {
-        const resource = options.keybindingsResource;
-        container.bind(KeybindingsResourceDIToken, () => resource);
     }
     options.containerOverrides?.(container);
     const workbench = container.get(WorkbenchComponentDIToken);
@@ -119,6 +114,7 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
     }
 
     const group = container.get(EditorServiceDIToken);
+    const { userDataRoot } = container.get(IEnvironmentServiceDIToken);
     return {
         testApp,
         workbench,
@@ -133,6 +129,9 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         },
         dispose: () => {
             workbench.dispose();
+            // Каталог user data тестового окружения: его создаёт только команда,
+            // что-то записавшая в user data (Open Settings и т.п.).
+            fs.rmSync(userDataRoot, { recursive: true, force: true });
         },
     };
 }

@@ -400,7 +400,7 @@ hide-toggle (`isHiddenByDefault`). См.
   `hasKeyboardCapturingOverlay`; второй хук — `updateContextKeys` — замыкает на
   себя `WorkbenchContextKeys`), `StateKeys`,
   `ModifierReleaseArmory`, `ChokidarFileWatcher` + `IFileWatcherDIToken`,
-  `FileSearchService`, `QuickOpenParsing`, `collectWordCompletions`, `CoreTokens`,
+  `FileSearchService`, `QuickOpenParsing`, `collectWordCompletions`,
   каталоги `Workspace/` (undo/redo + `TrashService`/`WorkspaceEditService`/
   `fileClipboardFs.ts` — чистые ФС-операции copy/cut/paste), `TerminalEnvironment/`,
   `Terminal/` (EmbeddedTerminalSession, фабрика, загрузчик node-pty,

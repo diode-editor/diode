@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
@@ -10,6 +11,7 @@ import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../editor/common/languag
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
+import type { IEnvironmentService } from "../../platform/environment/common/environment.ts";
 import { currentTargetPlatform } from "../../platform/extensionManagement/node/targetPlatform.ts";
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
@@ -23,6 +25,7 @@ import { backendModuleDefault } from "./backendModule.ts";
 import { commandsModule } from "./commandsModule.ts";
 import { configurationModuleDefault } from "./configurationModule.ts";
 import { coreModuleLate } from "./coreModule.ts";
+import { environmentModule } from "./environmentModule.ts";
 import { extensionsModule } from "./extensionsModule.ts";
 import { fileWatcherModuleDefault } from "./fileWatcherModule.ts";
 import { keybindingsModuleDefault } from "./keybindingsModule.ts";
@@ -52,8 +55,37 @@ export interface TestContainerHandle {
     bindApp: (app: TuiApplication) => void;
 }
 
-export function createTestContainer(): TestContainerHandle {
+/**
+ * Окружение тестов: полное, как в приложении, но в своём временном каталоге на
+ * каждый контейнер, которого на диске нет. Реестр расширений не читается, каталог
+ * установленного пуст, в сеть никто не ходит (`registry` — путь, а не публичный
+ * магазин); команда, которая что-то пишет в user data (Open Settings), пишет
+ * сюда — каталог убирает за собой харнесс.
+ */
+export function createTestEnvironment(): IEnvironmentService {
+    const root = path.join(tmpdir(), `diode-tests-${randomUUID()}`);
+    const profileDir = path.join(root, "user-data", "User");
+    return {
+        userDataRoot: root,
+        extensionsDir: path.join(root, "extensions"),
+        logsDir: path.join(root, "user-data", "logs"),
+        registry: path.join(root, "no-registry"),
+        settingsResource: path.join(profileDir, "settings.json"),
+        keybindingsResource: path.join(profileDir, "keybindings.json"),
+        globalStorageDir: path.join(profileDir, "globalStorage"),
+        workspaceStorageDir: path.join(profileDir, "workspaceStorage"),
+        secretsFile: path.join(profileDir, "secrets.json"),
+    };
+}
+
+export interface TestContainerOptions {
+    /** Перебить поля тестового окружения (например путь settings.json в каталоге теста). */
+    readonly environment?: Partial<IEnvironmentService>;
+}
+
+export function createTestContainer(options: TestContainerOptions = {}): TestContainerHandle {
     const container = new Container()
+        .use(environmentModule, { ...createTestEnvironment(), ...options.environment })
         .use(coreModuleLate)
         .use(loggingModuleDefault)
         .use(commandsModule)
@@ -71,7 +103,7 @@ export function createTestContainer(): TestContainerHandle {
         .use(keybindingsModuleDefault)
         .use(workspaceModule)
         .use(fileWatcherModuleDefault)
-        .use(markersModule, { settingsResource: null, keybindingsResource: null })
+        .use(markersModule)
         .use(workbenchModule)
         // Выход и перезагрузка окна в тестах — no-op: настоящие унесли бы
         // раннер. Тест, которому важен сам вызов, перебивает биндинг.
@@ -85,13 +117,10 @@ export function createTestContainer(): TestContainerHandle {
                 },
             },
         })
-        // Магазин — та же продовая проводка, что в приложении, но по путям,
-        // которых нет: реестр не читается, каталог установленного пуст, в сеть
-        // никто не ходит. Отдельного «пустого» магазина для тестов не держим —
-        // он расходился бы с настоящим.
+        // Магазин — та же продовая проводка, что в приложении, но по путям
+        // тестового окружения, которых нет. Отдельного «пустого» магазина для
+        // тестов не держим — он расходился бы с настоящим.
         .use(extensionsModule, {
-            registry: path.join(tmpdir(), "diode-tests-no-registry"),
-            extensionsDir: path.join(tmpdir(), "diode-tests-no-extensions"),
             host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
         })
         .use(preferencesModule);

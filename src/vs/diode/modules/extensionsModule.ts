@@ -1,3 +1,4 @@
+import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { IHostVersions } from "../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import { createRegistrySource } from "../../platform/extensionManagement/node/createRegistrySource.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
@@ -15,10 +16,6 @@ import { ExtensionsWorkbenchService } from "../../workbench/contrib/extensions/n
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 
 export interface ExtensionsModuleContext {
-    /** `--registry`: каталог или URL реестра; `undefined` — публичный магазин Diode. */
-    registry: string | undefined;
-    /** `<userData>/extensions` — куда ставятся расширения и откуда читается установленное. */
-    extensionsDir: string;
     /** Версии сборки для матчинга `engines` (те же, что у CLI-установки). */
     host: IHostVersions;
     /** Диагностики парсера реестра (битые записи) — в лог канала `extensions`. */
@@ -33,14 +30,12 @@ export interface ExtensionsModuleContext {
  * `--registry` работает одинаково в обоих режимах, а без него оба идут в
  * публичный реестр.
  */
-export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (
-    container,
-    { registry, extensionsDir, host, onProblem },
-) => {
-    container.bind(
-        ExtensionsWorkbenchServiceDIToken,
-        () => new ExtensionsWorkbenchService(createRegistrySource(registry, onProblem), extensionsDir, host),
-    );
+export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (container, { host, onProblem }) => {
+    // Источник реестра (`--registry`) и каталог установки — из окружения процесса.
+    container.bind(ExtensionsWorkbenchServiceDIToken, () => {
+        const { registry, extensionsDir } = container.get(IEnvironmentServiceDIToken);
+        return new ExtensionsWorkbenchService(createRegistrySource(registry, onProblem), extensionsDir, host);
+    });
     // Действия страницы: установка/удаление с прогрессом и сообщением, плюс
     // перезагрузка окна командой.
     container.bind(ExtensionPageActionsDIToken, ExtensionPageActions);

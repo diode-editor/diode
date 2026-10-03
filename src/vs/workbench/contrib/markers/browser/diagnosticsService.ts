@@ -4,11 +4,14 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { ConfigurationRegistryDIToken } from "../../../../platform/configuration/common/configurationRegistryDIToken.ts";
+import {
+    type IEnvironmentService,
+    IEnvironmentServiceDIToken,
+} from "../../../../platform/environment/common/environment.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
 import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
-import { SettingsResourceDIToken } from "../../../common/coreTokens.ts";
 import { collectKnownSettingKeys, validateSettingsJson } from "../../preferences/common/settingsDiagnostics.ts";
 
 /** Marker owner used by the built-in settings.json validator. */
@@ -54,7 +57,7 @@ export class DiagnosticsService extends Disposable {
     public static dependencies = [
         DiagnosticsEditorSourceDIToken,
         MarkerServiceDIToken,
-        SettingsResourceDIToken,
+        IEnvironmentServiceDIToken,
         ConfigurationRegistryDIToken,
     ] as const;
 
@@ -62,26 +65,26 @@ export class DiagnosticsService extends Disposable {
     private markerService: MarkerService;
     private knownSettingKeys: Set<string>;
     /**
-     * Ресурс настроек, который валидируем, или `null`, если он неизвестен.
+     * Ресурс настроек, который валидируем.
      *
-     * Шов между инфраструктурой и документами: `UserDataPaths` отдаёт settings.json
+     * Шов между инфраструктурой и документами: окружение отдаёт settings.json
      * строкой-путём (он там честный путь на диске), а поднимает его в ресурс тот, кто
      * открывает файл как документ, — то есть мы, один раз в конструкторе.
      */
-    private settingsResource: Uri | null;
+    private settingsResource: Uri;
     private activeContentSubscription: IDisposable | null = null;
 
     public constructor(
         editorSource: IDiagnosticsEditorSource,
         markerService: MarkerService,
-        settingsResource: string | null,
+        environment: Pick<IEnvironmentService, "settingsResource">,
         configurationRegistry: ConfigurationRegistry,
     ) {
         super();
         this.editorSource = editorSource;
         this.markerService = markerService;
         // path.resolve строго ДО Uri.file: Uri.file относительный путь не резолвит.
-        this.settingsResource = settingsResource === null ? null : Uri.file(path.resolve(settingsResource));
+        this.settingsResource = Uri.file(path.resolve(environment.settingsResource));
         this.knownSettingKeys = collectKnownSettingKeys(configurationRegistry.getDefaultConfiguration());
 
         this.register(
@@ -121,7 +124,6 @@ export class DiagnosticsService extends Disposable {
         // Валидируем только settings.json активного профиля — сверяем ресурс целиком,
         // а не basename, чтобы чужой settings.json (например, самого VS Code или
         // workspace-ный .vscode/settings.json) остался нетронутым.
-        if (this.settingsResource === null) return;
         const resource = editor.uri;
         if (resource.toString() !== this.settingsResource.toString()) return;
 

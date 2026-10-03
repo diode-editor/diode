@@ -27,6 +27,7 @@ import { ConfigurationRegistry } from "../platform/configuration/common/configur
 import { loadConfiguration } from "../platform/configuration/node/configurationService.ts";
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
 import { CliArgsError, parseCliArgs, USAGE } from "../platform/environment/node/cliArgs.ts";
+import { createEnvironmentService } from "../platform/environment/node/environmentService.ts";
 import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import { resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import type { IUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
@@ -321,14 +322,13 @@ async function runEditor(): Promise<void> {
         userKeybindings,
         logService,
         logHistory,
-        settingsResource: userDataPaths.settingsFile,
-        keybindingsResource: userDataPaths.keybindingsFile,
-        // Магазин: тот же выбор источника, что у CLI-установки (`--registry`
-        // либо публичный реестр), тот же каталог установки и те же версии для
-        // матчинга `engines` — иначе UI показывал бы не то, что поставит CLI.
+        // Окружение: раскладку user data знает только её владелец, поэтому пути
+        // (settings/keybindings, корни хранения расширений) едут отсюда одним
+        // объектом. Магазин берёт из него тот же источник, что у CLI-установки
+        // (`--registry` либо публичный реестр), и тот же каталог установки —
+        // иначе UI показывал бы не то, что поставит CLI.
+        environment: createEnvironmentService(userDataPaths, cli),
         extensions: {
-            registry: cli.registry,
-            extensionsDir: userDataPaths.extensionsDir,
             host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
             onProblem: (problem) => {
                 extensionsLogger.warn(problem);
@@ -348,12 +348,6 @@ async function runEditor(): Promise<void> {
                         ? builtinConfigInjection(ext.manifest.name, extensionsLogger)
                         : curatedConfigInjection(ext.id),
             },
-            // Приватные каталоги расширений: раскладку знает только владелец
-            // user-data, поэтому корни едут отсюда, а не собираются в host'е.
-            globalStorageDir: userDataPaths.globalStorageDir,
-            workspaceStorageDir: userDataPaths.workspaceStorageDir,
-            logsDir: userDataPaths.logsDir,
-            secretsFile: userDataPaths.secretsFile,
         },
         hostProcess: {
             exit: () => process.exit(0),

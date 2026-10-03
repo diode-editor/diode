@@ -8,7 +8,6 @@ import { settle } from "../../../TestUtils/timing.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { SettingsResourceDIToken } from "../common/coreTokens.ts";
 import { ProblemsComponent, ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
@@ -34,10 +33,7 @@ describe("Workbench — Problems view end-to-end", () => {
         });
         settingsPath = ws.path("settings.json");
 
-        // Харнесс здесь не подходит: SettingsResourceDIToken надо перебиндить
-        // ДО первого get(WorkbenchComponentDIToken), а харнесс резолвит контроллер сразу.
-        const { container, bindApp } = createTestContainer();
-        container.bind(SettingsResourceDIToken, () => settingsPath);
+        const { container, bindApp } = createTestContainer({ environment: { settingsResource: settingsPath } });
         workbench = container.get(WorkbenchComponentDIToken);
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
