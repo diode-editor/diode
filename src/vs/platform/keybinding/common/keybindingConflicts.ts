@@ -1,3 +1,5 @@
+import { deserializeWhen, serializeWhen } from "../../contextkey/common/contextKeyExpr.ts";
+
 import type { IKeybindingEntrySnapshot } from "./keybindingRegistry.ts";
 import { serializeChord } from "./keybindingRegistry.ts";
 
@@ -11,13 +13,20 @@ import { serializeChord } from "./keybindingRegistry.ts";
 /**
  * Может ли пара when-выражений быть истинной одновременно. Честное пересечение
  * произвольных выражений — SAT-задача; принятое упрощение: отсутствующий when
- * пересекается с любым, непустые сравниваются нормализованной строкой (трим).
- * Ложноотрицательные возможны (`tier == 'kitty'` против `tier != 'legacy'` —
- * пересекаются, а мы скажем «нет») — это фильтр-помощник, не гарантия.
+ * пересекается с любым, непустые сравниваются канонической записью разобранного
+ * выражения (`b && a` и `(a) && b` — одно и то же), а не разобравшиеся — строкой
+ * после трима. Ложноотрицательные возможны (`tier == 'kitty'` против
+ * `tier != 'legacy'` — пересекаются, а мы скажем «нет») — это фильтр-помощник,
+ * не гарантия.
  */
 export function whenMayOverlap(a: string | undefined, b: string | undefined): boolean {
     if (a === undefined || b === undefined) return true;
-    return a.trim() === b.trim();
+    return canonicalWhen(a) === canonicalWhen(b);
+}
+
+function canonicalWhen(when: string): string {
+    const expr = deserializeWhen(when);
+    return expr === undefined ? when.trim() : serializeWhen(expr);
 }
 
 /**
