@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
-import type { WorkspaceEdit } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
+import type { BulkEdit } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { IWireWorkspaceEditOp } from "../common/wireTypes.ts";
 
@@ -14,8 +14,8 @@ import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 // `contrib/bulkEdit/node/workspaceEditService`.
 
 /** Исполнитель-шпион: запоминает модель, с которой его позвали. */
-function spyService(result = true): { service: IBulkEditService; calls: { edits: WorkspaceEdit; label: string }[] } {
-    const calls: { edits: WorkspaceEdit; label: string }[] = [];
+function spyService(result = true): { service: IBulkEditService; calls: { edits: BulkEdit; label: string }[] } {
+    const calls: { edits: BulkEdit; label: string }[] = [];
     return {
         calls,
         service: {

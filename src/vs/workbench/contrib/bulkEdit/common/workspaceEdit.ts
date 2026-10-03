@@ -25,6 +25,7 @@ export type FileEditKind = "create" | "delete" | "move" | "rename" | "copy";
  */
 export type ResourceFileEdit =
     | { readonly kind: "move"; readonly from: string; readonly to: string }
+    | { readonly kind: "copy"; readonly from: string; readonly to: string }
     | {
           readonly kind: "rename";
           readonly from: string;
@@ -32,7 +33,6 @@ export type ResourceFileEdit =
           readonly overwrite?: boolean;
           readonly ignoreIfExists?: boolean;
       }
-    | { readonly kind: "copy"; readonly from: string; readonly to: string }
     | { readonly kind: "delete"; readonly from: string; readonly ignoreIfNotExists?: boolean }
     | {
           readonly kind: "create";
@@ -44,6 +44,23 @@ export type ResourceFileEdit =
           readonly ignoreIfExists?: boolean;
       };
 
+/**
+ * Файловые операции, которые бывают в `vscode.WorkspaceEdit`. Уже их, чем
+ * {@link ResourceFileEdit}: перенос и копирование В КАТАЛОГ (`move`/`copy`) и
+ * создание самого каталога — виды проводника, в этом API их нет. Поэтому
+ * {@link WorkspaceEditService.applyWorkspaceEdit} и не умеет их проецировать:
+ * сюда они не доходят по типам.
+ */
+export type WorkspaceFileEdit =
+    | {
+          readonly kind: "create";
+          readonly to: string;
+          readonly contents?: string;
+          readonly overwrite?: boolean;
+          readonly ignoreIfExists?: boolean;
+      }
+    | Extract<ResourceFileEdit, { kind: "delete" | "rename" }>;
+
 /** Текстовые правки одного ресурса; `resource` — `uri.toString()`. */
 export interface ResourceTextEdit {
     readonly resource: string;
@@ -51,8 +68,16 @@ export interface ResourceTextEdit {
 }
 
 export type ResourceEdit = ResourceFileEdit | ResourceTextEdit;
-export type WorkspaceEdit = readonly ResourceEdit[];
 
-export function isResourceFileEdit(edit: ResourceEdit): edit is ResourceFileEdit {
+/** Одна операция `workspace.applyEdit`: файловая либо текстовая. */
+export type BulkEditOperation = WorkspaceFileEdit | ResourceTextEdit;
+
+/** Весь `workspace.applyEdit` — операции в порядке, в котором их добавило расширение. */
+export type BulkEdit = readonly BulkEditOperation[];
+
+/** Файловая операция (а не текстовая правка ресурса) — по дискриминатору `kind`. */
+export function isResourceFileEdit<T extends ResourceEdit | BulkEditOperation>(
+    edit: T,
+): edit is Extract<T, { readonly kind: string }> {
     return "kind" in edit;
 }

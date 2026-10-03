@@ -255,6 +255,10 @@ describe("vscodeTypes — LSP value-классы", () => {
         const other = Uri.file("/proj/other.ts");
         const edit = new WorkspaceEdit();
         expect(edit.hasFileOperations).toBe(false);
+        // Текстовые правки файловыми операциями не считаются.
+        edit.replace(URI, RANGE, "x");
+        expect(edit.hasFileOperations).toBe(false);
+        edit.set(URI, null);
         edit.createFile(other);
         edit.deleteFile(other);
         edit.renameFile(other, URI);
@@ -297,7 +301,8 @@ describe("vscodeTypes — LSP value-классы", () => {
         edit.insert(created, new Position(0, 4), "!");
         edit.renameFile(URI, created, { overwrite: true });
 
-        expect(edit.operations().map((op) => op.kind)).toEqual(["create", "text", "rename"]);
+        edit.deleteFile(created);
+        expect(edit.operations().map((op) => op.kind)).toEqual(["create", "text", "rename", "delete"]);
         const create = edit.operations()[0];
         expect(create.kind === "create" && create.options.contents).toBe("seed");
         const rename = edit.operations()[2];

@@ -26,7 +26,7 @@ import {
 } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IBulkEditBuffer, IBulkEditBuffers } from "../common/iBulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../common/iBulkEditBuffers.ts";
-import type { ResourceFileEdit, WorkspaceEdit } from "../common/workspaceEdit.ts";
+import type { BulkEdit, ResourceFileEdit, WorkspaceFileEdit } from "../common/workspaceEdit.ts";
 import { isResourceFileEdit } from "../common/workspaceEdit.ts";
 
 interface ReversibleOp {
@@ -46,12 +46,12 @@ interface ReversibleOp {
  * пересекаться им нельзя), поэтому правки копятся и применяются одной пачкой —
  * сколько бы раз расширение ни дописывало их в edit.
  *
- * Два вида — по тому, КУДА ляжет правка. У `buffer` путь на диске
- * необязателен (безымянный буфер), у `disk` он и есть адрес записи.
+ * Два вида — по тому, КУДА ляжет правка: открытый буфер (`buffer`) или файл на
+ * диске. У буфера путь необязателен (безымянный буфер на диске не лежит), у
+ * диска он и есть адрес записи.
  */
 type ITextSlot =
     | {
-          readonly kind: "buffer";
           /** Ресурс как `uri.toString()`. */
           readonly resource: string;
           /** Путь на диске; `null` — безымянный буфер (на диске его нет). */
@@ -62,9 +62,9 @@ type ITextSlot =
           readonly edits: ITextEdit[];
       }
     | {
-          readonly kind: "disk";
           readonly resource: string;
           readonly filePath: string;
+          readonly buffer: null;
           /** Содержимое файла ДО правок: база записи и состояние отмены. */
           readonly base: string;
           /** Кодировка дискового представления. */
@@ -72,15 +72,9 @@ type ITextSlot =
           readonly edits: ITextEdit[];
       };
 
-/**
- * Файловые операции, которые приходят из `vscode.WorkspaceEdit`. `move`/`copy` —
- * виды проводника (цель у них КАТАЛОГ), в этом API их нет.
- */
-type WorkspaceFileEdit = Extract<ResourceFileEdit, { kind: "create" | "delete" | "rename" }>;
-
 /** Запись плана в порядке, в котором операцию прислало расширение. */
 type PlanEntry =
-    | { readonly kind: "file"; readonly edit: ResourceFileEdit }
+    | { readonly kind: "file"; readonly edit: WorkspaceFileEdit }
     | { readonly kind: "text"; readonly slot: ITextSlot };
 
 /**
@@ -89,48 +83,39 @@ type PlanEntry =
  * написать»: на диске файла ещё нет.
  */
 class ResourceProjection {
-    /** Ресурсы, которых к этому моменту нет (удалены/переименованы). */
-    private readonly absent = new Set<string>();
-    /** Файлы, созданные/перемещённые edit'ом, и их содержимое. */
-    private readonly content = new Map<string, string>();
-    /** Каталоги, созданные edit'ом (содержимого у них нет). */
-    private readonly directories = new Set<string>();
+    /**
+     * Что edit уже сделал с ресурсом: текст созданного/перенесённого файла либо
+     * `null` — «ресурса не будет». Пути, которых здесь нет, edit не трогал —
+     * про них отвечает диск.
+     */
+    private readonly state = new Map<string, string | null>();
 
     public exists(filePath: string): boolean {
-        if (this.content.has(filePath) || this.directories.has(filePath)) return true;
-        if (this.absent.has(filePath)) return false;
-        return fs.existsSync(filePath);
+        const known = this.state.get(filePath);
+        if (known === undefined) return fs.existsSync(filePath);
+        return known !== null;
     }
 
     /** Содержимое файла к этому моменту; `null` — читать нечего (нет файла). */
     public read(filePath: string): { text: string; encoding: string } | null {
-        const known = this.content.get(filePath);
-        if (known !== undefined) return { text: known, encoding: DEFAULT_PROJECTION_ENCODING };
-        if (this.absent.has(filePath)) return null;
-        return readTextFile(filePath);
+        const known = this.state.get(filePath);
+        if (known === undefined) return readTextFile(filePath);
+        if (known === null) return null;
+        return { text: known, encoding: DEFAULT_PROJECTION_ENCODING };
     }
 
     public createFile(filePath: string, contents: string): void {
-        this.absent.delete(filePath);
-        this.content.set(filePath, contents);
-    }
-
-    public createDirectory(filePath: string): void {
-        this.absent.delete(filePath);
-        this.directories.add(filePath);
+        this.state.set(filePath, contents);
     }
 
     public remove(filePath: string): void {
-        this.content.delete(filePath);
-        this.directories.delete(filePath);
-        this.absent.add(filePath);
+        this.state.set(filePath, null);
     }
 
     public rename(from: string, to: string): void {
         const kept = this.read(from);
         this.remove(from);
-        if (kept === null) this.createDirectory(to);
-        else this.createFile(to, kept.text);
+        this.state.set(to, kept === null ? "" : kept.text);
     }
 }
 
@@ -230,7 +215,7 @@ export class WorkspaceEditService {
      * быть не может. Весь edit — ОДИН шаг отмены; бакет истории выбирает
      * {@link IBulkEditBuffers.undoContext}.
      */
-    public applyWorkspaceEdit(edits: WorkspaceEdit, label: string): boolean {
+    public applyWorkspaceEdit(edits: BulkEdit, label: string): boolean {
         // Пустой список — мусорный запрос: вакуумный успех пустого edit'а
         // отвечает сам вызывающий, не доходя до сервиса. Здесь ничего не
         // применено — врать `true` нельзя.
@@ -258,7 +243,7 @@ export class WorkspaceEditService {
         if (ops.length > 0) {
             const touched = plan
                 .flatMap((entry) => (entry.kind === "text" ? [entry.slot] : []))
-                .filter((slot) => slot.kind === "buffer")
+                .filter((slot) => slot.buffer !== null)
                 .map((slot) => slot.resource);
             const context = this.buffers.undoContext(touched) ?? WORKSPACE_UNDO_CONTEXT;
             this.undoRedo.pushElement(buildUndoElement(label, resources, ops), context);
@@ -271,7 +256,7 @@ export class WorkspaceEditService {
      * целиком: несуществующий ресурс, read-only буфер, недисковая схема у
      * закрытого ресурса, пересекающиеся правки.
      */
-    private planWorkspaceEdit(edits: WorkspaceEdit): PlanEntry[] | null {
+    private planWorkspaceEdit(edits: BulkEdit): PlanEntry[] | null {
         const plan: PlanEntry[] = [];
         const projection = new ResourceProjection();
         /** Ресурс → его единственный слот правок (правки сливаются по ресурсу). */
@@ -279,11 +264,6 @@ export class WorkspaceEditService {
 
         for (const edit of edits) {
             if (isResourceFileEdit(edit)) {
-                // `move`/`copy` — виды проводника (цель — КАТАЛОГ); в
-                // `vscode.WorkspaceEdit` таких операций нет, и спроецировать их
-                // эффект мы не умеем. Пришли — отбиваем edit целиком, а не
-                // применяем невалидированное.
-                if (edit.kind === "move" || edit.kind === "copy") return null;
                 // Файловая операция по ресурсу, для которого в ЭТОМ ЖЕ edit'е
                 // уже копятся текстовые правки: их база («содержимое до») снята
                 // раньше, и перенести её на новый путь нечем — результат считать
@@ -335,7 +315,7 @@ export class WorkspaceEditService {
         // отказываем честно, не трогая остальные ресурсы edit'а.
         if (target === "read-only") return null;
         if (target !== null) {
-            return { kind: "buffer", resource, filePath, buffer: target, base: target.text(), edits: [] };
+            return { resource, filePath, buffer: target, base: target.text(), edits: [] };
         }
         // Ресурс не открыт: правим по диску. Недисковые схемы читать нечем —
         // поставщики `IFileSystemProviderRegistry` работают только на чтение,
@@ -343,7 +323,7 @@ export class WorkspaceEditService {
         if (filePath === null) return null;
         const source = projection.read(filePath);
         if (source === null) return null;
-        return { kind: "disk", resource, filePath, base: source.text, encoding: source.encoding, edits: [] };
+        return { resource, filePath, buffer: null, base: source.text, encoding: source.encoding, edits: [] };
     }
 
     /** Исполняет одну запись плана, накапливая обратимые шаги. */
@@ -353,7 +333,7 @@ export class WorkspaceEditService {
             return;
         }
         const slot = entry.slot;
-        if (slot.kind === "buffer") {
+        if (slot.buffer !== null) {
             if (slot.filePath !== null) resources.push(slot.filePath);
             const step = slot.buffer.applyEdits(slot.edits, label);
             // `null` — правки ничего не изменили: отменять нечего, но и отказом
@@ -409,7 +389,7 @@ export class WorkspaceEditService {
             // затёртое содержимое надо суметь вернуть при отмене.
             const from = edit.from;
             const to = edit.to;
-            const replaced = edit.overwrite === true ? takeAside(to) : null;
+            const replaced = edit.overwrite === true ? keepAside(to) : null;
             moveToPath(from, to);
             let current = to;
             resources.push(from, to);
@@ -419,7 +399,6 @@ export class WorkspaceEditService {
                     replaced?.restore();
                 },
                 redo: () => {
-                    replaced?.take();
                     moveToPath(current, to);
                     current = to;
                 },
@@ -460,7 +439,8 @@ export class WorkspaceEditService {
             // Явное имя от пользователя: коллизия — жёсткая ошибка (перехватывается
             // per-edit try/catch → чистый no-op, в историю ничего не пишем). Реальная
             // защита от коллизий — валидация в промпте создания.
-            const replaced = edit.overwrite === true ? takeAside(to) : null;
+            const replaced = edit.overwrite === true ? keepAside(to) : null;
+            // Stryker disable next-line StringLiteral: текст ошибки проглатывает per-edit try/catch вызывающего — наблюдаем только сам отказ
             if (replaced === null && fs.existsSync(to)) throw new Error(`Уже существует: ${to}`);
 
             // Самый верхний из создаваемых предков — чтобы undo убрал ровно то, что
@@ -480,7 +460,6 @@ export class WorkspaceEditService {
                     replaced?.restore();
                 },
                 redo: () => {
-                    replaced?.take();
                     doCreate();
                 },
             });
@@ -528,7 +507,13 @@ function writeTextFile(filePath: string, text: string, encoding: string): void {
     fs.writeFileSync(filePath, encodeText(text, encoding));
 }
 
-/** Применима ли файловая операция к спроецированному состоянию. */
+/**
+ * Применима ли файловая операция к спроецированному состоянию.
+ *
+ * Каталог на месте цели отдельной проверки не требует: затереть его нечем —
+ * `keepAside` не прочитает его содержимое, и применение отобьётся гардом «уже
+ * существует» (а весь edit откатится).
+ */
 function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): boolean {
     if (edit.kind === "delete") {
         return projection.exists(edit.from) || edit.ignoreIfNotExists === true;
@@ -539,9 +524,7 @@ function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjectio
     // Занятая цель без явного разрешения — ошибка, из-за которой edit не
     // применяется («the edit cannot be applied successfully»).
     if (edit.ignoreIfExists === true) return true;
-    if (edit.overwrite !== true) return false;
-    // Затирать дерево каталогов мы не станем даже по `overwrite`.
-    return !isDirectory(edit.to);
+    return edit.overwrite === true;
 }
 
 /**
@@ -557,15 +540,14 @@ function skipsFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection):
 /** Проецирует эффект файловой операции на состояние ресурсов. */
 function projectFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): void {
     if (edit.kind === "create") {
-        if (edit.directory === true) projection.createDirectory(edit.to);
-        else projection.createFile(edit.to, edit.contents ?? "");
+        projection.createFile(edit.to, edit.contents ?? "");
         return;
     }
-    if (edit.kind === "delete") {
-        projection.remove(edit.from);
+    if (edit.kind === "rename") {
+        projection.rename(edit.from, edit.to);
         return;
     }
-    projection.rename(edit.from, edit.to);
+    projection.remove(edit.from);
 }
 
 /** Трогает ли файловая операция ресурс, по которому уже копятся текстовые правки. */
@@ -574,27 +556,15 @@ function touchesTextSlot(edit: WorkspaceFileEdit, slots: ReadonlyMap<string, ITe
     return paths.some((filePath) => slots.has(Uri.file(filePath).toString()));
 }
 
-function isDirectory(filePath: string): boolean {
-    try {
-        return fs.statSync(filePath).isDirectory();
-    } catch {
-        return false;
-    }
-}
-
 /**
- * Уводит существующий файл в сторону (под `overwrite`): затираемое содержимое
- * надо суметь вернуть на место при отмене. `null` — уводить нечего.
+ * Запоминает содержимое файла, который затрёт `overwrite`: вернуть его на место
+ * обязана отмена. Сам файл не трогаем — и запись, и переименование перекрывают
+ * цель сами. `null` — затирать нечего (цели нет либо она не файл).
  */
-function takeAside(target: string): { take(): void; restore(): void } | null {
+function keepAside(target: string): { restore(): void } | null {
     const kept = readTextFile(target);
     if (kept === null) return null;
-    const take = (): void => {
-        fs.rmSync(target, { force: true });
-    };
-    take();
     return {
-        take,
         restore: () => {
             writeTextFile(target, kept.text, kept.encoding);
         },

@@ -36,6 +36,19 @@ function openPane(undoRedo: UndoRedoService, name: string, content: string): Tex
 
 const insertHead = (text: string): ReturnType<typeof createTextEdit> => createTextEdit(createRange(0, 0, 0, 0), text);
 
+/** Шпион-поверхность: считает `markDirty`, которым модель вещает «буфер изменился». */
+function spyEditTarget(pane: TextEditorPane): { markDirtyCalls: () => number } {
+    let calls = 0;
+    pane.model.attachEditTarget({
+        cloneSelections: () => [],
+        applyEdits: () => undefined,
+        markDirty: () => {
+            calls += 1;
+        },
+    });
+    return { markDirtyCalls: () => calls };
+}
+
 describe("TextFileModel.applyExternalEditsDetached", () => {
     it("правка применяется, но шаг НЕ попадает в бакет документа — его отдали вызывающему", () => {
         const undoRedo = new UndoRedoService();
@@ -75,6 +88,56 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(pane.getText()).toBe("head\nbody");
         // И наш шаг снова отменяем.
         expect(step.canUndo?.()).toBe(true);
+    });
+
+    it("шаг истории называет путь документа, которого касается", () => {
+        const undoRedo = new UndoRedoService();
+        const pane = openPane(undoRedo, "a.txt", "body");
+        const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
+
+        expect(step.resources).toEqual([pane.absoluteFilePath]);
+    });
+
+    it("применение и откат вещают «буфер изменился» всем прикреплённым вью", () => {
+        const undoRedo = new UndoRedoService();
+        const pane = openPane(undoRedo, "a.txt", "body");
+        const spy = spyEditTarget(pane);
+
+        const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
+        const afterApply = spy.markDirtyCalls();
+        expect(afterApply).toBeGreaterThan(0);
+
+        void step.undo();
+        const afterUndo = spy.markDirtyCalls();
+        expect(afterUndo).toBeGreaterThan(afterApply);
+
+        void step.redo();
+        expect(spy.markDirtyCalls()).toBeGreaterThan(afterUndo);
+    });
+
+    it("без явной цели правка идёт в ПЕРВУЮ прикреплённую вью, а не в никуда", () => {
+        const undoRedo = new UndoRedoService();
+        const pane = openPane(undoRedo, "a.txt", "body");
+
+        // Программный путь (bulk edit) действующей вью не знает — цель берётся
+        // из прикреплённых.
+        const step = pane.model.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit");
+
+        expect(step).not.toBeNull();
+        expect(pane.getText()).toBe("head\nbody");
+    });
+
+    it("шаг отказывается от повтора, если после отката в документе набрали текст", () => {
+        const undoRedo = new UndoRedoService();
+        const pane = openPane(undoRedo, "a.txt", "body");
+        const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
+        void step.undo();
+        expect(step.canRedo?.()).toBe(true);
+
+        // Набор текста чистит стек повтора: наш шаг там больше не верхний.
+        pane.pushUndo(pane.viewState.type("typed"));
+
+        expect(step.canRedo?.()).toBe(false);
     });
 
     it("шаг отказывается от повтора, пока его не откатили", () => {

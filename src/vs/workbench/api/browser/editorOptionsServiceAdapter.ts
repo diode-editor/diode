@@ -9,7 +9,7 @@ import { createSelection, type ISelection } from "../../../editor/common/core/iS
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
-import type { ResourceEdit, WorkspaceEdit } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
+import type { BulkEdit, BulkEditOperation } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type {
     IActiveEditorMeta,
@@ -222,8 +222,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
  * приложить здесь). `null` — файловая операция адресует НЕ диск: создавать,
  * удалять и переименовывать там нечего, и весь edit отбивается.
  */
-function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): WorkspaceEdit | null {
-    const result: ResourceEdit[] = [];
+function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
+    const result: BulkEditOperation[] = [];
     for (const op of ops) {
         if (op.kind === "text") {
             result.push({ resource: op.resource, edits: op.edits.map(toTextEdit) });

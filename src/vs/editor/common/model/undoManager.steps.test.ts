@@ -88,6 +88,21 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.canRedoStep(undoToken)).toBe(false);
     });
 
+    it("правка документа МИМО менеджера снимает повторяемость верхнего шага", () => {
+        const doc = new TextDocument("");
+        const manager = new UndoManager(doc);
+        push(manager, doc, "first", "a");
+        manager.undo();
+        const token = manager.peekRedoStep()!;
+        expect(manager.canRedoStep(token)).toBe(true);
+
+        doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "mimo")]);
+
+        expect(manager.canRedoStep(token)).toBe(false);
+        // И сам `redo` отказывается — токен не обещает больше, чем менеджер.
+        expect(manager.redo()).toBe(false);
+    });
+
     it("шаг повтора, накрытый следующим, повторяемым не считается", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);

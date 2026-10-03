@@ -1,4 +1,4 @@
-import type { WorkspaceEdit } from "./workspaceEdit.ts";
+import type { BulkEdit } from "./workspaceEdit.ts";
 
 /**
  * Исполнитель `workspace.applyEdit` с точки зрения потребителя — ровно
@@ -10,5 +10,5 @@ export interface IBulkEditService {
      * Применяет упорядоченный набор правок. `false` — не применено НИЧЕГО
      * (all-or-nothing); `label` — метка шага в истории отмены.
      */
-    applyWorkspaceEdit(edits: WorkspaceEdit, label: string): boolean;
+    applyWorkspaceEdit(edits: BulkEdit, label: string): boolean;
 }
