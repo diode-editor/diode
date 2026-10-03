@@ -3,7 +3,7 @@ import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { TuiApplicationDIToken } from "../../common/coreTokens.ts";
+import { TuiApplicationDIToken } from "../../../platform/layout/browser/tuiApplicationDIToken.ts";
 
 // Оба списочных контрола имеют одинаковую четвёрку focus-методов; двух классов
 // мало, чтобы заводить общий интерфейс tuidom, — хватает union-instanceof

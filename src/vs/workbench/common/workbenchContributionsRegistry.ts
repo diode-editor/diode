@@ -2,8 +2,8 @@ import { Disposable } from "@tuidom/core/common/disposable";
 
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
+import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 
-import { ServiceAccessorDIToken } from "./coreTokens.ts";
 import type { IWorkbenchContributionRegistration, WorkbenchContributionPhase } from "./iWorkbenchContribution.ts";
 
 export const WorkbenchContributionsDIToken =

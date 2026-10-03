@@ -1,6 +1,6 @@
 import type { ServiceAccessor, Token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { ServiceAccessorDIToken } from "../../../common/coreTokens.ts";
+import { ServiceAccessorDIToken } from "../../../../platform/instantiation/common/diContainer.ts";
 
 import type { IQuickAccessProvider } from "./iQuickAccessProvider.ts";
 

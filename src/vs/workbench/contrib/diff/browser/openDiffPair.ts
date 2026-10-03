@@ -1,16 +1,14 @@
 import { Uri } from "../../../../base/common/uri.ts";
+import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
+import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
+import { TokenizationRegistryDIToken } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { DiffV2SideSource, IDiffEditorPane2Input } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
-import {
-    FileSystemProviderRegistryDIToken,
-    LanguageServiceDIToken,
-    TokenizationRegistryDIToken,
-    TokenStyleResolverDIToken,
-} from "../../../common/coreTokens.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";

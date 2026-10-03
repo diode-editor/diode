@@ -1,3 +1,5 @@
+import { token } from "../../../platform/instantiation/common/diContainer.ts";
+
 /**
  * Сервис определения language id по пути к файлу.
  *
@@ -43,3 +45,6 @@ export const NULL_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
     getExtensionForLanguage: () => undefined,
 };
+
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const LanguageServiceDIToken = token<ILanguageService>("LanguageService");

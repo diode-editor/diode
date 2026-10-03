@@ -1,5 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import { token } from "../../instantiation/common/diContainer.ts";
+
 export type FileClipboardMode = "copy" | "cut";
 
 export interface FileClipboardEntry {
@@ -20,3 +22,6 @@ export interface IFileClipboard {
     /** Подписка на изменения. Слушатель НЕ вызывается немедленно. */
     onDidChange(listener: (entry: FileClipboardEntry | null) => void): IDisposable;
 }
+
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const FileClipboardDIToken = token<IFileClipboard>("FileClipboard");

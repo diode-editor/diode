@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import {
@@ -10,7 +11,6 @@ import {
     explorerCanPaste,
     explorerPathArg,
 } from "../../../browser/actions/menuContexts.ts";
-import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";

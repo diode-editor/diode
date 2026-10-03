@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { InMemoryClipboard } from "../../../../platform/clipboard/common/inMemoryClipboard.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
-import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 import { type EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { keyboardDoctorAction } from "./keyboardDoctorActions.ts";

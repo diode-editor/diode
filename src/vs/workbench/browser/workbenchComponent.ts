@@ -8,14 +8,15 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
+import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import type { KeybindingRegistry } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/common/userKeybindings.ts";
 import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
+import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
 import type { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
 import { WorkspaceContextServiceDIToken } from "../../platform/workspace/common/workspaceContextService.ts";
-import { ServiceAccessorDIToken, TuiApplicationDIToken } from "../common/coreTokens.ts";
 import {
     WorkbenchContributionsRegistry,
     WorkbenchContributionsRegistryDIToken,

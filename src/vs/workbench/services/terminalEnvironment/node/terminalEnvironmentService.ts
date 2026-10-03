@@ -6,7 +6,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MacKeysRung } from "../../../../platform/keybinding/common/macKeys.ts";
-import { TerminalBackendDIToken } from "../../../common/coreTokens.ts";
+import { TerminalBackendDIToken } from "../../../../platform/terminal/common/terminalBackendDIToken.ts";
 
 import {
     canUpgradeToMac,

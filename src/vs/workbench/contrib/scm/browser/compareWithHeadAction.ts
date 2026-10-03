@@ -1,8 +1,8 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { IOpenDiffPairOptions } from "../../diff/browser/openDiffPair.ts";
 import { openDiffPair, showCompareNotice } from "../../diff/browser/openDiffPair.ts";

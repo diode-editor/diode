@@ -9,7 +9,7 @@ import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
+import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";

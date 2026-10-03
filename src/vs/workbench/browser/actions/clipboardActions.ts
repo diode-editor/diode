@@ -1,10 +1,10 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { inMemoryClipboardMetadata } from "../../../platform/clipboard/common/clipboardMetadata.ts";
+import { ClipboardDIToken } from "../../../platform/clipboard/common/iClipboard.ts";
 import { IConfigurationServiceDIToken } from "../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { ClipboardDIToken } from "../../common/coreTokens.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 /** `editor.emptySelectionClipboard`: копирует ли Copy/Cut без выделения текущую строку. */

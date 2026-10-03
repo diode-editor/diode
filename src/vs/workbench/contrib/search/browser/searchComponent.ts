@@ -21,6 +21,7 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { Component } from "../../../browser/component.ts";
@@ -28,7 +29,6 @@ import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyVi
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { searchExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";

@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { registerContextKeys } from "../../../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { TerminalBackendDIToken } from "../../../../platform/terminal/common/terminalBackendDIToken.ts";
 import { statusSegments } from "../../../browser/parts/statusbar/statusBarComponent.testUtils.ts";
 import { StatusBarComponentDIToken } from "../../../browser/parts/statusbar/statusBarComponent.ts";
-import { TerminalBackendDIToken } from "../../../common/coreTokens.ts";
 
 import { TerminalEnvironmentServiceDIToken } from "./terminalEnvironmentService.ts";
 

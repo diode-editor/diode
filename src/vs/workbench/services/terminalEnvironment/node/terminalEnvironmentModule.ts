@@ -1,7 +1,7 @@
 import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 
 import type { ContainerModule } from "../../../../platform/instantiation/common/diContainer.ts";
-import { TerminalBackendDIToken } from "../../../common/coreTokens.ts";
+import { TerminalBackendDIToken } from "../../../../platform/terminal/common/terminalBackendDIToken.ts";
 
 import { TerminalEnvironmentService, TerminalEnvironmentServiceDIToken } from "./terminalEnvironmentService.ts";
 

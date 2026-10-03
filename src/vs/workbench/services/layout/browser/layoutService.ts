@@ -6,9 +6,9 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import {
     PANEL_ACTIVE_VIEW_STATE,
     PANEL_HEIGHT_STATE,

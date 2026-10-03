@@ -3,12 +3,12 @@ import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
+import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
 import { getEncodingInfo } from "../../../../editor/common/model/encoding.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { LanguageServiceDIToken } from "../../../common/coreTokens.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 

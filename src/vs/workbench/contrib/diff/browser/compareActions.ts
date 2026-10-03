@@ -5,19 +5,17 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { reviveWireUri } from "../../../api/common/wireTypes.ts";
 import { explorerPathArg } from "../../../browser/actions/menuContexts.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import {
-    ClipboardDIToken,
-    FileSystemProviderRegistryDIToken,
-    StateServiceDIToken,
-} from "../../../common/coreTokens.ts";
 import type { DiffViewMode } from "../../../common/stateKeys.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";

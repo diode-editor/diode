@@ -29,7 +29,7 @@
 
 Нижняя граница: **пакеты `@tuidom/*` токенов не объявляют и `diContainer` не импортируют** — движок живёт в отдельном репозитории и физически не может тянуть DI-модель Diode.
 
-Сквозные токены ядра, у которых нет файла-владельца (`TuiApplicationDIToken`, `TerminalBackendDIToken`, `ClipboardDIToken` и др.), живут в `src/vs/workbench/common/coreTokens.ts`. Размещение там части сервисных токенов — наследие прежнего правила «токены только в workbench»; новые токены туда не добавлять, объявлять рядом с типом.
+Сборника «ничьих» токенов нет: у каждого токена есть файл-владелец. Токены к типам из `@tuidom/*` (где DI запрещён) живут на самом низком допустимом слое — в platform, отдельными файлами с честным именем: `TuiApplicationDIToken` — `src/vs/platform/layout/browser/tuiApplicationDIToken.ts` (аналог `ILayoutService`), `TerminalBackendDIToken` — `src/vs/platform/terminal/common/terminalBackendDIToken.ts`. `ServiceAccessorDIToken` (сам контейнер как локатор, аналог `IInstantiationService`) объявлен в `diContainer.ts`.
 
 ## Объявление токенов
 

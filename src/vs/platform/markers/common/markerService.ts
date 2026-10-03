@@ -1,5 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import { token } from "../../instantiation/common/diContainer.ts";
+
 import type { IMarker, IMarkerData, MarkerSeverity } from "./iMarker.ts";
 
 /** Filter for {@link MarkerService.read}. All fields are optional (AND-combined). */
@@ -90,3 +92,6 @@ export class MarkerService {
         for (const listener of this.listeners) listener(resources);
     }
 }
+
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const MarkerServiceDIToken = token<MarkerService>("MarkerService");

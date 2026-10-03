@@ -1,12 +1,12 @@
 import type { Uri } from "../../../../base/common/uri.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 

@@ -90,3 +90,7 @@ export class Container implements ServiceAccessor {
         }
     }
 }
+
+/** The container itself as a service locator (analogue of vscode's `IInstantiationService`). */
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const ServiceAccessorDIToken = token<ServiceAccessor>("ServiceAccessor");

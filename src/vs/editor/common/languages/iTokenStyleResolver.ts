@@ -1,3 +1,5 @@
+import { token } from "../../../platform/instantiation/common/diContainer.ts";
+
 /**
  * Resolved style for a token, decoupled from any theme implementation.
  * Editor depends on this interface; concrete resolvers live in the Theme
@@ -36,3 +38,6 @@ export const NULL_TOKEN_STYLE_RESOLVER: ITokenStyleResolver = {
         return EMPTY_RESOLVED_TOKEN_STYLE;
     },
 };
+
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const TokenStyleResolverDIToken = token<ITokenStyleResolver>("TokenStyleResolver");

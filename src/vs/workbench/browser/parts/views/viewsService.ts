@@ -18,7 +18,7 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { type IViewContainerViewsState, SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
 import type { PanelService } from "../panel/panelService.ts";

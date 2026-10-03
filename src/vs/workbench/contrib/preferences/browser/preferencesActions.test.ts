@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import {
@@ -18,7 +19,6 @@ import {
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 import type { IKeybindingsEditorService } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 
