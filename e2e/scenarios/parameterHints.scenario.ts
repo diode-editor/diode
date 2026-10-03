@@ -21,12 +21,12 @@ const sampleDir = resolve(repoRoot, "e2e", "fixtures", "lspHints");
 const mainFile = resolve(sampleDir, "main.ts");
 
 /**
- * Набор ПОСИМВОЛЬНО: подсказка открывается на набранный триггер-символ, а
- * вставка блока (`sendText` целой строкой) — намеренно не набор (та же
- * эвристика, что у автодополнения; в VS Code вставка тоже не открывает попап).
+ * Набор нажатиями клавиш: подсказка открывается на НАБРАННЫЙ триггер-символ
+ * (событие редактора `onDidType`), а вставка — `sendText` доставляется как
+ * bracketed paste — даже одного символа набором не считается, как в VS Code.
  */
-async function type_(editor: { sendText(value: string): Promise<void> }, text: string): Promise<void> {
-    for (const char of text) await editor.sendText(char);
+async function type_(editor: { sendKey(name: string): Promise<void> }, text: string): Promise<void> {
+    for (const char of text) await editor.sendKey(char);
 }
 
 export default defineScenario({
