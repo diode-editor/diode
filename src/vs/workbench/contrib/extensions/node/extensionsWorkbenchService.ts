@@ -1,6 +1,5 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import type {
     IRegistryExtensionMeta,

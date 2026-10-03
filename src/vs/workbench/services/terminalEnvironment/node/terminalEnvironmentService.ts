@@ -1,7 +1,7 @@
 import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 import { isInsideTmux, isSsh } from "@tuidom/terminal-backend/terminalEnv";
 
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";

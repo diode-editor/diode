@@ -1,7 +1,7 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";

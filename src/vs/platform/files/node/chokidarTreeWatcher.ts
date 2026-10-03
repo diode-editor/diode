@@ -1,9 +1,9 @@
 import * as path from "node:path";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import chokidar, { type FSWatcher } from "chokidar";
 
 import { matchAnyGlob } from "../../../base/common/glob.ts";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { describeFileWatchError } from "../common/fileWatchErrors.ts";
 import type {

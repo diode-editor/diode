@@ -1,7 +1,7 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it } from "vitest";
 
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 
 import type { IEditorStateSource } from "./editorStateCancellation.ts";
 import { EditorStateCancellationTokenSource, EditorStateFlag } from "./editorStateCancellation.ts";

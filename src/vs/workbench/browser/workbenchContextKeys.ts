@@ -1,4 +1,3 @@
-import { Disposable } from "@tuidom/core/common/disposable";
 import type { TUIFocusEvent } from "@tuidom/core/dom/events/tuiFocusEvent";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
@@ -7,6 +6,7 @@ import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
+import { Disposable } from "../../base/common/lifecycle.ts";
 import { EditorElement } from "../../editor/browser/editorElement.ts";
 import { isTextViewElement } from "../../editor/browser/iTextViewElement.ts";
 import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";

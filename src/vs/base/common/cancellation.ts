@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
+import type { IDisposable } from "./lifecycle.ts";
 
 /** Слушатель отмены — вызывается один раз, без аргументов. */
 export type ICancellationListener = () => void;

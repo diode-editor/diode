@@ -1,5 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { currentCursorChangeSource, type CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";

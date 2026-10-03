@@ -1,9 +1,9 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";

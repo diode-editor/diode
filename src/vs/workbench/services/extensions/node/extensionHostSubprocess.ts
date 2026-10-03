@@ -1,9 +1,8 @@
 import { createRequire, Module } from "node:module";
 import * as path from "node:path";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
 import { describeRejection } from "../../../../base/common/describeRejection.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";

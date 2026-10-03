@@ -1,5 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import type {
     IHistoryEditor,

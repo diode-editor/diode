@@ -1,5 +1,4 @@
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputComponentDIToken } from "../../../browser/parts/quickinput/quickInputComponent.ts";

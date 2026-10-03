@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { selfSpawnArgs } from "../../../base/node/selfSpawnArgs.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";

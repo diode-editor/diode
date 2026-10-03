@@ -1,5 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../instantiation/common/diContainer.ts";

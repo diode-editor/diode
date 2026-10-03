@@ -1,6 +1,5 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { Disposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";

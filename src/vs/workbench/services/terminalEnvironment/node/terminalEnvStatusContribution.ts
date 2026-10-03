@@ -1,5 +1,4 @@
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStatusBarEntryHandle } from "../../statusbar/common/statusBarService.ts";

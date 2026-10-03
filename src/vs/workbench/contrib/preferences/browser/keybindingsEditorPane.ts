@@ -1,11 +1,11 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-import { Disposable } from "@tuidom/core/common/disposable";
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { listRowId } from "../../../../base/common/listRowId.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";

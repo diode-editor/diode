@@ -1,5 +1,4 @@
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";

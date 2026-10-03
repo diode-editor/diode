@@ -1,6 +1,5 @@
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";

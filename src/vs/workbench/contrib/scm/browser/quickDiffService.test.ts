@@ -1,6 +1,6 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it, vi } from "vitest";
 
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";

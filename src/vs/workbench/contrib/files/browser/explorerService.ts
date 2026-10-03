@@ -1,7 +1,6 @@
 import * as path from "node:path";
 
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";

@@ -1,6 +1,5 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
 import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";

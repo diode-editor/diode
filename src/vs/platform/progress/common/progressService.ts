@@ -1,5 +1,4 @@
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
+import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой

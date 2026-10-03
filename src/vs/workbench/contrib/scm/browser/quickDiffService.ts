@@ -1,6 +1,5 @@
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";

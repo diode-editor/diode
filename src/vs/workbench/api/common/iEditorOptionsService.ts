@@ -56,7 +56,7 @@ export interface IActiveEditorMeta {
     readonly viewColumn?: number;
 }
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { IWireEditorEdit, IWireSelection, IWireWorkspaceEditOp, WireSelectionChangeKind } from "./wireTypes.ts";
 

@@ -1,5 +1,4 @@
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 

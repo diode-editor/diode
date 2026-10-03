@@ -1,5 +1,4 @@
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";

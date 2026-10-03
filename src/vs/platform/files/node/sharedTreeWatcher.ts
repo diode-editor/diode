@@ -1,7 +1,6 @@
 import * as path from "node:path";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions } from "../common/iTreeFileWatcher.ts";
 

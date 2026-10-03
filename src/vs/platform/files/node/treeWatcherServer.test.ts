@@ -1,6 +1,6 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it } from "vitest";
 
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions } from "../common/iTreeFileWatcher.ts";
 
 import type { ITreeWatcherResponse } from "./treeWatcherProtocol.ts";

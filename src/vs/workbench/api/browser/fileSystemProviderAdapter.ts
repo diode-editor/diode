@@ -1,5 +1,4 @@
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
+import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../base/common/uri.ts";
 import type { IFileSystemProviderRegistry } from "../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.ts";
