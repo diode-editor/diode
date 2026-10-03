@@ -1,5 +1,6 @@
 import * as nodePath from "node:path";
 
+import { MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import type { ParsedGoto } from "../../../../base/common/lineColumnQuery.ts";
 import { splitFileQuery } from "../../../../base/common/lineColumnQuery.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -35,6 +36,9 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
 
     public readonly debounceQuery = true;
 
+    /** Живая подписка на рост индекса — только пока пикер открыт. */
+    private readonly indexSubscription = new MutableDisposable();
+
     public constructor(
         private readonly fileSearch: FileSearchService,
         private readonly commands: CommandRegistry,
@@ -50,15 +54,15 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         // Kick a throttled background re-index and refresh the list live as
         // it grows (the index builds in the background, not on a watcher).
         this.fileSearch.refreshIfStale();
-        this.fileSearch.onIndexChanged = () => {
+        this.indexSubscription.value = this.fileSearch.onIndexChanged(() => {
             // The list grew in the background for the same query — refresh the
             // results without resetting the cursor the user is navigating.
             refresh(true);
-        };
+        });
     }
 
     public onHide(): void {
-        this.fileSearch.onIndexChanged = null;
+        this.indexSubscription.clear();
     }
 
     public getItems(query: string): QuickAccessItem[] {

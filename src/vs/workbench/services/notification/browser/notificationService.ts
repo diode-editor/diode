@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
@@ -131,7 +132,7 @@ interface IAskEntry {
 export class NotificationService extends Disposable {
     public static dependencies = [] as const;
 
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private nextId = 1;
     /**
      * Пассивные тосты в порядке появления (старый → новый). Видны первые
@@ -154,10 +155,7 @@ export class NotificationService extends Disposable {
     }
 
     /** Подписка на любое изменение набора живых сообщений. */
-    public onDidChange(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
-    }
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     /**
      * Показывает сообщение. `answered` резолвится индексом нажатой кнопки в
@@ -325,6 +323,6 @@ export class NotificationService extends Disposable {
     }
 
     private fire(): void {
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeEmitter.fire();
     }
 }

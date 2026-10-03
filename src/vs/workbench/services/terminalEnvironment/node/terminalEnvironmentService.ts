@@ -1,6 +1,7 @@
 import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 import { isInsideTmux, isSsh } from "@tuidom/terminal-backend/terminalEnv";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -59,7 +60,7 @@ export class TerminalEnvironmentService extends Disposable {
     /** Declared custom mode names (manual-only) — surfaced for context-key registration. */
     private readonly customModeNames: string[];
 
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private probeStarted = false;
 
     public constructor(
@@ -272,18 +273,10 @@ export class TerminalEnvironmentService extends Disposable {
 
     // ─── Change notification ───
 
-    public onDidChange(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
-    }
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     private emitChange(): void {
-        for (const listener of [...this.listeners]) listener();
-    }
-
-    public override dispose(): void {
-        this.listeners.clear();
-        super.dispose();
+        this.onDidChangeEmitter.fire();
     }
 }
 

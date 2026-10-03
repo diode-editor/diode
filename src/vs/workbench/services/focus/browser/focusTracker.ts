@@ -1,11 +1,10 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 export const FocusTrackerDIToken = token<FocusTracker>("FocusTracker");
-
-export type FocusChangeListener = (active: TUIElement | null) => void;
 
 /**
  * Смена фокуса в дереве workbench как событие. Фичи подписываются сами (попапы
@@ -21,19 +20,16 @@ export type FocusChangeListener = (active: TUIElement | null) => void;
 export class FocusTracker implements IDisposable {
     public static dependencies = [] as const;
 
-    private readonly listeners = new Set<FocusChangeListener>();
+    private readonly onDidChangeFocusEmitter = new Emitter<TUIElement | null>();
 
-    public onDidChangeFocus(listener: FocusChangeListener): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
-    }
+    public readonly onDidChangeFocus = this.onDidChangeFocusEmitter.event;
 
     /** Фокус сменился; `active` — новый сфокусированный элемент (или `null`). */
     public fire(active: TUIElement | null): void {
-        for (const listener of [...this.listeners]) listener(active);
+        this.onDidChangeFocusEmitter.fire(active);
     }
 
     public dispose(): void {
-        this.listeners.clear();
+        this.onDidChangeFocusEmitter.dispose();
     }
 }

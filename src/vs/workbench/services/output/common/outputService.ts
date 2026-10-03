@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -65,8 +66,8 @@ export class OutputService extends Disposable {
     ] as const;
 
     private activeChannelId: string | null = null;
-    private readonly activeChannelListeners = new Set<(id: string) => void>();
-    private readonly appendListeners = new Set<(entry: LogEntry) => void>();
+    private readonly onDidChangeActiveChannelEmitter = this.register(new Emitter<string>());
+    private readonly onDidAppendToActiveChannelEmitter = this.register(new Emitter<LogEntry>());
 
     public constructor(
         private readonly history: ILogHistory,
@@ -89,7 +90,7 @@ export class OutputService extends Disposable {
             logService.onDidAppend((entry) => {
                 this.ensureChannel(entry.channel);
                 if (entry.channel !== this.activeChannelId) return;
-                for (const listener of [...this.appendListeners]) listener(entry);
+                this.onDidAppendToActiveChannelEmitter.fire(entry);
             }),
         );
         // Канал мог быть объявлен позже, чем поднялся сервис (расширения) — тогда
@@ -123,7 +124,7 @@ export class OutputService extends Disposable {
     public showChannel(id: string): void {
         if (this.registry.getChannel(id) === undefined || this.activeChannelId === id) return;
         this.setActiveChannel(id);
-        for (const listener of [...this.activeChannelListeners]) listener(id);
+        this.onDidChangeActiveChannelEmitter.fire(id);
     }
 
     /**
@@ -144,14 +145,8 @@ export class OutputService extends Disposable {
         return `${entries.map(formatOutputLine).join("\n")}\n`;
     }
 
-    public onDidChangeActiveChannel(listener: (id: string) => void): IDisposable {
-        this.activeChannelListeners.add(listener);
-        return { dispose: () => this.activeChannelListeners.delete(listener) };
-    }
+    public readonly onDidChangeActiveChannel = this.onDidChangeActiveChannelEmitter.event;
 
     /** Живой хвост: запись, прилетевшая в АКТИВНЫЙ канал. */
-    public onDidAppendToActiveChannel(listener: (entry: LogEntry) => void): IDisposable {
-        this.appendListeners.add(listener);
-        return { dispose: () => this.appendListeners.delete(listener) };
-    }
+    public readonly onDidAppendToActiveChannel = this.onDidAppendToActiveChannelEmitter.event;
 }

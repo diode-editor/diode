@@ -42,9 +42,9 @@ describe("FileSearchService — notify / onIndexChanged", () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
 
         let fired = 0;
-        service.onIndexChanged = () => {
+        service.onIndexChanged(() => {
             fired += 1;
-        };
+        });
 
         let nested = "deep";
         for (let i = 0; i < 40; i++) nested = path.join(nested, `lvl${i}`);
@@ -78,9 +78,9 @@ describe("FileSearchService — notify / onIndexChanged", () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
 
         let fired = 0;
-        service.onIndexChanged = () => {
+        service.onIndexChanged(() => {
             fired += 1;
-        };
+        });
 
         // A deep nested chain forces many walk iterations; scheduleNotify() sets the
         // pending debounce timer on the very first iteration.
@@ -124,9 +124,9 @@ describe("FileSearchService — notify / onIndexChanged", () => {
         ws.writeFile("only.ts", "");
         const p = service.activate(ws.dir);
         let fired = 0;
-        service.onIndexChanged = () => {
+        service.onIndexChanged(() => {
             fired += 1;
-        };
+        });
         await p;
         await new Promise((r) => setTimeout(r, 80));
         expect(fired).toBeGreaterThan(0);
