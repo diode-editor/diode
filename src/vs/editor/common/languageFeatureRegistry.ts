@@ -40,7 +40,7 @@ export class LanguageFeatureRegistry<T> {
     private lastCandidate: { readonly uri: string; readonly languageId: string } | undefined;
 
     public register(selector: LanguageSelector, provider: T): IDisposable {
-        let entry: Entry<T> | undefined = { selector, provider, score: -1, time: this.clock++ };
+        let entry: Entry<T> | undefined = { selector, provider, score: 0, time: this.clock++ };
         this.entries.push(entry);
         this.lastCandidate = undefined;
         this.fireDidChange();
@@ -48,11 +48,10 @@ export class LanguageFeatureRegistry<T> {
         return {
             dispose: () => {
                 if (entry === undefined) return;
-                const index = this.entries.indexOf(entry);
+                // Запись снимает только свой dispose и только раз (см. `entry` выше),
+                // поэтому она всегда на месте.
+                this.entries.splice(this.entries.indexOf(entry), 1);
                 entry = undefined;
-                // Stryker disable next-line ConditionalExpression: запись снимает только свой dispose (и только раз — см. entry выше), поэтому индекс всегда найден
-                if (index < 0) return;
-                this.entries.splice(index, 1);
                 this.lastCandidate = undefined;
                 this.fireDidChange();
             },

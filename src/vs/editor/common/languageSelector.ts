@@ -37,7 +37,7 @@ export function score(selector: LanguageSelector | undefined, candidateUri: Uri,
             const value = score(filter, candidateUri, candidateLanguage);
             // Stryker disable next-line ConditionalExpression,BlockStatement: ранний выход — оптимизация; без него цикл дойдёт до того же максимума
             if (value === 10) return value;
-            if (value > ret) ret = value;
+            ret = Math.max(ret, value);
         }
         return ret;
     }
@@ -98,7 +98,7 @@ function scoreFilter(filter: LanguageFilter, candidateUri: Uri, candidateLanguag
 
 /** Эксклюзивен ли селектор: строка — нет, массив — когда эксклюзивны все элементы. */
 export function isExclusive(selector: LanguageSelector): boolean {
-    if (typeof selector === "string") return false;
     if (isSelectorArray(selector)) return selector.every(isExclusive);
-    return selector.exclusive === true;
+    // У строки поля `exclusive` нет: чтение даёт undefined — «не эксклюзивен».
+    return (selector as LanguageFilter).exclusive === true;
 }

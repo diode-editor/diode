@@ -90,8 +90,9 @@ describe("LanguageFeatureRegistry", () => {
         const registry = new LanguageFeatureRegistry<string>();
         const kept = vi.fn();
         const removed = vi.fn();
-        registry.onDidChange(kept);
+        // Снимаемый слушатель — первый в списке: граница индекса 0.
         const sub = registry.onDidChange(removed);
+        registry.onDidChange(kept);
         sub.dispose();
         sub.dispose();
 
@@ -123,6 +124,25 @@ describe("LanguageFeatureRegistry", () => {
 
         sub.dispose();
         expect(registry.ordered(ts)).toEqual([]);
+    });
+
+    it("повторный запрос по тому же документу score не пересчитывает", () => {
+        const registry = new LanguageFeatureRegistry<string>();
+        let reads = 0;
+        registry.register(
+            {
+                get language() {
+                    reads++;
+                    return "typescript";
+                },
+            },
+            "ts",
+        );
+
+        expect(registry.ordered(ts)).toEqual(["ts"]);
+        const afterFirst = reads;
+        expect(registry.has(ts)).toBe(true);
+        expect(reads).toBe(afterFirst);
     });
 
     it("кэш кандидата различает смену языка у того же uri", () => {
