@@ -123,6 +123,18 @@ describe("TextDocument EOL model", () => {
 
     // ─── setText re-detects eol ─────────────────────────────
 
+    it("setText объявляет смену EOL ровно тогда, когда он сменился", () => {
+        const doc = new TextDocument("a\nb");
+        let fired = 0;
+        doc.onDidChangeEol(() => fired++);
+
+        doc.setText("c\nd");
+        expect(fired).toBe(0);
+
+        doc.setText("x\r\ny");
+        expect(fired).toBe(1);
+    });
+
     it("setText re-detects eol and strips \\r", () => {
         const doc = new TextDocument("a\nb");
         doc.setText("x\r\ny\r\nz");

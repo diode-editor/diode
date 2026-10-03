@@ -370,6 +370,27 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         pane.dispose();
     });
 
+    it("замена снимка пересчитывает раскладку сразу и держит развёрнутость; правка ждёт паузы", () => {
+        const base = Array.from({ length: 40 }, (_, i) => `line${String(i)}`).join("\n");
+        const model = ownedModel(`${base}\nnew tail`);
+        const pane = makePane(base, { kind: "owned", model }, { debounceMs: 60_000 });
+        const { original, modified } = sides(pane);
+        const region = modified.viewState.foldedRegions.find((r) => r.isCollapsed);
+        modified.viewState.toggleFold(region?.startLine ?? 0);
+
+        // Обычная правка: раскладка пересчитается после паузы набора, не сразу.
+        modified.goToPosition(40, 0);
+        modified.viewState.type("\n");
+        expect(original.viewState.getViewLineCount()).not.toBe(modified.viewState.getViewLineCount());
+
+        // Свежий снимок — прежняя раскладка ничего о нём не говорит: сразу.
+        pane.replaceSnapshotContent("original", `${base}\nother tail`);
+        expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
+        // Развёрнутый кусок так и остался развёрнутым (перенос, а не сброс).
+        expect(modified.viewState.foldedRegions.some((r) => r.isCollapsed)).toBe(false);
+        pane.dispose();
+    });
+
     it("inline-режим: modified с призраками, original пуст; возврат восстанавливает выравнивание", async () => {
         const original = ["keep", "dead1", "dead2", "tail"].join("\n");
         const model = ownedModel(["keep", "live", "tail"].join("\n"));
