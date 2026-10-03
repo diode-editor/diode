@@ -72,6 +72,8 @@ describe("RunOnceScheduler", () => {
 
         scheduler.schedule();
         scheduler.dispose();
+        // dispose снимает и таймер, а не только отпускает функцию.
+        expect(scheduler.isScheduled()).toBe(false);
         vi.advanceTimersByTime(100);
         scheduler.schedule();
         vi.advanceTimersByTime(100);
