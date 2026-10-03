@@ -79,6 +79,7 @@ describe("createExtensionMemento", () => {
         const globalState = memento({ withSync: true }).m;
         const workspaceState = memento({ withSync: false }).m;
         expect(workspaceState.setKeysForSync).toBeUndefined();
+        expect(typeof globalState.setKeysForSync).toBe("function");
         expect(() => {
             globalState.setKeysForSync?.(["a"]);
         }).not.toThrow();

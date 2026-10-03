@@ -102,4 +102,21 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
             `memento.update: "${ID}" activated in another workspace — workspaceState write dropped`,
         );
     });
+
+    it("и без логгера отброшенная запись не роняет update расширения", async () => {
+        const state = newState();
+        let workspaceHome: string | null = "/storage/alpha";
+        await withHarness(
+            state,
+            async (harness) => {
+                workspaceHome = "/storage/beta";
+                await expect(
+                    harness.commandRegistry.execute("test.memento.update", false, "lastFile", "b.ts"),
+                ).resolves.toBeNull();
+            },
+            { storageHomes: () => ({ globalStorageHome: "/g", workspaceStorageHome: workspaceHome, logsHome: "/l" }) },
+        );
+
+        expect(createExtensionStateStore(state).get(ID, false)).toEqual({});
+    });
 });
