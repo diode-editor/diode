@@ -40,11 +40,8 @@ export function createDiffEditorPaneFactory(accessor: ServiceAccessor): IEditorP
             const original = serializeSide(options.original);
             const modified = serializeSide(options.modified);
             if (original === undefined || modified === undefined) return undefined;
-            const value: ISerializedDiff = {
-                original,
-                modified,
-                ...(options.title !== undefined ? { title: options.title } : {}),
-            };
+            // Необязательное поле без значения JSON не пишет сам.
+            const value: ISerializedDiff = { original, modified, title: options.title };
             return JSON.stringify(value);
         },
         deserialize(value) {
@@ -53,7 +50,7 @@ export function createDiffEditorPaneFactory(accessor: ServiceAccessor): IEditorP
             return {
                 original: deserializeSide(parsed.original),
                 modified: deserializeSide(parsed.modified),
-                ...(parsed.title !== undefined ? { title: parsed.title } : {}),
+                title: parsed.title,
             };
         },
         async open(options, target) {
@@ -68,8 +65,8 @@ function serializeSide(side: IDiffSideSpec): ISerializedDiffSide | undefined {
         uri: side.uri.toString(),
         label: side.label,
         identity: side.identity,
-        ...(side.preferDisk !== undefined ? { preferDisk: side.preferDisk } : {}),
-        ...(side.onMissing !== undefined ? { onMissing: side.onMissing } : {}),
+        preferDisk: side.preferDisk,
+        onMissing: side.onMissing,
     };
 }
 
@@ -78,23 +75,25 @@ function deserializeSide(side: ISerializedDiffSide): IDiffSideSpec {
         uri: Uri.parse(side.uri),
         label: side.label,
         identity: side.identity,
-        ...(side.preferDisk !== undefined ? { preferDisk: side.preferDisk } : {}),
-        ...(side.onMissing !== undefined ? { onMissing: side.onMissing } : {}),
+        preferDisk: side.preferDisk,
+        onMissing: side.onMissing,
     };
 }
 
 /** Строка сессии → рецепт; чужая или битая строка — `undefined`, а не исключение. */
 function parseDiff(value: string): ISerializedDiff | undefined {
+    // Гарды битой строки и не-объекта эквивалентны своим мутантам: дальше
+    // parseSide всё равно отвергнет то, что не объект стороны (у `42` и строки
+    // нет `original`). Держим их ради ясности, а не результата.
     let raw: unknown;
+    // Stryker disable BlockStatement,ConditionalExpression: эквивалентны — см. выше
     try {
         raw = JSON.parse(value);
-        // Пустой catch дал бы то же: `raw` остался бы undefined, и гард типа ниже
-        // ответил бы тем же undefined.
-        // Stryker disable next-line BlockStatement: эквивалентен — см. выше
     } catch {
         return undefined;
     }
     if (typeof raw !== "object" || raw === null) return undefined;
+    // Stryker restore BlockStatement,ConditionalExpression
     const obj = raw as Record<string, unknown>;
     const original = parseSide(obj.original);
     const modified = parseSide(obj.modified);

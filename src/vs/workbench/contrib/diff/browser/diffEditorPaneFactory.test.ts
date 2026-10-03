@@ -117,12 +117,16 @@ describe("Фабрика дифф-вкладки", () => {
         const source = await openFilesDiff();
         service().newGroup("after");
         service().openFile(ws.path("a.txt"));
+        const focusedBefore = h.testApp.focusedElement;
 
         await openDiffPair(h.container, files());
 
         expect(service().groups.length).toBe(2);
         expect(service().activeGroup).toBe(service().groups[0]);
         expect(service().getActiveTabPane()).toBe(source);
+        // Фокус уехал в дифф — команда сравнения его показывает, а не только активирует.
+        expect(h.testApp.focusedElement).not.toBeNull();
+        expect(h.testApp.focusedElement).not.toBe(focusedBefore);
     });
 
     it("дифф со стороной-моделью справа не повторить", async () => {
@@ -186,6 +190,7 @@ describe("Фабрика дифф-вкладки", () => {
     it("чужая или битая строка сессии — undefined, а не исключение", () => {
         const side = { uri: "file:///a", label: "a", identity: "a" };
         for (const value of [
+            JSON.stringify({ original: null, modified: side }),
             "{not json",
             "null",
             "42",
