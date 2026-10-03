@@ -11,13 +11,11 @@ import { EditorElement } from "../../editor/browser/editorElement.ts";
 import { isTextViewElement } from "../../editor/browser/iTextViewElement.ts";
 import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import { ContextKeyContributorsDIToken } from "../../platform/contextkey/common/contextKeyContributor.ts";
-import { registerContextKeys } from "../../platform/contextkey/common/contextKeys.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
-import { macKeysLevel } from "../../platform/keybinding/common/macKeys.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import type { FocusTracker } from "../services/focus/browser/focusTracker.ts";
@@ -26,10 +24,6 @@ import type { HistoryService } from "../services/history/browser/historyService.
 import { HistoryServiceDIToken } from "../services/history/browser/historyService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
-import type { LayoutService } from "../services/layout/browser/layoutService.ts";
-import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
-import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
-import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("WorkbenchContextKeys");
 
@@ -37,13 +31,15 @@ export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("Workbenc
  * Выставляет контекст-ключи workbench'а (`ContextKeys.ts`) из фокуса и состояния
  * сервисов: слушает FocusManager корневой view (capture-листенеры focus/blur
  * вешает владелец дерева — `WorkbenchComponent` — на {@link handleFocusChange})
- * и сервисы Editor/Layout/Terminal/TerminalEnvironment. Хук
+ * и сервисы Editor/History. Хук
  * `KeybindingDispatcher.updateContextKeys` замкнут на {@link update} — перед
  * резолвом каждого биндинга ключи свежие.
  *
  * Здесь живут только ключи workbench-уровня. Ключи фич выставляют сами фичи
  * ({@link IContextKeyContributor}, явный список `ContextKeyContributorsDIToken`):
  * центр опрашивает их в том же {@link update}, поэтому тайминг у них общий.
+ * Ключи с единственной точкой перехода пушит их владелец: окружение терминала —
+ * `TerminalEnvContextKeysContribution`, `panelVisible` — `LayoutService`.
  *
  * Корневая view приходит через late-init шов {@link attachView} (как
  * `attachHost` у DialogService): до прикрепления фокуса нет — активный элемент
@@ -53,9 +49,7 @@ export class WorkbenchContextKeys extends Disposable {
     public static dependencies = [
         ContextKeyServiceDIToken,
         EditorServiceDIToken,
-        TerminalEnvironmentServiceDIToken,
         KeybindingDispatcherDIToken,
-        LayoutServiceDIToken,
         HistoryServiceDIToken,
         FocusTrackerDIToken,
         ServiceAccessorDIToken,
@@ -69,9 +63,7 @@ export class WorkbenchContextKeys extends Disposable {
     public constructor(
         private readonly contextKeys: ContextKeyService,
         private readonly editorService: EditorService,
-        private readonly terminalEnv: TerminalEnvironmentService,
         private readonly dispatcher: KeybindingDispatcher,
-        private readonly layoutService: LayoutService,
         private readonly historyService: HistoryService,
         private readonly focusTracker: FocusTracker,
         accessor: ServiceAccessor,
@@ -79,15 +71,6 @@ export class WorkbenchContextKeys extends Disposable {
     ) {
         super();
         this.contributors = contributorTokens.map((contributor) => accessor.get(contributor));
-        // Make custom-mode names (mode_<name>) valid `when` identifiers, then keep context
-        // keys in sync when the environment changes (detection finalize / mode toggle);
-        // сегмент статус-бара обновляет TerminalEnvStatusContribution по тому же событию.
-        registerContextKeys(this.terminalEnv.getKnownModeNames().map((n) => `mode_${n}`));
-        this.register(
-            this.terminalEnv.onDidChange(() => {
-                this.update();
-            }),
-        );
         // Диспатчер освежает ключи перед резолвом каждого биндинга.
         this.dispatcher.updateContextKeys = () => {
             this.update();
@@ -144,30 +127,10 @@ export class WorkbenchContextKeys extends Disposable {
             "activeEditorGroupLast",
             this.editorService.activeGroup === this.editorService.groups[this.editorService.groups.length - 1],
         );
-        this.contextKeys.set("panelVisible", this.layoutService.isPanelVisible());
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         // Ключи фич — у самих фич (IContextKeyContributor), тайминг тот же.
         for (const contributor of this.contributors) {
             contributor.updateContextKeys(this.contextKeys, active);
-        }
-
-        // Terminal environment (tier / capabilities / modes / OS) — mostly static per session,
-        // but mode can be force-toggled at runtime, so refresh alongside focus context.
-        const env = this.terminalEnv;
-        this.contextKeys.set("tier", env.tier);
-        this.contextKeys.set("os", env.os);
-        this.contextKeys.set("isMac", env.os === "mac");
-        this.contextKeys.set("isLinux", env.os === "linux");
-        this.contextKeys.set("isWindows", env.os === "windows");
-        this.contextKeys.set("cap_extendedKeys", env.hasCapability("extended-keys"));
-        this.contextKeys.set("cap_osc52", env.hasCapability("osc52"));
-        this.contextKeys.set("cap_truecolor", env.hasCapability("truecolor"));
-        this.contextKeys.set("cap_kittyGraphics", env.hasCapability("kitty-graphics"));
-        this.contextKeys.set("cap_mouseSgr", env.hasCapability("mouse-sgr"));
-        this.contextKeys.set("cap_super", env.hasCapability("super"));
-        this.contextKeys.set("macKeys", macKeysLevel(env.macKeysRung));
-        for (const name of env.getKnownModeNames()) {
-            this.contextKeys.setRaw(`mode_${name}`, env.isModeActive(name));
         }
     }
 

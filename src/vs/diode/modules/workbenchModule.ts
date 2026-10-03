@@ -270,6 +270,10 @@ import {
     StatusBarServiceDIToken,
 } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import {
+    TerminalEnvContextKeysContribution,
+    TerminalEnvContextKeysContributionDIToken,
+} from "../../workbench/services/terminalEnvironment/node/terminalEnvContextKeysContribution.ts";
+import {
     TerminalEnvStatusContribution,
     TerminalEnvStatusContributionDIToken,
 } from "../../workbench/services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
@@ -404,6 +408,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ActiveEditorStatusSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(EditorStatusContributionDIToken, EditorStatusContribution);
     container.bind(TerminalEnvStatusContributionDIToken, TerminalEnvStatusContribution);
+    container.bind(TerminalEnvContextKeysContributionDIToken, TerminalEnvContextKeysContribution);
     container.bind(StatusBarComponentDIToken, StatusBarComponent);
     // Реестр workbench-contributions: явный список (WORKBENCH_CONTRIBUTIONS) +
     // сам реестр, инстанцирующий их по фазам LifecycleService (подписку держит

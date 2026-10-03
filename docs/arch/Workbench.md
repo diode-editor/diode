@@ -204,7 +204,6 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 | Сегодня в центре | Что там | Куда уходит | Задача |
 |---|---|---|---|
 | `workbench/browser/actions/builtinActions.ts`, `searchActions.ts`, `menuContributions.ts` | команды и меню фич | `<FEATURE>_ACTIONS` у фич + агрегатор | F2 |
-| `workbench/browser/workbenchContextKeys.ts` | значения ключей фич | `IContextKeyContributor` у владельцев | F3 |
 | `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
 | `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
 | `workbench/browser/workbenchComponent.ts`, `workbenchContributions.ts` | контейнеры вью, `attachHost`, список contribution'ов; агрегатора `workbench.common.main.ts` ещё нет; правило «центр не импортирует contrib» не проверяется | контейнеры — владельцам, агрегатор, храповик направления в `check-layers.mjs` | E4 |
@@ -1227,12 +1226,17 @@ hide-toggle (`isHiddenByDefault`). См.
   - `Services/WorkbenchContextKeys.ts` — выставляет контекст-ключи
     (`ContextKeys.ts`) из фокуса и сервисов: `update()` читает активный элемент
     из FocusManager корневой view (шов `attachView`; ключи
-    `textInputFocus`/`inputWidgetFocus`/`listFocus`/`terminalFocus` + передача
-    активного `InputElement` в `InputWidgetService`), состояние сервисов
-    (`editorGroupHasEditors`/`editorTabsMultiple`/`panelVisible`/
-    `findWidgetVisible`/`suggestWidgetVisible`/`terminalIsOpen`) и терминальное
-    окружение (tier/os/cap_*/mode_*; динамические `mode_<name>` регистрирует в
-    конструкторе + подписка на `onDidChange`). Замыкает на себя хук
+    `textInputFocus`/`textViewFocus`/`inputWidgetFocus`/`listFocus`/
+    `terminalFocus`, фокусный редактор `editorReadonly`/
+    `editorHasMultipleSelections`) и состояние групп и истории
+    (`editorGroupHasEditors`/`editorTabsMultiple`/`activeEditorGroup*`/
+    `canNavigate*`), потом опрашивает контрибьюторов фич (ниже). Ключи с
+    одной точкой перехода пушит владелец: терминальное окружение
+    (tier/os/cap_*/mode_*/macKeys) — `TerminalEnvContextKeysContribution` по
+    `onDidChange` сервиса окружения (маппинг `applyTerminalEnvContextKeys` из
+    `services/terminalEnvironment/common/terminalEnvContextKeys.ts` общий с
+    Keyboard Doctor), `panelVisible` — `LayoutService` по видимости
+    `PanelService`. Замыкает на себя хук
     `KeybindingDispatcher.updateContextKeys`; `handleFocusChange` (capture
     focus/blur листенеры вешает владелец дерева) сбрасывает незавершённый чорд,
     освежает ключи и рассылает смену фокуса через `FocusTracker`.
@@ -1262,8 +1266,8 @@ hide-toggle (`isHiddenByDefault`). См.
     не ставит, но активное поле забирает в том же опросе. В центре остались
     только общефокусные ключи (`textInputFocus`/`textViewFocus`/
     `inputWidgetFocus`/`listFocus`/`terminalFocus`), фокусный редактор
-    (`editorReadonly`/`editorHasMultipleSelections`), группы и история,
-    `panelVisible` и окружение терминала; импортов из `contrib/` у него нет.
+    (`editorReadonly`/`editorHasMultipleSelections`), группы и история;
+    импортов из `contrib/` у него нет.
     **Смена фокуса как событие** — `FocusTracker`
     (`services/focus/browser/focusTracker.ts`, `onDidChangeFocus(active)`):
     `handleFocusChange` сначала освежает ключи, потом зовёт `fire`. Попапы
