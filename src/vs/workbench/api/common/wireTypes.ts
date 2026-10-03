@@ -2505,6 +2505,35 @@ export function parseWireSecretKeysRequest(raw: unknown): string | null {
 }
 
 /**
+ * Запрос `memento.update` (subprocess → host): словарь memento расширения
+ * целиком. `shared` — `globalState`, иначе `workspaceState`.
+ */
+export interface IWireMementoUpdate {
+    readonly extensionId: string;
+    readonly shared: boolean;
+    readonly value: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Словарь memento в проводе: plain-объект. Иное (массив, примитив, отсутствие)
+ * — пустой словарь: без сохранённого memento расширение начинает с чистого.
+ */
+export function parseWireMementoValue(raw: unknown): Readonly<Record<string, unknown>> {
+    return typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+}
+
+/** Разбирает `memento.update`; `null` — форма чужая. */
+export function parseWireMementoUpdate(raw: unknown): IWireMementoUpdate | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеют проверки полей ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const { extensionId, shared, value } = raw as { extensionId?: unknown; shared?: unknown; value?: unknown };
+    if (typeof extensionId !== "string" || extensionId === "") return null;
+    if (typeof shared !== "boolean") return null;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+    return { extensionId, shared, value: value as Record<string, unknown> };
+}
+
+/**
  * Разбирает ответ хоста на `secrets.get` (host → subprocess). `undefined` —
  * секрета нет; `null` в проводе означает ровно это (JSON не возит `undefined`).
  */

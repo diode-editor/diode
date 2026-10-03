@@ -1831,3 +1831,18 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 });
+
+describe("ExtensionHost — memento.update на проводе", () => {
+    it("чужая форма запроса — ответ ошибкой, а не тихая запись", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        child.receiveFromHostPeer({ kind: "req", id: 300, method: "memento.update", params: { extensionId: "ext.a" } });
+
+        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 300));
+        const res = child.sent.find((m) => m.kind === "res" && m.id === 300);
+        expect(res).toMatchObject({ error: { message: "memento.update: malformed params" } });
+        host.dispose();
+    });
+});

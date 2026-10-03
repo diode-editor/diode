@@ -88,6 +88,17 @@ export class StateService implements IStateService {
         this.scheduleWrite();
     }
 
+    public remove<T>(descriptor: IStateDescriptor<T>): void {
+        const store = this.resolveStore(descriptor.scope);
+        Reflect.deleteProperty(store.data, descriptor.key);
+        const versions = asRecord(store.data[VERSIONS_KEY]);
+        if (Reflect.deleteProperty(versions, descriptor.key) && Object.keys(versions).length === 0) {
+            Reflect.deleteProperty(store.data, VERSIONS_KEY);
+        }
+        store.dirty = true;
+        this.scheduleWrite();
+    }
+
     public openWorkspace(workspaceId: WorkspaceId): void {
         // Сбросить текущий workspace-стор на диск перед переключением на другой.
         this.writeStoreSync(this.workspace);

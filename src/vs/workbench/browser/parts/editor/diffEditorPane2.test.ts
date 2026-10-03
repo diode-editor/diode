@@ -498,6 +498,7 @@ describe("Workbench — дифф v2", () => {
             store: (descriptor, value) => {
                 stateStore.set(descriptor.key, value);
             },
+            remove: () => undefined,
             openWorkspace: () => undefined,
             flushSync: () => undefined,
         }));

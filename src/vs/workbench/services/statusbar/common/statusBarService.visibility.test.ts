@@ -11,6 +11,7 @@ function memoryState(): IStateService {
     return {
         get: <T>(descriptor: IStateDescriptor<T>): T => (store.get(descriptor.key) as T) ?? descriptor.default,
         store: <T>(descriptor: IStateDescriptor<T>, value: T): void => void store.set(descriptor.key, value),
+        remove: () => undefined,
         openWorkspace: () => undefined,
         flushSync: () => undefined,
     };

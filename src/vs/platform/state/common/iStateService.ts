@@ -28,6 +28,12 @@ export interface IStateService {
     store<T>(descriptor: IStateDescriptor<T>, value: T): void;
 
     /**
+     * Удаляет ключ из стора (вместе с записью версии): следующий `get` отдаст
+     * дефолт, а файл не копит пустышки. Запись на диск — как у {@link store}.
+     */
+    remove<T>(descriptor: IStateDescriptor<T>): void;
+
+    /**
      * Открывает (или переключает) стор `workspace`-scope на проект
      * `workspaceId`. Предыдущий workspace-стор сначала синхронно сбрасывается
      * на диск. Пока воркспейс не открыт, `workspace`-дескрипторы обслуживает
