@@ -10,7 +10,6 @@ import { attachInspector } from "@tuidom/inspector/index";
 import type { InspectorDriver } from "@tuidom/inspector/InspectorDriver";
 import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
 
-import { joinVirtualPath } from "../base/common/assets/assetBundleFormat.ts";
 import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess.ts";
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
 import { describeRejection } from "../base/common/describeRejection.ts";
@@ -40,9 +39,7 @@ import {
 } from "../platform/extensionManagement/node/extensionInstaller.ts";
 import { installFromRegistry } from "../platform/extensionManagement/node/installFromRegistry.ts";
 import { currentTargetPlatform } from "../platform/extensionManagement/node/targetPlatform.ts";
-import { flattenConfigDefaults } from "../platform/extensions/common/configDefaults.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
-import type { ICommandContribution } from "../platform/extensions/common/iExtensionManifest.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
 import { runTreeWatcherSubprocess } from "../platform/files/node/treeWatcherMain.ts";
@@ -61,7 +58,8 @@ import { ExtensionThemeContributor } from "../workbench/services/extensions/comm
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
 import { ExtensionHostDIToken } from "../workbench/services/extensions/node/extensionHost.ts";
 import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
-import type { IExtensionRegistration } from "../workbench/services/extensions/node/iExtensionEntry.ts";
+import type { IExtensionRegistrationEnv } from "../workbench/services/extensions/node/extensionRegistration.ts";
+import { toExtensionRegistration } from "../workbench/services/extensions/node/extensionRegistration.ts";
 import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import { LanguageConfigurationService } from "../workbench/services/language/common/languageConfigurationService.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
@@ -493,71 +491,31 @@ async function runEditor(): Promise<void> {
             },
             preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
             afterRestored: async () => {
-                // Регистрируем пользовательские расширения с `manifest.main` в extension host.
-                // `registerExtension` — только bookkeeping (subprocess не поднимается);
-                // реальная активация — событийная (`activateByEvent` ниже) по `activationEvents`.
-                // Регистрируем ПОСЛЕ openFile, чтобы к моменту стартовых событий activeTextEditor
-                // был доступен на `activate()`.
-                for (const ext of userExtensions) {
-                    if (typeof ext.manifest.main !== "string" || ext.manifest.main === "") continue;
-                    const dirName = ext.location.slice(USER_PREFIX.length).replace(/\/$/, "");
-                    const extensionPath = path.resolve(userDataPaths.extensionsDir, dirName);
-                    const mainPath = path.resolve(extensionPath, ext.manifest.main);
+                // Регистрируем расширения с `manifest.main` в extension host: сперва
+                // пользовательские, затем встроенные (например `git`). `registerExtension` —
+                // только bookkeeping (subprocess не поднимается); реальная активация —
+                // событийная (`activateByEvent` ниже) по `activationEvents`. Регистрируем
+                // ПОСЛЕ openFile, чтобы к моменту стартовых событий activeTextEditor был
+                // доступен на `activate()`.
+                const registrationEnv: IExtensionRegistrationEnv = {
+                    userPrefix: USER_PREFIX,
+                    userExtensionsDir: userDataPaths.extensionsDir,
+                    // dev — FsAssetAccess, SEA — BundleAssetAccess, единый вызов.
+                    readBuiltinSource: (virtualPath) => assets.readText(virtualPath),
+                    configInjection: (ext) =>
+                        ext.isBuiltin
+                            ? builtinConfigInjection(ext.manifest.name, extensionsLogger)
+                            : curatedConfigInjection(ext.id),
+                };
+                for (const ext of [...userExtensions, ...builtinExtensions]) {
                     try {
-                        const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
-                        const reg: IExtensionRegistration = {
-                            id: ext.id,
-                            // Манифест целиком, а не тройка имя/издатель/версия: он же едет
-                            // расширениям как `Extension.packageJSON` в `vscode.extensions`,
-                            // и соседа по нему детектят не только по id (у AI-автодополнений
-                            // в ходу `contributes`, `categories`, `engines`).
-                            manifest: ext.manifest,
-                            mainPath,
-                            extensionPath,
-                            configDefaults: {
-                                ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
-                                ...curatedConfigInjection(ext.id),
-                            },
-                            commandTitles: commandMeta.titles,
-                            commandCategories: commandMeta.categories,
-                            activationEvents: ext.manifest.activationEvents,
-                        };
-                        extensionHost.registerExtension(reg);
+                        const reg = await toExtensionRegistration(ext, registrationEnv);
+                        if (reg !== null) extensionHost.registerExtension(reg);
                     } catch (err) {
-                        extensionsLogger.error(`${ext.id}: failed to register`, err);
-                    }
-                }
-
-                // Регистрируем builtin code-расширения (например встроенный `git`): их
-                // скомпилированный `out/extension.cjs` читаем из `assets` (dev — FsAssetAccess,
-                // SEA — BundleAssetAccess, единый вызов) и грузим строкой-исходником, которую
-                // subprocess компилирует в памяти через Module._compile — без записи на диск.
-                for (const ext of builtinExtensions) {
-                    const main = ext.manifest.main;
-                    if (typeof main !== "string" || main === "") continue;
-                    try {
-                        const virtualPath = joinVirtualPath(ext.location, main);
-                        const source = await assets.readText(virtualPath);
-                        const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
-                        const reg: IExtensionRegistration = {
-                            id: ext.id,
-                            // Целиком — как у user-расширений выше: это `packageJSON`
-                            // встроенного расширения в каталоге `vscode.extensions`.
-                            manifest: ext.manifest,
-                            source,
-                            // Синтетический абсолютный путь-идентичность (реального файла под SEA нет).
-                            filename: `/${virtualPath}`,
-                            configDefaults: {
-                                ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
-                                ...builtinConfigInjection(ext.manifest.name, extensionsLogger),
-                            },
-                            commandTitles: commandMeta.titles,
-                            commandCategories: commandMeta.categories,
-                            activationEvents: ext.manifest.activationEvents,
-                        };
-                        extensionHost.registerExtension(reg);
-                    } catch (err) {
-                        extensionsLogger.error(`${ext.id}: failed to register (builtin)`, err);
+                        extensionsLogger.error(
+                            `${ext.id}: failed to register${ext.isBuiltin ? " (builtin)" : ""}`,
+                            err,
+                        );
                     }
                 }
                 mark("main:extensions-registered");
@@ -730,34 +688,5 @@ function builtinConfigInjection(manifestName: string, logger: ILogger): Record<s
         // SEA: сервер запускается нашим же бинарём в node-режиме (runAsNode.ts);
         // dev/self-extract: process.execPath субпроцесса — настоящий node.
         "diode.lsp.typescript.serverRuntime": isSeaBinary() ? "diode-as-node" : "node",
-    };
-}
-
-/**
- * Собирает `contributes.commands` в пару map'ов id → title и id → category:
- * заголовок нужен, чтобы прокси рантайм-команды было видно в палитре (иначе
- * команда исполнима, но не показывается), категория — чтобы палитра нарисовала
- * её префиксом подписи («Java: Switch to Standard Mode»).
- *
- * `%ключи%` здесь уже резолвнуты: манифест локализован на этапе сканирования
- * (`scanExtensions` → `localizeExtensionManifest`).
- */
-function collectCommandMeta(commands: readonly ICommandContribution[] | undefined): {
-    titles?: Record<string, string>;
-    categories?: Record<string, string>;
-} {
-    if (commands === undefined || commands.length === 0) return {};
-    const titles: Record<string, string> = {};
-    const categories: Record<string, string> = {};
-    for (const cmd of commands) {
-        if (typeof cmd.command !== "string" || typeof cmd.title !== "string") continue;
-        titles[cmd.command] = cmd.title;
-        if (typeof cmd.category === "string" && cmd.category !== "") {
-            categories[cmd.command] = cmd.category;
-        }
-    }
-    return {
-        titles: Object.keys(titles).length > 0 ? titles : undefined,
-        categories: Object.keys(categories).length > 0 ? categories : undefined,
     };
 }
