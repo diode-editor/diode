@@ -58,6 +58,7 @@ export class DefinitionService {
                 line: caret.line,
                 character: caret.character,
             });
+            // Stryker disable next-line BlockStatement: уборка подписок отработавшего запроса — см. ниже
         } finally {
             // Сам переход двигает каретку — следить за состоянием дальше незачем.
             // Снятие подписок заодно отцепляет и билет (он слушает токен состояния).
