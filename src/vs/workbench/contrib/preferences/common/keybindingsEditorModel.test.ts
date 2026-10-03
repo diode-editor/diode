@@ -158,10 +158,45 @@ describe("filterKeybindingItems", () => {
     });
 
     it("многословный запрос фильтрует по title (текст склеивается через пробел)", () => {
-        // «save file» должен найти «Save File»; при join('') получилось бы
-        // «savefile» — тоже матч, но проверяем именно пробельную склейку через
-        // многословный id-матч, где склейка наблюдаема.
         const filtered = filterKeybindingItems(items, "reveal panel");
+        expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
+    });
+
+    it("слова запроса — отдельные термы: порядок относительно title не важен", () => {
+        // Склейка остатка запроса через пробел тут наблюдаема: «panelreveal»
+        // подпоследовательностью в «Reveal Panel» не складывается.
+        const filtered = filterKeybindingItems(items, "panel reveal");
+        expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
+    });
+
+    it("найтись обязаны все термы", () => {
+        expect(filterKeybindingItems(items, "reveal zebra")).toEqual([]);
+    });
+
+    it("подсветка title собирается из кусков по терму", () => {
+        const [entry] = filterKeybindingItems(items, "rev panel");
+        // «Reveal Panel»: `rev` → 0..2, `panel` → 7..11.
+        expect(entry.titleMatch!.matchedIndices).toEqual([0, 1, 2, 7, 8, 9, 10, 11]);
+    });
+
+    it("лишние пробелы выдачу не меняют, хвостовой её не гасит", () => {
+        for (const query of ["reveal panel", "reveal  panel", " reveal panel", "reveal panel "]) {
+            expect(
+                filterKeybindingItems(items, query).map((entry) => entry.item.commandId),
+                query,
+            ).toEqual(["zeta.workbenchThing"]);
+        }
+    });
+
+    it("запрос из одних пробелов ведёт себя как пустой", () => {
+        const filtered = filterKeybindingItems(items, "   ");
+
+        expect(filtered).toHaveLength(items.length);
+        expect(filtered.every((entry) => entry.titleMatch === null)).toBe(true);
+    });
+
+    it("@source: оставляет свой отбор, а остаток разбирается на термы", () => {
+        const filtered = filterKeybindingItems(items, "@source:user panel reveal");
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
     });
 

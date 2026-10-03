@@ -1,5 +1,5 @@
-import type { FuzzyMatch } from "../../../../base/common/fuzzySearch.ts";
-import { fuzzyMatchBest } from "../../../../base/common/fuzzySearch.ts";
+import type { FuzzyMatch, PreparedQuery } from "../../../../base/common/fuzzySearch.ts";
+import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import type { ICommandSnapshot } from "../../../../platform/commands/common/commandRegistry.ts";
 import { findConflictingBindings } from "../../../../platform/keybinding/common/keybindingConflicts.ts";
 import type {
@@ -92,14 +92,15 @@ function parseQuery(query: string): IParsedQuery {
     let source: KeybindingSource | null = null;
     let conflictsOnly = false;
     const rest: string[] = [];
-    // Stryker disable next-line MethodExpression,Regex: токенизация запроса устойчива к лишним пробелам — пустые токены не совпадают ни с одним префиксом-фильтром и не меняют fuzzy-текст.
-    for (const word of query.trim().split(/\s+/)) {
+    // Stryker disable next-line Regex: вид разделителя тут не наблюдаем — лишние пробелы и пустые токены прореживает prepareQuery ниже, а не этот сплит.
+    for (const word of query.split(/\s+/)) {
         const filter = SOURCE_FILTERS[word.toLowerCase()];
         if (filter !== undefined) source = filter;
         else if (word.toLowerCase() === "@conflicts") conflictsOnly = true;
         else rest.push(word);
     }
-    // Stryker disable next-line StringLiteral: join('') vs join(' ') не меняет членство в fuzzy-выдаче (пробел в запросе — необязательный символ), только счёт.
+    // Пробел обязателен: остаток запроса едет в prepareQuery, который режет его
+    // на термы по пробелам — склейка в одно слово сузила бы выдачу.
     return { source, conflictsOnly, text: rest.join(" ") };
 }
 
@@ -114,12 +115,12 @@ function parseQuery(query: string): IParsedQuery {
  * Поиск по комбинации — по той подписи, что видна в таблице, а на маке ещё и по
  * словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать.
  */
-function matchesKeyLabel(text: string, chord: KeybindingChord, style: KeybindingLabelStyle): boolean {
+function matchesKeyLabel(query: PreparedQuery, chord: KeybindingChord, style: KeybindingLabelStyle): boolean {
     const labels =
         style === "mac"
             ? [formatKeybinding(chord, "mac"), formatKeybinding(chord, "macWords")]
             : [formatKeybinding(chord, style)];
-    return labels.some((label) => fuzzyMatchBest(text, label) !== null);
+    return labels.some((label) => fuzzyMatchPrepared(query, label) !== null);
 }
 
 export function filterKeybindingItems(
@@ -128,21 +129,25 @@ export function filterKeybindingItems(
     style: KeybindingLabelStyle = "pc",
 ): IFilteredKeybindingItem[] {
     const parsed = parseQuery(query);
+    // Разбор запроса — один раз на фильтр, а не на строку таблицы. Пробел режет
+    // его на термы, совпасть обязаны все: `go line` находит «Go to Line/Column…».
+    const prepared = prepareQuery(parsed.text);
     const result: IFilteredKeybindingItem[] = [];
     for (const item of items) {
         if (parsed.source !== null && item.source !== parsed.source) continue;
         if (parsed.conflictsOnly && !item.hasConflict) continue;
-        if (parsed.text === "") {
+        if (prepared.terms.length === 0) {
+            // Без подсветки: подсвечивать нечего, и строка остаётся как есть.
             result.push({ item, titleMatch: null });
             continue;
         }
-        const titleMatch = fuzzyMatchBest(parsed.text, item.title);
+        const titleMatch = fuzzyMatchPrepared(prepared, item.title);
         if (titleMatch !== null) {
             result.push({ item, titleMatch });
             continue;
         }
-        const idMatch = fuzzyMatchBest(parsed.text, item.commandId);
-        if (idMatch !== null || (item.chord !== null && matchesKeyLabel(parsed.text, item.chord, style))) {
+        const idMatch = fuzzyMatchPrepared(prepared, item.commandId);
+        if (idMatch !== null || (item.chord !== null && matchesKeyLabel(prepared, item.chord, style))) {
             result.push({ item, titleMatch: null });
         }
     }

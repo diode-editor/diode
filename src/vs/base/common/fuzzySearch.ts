@@ -203,3 +203,117 @@ export function charMask(textLower: string): number {
     }
     return mask;
 }
+
+// ─── Подготовленный запрос: термы вместо одной строки ────────────────────────
+
+/** Разделитель термов запроса: любая непустая последовательность пробельных. */
+const QUERY_SEPARATOR = /\s+/;
+
+/**
+ * Запрос, разобранный один раз на термы — наш аналог `prepareQuery` VS Code
+ * (`vs/base/common/fuzzyScorer.ts`).
+ *
+ * Пробел в запросе — **разделитель термов**, а не символ, который надо найти в
+ * тексте: `src other` ищет записи, где есть и `src`, и `other`, в любом порядке
+ * и в любом месте. Без этого пробел уезжал в матчер обычным символом, и запрос
+ * из двух слов находил только текст, где пробел стоит ровно между ними.
+ */
+export interface PreparedQuery {
+    /**
+     * Термы в нижнем регистре, в порядке набора. Пустой массив — пустой запрос
+     * (в том числе из одних пробелов): он совпадает со всем.
+     */
+    readonly terms: readonly string[];
+    /**
+     * Объединённая маска символов всех термов ({@link charMask}) — готовый
+     * отсев для вызывающего, который держит такие же маски у своих записей.
+     * Пробелов в ней нет: они разделители, а не искомые символы.
+     */
+    readonly bits: number;
+}
+
+/**
+ * Разбирает строку запроса на термы. Считать результат надо **один раз на
+ * нажатие**, до цикла по записям: это и есть смысл «подготовленного» запроса —
+ * лоуэркейс, сплит и маска не повторяются на каждую запись (ровно то свойство,
+ * ради которого существуют `*Lower`-варианты матчера).
+ *
+ * Лишние пробелы термами не становятся: ведущий, хвостовой и повторные
+ * игнорируются, поэтому `go  line` и `go line ` ведут себя как `go line` —
+ * пользователь набирает на ходу, и хвостовой пробел не должен гасить список.
+ */
+export function prepareQuery(query: string): PreparedQuery {
+    const terms: string[] = [];
+    let bits = 0;
+    for (const word of query.split(QUERY_SEPARATOR)) {
+        if (word === "") continue;
+        const term = word.toLowerCase();
+        terms.push(term);
+        bits |= charMask(term);
+    }
+    return { terms, bits };
+}
+
+/**
+ * Матчит подготовленный запрос против `text`: совпасть обязаны **все** термы
+ * (AND), каждый — самостоятельным {@link fuzzyMatchBest} в любом месте текста.
+ * Очки суммируются по термам, индексы совпадений сводятся в один возрастающий
+ * набор.
+ *
+ * Границы слов считаются по самому `text`, поэтому разбиение запроса бонусов не
+ * отнимает: терм `panel` в «View: Toggle Panel Visibility» по-прежнему попадает
+ * на границу слова после пробела.
+ */
+export function fuzzyMatchPrepared(query: PreparedQuery, text: string): FuzzyMatch | null {
+    return fuzzyMatchPreparedLower(query, text, text.toLowerCase());
+}
+
+/**
+ * Как {@link fuzzyMatchPrepared}, но с заранее приведённым к нижнему регистру
+ * текстом. См. {@link fuzzyMatchLower} — зачем это нужно на горячем пути.
+ */
+export function fuzzyMatchPreparedLower(query: PreparedQuery, text: string, textLower: string): FuzzyMatch | null {
+    const { terms } = query;
+    // Пустой запрос совпадает со всем на нулевые очки и без подсветки — список
+    // остаётся целым и в исходном порядке источника.
+    if (terms.length === 0) return { score: 0, matchedIndices: [] };
+
+    const first = fuzzyMatchBestLower(terms[0], text, textLower);
+    // AND по термам: ненайденный терм отбрасывает запись целиком.
+    if (first === null) return null;
+    // Один терм — его набор уже возрастающий и без повторов, сводить нечего.
+    // Ветка чисто за скорость: горячий путь (10k записей индекса на каждое
+    // нажатие) лишнего копирования не прощает — замерено бенчом
+    // `FileSearchService.search`, на запросе `dir2` сведение стоит ×1.6.
+    // Stryker disable next-line ConditionalExpression: мутант в `false` эквивалентен — общий путь ниже на одном терме даёт тот же результат, отличить его тестом нельзя, только бенчом.
+    if (terms.length === 1) return first;
+
+    let score = first.score;
+    const indices = [...first.matchedIndices];
+    for (const term of terms.slice(1)) {
+        const match = fuzzyMatchBestLower(term, text, textLower);
+        if (match === null) return null;
+        score += match.score;
+        indices.push(...match.matchedIndices);
+    }
+
+    return { score, matchedIndices: ascendingUnique(indices) };
+}
+
+/**
+ * Сводит индексы, набранные по термам, в один возрастающий набор без повторов:
+ * термы матчатся независимо, поэтому их наборы идут вразнобой и могут накрыть
+ * одну и ту же позицию (`ab ba` в «aba»). Потребители подсветки ждут именно
+ * возрастающий набор — соседние индексы они склеивают в диапазон по хвосту.
+ *
+ * Сортирует `indices` на месте: массив собран вызывающим и больше никому не
+ * принадлежит.
+ */
+function ascendingUnique(indices: number[]): number[] {
+    indices.sort((a, b) => a - b);
+    const unique: number[] = [];
+    for (const index of indices) {
+        if (unique.at(-1) !== index) unique.push(index);
+    }
+    return unique;
+}

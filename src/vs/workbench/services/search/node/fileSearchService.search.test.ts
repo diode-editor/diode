@@ -279,4 +279,61 @@ describe("FileSearchService — search()", () => {
             expect(results.length).toBeLessThanOrEqual(5);
         });
     });
+
+    // ── Space-separated terms ──────────────────────────────────────────────────
+
+    describe("multi-term query", () => {
+        const TREE = ["src/other.ts", "src/main.ts", "lib/other.ts"];
+
+        it("`src other` matches path + basename across the separator", async () => {
+            // The space used to go into the matcher as a literal char, so a
+            // two-word query found nothing at all.
+            ({ service, ws } = await makeService(TREE));
+            const paths = service.search("src other").map((r) => r.entry.relativePath);
+            expect(paths).toEqual(["src/other.ts"]);
+        });
+
+        it("terms may appear in any order relative to the path", async () => {
+            ({ service, ws } = await makeService(TREE));
+            const paths = service.search("other src").map((r) => r.entry.relativePath);
+            expect(paths).toEqual(["src/other.ts"]);
+        });
+
+        it("every term must match — one missing term drops the entry", async () => {
+            ({ service, ws } = await makeService(TREE));
+            expect(service.search("src zebra")).toHaveLength(0);
+        });
+
+        it("a literal space in the filename is still findable", async () => {
+            ({ service, ws } = await makeService(["file one.txt"]));
+            const paths = service.search("file one").map((r) => r.entry.relativePath);
+            expect(paths).toEqual(["file one.txt"]);
+        });
+
+        it("repeated, leading and trailing spaces behave like a single one", async () => {
+            ({ service, ws } = await makeService(TREE));
+            for (const query of ["src  other", " src other", "src other "]) {
+                const paths = service.search(query).map((r) => r.entry.relativePath);
+                expect(paths, query).toEqual(["src/other.ts"]);
+            }
+        });
+
+        it("a whitespace-only query returns everything, like an empty one", async () => {
+            ({ service, ws } = await makeService(TREE));
+            expect(service.search("   ")).toHaveLength(TREE.length);
+            expect(service.search("   ").map((r) => r.score)).toEqual([0, 0, 0]);
+        });
+
+        it("matched indices arrive ascending, in relativePath space", async () => {
+            ({ service, ws } = await makeService(["src/other.ts"]));
+            // "src/other.ts": `src` → 0..2 (directory), `other` → 4..8 (basename).
+            expect(service.search("src other")[0].matchedIndices).toEqual([0, 1, 2, 4, 5, 6, 7, 8]);
+        });
+
+        it("a basename hit still outranks a directory-only hit", async () => {
+            ({ service, ws } = await makeService(["other/src/deep.ts", "src/other.ts"]));
+            const paths = service.search("src other").map((r) => r.entry.relativePath);
+            expect(paths).toEqual(["src/other.ts", "other/src/deep.ts"]);
+        });
+    });
 });
