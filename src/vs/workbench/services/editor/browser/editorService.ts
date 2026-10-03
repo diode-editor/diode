@@ -35,6 +35,7 @@ import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.t
 import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import type { ISerializedEditor } from "../../../common/stateKeys.ts";
 import { DialogService, DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
@@ -50,6 +51,7 @@ import { EditorCloseHandler } from "./editorCloseHandler.ts";
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 import {
     createTextEditorPaneFactory,
+    EditorPaneFactoriesDIToken,
     type IEditorPaneFactory,
     type ITextEditorViewState,
 } from "./editorPaneFactory.ts";
@@ -122,6 +124,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         ILogServiceDIToken,
         LanguageConfigurationServiceDIToken,
         DialogServiceDIToken,
+        EditorPaneFactoriesDIToken,
     ] as const;
 
     /**
@@ -404,6 +407,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // Без хоста диалог не покажется: закрытие грязной вкладки в таком
         // сервисе громко упадёт, а не потеряет правки молча.
         dialogService: DialogService = new DialogService(),
+        // Фабрики вкладок из contrib (Keyboard Shortcuts, дифф); текстовая —
+        // своя, сервису она и так известна.
+        contributedPaneFactories: readonly IEditorPaneFactory<unknown>[] = [],
     ) {
         super();
         this.themeService = themeService;
@@ -417,7 +423,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.languageConfigurationService = languageConfigurationService;
         // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
-        this.paneFactories = [createTextEditorPaneFactory(this)];
+        this.paneFactories = [createTextEditorPaneFactory(this), ...contributedPaneFactories];
         this.closeHandler = new EditorCloseHandler(dialogService, {
             surfaces: () => [...this.textPanes(), ...this.diffSidePanes()],
         });
@@ -674,13 +680,50 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.fireActiveGroupChanged(target);
     }
 
-    /** Рецепт вкладки у фабрики её вида; `undefined` — повторить вкладку нельзя. */
+    /**
+     * Рецепт вкладки для сплита/копии; `undefined` — повторить вкладку нельзя
+     * (рецепта нет либо вкладка одна на окно).
+     */
     private describePane(pane: IEditorPane): { factory: IEditorPaneFactory<unknown>; descriptor: unknown } | undefined {
+        const recipe = this.recipeOf(pane);
+        return recipe?.factory.singleton === true ? undefined : recipe;
+    }
+
+    /** Рецепт вкладки у фабрики её вида. */
+    private recipeOf(pane: IEditorPane): { factory: IEditorPaneFactory<unknown>; descriptor: unknown } | undefined {
         for (const factory of this.paneFactories) {
             const descriptor = factory.describe(pane);
             if (descriptor !== undefined) return { factory, descriptor };
         }
         return undefined;
+    }
+
+    /** Вкладка → запись сессии; `undefined` — вкладка рестарт не переживает. */
+    public serializeEditor(pane: IEditorPane): ISerializedEditor | undefined {
+        const recipe = this.recipeOf(pane);
+        if (recipe === undefined) return undefined;
+        const value = recipe.factory.serialize(recipe.descriptor);
+        return value === undefined ? undefined : { typeId: recipe.factory.typeId, value };
+    }
+
+    /**
+     * Запись сессии → рецепт у фабрики её вида; `undefined` — фабрики такого
+     * вида нет (сборка новее/старее) или повторить вкладку уже нельзя: такие
+     * записи молча выпадают, как у upstream.
+     */
+    public deserializeEditor(
+        entry: ISerializedEditor,
+    ): { factory: IEditorPaneFactory<unknown>; descriptor: unknown } | undefined {
+        const factory = this.paneFactories.find((candidate) => candidate.typeId === entry.typeId);
+        if (factory === undefined) return undefined;
+        const descriptor = factory.deserialize(entry.value);
+        return descriptor === undefined ? undefined : { factory, descriptor };
+    }
+
+    /** Открыть вкладку по записи сессии (см. {@link deserializeEditor}) в группу. */
+    public openSerializedEditor(entry: ISerializedEditor, target: { group: EditorGroup; focus: boolean }): void {
+        const recipe = this.deserializeEditor(entry);
+        if (recipe !== undefined) void recipe.factory.open(recipe.descriptor, target);
     }
 
     /**
@@ -910,16 +953,19 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     /**
-     * Открывает готовую панель не-текстового вида (дифф и т.п.). Идентичность —
-     * по ресурсу в пределах группы, как и у файлов: повторный вызов переключает
-     * на существующую вкладку, а не заводит вторую.
+     * Открывает готовую панель не-текстового вида (дифф и т.п.) — в активную
+     * группу либо в указанную (рестор сессии). Идентичность — по ресурсу в
+     * пределах группы, как и у файлов: повторный вызов переключает на
+     * существующую вкладку, а не заводит вторую.
      */
-    public openPane(pane: IEditorPane, { focus = true }: { focus?: boolean } = {}): void {
-        const group = this.activeGroupValue;
+    public openPane(
+        pane: IEditorPane,
+        { focus = true, group = this.activeGroupValue }: { focus?: boolean; group?: EditorGroup } = {},
+    ): void {
         const existingIndex = group.findPaneIndex(pane.uri);
         if (existingIndex >= 0) {
             pane.dispose();
-            this.activateTab(existingIndex, { focus });
+            group.activateTab(existingIndex, { focus });
             return;
         }
         group.insertPane(pane);

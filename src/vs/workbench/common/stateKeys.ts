@@ -136,6 +136,20 @@ export const OPEN_EDITORS_STATE: IStateDescriptor<IOpenEditorsState> = {
 export interface IEditorGroupSnapshot {
     readonly files: readonly string[];
     readonly activeIndex: number;
+    /**
+     * Вкладки любого вида в порядке полосы — по рецептам фабрик вкладок (E2).
+     * Есть — рестор идёт по нему, `files` остаётся для сборок, которые
+     * `editors` не знают (откат), и для прогрева грамматик.
+     */
+    readonly editors?: readonly ISerializedEditor[];
+    /** Активная вкладка — индекс в {@link editors}; `-1` — нет. */
+    readonly activeEditor?: number;
+}
+
+/** Вкладка в сессии: вид (`typeId` фабрики) и её строка. */
+export interface ISerializedEditor {
+    readonly typeId: string;
+    readonly value: string;
 }
 
 /** Полоса групп редакторов: ось, группы, доли, активная группа (индекс). */

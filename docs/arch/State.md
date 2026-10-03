@@ -131,15 +131,22 @@ main.ts: build container ─► process.on("exit", stateService.flushSync)
   `captureOpenEditors()`; раскладка полосы групп (drag саша групп, resize,
   тумблер оси) приходит хуком `EditorPartComponent.onDidChangeGroupLayout`.
 - **Полоса групп редакторов** (сплиты): снимок `workbench.editors.groups`
-  (`{orientation, groups: [{files, activeIndex}], weights, activeGroup}`,
-  default `null`). Ось/доли/вместимость приходят срезом
+  (`{orientation, groups: [{files, activeIndex, editors?, activeEditor?}],
+  weights, activeGroup}`, default `null`). `editors` — вкладки любого вида в
+  порядке полосы, записями `{typeId, value}` фабрик вкладок
+  (`IEditorPaneFactory.serialize`, `services/editor/browser/editorPaneFactory.ts`);
+  вкладка без сериализации (untitled, `jdt:`, страница расширения) в снимок не
+  попадает. `files` пишется дальше — для сборок, не знающих `editors`, и для
+  прогрева грамматик (`getOpenEditorsToRestore`). Ось/доли/вместимость приходят срезом
   `IEditorGroupsLayoutView` (`attachEditorLayout`, реализует
   `EditorPartComponent` структурно). Плоский `workbench.editors.openEditors`
   продолжает писаться снимком активной группы — сессия совместима со сборками
   до сплитов в обе стороны (unknown-key preservation хранит групповой ключ при
-  откате). Рестор: `null` → конверсия плоского ключа в одну группу; пропавшие
-  файлы пропускаются, опустевшие группы схлопываются, лишние для текущего
-  терминала группы сливаются в последнюю влезающую (`canFitGroups`).
+  откате). Рестор: `null` → конверсия плоского ключа в одну группу; группа без
+  `editors` читается по `files` (записи текстовой фабрики); запись, которую
+  повторить уже нельзя (файл удалён, вида нет в этой сборке), молча выпадает —
+  как у upstream `IEditorSerializer`; опустевшие группы схлопываются, лишние для
+  текущего терминала группы сливаются в последнюю влезающую (`canFitGroups`).
 - **Активная вкладка нижней панели** живёт не в layout-элементе, а в
   `PanelService`, поэтому у неё свой write-through: подписка `LayoutService` на
   `onDidChangeActiveView` → `PANEL_ACTIVE_VIEW_STATE`. На restore вкладка

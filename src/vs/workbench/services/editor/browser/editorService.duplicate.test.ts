@@ -122,6 +122,22 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(events.at(-1)).toBeNull();
     });
 
+    it("запись сессии чужого вида или не-файл у текстовой фабрики — ничего не открывает", () => {
+        const target = { group: service.activeGroup, focus: false };
+
+        const notAFile = {
+            typeId: "workbench.editors.files.fileEditorInput",
+            value: Uri.from({ scheme: "untitled", path: ws.path("a.txt") }).toString(),
+        };
+
+        service.openSerializedEditor({ typeId: "workbench.editors.fromTheFuture", value: "x" }, target);
+        service.openSerializedEditor(notAFile, target);
+
+        expect(service.activeGroup.editorCount).toBe(0);
+        // Путь существует, но это не file: — текстовая фабрика такое не пишет и не читает.
+        expect(service.deserializeEditor(notAFile)).toBeUndefined();
+    });
+
     it("копия из пустой группы — no-op", () => {
         service.copyActiveEditorToGroup("next");
 
@@ -195,15 +211,32 @@ describe("EditorService — повтор вкладки без фокуса", ()
         expect(h.testApp.focusedElement).toBe(focused);
     });
 
-    it("сплит вкладки не текстового вида (Keyboard Shortcuts) — новая группа пустая", () => {
+    it("Keyboard Shortcuts одна на окно: сплит её не повторяет, копия — no-op", () => {
         const service = h.container.get(EditorServiceDIToken);
         // Провайдер на любую схему: текстовая фабрика отказывается по виду
         // вкладки, а не потому, что её схему никто не обслуживает.
         service.virtualDocumentSource = { canProvide: () => true, provide: () => Promise.resolve("x\n") };
         h.commands.execute("workbench.action.openGlobalKeybindings");
 
-        const group = service.splitActiveGroup();
+        service.copyActiveEditorToGroup("next");
+        expect(service.groups.length).toBe(1);
 
+        const group = service.splitActiveGroup();
         expect(group?.editorCount).toBe(0);
+    });
+
+    it("в сессию пишутся файл и Keyboard Shortcuts, а jdt: и untitled — нет", async () => {
+        const service = h.container.get(EditorServiceDIToken);
+        service.virtualDocumentSource = { canProvide: () => true, provide: () => Promise.resolve("x\n") };
+        await service.openUri(Uri.parse("jdt://contents/lib.jar/Lib.java"));
+        service.newUntitled();
+        h.commands.execute("workbench.action.openGlobalKeybindings");
+
+        expect(service.activeGroup.getPanes().map((pane) => service.serializeEditor(pane))).toEqual([
+            { typeId: "workbench.editors.files.fileEditorInput", value: Uri.file(ws.path("a.txt")).toString() },
+            undefined,
+            undefined,
+            { typeId: "workbench.input.keybindings", value: "" },
+        ]);
     });
 });

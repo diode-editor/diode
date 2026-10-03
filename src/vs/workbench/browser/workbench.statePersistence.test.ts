@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { Uri } from "../../base/common/uri.ts";
 import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
 import { computeWorkspaceId } from "../../platform/workspace/common/workspaceId.ts";
@@ -286,6 +287,77 @@ describe("Workbench — session state persistence", () => {
         const part = (h2.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
             .editorPartComponent;
         expect(part.weights[1]).toBeGreaterThan(part.weights[0]);
+        h2.dispose();
+    });
+
+    it("вкладка Keyboard Shortcuts переживает рестарт — на своём месте среди файлов и активной", () => {
+        const state1 = newState();
+        const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
+        h1.workbench.openFile(ws.path("a.ts"));
+        h1.commands.execute("workbench.action.openGlobalKeybindings");
+        h1.workbench.openFile(ws.path("b.ts"));
+        h1.container.get(EditorServiceDIToken).activateTab(1);
+        // Для сборок без `editors` — только файлы; активная вкладка не файл.
+        expect(state1.get(EDITOR_GROUPS_STATE)?.groups[0]).toMatchObject({
+            files: [ws.path("a.ts"), ws.path("b.ts")],
+            activeIndex: -1,
+            activeEditor: 1,
+        });
+        state1.flushSync();
+        h1.dispose();
+
+        const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: newState() });
+        const focusedBefore = h2.testApp.focusedElement;
+        h2.workbench.restoreOpenEditors();
+
+        // Рестор фокус не трогает — его расставляет старт.
+        expect(h2.testApp.focusedElement).toBe(focusedBefore);
+        const service = h2.container.get(EditorServiceDIToken);
+        expect(service.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([
+            Uri.file(ws.path("a.ts")).toString(),
+            "keybindings:global",
+            Uri.file(ws.path("b.ts")).toString(),
+        ]);
+        expect(service.activeGroup.activePane?.uri.toString()).toBe("keybindings:global");
+        // Прогрев грамматик берёт только файлы.
+        expect(h2.workbench.getOpenEditorsToRestore()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
+        h2.dispose();
+    });
+
+    it("вкладка вида, которого эта сборка не знает, молча выпадает из рестора", () => {
+        const state1 = newState();
+        state1.openWorkspace(computeWorkspaceId(ws.dir));
+        state1.store(EDITOR_GROUPS_STATE, {
+            orientation: "columns",
+            groups: [
+                {
+                    files: [ws.path("a.ts")],
+                    activeIndex: 0,
+                    editors: [
+                        { typeId: "workbench.editors.fromTheFuture", value: "x" },
+                        {
+                            typeId: "workbench.editors.files.fileEditorInput",
+                            value: Uri.file(ws.path("a.ts")).toString(),
+                        },
+                    ],
+                    activeEditor: 0,
+                },
+                { files: [], activeIndex: -1, editors: [{ typeId: "workbench.editors.fromTheFuture", value: "y" }] },
+            ],
+            weights: [0.5, 0.5],
+            activeGroup: 0,
+        });
+        state1.flushSync();
+
+        const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: newState() });
+        h2.workbench.restoreOpenEditors();
+
+        const service = h2.container.get(EditorServiceDIToken);
+        // Вторая группа из одних неизвестных вкладок не поднялась вовсе; активной
+        // вместо выпавшей стала первая уцелевшая.
+        expect(service.groups.length).toBe(1);
+        expect(service.activeGroup.getPanes().map((pane) => pane.uri.fsPath)).toEqual([ws.path("a.ts")]);
+        expect(service.activeGroup.activeIndex).toBe(0);
         h2.dispose();
     });
 
