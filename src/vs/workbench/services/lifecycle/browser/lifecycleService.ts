@@ -98,12 +98,20 @@ export class LifecycleService {
     private shutdownPromise: Promise<void> | null = null;
     private currentPhase: LifecyclePhase = "starting";
     private readonly phaseListeners = new Set<(phase: LifecyclePhase) => void>();
-    private readonly phaseWaiters = new Map<LifecyclePhase, (() => void)[]>();
+    /** Барьер на каждую фазу: `when` отдаёт его промис, переход в фазу его открывает. */
+    private readonly phaseBarriers: Readonly<Record<LifecyclePhase, IBarrier>> = {
+        starting: createBarrier(),
+        ready: createBarrier(),
+        restored: createBarrier(),
+        eventually: createBarrier(),
+    };
 
     public constructor(
         private readonly dialogService: DialogService,
         private readonly joinTimeoutMs = SHUTDOWN_JOIN_TIMEOUT_MS,
-    ) {}
+    ) {
+        this.barrier("starting").open();
+    }
 
     public get phase(): LifecyclePhase {
         return this.currentPhase;
@@ -123,8 +131,7 @@ export class LifecycleService {
         for (const next of LIFECYCLE_PHASES.slice(current + 1, target + 1)) {
             this.currentPhase = next;
             for (const listener of [...this.phaseListeners]) listener(next);
-            for (const resolve of this.phaseWaiters.get(next) ?? []) resolve();
-            this.phaseWaiters.delete(next);
+            this.barrier(next).open();
         }
     }
 
@@ -135,12 +142,11 @@ export class LifecycleService {
 
     /** Резолвится, когда фаза достигнута (сразу — если уже). */
     public when(phase: LifecyclePhase): Promise<void> {
-        if (LIFECYCLE_PHASES.indexOf(phase) <= LIFECYCLE_PHASES.indexOf(this.currentPhase)) return Promise.resolve();
-        return new Promise((resolve) => {
-            const waiters = this.phaseWaiters.get(phase) ?? [];
-            waiters.push(resolve);
-            this.phaseWaiters.set(phase, waiters);
-        });
+        return this.barrier(phase).promise;
+    }
+
+    private barrier(phase: LifecyclePhase): IBarrier {
+        return this.phaseBarriers[phase];
     }
 
     public registerShutdownParticipant(participant: IShutdownParticipant): void {
@@ -222,6 +228,19 @@ export class LifecycleService {
         }
         then();
     }
+}
+
+interface IBarrier {
+    readonly promise: Promise<void>;
+    open(): void;
+}
+
+function createBarrier(): IBarrier {
+    let open!: () => void;
+    const promise = new Promise<void>((resolve) => {
+        open = resolve;
+    });
+    return { promise, open };
 }
 
 function subscribe<T>(listeners: Set<T>, listener: T): ILifecycleSubscription {

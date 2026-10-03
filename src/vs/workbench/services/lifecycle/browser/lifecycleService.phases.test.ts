@@ -90,6 +90,10 @@ describe("LifecycleService — фазы старта", () => {
         expect(resolved).toEqual(["ready", "restored"]);
     });
 
+    it("when(starting) резолвится сразу — эта фаза наступила с рождением сервиса", async () => {
+        await expect(createLifecycle().when("starting")).resolves.toBeUndefined();
+    });
+
     it("несколько ожидающих одной фазы резолвятся все", async () => {
         const lifecycle = createLifecycle();
         const waits = [lifecycle.when("ready"), lifecycle.when("ready")];
