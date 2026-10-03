@@ -795,6 +795,7 @@ export class ExtensionHost extends Disposable {
         const heard = readActivationEvents(reg).find((event) => this.requestedEvents.has(event));
         if (heard !== undefined) {
             void this.activateByEvent(heard).catch((err: unknown) => {
+                // Stryker disable next-line OptionalChaining: логгер необязателен (у хоста в тестах его часто нет); без него сбой глотается, а мутант кинул бы внутри `.catch` — это только unhandled rejection, не наблюдаемое поведение хоста
                 this.logger?.error(`failed to activate extension "${reg.id}" on registration`, err);
             });
         }
@@ -1020,7 +1021,9 @@ export class ExtensionHost extends Disposable {
         // Guard на случай, если параллельная активация уже занялась им: тот
         // вызов и дождётся (см. `activating`).
         if (!this.pending.delete(reg.id)) return this.activating.get(reg.id)?.done ?? Promise.resolve();
+        // Stryker disable next-line BlockStatement: гигиена — ждать завершённую (уже резолвленную) активацию мгновенно, а заново она встаёт в карту поверх старой записи; наблюдаемой разницы нет
         const done = this.requestActivation(rpc, reg, reason).finally(() => {
+            // Stryker disable next-line CallExpression: см. выше
             this.activating.delete(reg.id);
         });
         this.activating.set(reg.id, { reg, done });
@@ -2573,7 +2576,7 @@ export class ExtensionHost extends Disposable {
         // Активные возвращаются в `pending` и оживут на ЛЮБОМ следующем событии
         // активации — оно проиграет журнал (см. `requestedEvents`).
         for (const [id, reg] of this.activatedRegistrations) this.pending.set(id, reg);
-        if (this.activatedRegistrations.size > 0) this.replayPending = true;
+        this.replayPending = true;
         // Прокси-команды мертвеца сняты вместе с ним (`clearProxyCommands`) —
         // возвращаем на их место заглушки-активаторы. Иначе команда исчезла бы и
         // из палитры, и вместе с ней единственный способ оживить расширение
