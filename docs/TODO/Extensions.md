@@ -96,7 +96,8 @@
       `views`/`viewsContainers` в `iExtensionManifest.ts`.
 - [ ] `extensionViewsContributor.ts` рядом с `extensionKeybindingContributor.ts`
       (декларативно, без host'а): контейнер + пустые секции с `body: null` и
-      welcome-текстом; вызов — из `main.ts` рядом с регистрацией кейбиндов.
+      welcome-текстом; набор берёт из `IExtensionService.extensions` в своём
+      DI-модуле, а не вызывается из `main.ts` (G8).
 - [ ] Команда показа контейнера расширения (`workbench.view.<id>`) —
       activity bar'а нет, переключатель командный.
 - [ ] Активация `onView:<id>` (Phase 7 закрывает `onCommand:*`, это следующее).
