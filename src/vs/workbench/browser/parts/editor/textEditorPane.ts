@@ -306,6 +306,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         return this.component.onDidChangeCursorPosition(listener);
     }
 
+    /** Набор печатного символа с клавиатуры (upstream `ICodeEditor.onDidType`). */
+    public onDidType(listener: (text: string) => void): IDisposable {
+        return this.component.onDidType(listener);
+    }
+
     public getCaretAnchor(): OverlayAnchorPosition | null {
         return this.component.getCaretAnchor();
     }
