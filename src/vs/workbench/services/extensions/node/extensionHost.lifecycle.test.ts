@@ -967,6 +967,141 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceContains)');
     });
 
+    it("без смерти субпроцесса событие проход по папкам не запускает — ни первое, ни последующие", async () => {
+        const child = new FakeChild();
+        let scans = 0;
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: {
+                exists: () => {
+                    scans++;
+                    // Совпало бы — проход поднял бы расширение.
+                    return Promise.resolve(true);
+                },
+                readDirectory: () => Promise.resolve([]),
+            },
+        });
+        host.registerExtension({ ...makeReg("ext.java", "/j.js"), activationEvents: ["workspaceContains:pom.xml"] });
+        host.registerExtension(makeReg("ext.a", "/a.js"));
+
+        await host.activateByEvent("*");
+        await host.activateByEvent("onLanguage:markdown");
+
+        expect(scans).toBe(0);
+        expect(host.hasExtension("ext.a")).toBe(true);
+        expect(host.hasExtension("ext.java")).toBe(false);
+        host.dispose();
+    });
+
+    it("событие не ждёт чужую активацию в полёте — только своих расширений", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension({ ...makeReg("ext.slow", "/s.js"), activationEvents: ["onLanguage:java"] });
+        child.autoRespond = false;
+        void host.activateByEvent("onLanguage:java");
+        await waitUntil(() => activated(child, "ext.slow"));
+
+        // Событию без своих расширений ждать нечего — `ext.slow` его не держит.
+        await expect(host.activateByEvent("onLanguage:markdown")).resolves.toBeUndefined();
+        host.dispose();
+    });
+
+    it("поднятое проходом workspaceContains оживает на любом событии: журнал проигрывается вместе с проходом", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: {
+                exists: (absolutePath: string) => Promise.resolve(absolutePath.endsWith("pom.xml")),
+                readDirectory: () => Promise.resolve([]),
+            },
+        });
+        host.registerExtension({ ...makeReg("ext.java", "/j.js"), activationEvents: ["workspaceContains:pom.xml"] });
+        armNextChild();
+        await host.activateByWorkspaceContains();
+        expect(host.hasExtension("ext.java")).toBe(true);
+        const first = spawnMock.mock.results.at(-1)?.value as FakeChild;
+
+        first.simulateExit(1);
+        const next = armNextChild();
+        // Событие ни при чём — повод у оживления свой: журнал + проход по ФС.
+        await host.activateByEvent("onLanguage:markdown");
+
+        expect(activated(next, "ext.java")).toBe(true);
+        expect(host.hasExtension("ext.java")).toBe(true);
+        host.dispose();
+    });
+
+    it("событие до регистрации не теряется: расширение встаёт на самой регистрации", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await host.activateByEvent("onLanguage:python");
+        // Субпроцесс поднимется только на регистрации — ready-ответ вешаем на spawn.
+        armNextChild();
+
+        host.registerExtension({ ...makeReg("ext.py", "/py.js"), activationEvents: ["onLanguage:python"] });
+        host.registerExtension({ ...makeReg("ext.go", "/go.js"), activationEvents: ["onLanguage:go"] });
+
+        await waitUntil(() => host.hasExtension("ext.py"));
+        expect(host.hasExtension("ext.go")).toBe(false);
+        host.dispose();
+    });
+
+    it("активация на регистрации, у которой host не поднялся, пишется в лог", async () => {
+        const logger = makeLogger();
+        const host = spawnReadyHost(new FakeChild(), new FakeEditorOptions(), { logger });
+        await host.activateByEvent("onLanguage:python");
+        spawnMock.mockImplementation(() => {
+            throw new Error("spawn failed");
+        });
+
+        host.registerExtension({ ...makeReg("ext.py", "/py.js"), activationEvents: ["onLanguage:python"] });
+
+        await waitUntil(() => logger.error.mock.calls.length > 0);
+        expect(logger.error).toHaveBeenCalledWith(
+            'failed to activate extension "ext.py" on registration',
+            expect.anything(),
+        );
+        host.dispose();
+    });
+
+    it("регистрацию сняли, пока поднимался субпроцесс, — активация тихо её пропускает", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        const registration = host.registerExtension(makeReg("ext.a", "/a.js"));
+
+        const activation = host.activateByEvent("*");
+        // Субпроцесс ещё не ответил ready — снимаем расширение из очереди.
+        registration.dispose();
+
+        await expect(activation).resolves.toBeUndefined();
+        expect(host.hasExtension("ext.a")).toBe(false);
+        expect(activated(child, "ext.a")).toBe(false);
+        host.dispose();
+    });
+
+    it("activateByEvent дожидается расширения, которое уже поднимает другой вызов", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        host.registerExtension(makeReg("ext.a", "/a.js"));
+        child.autoRespond = false;
+
+        const first = host.activateByEvent("*");
+        await waitUntil(() => activated(child, "ext.a"));
+        let secondDone = false;
+        const second = host.activateByEvent("*").then(() => {
+            secondDone = true;
+        });
+        // Даём промисам отыграть целиком (макротаск, а не один микротаск).
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        // Ответа на activateExtension ещё нет — второй вызов не врёт «готово».
+        expect(secondDone).toBe(false);
+
+        const req = child.sent.find((m) => m.kind === "req" && m.method === "host.activateExtension");
+        if (req?.kind === "req") child.receiveFromHostPeer({ kind: "res", id: req.id, result: null });
+        await Promise.all([first, second]);
+        expect(host.hasExtension("ext.a")).toBe(true);
+    });
+
     it("ничего не подошло и оживлять некого — субпроцесс не поднимается", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {

@@ -573,12 +573,23 @@ export class ExtensionHost extends Disposable {
     /** Регистрации уже активированных расширений (нужны для оживления после смерти субпроцесса). */
     private readonly activatedRegistrations = new Map<string, IExtensionRegistration>();
     /**
-     * Расширения, пережившие смерть субпроцесса. Поднимаются на ЛЮБОМ
-     * следующем событии активации, а не только на «своём»: их событие
+     * Журнал запрошенных событий активации (как `_allRequestedActivateEvents`
+     * эталона): {@link activateByEvent} пишет в него всегда, даже когда
+     * подходящих расширений нет. По нему встают расширения, зарегистрированные
+     * после своего события, и оживают пережившие смерть субпроцесса: их событие
      * (`onStartupFinished`, `onLanguage:<уже открытый язык>`) давно отгорело и
-     * второй раз не наступит, а расширение было активно и должно вернуться.
+     * второй раз не наступит. `workspaceContains:` в журнал не пишется — его
+     * повод заново считается по ФС.
      */
-    private readonly toRevive = new Map<string, IExtensionRegistration>();
+    private readonly requestedEvents = new Set<string>();
+    /**
+     * Субпроцесс умер с активными расширениями (они вернулись в `pending`):
+     * ЛЮБОЕ следующее событие активации сперва проигрывает журнал. Лениво, а
+     * не сразу при смерти, — краш-петлю не устраиваем.
+     */
+    private replayPending = false;
+    /** Активации в полёте (id → регистрация и промис): их ждут и соседние вызовы. */
+    private readonly activating = new Map<string, { reg: IExtensionRegistration; done: Promise<void> }>();
     /**
      * Зарегистрированные, но ещё не активированные расширения (id → reg).
      * Заполняется `registerExtension`, опустошается `activateByEvent` по мере
@@ -649,9 +660,9 @@ export class ExtensionHost extends Disposable {
     private readonly workspaceScanner: IWorkspaceScanner;
     /**
      * ВСЕ известные хосту регистрации в порядке появления — источник каталога
-     * `vscode.extensions`. Отдельно от `pending`/`activatedRegistrations`/
-     * `toRevive`: те три описывают фазу жизненного цикла и по ходу дела
-     * перекладывают записи между собой, а состав каталога от фазы не зависит.
+     * `vscode.extensions`. Отдельно от `pending`/`activatedRegistrations`: те
+     * описывают фазу жизненного цикла и по ходу дела перекладывают записи
+     * между собой, а состав каталога от фазы не зависит.
      */
     private readonly registrations = new Map<string, IExtensionRegistration>();
     /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
@@ -745,7 +756,7 @@ export class ExtensionHost extends Disposable {
      */
     public registerExtension(reg: IExtensionRegistration): IDisposable {
         if (this.hostDisposed) throw new Error("ExtensionHost disposed");
-        if (this.extensions.has(reg.id) || this.pending.has(reg.id) || this.toRevive.has(reg.id)) {
+        if (this.extensions.has(reg.id) || this.pending.has(reg.id)) {
             throw new Error(`Extension "${reg.id}" already registered`);
         }
         // Инвариант загрузки: ровно один способ (source XOR mainPath). Проверяем
@@ -780,6 +791,15 @@ export class ExtensionHost extends Disposable {
         for (const id of readCommandActivationIds(reg)) this.armCommandActivation(id);
         // Состав каталога изменился — субпроцессу это `extensions.onDidChange`.
         this.pushExtensionCatalog();
+        // Событие расширения уже звучало (как `_activateAddedExtensionIfNeeded`
+        // эталона) — встаёт сразу, а не ждёт повтора, которого может и не быть.
+        const heard = readActivationEvents(reg).find((event) => this.requestedEvents.has(event));
+        if (heard !== undefined) {
+            void this.activateRegistrations([reg], heard).catch((err: unknown) => {
+                // Stryker disable next-line OptionalChaining: логгер необязателен (у хоста в тестах его часто нет); без него сбой глотается, а мутант кинул бы внутри `.catch` — это только unhandled rejection, не наблюдаемое поведение хоста
+                this.logger?.error(`failed to activate extension "${reg.id}" on registration`, err);
+            });
+        }
         return {
             dispose: (): void => {
                 // Уже снято (например, через unregisterExtension) — полный
@@ -793,8 +813,7 @@ export class ExtensionHost extends Disposable {
                 for (const id of readCommandActivationIds(reg)) {
                     if (!this.isCommandActivationClaimed(id)) this.disarmCommandActivation(id);
                 }
-                if (this.toRevive.delete(reg.id)) return; // ждало оживления — уже не ждёт
-                if (this.pending.delete(reg.id)) return; // ещё не активировано
+                if (this.pending.delete(reg.id)) return; // ещё не активировано (или ждёт оживления)
                 // Осталась одна фаза — активное расширение; собственный гард
                 // на это держит сам unregisterExtension, второго не надо.
                 void this.unregisterExtension(reg.id);
@@ -841,14 +860,38 @@ export class ExtensionHost extends Disposable {
      * уходит `host.activateExtension`.
      */
     public async activateByEvent(event: string): Promise<void> {
-        // Disposed-случай покрыт неявно: dispose() чистит и `pending`, и
-        // `toRevive`, поэтому набор окажется пустым и метод выйдет до
-        // ensureSubprocess.
-        const toActivate: IExtensionRegistration[] = [];
-        for (const reg of this.pending.values()) {
-            if (readActivationEvents(reg).includes(event)) toActivate.push(reg);
+        this.requestedEvents.add(event);
+        // Расширение события, которое уже поднимает другой вызов (регистрация
+        // после события, соседнее стартовое событие), тоже дождаться: промис
+        // `activateByEvent` значит «расширения этого события активны».
+        const inFlight = [...this.activating.values()]
+            .filter((activation) => readActivationEvents(activation.reg).includes(event))
+            .map((activation) => activation.done);
+        if (this.replayPending) {
+            await Promise.all([this.replayJournal(event), ...inFlight]);
+            return;
         }
-        await this.activateRegistrations(toActivate, event);
+        // Disposed-случай покрыт неявно: dispose() чистит `pending`, поэтому
+        // набор окажется пустым и метод выйдет до ensureSubprocess.
+        await Promise.all([this.activateRegistrations(this.pendingMatching([event]), event), ...inFlight]);
+    }
+
+    /** Ожидающие активации расширения, чьи события есть среди `events`. */
+    private pendingMatching(events: readonly string[]): IExtensionRegistration[] {
+        return [...this.pending.values()].filter((reg) =>
+            readActivationEvents(reg).some((event) => events.includes(event)),
+        );
+    }
+
+    /**
+     * Оживление после смерти субпроцесса: событие `reason`, каким бы оно ни
+     * было, проигрывает весь журнал (он уже содержит и само событие), затем —
+     * проход `workspaceContains:` (его повод в журнал не пишется).
+     */
+    private async replayJournal(reason: string): Promise<void> {
+        this.replayPending = false;
+        await this.activateRegistrations(this.pendingMatching([...this.requestedEvents]), reason);
+        await this.activateByWorkspaceContains();
     }
 
     /**
@@ -863,6 +906,11 @@ export class ExtensionHost extends Disposable {
      * `pending` ушло, и второй обход его не касается.
      */
     public async activateByWorkspaceContains(): Promise<void> {
+        // Проигрыш журнала сам заканчивается этим же проходом.
+        if (this.replayPending) {
+            await this.replayJournal("workspaceContains");
+            return;
+        }
         const candidates: { reg: IExtensionRegistration; patterns: IWorkspaceContainsPatterns }[] = [];
         for (const reg of this.pending.values()) {
             const patterns = readWorkspaceContainsPatterns(reg);
@@ -878,16 +926,8 @@ export class ExtensionHost extends Disposable {
             const result = await this.matchWorkspaceContainsWithTimeout(candidate.reg.id, folders, candidate.patterns);
             if (result.pattern !== null) matched.push({ reg: candidate.reg, pattern: result.pattern });
         }
-        // Ничего не подошло — но заход всё равно один: оживление после смерти
-        // субпроцесса висит на ЛЮБОМ событии активации (см. `toRevive`), а этот
-        // метод такое же событие, как остальные. Пустой набор без оживляемых
-        // `activateRegistrations` отбивает сам, не поднимая субпроцесс.
-        if (matched.length === 0) {
-            await this.activateRegistrations([], "workspaceContains");
-            return;
-        }
         // По одному: каждое расширение поднято своим паттерном, и в логе должна
-        // стоять именно его причина. Оживляемых подмешивает первый же заход.
+        // стоять именно его причина.
         for (const hit of matched) {
             await this.activateRegistrations([hit.reg], `workspaceContains:${hit.pattern}`);
         }
@@ -965,11 +1005,9 @@ export class ExtensionHost extends Disposable {
      * Общий хвост активации: поднять subprocess и прогнать `host.activateExtension`
      * по набору регистраций. `reason` — что именно их подняло; идёт в лог и
      * больше никуда (расширение о поводе своей активации не узнаёт, как и в
-     * эталоне). Расширения, пережившие смерть субпроцесса (`toRevive`),
-     * добавляются к ЛЮБОМУ набору — их собственное событие давно отгорело.
+     * эталоне).
      */
-    private async activateRegistrations(regs: readonly IExtensionRegistration[], reason: string): Promise<void> {
-        const toActivate = [...this.toRevive.values(), ...regs];
+    private async activateRegistrations(toActivate: readonly IExtensionRegistration[], reason: string): Promise<void> {
         if (toActivate.length === 0) return;
         // Спавним subprocess ОДИН раз до активации: сбой хоста (spawn/ready) — это не
         // проблема конкретного расширения, он пробрасывается наверх.
@@ -980,9 +1018,20 @@ export class ExtensionHost extends Disposable {
         await Promise.all(toActivate.map((reg) => this.activateRegistration(rpc, reg, reason)));
     }
 
-    private async activateRegistration(rpc: RpcEndpoint, reg: IExtensionRegistration, reason: string): Promise<void> {
-        // Guard на случай, если параллельная активация уже занялась им.
-        if (!this.pending.delete(reg.id) && !this.toRevive.delete(reg.id)) return;
+    private activateRegistration(rpc: RpcEndpoint, reg: IExtensionRegistration, reason: string): Promise<void> {
+        // Guard на случай, если параллельная активация уже занялась им: тот
+        // вызов и дождётся (см. `activating`).
+        if (!this.pending.delete(reg.id)) return this.activating.get(reg.id)?.done ?? Promise.resolve();
+        // Stryker disable next-line BlockStatement: гигиена — ждать завершённую (уже резолвленную) активацию мгновенно, а заново она встаёт в карту поверх старой записи; наблюдаемой разницы нет
+        const done = this.requestActivation(rpc, reg, reason).finally(() => {
+            // Stryker disable next-line CallExpression: см. выше
+            this.activating.delete(reg.id);
+        });
+        this.activating.set(reg.id, { reg, done });
+        return done;
+    }
+
+    private async requestActivation(rpc: RpcEndpoint, reg: IExtensionRegistration, reason: string): Promise<void> {
         // Per-extension изоляция: упавший `activate()` одного расширения не
         // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
         const storage = this.resolveStoragePaths(reg.id);
@@ -1752,9 +1801,8 @@ export class ExtensionHost extends Disposable {
         if (this.hostDisposed) return;
         this.hostDisposed = true;
         this.pending.clear();
-        this.toRevive.clear();
         this.extensions.clear();
-        // Stryker disable next-line CallExpression: гигиена — после dispose карту уже никто не читает (оживление отсекает пустой toRevive), наблюдаемой разницы нет
+        // Stryker disable next-line CallExpression: гигиена — после dispose карту уже никто не читает (ожившим некуда вернуться: `pending` пуст и регистраций больше не принимает), наблюдаемой разницы нет
         this.activatedRegistrations.clear();
         // Stryker disable next-line CallExpression: гигиена — каталог после dispose никто не запрашивает (субпроцесса уже нет), наблюдаемой разницы нет
         this.registrations.clear();
@@ -2506,16 +2554,19 @@ export class ExtensionHost extends Disposable {
         if (this.subprocess !== child) return;
         this.logger?.warn("extension host subprocess died — resetting host state");
         this.resetSubprocessState();
-        for (const [id, reg] of this.activatedRegistrations) this.toRevive.set(id, reg);
-        this.activatedRegistrations.clear();
-        this.extensions.clear();
+        // Активные возвращаются в `pending` и оживут на ЛЮБОМ следующем событии
+        // активации — оно проиграет журнал (см. `requestedEvents`).
+        for (const [id, reg] of this.activatedRegistrations) this.pending.set(id, reg);
+        this.replayPending = true;
         // Прокси-команды мертвеца сняты вместе с ним (`clearProxyCommands`) —
         // возвращаем на их место заглушки-активаторы. Иначе команда исчезла бы и
         // из палитры, и вместе с ней единственный способ оживить расширение
-        // руками: `toRevive` ждёт события активации, а команда им и была.
-        for (const reg of this.toRevive.values()) {
+        // руками: оживление ждёт события активации, а команда им и была.
+        for (const reg of this.activatedRegistrations.values()) {
             for (const id of readCommandActivationIds(reg)) this.armCommandActivation(id);
         }
+        this.activatedRegistrations.clear();
+        this.extensions.clear();
     }
 
     private async shutdownSubprocess(): Promise<void> {
