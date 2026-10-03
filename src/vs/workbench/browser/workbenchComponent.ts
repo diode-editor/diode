@@ -115,11 +115,11 @@ export const WorkbenchComponentDIToken = token<WorkbenchComponent>("WorkbenchCom
  *
  * Фич-проводка (подписки на события, live-reload темы, контекст-меню и т.п.) —
  * НЕ здесь, а в самодостаточных workbench-contribution'ах: корень лишь прогоняет
- * их по фазам через реестр (`Restored` — в {@link mount}, `Eventually` — из
- * `main.ts` через {@link runEventuallyPhase}). См. `Contributions/`.
+ * их по фазам `LifecycleService` через реестр (`ready` двигает {@link mount},
+ * `eventually` — стартовая последовательность после первого кадра).
  *
  * Единственный компонент с жизненным циклом за пределами конструктора: у корня
- * есть реальная bootstrap-последовательность, которую ведёт `main.ts`
+ * есть реальная стартовая последовательность, которую ведёт `diode/workbenchStartup.ts`
  * (mount → activate → open/restore файлов) — см. {@link mount}/{@link activate}.
  * Выхода здесь нет: его ведут `quitAction` и `LifecycleService.shutdown`.
  */
@@ -162,7 +162,7 @@ export class WorkbenchComponent extends Component {
     private workbenchState: WorkbenchStateService;
     private terminalEnv: TerminalEnvironmentService;
     private dispatcher: KeybindingDispatcher;
-    private contributionsRegistry: WorkbenchContributionsRegistry;
+    private lifecycleService: LifecycleService;
     /**
      * Взведён в {@link mount}. Отличает бутстрап (там единственную загрузку
      * дерева await'ит `activate()`) от смены корня на живом приложении, где
@@ -186,6 +186,7 @@ export class WorkbenchComponent extends Component {
         this.themeService = themeService;
         this.terminalEnv = terminalEnv;
         this.dialogService = this.register(dialogService);
+        this.lifecycleService = lifecycleService;
         // Несохранённые редакторы участвуют в confirm-save последовательности выхода.
         lifecycleService.registerShutdownParticipant(editorService);
         this.editorService = this.register(editorService);
@@ -275,9 +276,15 @@ export class WorkbenchComponent extends Component {
         this.viewsService = accessor.get(ViewsServiceDIToken);
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
         // Реестр workbench-contributions: фич-проводка вынесена в самодостаточные
-        // contribution-классы (статус-бар и пр.). Реестр инстанцирует их по фазам:
-        // Restored — в mount(), Eventually — из main.ts после первого кадра.
-        this.contributionsRegistry = this.register(accessor.get(WorkbenchContributionsRegistryDIToken));
+        // contribution-классы (статус-бар и пр.). Реестр инстанцирует их по фазам
+        // жизненного цикла, синхронно в момент перехода: `ready` наступает в
+        // mount(), `eventually` — после первого кадра (workbenchStartup).
+        const contributionsRegistry = this.register(accessor.get(WorkbenchContributionsRegistryDIToken));
+        this.register(
+            lifecycleService.onDidChangePhase((phase) => {
+                contributionsRegistry.instantiateByPhase(phase);
+            }),
+        );
 
         this.workbenchLayout = new WorkbenchLayoutElement();
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
@@ -368,10 +375,10 @@ export class WorkbenchComponent extends Component {
         // setWorkspaceFolder на бутстрапе именно поэтому и впустую — он нужен
         // команде Open Folder, которая меняет воркспейс на уже собранном сайдбаре.
         this.viewsService.restoreViewsState();
-        // Фаза Restored: view построена, лёгкие сервисы готовы — инстанцируем
+        // Фаза Ready: view построена, лёгкие сервисы готовы — реестр инстанцирует
         // contribution'ы этой фазы (статус-бар и пр.). Между конструктором и mount
         // ни один редактор не открывается → эквивалентно прежней проводке в ctor.
-        this.contributionsRegistry.instantiateByPhase("restored");
+        this.lifecycleService.setPhase("ready");
         // Capture-phase listeners run before the focused widget (the target),
         // so while a chord is in progress they can swallow keys entirely —
         // keeping them out of the editor whether or not they match a command.
@@ -415,15 +422,6 @@ export class WorkbenchComponent extends Component {
         this.terminalEnv.detect();
         await this.editorService.activate();
         await this.explorerService.refresh();
-    }
-
-    /**
-     * Фаза Eventually: idle после первого кадра. Запускает `main.ts` через
-     * `setImmediate` (mount() идёт до `app.run()`, поэтому из mount фаза сработала
-     * бы раньше кадра). Инстанцирует отложенные/тяжёлые contribution'ы.
-     */
-    public runEventuallyPhase(): void {
-        this.contributionsRegistry.instantiateByPhase("eventually");
     }
 
     public openFile(filePath: string): void {

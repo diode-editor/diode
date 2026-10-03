@@ -15,7 +15,6 @@ import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
 import { describeRejection } from "../base/common/describeRejection.ts";
 import { mark } from "../base/common/performance.ts";
-import { Uri } from "../base/common/uri.ts";
 import { DIODE_VERSION } from "../base/common/version.ts";
 import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAssetAccess.ts";
 import { FsAssetAccess } from "../base/node/assets/fsAssetAccess.ts";
@@ -25,7 +24,6 @@ import { currentProcessSnapshot, realRestartHooks, restartProcess } from "../bas
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
 import { OscClipboard } from "../platform/clipboard/common/oscClipboard.ts";
-import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../platform/configuration/common/configurationRegistry.ts";
 import { loadConfiguration } from "../platform/configuration/node/configurationService.ts";
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
@@ -48,7 +46,6 @@ import type { ICommandContribution } from "../platform/extensions/common/iExtens
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
 import { runTreeWatcherSubprocess } from "../platform/files/node/treeWatcherMain.ts";
-import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
 import { TuiApplicationDIToken } from "../platform/layout/browser/tuiApplicationDIToken.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
@@ -60,7 +57,6 @@ import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.t
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
-import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
 import { ExtensionThemeContributor } from "../workbench/services/extensions/common/extensionThemeContributor.ts";
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
 import { ExtensionHostDIToken } from "../workbench/services/extensions/node/extensionHost.ts";
@@ -79,6 +75,7 @@ import { curatedConfigInjection } from "./curatedConfigInjection.ts";
 import { createProductionContainer } from "./modules/productionProfile.ts";
 import { runAsNode } from "./runAsNode.ts";
 import { setupStartupTrace, TracingNodeTerminalBackend, writeStartupTrace } from "./startupTrace.ts";
+import { startWorkbench } from "./workbenchStartup.ts";
 
 // ── Subprocess branch ─────────────────────────────────────
 // Если нас запустили не редактором, а в служебной роли, уходим в её entry до
@@ -400,239 +397,200 @@ async function runEditor(): Promise<void> {
     });
 
     const app = container.get(TuiApplicationDIToken);
-    const workbench = container.get(WorkbenchComponentDIToken);
     // Поднимаем extension host. Регистрация расширений с `manifest.main` (builtin +
-    // user) — ниже, ПОСЛЕ setWorkspaceFolder + openFile (чтобы workspaceFolders и
-    // activeTextEditor были доступны на момент `activate()`).
+    // user) — в фазе `restored`, ПОСЛЕ setWorkspaceFolder + openFile (чтобы
+    // workspaceFolders и activeTextEditor были доступны на момент `activate()`).
     const extensionHost = container.get(ExtensionHostDIToken);
-
-    // `contributes.keybindings` расширений — регистрируем ПОСЛЕ builtin-биндингов
-    // (они заведены при построении WorkbenchComponent), чтобы расширение могло
-    // переопределить встроенный аккорд. Декларативно, без extension host'а.
-    registerExtensionKeybindings(allExtensions, container.get(KeybindingRegistryDIToken), extensionsLogger);
-
-    // Папка воркспейса — только если её назвали явно. Без неё окно поднимается
-    // пустым: ни Explorer-корня, ни индекса файлов, ни workspaceFolders у
-    // расширений (и, значит, никакого обхода текущего каталога).
-    if (targets.folder !== undefined) {
-        workbench.setWorkspaceFolder(targets.folder);
-    }
-
-    app.root = workbench.view;
-    workbench.mount();
-    app.run();
-    mark("workbench:mounted");
-
-    // TUIDom-инспектор: поднимаем WebSocket-сервер только по `--inspect-tui`.
-    // Сервер читает дерево лениво (на момент getDocument), поэтому ок поднять
-    // его до openFile — клиент увидит актуальное дерево, когда подключится.
-    // Логируем порт только в logService: писать в stderr нельзя — он уходит в
-    // тот же pty и испортит TUI-рендер.
-    if (cli.inspectTui !== undefined) {
-        // В headless-режиме инспектор получает driver: инъекция ввода + захват
-        // кадра. В обычном режиме driver нет — инспектор остаётся read-only.
-        const driver: InspectorDriver | undefined =
-            headlessBackend === null
-                ? undefined
-                : {
-                      sendKey: (name) => {
-                          headlessBackend.sendKey(name);
-                      },
-                      sendText: (text) => {
-                          headlessBackend.sendPaste(text);
-                      },
-                      sendMouse: (params) => {
-                          // Протокол говорит в 0-based экранных ячейках (как box узла),
-                          // терминальные последовательности — в 1-based.
-                          headlessBackend.sendMouse({ ...params, x: params.x + 1, y: params.y + 1 });
-                      },
-                      resize: (cols, rows) => {
-                          headlessBackend.resize(new Size(cols, rows));
-                      },
-                      captureFrame: async () => {
-                          // Слить кадр, отложенный на setImmediate (scheduleRender),
-                          // прежде чем снять снимок.
-                          await new Promise<void>((resolve) => setImmediate(resolve));
-                          return headlessBackend.captureFrame();
-                      },
-                      waitForIdle: (params) =>
-                          // «Рендер устоялся»: считаем кадры приложения, а не гадаем sleep.
-                          waitForIdle(
-                              { frameCount: () => app.frameCount, isRenderScheduled: () => app.isRenderScheduled },
-                              params,
-                          ),
-                      shutdown: () => {
-                          // Отложенно, чтобы RPC-ответ успел уйти до выхода.
-                          setImmediate(() => {
-                              void lifecycle.shutdown("inspector", () => process.exit(0));
-                          });
-                      },
-                  };
-        const inspector = await attachInspector(app, cli.inspectTui, driver);
-        // Порт освобождается до выхода: перезагруженное окно займёт тот же.
-        lifecycle.onShutdownSync(() => {
-            inspector.dispose();
-        });
-        bootstrapLogger.info("TUIDom inspector listening", {
-            host: cli.inspectTui.host,
-            port: inspector.port,
-            headless: headlessBackend !== null,
-        });
-    }
-
-    await workbench.activate();
-    mark("workbench:activated");
-    const explicitFiles = targets.files;
-    const diffSides = targets.diff === undefined ? [] : [targets.diff.original, targets.diff.modified];
-    // Что откроется на старте — для прогрева грамматик. Явные файлы (и стороны
-    // диффа) перебивают сохранённую сессию (как `code file.ts`); без них сессию
-    // восстанавливаем, но только когда есть воркспейс: у пустого окна сессии нет.
-    let startupFiles: readonly string[];
-    if (diffSides.length > 0) {
-        startupFiles = diffSides;
-    } else if (explicitFiles.length > 0) {
-        startupFiles = explicitFiles.map((f) => f.path);
-    } else if (targets.folder !== undefined) {
-        startupFiles = workbench.getOpenEditorsToRestore();
-    } else {
-        startupFiles = [];
-    }
-    // Грамматики стартовых файлов ждём ДО открытия — иначе первый кадр вкладки
-    // покажет неподсвеченный текст, а цвета доедут репейнтом. Ждём именно те
-    // языки, что открываются (обычно один, ~2 мс), а не все 77 грамматик (~420 мс);
-    // остальные догоняет фоновый preloadAll ниже. После openFile ждать поздно:
-    // await отдаёт event loop, и отложенный рендер успевает нарисовать кадр.
-    await preloadGrammarsForFiles(startupFiles, languageRegistry, tokenizationRegistry);
-    mark("main:grammars-preloaded");
-    if (targets.diff !== undefined) {
-        // Тот же вход, что у расширений (`vscode.diff`): сторон-снимков тут нет,
-        // отсутствующий файл легитимно даёт пустую сторону.
-        await container
-            .get(CommandRegistryDIToken)
-            .execute("vscode.diff", Uri.file(targets.diff.original), Uri.file(targets.diff.modified));
-    } else if (explicitFiles.length > 0) {
-        for (const file of explicitFiles) workbench.openFile(file.path);
-        // `--goto`: каретка в указанную позицию последнего открытого файла —
-        // он же активный. Координаты CLI 1-based, редактора — 0-based.
-        const last = explicitFiles.at(-1);
-        if (last?.line !== undefined) {
-            container
-                .get(EditorServiceDIToken)
-                .getActiveEditor()
-                ?.goToPosition(last.line - 1, (last.column ?? 1) - 1);
-        }
-    } else if (targets.folder !== undefined) {
-        // Иначе восстанавливаем открытые файлы прошлой сессии этого воркспейса.
-        workbench.restoreOpenEditors();
-    }
-    workbench.focusEditor();
-    // Вкладки с файлами созданы; кадр с текстом — первый `frame` после этой вехи.
-    mark("main:files-opened", { files: startupFiles.length });
-
-    // Регистрируем пользовательские расширения с `manifest.main` в extension host.
-    // `registerExtension` — только bookkeeping (subprocess не поднимается);
-    // реальная активация — событийная (`activateByEvent` ниже) по `activationEvents`.
-    // Регистрируем ПОСЛЕ openFile, чтобы к моменту стартовых событий activeTextEditor
-    // был доступен на `activate()`.
-    for (const ext of userExtensions) {
-        if (typeof ext.manifest.main !== "string" || ext.manifest.main === "") continue;
-        const dirName = ext.location.slice(USER_PREFIX.length).replace(/\/$/, "");
-        const extensionPath = path.resolve(userDataPaths.extensionsDir, dirName);
-        const mainPath = path.resolve(extensionPath, ext.manifest.main);
-        try {
-            const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
-            const reg: IExtensionRegistration = {
-                id: ext.id,
-                // Манифест целиком, а не тройка имя/издатель/версия: он же едет
-                // расширениям как `Extension.packageJSON` в `vscode.extensions`,
-                // и соседа по нему детектят не только по id (у AI-автодополнений
-                // в ходу `contributes`, `categories`, `engines`).
-                manifest: ext.manifest,
-                mainPath,
-                extensionPath,
-                configDefaults: {
-                    ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
-                    ...curatedConfigInjection(ext.id),
-                },
-                commandTitles: commandMeta.titles,
-                commandCategories: commandMeta.categories,
-                activationEvents: ext.manifest.activationEvents,
-            };
-            extensionHost.registerExtension(reg);
-        } catch (err) {
-            extensionsLogger.error(`${ext.id}: failed to register`, err);
-        }
-    }
-
-    // Регистрируем builtin code-расширения (например встроенный `git`): их
-    // скомпилированный `out/extension.cjs` читаем из `assets` (dev — FsAssetAccess,
-    // SEA — BundleAssetAccess, единый вызов) и грузим строкой-исходником, которую
-    // subprocess компилирует в памяти через Module._compile — без записи на диск.
-    for (const ext of builtinExtensions) {
-        const main = ext.manifest.main;
-        if (typeof main !== "string" || main === "") continue;
-        try {
-            const virtualPath = joinVirtualPath(ext.location, main);
-            const source = await assets.readText(virtualPath);
-            const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
-            const reg: IExtensionRegistration = {
-                id: ext.id,
-                // Целиком — как у user-расширений выше: это `packageJSON`
-                // встроенного расширения в каталоге `vscode.extensions`.
-                manifest: ext.manifest,
-                source,
-                // Синтетический абсолютный путь-идентичность (реального файла под SEA нет).
-                filename: `/${virtualPath}`,
-                configDefaults: {
-                    ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
-                    ...builtinConfigInjection(ext.manifest.name, extensionsLogger),
-                },
-                commandTitles: commandMeta.titles,
-                commandCategories: commandMeta.categories,
-                activationEvents: ext.manifest.activationEvents,
-            };
-            extensionHost.registerExtension(reg);
-        } catch (err) {
-            extensionsLogger.error(`${ext.id}: failed to register (builtin)`, err);
-        }
-    }
-    mark("main:extensions-registered");
-
-    // Фаерим стартовые события активации. Порядок: eager `*` → `onLanguage:*` для
-    // языка уже открытого активного редактора → `onStartupFinished` →
-    // `workspaceContains:*`. Последующие `onLanguage:*` (переключение/открытие
-    // вкладок) фаерит ExtensionHostModule через `EditorService.onActiveEditorChanged`,
-    // а повторный `workspaceContains:` — по смене корня воркспейса. Расширения без
-    // `activationEvents` трактуются как `["*"]` — активируются здесь же.
-    // `workspaceContains:` идёт последним осознанно: это единственное событие,
-    // которому нужен обход дерева, и держать на нём соседей незачем.
-    // Per-extension сбои activate() изолирует сам ExtensionHost (log + continue);
-    // здесь ловим host-level сбой (subprocess не поднялся) — редактор не должен
-    // падать из-за нерабочего extension host'а, просто без расширений.
-    try {
-        await extensionHost.activateByEvent("*");
-        const activeLanguageId = container.get(EditorServiceDIToken).getActiveEditor()?.languageId;
-        if (activeLanguageId !== undefined) {
-            await extensionHost.activateByEvent(`onLanguage:${activeLanguageId}`);
-        }
-        await extensionHost.activateByEvent("onStartupFinished");
-        await extensionHost.activateByWorkspaceContains();
-    } catch (err) {
-        extensionsLogger.error("extension host activation failed", err);
-    }
-    mark("exthost:activated");
+    // Корень строим до подписки на фазы ниже: его реестр contributions
+    // подписывается в конструкторе, и в `eventually` contribution'ы
+    // инстанцируются раньше фонового прогрева грамматик (как и было).
+    container.get(WorkbenchComponentDIToken);
 
     // Остальные грамматики догружаем в фоне, чтобы переключение вкладки на другой
-    // язык не ждало парсинга. setImmediate — уже после первого кадра и спавна
+    // язык не ждало парсинга. Фаза `eventually` — уже после первого кадра и спавна
     // extension host'а, так что с критическим путём старта прогрев не конкурирует.
-    // Здесь же — фаза Eventually workbench-contributions (idle после первого кадра).
-    setImmediate(() => {
-        workbench.runEventuallyPhase();
-        void tokenizationContributor.preloadAll();
-        mark("main:startup-complete");
-        // Конец лестницы: выгружаем трассу целиком (бенч ждёт `complete: true`).
-        if (startupTraceFile !== null) writeStartupTrace(startupTraceFile, true);
+    lifecycle.onDidChangePhase((phase) => {
+        if (phase === "eventually") void tokenizationContributor.preloadAll();
     });
+    // Конец лестницы: выгружаем трассу целиком (бенч ждёт `complete: true`) —
+    // после вехи `main:startup-complete`, которую ставит переход в `eventually`.
+    if (startupTraceFile !== null) {
+        void lifecycle.when("eventually").then(() => {
+            writeStartupTrace(startupTraceFile, true);
+        });
+    }
+
+    await startWorkbench(
+        container,
+        { targets, extensions: allExtensions, extensionsLogger },
+        {
+            attachRoot: (view) => {
+                app.root = view;
+            },
+            run: () => {
+                app.run();
+            },
+            afterMounted: async () => {
+                // TUIDom-инспектор: поднимаем WebSocket-сервер только по `--inspect-tui`.
+                // Сервер читает дерево лениво (на момент getDocument), поэтому ок поднять
+                // его до openFile — клиент увидит актуальное дерево, когда подключится.
+                // Логируем порт только в logService: писать в stderr нельзя — он уходит в
+                // тот же pty и испортит TUI-рендер.
+                if (cli.inspectTui !== undefined) {
+                    // В headless-режиме инспектор получает driver: инъекция ввода + захват
+                    // кадра. В обычном режиме driver нет — инспектор остаётся read-only.
+                    const driver: InspectorDriver | undefined =
+                        headlessBackend === null
+                            ? undefined
+                            : {
+                                  sendKey: (name) => {
+                                      headlessBackend.sendKey(name);
+                                  },
+                                  sendText: (text) => {
+                                      headlessBackend.sendPaste(text);
+                                  },
+                                  sendMouse: (params) => {
+                                      // Протокол говорит в 0-based экранных ячейках (как box узла),
+                                      // терминальные последовательности — в 1-based.
+                                      headlessBackend.sendMouse({ ...params, x: params.x + 1, y: params.y + 1 });
+                                  },
+                                  resize: (cols, rows) => {
+                                      headlessBackend.resize(new Size(cols, rows));
+                                  },
+                                  captureFrame: async () => {
+                                      // Слить кадр, отложенный на setImmediate (scheduleRender),
+                                      // прежде чем снять снимок.
+                                      await new Promise<void>((resolve) => setImmediate(resolve));
+                                      return headlessBackend.captureFrame();
+                                  },
+                                  waitForIdle: (params) =>
+                                      // «Рендер устоялся»: считаем кадры приложения, а не гадаем sleep.
+                                      waitForIdle(
+                                          {
+                                              frameCount: () => app.frameCount,
+                                              isRenderScheduled: () => app.isRenderScheduled,
+                                          },
+                                          params,
+                                      ),
+                                  shutdown: () => {
+                                      // Отложенно, чтобы RPC-ответ успел уйти до выхода.
+                                      setImmediate(() => {
+                                          void lifecycle.shutdown("inspector", () => process.exit(0));
+                                      });
+                                  },
+                              };
+                    const inspector = await attachInspector(app, cli.inspectTui, driver);
+                    // Порт освобождается до выхода: перезагруженное окно займёт тот же.
+                    lifecycle.onShutdownSync(() => {
+                        inspector.dispose();
+                    });
+                    bootstrapLogger.info("TUIDom inspector listening", {
+                        host: cli.inspectTui.host,
+                        port: inspector.port,
+                        headless: headlessBackend !== null,
+                    });
+                }
+            },
+            preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
+            afterRestored: async () => {
+                // Регистрируем пользовательские расширения с `manifest.main` в extension host.
+                // `registerExtension` — только bookkeeping (subprocess не поднимается);
+                // реальная активация — событийная (`activateByEvent` ниже) по `activationEvents`.
+                // Регистрируем ПОСЛЕ openFile, чтобы к моменту стартовых событий activeTextEditor
+                // был доступен на `activate()`.
+                for (const ext of userExtensions) {
+                    if (typeof ext.manifest.main !== "string" || ext.manifest.main === "") continue;
+                    const dirName = ext.location.slice(USER_PREFIX.length).replace(/\/$/, "");
+                    const extensionPath = path.resolve(userDataPaths.extensionsDir, dirName);
+                    const mainPath = path.resolve(extensionPath, ext.manifest.main);
+                    try {
+                        const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
+                        const reg: IExtensionRegistration = {
+                            id: ext.id,
+                            // Манифест целиком, а не тройка имя/издатель/версия: он же едет
+                            // расширениям как `Extension.packageJSON` в `vscode.extensions`,
+                            // и соседа по нему детектят не только по id (у AI-автодополнений
+                            // в ходу `contributes`, `categories`, `engines`).
+                            manifest: ext.manifest,
+                            mainPath,
+                            extensionPath,
+                            configDefaults: {
+                                ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
+                                ...curatedConfigInjection(ext.id),
+                            },
+                            commandTitles: commandMeta.titles,
+                            commandCategories: commandMeta.categories,
+                            activationEvents: ext.manifest.activationEvents,
+                        };
+                        extensionHost.registerExtension(reg);
+                    } catch (err) {
+                        extensionsLogger.error(`${ext.id}: failed to register`, err);
+                    }
+                }
+
+                // Регистрируем builtin code-расширения (например встроенный `git`): их
+                // скомпилированный `out/extension.cjs` читаем из `assets` (dev — FsAssetAccess,
+                // SEA — BundleAssetAccess, единый вызов) и грузим строкой-исходником, которую
+                // subprocess компилирует в памяти через Module._compile — без записи на диск.
+                for (const ext of builtinExtensions) {
+                    const main = ext.manifest.main;
+                    if (typeof main !== "string" || main === "") continue;
+                    try {
+                        const virtualPath = joinVirtualPath(ext.location, main);
+                        const source = await assets.readText(virtualPath);
+                        const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
+                        const reg: IExtensionRegistration = {
+                            id: ext.id,
+                            // Целиком — как у user-расширений выше: это `packageJSON`
+                            // встроенного расширения в каталоге `vscode.extensions`.
+                            manifest: ext.manifest,
+                            source,
+                            // Синтетический абсолютный путь-идентичность (реального файла под SEA нет).
+                            filename: `/${virtualPath}`,
+                            configDefaults: {
+                                ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
+                                ...builtinConfigInjection(ext.manifest.name, extensionsLogger),
+                            },
+                            commandTitles: commandMeta.titles,
+                            commandCategories: commandMeta.categories,
+                            activationEvents: ext.manifest.activationEvents,
+                        };
+                        extensionHost.registerExtension(reg);
+                    } catch (err) {
+                        extensionsLogger.error(`${ext.id}: failed to register (builtin)`, err);
+                    }
+                }
+                mark("main:extensions-registered");
+
+                // Фаерим стартовые события активации. Порядок: eager `*` → `onLanguage:*` для
+                // языка уже открытого активного редактора → `onStartupFinished` →
+                // `workspaceContains:*`. Последующие `onLanguage:*` (переключение/открытие
+                // вкладок) фаерит ExtensionHostModule через `EditorService.onActiveEditorChanged`,
+                // а повторный `workspaceContains:` — по смене корня воркспейса. Расширения без
+                // `activationEvents` трактуются как `["*"]` — активируются здесь же.
+                // `workspaceContains:` идёт последним осознанно: это единственное событие,
+                // которому нужен обход дерева, и держать на нём соседей незачем.
+                // Per-extension сбои activate() изолирует сам ExtensionHost (log + continue);
+                // здесь ловим host-level сбой (subprocess не поднялся) — редактор не должен
+                // падать из-за нерабочего extension host'а, просто без расширений.
+                try {
+                    await extensionHost.activateByEvent("*");
+                    const activeLanguageId = container.get(EditorServiceDIToken).getActiveEditor()?.languageId;
+                    if (activeLanguageId !== undefined) {
+                        await extensionHost.activateByEvent(`onLanguage:${activeLanguageId}`);
+                    }
+                    await extensionHost.activateByEvent("onStartupFinished");
+                    await extensionHost.activateByWorkspaceContains();
+                } catch (err) {
+                    extensionsLogger.error("extension host activation failed", err);
+                }
+                mark("exthost:activated");
+            },
+            afterFirstFrame: (callback) => {
+                setImmediate(callback);
+            },
+        },
+    );
 }
 
 /**

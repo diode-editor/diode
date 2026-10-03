@@ -31,35 +31,35 @@ function fakeAccessor(instances: Map<Token<unknown>, unknown>): {
 
 describe("WorkbenchContributionsRegistry", () => {
     it("instantiateByPhase резолвит только contribution'ы своей фазы", () => {
-        const restoredToken = { id: "restored" } as Token<IWorkbenchContribution>;
+        const readyToken = { id: "restored" } as Token<IWorkbenchContribution>;
         const eventuallyToken = { id: "eventually" } as Token<IWorkbenchContribution>;
-        const restored = new FakeContribution();
+        const ready = new FakeContribution();
         const eventually = new FakeContribution();
         const { accessor, resolved } = fakeAccessor(
             new Map<Token<unknown>, unknown>([
-                [restoredToken, restored],
+                [readyToken, ready],
                 [eventuallyToken, eventually],
             ]),
         );
         const registrations: IWorkbenchContributionRegistration[] = [
-            { token: restoredToken, phase: "restored" },
+            { token: readyToken, phase: "ready" },
             { token: eventuallyToken, phase: "eventually" },
         ];
         const registry = new WorkbenchContributionsRegistry(accessor, registrations);
 
-        registry.instantiateByPhase("restored");
-        expect(resolved).toEqual([restoredToken]);
+        registry.instantiateByPhase("ready");
+        expect(resolved).toEqual([readyToken]);
 
         registry.instantiateByPhase("eventually");
-        expect(resolved).toEqual([restoredToken, eventuallyToken]);
+        expect(resolved).toEqual([readyToken, eventuallyToken]);
     });
 
     it("пустая фаза ничего не резолвит", () => {
-        const restoredToken = { id: "restored" } as Token<IWorkbenchContribution>;
+        const readyToken = { id: "restored" } as Token<IWorkbenchContribution>;
         const { accessor, resolved } = fakeAccessor(
-            new Map<Token<unknown>, unknown>([[restoredToken, new FakeContribution()]]),
+            new Map<Token<unknown>, unknown>([[readyToken, new FakeContribution()]]),
         );
-        const registry = new WorkbenchContributionsRegistry(accessor, [{ token: restoredToken, phase: "restored" }]);
+        const registry = new WorkbenchContributionsRegistry(accessor, [{ token: readyToken, phase: "ready" }]);
 
         registry.instantiateByPhase("eventually");
 
@@ -70,8 +70,8 @@ describe("WorkbenchContributionsRegistry", () => {
         const token = { id: "c" } as Token<IWorkbenchContribution>;
         const contribution = new FakeContribution();
         const { accessor } = fakeAccessor(new Map<Token<unknown>, unknown>([[token, contribution]]));
-        const registry = new WorkbenchContributionsRegistry(accessor, [{ token, phase: "restored" }]);
-        registry.instantiateByPhase("restored");
+        const registry = new WorkbenchContributionsRegistry(accessor, [{ token, phase: "ready" }]);
+        registry.instantiateByPhase("ready");
 
         registry.dispose();
 

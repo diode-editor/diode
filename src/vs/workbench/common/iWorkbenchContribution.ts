@@ -1,5 +1,6 @@
 import type { IDisposable } from "../../base/common/lifecycle.ts";
 import type { Token } from "../../platform/instantiation/common/diContainer.ts";
+import type { LifecyclePhase } from "../services/lifecycle/common/lifecyclePhase.ts";
 
 /**
  * Workbench-contribution — самодостаточная единица фич-проводки поверх сервисов
@@ -17,13 +18,14 @@ import type { Token } from "../../platform/instantiation/common/diContainer.ts";
 export type IWorkbenchContribution = IDisposable;
 
 /**
- * Фаза жизненного цикла, на которой инстанцируется contribution:
- * - `restored` — синхронно в `WorkbenchComponent.mount()` (view построена,
- *   лёгкие сервисы готовы);
- * - `eventually` — idle после первого кадра (из `main.ts`, `setImmediate`) — для
- *   отложенной/тяжёлой работы, не влияющей на старт.
+ * Фаза жизненного цикла ({@link LifecyclePhase}), на которой инстанцируется
+ * contribution — синхронно, в момент перехода `LifecycleService` в неё:
+ * - `ready` — в `WorkbenchComponent.mount()` (view построена, лёгкие сервисы
+ *   готовы; ≈ vscode `WorkbenchPhase.BlockRestore`) — до открытия файлов;
+ * - `eventually` — idle после первого кадра — для отложенной/тяжёлой работы,
+ *   не влияющей на старт.
  */
-export type WorkbenchContributionPhase = "restored" | "eventually";
+export type WorkbenchContributionPhase = Extract<LifecyclePhase, "ready" | "eventually">;
 
 /** Запись в реестре: DI-токен contribution'а + его фаза. */
 export interface IWorkbenchContributionRegistration {

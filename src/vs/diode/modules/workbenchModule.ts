@@ -406,8 +406,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TerminalEnvStatusContributionDIToken, TerminalEnvStatusContribution);
     container.bind(StatusBarComponentDIToken, StatusBarComponent);
     // Реестр workbench-contributions: явный список (WORKBENCH_CONTRIBUTIONS) +
-    // сам реестр, инстанцирующий их по фазам. Фазы прогоняет WorkbenchComponent
-    // (Restored — в mount()) и main.ts (Eventually — после первого кадра).
+    // сам реестр, инстанцирующий их по фазам LifecycleService (подписку держит
+    // WorkbenchComponent): ready — в mount(), eventually — после первого кадра.
     container.bind(WorkbenchContributionsDIToken, () => WORKBENCH_CONTRIBUTIONS);
     container.bind(WorkbenchContributionsRegistryDIToken, WorkbenchContributionsRegistry);
     // Реестр declarative menu-contributions: явный список MENU_CONTRIBUTIONS +
