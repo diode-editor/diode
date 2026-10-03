@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import type { TextLabelElement } from "@tuidom/elements/label/textLabelElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
