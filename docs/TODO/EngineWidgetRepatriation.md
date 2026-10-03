@@ -15,7 +15,15 @@ Quick pick по этому критерию переехал (2026-08-23): со�
 - [ ] `editorgroup/` — `EditorTabStripElement` + `EditorTabItemElement` (`TabInfo`).
 - [ ] `editorpart/` — `EditorPartElement`, сетка групп редактора (`MIN_GROUP_MAIN_COLS/ROWS`).
 - [ ] `workbenchlayout/` — `WorkbenchLayoutElement`: activity bar / side bar / panel / status bar.
-- [ ] `panel/` — `PanelContainerElement` + `PanelView`.
+- [x] `panel/` — `PanelContainerElement` + `PanelView`. Переехал в
+  `src/vs/workbench/browser/parts/panel/` (2026-10-03, узел «кнопка закрытия
+  нижней панели» из [ParityBacklog.md](ParityBacklog.md)): кнопка `×` в
+  таб-строке — контрол уровня контейнера, а у виджета движка `actions` были
+  только пер-view, и доложить их означало дописать в его публичный API ещё одно
+  понятие VS Code вместо переезда. Композицией не выражается таб-строка
+  (подчёркивание ровно под глифами названия), ручной `render` остался. Токены
+  `panel.*`/`panelTitle.*` уже были в нашем реестре цветов — в
+  `styleTokens.ts` движка они теперь дубль-сироты и уезжают вместе с виджетом.
 - [ ] `terminal/` — `TerminalViewElement` + `encodeKeyForPty`.
 - [ ] `menu/menuBarElement.ts` + `menuBarItemElement.ts` — строка меню приложения.
 - [ ] `contextview/contextMenuController.ts` — это уже сервис, а не элемент.

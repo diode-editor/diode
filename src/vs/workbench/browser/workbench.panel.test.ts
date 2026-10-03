@@ -1,4 +1,3 @@
-import type { PanelContainerElement } from "@tuidom/elements/panel/panelContainerElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -6,8 +5,11 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { ContextKeyService, ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { PROBLEMS_VIEW_ID } from "../contrib/markers/browser/problemsComponent.ts";
 
+import type { PanelContainerElement } from "./parts/panel/panelContainerElement.ts";
+
 const TOGGLE_PANEL = "workbench.action.togglePanel";
 const TOGGLE_PROBLEMS = "workbench.actions.view.problems";
+const CLOSE_PANEL = "workbench.action.closePanel";
 
 describe("Workbench — bottom panel visibility commands", () => {
     let ws: ITempWorkspace;
@@ -42,6 +44,36 @@ describe("Workbench — bottom panel visibility commands", () => {
         h.commands.execute(TOGGLE_PANEL);
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
         expect(contextKeys.get("panelVisible")).toBe(false);
+    });
+
+    it("Close Panel hides the panel and syncs the context key", () => {
+        h.commands.execute(TOGGLE_PANEL);
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
+
+        h.commands.execute(CLOSE_PANEL);
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
+        expect(contextKeys.get("panelVisible")).toBe(false);
+
+        // Панель уже закрыта — `enablement: panelVisible` гасит команду, и
+        // повторный вызов её не «открывает обратно».
+        h.commands.execute(CLOSE_PANEL);
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
+    });
+
+    it("the control's close button is painted in the tab row and closes the panel", () => {
+        h.commands.execute(TOGGLE_PANEL);
+        h.testApp.render();
+
+        // Кнопка нарисована в правом конце строки вкладок — там, где её ищет
+        // пользователь, и там, куда смотрит `inspectState`.
+        const state = panel().inspectState();
+        const close = state.close as { x: number; width: number };
+        const row = h.testApp.backend.screenToString().split("\n")[state.tabRow as number];
+        expect(row.slice(close.x, close.x + close.width)).toBe(" × ");
+
+        // Весь провод от виджета: колбэк контрола → компонент → команда → layout.
+        panel().onClose?.();
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
     });
 
     it("Toggle Problems shows the panel with Problems active, then hides it", () => {

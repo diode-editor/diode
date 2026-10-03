@@ -6,6 +6,7 @@ import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerServ
 import { PROBLEMS_VIEW_ID, ProblemsComponentDIToken } from "../../contrib/markers/browser/problemsComponent.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { LayoutServiceDIToken } from "../../services/layout/browser/layoutService.ts";
+import { CLOSE_PANEL_COMMAND_ID } from "../parts/panel/panelComponent.ts";
 import { PanelServiceDIToken } from "../parts/panel/panelService.ts";
 import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
 
@@ -106,6 +107,21 @@ export const togglePanelAction: CommandAction = {
     run(accessor) {
         const layout = accessor.get(LayoutServiceDIToken);
         layout.setPanelVisible(!layout.isPanelVisible());
+    },
+};
+
+/**
+ * Закрыть панель — то, что зовёт кнопка `×` в её таб-строке. Отдельно от
+ * toggle, как и в VS Code: у кнопки семантика «закрыть», а не «переключить», и
+ * `enablement` по `panelVisible` честно гасит её в палитре на закрытой панели.
+ */
+export const closePanelAction: CommandAction = {
+    id: CLOSE_PANEL_COMMAND_ID,
+    title: "View: Close Panel",
+    shortTitle: "Close Panel",
+    enablement: "panelVisible",
+    run(accessor) {
+        accessor.get(LayoutServiceDIToken).setPanelVisible(false);
     },
 };
 

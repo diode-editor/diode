@@ -1,19 +1,20 @@
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
-import { PanelContainerElement } from "@tuidom/elements/panel/panelContainerElement";
 import { describe, expect, it, vi } from "vitest";
 
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { PanelComponent } from "./panelComponent.ts";
+import { CLOSE_PANEL_COMMAND_ID, PanelComponent } from "./panelComponent.ts";
 import { PanelService } from "./panelService.ts";
 
 function makeHarness() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const service = new PanelService();
-    const component = new PanelComponent(service);
-    return { themeService, service, component };
+    const commands = new CommandRegistry();
+    const component = new PanelComponent(service, commands);
+    return { themeService, service, commands, component };
 }
 
 describe("PanelComponent", () => {
@@ -22,7 +23,7 @@ describe("PanelComponent", () => {
         const service = new PanelService();
         service.addView({ id: "problems", title: "PROBLEMS", content: null, placeholder: "empty" });
 
-        const component = new PanelComponent(service);
+        const component = new PanelComponent(service, new CommandRegistry());
         // Вкладка, зарегистрированная ДО компонента, подхвачена начальным sync'ом.
         expect(component.view.getViewIds()).toEqual(["problems"]);
         expect(component.view.getActiveViewId()).toBe("problems");
@@ -57,6 +58,17 @@ describe("PanelComponent", () => {
 
         expect(service.getActiveViewId()).toBe("terminal");
         expect(onActivate).toHaveBeenCalledWith("terminal");
+        component.dispose();
+    });
+
+    it("routes the control's close button into the close-panel command", () => {
+        const { commands, component } = makeHarness();
+        const run = vi.fn();
+        commands.register(CLOSE_PANEL_COMMAND_ID, run);
+
+        component.view.onClose?.();
+
+        expect(run).toHaveBeenCalledTimes(1);
         component.dispose();
     });
 

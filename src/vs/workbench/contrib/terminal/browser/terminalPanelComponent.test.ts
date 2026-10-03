@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
@@ -20,7 +21,7 @@ function buildHarness() {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const views = makeViewsHarness();
     const panelService = views.panelService;
-    const panelComponent = new PanelComponent(panelService);
+    const panelComponent = new PanelComponent(panelService, new CommandRegistry());
     const sessions: FakeTerminalSurface[] = [];
     const factory: TerminalSessionFactory = () => {
         const surface = new FakeTerminalSurface();
@@ -202,7 +203,7 @@ describe("TerminalPanelComponent", () => {
     it("adopts instances created before the component existed", () => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         const views = makeViewsHarness();
-        const panelComponent = new PanelComponent(views.panelService);
+        const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
         const service = new TerminalService(views.panelService, views.service, () => new FakeTerminalSurface());
         service.openTerminal(); // инстанс существует ДО компонента
 

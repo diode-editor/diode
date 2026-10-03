@@ -5,6 +5,7 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IMarkerData } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerService } from "../../../../platform/markers/common/markerService.ts";
@@ -56,7 +57,7 @@ describe("ProblemsComponent", () => {
         markerService = new MarkerService();
         views = makeViewsHarness();
         panelService = views.panelService;
-        panelComponent = new PanelComponent(panelService);
+        panelComponent = new PanelComponent(panelService, new CommandRegistry());
         revealTarget = makeRevealTarget();
         component = new ProblemsComponent(markerService, views.service, revealTarget, NULL_JUMP_RECORDER);
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));

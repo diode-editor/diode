@@ -43,7 +43,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Cancellation](Cancellation.md) — отмена и устаревание асинхронных запросов (H2): общий `LatestRequest` вместо счётчиков `requestSeq` сделан, Go to Definition больше не прыгает задним числом; осталось провести токен до провайдера (после G4/G5)
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
-- [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, panel, terminal, menuBar): по критерию «публичный API не упоминает понятий Diode» им место у нас
+- [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, workbenchlayout, terminal, menuBar; `panel` переехал): по критерию «публичный API не упоминает понятий Diode» им место у нас
 - [~] [ListControls](ListControls.md) — два списочных контрола (`TreeViewElement` data-driven / `ListViewElement` DOM-строки): решение зафиксировано, остался техдолг (дублирование механик, union-instanceof)
 - [~] [WhenContext](WhenContext.md) — остался полноценный парсер when-выражений вместо `new Function`
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate готов; далее scope-селекторы, async/background токенизация)
