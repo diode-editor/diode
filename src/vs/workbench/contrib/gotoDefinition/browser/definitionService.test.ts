@@ -6,7 +6,10 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
-import type { IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    ICoreDefinitionLocation,
+    IDefinitionRequest,
+} from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
@@ -88,6 +91,59 @@ describe("DefinitionService — Go to Definition", () => {
         expect(groups[0].activePane?.uri.toString()).toBe(mainUri);
         expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);
         expect(caret()).toMatchObject({ line: 0, character: 16 });
+    });
+
+    /** Источник с ручным ответом: каждый вызов кладёт свой resolver в очередь. */
+    function deferredSource(): ((locations: readonly ICoreDefinitionLocation[]) => void)[] {
+        const pending: ((locations: readonly ICoreDefinitionLocation[]) => void)[] = [];
+        group().definitionSource = () =>
+            new Promise((resolve) => {
+                pending.push(resolve);
+            });
+        return pending;
+    }
+
+    it("ответ после правки документа не прыгает", async () => {
+        const defsUri = Uri.file(ws.path("defs.ts")).toString();
+        const mainUri = Uri.file(ws.path("main.ts")).toString();
+        const pending = deferredSource();
+
+        const reveal = service().revealDefinition();
+        h.testApp.sendKey("x");
+        pending[0]([{ uri: defsUri, range: createRange(1, 4, 1, 10) }]);
+        await reveal;
+
+        expect(group().getActiveEditor()?.uri.toString()).toBe(mainUri);
+        expect(caret()).toMatchObject({ line: 0, character: 1 });
+    });
+
+    it("ответ после ухода каретки не прыгает", async () => {
+        const mainUri = Uri.file(ws.path("main.ts")).toString();
+        const pending = deferredSource();
+
+        const reveal = service().revealDefinition();
+        group().getActiveEditor()?.goToPosition(1, 2);
+        pending[0]([{ uri: mainUri, range: createRange(0, 6, 0, 12) }]);
+        await reveal;
+
+        expect(caret()).toMatchObject({ line: 1, character: 2 });
+    });
+
+    it("повторный F12 перебивает прежний: запоздавший первый ответ не прыгает", async () => {
+        const defsUri = Uri.file(ws.path("defs.ts")).toString();
+        const mainUri = Uri.file(ws.path("main.ts")).toString();
+        const pending = deferredSource();
+
+        const first = service().revealDefinition();
+        const second = service().revealDefinition();
+        pending[1]([{ uri: mainUri, range: createRange(1, 6, 1, 11) }]);
+        await second;
+        expect(caret()).toMatchObject({ line: 1, character: 6 });
+
+        pending[0]([{ uri: defsUri, range: createRange(1, 4, 1, 10) }]);
+        await first;
+        expect(group().getActiveEditor()?.uri.toString()).toBe(mainUri);
+        expect(caret()).toMatchObject({ line: 1, character: 6 });
     });
 
     it("нет источника / пустой результат / нет активного редактора — no-op", async () => {
