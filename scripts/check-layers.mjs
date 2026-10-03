@@ -71,6 +71,43 @@ const EXCEPTIONS = [
     ["src/vs/base/common/fileIcons.ts", "@tuidom/core/common/colorUtils"],
 ];
 
+// ── Направление внутри workbench ─────────────────────────────────────────────
+
+/**
+ * Ядро workbench'а не знает фич (как `code-layering` у upstream): нетестовые
+ * value-импорты из этих каталогов в `src/vs/workbench/contrib/` запрещены.
+ * Фича регистрирует себя сама; знать её всю разрешено только агрегатору и
+ * сборке приложения (`vs/diode`), к которым правило не применяется.
+ */
+const WORKBENCH_CORE_DIRS = [
+    "src/vs/workbench/browser/",
+    "src/vs/workbench/common/",
+    "src/vs/workbench/services/",
+    "src/vs/workbench/api/",
+];
+const WORKBENCH_CONTRIB_DIR = "src/vs/workbench/contrib/";
+
+/**
+ * Храповик: файлы ядра, которые ещё импортируют фичи. Новые сюда не
+ * добавляются; запись, которая больше не нужна, — тоже нарушение (её надо
+ * удалить), так что список только сокращается. Цель — пустой. План — E4 и
+ * docs/TODO/VscodeStructureFollowUps.md.
+ */
+const DIRECTION_EXCEPTIONS = [
+    // Корень и агрегатор: фич-компоненты, контейнеры сайдбара, оверлеи (E4).
+    "src/vs/workbench/browser/workbenchComponent.ts",
+    "src/vs/workbench/browser/workbenchContributions.ts",
+    // Контекст-ключи фич в ядре (F3).
+    "src/vs/workbench/browser/workbenchContextKeyContributors.ts",
+    // Экшены фич в общем списке и в мелких action-файлах (F2).
+    "src/vs/workbench/browser/actions/builtinActions.ts",
+    "src/vs/workbench/browser/actions/editorGroupActions.ts",
+    "src/vs/workbench/browser/actions/inputActions.ts",
+    "src/vs/workbench/browser/actions/layoutActions.ts",
+    "src/vs/workbench/browser/actions/menuContributions.ts",
+    "src/vs/workbench/browser/actions/searchActions.ts",
+];
+
 /**
  * Окружение подпути движка: та же ось, что у нашего кода. Первое совпадение
  * побеждает; неразмеченный подпуть — нарушение (разметь его здесь).
@@ -210,6 +247,7 @@ function main() {
     }
 
     const violations = [];
+    const usedDirectionExceptions = new Set();
     checkDisposableImports(violations);
     for (const abs of listFiles(vsRoot)) {
         const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
@@ -236,6 +274,11 @@ function main() {
                 .split(path.sep)
                 .join("/");
             if (!target.startsWith("src/vs/")) continue; // dev-тулинг вне осей
+            if (target.startsWith(WORKBENCH_CONTRIB_DIR) && WORKBENCH_CORE_DIRS.some((d) => rel.startsWith(d))) {
+                if (DIRECTION_EXCEPTIONS.includes(rel)) usedDirectionExceptions.add(rel);
+                else violations.push(`${rel} → ${target}  (направление: ядро workbench не импортирует contrib)`);
+                continue;
+            }
             if (EXCEPTIONS.some(([f, t]) => rel.startsWith(f) && target.startsWith(t))) continue;
 
             const targetZone = zoneOf(target);
@@ -247,6 +290,12 @@ function main() {
             if (env !== null && targetEnv !== null && !ENV_ALLOWED[env].has(targetEnv)) {
                 violations.push(`${rel} → ${target}  (окружение: ${env} не может импортировать ${targetEnv})`);
             }
+        }
+    }
+
+    for (const rel of DIRECTION_EXCEPTIONS) {
+        if (!usedDirectionExceptions.has(rel)) {
+            violations.push(`${rel}  (DIRECTION_EXCEPTIONS: contrib он больше не импортирует — удали запись)`);
         }
     }
 

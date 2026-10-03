@@ -27,6 +27,13 @@
   триггер-символов пушатся нотификацией `languages.updateSubscriptions`.
   Переезд в `editor/contrib` без реестра даст фичам editor-слоя зависимость на
   workbench-шов — то есть решать эти два пункта имеет смысл вместе.
+- [ ] **Направление ядро workbench → contrib** — храповик `DIRECTION_EXCEPTIONS`
+  в `scripts/check-layers.mjs`: 9 файлов ядра ещё импортируют фичи. Корень и
+  агрегатор (`workbenchComponent.ts`, `workbenchContributions.ts`) — E4
+  (саморегистрация контейнеров, хост оверлеев, фаза `blockStartup`, агрегатор
+  `workbench.common.main.ts`); `workbenchContextKeyContributors.ts` — F3;
+  `builtinActions.ts` и мелкие action-файлы — F2. Запись удаляет задача, которая
+  её закрыла.
 - [ ] **Single-process исключения env-оси** (`EXCEPTIONS` в
   `scripts/check-layers.mjs`): «browser»-сторона напрямую зовёт node-сервисы
   (`services/search/node`, `services/terminalEnvironment/node`,
