@@ -115,9 +115,8 @@ export class DisposableTracker implements IDisposableTracker {
 
 /** Стек создания без строки `Error` и кадров самого учёта. */
 function creationStack(source: Error): string {
-    // У V8 `stack` есть всегда; пустая строка — только чтобы не печатать `undefined`.
-    // Stryker disable next-line StringLiteral: ветка недостижима под V8
-    const lines = (source.stack ?? "").split("\n").slice(1);
+    // У V8 `stack` есть всегда, отдельной ветки на его отсутствие не держим.
+    const lines = String(source.stack).split("\n").slice(1);
     const first = lines.findIndex((l) => !/\b(trackDisposable|DisposableTracker)\b/.test(l));
     return lines.slice(first).join("\n");
 }
