@@ -626,9 +626,11 @@ hide-toggle (`isHiddenByDefault`). См.
   инспектора:
   1. **подтверждение** — `requestShutdown(onProceed)` последовательно спрашивает про
      «грязные» элементы участников через `DialogService.confirmSave` (Cancel прерывает
-     прощание; чистый выход — синхронно, до первого await). Шов — интерфейс
+     прощание, как и Save, который не сохранил — untitled без пути; чистый выход —
+     синхронно, до первого await). Шов — интерфейс
      `IShutdownParticipant` (`collectDirty(): IShutdownDirtyItem[]` — имя +
-     `isStillDirty()` + `save()` с overwrite): Workbench объявляет, `EditorService`
+     `isStillDirty()` + `save()` с overwrite → `Promise<boolean>` «сохранилось»):
+     Workbench объявляет, `EditorService`
      реализует структурно, регистрирует его `WorkbenchComponent`;
   2. **прощание** — `shutdown(reason, then)` (аналог vscode `onWillShutdown`):
      асинхронная фаза `onWillShutdown` (участник отдаёт промис через

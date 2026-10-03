@@ -19,8 +19,10 @@ export interface IShutdownDirtyItem {
     /**
      * Сохранить по выбору «Save». Явный Save при выходе перезаписывает файл
      * даже при внешних изменениях — выбор пользователя не должен пропасть.
+     * `false` — не сохранилось (untitled без пути, ошибка записи): прощание
+     * отменяется, как у закрытия вкладки.
      */
-    save(): Promise<unknown>;
+    save(): Promise<boolean>;
 }
 
 /**
@@ -98,8 +100,9 @@ export class LifecycleService {
     /**
      * Запрос на прощание с сессией: без «грязных» элементов `onProceed` зовётся
      * синхронно (до первого await), иначе — после последнего подтверждения.
-     * Cancel в любом диалоге оставляет приложение как есть. Промис, который
-     * вернул `onProceed`, дожидается (обычно это {@link shutdown}).
+     * Cancel в любом диалоге, как и Save, который не сохранил, оставляет
+     * приложение как есть. Промис, который вернул `onProceed`, дожидается
+     * (обычно это {@link shutdown}).
      */
     public async requestShutdown(onProceed: () => unknown): Promise<void> {
         for (const participant of this.participants) {
@@ -107,7 +110,7 @@ export class LifecycleService {
                 if (!item.isStillDirty()) continue;
                 const choice = await this.dialogService.confirmSave(item.name);
                 if (choice === "cancel") return;
-                if (choice === "save") await item.save();
+                if (choice === "save" && !(await item.save())) return;
             }
         }
         await onProceed();

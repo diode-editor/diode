@@ -1606,7 +1606,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 name: this.displayName(editor),
                 isStillDirty: () =>
                     [...this.textPanes(), ...this.diffSidePanes()].some((pane) => pane.model === editor.model),
-                save: () => editor.save({ overwrite: true }),
+                save: async () => (await editor.save({ overwrite: true })) === "saved",
             });
         }
         return items;

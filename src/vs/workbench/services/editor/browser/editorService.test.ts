@@ -449,7 +449,7 @@ describe("EditorService", () => {
             const [item] = ctrl.collectDirty();
             expect(item.isStillDirty()).toBe(true);
 
-            await item.save();
+            expect(await item.save()).toBe(true);
             expect(editor.isModified).toBe(false);
 
             ctrl.closeTab(0);
