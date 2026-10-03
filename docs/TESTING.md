@@ -179,6 +179,11 @@ expectScreen(backend, screen`
 ### ExtensionTestHarness (`TestUtils/ExtensionTestHarness.ts`)
 Для тестов extension host'а: `createExtensionTestHarness({ initialFile?, extensions? })` поднимает реальный `EditorService` (+ `EditorGroupComponent` как view группы) + `ExtensionHost` поверх `TestApp`. Subprocess форкается через `subprocessSpawnArgsForTests()`; тестовые расширения — `*.cjs`-файлы с `exports.activate` из `__fixtures__`, регистрация — `extensionFixture(id, file)` (расширяемые поля добавляются спредом), путь к каталогу — `EXTENSION_FIXTURES_DIR`. Unit-тесты RPC без subprocess'а используют `createInProcessChannelPair()`.
 
+### Учёт утечек (`TestUtils/disposableLeaks.ts`)
+`const disposables = ensureNoDisposablesAreLeakedInTestSuite();` в начале тестового файла (или `describe`) — аналог одноимённого хелпера vscode. Перед каждым тестом ставит `DisposableTracker` (`vs/base/common/lifecycle.ts`), после — валит тест, если созданное в нём через примитивы lifecycle (`Disposable`, `DisposableStore`, `toDisposable`, …) осталось неосвобождённым; отчёт — по корням, со стеком места создания. Объекты самого теста отдавай в `disposables.add(…)` — они освобождаются после теста. Упавший тест утечки не проверяет. Синглтоны уровня процесса выводятся из учёта `markAsSingleton`.
+
+Включается **по сьютам, храповиком снизу вверх** (`base/common` → `platform` → сервисы), не глобально: литералы `{ dispose }` трекер не видит, а известные неосвобождаемые владельцы протекли бы в сотнях файлов (docs/TODO/Lifecycle.md, §7). Включённый сьют остаётся включённым.
+
 ---
 
 ## E2E

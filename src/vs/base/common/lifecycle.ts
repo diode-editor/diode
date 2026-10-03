@@ -35,6 +35,91 @@ export interface IDisposableTracker {
     setParent(child: IDisposable, parent: IDisposable | null): void;
     /** Объект освобождён. */
     markAsDisposed(disposable: IDisposable): void;
+    /** Объект живёт до конца процесса и освобождаться не должен. */
+    markAsSingleton(disposable: IDisposable): void;
+}
+
+interface DisposableInfo {
+    readonly value: IDisposable;
+    /** Место создания; `null` — объект попал в учёт только как чей-то ребёнок. */
+    source: Error | null;
+    parent: IDisposable | null;
+    isSingleton: boolean;
+}
+
+/**
+ * Трекер утечек для тестов: помнит живые объекты, созданные под ним, и их
+ * владельцев. Утечка — живой объект, у которого нет живого владельца и чей
+ * корень не синглтон; дети утёкшего не считаются, отчёт — по корням.
+ * Включается на сьют хелпером `ensureNoDisposablesAreLeakedInTestSuite`
+ * (src/TestUtils/disposableLeaks.ts); в проде трекера нет.
+ */
+export class DisposableTracker implements IDisposableTracker {
+    private readonly living = new Map<IDisposable, DisposableInfo>();
+
+    private info(d: IDisposable): DisposableInfo {
+        let info = this.living.get(d);
+        if (!info) {
+            info = { value: d, source: null, parent: null, isSingleton: false };
+            this.living.set(d, info);
+        }
+        return info;
+    }
+
+    public trackDisposable(d: IDisposable): void {
+        this.info(d).source ??= new Error();
+    }
+
+    public setParent(child: IDisposable, parent: IDisposable | null): void {
+        this.info(child).parent = parent;
+    }
+
+    public markAsDisposed(d: IDisposable): void {
+        this.living.delete(d);
+    }
+
+    public markAsSingleton(d: IDisposable): void {
+        this.info(d).isSingleton = true;
+    }
+
+    private isUnderSingleton(info: DisposableInfo): boolean {
+        const seen = new Set<DisposableInfo>();
+        for (let cur: DisposableInfo | undefined = info; cur && !seen.has(cur); ) {
+            if (cur.isSingleton) return true;
+            seen.add(cur);
+            cur = cur.parent ? this.living.get(cur.parent) : undefined;
+        }
+        return false;
+    }
+
+    /** Утёкшие корни и текст отчёта со стеками создания; `undefined` — утечек нет. */
+    public computeLeakingDisposables(maxReported = 10): { leaks: IDisposable[]; details: string } | undefined {
+        const leaking = [...this.living.values()].filter(
+            (i): i is DisposableInfo & { source: Error } => i.source !== null && !this.isUnderSingleton(i),
+        );
+        if (leaking.length === 0) return undefined;
+        const leakingSet = new Set(leaking.map((i) => i.value));
+        const roots = leaking.filter((i) => !(i.parent && leakingSet.has(i.parent)));
+        if (roots.length === 0) throw new Error("There are cyclic disposable chains!");
+
+        let details = "";
+        roots.slice(0, maxReported).forEach((leak, n) => {
+            details += `\n\n==== Leaking disposable ${String(n + 1)}/${String(roots.length)}: ${leak.value.constructor.name} ====\n${creationStack(leak.source)}\n`;
+        });
+        if (roots.length > maxReported) {
+            details += `\n... and ${String(roots.length - maxReported)} more leaking disposables\n`;
+        }
+        return { leaks: roots.map((i) => i.value), details };
+    }
+}
+
+/** Стек создания без строки `Error` и кадров самого учёта. */
+function creationStack(source: Error): string {
+    // У V8 `stack` есть всегда; пустая строка — только чтобы не печатать `undefined`.
+    // Stryker disable next-line StringLiteral: ветка недостижима под V8
+    const lines = (source.stack ?? "").split("\n").slice(1);
+    const first = lines.findIndex((l) => !/\b(trackDisposable|DisposableTracker)\b/.test(l));
+    return lines.slice(first).join("\n");
 }
 
 let disposableTracker: IDisposableTracker | null = null;
@@ -50,6 +135,12 @@ export function trackDisposable<T extends IDisposable>(x: T): T {
 
 export function markAsDisposed(disposable: IDisposable): void {
     disposableTracker?.markAsDisposed(disposable);
+}
+
+/** Выводит объект из учёта утечек: он живёт до конца процесса (реестр, глобальный сервис). */
+export function markAsSingleton<T extends IDisposable>(singleton: T): T {
+    disposableTracker?.markAsSingleton(singleton);
+    return singleton;
 }
 
 function setParentOfDisposable(child: IDisposable, parent: IDisposable | null): void {

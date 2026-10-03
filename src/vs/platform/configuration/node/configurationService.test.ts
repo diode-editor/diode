@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
@@ -19,6 +20,8 @@ import {
     diffConfigurationKeys,
     loadConfiguration,
 } from "./configurationService.ts";
+
+const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 /** Fake watcher: records the onChange callback per path so tests fire it by hand. */
 class FakeFileWatcher implements IFileWatcher {
@@ -60,7 +63,7 @@ const TEST_REGISTRY = new ConfigurationRegistry([
 
 /** `loadConfiguration` с тестовым defaults-реестром (как production с app-узлами). */
 function loadCfg(paths: IUserDataPaths, logger?: ILogger, fileWatcher?: IFileWatcher) {
-    return loadConfiguration(paths, logger, fileWatcher, TEST_REGISTRY);
+    return loadConfiguration(paths, logger, fileWatcher, TEST_REGISTRY).then((cfg) => disposables.add(cfg));
 }
 
 describe("loadConfiguration", () => {
@@ -272,11 +275,13 @@ describe("ConfigurationService.updateUserValue", () => {
     it("is a no-op when no write target is configured", async () => {
         // Constructed without `writeTargetPath` (e.g. read-only context) → the write
         // is silently skipped and the in-memory value stays unchanged.
-        const cfg = new ConfigurationService({
-            defaultsLayer: ConfigurationModel.EMPTY,
-            userLayer: ConfigurationModel.EMPTY,
-            profileLayer: ConfigurationModel.EMPTY,
-        });
+        const cfg = disposables.add(
+            new ConfigurationService({
+                defaultsLayer: ConfigurationModel.EMPTY,
+                userLayer: ConfigurationModel.EMPTY,
+                profileLayer: ConfigurationModel.EMPTY,
+            }),
+        );
         await expect(cfg.updateUserValue("workbench.colorTheme", "Monokai")).resolves.toBeUndefined();
         expect(cfg.get<string>("workbench.colorTheme")).toBeUndefined();
     });
@@ -466,12 +471,14 @@ describe("ConfigurationService — live reload", () => {
         // Directly constructed (no loadConfiguration) → no settings paths. The watcher
         // is provided but there is nothing to watch, and reload() must not emit.
         const watcher = new FakeFileWatcher();
-        const cfg = new ConfigurationService({
-            defaultsLayer: ConfigurationModel.EMPTY,
-            userLayer: ConfigurationModel.EMPTY,
-            profileLayer: ConfigurationModel.EMPTY,
-            fileWatcher: watcher,
-        });
+        const cfg = disposables.add(
+            new ConfigurationService({
+                defaultsLayer: ConfigurationModel.EMPTY,
+                userLayer: ConfigurationModel.EMPTY,
+                profileLayer: ConfigurationModel.EMPTY,
+                fileWatcher: watcher,
+            }),
+        );
         const events: IConfigurationChangeEvent[] = [];
         cfg.onDidChangeConfiguration((e) => events.push(e));
 
