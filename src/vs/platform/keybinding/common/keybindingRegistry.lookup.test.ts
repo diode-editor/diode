@@ -106,6 +106,57 @@ describe("KeybindingRegistry — getKeybindingForCommand", () => {
     });
 });
 
+describe("KeybindingRegistry — подпись выбирается по доставляемости", () => {
+    /** Как объявляют бинды дефолты: канонический под tier-гейтом + досягаемый везде фолбэк. */
+    function gatedPlusFallback(): KeybindingRegistry {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+k ctrl+e"), "format", "textInputFocus");
+        registry.register(parseKeybinding("shift+alt+f"), "format", "textInputFocus && tier != 'legacy'");
+        return registry;
+    }
+
+    function contextFor(tier: string): ContextKeyService {
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("tier", tier);
+        contextKeys.setRaw("textInputFocus", true);
+        return contextKeys;
+    }
+
+    it("на legacy подписывает фолбэк, хотя в объявлении он идёт первым и условным", () => {
+        // Иначе палитра обещала бы Shift+Alt+F: в legacy это `ESC F` без
+        // shift-флага, и нажатие подсказанного ничего не делает.
+        const chord = gatedPlusFallback().getKeybindingForCommand("format", contextFor("legacy"));
+        expect(chord && formatKeybinding(chord)).toBe("Ctrl+K Ctrl+E");
+    });
+
+    it("на kitty подписывает канонический бинд: tier-гейт — признак «объявлен для этого терминала»", () => {
+        const chord = gatedPlusFallback().getKeybindingForCommand("format", contextFor("kitty"));
+        expect(chord && formatKeybinding(chord)).toBe("Shift+Alt+F");
+    });
+
+    it("безусловный доставляемый бинд обгоняет недоставляемый условный", () => {
+        // Палитра: Ctrl+Shift+P проходит по `when` и на legacy, но до приложения
+        // не доходит — подписывать надо F1.
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("ctrl+shift+p"), "palette", "macKeys < 3");
+        registry.register(parseKeybinding("f1"), "palette");
+        const chord = registry.getKeybindingForCommand("palette", contextFor("legacy"));
+        expect(chord && formatKeybinding(chord)).toBe("F1");
+    });
+
+    it("когда доставляемого бинда нет вовсе, подпись — прежний приоритет", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("ctrl+shift+m"), "problems", "macKeys < 3");
+        const chord = registry.getKeybindingForCommand("problems", contextFor("legacy"));
+        expect(chord && formatKeybinding(chord)).toBe("Ctrl+Shift+M");
+    });
+
+    it("без контекста tier неизвестен — подпись по порядку регистрации", () => {
+        const chord = gatedPlusFallback().getKeybindingForCommand("format");
+        expect(chord && formatKeybinding(chord)).toBe("Ctrl+K Ctrl+E");
+    });
+});
+
 describe("KeybindingRegistry — getKeybindingForCommand с overlay", () => {
     it("бинд под фокус-ключом находится «как если бы в фокусе», не трогая контекст", () => {
         const registry = new KeybindingRegistry();

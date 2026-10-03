@@ -84,9 +84,10 @@ export const deleteLinesAction: CommandAction = {
     id: "editor.action.deleteLines",
     title: "Delete Line",
     keybinding: parseKeybinding("mod+shift+k"),
-    // На legacy-tier'е `ctrl+shift+k` неотличим от `ctrl+k` (лидера аккордов) —
-    // та же норма, что у selectHighlights: досягаемый везде аккорд-фолбэк.
-    keybindings: [{ keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" }],
+    // `ctrl+shift+k` неотличим от `ctrl+k` (лидера аккордов) там, где нет extended
+    // keys — та же норма, что у selectHighlights: досягаемый везде аккорд-фолбэк,
+    // безусловный (гейт по tier снимал его ровно в нужном окружении).
+    keybindings: [parseChord("ctrl+k ctrl+k")],
     when: "textInputFocus && !editorReadonly",
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();

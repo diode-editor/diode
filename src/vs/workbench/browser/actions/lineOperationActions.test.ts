@@ -201,10 +201,9 @@ describe("line operation actions", () => {
         expect(deleteLinesAction.id).toBe("editor.action.deleteLines");
         expect(deleteLinesAction.title).toBe("Delete Line");
         expect(deleteLinesAction.keybinding).toEqual(parseKeybinding("mod+shift+k"));
-        // Аккорд — единственный досягаемый на legacy-tier'е.
-        expect(deleteLinesAction.keybindings).toEqual([
-            { keys: parseChord("ctrl+k ctrl+k"), when: "tier == 'legacy'" },
-        ]);
+        // Аккорд — единственный досягаемый там, где нет extended keys, и он
+        // БЕЗУСЛОВЕН: гейт по tier снимал фолбэк ровно в нужном окружении.
+        expect(deleteLinesAction.keybindings).toEqual([parseChord("ctrl+k ctrl+k")]);
         expect(deleteLinesAction.when).toBe("textInputFocus && !editorReadonly");
     });
 

@@ -48,7 +48,12 @@ export const showCommandsAction: CommandAction = {
     // открывает пикер открытых редакторов (showAllEditors ниже) — аккорд отдан
     // ему, а палитре достался F1: тоже дословный бинд VS Code, и он проходит
     // терминалом любого tier'а.
-    keybindings: [{ keys: parseKeybinding("f1"), when: "tier == 'legacy'" }],
+    //
+    // F1 БЕЗУСЛОВЕН намеренно. Под гейтом `tier == 'legacy'` он исчезал там, где
+    // нужнее всего: tier поднимается по env-хинту (tmux 3.4 + kitty) и по первой
+    // же пришедшей CSI-u клавише, а расширенные клавиши при этом может не
+    // доставлять ни одна сторона — редактор оставался вообще без палитры.
+    keybindings: [parseKeybinding("f1")],
     run(accessor, ...args) {
         accessor.get(QuickOpenServiceDIToken).show(CommandsQuickAccessProvider.PREFIX + prefillOf(args));
     },

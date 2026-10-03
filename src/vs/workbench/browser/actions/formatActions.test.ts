@@ -188,9 +188,12 @@ describe("метаданные формат-команд", () => {
         expect(formatDocumentAction.id).toBe("editor.action.formatDocument");
         expect(formatDocumentAction.title).toBe("Format Document");
         expect(formatDocumentAction.when).toBe("textInputFocus && !editorReadonly");
-        expect(formatDocumentAction.keybinding).toEqual(parseKeybinding("shift+alt+f"));
-        // Второй бинд — единственный досягаемый на legacy-tier'е.
-        expect(formatDocumentAction.keybindings).toEqual([parseChord("ctrl+k ctrl+e")]);
+        // Первичный — досягаемый везде аккорд: именно он идёт в подпись палитры и
+        // меню там, где Shift+Alt+F не доезжает. Канонический — под tier-гейтом.
+        expect(formatDocumentAction.keybinding).toEqual(parseChord("ctrl+k ctrl+e"));
+        expect(formatDocumentAction.keybindings).toEqual([
+            { keys: parseKeybinding("shift+alt+f"), when: "tier != 'legacy'" },
+        ]);
 
         expect(formatSelectionAction.id).toBe("editor.action.formatSelection");
         expect(formatSelectionAction.title).toBe("Format Selection");

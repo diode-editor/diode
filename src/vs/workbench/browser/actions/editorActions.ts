@@ -193,17 +193,20 @@ export const cursorBottomSelectAction: CommandAction = {
 
 // ─── Word Navigation ────────────────────────────────────────
 
-// Word motions keep the canonical VS Code combo on every tier; on `legacy` (where the
-// terminal often can't disambiguate Ctrl/Ctrl+Shift+Arrow) we add single-key and leader-chord
-// fallbacks so the function is still reachable — breadth preserved, ergonomics degrade gracefully.
+// Word motions keep the canonical VS Code combo on every tier; where the terminal can't
+// disambiguate Ctrl/Ctrl+Shift+Arrow we add single-key and leader-chord fallbacks so the
+// function is still reachable — breadth preserved, ergonomics degrade gracefully.
+//
+// Фолбэки БЕЗУСЛОВНЫ (а не под `tier == 'legacy'`): индикатор tier ≠ доставка
+// клавиш — под tmux он поднимается по env-хинту внешнего терминала и по первой
+// пришедшей CSI-u клавише, а расширенные клавиши tmux при этом не доставляет.
+// Гейт выключал фолбэк ровно там, где он нужен. Несколько биндов на команду —
+// норма VS Code. Детали: docs/TODO/EnvironmentTuning.md.
 export const cursorWordLeftAction: CommandAction = {
     id: "cursorWordLeft",
     title: "Cursor Word Left",
     keybinding: parseKeybinding("ctrl+left"),
-    keybindings: [
-        { keys: parseKeybinding("alt+left"), when: "tier == 'legacy'" },
-        { keys: parseChord("ctrl+k left"), when: "tier == 'legacy'" },
-    ],
+    keybindings: [parseKeybinding("alt+left"), parseChord("ctrl+k left")],
     when: "textViewFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveViewState()?.cursorWordLeft();
@@ -214,7 +217,7 @@ export const cursorWordLeftSelectAction: CommandAction = {
     id: "cursorWordLeftSelect",
     title: "Cursor Word Left Select",
     keybinding: parseKeybinding("ctrl+shift+left"),
-    keybindings: [{ keys: parseChord("ctrl+k shift+left"), when: "tier == 'legacy'" }],
+    keybindings: [parseChord("ctrl+k shift+left")],
     when: "textViewFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveViewState()?.cursorWordLeft(true);
@@ -225,10 +228,7 @@ export const cursorWordRightAction: CommandAction = {
     id: "cursorWordRight",
     title: "Cursor Word Right",
     keybinding: parseKeybinding("ctrl+right"),
-    keybindings: [
-        { keys: parseKeybinding("alt+right"), when: "tier == 'legacy'" },
-        { keys: parseChord("ctrl+k right"), when: "tier == 'legacy'" },
-    ],
+    keybindings: [parseKeybinding("alt+right"), parseChord("ctrl+k right")],
     when: "textViewFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveViewState()?.cursorWordRight();
@@ -241,7 +241,7 @@ export const cursorWordRightSelectAction: CommandAction = {
     // Label только в меню — семантика пункта, не команды.
     menus: [{ menuId: MenuId.MenubarSelectionMenu, title: "Expand Selection (Word)", group: "2_expand", order: 10 }],
     keybinding: parseKeybinding("ctrl+shift+right"),
-    keybindings: [{ keys: parseChord("ctrl+k shift+right"), when: "tier == 'legacy'" }],
+    keybindings: [parseChord("ctrl+k shift+right")],
     when: "textViewFocus",
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveViewState()?.cursorWordRight(true);

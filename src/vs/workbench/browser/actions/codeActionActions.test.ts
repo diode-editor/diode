@@ -283,7 +283,12 @@ describe("editor.action.organizeImports / fixAll", () => {
     it("метаданные запиннены: id/title/бинды/when — пользовательский контракт", () => {
         expect(organizeImportsAction.id).toBe("editor.action.organizeImports");
         expect(organizeImportsAction.title).toBe("Organize Imports");
-        expect(organizeImportsAction.keybinding).toEqual(parseKeybinding("shift+alt+o"));
+        // Первичный — досягаемый на любом терминале аккорд; канонический Shift+Alt+O
+        // под tier-гейтом (shift под Alt в legacy-поток не попадает).
+        expect(organizeImportsAction.keybinding).toEqual(parseChord("ctrl+k alt+o"));
+        expect(organizeImportsAction.keybindings).toEqual([
+            { keys: parseKeybinding("shift+alt+o"), when: "tier != 'legacy'" },
+        ]);
         expect(organizeImportsAction.when).toBe("textInputFocus && !editorReadonly");
 
         expect(fixAllAction.id).toBe("editor.action.fixAll");

@@ -62,8 +62,11 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
         const input = await session.waitForNode("#scmCommitInput");
         expect((input.state as InputState).showsPlaceholder).toBe(true);
-        // Плейсхолдер клипуется шириной сайдбара — проверяем начало.
-        expect(frameToText(await session.captureFrame())).toContain("Message (Ctrl");
+        // Плейсхолдер клипуется шириной сайдбара — проверяем начало. Окружение
+        // e2e пинуется к tier=legacy, где Ctrl+Enter — это сам Enter: подсказка
+        // обязана назвать досягаемый Alt+Enter (на kitty она вернётся к
+        // каноническому Ctrl+Enter, см. scmInputComponent.test.ts).
+        expect(frameToText(await session.captureFrame())).toContain("Message (Alt+Enter");
 
         // Контролы — в теле секции: ниже её заголовка, но выше списка изменений.
         const changesHeader = await session.waitForNode("#paneHeader-workbench-scm-changes");
@@ -104,13 +107,13 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         // иначе Ctrl+Enter упадёт в no-op (transport-команды ещё нет).
         await session.waitForNode("#scmGroup-index");
         // Пустое сообщение: notice, git log не вырос.
-        await session.key("Ctrl+Enter");
+        await session.key("Alt+Enter");
         await session.waitForText((t) => t.includes("commit message is empty"));
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("1");
 
         await session.text("feat: change");
         await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "feat: change");
-        await session.key("Ctrl+Enter");
+        await session.key("Alt+Enter");
 
         // Input очистился, staged-группа ушла; git подтверждает.
         await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "");
@@ -130,7 +133,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForFocus("ScmCommitInputElement");
         await session.waitForNode("#scmGroup-worktree"); // расширение активно
         await session.text("feat: smart");
-        await session.key("Ctrl+Enter");
+        await session.key("Alt+Enter");
 
         await session.waitForText((t) => t.includes("There are no staged changes to commit."));
         // Дефолтный фокус на Cancel, стрелка — на Commit All.

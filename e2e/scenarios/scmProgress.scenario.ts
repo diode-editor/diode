@@ -58,7 +58,7 @@ export default defineScenario({
 
         // Коммит уходит в расширение, хук спит: заголовок CHANGES крутит
         // спиннер, кнопка гаснет и говорит, чем занята.
-        await editor.sendKey("Ctrl+Enter");
+        await editor.sendKey("Alt+Enter");
         // Во время анимации settling-ввод не шлём — кадр не «затихает», пока
         // спиннер тикает; только ожидания и снимки.
         await editor.waitForText((t) => t.includes("Committing"));

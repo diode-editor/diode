@@ -78,8 +78,11 @@ describe("quick open actions — кейбинды палитры и пикера
         expect(showAllEditorsAction.keybindings).toBeUndefined();
     });
 
-    it("палитре на legacy-терминале достался F1 — аккорд Ctrl+K Ctrl+P теперь занят пикером", () => {
+    it("палитре достался F1 (аккорд Ctrl+K Ctrl+P занят пикером), и он БЕЗУСЛОВЕН", () => {
         expect(showCommandsAction.keybinding).toEqual(parseKeybinding("mod+shift+p"));
-        expect(showCommandsAction.keybindings).toEqual([{ keys: parseKeybinding("f1"), when: "tier == 'legacy'" }]);
+        // Без tier-условия намеренно: под `tier == 'legacy'` F1 исчезал ровно там,
+        // где нужен (tmux поднимает tier, но расширенных клавиш не доставляет) —
+        // редактор оставался вообще без палитры.
+        expect(showCommandsAction.keybindings).toEqual([parseKeybinding("f1")]);
     });
 });

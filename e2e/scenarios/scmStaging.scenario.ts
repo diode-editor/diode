@@ -60,7 +60,10 @@ export default defineScenario({
 
         // Черновик сообщения в commit input box.
         await editor.sendKey("Alt+M");
-        await editor.waitForText((t) => t.includes("Message (Ctrl"));
+        // Окружение e2e пинуется к tier=legacy, где Ctrl+Enter — это сам Enter:
+        // подсказка называет досягаемый Alt+Enter (на kitty она вернётся к
+        // каноническому Ctrl+Enter, на маке с Cmd — к ⌘Enter, см. mac-key-hints).
+        await editor.waitForText((t) => t.includes("Message (Alt+Enter"));
         await editor.sendText("feat: greet louder");
         await editor.waitForText((t) => t.includes("feat: greet louder"));
         await editor.capture("commit-input");

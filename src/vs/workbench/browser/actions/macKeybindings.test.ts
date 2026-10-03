@@ -157,6 +157,29 @@ describe("withMacKeybindings", () => {
         ]);
     });
 
+    it("условный бинд-АККОРД переносится целиком: чорд не разворачивается в одну часть", () => {
+        // Среди дефолтов такой формы сейчас нет (условные бинды — одиночные
+        // комбинации), но форма разрешена `ConditionalKeybinding`, и ошибка здесь
+        // молча превратила бы Ctrl+K Ctrl+E в Ctrl+K.
+        const result = withMacKeybindings(
+            action({
+                id: "a",
+                keybinding: { keys: parseChord("ctrl+k ctrl+e"), when: "tier != 'legacy'" },
+                keybindings: [parseKeybinding("ctrl+e")],
+            }),
+            deltas({ command: "a", pcOnly: ["ctrl+e"] }),
+        );
+        expect(
+            result.keybindings?.map((entry) => {
+                const conditional = entry as { keys: Keybinding[]; when?: string };
+                return [serializeChord(conditional.keys), conditional.when];
+            }),
+        ).toEqual([
+            ["ctrl+k ctrl+e", "tier != 'legacy'"],
+            ["ctrl+e", "macKeys < 1"],
+        ]);
+    });
+
     it("pcOnly сверяется с объявлением, включая mod и условие", () => {
         const result = withMacKeybindings(
             action({ id: "a", keybinding: { keys: parseKeybinding("mod+a"), when: "listFocus" } }),
@@ -200,14 +223,14 @@ describe("таблица мак-дельт", () => {
             "cursorTop | -ctrl+home | meta+up@cmd",
             "cursorTopSelect | -ctrl+shift+home | shift+meta+up@cmd",
             "cursorUp | ctrl+p@cmd",
-            "cursorWordLeft | -ctrl+left | alt+left@legacy",
+            "cursorWordLeft | -ctrl+left",
             "cursorWordLeftSelect | -ctrl+shift+left | shift+alt+left@legacy",
-            "cursorWordRight | -ctrl+right | alt+right@legacy",
+            "cursorWordRight | -ctrl+right",
             "cursorWordRightSelect | -ctrl+shift+right | shift+alt+right@legacy",
             "deleteAllLeft | meta+backspace@cmd",
             "deleteLeft | ctrl+backspace@extended ctrl+h@legacy",
             "deleteRight | ctrl+delete@legacy ctrl+d@cmd",
-            "deleteWordLeft | -ctrl+backspace | alt+backspace@legacy",
+            "deleteWordLeft | -ctrl+backspace",
             "deleteWordRight | -ctrl+delete | alt+delete@legacy",
             "editor.action.copyLinesDownAction | -ctrl+shift+alt+down | shift+alt+down@legacy",
             "editor.action.copyLinesUpAction | -ctrl+shift+alt+up | shift+alt+up@legacy",
@@ -228,7 +251,7 @@ describe("таблица мак-дельт", () => {
             "input.cursorWordRight | -ctrl+right | alt+right@legacy",
             "input.deleteLeft | ctrl+backspace@extended ctrl+h@legacy",
             "input.deleteRight | ctrl+delete@legacy ctrl+d@cmd",
-            "input.deleteWordLeft | -ctrl+backspace | alt+backspace@legacy",
+            "input.deleteWordLeft | -ctrl+backspace",
             "input.deleteWordRight | -ctrl+delete | alt+delete@legacy",
             "input.selectToEnd | shift+meta+right@cmd",
             "input.selectToHome | shift+meta+left@cmd",

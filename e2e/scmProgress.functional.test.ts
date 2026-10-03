@@ -72,7 +72,7 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
         await session.waitForNode("#scmGroup-index");
 
         await session.text("feat: slow");
-        await session.key("Ctrl+Enter");
+        await session.key("Alt+Enter");
 
         // Пока хук спит: заголовок секции занят, кнопка погашена и говорит, чем.
         // Во время анимации шлём только ожидания и снимки — settling-ввод не
@@ -85,7 +85,7 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
 
         // Пока занято, повторный Ctrl+Enter ничего не запускает: команда
         // недоступна (enablement), а не встаёт второй в очередь мутаций.
-        await session.key("Ctrl+Enter", { settle: false });
+        await session.key("Alt+Enter", { settle: false });
 
         // Хук отработал: спиннер снят, кнопка вернулась, коммит на месте.
         await session.waitForState(

@@ -1,6 +1,6 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EXPLORER_VIEWLET_ID } from "../../contrib/files/browser/explorerComponent.ts";
 import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
 import { PROBLEMS_VIEW_ID, ProblemsComponentDIToken } from "../../contrib/markers/browser/problemsComponent.ts";
@@ -30,7 +30,11 @@ export const showExplorerAction: CommandAction = {
     title: "View: Show Explorer",
     shortTitle: "Explorer",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 10 }],
-    keybinding: parseKeybinding("mod+shift+e"),
+    // Парно с Search и SCM (см. searchActions): лидер-аккорд безусловен и работает
+    // на любом терминале, а канонический Ctrl+Shift+E объявлен там, где терминал
+    // способен его передать, — иначе подсказка в меню обещала бы нерабочее.
+    keybinding: parseChord("ctrl+k e"),
+    keybindings: [{ keys: parseKeybinding("mod+shift+e"), when: "tier != 'legacy'" }],
     run(accessor) {
         accessor.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID);
     },
@@ -110,7 +114,9 @@ export const toggleProblemsAction: CommandAction = {
     title: "View: Toggle Problems (Errors, Warnings, Infos)",
     shortTitle: "Problems",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 20 }],
-    keybinding: parseKeybinding("mod+shift+m"),
+    // Как у Explorer выше: безусловный аккорд + канонический под tier-гейтом.
+    keybinding: parseChord("ctrl+k m"),
+    keybindings: [{ keys: parseKeybinding("mod+shift+m"), when: "tier != 'legacy'" }],
     run(accessor) {
         // Toggle like VS Code: show + focus Problems, or hide the panel if
         // Problems is already the visible view.

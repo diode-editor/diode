@@ -63,9 +63,11 @@ export const removeSecondaryCursorsAction: CommandAction = {
 export const insertCursorAtEndOfEachLineSelectedAction: CommandAction = {
     id: "editor.action.insertCursorAtEndOfEachLineSelected",
     title: "Add Cursors to Line Ends",
-    // На legacy `ctrl+shift+i` неотличим от `ctrl+i` (это Tab) — отсюда tier-гейт и аккорд.
+    // `ctrl+shift+i` неотличим от `ctrl+i` (это Tab) там, где нет extended keys —
+    // отсюда безусловный аккорд рядом (см. editorActions: гейт по tier на фолбэке
+    // снимал его ровно в том окружении, где он и нужен).
     keybinding: parseKeybinding("ctrl+shift+alt+i"),
-    keybindings: [{ keys: parseChord("ctrl+k ctrl+i"), when: "tier == 'legacy'" }],
+    keybindings: [parseChord("ctrl+k ctrl+i")],
     when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "3_multi", order: 30 }],
     run(accessor) {
@@ -126,9 +128,9 @@ export const selectHighlightsAction: CommandAction = {
     id: "editor.action.selectHighlights",
     title: "Select All Occurrences",
     // `ctrl+shift+<буква>` на legacy неотличим от `ctrl+<буква>` — та же норма, что у
-    // `ctrl+shift+f` / `ctrl+shift+g`.
+    // `ctrl+shift+f` / `ctrl+shift+g`: безусловный аккорд рядом с каноническим биндом.
     keybinding: parseKeybinding("mod+shift+l"),
-    keybindings: [{ keys: parseChord("ctrl+k ctrl+a"), when: "tier == 'legacy'" }],
+    keybindings: [parseChord("ctrl+k ctrl+a")],
     when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "4_find", order: 50 }],
     run(accessor) {

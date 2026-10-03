@@ -87,10 +87,12 @@ export const inputDeleteRightAction: CommandAction = {
     },
 };
 
+/** Пара к `deleteWordLeft` (см. комментарий там): Alt+Backspace — досягаемый везде путь. */
 export const inputDeleteWordLeftAction: CommandAction = {
     id: "input.deleteWordLeft",
     title: "Input: Delete Word Left",
-    keybinding: parseKeybinding("ctrl+backspace"),
+    keybinding: parseKeybinding("alt+backspace"),
+    keybindings: [{ keys: parseKeybinding("ctrl+backspace"), when: "tier != 'legacy'" }],
     when: "inputWidgetFocus",
     run(accessor) {
         accessor.get(InputWidgetServiceDIToken).deleteWordLeft();
