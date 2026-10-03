@@ -1,8 +1,9 @@
-import { createRequire, Module } from "node:module";
+import { createRequire, Module, registerHooks } from "node:module";
 import * as path from "node:path";
 
 import { describeRejection } from "../../../../base/common/describeRejection.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { importModule } from "../../../../base/node/importModule.ts";
 import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
@@ -17,10 +18,11 @@ import { extensionRootPath } from "./iExtensionEntry.ts";
 /**
  * Сообщения protocol host -> subprocess. RPC-методы:
  *
- * - `host.activateExtension({ id, mainPath, extensionPath?, configDefaults?,
- *   globalStoragePath?, storagePath?, logPath? })` -> `null`.
+ * - `host.activateExtension({ id, mainPath, moduleType?, extensionPath?,
+ *   configDefaults?, globalStoragePath?, storagePath?, logPath? })` -> `null`.
  *   Кладёт `configDefaults` (дефолты `contributes.configuration`) в config store,
- *   загружает CJS-модуль через `createRequire`, вызывает `module.activate(context)`.
+ *   загружает модуль (CJS или ESM — см. `loadExtensionModule`; `moduleType` —
+ *   это `"type"` из `package.json` расширения), вызывает `module.activate(context)`.
  *   Бросает на ошибках загрузки/активации. Каталоги хранения приходят ОТ ХОСТА
  *   (он владеет раскладкой user-data) — субпроцесс их не выдумывает и не создаёт.
  * - `host.deactivateExtension({ id })` -> `null`. Вызывает `deactivate()` +
@@ -109,14 +111,15 @@ export function runExtensionHostSubprocess(): void {
     const extensions = new Map<string, ActivatedExtension>();
 
     rpc.handleRequest("host.activateExtension", async (params): Promise<unknown> => {
-        const { id, mainPath, source, filename, extensionPath, configDefaults, storage } = parseActivateParams(params);
+        const { id, mainPath, source, filename, moduleType, extensionPath, configDefaults, storage } =
+            parseActivateParams(params);
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
         }
         // Дефолты из `contributes.configuration` — под пользовательским снапшотом,
         // должны быть доступны через getConfiguration ДО activate().
         configStore.applyDefaults(configDefaults);
-        const loaded = loadExtensionModule({ mainPath, source, filename });
+        const loaded = await loadExtensionModule({ mainPath, source, filename, moduleType });
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
         }
@@ -223,17 +226,34 @@ async function deactivate(active: ActivatedExtension): Promise<void> {
 }
 
 /**
- * Загружает CJS-модуль расширения одним из двух способов:
- *  - `mainPath` → `createRequire(mainPath)` (файл на ФС subprocess'а);
+ * ESM ли точка входа расширения — правило эталона (`_isESM` в
+ * `abstractExtHostExtensionService`): `.mjs` всегда модуль, `.cjs` всегда CJS, в
+ * остальных случаях решает `"type"` из `package.json` расширения.
+ */
+export function isEsmEntry(mainPath: string, moduleType: string | undefined): boolean {
+    if (mainPath.endsWith(".mjs")) return true;
+    if (mainPath.endsWith(".cjs")) return false;
+    return moduleType === "module";
+}
+
+/**
+ * Загружает модуль расширения одним из трёх способов:
+ *  - `mainPath` + CJS → `createRequire(mainPath)` (файл на ФС subprocess'а);
+ *  - `mainPath` + ESM ({@link isEsmEntry}) → `importModule` (настоящий
+ *    ESM-loader; `import … from "vscode"` резолвится ESM-хуком из
+ *    `installVscodeStub`). Такие расширения уже в ходу: `esbenp.prettier-vscode`
+ *    с 12.x — `"type": "module"`, и CJS-веткой он падал на
+ *    `ERR_MODULE_NOT_FOUND: Cannot find package 'vscode'`;
  *  - `source` (+`filename`) → `Module._compile` в памяти (скомпилированный builtin;
  *    `require("vscode")` внутри резолвится через `installVscodeStub`, node:builtins —
  *    штатно; относительных require в бандле нет, поэтому `filename` синтетический).
  */
-function loadExtensionModule(spec: {
+async function loadExtensionModule(spec: {
     mainPath: string | undefined;
     source: string | undefined;
     filename: string | undefined;
-}): ExtensionModule {
+    moduleType: string | undefined;
+}): Promise<ExtensionModule> {
     if (spec.source !== undefined && spec.filename !== undefined) {
         const ModuleCtor = Module as unknown as {
             new (
@@ -254,6 +274,9 @@ function loadExtensionModule(spec: {
         return m.exports as ExtensionModule;
     }
     if (spec.mainPath === undefined) throw new Error("Extension spec has neither inline source nor mainPath");
+    if (isEsmEntry(spec.mainPath, spec.moduleType)) {
+        return (await importModule(spec.mainPath)) as ExtensionModule;
+    }
     const extRequire = createRequire(spec.mainPath);
     return extRequire(spec.mainPath) as ExtensionModule;
 }
@@ -263,6 +286,7 @@ function parseActivateParams(raw: unknown): {
     mainPath: string | undefined;
     source: string | undefined;
     filename: string | undefined;
+    moduleType: string | undefined;
     extensionPath: string | undefined;
     configDefaults: Record<string, unknown> | undefined;
     storage: { globalStoragePath: string; storagePath: string | null; logPath: string };
@@ -275,6 +299,7 @@ function parseActivateParams(raw: unknown): {
         mainPath?: unknown;
         source?: unknown;
         filename?: unknown;
+        moduleType?: unknown;
         extensionPath?: unknown;
         configDefaults?: unknown;
         globalStoragePath?: unknown;
@@ -306,6 +331,7 @@ function parseActivateParams(raw: unknown): {
         mainPath: hasMain ? (obj.mainPath as string) : undefined,
         source: hasSource ? (obj.source as string) : undefined,
         filename: hasSource ? (obj.filename as string) : undefined,
+        moduleType: typeof obj.moduleType === "string" ? obj.moduleType : undefined,
         extensionPath:
             typeof obj.extensionPath === "string" && obj.extensionPath !== "" ? obj.extensionPath : undefined,
         configDefaults,
@@ -336,12 +362,44 @@ function parseExtensionId(raw: unknown): string {
     return obj.id;
 }
 
+/** URL виртуального ESM-модуля `"vscode"` — см. {@link installVscodeStub}. */
+const VSCODE_ESM_URL = "diode-vscode:api";
+
+/** Ключ, под которым ESM-шим достаёт namespace из `globalThis`. */
+const VSCODE_GLOBAL_KEY_NAME = "diode.vscodeApi";
+const VSCODE_GLOBAL_KEY = Symbol.for(VSCODE_GLOBAL_KEY_NAME);
+
 /**
- * Регистрирует виртуальный модуль `"vscode"` в кэше Node CJS-loader'а, чтобы
- * `require("vscode")` внутри расширения возвращал host-backed namespace.
+ * Собирает исходник виртуального ESM-модуля `"vscode"`: по именованному export'у
+ * на каждый член namespace'а, значения берутся из `globalThis` в момент import'а.
  *
- * Используем приватные API `Module._cache` и `Module._resolveFilename` —
- * стандартный приём расширений Node и оригинальный приём VS Code.
+ * Так же устроен эталон (`NodeModuleRequireInterceptor` в
+ * `extHostExtensionService.ts`): сгенерированный модуль реэкспортирует члены
+ * живого объекта API. Реэкспортировать можно только то, что является валидным
+ * JS-идентификатором, — других имён в `vscode.d.ts` и не бывает.
+ */
+export function buildVscodeEsmShim(exportNames: readonly string[]): string {
+    const names = exportNames.filter((name) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && name !== "default");
+    return [
+        `const ns = globalThis[Symbol.for(${JSON.stringify(VSCODE_GLOBAL_KEY_NAME)})];`,
+        ...names.map((name) => `export const ${name} = ns[${JSON.stringify(name)}];`),
+    ].join("\n");
+}
+
+/**
+ * Регистрирует виртуальный модуль `"vscode"` для ОБОИХ loader'ов Node:
+ *
+ * - CJS: `Module._cache` + патч `Module._resolveFilename`, чтобы
+ *   `require("vscode")` вернул host-backed namespace. Приватные API — приём
+ *   расширений Node и оригинальный приём VS Code;
+ * - ESM: `module.registerHooks` (`resolve` + `load`), чтобы
+ *   `import … from "vscode"` в ESM-расширении получил сгенерированный модуль с
+ *   именованными export'ами ({@link buildVscodeEsmShim}). Без этого ESM-ветка
+ *   падает на `ERR_MODULE_NOT_FOUND`: CJS-кэш ESM-loader'у не виден. Эталон
+ *   держит ровно эти два механизма рядом по той же причине.
+ *
+ * Хуки и CJS-кэш не мешают друг другу: `require("vscode")` по-прежнему берёт
+ * объект из кэша, а не сгенерированный ESM (проверено тестом).
  */
 function installVscodeStub(rpc: RpcEndpoint): IDisposable & {
     configStore: WorkspaceConfigStore;
@@ -368,11 +426,26 @@ function installVscodeStub(rpc: RpcEndpoint): IDisposable & {
         return origResolve.call(this, request, parent, ...rest);
     };
 
+    // ESM-ветка: сгенерированный модуль читает namespace из globalThis — через
+    // замыкание его в исходник не передать.
+    (globalThis as unknown as Record<symbol, unknown>)[VSCODE_GLOBAL_KEY] = namespace;
+    const esmShimSource = buildVscodeEsmShim(Object.keys(namespace));
+    const hooks = registerHooks({
+        resolve: (specifier, context, nextResolve) =>
+            specifier === "vscode" ? { url: VSCODE_ESM_URL, shortCircuit: true } : nextResolve(specifier, context),
+        load: (url, context, nextLoad) =>
+            url === VSCODE_ESM_URL
+                ? { format: "module", source: esmShimSource, shortCircuit: true }
+                : nextLoad(url, context),
+    });
+
     return {
         configStore,
         extensionExports,
         secrets,
         dispose: (): void => {
+            hooks.deregister();
+            Reflect.deleteProperty(globalThis as unknown as Record<symbol, unknown>, VSCODE_GLOBAL_KEY);
             moduleAny._resolveFilename = origResolve;
             Reflect.deleteProperty(moduleAny._cache, cacheKey);
         },

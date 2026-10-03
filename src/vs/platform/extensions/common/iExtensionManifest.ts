@@ -52,6 +52,15 @@ export interface IExtensionManifest {
     readonly browser?: string;
 
     /**
+     * Модульная система точки входа — обычное поле npm-пакета (`"module"` или
+     * `"commonjs"`). Решает, как extension host грузит {@link main}: `"module"`
+     * (при `main` без расширения `.cjs`) — настоящим ESM-loader'ом, иначе
+     * `require`. Правило целиком — `isEsmEntry` в `extensionHostSubprocess.ts`;
+     * ESM-расширения не экзотика (`esbenp.prettier-vscode` с 12.x).
+     */
+    readonly type?: "module" | "commonjs";
+
+    /**
      * События активации (`onLanguage:typescript`, `onCommand:foo`, `*`, ...).
      * Phase 1: lazy activation отсутствует, всё активно сразу.
      */

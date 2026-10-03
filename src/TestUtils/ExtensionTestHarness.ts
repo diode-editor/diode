@@ -52,17 +52,33 @@ const SUBPROCESS_ENTRY = fileURLToPath(
 );
 
 /**
- * Возвращает `spawnArgs`-фабрику для тестового запуска subprocess'а — вместо
- * `main.ts` запускает {@link SUBPROCESS_ENTRY} через `tsx` loader. Это нужно,
- * т.к. в vitest `process.argv[1]` указывает на vitest CLI, а не на `main.ts`.
+ * Чем транспилировать `.ts` внутри тестового subprocess'а.
+ *
+ * - `"tsx"` (дефолт) — полный `tsx` (не `tsx/esm`) регистрирует и ESM-, и
+ *   CJS-хук: расширения грузятся через `createRequire(mainPath)`, поэтому
+ *   `.ts`-main (напр. builtin `git`) требует CJS-транспиляции;
+ * - `"node"` — родное стирание типов Node (`--experimental-transform-types`,
+ *   нужен из-за `enum`). Это ЕДИНСТВЕННЫЙ режим, в котором виден настоящий
+ *   резолв ESM-расширений: `tsx` своим хуком уводит `import … from "vscode"` в
+ *   CJS-резолвер и тем самым маскирует отсутствие нашего ESM-хука. Платой идёт
+ *   отсутствие CJS-транспиляции `.ts` — фикстуры такого теста обязаны быть
+ *   `.cjs`/`.mjs`.
  */
-export function subprocessSpawnArgsForTests(): () => { command: string; args: string[]; env?: NodeJS.ProcessEnv } {
+export type SubprocessLoader = "tsx" | "node";
+
+/**
+ * Возвращает `spawnArgs`-фабрику для тестового запуска subprocess'а — вместо
+ * `main.ts` запускает {@link SUBPROCESS_ENTRY}. Это нужно, т.к. в vitest
+ * `process.argv[1]` указывает на vitest CLI, а не на `main.ts`. Чем
+ * транспилировать `.ts` — см. {@link SubprocessLoader}.
+ */
+export function subprocessSpawnArgsForTests(
+    loader: SubprocessLoader = "tsx",
+): () => { command: string; args: string[]; env?: NodeJS.ProcessEnv } {
+    const loaderArgs = loader === "tsx" ? ["--import", "tsx"] : ["--experimental-transform-types", "--no-warnings"];
     return () => ({
         command: process.execPath,
-        // Полный `tsx` (не `tsx/esm`) регистрирует и ESM-, и CJS-хук: расширения
-        // грузятся через `createRequire(mainPath)`, поэтому `.ts`-main (напр.
-        // builtin `git`) требует CJS-транспиляции. `.cjs`-фикстуры работают как есть.
-        args: ["--import", "tsx", SUBPROCESS_ENTRY],
+        args: [...loaderArgs, SUBPROCESS_ENTRY],
         env: { ...process.env },
     });
 }
@@ -176,6 +192,11 @@ export interface IExtensionHarnessOptions {
      * `writeFile`); тесты обхода передают карту каталогов в памяти.
      */
     readonly workspaceScanner?: IWorkspaceScanner;
+    /**
+     * Чем транспилировать `.ts` в subprocess'е. По умолчанию `"tsx"`; `"node"`
+     * нужен тестам ESM-расширений — см. {@link SubprocessLoader}.
+     */
+    readonly subprocessLoader?: SubprocessLoader;
 }
 
 export interface IExtensionHarness {
@@ -265,7 +286,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             logsHome: path.join(tmpDir, "logs"),
         }));
     const host = new ExtensionHost(adapter, commandAdapter, {
-        spawnArgs: subprocessSpawnArgsForTests(),
+        spawnArgs: subprocessSpawnArgsForTests(options.subprocessLoader),
         configuration,
         storageHomes,
         openDocumentsProvider: () => openDocumentSnapshots(group),
