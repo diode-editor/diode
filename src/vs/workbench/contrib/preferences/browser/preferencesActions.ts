@@ -26,9 +26,8 @@ import { KeybindingsEditorPane, KeybindingsEditorTargetDIToken } from "./keybind
  * yet: we seed it (create the parent dir + a minimal skeleton) so the editor opens
  * a real file and a subsequent Ctrl+S can't fail with ENOENT, mirroring VS Code.
  */
-function openUserConfigFile(accessor: ServiceAccessor, resource: string, kind: "settings" | "keybindings"): void {
+function openUserConfigFile(accessor: ServiceAccessor, resource: string, skeleton: string): void {
     if (!fs.existsSync(resource)) {
-        const skeleton = kind === "settings" ? "{}\n" : "[]\n";
         fs.mkdirSync(path.dirname(resource), { recursive: true });
         fs.writeFileSync(resource, skeleton, "utf-8");
     }
@@ -47,7 +46,7 @@ export const openSettingsAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 10 }],
     keybinding: parseKeybinding("mod+,"),
     run(accessor) {
-        openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "settings");
+        openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "{}\n");
     },
 };
 
@@ -86,6 +85,6 @@ export const openKeybindingsFileAction: CommandAction = {
     shortTitle: "Keyboard Shortcuts (JSON)",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 21 }],
     run(accessor) {
-        openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).keybindingsResource, "keybindings");
+        openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).keybindingsResource, "[]\n");
     },
 };
