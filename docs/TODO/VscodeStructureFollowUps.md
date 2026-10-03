@@ -30,10 +30,17 @@
 - [ ] **Направление ядро workbench → contrib** — храповик `DIRECTION_EXCEPTIONS`
   в `scripts/check-layers.mjs`: 9 файлов ядра ещё импортируют фичи. Корень и
   агрегатор (`workbenchComponent.ts`, `workbenchContributions.ts`) — E4
-  (саморегистрация контейнеров с `order` — сделана, хост оверлеев, фаза `blockStartup`, агрегатор
+  (саморегистрация контейнеров с `order` и хост оверлеев через
+  `LayoutService.mainContainer` — сделаны; фаза `blockStartup`, агрегатор
   `workbench.common.main.ts`); `workbenchContextKeyContributors.ts` — F3;
   `builtinActions.ts` и мелкие action-файлы — F2. Запись удаляет задача, которая
   её закрыла.
+- [ ] **`attachHost` у оверлеев `browser/parts` и `DialogService`** — quickInput,
+  tabSwitcher, notifications и диалоги ещё получают корневую view от корня
+  (правило направления это разрешает). Перевести их на
+  `LayoutService.mainContainer`, как contrib-оверлеи (E4 PR3), — для единого
+  пути; заодно z-порядок оверлеев перестанет зависеть от порядка создания
+  сессий (сейчас слой рисует их в порядке `createSession`), см. H1.
 - [ ] **Single-process исключения env-оси** (`EXCEPTIONS` в
   `scripts/check-layers.mjs`): «browser»-сторона напрямую зовёт node-сервисы
   (`services/search/node`, `services/terminalEnvironment/node`,

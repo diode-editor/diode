@@ -11,6 +11,7 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { EditorPartComponentDIToken } from "../../../browser/parts/editor/editorPartComponent.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 
 export const FindComponentDIToken = token<FindComponent>("FindComponent");
@@ -225,20 +226,23 @@ export class FindWidget extends Disposable {
     }
 }
 
+/** Срез полосы групп, который нужен find: overlay-слой группы по её id. */
+export interface IGroupOverlayHosts {
+    /** `null` — группа неизвестна view-слою. */
+    groupOverlayHost(groupId: GroupId): OverlayHostElement | null;
+}
+
 /**
  * Менеджер find-виджетов полосы групп: по {@link FindWidget} на группу, ленивое
- * создание при первом Ctrl+F в группе. Хосты виджетов выдаёт
- * {@link hostProvider} (ставит WorkbenchComponent — срез
- * `EditorPartComponent.groupOverlayHost`); колбэки каждого виджета поднимаются
+ * создание при первом Ctrl+F в группе. Хосты виджетов — локальные
+ * overlay-слои групп, их выдаёт полоса групп (`EditorPartComponent`,
+ * {@link IGroupOverlayHosts}); колбэки каждого виджета поднимаются
  * в {@link import("./findService.ts").FindService} с координатой группы.
  * Схлопнутая группа забирает свой виджет с собой ({@link disposeWidget} зовёт
  * FindService по `onDidGroupsChange`).
  */
 export class FindComponent extends Disposable {
-    public static dependencies = [] as const;
-
-    /** Хост overlay-слоя группы; `null` — группа неизвестна view-слою (тесты без view). */
-    public hostProvider: ((groupId: GroupId) => OverlayHostElement | null) | null = null;
+    public static dependencies = [EditorPartComponentDIToken] as const;
 
     public onQueryChange: ((groupId: GroupId, query: string) => void) | null = null;
     public onNext: ((groupId: GroupId) => void) | null = null;
@@ -247,11 +251,15 @@ export class FindComponent extends Disposable {
 
     private readonly widgets = new Map<GroupId, FindWidget>();
 
+    public constructor(private readonly hosts: IGroupOverlayHosts) {
+        super();
+    }
+
     /** Виджет группы, создавая при первом обращении; `null` — хост недоступен. */
     public widgetFor(groupId: GroupId): FindWidget | null {
         const existing = this.widgets.get(groupId);
         if (existing !== undefined) return existing;
-        const host = this.hostProvider?.(groupId) ?? null;
+        const host = this.hosts.groupOverlayHost(groupId);
         if (host === null) return null;
         const widget = this.register(new FindWidget());
         widget.attachHost(host);

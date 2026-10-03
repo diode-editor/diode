@@ -10,6 +10,8 @@ import { CompletionWidgetElement } from "@tuidom/elements/completionlist/complet
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
+import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
+import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
 export const SuggestComponentDIToken = token<SuggestComponent>("SuggestComponent");
 
@@ -24,32 +26,41 @@ export const SuggestComponentDIToken = token<SuggestComponent>("SuggestComponent
  * токены editorSuggestWidget.* резолвятся из палитры темы на корне (Н3).
  * дефолт контрола), маппинг на ключи темы — отдельная задача.
  *
- * Overlay-хост (корневая BodyElement-view приложения) приходит через late-init
- * шов {@link attachHost} — его зовёт владелец корневой view (сейчас
- * WorkbenchComponent) после её постройки, как у QuickInputComponent/DialogService.
+ * Overlay-хост — корневая view окна из {@link LayoutService.mainContainer}:
+ * сессия создаётся в конструкторе.
  */
 export class SuggestComponent extends Component {
-    public static dependencies = [] as const;
+    public static dependencies = [LayoutServiceDIToken] as const;
 
     /** Виджет целиком: список + панель описания (она же — элемент оверлея). */
     public readonly widget: CompletionWidgetElement;
 
-    private session: OverlaySessionHandle | null = null;
+    private readonly session: OverlaySessionHandle;
     /** Корневая view — по её ширине выбирается сторона панели описания. */
-    private hostView: BodyElement | null = null;
+    private readonly hostView: BodyElement;
     /** Последний якорь у каретки (для пересчёта стороны панели). */
     private lastAnchor: OverlayAnchorPosition | null = null;
 
-    public constructor() {
+    public constructor(layoutService: LayoutService) {
         super();
         this.widget = new CompletionWidgetElement();
         this.widget.id = "suggestWidget";
         this.view.id = "suggestList";
         this.widget.details.id = "suggestDetails";
+        this.hostView = layoutService.mainContainer;
+        this.session = this.hostView.overlayLayer.createSession(this.widget, new Point(0, 0), {
+            visible: false,
+            // Stryker disable next-line BooleanLiteral: попап фокус не забирает (редактор остаётся активным), поэтому возвращать его слою некому — флаг стоит ради контракта сессии, как у hover и parameterHints
+            restoreFocus: true,
+            // Редактор сохраняет фокус и обрабатывает набор/движение каретки; наши
+            // команды (`when: suggestWidgetVisible`) НЕ focus-scoped, поэтому
+            // capturesKeyboard должен быть false — иначе диспатчер заглушил бы их.
+            capturesKeyboard: false,
+            pointerPolicy: "close-on-outside",
+        });
         this.register({
             dispose: () => {
-                this.session?.dispose();
-                this.session = null;
+                this.session.dispose();
             },
         });
     }
@@ -82,35 +93,20 @@ export class SuggestComponent extends Component {
         this.widget.detailsVisible = value;
     }
 
-    /** Вызывается владельцем корневой view до первого показа попапа. */
-    public attachHost(host: BodyElement): void {
-        this.hostView = host;
-        this.session = host.overlayLayer.createSession(this.widget, new Point(0, 0), {
-            visible: false,
-            restoreFocus: true,
-            // Редактор сохраняет фокус и обрабатывает набор/движение каретки; наши
-            // команды (`when: suggestWidgetVisible`) НЕ focus-scoped, поэтому
-            // capturesKeyboard должен быть false — иначе диспатчер заглушил бы их.
-            capturesKeyboard: false,
-            pointerPolicy: "close-on-outside",
-        });
-    }
-
     /** Открыт ли попап (для `suggestWidgetVisible` и делегаторов команд). */
     public isOpen(): boolean {
-        return this.session?.isOpen() === true;
+        return this.session.isOpen();
     }
 
     /**
      * Позиционирует попап у каретки и открывает сессию. Фокус НЕ забирает —
-     * редактор остаётся активным (VS Code-like). Без прикреплённого хоста —
-     * no-op (как раньше у контроллера без setHostView).
+     * редактор остаётся активным (VS Code-like).
      */
     public openAt(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
         this.chooseDetailsSide(anchor);
-        this.session?.setAnchor(anchor);
-        this.session?.open();
+        this.session.setAnchor(anchor);
+        this.session.open();
     }
 
     /**
@@ -127,7 +123,7 @@ export class SuggestComponent extends Component {
         const anchor = this.lastAnchor;
         if (anchor === null) return;
         this.chooseDetailsSide(anchor);
-        this.session?.setAnchor(anchor);
+        this.session.setAnchor(anchor);
     }
 
     /**
@@ -136,7 +132,7 @@ export class SuggestComponent extends Component {
      * список уехал бы от каретки.
      */
     private chooseDetailsSide(anchor: OverlayAnchorPosition): void {
-        const screenWidth = this.hostView?.layoutSize.width ?? 0;
+        const screenWidth = this.hostView.layoutSize.width;
         if (screenWidth === 0) return;
         const needed = this.widget.getMaxIntrinsicWidth(0);
         this.widget.detailsSide = anchor.screenX + needed <= screenWidth ? "right" : "left";
@@ -145,11 +141,11 @@ export class SuggestComponent extends Component {
     /** Двигает открытый попап вслед за кареткой (re-filter при наборе). */
     public setAnchor(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
-        this.session?.setAnchor(anchor);
+        this.session.setAnchor(anchor);
     }
 
-    /** Закрывает сессию; no-op, если уже закрыта. */
+    /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
     public close(): void {
-        if (this.session?.isOpen() === true) this.session.close();
+        this.session.close();
     }
 }

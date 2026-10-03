@@ -1,9 +1,10 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { OverlayAnchorPosition, OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
-import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
+import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
+import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
 import { HoverElement } from "./hoverElement.ts";
 
@@ -16,33 +17,21 @@ export const HoverComponentDIToken = token<HoverComponent>("HoverComponent");
  * фокусу/каретке) живёт в {@link import("./hoverService.ts").HoverService} —
  * компонент только показывает/двигает попап.
  *
- * Overlay-хост (корневая BodyElement-view приложения) приходит через late-init
- * шов {@link attachHost} — его зовёт владелец корневой view (WorkbenchComponent)
- * после её постройки, как у SuggestComponent.
+ * Overlay-хост — корневая view окна из {@link LayoutService.mainContainer}:
+ * сессия создаётся в конструкторе, как у SuggestComponent.
  */
 export class HoverComponent extends Component {
-    public static dependencies = [] as const;
+    public static dependencies = [LayoutServiceDIToken] as const;
 
     public readonly view: HoverElement;
 
-    private session: OverlaySessionHandle | null = null;
+    private readonly session: OverlaySessionHandle;
 
-    public constructor() {
+    public constructor(layoutService: LayoutService) {
         super();
         this.view = new HoverElement();
         this.view.id = "hoverWidget";
-        this.register({
-            dispose: () => {
-                // Stryker disable next-line OptionalChaining: без attachHost сессии нет — обращение к её dispose кинуло бы на выключении приложения
-                this.session?.dispose();
-                this.session = null;
-            },
-        });
-    }
-
-    /** Вызывается владельцем корневой view до первого показа попапа. */
-    public attachHost(host: BodyElement): void {
-        this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
+        this.session = layoutService.mainContainer.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
             // Stryker disable next-line BooleanLiteral: попап фокус не забирает (focusable=false у элемента), поэтому возвращать его слою некому — флаг стоит ради контракта сессии
             restoreFocus: true,
@@ -54,11 +43,16 @@ export class HoverComponent extends Component {
             // Stryker disable next-line StringLiteral: клик мимо попапа и так закрывает его раньше — переносом каретки или сменой фокуса; политика стоит ради обратного контракта (клик ПО попапу его не закрывает)
             pointerPolicy: "close-on-outside",
         });
+        this.register({
+            dispose: () => {
+                this.session.dispose();
+            },
+        });
     }
 
     /** Открыт ли попап (для `editorHoverVisible` и делегаторов команд). */
     public isOpen(): boolean {
-        return this.session?.isOpen() === true;
+        return this.session.isOpen();
     }
 
     /** Наполняет попап блоками (по одному на провайдера). */
@@ -68,8 +62,7 @@ export class HoverComponent extends Component {
 
     /**
      * Позиционирует попап у каретки и открывает сессию. Фокус НЕ забирает —
-     * редактор остаётся активным (VS Code-like). Без прикреплённого хоста —
-     * no-op.
+     * редактор остаётся активным (VS Code-like).
      *
      * Анкорить обязательно на КАЖДОМ показе, даже если попап уже открыт: слой
      * запоминает геометрию на момент анкоринга, и новый (более широкий) контент
@@ -77,12 +70,12 @@ export class HoverComponent extends Component {
      * suggest-панели, см. `SuggestComponent.refreshDetailsLayout`.
      */
     public openAt(anchor: OverlayAnchorPosition): void {
-        this.session?.setAnchor(anchor);
-        this.session?.open();
+        this.session.setAnchor(anchor);
+        this.session.open();
     }
 
-    /** Закрывает сессию; no-op, если уже закрыта. */
+    /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
     public close(): void {
-        if (this.session?.isOpen() === true) this.session.close();
+        this.session.close();
     }
 }

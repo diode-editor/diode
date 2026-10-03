@@ -27,7 +27,7 @@ import { EditorService } from "../../../services/editor/browser/editorService.ts
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { FindComponent, type FindWidget } from "./findComponent.ts";
+import { FindComponent, type FindWidget, type IGroupOverlayHosts } from "./findComponent.ts";
 import { FindService } from "./findService.ts";
 
 function makeGroup(): {
@@ -57,6 +57,9 @@ function typeQuery(widget: FindWidget, query: string): void {
     input.inputState.value = query;
     input.onChange?.(query);
 }
+
+/** Полоса групп без view-слоя: хоста нет ни у одной группы. */
+const NO_GROUP_HOSTS: IGroupOverlayHosts = { groupOverlayHost: () => null };
 
 describe("FindService", () => {
     let tmpDir: string;
@@ -90,8 +93,7 @@ describe("FindService", () => {
         const testApp = TestApp.create(body, new Size(80, 24));
         testApp.render();
 
-        const component = new FindComponent();
-        component.hostProvider = () => groupComponent.view;
+        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
         const find = new FindService(component, group);
         // Виджет единственной группы (создаётся лениво — здесь явно, для ассертов).
         const widget = component.widgetFor(group.activeGroup.id)!;
@@ -371,14 +373,14 @@ describe("FindService", () => {
 
     it("isVisible() is false before the host view is attached", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent();
+        const component = new FindComponent(NO_GROUP_HOSTS);
         const find = new FindService(component, group);
         expect(find.isVisible()).toBe(false);
     });
 
     it("open() / hide() before the host view is attached are no-ops and do not throw", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent();
+        const component = new FindComponent(NO_GROUP_HOSTS);
         const find = new FindService(component, group);
         expect(() => {
             find.open();
@@ -393,7 +395,7 @@ describe("FindService", () => {
     it("next()/prev() до присоединения view-слоя — no-op: виджета нет и не создать", () => {
         // Хоста нет — widgetFor вернёт null, навигация тихо выходит.
         const { group } = makeGroup();
-        const component = new FindComponent();
+        const component = new FindComponent(NO_GROUP_HOSTS);
         const find = new FindService(component, group);
 
         expect(() => {
@@ -432,8 +434,7 @@ describe("FindService", () => {
         const body = new BodyElement();
         body.setContent(groupComponent.view);
         TestApp.create(body, new Size(80, 24)).render();
-        const component = new FindComponent();
-        component.hostProvider = () => groupComponent.view;
+        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
         const find = new FindService(component, group);
 
         expect(() => {

@@ -1,9 +1,10 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -190,15 +191,18 @@ function createService(
 ): {
     service: CompletionService;
     component: SuggestComponent;
+    body: BodyElement;
     execute: ReturnType<typeof vi.fn>;
     focusTracker: FocusTracker;
 } {
     const execute = vi.fn();
     const commands = { execute } as unknown as CommandRegistry;
-    const component = new SuggestComponent();
+    // Корневая view — хост попапа: компонент создаёт сессию на её слое сразу.
+    const body = new BodyElement();
+    const component = new SuggestComponent(testLayoutService(body));
     const focusTracker = new FocusTracker();
     const service = new CompletionService(component, group, commands, state, focusTracker, languageFeaturesOf(group));
-    return { service, component, execute, focusTracker };
+    return { service, component, body, execute, focusTracker };
 }
 
 function setup(items: readonly ICoreCompletionItem[], lineContent = "ind", character = 3, docText = lineContent) {
@@ -206,11 +210,9 @@ function setup(items: readonly ICoreCompletionItem[], lineContent = "ind", chara
     const source = vi.fn(() => Promise.resolve(completionResult(items)));
     const group = makeGroup(fake.editor, source);
 
-    const { service, component, execute, focusTracker } = createService(group);
+    const { service, component, execute, focusTracker, body } = createService(group);
     service.autoSuggestDelayMs = 0; // детерминированный авто-suggest в тестах
-    const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));
-    component.attachHost(body);
     return { service, component, body, testApp, fake, source, execute, focusTracker, editor: fake.editor };
 }
 
@@ -234,10 +236,8 @@ const ITEMS: ICoreCompletionItem[] = [
 describe("CompletionService", () => {
     it("нет источника и пустой документ → trigger no-op (попап скрыт)", async () => {
         const fake = makeEditor("", 0);
-        const { service, component } = createService(makeGroup(fake.editor, undefined));
-        const body = new BodyElement();
+        const { service, component, body } = createService(makeGroup(fake.editor, undefined));
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
@@ -319,9 +319,8 @@ describe("CompletionService", () => {
             );
             (group as unknown as IFakeLanguageSeams).completionResolver = resolver;
             const created = createService(group, state);
-            const body = new BodyElement();
+            const body = created.body;
             TestApp.create(body, new Size(120, 24));
-            created.component.attachHost(body);
             return { ...created, fake, body };
         }
 
@@ -389,11 +388,9 @@ describe("CompletionService", () => {
             );
             (group as unknown as IFakeLanguageSeams).completionResolver = () =>
                 Promise.resolve({ detail: "(property) indent_style" });
-            const { service, component } = createService(group);
-            const body = new BodyElement();
+            const { service, component, body } = createService(group);
             // Узкий экран: справа от каретки (screenX=5) виджет с панелью не влезает.
             TestApp.create(body, new Size(30, 24));
-            component.attachHost(body);
 
             service.toggleDetails();
             await service.trigger();
@@ -402,10 +399,13 @@ describe("CompletionService", () => {
             expect(component.widget.detailsSide).toBe("left");
         });
 
-        it("без прикреплённого хоста сторона панели не пересчитывается", () => {
+        it("при нулевой ширине корня сторона панели не пересчитывается", () => {
             const fake = makeEditor("ind", 3, "ind");
-            const { component } = createService(makeGroup(fake.editor, undefined));
-            component.openAt({ screenX: 5, screenY: 5, preferBelow: true }); // хост не привязан
+            const { component, body } = createService(makeGroup(fake.editor, undefined));
+            // Корень разложен в ширину 0: «справа не помещается» было бы правдой
+            // для любого якоря, но переворачивать панель по такой ширине нельзя.
+            body.layout(BoxConstraints.tight(new Size(0, 24)));
+            component.openAt({ screenX: 5, screenY: 5, preferBelow: true });
             expect(component.widget.detailsSide).toBe("right");
         });
 
@@ -442,10 +442,8 @@ describe("CompletionService", () => {
                 fake.editor,
                 vi.fn(() => Promise.resolve(completionResult(RESOLVABLE))),
             );
-            const { service, component } = createService(group); // completionResolver не задан
-            const body = new BodyElement();
+            const { service, component, body } = createService(group); // completionResolver не задан
             TestApp.create(body, new Size(120, 24));
-            component.attachHost(body);
 
             await service.trigger();
             service.toggleDetails();
@@ -459,15 +457,13 @@ describe("CompletionService", () => {
             const items: ICoreCompletionItem[] = [
                 { label: "indent_style", insertText: "indent_style", labelDetail: "(property)", documentation: "" },
             ];
-            const { service, component } = createService(
+            const { service, component, body } = createService(
                 makeGroup(
                     fake.editor,
                     vi.fn(() => Promise.resolve(completionResult(items))),
                 ),
             );
-            const body = new BodyElement();
             TestApp.create(body, new Size(120, 24));
-            component.attachHost(body);
 
             service.toggleDetails();
             await service.trigger();
@@ -567,15 +563,13 @@ describe("CompletionService", () => {
                     documentation: "Отступы: tab или space.",
                 },
             ];
-            const { service, component } = createService(
+            const { service, component, body } = createService(
                 makeGroup(
                     fake.editor,
                     vi.fn(() => Promise.resolve(completionResult(items))),
                 ),
             );
-            const body = new BodyElement();
             TestApp.create(body, new Size(120, 24));
-            component.attachHost(body);
 
             service.toggleDetails();
             await service.trigger();
@@ -617,10 +611,8 @@ describe("CompletionService", () => {
                 vi.fn(() => Promise.resolve(completionResult(items))),
             );
             (group as unknown as IFakeLanguageSeams).completionResolver = resolver;
-            const { service, component } = createService(group);
-            const body = new BodyElement();
+            const { service, component, body } = createService(group);
             TestApp.create(body, new Size(120, 24));
-            component.attachHost(body);
             return { service, fake };
         }
 
@@ -686,11 +678,9 @@ describe("CompletionService", () => {
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
         (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
-        const { service, component } = createService(group);
+        const { service, component, body } = createService(group);
         service.autoSuggestDelayMs = 0;
-        const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
 
         fake.type("d.", 2);
         await flushTimers();
@@ -713,7 +703,8 @@ describe("CompletionService", () => {
             provideCompletionItems: provide,
         });
         const group = makeGroup(fake.editor, undefined);
-        const component = new SuggestComponent();
+        const body = new BodyElement();
+        const component = new SuggestComponent(testLayoutService(body));
         const commands = { execute: vi.fn() } as unknown as CommandRegistry;
         const service = new CompletionService(
             component,
@@ -724,9 +715,7 @@ describe("CompletionService", () => {
             languageFeatures,
         );
         service.autoSuggestDelayMs = 0;
-        const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
 
         fake.type("d.", 2);
         await flushTimers();
@@ -740,11 +729,9 @@ describe("CompletionService", () => {
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
         (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
-        const { service, component } = createService(group);
+        const { service, component, body } = createService(group);
         service.autoSuggestDelayMs = 0;
-        const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
 
         // Вставка блока (не одиночный символ) — не триггер.
         fake.type("d.foo.", 6);
@@ -820,11 +807,9 @@ describe("CompletionService", () => {
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
         (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
-        const { service, component } = createService(group);
+        const { service, component, body } = createService(group);
         service.autoSuggestDelayMs = 5;
-        const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
 
         await service.trigger(); // попап открыт
         expect(service.isOpen()).toBe(true);
@@ -868,11 +853,9 @@ describe("CompletionService", () => {
     it("неполный список перезапрашивается при доборе символа, а не сужается локально", async () => {
         const fake = makeEditor("ind", 3, "ind");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS, true)));
-        const { service, component } = createService(makeGroup(fake.editor, source));
+        const { service, component, body } = createService(makeGroup(fake.editor, source));
         service.autoSuggestDelayMs = 0;
-        const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
 
         await service.trigger();
         expect(source).toHaveBeenCalledTimes(1);
@@ -897,10 +880,8 @@ describe("CompletionService", () => {
                     }),
             )
             .mockImplementation(() => Promise.resolve(completionResult(ITEMS)));
-        const { service, component } = createService(makeGroup(fake.editor, source));
-        const body = new BodyElement();
+        const { service, component, body } = createService(makeGroup(fake.editor, source));
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
 
         const slow = service.trigger();
         await service.trigger(); // свежий запрос обгоняет медленный
@@ -923,10 +904,8 @@ describe("CompletionService", () => {
                     resolveSlow = res;
                 }),
         );
-        const { service, component } = createService(makeGroup(fake.editor, source));
-        const body = new BodyElement();
+        const { service, component, body } = createService(makeGroup(fake.editor, source));
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
 
         const pending = service.trigger();
         // Запрос в полёте, попап ещё не открыт — закрытие гасит именно запрос.
@@ -1099,10 +1078,8 @@ describe("CompletionService", () => {
 
     it("word-based: без источника предлагает слова из документа", async () => {
         const fake = makeEditor("ind", 3, "indent_style indent_size root ab");
-        const { service, component } = createService(makeGroup(fake.editor, undefined));
-        const body = new BodyElement();
+        const { service, component, body } = createService(makeGroup(fake.editor, undefined));
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
@@ -1113,10 +1090,8 @@ describe("CompletionService", () => {
         const fake = makeEditor("", 0, "alpha beta");
         const other = makeEditor("", 0, "beta gamma indent_style");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
-        const { service, component } = createService(makeGroup(fake.editor, source, [other.editor]));
-        const body = new BodyElement();
+        const { service, component, body } = createService(makeGroup(fake.editor, source, [other.editor]));
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
 
         const labels = component.view.items.map((i) => i.label);
@@ -1129,10 +1104,8 @@ describe("CompletionService", () => {
             onActiveEditorChanged: () => ({ dispose: () => {} }),
             completionTriggerCharacters: [],
         } as unknown as EditorService;
-        const { service, component } = createService(group);
-        const body = new BodyElement();
+        const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
@@ -1149,15 +1122,13 @@ describe("CompletionService", () => {
     it("каретка вне вьюпорта (anchor null) → попап не открывается", async () => {
         const fake = makeEditor("ind", 3, "ind");
         fake.setAnchorNull(true);
-        const { service, component } = createService(
+        const { service, component, body } = createService(
             makeGroup(
                 fake.editor,
                 vi.fn(() => Promise.resolve(completionResult(ITEMS))),
             ),
         );
-        const body = new BodyElement();
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
@@ -1166,10 +1137,8 @@ describe("CompletionService", () => {
         const fake = makeEditor("ind", 3, "ind");
         (fake.editor as unknown as { uri: Uri }).uri = Uri.parse("untitled:Untitled-1");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
-        const { service, component } = createService(makeGroup(fake.editor, source));
-        const body = new BodyElement();
+        const { service, component, body } = createService(makeGroup(fake.editor, source));
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(source).toHaveBeenCalledWith(expect.objectContaining({ uri: "untitled:Untitled-1" }));
     });
@@ -1184,10 +1153,8 @@ describe("CompletionService", () => {
             editorCount: 2, // но getEditor(1) === null
             getEditor: (i: number) => (i === 0 ? fake.editor : null),
         } as unknown as EditorService;
-        const { service, component } = createService(group);
-        const body = new BodyElement();
+        const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(component.view.items.map((i) => i.label)).toEqual(["alpha", "beta"]);
     });
@@ -1362,10 +1329,8 @@ describe("CompletionService", () => {
             editorCount: 1,
             getEditor: (i: number) => (i === 0 ? fake.editor : null),
         } as unknown as EditorService;
-        const { service, component } = createService(group);
-        const body = new BodyElement();
+        const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(service.isOpen()).toBe(true);
         activeCb(fake.editor); // onActiveEditorChanged → bindEditor закрывает попап
@@ -1383,10 +1348,8 @@ describe("CompletionService", () => {
             editorCount: 1,
             getEditor: () => fake.editor,
         } as unknown as EditorService;
-        const { service, component } = createService(group);
-        const body = new BodyElement();
+        const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         ref = null; // активный редактор пропал
         fake.type("inde", 4); // fires cursor listener → onCaretChanged, getActiveEditor()===null
         expect(service.isOpen()).toBe(false);
@@ -1448,10 +1411,8 @@ describe("CompletionService", () => {
             editorCount: 1,
             getEditor: () => fake.editor,
         } as unknown as EditorService;
-        const { service, component } = createService(group);
-        const body = new BodyElement();
+        const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
-        component.attachHost(body);
         await service.trigger();
         expect(service.isOpen()).toBe(true);
         ref = null; // активный редактор пропал

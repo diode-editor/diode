@@ -4,6 +4,7 @@ import { FitContentElement } from "@tuidom/elements/layout/fitContentElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { detachedLayoutService, testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
 import type { Keybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { KeyboardDoctorEnv, MatchedBinding } from "../common/keyboardDoctorModel.ts";
 
@@ -42,8 +43,8 @@ function makeDoctor(initial: KeyboardDoctorEnv = PC, lookup?: BindingLookup) {
                 lookups.push(part);
                 return part.ctrlKey && part.key === "s" ? [{ commandId: "save", when: undefined, active: true }] : [];
             }),
+        testLayoutService(body),
     );
-    doctor.attachHost(body);
     testApp.render();
     const setEnv = (next: KeyboardDoctorEnv): void => {
         env = next;
@@ -207,9 +208,10 @@ describe("KeyboardDoctorComponent", () => {
         const detached = new KeyboardDoctorComponent(
             { snapshot: () => PC, onDidChange: () => ({ dispose() {} }) },
             () => [],
+            detachedLayoutService(),
         );
         expect(detached.isOpen()).toBe(false);
-        expect(() => detached.run()).toThrow(/host is not attached/);
+        expect(() => detached.run()).toThrow(/root is not attached/);
         expect(() => {
             detached.dispose();
         }).not.toThrow();

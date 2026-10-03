@@ -1,9 +1,10 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { OverlayAnchorPosition, OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
-import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
+import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
+import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
 import { type IParameterHint, ParameterHintsElement } from "./parameterHintsElement.ts";
 
@@ -17,33 +18,21 @@ export const ParameterHintsComponentDIToken = token<ParameterHintsComponent>("Pa
  * {@link import("./parameterHintsService.ts").ParameterHintsService} —
  * компонент только показывает и двигает попап.
  *
- * Overlay-хост (корневая BodyElement-view приложения) приходит через late-init
- * шов {@link attachHost} — его зовёт владелец корневой view (WorkbenchComponent)
- * после её постройки, как у suggest и hover.
+ * Overlay-хост — корневая view окна из {@link LayoutService.mainContainer}:
+ * сессия создаётся в конструкторе, как у suggest и hover.
  */
 export class ParameterHintsComponent extends Component {
-    public static dependencies = [] as const;
+    public static dependencies = [LayoutServiceDIToken] as const;
 
     public readonly view: ParameterHintsElement;
 
-    private session: OverlaySessionHandle | null = null;
+    private readonly session: OverlaySessionHandle;
 
-    public constructor() {
+    public constructor(layoutService: LayoutService) {
         super();
         this.view = new ParameterHintsElement();
         this.view.id = "parameterHintsWidget";
-        this.register({
-            dispose: () => {
-                // Stryker disable next-line OptionalChaining: без attachHost сессии нет — обращение к её dispose кинуло бы на выключении приложения
-                this.session?.dispose();
-                this.session = null;
-            },
-        });
-    }
-
-    /** Вызывается владельцем корневой view до первого показа попапа. */
-    public attachHost(host: BodyElement): void {
-        this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
+        this.session = layoutService.mainContainer.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
             // Stryker disable next-line BooleanLiteral: попап фокус не забирает (focusable=false у элемента), поэтому возвращать его слою некому — флаг стоит ради контракта сессии
             restoreFocus: true,
@@ -55,11 +44,16 @@ export class ParameterHintsComponent extends Component {
             // Stryker disable next-line StringLiteral: клик мимо попапа и так закрывает его раньше — переносом каретки или сменой фокуса; политика стоит ради обратного контракта (клик ПО попапу его не закрывает)
             pointerPolicy: "close-on-outside",
         });
+        this.register({
+            dispose: () => {
+                this.session.dispose();
+            },
+        });
     }
 
     /** Открыт ли попап (для `parameterHintsVisible` и делегаторов команд). */
     public isOpen(): boolean {
-        return this.session?.isOpen() === true;
+        return this.session.isOpen();
     }
 
     /** Наполняет попап; `null` — показывать нечего. */
@@ -69,8 +63,7 @@ export class ParameterHintsComponent extends Component {
 
     /**
      * Позиционирует попап НАД строкой каретки и открывает сессию. Фокус не
-     * забирает — редактор остаётся активным (VS Code-like). Без прикреплённого
-     * хоста — no-op.
+     * забирает — редактор остаётся активным (VS Code-like).
      *
      * Верх — не косметика: попап автодополнения предпочитает низ, и без
      * разведения по разные стороны каретки они легли бы друг на друга (в VS Code
@@ -88,14 +81,14 @@ export class ParameterHintsComponent extends Component {
     public openAt(anchor: OverlayAnchorPosition): void {
         const height = this.view.getMaxIntrinsicHeight(this.view.getMaxIntrinsicWidth(0));
         const fitsAbove = anchor.screenY >= height;
-        this.session?.setAnchor(
+        this.session.setAnchor(
             fitsAbove ? { ...anchor, preferBelow: false, offsetY: -height } : { ...anchor, preferBelow: true },
         );
-        this.session?.open();
+        this.session.open();
     }
 
-    /** Закрывает сессию; no-op, если уже закрыта. */
+    /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
     public close(): void {
-        if (this.session?.isOpen() === true) this.session.close();
+        this.session.close();
     }
 }

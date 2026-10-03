@@ -14,6 +14,7 @@ import { KeybindingsEditorTargetDIToken } from "../../workbench/contrib/preferen
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 import { KeybindingsEditorServiceDIToken } from "../../workbench/services/keybinding/common/iKeybindingsEditorService.ts";
 import { KeybindingsEditorService } from "../../workbench/services/keybinding/node/keybindingsEditorService.ts";
+import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import { ALL_CAPABILITIES } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModel.ts";
 import {
     type TerminalEnvironmentService,
@@ -36,7 +37,7 @@ export function keyboardDoctorSnapshot(env: TerminalEnvironmentService): Keyboar
 /**
  * Preferences в приложении: шов открытия вкладки Keyboard Shortcuts, сервис
  * редактирования user-биндингов (применение keybindings.json + запись) и
- * рекордер комбинаций и Keyboard Doctor (host прикрепляет WorkbenchComponent).
+ * рекордер комбинаций и Keyboard Doctor (хост — `LayoutService.mainContainer`).
  * Вкладка — обычная панель полосы редакторов; `EditorService` соответствует
  * шву структурно (как `ExtensionsEditorTargetDIToken` у магазина).
  */
@@ -47,7 +48,11 @@ export const preferencesModule: ContainerModule = (container) => {
     // здесь, чтобы browser-компонент не импортировал node-окружение.
     container.bind(
         KeybindingRecorderComponentDIToken,
-        () => new KeybindingRecorderComponent(container.get(TerminalEnvironmentServiceDIToken)),
+        () =>
+            new KeybindingRecorderComponent(
+                container.get(TerminalEnvironmentServiceDIToken),
+                container.get(LayoutServiceDIToken),
+            ),
     );
     // Keyboard Doctor: снимок окружения — тот же узкий срез node-сервиса.
     container.bind(KeyboardDoctorComponentDIToken, () => {
@@ -56,6 +61,7 @@ export const preferencesModule: ContainerModule = (container) => {
         return new KeyboardDoctorComponent(
             { snapshot: () => keyboardDoctorSnapshot(env), onDidChange: (listener) => env.onDidChange(listener) },
             (part, snapshot) => lookupBindings(keybindings, part, snapshot),
+            container.get(LayoutServiceDIToken),
         );
     });
 };

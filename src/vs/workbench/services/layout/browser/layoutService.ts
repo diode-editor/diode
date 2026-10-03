@@ -1,4 +1,5 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
@@ -37,6 +38,7 @@ export class LayoutService extends Disposable {
     public static dependencies = [StateServiceDIToken, PanelServiceDIToken, ContextKeyServiceDIToken] as const;
 
     private layout: WorkbenchLayoutElement | null = null;
+    private root: BodyElement | null = null;
     /** Пока идёт restore, сеттеры элемента фаерят `onDidChangeLayout` — глушим авто-capture. */
     private restoring = false;
 
@@ -64,6 +66,26 @@ export class LayoutService extends Disposable {
                 this.state.store(PANEL_ACTIVE_VIEW_STATE, id);
             }),
         );
+    }
+
+    /**
+     * Прикрепляет корневую view окна (аналог `ILayoutService.mainContainer`
+     * VS Code). Владелец view зовёт это ПЕРВЫМ делом, до резолва фич: оверлеи
+     * создают сессии на её слое в своих конструкторах.
+     */
+    public attachRoot(root: BodyElement): void {
+        this.root = root;
+    }
+
+    /**
+     * Корневая view окна: её overlay-слой — общий хост попапов и модалок.
+     * До {@link attachRoot} — ошибка, как и у layout'а.
+     */
+    public get mainContainer(): BodyElement {
+        if (this.root === null) {
+            throw new Error("LayoutService: root is not attached (attachRoot must be called first)");
+        }
+        return this.root;
     }
 
     /**
