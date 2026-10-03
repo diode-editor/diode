@@ -129,8 +129,8 @@ export interface IInstalledJava {
 
 /**
  * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`):
- * flattenConfigDefaults + курируемый дефолт `lombokSupport.enabled: false`
+ * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`);
+ * дефолты настроек харнесс берёт из манифеста + курируемый `lombokSupport.enabled: false`
  * (манифестный `true` на связке jdt.ls 1.57 + современный JDK ломает
  * компиляцию насмерть и подменяет диагностики внутренней ошибкой компилятора,
  * см. curatedConfigInjection).

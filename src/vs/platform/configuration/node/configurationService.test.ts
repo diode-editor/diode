@@ -152,6 +152,19 @@ describe("loadConfiguration", () => {
         expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true);
     });
 
+    it("getConfigurationData: дефолты реестра и пользовательский слой (profile поверх user), как записаны", async () => {
+        writeSettings(paths().settingsFile, `{ "editor.tabSize": 2, "git.enabled": false }`);
+        const compactPaths = paths("compact");
+        writeSettings(compactPaths.settingsFile, `{ "editor.tabSize": "eight" }`);
+
+        const cfg = await loadCfg(compactPaths);
+
+        expect(cfg.getConfigurationData()).toEqual({
+            defaults: { editor: { tabSize: 4, insertSpaces: true, cursorSurroundingLines: 3 } },
+            user: { editor: { tabSize: "eight" }, git: { enabled: false } },
+        });
+    });
+
     it("inspect reports per-layer values", async () => {
         const defaultPaths = paths();
         writeSettings(defaultPaths.settingsFile, `{ "editor.tabSize": 2 }`);

@@ -55,6 +55,7 @@ import { loadState } from "../platform/state/node/stateService.ts";
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
+import { ExtensionConfigurationContributor } from "../workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import { ExtensionServiceDIToken } from "../workbench/services/extensions/common/extensions.ts";
 import { ExtensionThemeContributor } from "../workbench/services/extensions/common/extensionThemeContributor.ts";
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
@@ -206,39 +207,6 @@ async function runEditor(): Promise<void> {
     // через FileWatcherModule — следят за другими файлами). Живёт всё время работы
     // приложения; fd освобождается ОС на выходе, как и у editor-watcher'ов.
     const settingsWatcher = new ChokidarFileWatcher();
-    // Реестр схем настроек: defaults-слой конфигурации и известные ключи для
-    // валидации settings.json собираются из configuration-узлов фич.
-    const configurationRegistry = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS);
-    const configurationService = await loadConfiguration(
-        userDataPaths,
-        configurationLogger,
-        settingsWatcher,
-        configurationRegistry,
-    );
-    mark("main:config-loaded");
-    const userKeybindings = await loadUserKeybindings(userDataPaths.keybindingsFile, configurationLogger);
-    mark("main:keybindings-loaded");
-    // Машинное состояние UI/сессии (открытые файлы, layout) — отдельно от настроек.
-    const stateService = loadState(userDataPaths, configurationLogger);
-    mark("main:state-loaded");
-
-    // ── Backend / Theme ────────────────────────────────────────
-
-    // Headless: рендер в память + управление через инспектор, без реального
-    // терминала. Иначе — обычный stdin/stdout-бэкенд.
-    const headlessBackend = cli.headless
-        ? new HeadlessCaptureBackend(new Size(cli.headless.cols, cli.headless.rows))
-        : null;
-    // Под трассой бэкенд ставит веху на каждый кадр, ушедший в терминал.
-    const backend =
-        headlessBackend ?? (startupTraceFile !== null ? new TracingNodeTerminalBackend() : new NodeTerminalBackend());
-    const application = new TuiApplication(backend);
-    // Опциональная самопроверка дерева после каждого кадра (дорогая только
-    // относительно, но включается явно): ловит полуприкреплённые элементы.
-    application.validateTreeAfterRender = process.env.DIODE_VALIDATE_TREE === "1";
-    const clipboard = new OscClipboard((seq) => {
-        backend.writeOscSequence(seq);
-    });
     // ── Загрузка расширений ────────────────────────────────────
     // Builtin: либо SEA-bundle, либо `src/Extensions/builtin/` в dev.
     // User: `<userData.root>/extensions/` через `FsAssetAccess`, замапленный
@@ -271,6 +239,52 @@ async function runEditor(): Promise<void> {
     const allExtensions = mergeExtensions(builtinExtensions, userExtensions, extensionsLogger);
     mark("main:extensions-scanned", { builtin: builtinExtensions.length, user: userExtensions.length });
 
+    // Реестр схем настроек: defaults-слой конфигурации и известные ключи для
+    // валидации settings.json собираются из configuration-узлов фич и из
+    // `contributes.configuration` расширений — поэтому скан расширений идёт ДО
+    // загрузки настроек (от настроек он не зависит), а defaults-слой сервиса
+    // собирается уже из полного реестра. Поверх — инъекции хоста: курируемые
+    // дефолты сторонних расширений и пути вшитого tsserver для встроенного TS.
+    const configurationRegistry = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS);
+    new ExtensionConfigurationContributor(
+        allExtensions,
+        configurationRegistry,
+        (ext) =>
+            ext.isBuiltin
+                ? builtinConfigInjection(ext.manifest.name, extensionsLogger)
+                : curatedConfigInjection(ext.id),
+        extensionsLogger,
+    ).apply();
+    const configurationService = await loadConfiguration(
+        userDataPaths,
+        configurationLogger,
+        settingsWatcher,
+        configurationRegistry,
+    );
+    mark("main:config-loaded");
+    const userKeybindings = await loadUserKeybindings(userDataPaths.keybindingsFile, configurationLogger);
+    mark("main:keybindings-loaded");
+    // Машинное состояние UI/сессии (открытые файлы, layout) — отдельно от настроек.
+    const stateService = loadState(userDataPaths, configurationLogger);
+    mark("main:state-loaded");
+
+    // ── Backend / Theme ────────────────────────────────────────
+
+    // Headless: рендер в память + управление через инспектор, без реального
+    // терминала. Иначе — обычный stdin/stdout-бэкенд.
+    const headlessBackend = cli.headless
+        ? new HeadlessCaptureBackend(new Size(cli.headless.cols, cli.headless.rows))
+        : null;
+    // Под трассой бэкенд ставит веху на каждый кадр, ушедший в терминал.
+    const backend =
+        headlessBackend ?? (startupTraceFile !== null ? new TracingNodeTerminalBackend() : new NodeTerminalBackend());
+    const application = new TuiApplication(backend);
+    // Опциональная самопроверка дерева после каждого кадра (дорогая только
+    // относительно, но включается явно): ловит полуприкреплённые элементы.
+    application.validateTreeAfterRender = process.env.DIODE_VALIDATE_TREE === "1";
+    const clipboard = new OscClipboard((seq) => {
+        backend.writeOscSequence(seq);
+    });
     // ── Темы: встроенные + из расширений, выбор активной ───────
     // Темы расширений (`contributes.themes`) читаются ЗДЕСЬ, до выбора активной
     // и до первого кадра: если `workbench.colorTheme` называет тему расширения,
@@ -350,10 +364,6 @@ async function runEditor(): Promise<void> {
                 userExtensionsDir: userDataPaths.extensionsDir,
                 // dev — FsAssetAccess, SEA — BundleAssetAccess, единый вызов.
                 readBuiltinSource: (virtualPath) => assets.readText(virtualPath),
-                configInjection: (ext) =>
-                    ext.isBuiltin
-                        ? builtinConfigInjection(ext.manifest.name, extensionsLogger)
-                        : curatedConfigInjection(ext.id),
             },
         },
         hostProcess: {

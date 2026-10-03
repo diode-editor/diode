@@ -40,6 +40,7 @@ import type {
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
+import type { IConfigurationData } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -273,8 +274,12 @@ export interface IWorkspaceFolderInfo {
  * `IConfigurationService`, чтобы не тянуть слой Configuration в рантайм host'а.
  */
 export interface IExtensionHostConfigProvider {
-    /** Полное слитое дерево настроек (`IConfigurationService.getValue()`). */
-    getSnapshot(): unknown;
+    /**
+     * Слои настроек (`IConfigurationService.getConfigurationData()`): дефолты
+     * общего реестра — ядро и все расширения — и пользовательские. Субпроцесс
+     * сливает их той же моделью, своего defaults-слоя у него нет.
+     */
+    getSnapshot(): IConfigurationData;
     /** Папки воркспейса (одна, из `process.cwd()`, пока нет multi-root). */
     getWorkspaceFolders(): readonly IWorkspaceFolderInfo[];
     /** Подписка на изменение настроек (live-reload); передаёт изменившиеся ключи. */
@@ -385,7 +390,7 @@ export interface IExtensionHostOptions {
     /**
      * Провайдер конфигурации для push в subprocess (`workspace.initialize` /
      * `workspace.configurationChanged`). Если не передан — конфиг не рассылается
-     * (расширение видит только `configDefaults` из своего манифеста).
+     * и `getConfiguration()` в расширениях пуст.
      */
     readonly configuration?: IExtensionHostConfigProvider;
     /**
@@ -1063,7 +1068,6 @@ export class ExtensionHost extends Disposable {
                 // разбирает параметры (`parseActivateParams`).
                 moduleType: reg.manifest.type,
                 extensionPath: reg.extensionPath,
-                configDefaults: reg.configDefaults,
                 globalStoragePath: storage.globalStoragePath,
                 storagePath: storage.storagePath,
                 logPath: storage.logPath,

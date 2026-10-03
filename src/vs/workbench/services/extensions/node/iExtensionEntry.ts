@@ -49,12 +49,6 @@ export interface IExtensionRegistration {
     /** Синтетический абсолютный путь-идентичность для `source`. */
     readonly filename?: string;
     /**
-     * Дефолты из `contributes.configuration` расширения, сплюснутые в dotted-map
-     * (`{ "editorconfig.generateAuto": true }`). Отправляются в subprocess в
-     * `host.activateExtension` и слоятся под пользовательским снапшотом настроек.
-     */
-    readonly configDefaults?: Readonly<Record<string, unknown>>;
-    /**
      * Заголовки команд из `contributes.commands` (`{ "EditorConfig.generate":
      * "Generate .editorconfig" }`). Когда расширение регистрирует одноимённую
      * команду в рантайме, host заводит прокси с этим title — и команда

@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    manifestWithDefaults,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-function reg(id: string, file: string, configDefaults?: Record<string, unknown>): IExtensionRegistration {
-    return { ...extensionFixture(id, file), configDefaults };
+/** Регистрация фикстуры, объявляющей в манифесте настройки с дефолтами. */
+function reg(id: string, file: string, defaults: Record<string, unknown>): IExtensionRegistration {
+    const fixture = extensionFixture(id, file);
+    return { ...fixture, manifest: manifestWithDefaults(fixture.manifest, defaults) };
 }
 
 describe("ExtensionHost — workspace.getConfiguration (subprocess)", () => {

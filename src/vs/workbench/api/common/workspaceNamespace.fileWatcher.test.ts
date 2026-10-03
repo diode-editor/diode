@@ -25,7 +25,7 @@ function makeWorkspace(root: string | null = "/repo") {
     const workspace = createWorkspaceNamespace(ctx);
     if (root !== null) {
         stub.fire("workspace.initialize", {
-            configuration: {},
+            configuration: { defaults: {}, user: {} },
             workspaceFolders: [{ uri: Uri.file(root).toString(), name: "repo", index: 0 }],
         });
     }

@@ -5,7 +5,6 @@ import * as path from "node:path";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { installVsix } from "../vs/platform/extensionManagement/node/extensionInstaller.ts";
-import { flattenConfigDefaults } from "../vs/platform/extensions/common/configDefaults.ts";
 import type { IExtensionManifest } from "../vs/platform/extensions/common/iExtensionManifest.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
@@ -68,9 +67,9 @@ export interface IInstalledPrettier {
 /**
  * Устанавливает vsix в изолированный каталог и собирает регистрацию из
  * УСТАНОВЛЕННОГО манифеста той же логикой, что приложение (`main.ts`): манифест
- * едет целиком (из него хост берёт и `type`, и `packageJSON` каталога),
- * `configDefaults` — из `contributes.configuration`. Курируемых дефолтов
- * prettier не требует: вшитый prettier — дефолт самого расширения.
+ * едет целиком (из него хост берёт и `type`, и `packageJSON` каталога, а
+ * харнесс — дефолты `contributes.configuration`). Курируемых дефолтов prettier
+ * не требует: вшитый prettier — дефолт самого расширения.
  */
 export async function installPrettier(): Promise<IInstalledPrettier> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
@@ -86,7 +85,6 @@ export async function installPrettier(): Promise<IInstalledPrettier> {
             manifest,
             mainPath: path.resolve(installRoot, manifest.main),
             extensionPath: installRoot,
-            configDefaults: flattenConfigDefaults(manifest.contributes?.configuration),
             activationEvents: manifest.activationEvents,
         },
         dispose: (): void => {

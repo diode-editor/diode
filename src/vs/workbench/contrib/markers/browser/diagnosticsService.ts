@@ -85,7 +85,12 @@ export class DiagnosticsService extends Disposable {
         this.markerService = markerService;
         // path.resolve строго ДО Uri.file: Uri.file относительный путь не резолвит.
         this.settingsResource = Uri.file(path.resolve(environment.settingsResource));
+        // Известные ключи — ядро и `contributes.configuration` всех расширений
+        // (у ключа расширения дефолта может не быть — тогда в дереве его нет).
         this.knownSettingKeys = collectKnownSettingKeys(configurationRegistry.getDefaultConfiguration());
+        for (const key of configurationRegistry.getExtensionConfigurationProperties().keys()) {
+            this.knownSettingKeys.add(key);
+        }
 
         this.register(
             this.editorSource.onActiveEditorChanged((editor) => {

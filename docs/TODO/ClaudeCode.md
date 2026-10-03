@@ -65,7 +65,7 @@ diagnostic client»). Белого списка имён IDE в CLI нет: ва
 - [ ] `ExtensionContext.extension` (`Extension<T>` c `packageJSON`, тот же объект,
       что отдаёт `extensions.getExtension`).
 - [ ] `env.shell`, `env.machineId`.
-- [ ] Дефолт `claudeCode.useTerminal = true` через `configDefaults` при активации:
+- [ ] Дефолт `claudeCode.useTerminal = true` курируемой инъекцией (`curatedConfigInjection` — переопределение дефолта в общем реестре настроек):
       webview-режим у нас невозможен, пользователь не должен крутить это руками.
 - [ ] Запись `Anthropic.claude-code` в реестр магазина (платформенные vsix,
       ~112 МБ — лимиты валидатора см. [JavaLSP.md](JavaLSP.md)).

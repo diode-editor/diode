@@ -19,8 +19,8 @@ const BUNDLED_POLL_MS = 100;
  * Активация ленивая (`onLanguage:*` в манифесте) — сервер не трогает старт
  * редактора. Резолв сервера — `lib/resolveServer.ts`: настройка serverPath →
  * workspace node_modules → ВШИТЫЙ сервер из поставки (дефолт; пути и режим
- * рантайма инжектирует host через configDefaults — см. main.ts diode,
- * builtinConfigInjection) → PATH. Сервер запускается нашим node-рантаймом
+ * рантайма инжектирует host переопределениями дефолтов настроек — см. main.ts
+ * diode, builtinConfigInjection) → PATH. Сервер запускается нашим node-рантаймом
  * («как VS Code»): в dev/self-extract это настоящий node (`process.execPath`),
  * в SEA — diode-бинарь в node-режиме (`DIODE_RUN_AS_NODE=1`, runAsNode.ts).
  */

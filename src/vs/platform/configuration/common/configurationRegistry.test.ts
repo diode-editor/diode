@@ -63,3 +63,76 @@ describe("ConfigurationRegistry", () => {
         expect(registry.getDefaultConfiguration()).toEqual({ git: { decorations: { enabled: true } } });
     });
 });
+
+describe("ConfigurationRegistry — настройки расширений", () => {
+    it("ключи расширения: дефолт в дереве, владелец и область — в свойствах", () => {
+        const registry = new ConfigurationRegistry([editorNode]);
+
+        registry.registerExtensionConfiguration("acme.ruff", {
+            "ruff.importStrategy": { default: "fromEnvironment", scope: "resource" },
+            "ruff.path": {},
+        });
+
+        expect(registry.getDefaultConfiguration()).toEqual({
+            editor: { tabSize: 4, insertSpaces: true },
+            ruff: { importStrategy: "fromEnvironment" },
+        });
+        expect(registry.getExtensionConfigurationProperties().get("ruff.importStrategy")).toEqual({
+            default: "fromEnvironment",
+            scope: "resource",
+            extensionId: "acme.ruff",
+        });
+        // Ключ без дефолта известен, но в дерево дефолтов не попадает.
+        expect(registry.getExtensionConfigurationProperties().has("ruff.path")).toBe(true);
+        // Схемы ядра (по ним идёт валидация) ключей расширений не содержат.
+        expect(registry.getConfigurationProperties().has("ruff.importStrategy")).toBe(false);
+    });
+
+    it.each([
+        [undefined, "window"],
+        ["application", "application"],
+        ["machine", "machine"],
+        ["machine-overridable", "machine"],
+        ["language-overridable", "language-overridable"],
+        ["somethingNew", "window"],
+    ])("scope %s → %s", (scope, expected) => {
+        const registry = new ConfigurationRegistry();
+        registry.registerExtensionConfiguration("a.b", { "a.key": { default: 1, scope } });
+        expect(registry.getExtensionConfigurationProperties().get("a.key")?.scope).toBe(expected);
+    });
+
+    it("дубль ключа ядра или другого расширения — предупреждение и пропуск, не исключение", () => {
+        const registry = new ConfigurationRegistry([editorNode]);
+        const problems: string[] = [];
+        registry.registerExtensionConfiguration("first.ext", { "shared.key": { default: 1 } });
+
+        registry.registerExtensionConfiguration(
+            "second.ext",
+            { "editor.tabSize": { default: 8 }, "shared.key": { default: 2 }, "own.key": { default: 3 } },
+            (message) => problems.push(message),
+        );
+
+        expect(problems).toEqual([
+            'second.ext: configuration key "editor.tabSize" is already registered by core, skipped',
+            'second.ext: configuration key "shared.key" is already registered by first.ext, skipped',
+        ]);
+        expect(registry.getDefaultConfiguration()).toMatchObject({
+            editor: { tabSize: 4 },
+            shared: { key: 1 },
+            own: { key: 3 },
+        });
+    });
+
+    it("переопределения дефолтов — поверх ядра и расширений, позднее главнее", () => {
+        const registry = new ConfigurationRegistry([editorNode]);
+        registry.registerExtensionConfiguration("acme.ruff", { "ruff.importStrategy": { default: "fromEnvironment" } });
+
+        registry.registerDefaultConfigurations({ "ruff.importStrategy": "useBundled", "editor.tabSize": 2 });
+        registry.registerDefaultConfigurations({ "editor.tabSize": 3 });
+
+        expect(registry.getDefaultConfiguration()).toEqual({
+            editor: { tabSize: 3, insertSpaces: true },
+            ruff: { importStrategy: "useBundled" },
+        });
+    });
+});

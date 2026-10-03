@@ -393,7 +393,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
 
     rpc.handleNotification("workspace.initialize", (params) => {
         const p = params as { configuration?: unknown; workspaceFolders?: IWireWorkspaceFolder[] };
-        configStore.setSnapshot(p.configuration);
+        configStore.setData(p.configuration);
         workspaceFolders = (p.workspaceFolders ?? []).map((f) => ({
             uri: Uri.parse(f.uri),
             name: f.name,
@@ -403,7 +403,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
 
     rpc.handleNotification("workspace.configurationChanged", (params) => {
         const p = params as { configuration?: unknown; affectedKeys?: string[] };
-        configStore.setSnapshot(p.configuration);
+        configStore.setData(p.configuration);
         const affectedKeys = p.affectedKeys ?? [];
         onDidChangeConfigurationEmitter.fire({
             affectsConfiguration: (section: string): boolean =>

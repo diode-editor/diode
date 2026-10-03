@@ -18,7 +18,7 @@ function extension(overrides: Partial<IExtension> & { manifest: IExtensionManife
     return { id: "acme.sample", location: "UserExtensions/acme.sample-1.2.3/", isBuiltin: false, ...overrides };
 }
 
-/** Окружение с записью чтений исходника и инъекцией, видимой по id. */
+/** Окружение с записью чтений исходника. */
 function env(overrides: Partial<IExtensionRegistrationEnv> = {}): IExtensionRegistrationEnv & { reads: string[] } {
     const reads: string[] = [];
     return {
@@ -29,7 +29,6 @@ function env(overrides: Partial<IExtensionRegistrationEnv> = {}): IExtensionRegi
             reads.push(virtualPath);
             return Promise.resolve(`// source of ${virtualPath}`);
         },
-        configInjection: () => ({}),
         ...overrides,
     };
 }
@@ -105,32 +104,6 @@ describe("toExtensionRegistration", () => {
         ]);
         // Без событий — eager `*` (отклонение от эталона, см. computeActivationEvents).
         expect(bare?.activationEvents).toEqual(["*"]);
-    });
-
-    it("дефолты настроек: манифестные, поверх — инъекция host'а для этого расширения", async () => {
-        const m = manifest({
-            main: "ext.js",
-            contributes: {
-                configuration: {
-                    properties: {
-                        "sample.mode": { type: "string", default: "fromEnvironment" },
-                        "sample.level": { type: "number", default: 3 },
-                    },
-                },
-            },
-        });
-        const seen: string[] = [];
-        const e = env({
-            configInjection: (ext) => {
-                seen.push(ext.id);
-                return { "sample.mode": "bundled", "sample.extra": true };
-            },
-        });
-
-        const reg = await toExtensionRegistration(extension({ manifest: m }), e);
-
-        expect(seen).toEqual(["acme.sample"]);
-        expect(reg?.configDefaults).toEqual({ "sample.mode": "bundled", "sample.level": 3, "sample.extra": true });
     });
 
     it("заголовки и категории команд — для палитры", async () => {

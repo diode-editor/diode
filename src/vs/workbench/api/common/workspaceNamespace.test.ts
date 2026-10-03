@@ -42,7 +42,7 @@ describe("WorkspaceNamespace — configuration", () => {
     it("getConfiguration читает из pushed workspace.initialize", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
-            configuration: { editor: { tabSize: 2 }, editorconfig: { generateAuto: true } },
+            configuration: { defaults: {}, user: { editor: { tabSize: 2 }, editorconfig: { generateAuto: true } } },
             workspaceFolders: [],
         });
         expect(workspace.getConfiguration("editor").get("tabSize")).toBe(2);
@@ -59,7 +59,7 @@ describe("WorkspaceNamespace — configuration", () => {
     it("значения секции доступны как поля объекта конфигурации", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
-            configuration: { editor: { tabSize: 2, insertSpaces: false } },
+            configuration: { defaults: {}, user: { editor: { tabSize: 2, insertSpaces: false } } },
             workspaceFolders: [],
         });
         const config = workspace.getConfiguration("editor") as unknown as {
@@ -72,8 +72,10 @@ describe("WorkspaceNamespace — configuration", () => {
 
     it("inspect разделяет default/global слои", () => {
         const { ctx, stub, workspace } = makeCtx();
-        ctx.configStore.applyDefaults({ "editor.tabSize": 4 });
-        stub.fire("workspace.initialize", { configuration: { editor: { tabSize: 8 } }, workspaceFolders: [] });
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 8 } } },
+            workspaceFolders: [],
+        });
         const inspected = workspace.getConfiguration("editor").inspect("tabSize");
         expect(inspected?.defaultValue).toBe(4);
         expect(inspected?.globalValue).toBe(8);
@@ -92,7 +94,7 @@ describe("WorkspaceNamespace — configuration", () => {
     it("значение секции с именем как у метода (get/has) не затирает метод", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
-            configuration: { section: { get: 1, value: 2 } },
+            configuration: { defaults: {}, user: { section: { get: 1, value: 2 } } },
             workspaceFolders: [],
         });
         const config = workspace.getConfiguration("section");
@@ -107,19 +109,22 @@ describe("WorkspaceNamespace — configuration", () => {
         workspace.onDidChangeConfiguration((e: { affectsConfiguration(s: string): boolean }) => {
             seen = e.affectsConfiguration("editor");
         });
-        stub.fire("workspace.configurationChanged", { configuration: {} });
+        stub.fire("workspace.configurationChanged", { configuration: { defaults: {}, user: {} } });
         expect(seen).toBe(false);
     });
 
     it("configurationChanged переустанавливает снапшот и стреляет событие", () => {
         const { stub, workspace } = makeCtx();
-        stub.fire("workspace.initialize", { configuration: { editor: { tabSize: 2 } }, workspaceFolders: [] });
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: {}, user: { editor: { tabSize: 2 } } },
+            workspaceFolders: [],
+        });
         let affectsEditor: boolean | undefined;
         workspace.onDidChangeConfiguration((e: { affectsConfiguration(section: string): boolean }) => {
             affectsEditor = e.affectsConfiguration("editor");
         });
         stub.fire("workspace.configurationChanged", {
-            configuration: { editor: { tabSize: 8 } },
+            configuration: { defaults: {}, user: { editor: { tabSize: 8 } } },
             affectedKeys: ["editor.tabSize"],
         });
         expect(workspace.getConfiguration("editor").get("tabSize")).toBe(8);
@@ -132,7 +137,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
         const { stub, workspace } = makeCtx();
         expect(workspace.workspaceFolders).toBeUndefined();
         stub.fire("workspace.initialize", {
-            configuration: {},
+            configuration: { defaults: {}, user: {} },
             workspaceFolders: [{ uri: "/repo", name: "repo", index: 0 }],
         });
         expect(workspace.workspaceFolders).toHaveLength(1);
@@ -141,7 +146,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
 
     it("initialize без workspaceFolders → folders пусты", () => {
         const { stub, workspace } = makeCtx();
-        stub.fire("workspace.initialize", { configuration: {} });
+        stub.fire("workspace.initialize", { configuration: { defaults: {}, user: {} } });
         expect(workspace.workspaceFolders).toBeUndefined();
         expect(workspace.name).toBeUndefined();
     });
@@ -149,7 +154,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
     it("asRelativePath относительно папки воркспейса", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
-            configuration: {},
+            configuration: { defaults: {}, user: {} },
             workspaceFolders: [{ uri: "/repo", name: "repo", index: 0 }],
         });
         expect(workspace.asRelativePath("/repo/src/a.ts")).toBe("src/a.ts");
@@ -164,7 +169,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
     it("asRelativePath с includeWorkspaceFolder в multi-root добавляет имя папки", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
-            configuration: {},
+            configuration: { defaults: {}, user: {} },
             workspaceFolders: [
                 { uri: "/a", name: "a", index: 0 },
                 { uri: "/b", name: "b", index: 1 },

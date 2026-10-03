@@ -2,6 +2,7 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type {
     IConfigurationChangeEvent,
+    IConfigurationData,
     IConfigurationInspectResult,
     IConfigurationService,
 } from "./iConfigurationService.ts";
@@ -19,6 +20,9 @@ export const NULL_CONFIGURATION_SERVICE: IConfigurationService = {
     },
     getValue(): unknown {
         return {};
+    },
+    getConfigurationData(): IConfigurationData {
+        return { defaults: {}, user: {} };
     },
     inspect<T>(_key: string): IConfigurationInspectResult<T> {
         return { default: undefined, user: undefined, profile: undefined, value: undefined };

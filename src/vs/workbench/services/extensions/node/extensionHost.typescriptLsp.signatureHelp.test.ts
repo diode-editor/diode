@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
     type IExtensionHarness,
@@ -50,14 +51,16 @@ const MAIN_TYPING = 'import { greet } from "./defs";\nconst reply = greet(';
 function lspClientRegistration(): IExtensionRegistration {
     return {
         id: "diode.diode-lsp-typescript",
-        manifest: { name: "diode-lsp-typescript", publisher: "diode", version: "0.1.0" },
+        manifest: manifestWithDefaults(
+            { name: "diode-lsp-typescript", publisher: "diode", version: "0.1.0" },
+            {
+                "diode.lsp.typescript.enabled": true,
+                "diode.lsp.typescript.serverPath": "",
+                "diode.lsp.typescript.tsserverPath": "",
+            },
+        ),
         mainPath: CLIENT_BUNDLE,
         activationEvents: ["onLanguage:typescript"],
-        configDefaults: {
-            "diode.lsp.typescript.enabled": true,
-            "diode.lsp.typescript.serverPath": "",
-            "diode.lsp.typescript.tsserverPath": "",
-        },
     };
 }
 

@@ -21,9 +21,8 @@ import { extensionRootPath } from "./iExtensionEntry.ts";
  * Сообщения protocol host -> subprocess. RPC-методы:
  *
  * - `host.activateExtension({ id, mainPath, moduleType?, extensionPath?,
- *   configDefaults?, globalStoragePath?, storagePath?, logPath? })` -> `null`.
- *   Кладёт `configDefaults` (дефолты `contributes.configuration`) в config store,
- *   загружает модуль (CJS или ESM — см. `loadExtensionModule`; `moduleType` —
+ *   globalStoragePath?, storagePath?, logPath? })` -> `null`.
+ *   Загружает модуль (CJS или ESM — см. `loadExtensionModule`; `moduleType` —
  *   это `"type"` из `package.json` расширения), вызывает `module.activate(context)`.
  *   Бросает на ошибках загрузки/активации. Каталоги хранения приходят ОТ ХОСТА
  *   (он владеет раскладкой user-data) — субпроцесс их не выдумывает и не создаёт.
@@ -126,14 +125,11 @@ export function runExtensionHostSubprocess(): void {
     };
 
     rpc.handleRequest("host.activateExtension", async (params): Promise<unknown> => {
-        const { id, mainPath, source, filename, moduleType, extensionPath, configDefaults, storage, memento } =
+        const { id, mainPath, source, filename, moduleType, extensionPath, storage, memento } =
             parseActivateParams(params);
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
         }
-        // Дефолты из `contributes.configuration` — под пользовательским снапшотом,
-        // должны быть доступны через getConfiguration ДО activate().
-        configStore.applyDefaults(configDefaults);
         const loaded = await loadExtensionModule({ mainPath, source, filename, moduleType });
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
@@ -312,7 +308,6 @@ function parseActivateParams(raw: unknown): {
     filename: string | undefined;
     moduleType: string | undefined;
     extensionPath: string | undefined;
-    configDefaults: Record<string, unknown> | undefined;
     storage: { globalStoragePath: string; storagePath: string | null; logPath: string };
     memento: { globalState: Readonly<Record<string, unknown>>; workspaceState: Readonly<Record<string, unknown>> };
 } {
@@ -326,7 +321,6 @@ function parseActivateParams(raw: unknown): {
         filename?: unknown;
         moduleType?: unknown;
         extensionPath?: unknown;
-        configDefaults?: unknown;
         globalStoragePath?: unknown;
         storagePath?: unknown;
         logPath?: unknown;
@@ -344,10 +338,6 @@ function parseActivateParams(raw: unknown): {
     if (hasSource && (typeof obj.filename !== "string" || obj.filename === "")) {
         throw new Error("activateExtension: source requires a non-empty filename");
     }
-    const configDefaults =
-        typeof obj.configDefaults === "object" && obj.configDefaults !== null
-            ? (obj.configDefaults as Record<string, unknown>)
-            : undefined;
     // `globalStorageUri`/`logUri` в API необязательными не бывают — без них
     // расширение падает на `.fsPath` в первой же строке activate(). Поэтому это
     // не опциональные поля протокола, а требование: не приехали — виноват хост.
@@ -361,7 +351,6 @@ function parseActivateParams(raw: unknown): {
         moduleType: typeof obj.moduleType === "string" ? obj.moduleType : undefined,
         extensionPath:
             typeof obj.extensionPath === "string" && obj.extensionPath !== "" ? obj.extensionPath : undefined,
-        configDefaults,
         storage: {
             globalStoragePath,
             // Отсутствие и `null` — одно и то же: папка не открыта.

@@ -1,20 +1,21 @@
+import { ConfigurationModel } from "../../../platform/configuration/common/configurationModel.ts";
+
 /**
  * Хранилище конфигурации на стороне subprocess.
  *
  * `getConfiguration(...).get(...)` в расширениях синхронный, поэтому конфиг
  * доставляется push-моделью (см. host: `workspace.initialize` /
- * `workspace.configurationChanged`), а не RPC-per-get. Здесь хранится итоговое
- * слитое дерево двух слоёв:
+ * `workspace.configurationChanged`), а не RPC-per-get. Приезжают **слои**
+ * главного процесса (`IConfigurationService.getConfigurationData()`):
  *
- * - `defaults` — вклад расширений (`contributes.configuration`), ключи которых
- *   уже dotted (`"editorconfig.generateAuto"`). Кладутся до `activate()` через
- *   {@link applyDefaults};
- * - `user` — снапшот пользовательских настроек хоста (`getValue()`), nested-дерево
- *   (`{ editor: { tabSize: 4 } }`), приходит в {@link setSnapshot}.
+ * - `defaults` — дефолты из общего реестра: ядро, `contributes.configuration`
+ *   всех расширений (в том числе ещё не активированных и декларативных) и их
+ *   переопределения;
+ * - `user` — пользовательские настройки активного профиля.
  *
- * Пользовательский слой перекрывает дефолты. Разрешение ключа — обход nested-дерева
- * по dotted-пути (`"editor.tabSize"` → `merged.editor.tabSize`), что канонично
- * повторяет иерархическую модель настроек VS Code.
+ * Слияние — та же {@link ConfigurationModel}, что в главном процессе (аналог
+ * `ExtHostConfigProvider` vscode поверх `configurationModels.ts`): своего
+ * merge-кода и своего defaults-слоя у субпроцесса нет.
  */
 
 /** Результат покомпонентного inspect (подмножество `vscode`). */
@@ -26,45 +27,37 @@ export interface IConfigInspectResult {
 }
 
 export class WorkspaceConfigStore {
-    private defaultsTree: Record<string, unknown> = {};
-    private userTree: Record<string, unknown> = {};
-    private mergedCache: Record<string, unknown> | null = null;
+    private defaults = ConfigurationModel.EMPTY;
+    private user = ConfigurationModel.EMPTY;
+    private merged = ConfigurationModel.EMPTY;
 
     /**
-     * Добавляет дефолты расширения. Ключи dotted (полный путь настройки).
-     * Несколько расширений складываются в один слой дефолтов.
+     * Заменяет слои данными главного процесса (`{ defaults, user }` — деревья).
+     * Всё, что не объект, трактуется как пустой слой.
      */
-    public applyDefaults(defaults: Readonly<Record<string, unknown>> | undefined): void {
-        if (defaults === undefined) return;
-        for (const [dottedKey, value] of Object.entries(defaults)) {
-            setDeep(this.defaultsTree, dottedKey, value);
-        }
-        this.mergedCache = null;
-    }
-
-    /** Заменяет пользовательский слой снапшотом настроек хоста (nested-дерево). */
-    public setSnapshot(snapshot: unknown): void {
-        this.userTree = isPlainObject(snapshot) ? clone(snapshot) : {};
-        this.mergedCache = null;
+    public setData(data: unknown): void {
+        const layers = isPlainObject(data) ? data : {};
+        this.defaults = ConfigurationModel.fromRaw(layers.defaults);
+        this.user = ConfigurationModel.fromRaw(layers.user);
+        this.merged = ConfigurationModel.merge(this.defaults, this.user);
     }
 
     /** Значение по dotted-ключу; `defaultValue`, если ключ отсутствует. */
     public get(dottedKey: string, defaultValue?: unknown): unknown {
-        const found = resolvePath(this.merged(), dottedKey);
-        return found === undefined ? defaultValue : found;
+        return this.merged.get(dottedKey) ?? defaultValue;
     }
 
     /** Есть ли ключ (в любом слое). */
     public has(dottedKey: string): boolean {
-        return resolvePath(this.merged(), dottedKey) !== undefined;
+        return this.merged.get(dottedKey) !== undefined;
     }
 
     public inspect(dottedKey: string): IConfigInspectResult {
         return {
             key: dottedKey,
-            defaultValue: resolvePath(this.defaultsTree, dottedKey),
-            globalValue: resolvePath(this.userTree, dottedKey),
-            value: resolvePath(this.merged(), dottedKey),
+            defaultValue: this.defaults.get(dottedKey),
+            globalValue: this.user.get(dottedKey),
+            value: this.merged.get(dottedKey),
         };
     }
 
@@ -73,64 +66,11 @@ export class WorkspaceConfigStore {
      * `WorkspaceConfiguration` — VS Code выставляет значения секции как поля).
      */
     public sectionKeys(section: string | undefined): string[] {
-        const node = section === undefined || section === "" ? this.merged() : resolvePath(this.merged(), section);
+        const node = this.merged.getValue(section);
         return isPlainObject(node) ? Object.keys(node) : [];
-    }
-
-    private merged(): Record<string, unknown> {
-        this.mergedCache ??= deepMerge(this.defaultsTree, this.userTree);
-        return this.mergedCache;
     }
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function clone<T>(value: T): T {
-    return JSON.parse(JSON.stringify(value)) as T;
-}
-
-/** Записывает `value` по dotted-пути, создавая промежуточные объекты. */
-function setDeep(tree: Record<string, unknown>, dottedKey: string, value: unknown): void {
-    const segments = dottedKey.split(".");
-    let node = tree;
-    for (let i = 0; i < segments.length - 1; i++) {
-        const seg = segments[i];
-        const next = node[seg];
-        if (isPlainObject(next)) {
-            node = next;
-        } else {
-            const created: Record<string, unknown> = {};
-            node[seg] = created;
-            node = created;
-        }
-    }
-    node[segments[segments.length - 1]] = value;
-}
-
-/** Достаёт значение по dotted-пути; `undefined`, если путь не разрешается. */
-function resolvePath(tree: Record<string, unknown>, dottedKey: string): unknown {
-    const segments = dottedKey.split(".");
-    let node: unknown = tree;
-    for (const seg of segments) {
-        if (!isPlainObject(node)) return undefined;
-        node = node[seg];
-        if (node === undefined) return undefined;
-    }
-    return node;
-}
-
-/** Рекурсивно сливает два дерева; значения `over` перекрывают `base`. */
-function deepMerge(base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = { ...base };
-    for (const [key, overValue] of Object.entries(over)) {
-        const baseValue = result[key];
-        if (isPlainObject(baseValue) && isPlainObject(overValue)) {
-            result[key] = deepMerge(baseValue, overValue);
-        } else {
-            result[key] = overValue;
-        }
-    }
-    return result;
 }

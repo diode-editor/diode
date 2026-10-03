@@ -34,6 +34,13 @@ export interface IConfigurationService {
     getValue(section?: string): unknown;
 
     /**
+     * Слои настроек деревьями — для extension host'а, который собирает из них ту
+     * же модель на своей стороне (аналог `getConfigurationData` vscode). Значения
+     * как записаны, без валидации по схеме.
+     */
+    getConfigurationData(): IConfigurationData;
+
+    /**
      * Покомпонентный inspect — полезно для отладки/UI «User vs Default vs Profile».
      * Любое из полей `default/user/profile` может быть `undefined`,
      * если в соответствующем слое ключ не задан. `value` — итоговое
@@ -67,6 +74,14 @@ export interface IConfigurationService {
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- точка расширения для module augmentation
 export interface IConfigurationKeys {}
+
+/** Слои настроек вложенными деревьями (`{ editor: { tabSize: 4 } }`). */
+export interface IConfigurationData {
+    /** Дефолты: ядро, настройки расширений и их переопределения (`configurationDefaults`). */
+    readonly defaults: Readonly<Record<string, unknown>>;
+    /** Пользовательские настройки активного профиля (user, поверх него — profile). */
+    readonly user: Readonly<Record<string, unknown>>;
+}
 
 export interface IConfigurationInspectResult<T> {
     /** Значение из default-слоя (хардкод приложения). */

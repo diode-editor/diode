@@ -36,6 +36,9 @@ class EmittingConfig implements IConfigurationService {
         this.listeners.push(listener);
         return { dispose: () => {} };
     }
+    public getConfigurationData(): { defaults: Record<string, unknown>; user: Record<string, unknown> } {
+        return { defaults: {}, user: this.values };
+    }
     public updateValue(key: string, value: unknown): Promise<void> {
         this.values[key] = value;
         this.emit([key]);

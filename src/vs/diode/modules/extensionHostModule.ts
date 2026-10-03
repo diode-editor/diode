@@ -146,7 +146,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
         const explorer = container.get(ExplorerServiceDIToken);
         const configuration: IExtensionHostConfigProvider = {
-            getSnapshot: () => configService.getValue(),
+            getSnapshot: () => configService.getConfigurationData(),
             getWorkspaceFolders: workspaceFoldersProvider(workspaceContext),
             onDidChange: (cb) =>
                 configService.onDidChangeConfiguration((event) => {
