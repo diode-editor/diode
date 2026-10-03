@@ -141,12 +141,17 @@ describe("Workbench — Preferences commands", () => {
             });
             expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"command": "test.custom"');
 
-            // Строка вкладки обновилась (фильтр — чтобы строка попала в видимое окно)…
+            // Строка вкладки обновилась (фильтр — чтобы строка попала в видимое окно).
+            // Ждём именно КАДР, а не только файл: запись на диск и обновление
+            // реестра в памяти — разные шаги, и на загруженной машине второй
+            // отстаёт от первого (ловилось красным CI и dry run'ом Stryker'а).
             (pane as KeybindingsEditorPane).setFilter("Recorder Target");
-            h.testApp.render();
-            const screen = h.testApp.backend.screenToString();
-            expect(screen).toContain("Recorder Target");
-            expect(screen).toContain("F6");
+            await vi.waitFor(() => {
+                h.testApp.render();
+                const screen = h.testApp.backend.screenToString();
+                expect(screen).toContain("Recorder Target");
+                expect(screen).toContain("F6");
+            });
             // …и команда исполняется по новой комбинации в том же сеансе (урок #194).
             h.testApp.sendKey("F6");
             expect(executed).toEqual(["test.custom"]);
