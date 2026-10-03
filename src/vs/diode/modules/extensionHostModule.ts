@@ -281,11 +281,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // правку его содержимого — стоковый vscode-languageclient видит живой буфер.
         bindDocumentSync(group, host);
 
-        // Inline completions (ghost text): источник призрачных подсказок —
-        // провайдеры расширений через host (читает InlineCompletionsService).
-        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
-
         // Содержимое недисковых ресурсов: провайдеры расширений
         // (workspace.registerTextDocumentContentProvider) — источник текста для
         // read-only вкладок `jdt:`/`class:`. Читает сам EditorService в openUri,

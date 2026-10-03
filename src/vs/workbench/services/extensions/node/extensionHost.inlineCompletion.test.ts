@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideInlineCompletions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -24,8 +28,8 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         try {
             await settle();
 
-            // Через group.inlineCompletionSource (wiring харнесса) — как это делает ядро.
-            const items = await harness.group.inlineCompletionSource!(REQ, CancellationTokenNone);
+            // Через реестр харнесса — как это делает InlineCompletionsService.
+            const items = await provideInlineCompletions(harness, REQ, CancellationTokenNone);
             expect(items).toEqual([
                 { insertText: "(n) {\n    return n;\n}" },
                 {
@@ -46,7 +50,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         });
         try {
             await settle();
-            expect(await harness.host.provideInlineCompletions({ ...REQ, languageId: "markdown" })).toEqual([]);
+            expect(await provideInlineCompletions(harness, { ...REQ, languageId: "markdown" })).toEqual([]);
         } finally {
             await harness.dispose();
         }
@@ -57,7 +61,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
             initialFile: { name: "main.ts", content: "x\n" },
         });
         try {
-            expect(await harness.host.provideInlineCompletions(REQ)).toEqual([]);
+            expect(await provideInlineCompletions(harness, REQ)).toEqual([]);
         } finally {
             await harness.dispose();
         }
@@ -76,13 +80,13 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
             await settle();
 
             // 50 мс — провайдер не успевает, подсказки просто нет (редактор жив).
-            expect(await harness.host.provideInlineCompletions({ ...REQ, timeoutMs: 50 })).toEqual([]);
+            expect(await provideInlineCompletions(harness, { ...REQ, timeoutMs: 50 })).toEqual([]);
 
             // Срока в запросе нет → работает хостовой дефолт, ответ дожидается.
-            expect(await harness.host.provideInlineCompletions(REQ)).toEqual([{ insertText: "onacci(n) {}" }]);
+            expect(await provideInlineCompletions(harness, REQ)).toEqual([{ insertText: "onacci(n) {}" }]);
 
             // Щедрый срок из настройки — тот же дождавшийся ответ.
-            expect(await harness.host.provideInlineCompletions({ ...REQ, timeoutMs: 20000 })).toEqual([
+            expect(await provideInlineCompletions(harness, { ...REQ, timeoutMs: 20000 })).toEqual([
                 { insertText: "onacci(n) {}" },
             ]);
         } finally {

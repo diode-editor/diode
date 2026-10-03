@@ -50,42 +50,38 @@ function makeHost(): { host: ExtensionHost; peer: RpcEndpoint } {
 }
 
 describe("ExtensionHost — inline completions (in-process)", () => {
-    it("без подписки RPC не уходит; подписка открывает путь, параметры уезжают как есть", async () => {
+    it("вызовы прокси с одним запросом — один RPC с пачкой handle; ответы — по своим", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn((params: unknown) => {
             void params;
-            return [{ insertText: " = 42;" }];
+            return [[{ insertText: " = 42;" }], [{ insertText: " = 7;" }]];
         });
         peer.handleRequest("languages.provideInlineCompletions", seen);
 
-        expect(await host.provideInlineCompletions(REQ)).toEqual([]);
-        expect(seen).not.toHaveBeenCalled();
+        const [first, second] = await Promise.all([
+            host.provideInlineCompletions(3, REQ),
+            host.provideInlineCompletions(8, REQ),
+        ]);
 
-        peer.notify("languages.updateSubscriptions", { hasInlineCompletionProviders: true });
-        await flushMicrotasks();
-        expect(await host.provideInlineCompletions(REQ)).toEqual([{ insertText: " = 42;" }]);
-        // Параметры как есть + токен отмены этого запроса (второй аргумент
-        // хендлера — его выдаёт RpcEndpoint принимающей стороны).
-        expect(seen).toHaveBeenCalledExactlyOnceWith(REQ, expect.objectContaining({ isCancellationRequested: false }));
+        expect(first).toEqual([{ insertText: " = 42;" }]);
+        expect(second).toEqual([{ insertText: " = 7;" }]);
+        // Параметры как есть + пачка handle + токен отмены этого запроса (второй
+        // аргумент хендлера — его выдаёт RpcEndpoint принимающей стороны).
+        expect(seen).toHaveBeenCalledExactlyOnceWith(
+            { handles: [3, 8], ...REQ },
+            expect.objectContaining({ isCancellationRequested: false }),
+        );
     });
 
-    it("чужая форма флага читается как false, снятие подписки закрывает путь", async () => {
+    it("после остановки субпроцесса запрос не уходит", async () => {
         const { host, peer } = makeHost();
-        const seen = vi.fn(() => [{ insertText: "x" }]);
+        const seen = vi.fn(() => [[{ insertText: "x" }]]);
         peer.handleRequest("languages.provideInlineCompletions", seen);
 
-        peer.notify("languages.updateSubscriptions", { hasInlineCompletionProviders: "yes" });
-        await flushMicrotasks();
-        expect(await host.provideInlineCompletions(REQ)).toEqual([]);
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        peer.notify("languages.updateSubscriptions", { hasInlineCompletionProviders: true });
-        await flushMicrotasks();
-        expect(await host.provideInlineCompletions(REQ)).toEqual([{ insertText: "x" }]);
-
-        peer.notify("languages.updateSubscriptions", { hasInlineCompletionProviders: false });
-        await flushMicrotasks();
-        expect(await host.provideInlineCompletions(REQ)).toEqual([]);
-        expect(seen).toHaveBeenCalledTimes(1);
+        expect(await host.provideInlineCompletions(0, REQ)).toEqual([]);
+        expect(seen).not.toHaveBeenCalled();
     });
 
     it("отмена ядра доезжает до токена субпроцесса и снимает работу провайдера", async () => {
@@ -98,11 +94,9 @@ describe("ExtensionHost — inline completions (in-process)", () => {
                 release = resolve;
             });
         });
-        peer.notify("languages.updateSubscriptions", { hasInlineCompletionProviders: true });
-        await flushMicrotasks();
 
         const source = new CancellationTokenSource();
-        const pending = host.provideInlineCompletions(REQ, source.token);
+        const pending = host.provideInlineCompletions(0, REQ, source.token);
         await flushMicrotasks();
         expect(seen!.isCancellationRequested).toBe(false);
 
@@ -110,7 +104,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         await flushMicrotasks();
         expect(seen!.isCancellationRequested).toBe(true);
 
-        release([{ insertText: "late" }]);
+        release([[{ insertText: "late" }]]);
         // Ответ отменённого запроса extension-слой не глушит — его отбрасывает
         // ядро (InlineCompletionsService), здесь мост просто отдаёт что пришло.
         expect(await pending).toEqual([{ insertText: "late" }]);
@@ -129,10 +123,8 @@ describe("ExtensionHost — inline completions (in-process)", () => {
             seen = token;
             return new Promise(() => undefined);
         });
-        peer.notify("languages.updateSubscriptions", { hasInlineCompletionProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideInlineCompletions(REQ)).toEqual([]);
+        expect(await host.provideInlineCompletions(0, REQ)).toEqual([]);
         await flushMicrotasks();
         // Молчащий провайдер узнаёт, что его ответа больше не ждут.
         expect(seen!.isCancellationRequested).toBe(true);
@@ -141,9 +133,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
     it("мусорный ответ субпроцесса — пустой список (drop+skip на пунктах)", async () => {
         const { host, peer } = makeHost();
         peer.handleRequest("languages.provideInlineCompletions", () => ({ items: "junk" }));
-        peer.notify("languages.updateSubscriptions", { hasInlineCompletionProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideInlineCompletions(REQ)).toEqual([]);
+        expect(await host.provideInlineCompletions(0, REQ)).toEqual([]);
     });
 });

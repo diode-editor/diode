@@ -24,35 +24,35 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
 const URI = "file:///proj/main.ts";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-    return { uri: URI, languageId: "typescript", text: "con\n", line: 0, character: 3, triggerKind: 1, ...overrides };
+    return {
+        handles: [0],
+        uri: URI,
+        languageId: "typescript",
+        text: "con\n",
+        line: 0,
+        character: 3,
+        triggerKind: 1,
+        ...overrides,
+    };
 }
 
 describe("LanguagesNamespace — registerInlineCompletionItemProvider", () => {
-    it("подписка сигналится на переходах 0↔1 (hasInlineCompletionProviders)", () => {
+    it("регистрация объявляется ядру с handle; dispose снимает один раз; updateSubscriptions нет", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const subs = () => stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
 
         const provider: vscode.InlineCompletionItemProvider = { provideInlineCompletionItems: () => [] };
-        const first = languages.registerInlineCompletionItemProvider({ language: "typescript" }, provider);
-        expect(subs()).toHaveLength(1);
-        expect((subs()[0].params as { hasInlineCompletionProviders?: unknown }).hasInlineCompletionProviders).toBe(
-            true,
-        );
+        const registration = languages.registerInlineCompletionItemProvider({ language: "typescript" }, provider);
+        expect(stub.notifies.filter((n) => n.method === "languages.register").map((n) => n.params)).toEqual([
+            { handle: 0, kind: "inlineCompletions", selector: [{ language: "typescript" }] },
+        ]);
 
-        const second = languages.registerInlineCompletionItemProvider({ language: "typescript" }, provider);
-        expect(subs()).toHaveLength(1);
-
-        first.dispose();
-        expect(subs()).toHaveLength(1);
-        second.dispose();
-        expect(subs()).toHaveLength(2);
-        expect((subs()[1].params as { hasInlineCompletionProviders?: unknown }).hasInlineCompletionProviders).toBe(
-            false,
-        );
-        // Повторный dispose — идемпотентен, без лишних нотификаций.
-        second.dispose();
-        expect(subs()).toHaveLength(2);
+        registration.dispose();
+        registration.dispose();
+        expect(stub.notifies.filter((n) => n.method === "languages.unregister").map((n) => n.params)).toEqual([
+            { handle: 0 },
+        ]);
+        expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 });
 
@@ -87,10 +87,12 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(seen.context?.selectedCompletionInfo).toBeUndefined();
         expect(ctx.registry.get(URI as unknown as vscode.Uri)?.getText()).toBe("con\n");
         expect(result).toStrictEqual([
-            {
-                insertText: "console.log()",
-                range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 },
-            },
+            [
+                {
+                    insertText: "console.log()",
+                    range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 },
+                },
+            ],
         ]);
     });
 
@@ -109,7 +111,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
 
         const result = await stub.callRequest("languages.provideInlineCompletions", requestParams());
 
-        expect(result).toStrictEqual([{ insertText: "log(msg)" }]);
+        expect(result).toStrictEqual([[{ insertText: "log(msg)" }]]);
     });
 
     it("filterText уезжает в wire-пункт", async () => {
@@ -127,11 +129,11 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         );
 
         expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toStrictEqual([
-            { insertText: "console.log()", filterText: "console" },
+            [{ insertText: "console.log()", filterText: "console" }],
         ]);
     });
 
-    it("обходит все матчащие провайдеры, конкатенирует; несматчащие и сбойные пропускает", async () => {
+    it("обходит провайдеров присланных handle; ответ выровнен по ним, сбойный и чужой — пустые", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerInlineCompletionItemProvider(
@@ -139,7 +141,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             { provideInlineCompletionItems: () => [new InlineCompletionItem("a") as never] },
         );
         languages.registerInlineCompletionItemProvider(
-            { language: "markdown" }, // не матчит документ
+            { language: "markdown" }, // ядро его не прислало
             { provideInlineCompletionItems: () => [new InlineCompletionItem("skip") as never] },
         );
         languages.registerInlineCompletionItemProvider(
@@ -155,9 +157,13 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             { provideInlineCompletionItems: () => [new InlineCompletionItem("b") as never] },
         );
 
-        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toStrictEqual([
-            { insertText: "a" },
-            { insertText: "b" },
+        const handles = [0, 2, 3, 99, "x"];
+        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams({ handles }))).toStrictEqual([
+            [{ insertText: "a" }],
+            [],
+            [{ insertText: "b" }],
+            [],
+            [],
         ]);
     });
 
@@ -173,7 +179,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             },
         });
 
-        await stub.callRequest("languages.provideInlineCompletions", { uri: URI });
+        await stub.callRequest("languages.provideInlineCompletions", { handles: [0], uri: URI });
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
@@ -216,7 +222,18 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             },
         );
 
-        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams())).toStrictEqual([]);
+        const handles = [0, 1, 2, 3, 4];
+        expect(await stub.callRequest("languages.provideInlineCompletions", requestParams({ handles }))).toStrictEqual([
+            [],
+            [],
+            [],
+            [],
+            [],
+        ]);
+        // Без handles — пустой ответ.
+        expect(
+            await stub.callRequest("languages.provideInlineCompletions", requestParams({ handles: undefined })),
+        ).toStrictEqual([]);
     });
 });
 
@@ -256,7 +273,7 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
         // Упрямый провайдер всё-таки отвечает — extension-слой его не глушит
         // (отсекает ядро: старый seq-гард против устаревших ответов).
         release();
-        expect(await pending).toStrictEqual([{ insertText: "late" }]);
+        expect(await pending).toStrictEqual([[{ insertText: "late" }]]);
     });
 
     it("после отмены остальные провайдеры не опрашиваются", async () => {
@@ -288,14 +305,18 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
             },
         );
 
-        const pending = stub.callRequest("languages.provideInlineCompletions", requestParams(), caller.token);
+        const pending = stub.callRequest(
+            "languages.provideInlineCompletions",
+            requestParams({ handles: [0, 1] }),
+            caller.token,
+        );
         await Promise.resolve();
         expect(polled).toEqual(["A"]);
 
         caller.cancel();
         release();
 
-        expect(await pending).toStrictEqual([]);
+        expect(await pending).toStrictEqual([[], []]);
         // Цепочка остановилась на отмене: до B работа не доехала.
         expect(polled).toEqual(["A"]);
     });
@@ -319,7 +340,7 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
 
         expect(
             await stub.callRequest("languages.provideInlineCompletions", requestParams(), caller.token),
-        ).toStrictEqual([]);
+        ).toStrictEqual([[]]);
         expect(polled).toEqual([]);
     });
 });

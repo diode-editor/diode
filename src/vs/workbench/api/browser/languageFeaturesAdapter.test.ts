@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
@@ -51,6 +52,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         ),
         provideCodeActions: vi.fn((handle: number) => Promise.resolve([{ id: `${String(handle)}.0`, title: "fix" }])),
         applyCodeAction: vi.fn(() => Promise.resolve(true)),
+        provideInlineCompletions: vi.fn((handle: number, _request: unknown, _token: unknown) =>
+            Promise.resolve([{ insertText: `ghost ${String(handle)}` }]),
+        ),
         provideFoldingRanges: vi.fn((handle: number) =>
             Promise.resolve([{ startLine: handle, endLine: handle + 2, isCollapsed: false }]),
         ),
@@ -204,6 +208,20 @@ describe("LanguageFeaturesAdapter", () => {
         const [folding] = features.foldingRangeProvider.ordered(TS);
         expect(await folding.provideFoldingRanges(request)).toEqual([{ startLine: 5, endLine: 7, isCollapsed: false }]);
         expect(bridge.provideFoldingRanges).toHaveBeenCalledWith(5, request);
+    });
+
+    it("inlineCompletions — прокси в своём реестре, токен отмены доезжает до хоста", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 9, kind: "inlineCompletions", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const request = { ...REQUEST, triggerKind: 1 as const };
+
+        const [inline] = features.inlineCompletionsProvider.ordered(TS);
+        expect(await inline.provideInlineCompletions(request, CancellationTokenNone)).toEqual([
+            { insertText: "ghost 9" },
+        ]);
+        expect(bridge.provideInlineCompletions).toHaveBeenCalledWith(9, request, CancellationTokenNone);
     });
 
     it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {

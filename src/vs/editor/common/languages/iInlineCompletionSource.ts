@@ -61,17 +61,18 @@ export interface ICoreInlineCompletionItem {
 }
 
 /**
- * Inline-completion-источник: по запросу возвращает пункты от провайдеров
- * расширений (`languages.provideInlineCompletions`). Инъектируется в ядро
- * извне (host/харнесс) — ядро не знает про extension-слой (зеркало
- * {@link ./iCompletionSource.ts:CompletionSource}). Пустой массив = подсказок нет.
+ * Провайдер инлайн-подсказок в реестре
+ * `ILanguageFeaturesService.inlineCompletionsProvider` (upstream
+ * `languages.InlineCompletionsProvider`). Пустой массив = подсказок нет.
  *
  * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
  * правка, уход каретки, Esc, смена редактора). Отмена доезжает до самого
  * провайдера расширения — за ghost text может стоять платный LLM-вызов, и
  * молча дожидаться его ответа, чтобы выбросить, мы не вправе.
  */
-export type InlineCompletionSource = (
-    request: IInlineCompletionRequest,
-    token: ICancellationToken,
-) => Promise<readonly ICoreInlineCompletionItem[]>;
+export interface InlineCompletionsProvider {
+    provideInlineCompletions(
+        request: IInlineCompletionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreInlineCompletionItem[]>;
+}

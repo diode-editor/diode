@@ -624,8 +624,6 @@ export class ExtensionHost extends Disposable {
     /** Есть ли в субпроцессе активные подписки на will/did-save (см. `workspace.updateSubscriptions`). */
     private willSaveSubscribed = false;
     private didSaveSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные inline-completion-провайдеры (см. `languages.updateSubscriptions`). */
-    private inlineCompletionSubscribed = false;
     /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
     private documentSyncSubscribed = false;
     /**
@@ -698,6 +696,11 @@ export class ExtensionHost extends Disposable {
      */
     private readonly languageProviders = new Map<number, IWireLanguageProviderRegistration>();
     private readonly onLanguageProvidersChangedEmitter = this.register(new Emitter<void>());
+    /** Вызовы inline-прокси с одним запросом — одним RPC (см. `provideInlineCompletions`). */
+    private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
+        IInlineCompletionRequest,
+        readonly ICoreInlineCompletionItem[]
+    >((handles, req, token) => this.requestInlineCompletionsBatch(handles, req, token), []);
     /** Вызовы folding-прокси с одним запросом — одним RPC (см. `provideFoldingRanges`). */
     private readonly foldingBatcher = new ProviderRequestBatcher<IFoldingRequest, readonly IFoldingRegion[]>(
         (handles, req) => this.requestFoldingBatch(handles, req),
@@ -1368,11 +1371,12 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса инлайн-подсказки для позиции каретки
-     * (`languages.provideInlineCompletions`). Возвращает `[]`, если субпроцесса
-     * нет, никто не зарегистрировал провайдеры, документ слишком большой или
-     * расширение не ответило за отпущенный срок. Подключается в
-     * `EditorService.inlineCompletionSource` (wiring в module/харнессе).
+     * Запрашивает у inline-провайдера субпроцесса `handle` подсказки для позиции
+     * каретки (`languages.provideInlineCompletions`). Возвращает `[]`, если
+     * субпроцесса нет, документ слишком большой или расширение не ответило за
+     * отпущенный срок. Зовёт его прокси из
+     * реестра ядра (`LanguageFeaturesAdapter`); вызовы с одним запросом уходят
+     * одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
      *
      * Срок берётся из САМОГО запроса (`req.timeoutMs` —
      * `editor.inlineSuggest.requestTimeout`), и только в его отсутствие — из
@@ -1380,13 +1384,22 @@ export class ExtensionHost extends Disposable {
      * таймаутов осознанная: остальные фиксируются при создании хоста, а этот
      * человек правит в settings.json и ждёт эффекта без перезапуска.
      */
-    public async provideInlineCompletions(
+    public provideInlineCompletions(
+        handle: number,
         req: IInlineCompletionRequest,
         token: ICancellationToken = CancellationTokenNone,
     ): Promise<readonly ICoreInlineCompletionItem[]> {
+        return this.inlineCompletionsBatcher.call(handle, req, token);
+    }
+
+    private async requestInlineCompletionsBatch(
+        handles: readonly number[],
+        req: IInlineCompletionRequest,
+        token: ICancellationToken | undefined,
+    ): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
         const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null || !this.inlineCompletionSubscribed) return [];
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return [];
         /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
         // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration: 8 МБ снапшот неподъёмен юнитом, см. v8 ignore
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
@@ -1401,6 +1414,7 @@ export class ExtensionHost extends Disposable {
         return requestInlineCompletions(
             (method, params, cancellation) => rpc.request(method, params, cancellation),
             {
+                handles,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -2047,14 +2061,6 @@ export class ExtensionHost extends Disposable {
             // доталкивать его на переходе подписки не нужно.
             this.documentSyncSubscribed = p.documentSync === true;
         });
-        // Субпроцесс сообщает, есть ли зарегистрированные completion-провайдеры.
-        // Без них хост не гоняет RPC на Ctrl+Space.
-        rpc.handleNotification("languages.updateSubscriptions", (params) => {
-            const p = params as {
-                hasInlineCompletionProviders?: unknown;
-            };
-            this.inlineCompletionSubscribed = p.hasInlineCompletionProviders === true;
-        });
         // Языковые провайдеры, переехавшие в реестр ядра: субпроцесс объявляет
         // каждого с handle и селектором, ядро само решает, кого спрашивать.
         rpc.handleNotification("languages.register", (params) => {
@@ -2496,8 +2502,6 @@ export class ExtensionHost extends Disposable {
         this.readyPromise = null;
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
-        this.inlineCompletionSubscribed = false;
         this.documentSyncSubscribed = false;
         // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из
         // реестра ядра, и запросы к мёртвым handle не уйдут.

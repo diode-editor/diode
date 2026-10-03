@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideInlineCompletions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
@@ -54,7 +58,7 @@ describe("ExtensionHost — расширение с чат-панелью (webvi
             const harness = await chatExtensionHarness(api);
             try {
                 await settle();
-                expect(await harness.host.provideInlineCompletions(REQ)).toEqual([{ insertText: "GHOST" }]);
+                expect(await provideInlineCompletions(harness, REQ)).toEqual([{ insertText: "GHOST" }]);
             } finally {
                 await harness.dispose();
             }

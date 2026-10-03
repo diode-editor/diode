@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
+
 import { ProviderRequestBatcher } from "./providerRequestBatcher.ts";
 
 describe("ProviderRequestBatcher", () => {
@@ -17,7 +19,7 @@ describe("ProviderRequestBatcher", () => {
         ]);
 
         expect(send).toHaveBeenCalledTimes(1);
-        expect(send).toHaveBeenCalledWith([3, 1, 7], request);
+        expect(send).toHaveBeenCalledWith([3, 1, 7], request, undefined);
         expect(results).toEqual(["r3", "r1", "r7"]);
     });
 
@@ -30,8 +32,8 @@ describe("ProviderRequestBatcher", () => {
         await Promise.all([batcher.call(1, first), batcher.call(2, second), batcher.call(3, second)]);
 
         expect(send.mock.calls).toEqual([
-            [[1], first],
-            [[2, 3], second],
+            [[1], first, undefined],
+            [[2, 3], second, undefined],
         ]);
     });
 
@@ -52,8 +54,8 @@ describe("ProviderRequestBatcher", () => {
         await late;
 
         expect(send.mock.calls).toEqual([
-            [[1], first],
-            [[2, 3], second],
+            [[1], first, undefined],
+            [[2, 3], second, undefined],
         ]);
     });
 
@@ -66,9 +68,22 @@ describe("ProviderRequestBatcher", () => {
         await batcher.call(2, request);
 
         expect(send.mock.calls).toEqual([
-            [[1], request],
-            [[2], request],
+            [[1], request, undefined],
+            [[2], request, undefined],
         ]);
+    });
+
+    it("токен первого вызова пачки уходит в отправку", async () => {
+        const send = vi.fn((handles: readonly number[], _request: object, _token: unknown) =>
+            Promise.resolve(handles.map(() => "ok")),
+        );
+        const batcher = new ProviderRequestBatcher<object, string>(send, "empty");
+        const request = {};
+        const token = CancellationTokenNone;
+
+        await Promise.all([batcher.call(1, request, token), batcher.call(2, request, token)]);
+
+        expect(send.mock.calls[0]?.[2]).toBe(token);
     });
 
     it("не хватило результата для handle — пустой ответ", async () => {

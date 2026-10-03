@@ -18,6 +18,7 @@ const WIRE_ITEM = {
 };
 
 const PARAMS = {
+    handles: [0],
     uri: "file:///a.ts",
     languageId: "typescript",
     text: "con\n",
@@ -70,20 +71,41 @@ describe("wireToCoreInlineCompletionItems", () => {
 
 describe("requestInlineCompletions", () => {
     it("валидный ответ конвертируется в core-пункты", async () => {
-        const result = await requestInlineCompletions(() => Promise.resolve([WIRE_ITEM]), PARAMS, 1000);
+        const result = await requestInlineCompletions(() => Promise.resolve([[WIRE_ITEM]]), PARAMS, 1000);
         expect(result).toStrictEqual([
-            {
-                insertText: "console.log()",
-                filterText: "console",
-                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
-            },
+            [
+                {
+                    insertText: "console.log()",
+                    filterText: "console",
+                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+                },
+            ],
         ]);
+    });
+
+    it("ответ выровнен по handles: недостающие и мусорные — пустые", async () => {
+        const params = { ...PARAMS, handles: [1, 2, 3] };
+        const result = await requestInlineCompletions(
+            () => Promise.resolve([[{ insertText: "a" }], "junk"]),
+            params,
+            1000,
+        );
+        expect(result).toStrictEqual([[{ insertText: "a" }], [], []]);
+    });
+
+    it("ответ не массивом (даже с числовыми ключами) — пусто у всех", async () => {
+        const result = await requestInlineCompletions(
+            () => Promise.resolve({ 0: [{ insertText: "a" }] }),
+            { ...PARAMS, handles: [1, 2] },
+            1000,
+        );
+        expect(result).toStrictEqual([[], []]);
     });
 
     it("таймаут и ошибка RPC — пустой список", async () => {
         const never = new Promise<unknown>(() => undefined);
-        expect(await requestInlineCompletions(() => never, PARAMS, 10)).toEqual([]);
-        expect(await requestInlineCompletions(() => Promise.reject(new Error("boom")), PARAMS, 1000)).toEqual([]);
+        expect(await requestInlineCompletions(() => never, PARAMS, 10)).toEqual([[]]);
+        expect(await requestInlineCompletions(() => Promise.reject(new Error("boom")), PARAMS, 1000)).toEqual([[]]);
     });
 
     it("параметры уезжают методом languages.provideInlineCompletions как есть", async () => {
@@ -117,7 +139,7 @@ describe("requestInlineCompletions", () => {
         expect(seen?.isCancellationRequested).toBe(true);
 
         // Сам промис так и висит — его снимет таймаут; результат пустой.
-        expect(await pending).toEqual([]);
+        expect(await pending).toEqual([[]]);
     });
 
     it("истёкший таймаут отменяет запрос: провайдер не считает в пустоту", async () => {
@@ -131,7 +153,7 @@ describe("requestInlineCompletions", () => {
             10,
         );
 
-        expect(result).toEqual([]);
+        expect(result).toEqual([[]]);
         expect(seen?.isCancellationRequested).toBe(true);
     });
 
@@ -141,14 +163,14 @@ describe("requestInlineCompletions", () => {
         const result = await requestInlineCompletions(
             (_method, _params, token) => {
                 seen = token;
-                return Promise.resolve([{ insertText: "x" }]);
+                return Promise.resolve([[{ insertText: "x" }]]);
             },
             PARAMS,
             1000,
             caller.token,
         );
 
-        expect(result).toStrictEqual([{ insertText: "x" }]);
+        expect(result).toStrictEqual([[{ insertText: "x" }]]);
         expect(seen?.isCancellationRequested).toBe(false);
 
         // Отмена, опоздавшая к ответу, до токена запроса уже не доходит:

@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { CancellationTokenNone, type ICancellationToken } from "../vs/base/common/cancellation.ts";
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import { curatedConfigInjection } from "../vs/diode/curatedConfigInjection.ts";
@@ -14,6 +15,10 @@ import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/c
 import type { IFoldingRequest } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../vs/editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
+import type {
+    ICoreInlineCompletionItem,
+    IInlineCompletionRequest,
+} from "../vs/editor/common/languages/iInlineCompletionSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import type { ICoreReference, IReferenceRequest } from "../vs/editor/common/languages/iReferenceSource.ts";
@@ -50,6 +55,7 @@ import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEd
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/node/workspaceEditService.ts";
 import { getDefinitions } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
+import { provideInlineCompletions as provideInlineCompletionsFrom } from "../vs/workbench/contrib/inlineCompletions/browser/provideInlineCompletions.ts";
 import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
 import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
 import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/contrib/suggest/browser/provideCompletions.ts";
@@ -413,8 +419,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     });
     // Document sync (LSP): продюсер didOpen/didChange — как в extensionHostModule.
     bindDocumentSync(group, host);
-    // Inline completions (ghost text): источник призрачных подсказок — как в extensionHostModule.
-    group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
     // Содержимое недисковых ресурсов (registerTextDocumentContentProvider) — как
     // в extensionHostModule: по нему открываются read-only вкладки `jdt:`/`class:`.
     group.virtualDocumentSource = {
@@ -564,6 +568,16 @@ export async function provideCodeActions(
 /** Области сворачивания от провайдеров так, как их собирает `EditorComponent`. */
 export function provideFoldingRegions(harness: IExtensionHarness, request: IFoldingRequest): Promise<IFoldingRegion[]> {
     return provideFoldingRanges(harness.languageFeatures.foldingRangeProvider.ordered(targetOf(request)), request);
+}
+
+/** Инлайн-подсказки так, как их собирает `InlineCompletionsService`. */
+export function provideInlineCompletions(
+    harness: IExtensionHarness,
+    request: IInlineCompletionRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<ICoreInlineCompletionItem[]> {
+    const providers = harness.languageFeatures.inlineCompletionsProvider.ordered(targetOf(request));
+    return provideInlineCompletionsFrom(providers, request, token);
 }
 
 /** Документ запроса как цель скоринга реестра. */
