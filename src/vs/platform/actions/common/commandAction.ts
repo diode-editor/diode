@@ -17,6 +17,8 @@ import type { MenuId } from "./menuId.ts";
 export interface ConditionalKeybinding {
     readonly keys: Keybinding | KeybindingChord;
     readonly when?: string;
+    /** Вес только этого бинда; иначе — {@link CommandAction.weight}. */
+    readonly weight?: number;
 }
 
 export type KeybindingEntry = Keybinding | KeybindingChord | ConditionalKeybinding;
@@ -62,6 +64,12 @@ export interface CommandAction {
     readonly keybindings?: KeybindingEntry[];
     /** Action-wide when, AND-ed with any per-binding when. */
     readonly when?: string;
+    /**
+     * Вес кейбиндов экшена (`KeybindingWeight`, по умолчанию `EditorCore`):
+     * решает, кто из команд на одной комбинации с проходящими разом `when`
+     * получит клавишу. При равном весе сильнее зарегистрированный позже.
+     */
+    readonly weight?: number;
     /**
      * When-выражение «команду сейчас можно исполнить» (аналог `precondition`
      * VS Code, поле `enablement` в манифесте расширения). Отличие от `when`:
@@ -118,10 +126,12 @@ export function registerAction(
     // проглотил клавишу и не сделал ничего; а так она уходит дальше по цепочке.
     const scope = combineWhen(action.when, action.enablement);
     for (const entry of allBindings) {
-        const { keys, when } = isConditionalKeybinding(entry)
-            ? { keys: entry.keys, when: entry.when }
-            : { keys: entry, when: undefined };
-        disposables.push(keybindings.register(keys, action.id, combineWhen(scope, when)));
+        const { keys, when, weight } = isConditionalKeybinding(entry)
+            ? { keys: entry.keys, when: entry.when, weight: entry.weight ?? action.weight }
+            : { keys: entry, when: undefined, weight: action.weight };
+        disposables.push(
+            keybindings.register(keys, action.id, combineWhen(scope, when), "default", undefined, { weight }),
+        );
     }
 
     return {

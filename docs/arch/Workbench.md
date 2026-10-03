@@ -1375,8 +1375,13 @@ hide-toggle (`isHiddenByDefault`). См.
   `navigateBack`, а не `Ctrl+K -`. Баг движка — в трекере (docs/TODO/README.md).
 - Экшены объявляются `CommandAction`/`registerAction` в `Workbench/Actions/`;
   упорядоченный список — `builtinActions.ts`, регистрирует `WorkbenchComponent`
-  одним циклом. Порядок важен: резолвер берёт последний зарегистрированный
-  биндинг с проходящим `when`.
+  одним циклом. Из записей одной комбинации с проходящим `when` резолвер
+  берёт самую приоритетную: сначала **вес** правила (`CommandAction.weight` /
+  `ConditionalKeybinding.weight`, ступени `KeybindingWeight` в
+  `platform/keybinding/common/keybindingResolver.ts`, дефолт `EditorCore`),
+  при равном весе — позже зарегистрированное правило. Пока веса не
+  проставлены, порядок в `builtinActions.ts` по-прежнему решает (F1, срез
+  `builtinKeybindings.slice.test.ts` фиксирует старшинство).
 - **`setContext`** — встроенная команда VS Code, которой РАСШИРЕНИЯ публикуют свои
   when-ключи. Регистрирует `SetContextCommandContribution` (`workbench/browser/`)
   без title: в палитре её быть не должно, это программный шов. Значение
