@@ -3,7 +3,8 @@ import * as path from "node:path";
 
 import { applyEdits, modify, parse as parseJsonc, type ParseError, printParseErrorCode } from "jsonc-parser";
 
-import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
+import { Emitter } from "../../../base/common/event.ts";
+import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
@@ -51,7 +52,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     /** Путь к settings.json именованного профиля; undefined для default-профиля. */
     private readonly profileSettingsPath: string | undefined;
     private readonly logger: ILogger | undefined;
-    private readonly listeners: ((event: IConfigurationChangeEvent) => void)[] = [];
+    private readonly onDidChangeConfigurationEmitter = new Emitter<IConfigurationChangeEvent>();
+    public readonly onDidChangeConfiguration = this.onDidChangeConfigurationEmitter.event;
 
     public constructor(input: {
         readonly defaultsLayer: ConfigurationModel;
@@ -121,16 +123,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         };
     }
 
-    public onDidChangeConfiguration(listener: (event: IConfigurationChangeEvent) => void): IDisposable {
-        this.listeners.push(listener);
-        return {
-            dispose: () => {
-                const index = this.listeners.indexOf(listener);
-                if (index >= 0) this.listeners.splice(index, 1);
-            },
-        };
-    }
-
     /**
      * Перечитывает settings.json с диска (user + profile, если именованный
      * профиль), пересобирает merged и эмитит `onDidChangeConfiguration` с
@@ -157,11 +149,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.merged = ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer);
         const affectedKeys = diffConfigurationKeys(prev, this.merged);
         if (affectedKeys.length === 0) return;
-        const event = createConfigurationChangeEvent(affectedKeys);
-        // Копия списка: слушатель может отписаться/подписаться в обработчике.
-        for (const listener of [...this.listeners]) {
-            listener(event);
-        }
+        this.onDidChangeConfigurationEmitter.fire(createConfigurationChangeEvent(affectedKeys));
     }
 
     public async updateUserValue(key: string, value: unknown): Promise<void> {
