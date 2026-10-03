@@ -1,4 +1,3 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import type { PopupMenuElement } from "@tuidom/elements/menu/popupMenuElement";
@@ -6,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import type { IDisposable } from "../../base/common/lifecycle.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import type { DefinitionProvider } from "../../editor/common/languages/iDefinitionSource.ts";
