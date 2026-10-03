@@ -45,11 +45,11 @@ export const EditorServiceDIToken = token<EditorService>("EditorService");
 Компилятор проверяет, что типы токенов совпадают с типами параметров:
 
 ```typescript
-export class StatusBarComponent extends ThemedComponent {
-    static dependencies = [StatusBarServiceDIToken, ThemeServiceDIToken] as const;
+export class StatusBarComponent extends Component {
+    public static dependencies = [StatusBarServiceDIToken, ContextMenuServiceDIToken] as const;
 
-    constructor(statusBar: StatusBarService, themeService: ThemeService) {
-        super(themeService);
+    public constructor(statusBar: StatusBarService, contextMenu: ContextMenuService) {
+        super();
         // ...
     }
 }
