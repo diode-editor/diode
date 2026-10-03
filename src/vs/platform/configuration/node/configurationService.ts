@@ -8,6 +8,7 @@ import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
+import { createConfigurationChangeEvent, diffConfigurationKeys } from "../common/configurationChangeEvent.ts";
 import { ConfigurationModel } from "../common/configurationModel.ts";
 import type { ConfigurationRegistry } from "../common/configurationRegistry.ts";
 import type {
@@ -28,7 +29,7 @@ import type {
  * Live-reload: если в конструктор передан {@link IFileWatcher} и пути к
  * settings.json, сервис следит за файлом(-ами) и на изменение перечитывает
  * соответствующий слой, пересобирает merged и эмитит `onDidChangeConfiguration`
- * с диффом затронутых ключей. Правки через {@link updateUserValue} эмитят то же
+ * с диффом затронутых ключей. Правки через {@link updateValue} эмитят то же
  * событие. Дифф гарантирует, что пустое изменение (напр. повторный reload после
  * собственной записи) события не порождает.
  *
@@ -41,7 +42,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private profileLayer: ConfigurationModel;
     private merged: ConfigurationModel;
     /**
-     * settings.json активного профиля — цель для {@link updateUserValue}. Для
+     * settings.json активного профиля — цель для {@link updateValue}. Для
      * default-профиля это `User/settings.json` (совпадает с user-слоем); для
      * именованного — файл профиля (profile-слой).
      */
@@ -143,7 +144,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     /**
      * Пересобирает merged из текущих слоёв и, если появился дифф ключей
      * относительно `prev`, эмитит событие изменения. Общая точка для reload и
-     * {@link updateUserValue}.
+     * {@link updateValue}.
      */
     private recompute(prev: ConfigurationModel): void {
         this.merged = ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer);
@@ -152,7 +153,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.onDidChangeConfigurationEmitter.fire(createConfigurationChangeEvent(affectedKeys));
     }
 
-    public async updateUserValue(key: string, value: unknown): Promise<void> {
+    public async updateValue(key: string, value: unknown): Promise<void> {
         if (this.writeTargetPath === undefined) return;
 
         let content = "";
@@ -188,39 +189,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         // событию файлового watcher'а даст пустой дифф → без повторного события.
         this.recompute(prev);
     }
-}
-
-/**
- * Множество точечных ключей, значение которых различается между двумя
- * моделями. Используется для `affectedKeys` события изменения. Значения
- * сравниваются структурно (config всегда JSON-совместим).
- */
-export function diffConfigurationKeys(prev: ConfigurationModel, next: ConfigurationModel): string[] {
-    const keys = new Set<string>([...prev.collectKeys(), ...next.collectKeys()]);
-    const changed: string[] = [];
-    for (const key of keys) {
-        if (!valuesEqual(prev.get(key), next.get(key))) changed.push(key);
-    }
-    return changed;
-}
-
-function valuesEqual(a: unknown, b: unknown): boolean {
-    if (a === b) return true;
-    return JSON.stringify(a) === JSON.stringify(b);
-}
-
-/**
- * Собирает {@link IConfigurationChangeEvent} из списка изменившихся ключей.
- * `affectsConfiguration(q)` — true, если `q` совпадает с затронутым ключом,
- * является его предком (`editor` ← `editor.tabSize`) или потомком.
- */
-export function createConfigurationChangeEvent(affectedKeys: readonly string[]): IConfigurationChangeEvent {
-    return {
-        affectedKeys,
-        affectsConfiguration(key: string): boolean {
-            return affectedKeys.some((k) => k === key || k.startsWith(`${key}.`) || key.startsWith(`${k}.`));
-        },
-    };
 }
 
 /**

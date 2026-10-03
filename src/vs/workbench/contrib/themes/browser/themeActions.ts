@@ -68,7 +68,7 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     }
 
     applyByLabel(picked.label);
-    void configurationService.updateUserValue?.("workbench.colorTheme", picked.label);
+    void configurationService.updateValue("workbench.colorTheme", picked.label);
 }
 
 /**

@@ -34,7 +34,7 @@ export class ThemeConfigContribution extends Disposable implements IWorkbenchCon
     /**
      * Резолвит тему по имени из `workbench.colorTheme` и применяет её. Guard по
      * имени: если тема уже активна (напр. правку внёс сам theme-picker через
-     * `updateUserValue`), лишнего перекраса не делаем. Неизвестное имя игнорируем.
+     * `updateValue`), лишнего перекраса не делаем. Неизвестное имя игнорируем.
      */
     private applyColorThemeFromConfiguration(): void {
         const name = this.configurationService.get<string>("workbench.colorTheme");

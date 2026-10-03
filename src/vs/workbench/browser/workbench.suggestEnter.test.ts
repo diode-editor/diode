@@ -69,7 +69,7 @@ describe("Workbench — Enter после несловесного символа
 
         // До починки Enter уходил в acceptSelectedSuggestion и давал "console\n".
         // Теперь это обычный перевод строки — с отступом на уровень глубже после `{`.
-        expect(editor().viewState.document.getText()).toBe("cons{\n\t\n");
+        expect(editor().viewState.document.getText()).toBe("cons{\n    \n");
     });
 
     it("добор буквами попап не гасит — Enter всё ещё принимает пункт", async () => {

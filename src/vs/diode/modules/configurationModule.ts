@@ -2,7 +2,7 @@ import { ConfigurationRegistry } from "../../platform/configuration/common/confi
 import { ConfigurationRegistryDIToken } from "../../platform/configuration/common/configurationRegistryDIToken.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
+import { InMemoryConfigurationService } from "../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../../workbench/common/configuration/configurationContributions.ts";
 
@@ -16,7 +16,7 @@ export interface ConfigurationModuleContext {
  * Биндит `IConfigurationServiceDIToken` на готовый экземпляр сервиса и
  * `ConfigurationRegistryDIToken` на реестр схем настроек. В production-сборке
  * это `loadConfiguration(paths, …, registry)` из `main.ts`, в тестах —
- * `NULL_CONFIGURATION_SERVICE` (см. `configurationModuleDefault`).
+ * `InMemoryConfigurationService` (см. `configurationModuleDefault`).
  */
 export const configurationModule: ContainerModule<ConfigurationModuleContext> = (
     container,
@@ -27,11 +27,12 @@ export const configurationModule: ContainerModule<ConfigurationModuleContext> = 
 };
 
 /**
- * Shortcut для тестов и demo: null-сервис настроек, но реестр — настоящий
- * (из `CONFIGURATION_CONTRIBUTIONS`), чтобы валидация settings.json знала
- * реальные ключи.
+ * Shortcut для тестов и demo: настоящий реестр (из `CONFIGURATION_CONTRIBUTIONS`)
+ * и сервис в памяти **с теми же дефолтами** — тесты видят те же значения по
+ * умолчанию, что приложение, а запись (выбор темы и т.п.) не трогает диск.
  */
 export const configurationModuleDefault: ContainerModule = (container) => {
-    container.bind(IConfigurationServiceDIToken, () => NULL_CONFIGURATION_SERVICE);
-    container.bind(ConfigurationRegistryDIToken, () => new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS));
+    const configurationRegistry = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS);
+    container.bind(IConfigurationServiceDIToken, () => new InMemoryConfigurationService(configurationRegistry));
+    container.bind(ConfigurationRegistryDIToken, () => configurationRegistry);
 };

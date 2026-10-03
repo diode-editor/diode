@@ -22,10 +22,10 @@ interface ThemeContext {
 
 function createThemeApp(writes: { key: string; value: unknown }[] = []): ThemeContext {
     const { container, bindApp } = createTestContainer();
-    // Config with a recording updateUserValue so we can assert persistence wiring.
+    // Config with a recording updateValue so we can assert persistence wiring.
     container.bind(IConfigurationServiceDIToken, () => ({
         ...NULL_CONFIGURATION_SERVICE,
-        updateUserValue: (key: string, value: unknown) => {
+        updateValue: (key: string, value: unknown) => {
             writes.push({ key, value });
             return Promise.resolve();
         },

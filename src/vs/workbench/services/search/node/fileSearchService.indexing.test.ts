@@ -4,12 +4,12 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createConfigurationChangeEvent } from "../../../../platform/configuration/common/configurationChangeEvent.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationInspectResult,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { createConfigurationChangeEvent } from "../../../../platform/configuration/node/configurationService.ts";
 import { FILES_EXCLUDE_SETTING, SEARCH_EXCLUDE_SETTING } from "../../../common/configuration/excludeSettings.ts";
 
 import { FileSearchService } from "./fileSearchService.ts";
@@ -37,6 +37,10 @@ class StubConfig implements IConfigurationService {
                 /* подписки живут до конца теста */
             },
         };
+    }
+    public updateValue(key: string, value: unknown): Promise<void> {
+        this.set(key, value);
+        return Promise.resolve();
     }
     /** Ставит значение и эмитит событие — как reload() настоящего сервиса. */
     public set(key: string, value: unknown): void {
