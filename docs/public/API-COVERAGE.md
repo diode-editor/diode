@@ -248,7 +248,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextDocument` | 17/19 | `save`, `getWordRangeAtPosition` — объявлены в `vscode.d.ts`, но в субпроцессе отсутствуют: обращение бросает `TypeError`. Остальное рабочее, включая `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
-| `ExtensionContext` | 14/17 | `environmentVariableCollection`, `extension`, `languageModelAccessInformation` |
+| `ExtensionContext` | 14/17 | `environmentVariableCollection`, `extension`, `languageModelAccessInformation`. Из активных: `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
 | `WorkspaceEdit` | 11/11 | — |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
 | `FileStat` | 4/5 | `permissions` |
