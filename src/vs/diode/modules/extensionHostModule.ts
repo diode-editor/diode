@@ -278,17 +278,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // правку его содержимого — стоковый vscode-languageclient видит живой буфер.
         bindDocumentSync(group, host);
 
-        // Completion: провайдеры расширений (languages.provideCompletionItems)
-        // подключаются как источник автодополнений группы (читает CompletionService),
-        // resolve — как источник описаний и правок авто-импорта выбранного пункта.
-        group.completionSource = (req) => host.provideCompletionItems(req);
-        group.completionResolver = (id) => host.resolveCompletionItem(id);
-        // Триггер-символы объявляет сервер уже после активации — держим их
-        // актуальными на каждом обновлении подписок субпроцесса.
-        group.completionTriggerCharacters = host.completionTriggerCharacters;
-        host.onCompletionTriggerCharactersChanged((characters) => {
-            group.completionTriggerCharacters = characters;
-        });
         // Inline completions (ghost text): источник призрачных подсказок —
         // провайдеры расширений через host (читает InlineCompletionsService).
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста

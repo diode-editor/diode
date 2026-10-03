@@ -22,6 +22,7 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
 }
 
 const COMPLETION_PARAMS = {
+    handles: [0],
     uri: Uri.file("/proj/.editorconfig").toString(),
     languageId: "editorconfig",
     text: "ind",
@@ -30,62 +31,38 @@ const COMPLETION_PARAMS = {
 };
 
 describe("LanguagesNamespace", () => {
-    it("registerCompletionItemProvider сохраняет регистрацию и возвращает Disposable", () => {
-        const { ctx } = makeCtx();
-        const { languages, registrations } = createLanguagesNamespace(ctx);
+    it("registerCompletionItemProvider объявляет провайдера ядру с триггерами, dispose — снимает один раз", () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
         const provider = { provideCompletionItems: () => [] } as never;
         const disposable = languages.registerCompletionItemProvider(
             { language: "editorconfig", pattern: "**/.editorconfig" },
             provider,
             "=",
             ".",
+            "", // пустой символ триггером не бывает — отбрасывается
         );
-        expect(registrations).toHaveLength(1);
-        expect(registrations[0].provider).toBe(provider);
-        expect(registrations[0].triggerCharacters).toEqual(["=", "."]);
+        expect(stub.notifies.filter((n) => n.method.startsWith("languages."))).toEqual([
+            {
+                method: "languages.register",
+                params: {
+                    handle: 0,
+                    kind: "completion",
+                    selector: [{ language: "editorconfig", pattern: "**/.editorconfig" }],
+                    triggerCharacters: ["=", "."],
+                },
+            },
+        ]);
         disposable.dispose();
-        expect(registrations).toHaveLength(0);
-        // повторный dispose безопасен (ветка idx < 0)
-        expect(() => {
-            disposable.dispose();
-        }).not.toThrow();
-        expect(registrations).toHaveLength(0);
+        disposable.dispose();
+        expect(stub.notifies.filter((n) => n.method === "languages.unregister")).toEqual([
+            { method: "languages.unregister", params: { handle: 0 } },
+        ]);
+        // Бит completion в updateSubscriptions больше не ездит.
+        expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 
-    it("сигналит languages.updateSubscriptions на переходах 0↔1", () => {
-        const { ctx, stub } = makeCtx();
-        const { languages } = createLanguagesNamespace(ctx);
-        const provider = { provideCompletionItems: () => [] } as never;
-        const d1 = languages.registerCompletionItemProvider({ language: "editorconfig" }, provider);
-        const d2 = languages.registerCompletionItemProvider({ language: "ini" }, provider);
-        const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
-        // Только переход 0→1 шлёт notif (второй провайдер не шлёт).
-        expect(subs).toHaveLength(1);
-        expect(subs[0].params).toEqual({
-            hasCompletionProviders: true,
-            hasFoldingProviders: false,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
-            hasInlineCompletionProviders: false,
-            completionTriggerCharacters: [],
-        });
-
-        d1.dispose(); // ещё остаётся d2 — notif нет
-        expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toHaveLength(1);
-        d2.dispose(); // 1→0 — notif {false}
-        const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
-        expect(after).toHaveLength(2);
-        expect(after[1].params).toEqual({
-            hasCompletionProviders: false,
-            hasFoldingProviders: false,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
-            hasInlineCompletionProviders: false,
-            completionTriggerCharacters: [],
-        });
-    });
-
-    it("provideCompletionItems вызывает только матчащие провайдеры и сериализует items", async () => {
+    it("provideCompletionItems зовёт провайдеров присланных handle и сериализует items", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -101,11 +78,12 @@ describe("LanguagesNamespace", () => {
             provideCompletionItems: () => [otherLangItem],
         } as never);
 
-        const result = (await stub.callRequest(
+        const [result] = (await stub.callRequest(
             "languages.provideCompletionItems",
             COMPLETION_PARAMS,
-        )) as WireCompletionResult;
+        )) as WireCompletionResult[];
 
+        // Провайдер ini (handle 1) не прислан — его не спрашивают.
         expect(result.items).toHaveLength(1);
         expect(result.items[0].label).toBe("indent_style");
         expect(result.items[0].insertText).toBe("indent_style"); // fallback на label
@@ -114,7 +92,7 @@ describe("LanguagesNamespace", () => {
         expect(result.items[0].command?.command).toBe("editorconfig._triggerSuggestAfterDelay");
     });
 
-    it("provideCompletionItems: CompletionList и Range, сбойный провайдер не роняет остальные", async () => {
+    it("provideCompletionItems: CompletionList и Range; ответ выровнен по handles, сбойный — пустой", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -131,24 +109,31 @@ describe("LanguagesNamespace", () => {
             provideCompletionItems: () => ({ items: [withRange] }),
         } as never);
 
-        const result = (await stub.callRequest(
-            "languages.provideCompletionItems",
-            COMPLETION_PARAMS,
-        )) as WireCompletionResult;
+        const results = (await stub.callRequest("languages.provideCompletionItems", {
+            ...COMPLETION_PARAMS,
+            handles: [1, 0, 7, "x"],
+        })) as WireCompletionResult[];
 
-        expect(result.items).toHaveLength(1);
-        expect(result.items[0].insertText).toBe("root = true");
-        expect(result.items[0].range).toEqual({ startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 });
+        expect(results).toHaveLength(4);
+        expect(results[0].items).toHaveLength(1);
+        expect(results[0].items[0].insertText).toBe("root = true");
+        expect(results[0].items[0].range).toEqual({ startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 });
+        // Сбойный (0), неизвестный (7) и чужой формы handle — пустые результаты.
+        expect(results.slice(1)).toEqual([
+            { items: [], isIncomplete: false },
+            { items: [], isIncomplete: false },
+            { items: [], isIncomplete: false },
+        ]);
     });
 
-    it("provideCompletionItems без матчащих провайдеров → пустой массив", async () => {
+    it("provideCompletionItems без handles → пустой массив", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        languages.registerCompletionItemProvider({ language: "python" }, {
+        languages.registerCompletionItemProvider({ language: "editorconfig" }, {
             provideCompletionItems: () => [new CompletionItem("x")],
         } as never);
-        const result = await stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS);
-        expect(result).toEqual({ items: [], isIncomplete: false });
+        const { handles: _handles, ...noHandles } = COMPLETION_PARAMS;
+        expect(await stub.callRequest("languages.provideCompletionItems", noHandles)).toEqual([]);
     });
 
     it("сериализует разнообразные формы полей и отбрасывает элементы без label", async () => {
@@ -184,10 +169,10 @@ describe("LanguagesNamespace", () => {
             provideCompletionItems: () => items,
         } as never);
 
-        const result = (await stub.callRequest(
+        const [result] = (await stub.callRequest(
             "languages.provideCompletionItems",
             COMPLETION_PARAMS,
-        )) as WireCompletionResult;
+        )) as WireCompletionResult[];
 
         expect(result.items.map((r) => r.label)).toEqual(["objlabel", "d", "e"]);
         const a = result.items[0];
@@ -214,9 +199,10 @@ describe("LanguagesNamespace", () => {
             { provideCompletionItems: () => [item] } as never,
         );
         // Параметры только с fileName — остальные поля резолвятся дефолтами.
-        const result = (await stub.callRequest("languages.provideCompletionItems", {
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", {
+            handles: [0],
             uri: Uri.file("/proj/.editorconfig").toString(),
-        })) as WireCompletionResult;
+        })) as WireCompletionResult[];
         expect(result.items).toHaveLength(1);
         expect(result.items[0].documentation).toBe("root docs");
     });
@@ -227,20 +213,18 @@ describe("LanguagesNamespace", () => {
         nsU.languages.registerCompletionItemProvider({ language: "editorconfig" }, {
             provideCompletionItems: () => undefined,
         } as never);
-        expect(await undef.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual({
-            items: [],
-            isIncomplete: false,
-        });
+        expect(await undef.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual([
+            { items: [], isIncomplete: false },
+        ]);
 
         const bad = makeCtx();
         const nsB = createLanguagesNamespace(bad.ctx);
         nsB.languages.registerCompletionItemProvider({ language: "editorconfig" }, {
             provideCompletionItems: () => ({ items: 5 }),
         } as never);
-        expect(await bad.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual({
-            items: [],
-            isIncomplete: false,
-        });
+        expect(await bad.stub.callRequest("languages.provideCompletionItems", COMPLETION_PARAMS)).toEqual([
+            { items: [], isIncomplete: false },
+        ]);
     });
 
     it("registerFoldingRangeProvider сохраняет регистрацию и сигналит subscription", () => {
@@ -254,12 +238,10 @@ describe("LanguagesNamespace", () => {
         const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(subs).toHaveLength(1);
         expect(subs[0].params).toEqual({
-            hasCompletionProviders: false,
             hasFoldingProviders: true,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
-            completionTriggerCharacters: [],
         });
 
         d1.dispose(); // ещё остаётся d2 — notif нет
@@ -269,12 +251,10 @@ describe("LanguagesNamespace", () => {
         expect(foldingRegistrations).toHaveLength(0);
         const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(after[1].params).toEqual({
-            hasCompletionProviders: false,
             hasFoldingProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
-            completionTriggerCharacters: [],
         });
     });
 

@@ -1,5 +1,6 @@
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 import type { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
+import type { CompletionItemProvider } from "../languages/iCompletionSource.ts";
 import type { DefinitionProvider } from "../languages/iDefinitionSource.ts";
 import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
@@ -19,6 +20,7 @@ export interface ILanguageFeaturesService {
     readonly definitionProvider: LanguageFeatureRegistry<DefinitionProvider>;
     readonly referenceProvider: LanguageFeatureRegistry<ReferenceProvider>;
     readonly signatureHelpProvider: LanguageFeatureRegistry<SignatureHelpProvider>;
+    readonly completionProvider: LanguageFeatureRegistry<CompletionItemProvider>;
 }
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import type { ICompletionRequest } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
@@ -9,9 +9,9 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
 /**
- * Guard-ветки подписки на completion: честный субпроцесс всегда шлёт массив
- * строк, поэтому чужую форму параметров пробиваем in-process нотификациями
- * (образец — `extensionHost.fileSystemInProcess.test.ts`).
+ * Completion по handle: субпроцесса нет, канал сшит in-process — так видно,
+ * какие сообщения уходят (пачка handle на один запрос) и что остановка
+ * субпроцесса отрезает запросы (образец — `extensionHost.hoverInProcess.test.ts`).
  */
 
 const NOOP_EDITOR_OPTIONS = {
@@ -34,46 +34,75 @@ function makeHost(): { host: ExtensionHost; peer: RpcEndpoint } {
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
+    (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
     return { host, peer };
 }
 
-describe("ExtensionHost — триггер-символы completion (in-process)", () => {
-    it("нестроковые символы отфильтровываются, не-массив даёт пустой список", async () => {
+const REQUEST: ICompletionRequest = {
+    uri: "file:///a.ts",
+    languageId: "typescript",
+    text: "a.",
+    line: 0,
+    character: 2,
+};
+
+describe("ExtensionHost — completion по handle (in-process)", () => {
+    it("вызовы прокси с одним запросом уходят одним RPC с пачкой handle; ответы — по своим", async () => {
         const { host, peer } = makeHost();
-        const seen = vi.fn();
-        host.onCompletionTriggerCharactersChanged(seen);
+        const provide = vi.fn((_params: unknown) =>
+            Promise.resolve([
+                { items: [{ label: "first", insertText: "first" }], isIncomplete: true },
+                { items: [{ label: "second", insertText: "second" }], isIncomplete: false },
+            ]),
+        );
+        peer.handleRequest("languages.provideCompletionItems", provide);
 
-        peer.notify("languages.updateSubscriptions", {
-            hasCompletionProviders: true,
-            completionTriggerCharacters: [".", 42, null, '"'],
-        });
-        await flushMicrotasks();
-        expect(host.completionTriggerCharacters).toEqual([".", '"']);
-        expect(seen).toHaveBeenCalledTimes(1);
+        const [first, second] = await Promise.all([
+            host.provideCompletionItems(4, REQUEST),
+            host.provideCompletionItems(9, REQUEST),
+        ]);
 
-        // Поле отсутствует вовсе (подписка без completion-провайдеров).
-        peer.notify("languages.updateSubscriptions", { hasCompletionProviders: false });
-        await flushMicrotasks();
-        expect(host.completionTriggerCharacters).toEqual([]);
-        expect(seen).toHaveBeenCalledTimes(2);
+        expect(provide).toHaveBeenCalledTimes(1);
+        expect(provide.mock.calls[0]?.[0]).toEqual({ handles: [4, 9], ...REQUEST });
+        expect(first).toEqual({ items: [{ label: "first", insertText: "first" }], isIncomplete: true });
+        expect(second).toEqual({ items: [{ label: "second", insertText: "second" }], isIncomplete: false });
     });
 
-    it("тот же набор символов подписчиков не будит", async () => {
+    it("триггер запроса уходит в субпроцесс, только когда он есть", async () => {
         const { host, peer } = makeHost();
-        const seen = vi.fn();
-        host.onCompletionTriggerCharactersChanged(seen);
-
-        peer.notify("languages.updateSubscriptions", {
-            hasCompletionProviders: true,
-            completionTriggerCharacters: ["."],
+        const seen: unknown[] = [];
+        peer.handleRequest("languages.provideCompletionItems", (params) => {
+            seen.push(params);
+            return Promise.resolve([]);
         });
-        await flushMicrotasks();
-        peer.notify("languages.updateSubscriptions", {
-            hasCompletionProviders: true,
-            completionTriggerCharacters: ["."],
-        });
-        await flushMicrotasks();
 
-        expect(seen).toHaveBeenCalledTimes(1);
+        await host.provideCompletionItems(0, REQUEST);
+        await host.provideCompletionItems(0, { ...REQUEST, triggerKind: 1, triggerCharacter: "." });
+
+        expect(Object.keys(seen[0] as object).sort()).toEqual([
+            "character",
+            "handles",
+            "languageId",
+            "line",
+            "text",
+            "uri",
+        ]);
+        expect(seen[1]).toMatchObject({ triggerKind: 1, triggerCharacter: "." });
+    });
+
+    it("после остановки субпроцесса completion и resolve не уходят", async () => {
+        const { host, peer } = makeHost();
+        const provide = vi.fn(() => Promise.resolve([]));
+        const resolve = vi.fn(() => Promise.resolve({ detail: "d" }));
+        peer.handleRequest("languages.provideCompletionItems", provide);
+        peer.handleRequest("languages.resolveCompletionItem", resolve);
+        expect(await host.resolveCompletionItem("1.0")).toEqual({ detail: "d" });
+
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(await host.provideCompletionItems(0, REQUEST)).toEqual({ items: [], isIncomplete: false });
+        expect(await host.resolveCompletionItem("1.0")).toBeNull();
+        expect(provide).not.toHaveBeenCalled();
+        expect(resolve).toHaveBeenCalledTimes(1);
     });
 });

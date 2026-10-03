@@ -7,7 +7,11 @@ import {
     PY_LANGUAGE_SERVICE,
     until,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideCompletions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
@@ -51,9 +55,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
             await harness.host.activateByEvent("onLanguage:python");
 
             const completionAt = async (line: number, character: number): Promise<readonly ICoreCompletionItem[]> => {
-                const source = harness.group.completionSource;
-                if (source === undefined) return [];
-                const result = await source({
+                const result = await provideCompletions(harness, {
                     uri: mainUri,
                     languageId: "python",
                     text: MAIN_PY,
@@ -79,7 +81,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
             const upper = items.find((item) => item.label === "upper");
             expect(upper?.id).toBeDefined();
             const resolved = await until("resolve пункта upper", async () => {
-                const found = await harness.group.completionResolver!(upper!.id!);
+                const found = await harness.host.resolveCompletionItem(upper!.id!);
                 return found?.detail !== undefined || found?.documentation !== undefined ? found : null;
             });
             // Текст, которого нет в буфере: сигнатура/докстринг str.upper из стабов.

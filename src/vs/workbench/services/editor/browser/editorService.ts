@@ -3,7 +3,6 @@ import * as path from "node:path";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
-import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
@@ -184,27 +183,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public focusGroupContentHook?: (group: EditorGroup) => void;
 
     public onEditorCreate?: (pane: TextEditorPane) => void;
-
-    /**
-     * Источник автодополнений (host/харнесс подключает сюда провайдеры
-     * расширений через `languages.provideCompletionItems`). Читается
-     * `CompletionService` при триггере; в редакторы не раздаётся (group-level).
-     */
-    public completionSource?: CompletionSource;
-
-    /**
-     * Ленивая догрузка выбранного пункта автодополнения (`resolveCompletionItem`
-     * провайдера). Отдельный seam, а не поле пункта: у стокового LSP-стека
-     * описание и авто-импорт приходят ТОЛЬКО по запросу конкретного пункта, уже
-     * после показа списка.
-     */
-    public completionResolver?: CompletionResolver;
-
-    /**
-     * Символы, после набора которых попап открывается сам (`.` у tsserver) —
-     * их объявляет language server, а host передаёт сюда.
-     */
-    public completionTriggerCharacters: readonly string[] = [];
 
     /**
      * Источник инлайн-подсказок (host/харнесс подключает сюда провайдеры

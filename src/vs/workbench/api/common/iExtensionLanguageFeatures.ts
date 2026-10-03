@@ -1,6 +1,11 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import type {
+    ICompletionRequest,
+    ICoreCompletionResult,
+    ICoreResolvedCompletion,
+} from "../../../editor/common/languages/iCompletionSource.ts";
+import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../editor/common/languages/iDefinitionSource.ts";
@@ -29,4 +34,6 @@ export interface IExtensionLanguageFeaturesBridge {
     provideDefinition(handle: number, request: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]>;
     provideReferences(handle: number, request: IReferenceRequest): Promise<readonly ICoreReference[]>;
     provideSignatureHelp(handle: number, request: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null>;
+    provideCompletionItems(handle: number, request: ICompletionRequest): Promise<ICoreCompletionResult>;
+    resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null>;
 }

@@ -280,7 +280,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         }
 
         // Пустая строка — «набора не было»: пустой символ ни один сервер
-        // триггером не объявляет (а если бы объявил, его отсеет readStringArray).
+        // триггером не объявляет (а если бы объявил, его отсеет разбор регистрации — `readWireCharacters`).
         // Stryker disable next-line StringLiteral: любая заглушка ведёт себя одинаково — сервер не объявляет триггером ни её, ни пустую строку
         const inserted = wasEdit ? this.insertedChar(line, active) : "";
         // Триггеры — метаданные провайдеров, подошедших именно этому документу:

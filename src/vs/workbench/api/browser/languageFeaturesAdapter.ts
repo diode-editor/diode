@@ -82,6 +82,12 @@ export class LanguageFeaturesAdapter extends Disposable {
                 retriggerCharacters,
                 provideSignatureHelp: (request) => this.bridge.provideSignatureHelp(handle, request),
             }),
+        completion: ({ handle, selector, triggerCharacters = [] }) =>
+            this.languageFeatures.completionProvider.register(selector, {
+                triggerCharacters,
+                provideCompletionItems: (request) => this.bridge.provideCompletionItems(handle, request),
+                resolveCompletionItem: (id) => this.bridge.resolveCompletionItem(id),
+            }),
     };
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {

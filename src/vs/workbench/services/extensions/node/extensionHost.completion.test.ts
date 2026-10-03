@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideCompletions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
@@ -22,7 +26,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
             await settle();
 
             // Через group.completionSource (wiring харнесса) — как это делает ядро.
-            const { items } = await harness.group.completionSource!(REQ);
+            const { items } = await provideCompletions(harness, REQ);
             expect(items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
 
             const style = items.find((i) => i.label === "indent_style");
@@ -47,7 +51,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
         });
         try {
             await settle();
-            const result = await harness.host.provideCompletionItems({ ...REQ, languageId: "typescript" });
+            const result = await provideCompletions(harness, { ...REQ, languageId: "typescript" });
             expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             await harness.dispose();
@@ -59,7 +63,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
             initialFile: { name: "main.ts", content: "x\n" },
         });
         try {
-            const result = await harness.host.provideCompletionItems({
+            const result = await provideCompletions(harness, {
                 uri: Uri.file("/proj/main.ts").toString(),
                 languageId: "typescript",
                 text: "x",

@@ -42,6 +42,10 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
                 activeParameter: 0,
             }),
         ),
+        provideCompletionItems: vi.fn((handle: number) =>
+            Promise.resolve({ items: [{ label: `c${String(handle)}`, insertText: "c" }], isIncomplete: false }),
+        ),
+        resolveCompletionItem: vi.fn((id: string) => Promise.resolve({ detail: `resolved ${id}` })),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -123,6 +127,28 @@ describe("LanguageFeaturesAdapter", () => {
         const [md] = features.signatureHelpProvider.ordered(MD);
         expect(md.triggerCharacters).toEqual([]);
         expect(md.retriggerCharacters).toEqual([]);
+    });
+
+    it("completion: триггеры из метаданных, provide с handle, resolve — по id пункта", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 8, kind: "completion", selector: [{ language: "typescript" }], triggerCharacters: ["."] },
+            { handle: 9, kind: "completion", selector: [{ language: "markdown" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [ts] = features.completionProvider.ordered(TS);
+        expect(ts.triggerCharacters).toEqual(["."]);
+        expect(await ts.provideCompletionItems(REQUEST)).toEqual({
+            items: [{ label: "c8", insertText: "c" }],
+            isIncomplete: false,
+        });
+        expect(bridge.provideCompletionItems).toHaveBeenCalledWith(8, REQUEST);
+        expect(await ts.resolveCompletionItem?.("1.0")).toEqual({ detail: "resolved 1.0" });
+
+        const [md] = features.completionProvider.ordered(MD);
+        expect(md.triggerCharacters).toEqual([]);
     });
 
     it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {
