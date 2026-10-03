@@ -58,8 +58,9 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("isWritableFileSystem file=true jdt=undefined"), {
             timeoutMs: 15_000,
         });
-        // Ядро демо: дефолтное исключение срезало чужой pom из node_modules,
-        // а `exclude: null` его находит — значит файл был, и отсеяли его мы.
+        // Ядро демо: `exclude: undefined` применил настройку `files.exclude` и
+        // срезал чужой pom из служебного каталога VCS, а `exclude: null` его
+        // находит — значит файл был, и отсеяли его мы.
         await editor.waitForText(
             (t) => t.includes("по умолчанию=[pom.xml]") && t.includes("без исключений=2") && t.includes("maxResults1=1"),
             { timeoutMs: 15_000 },

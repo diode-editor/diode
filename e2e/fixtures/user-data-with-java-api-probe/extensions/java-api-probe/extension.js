@@ -62,7 +62,12 @@ exports.activate = async function activate(context) {
     // ── 2. workspace.fs: мутирующая половина ───────────────────────────────
     // Так jdt.ls раскладывает `-configuration` в globalStorageUri; падало на
     // `fs.createDirectory is not a function`.
-    const decoyDir = root + "/node_modules/decoy";
+    // Ловушка лежит в служебном каталоге VCS: именно он — дефолт настройки
+    // `files.exclude`, которую `findFiles` применяет на шаге 3. Ставить её в
+    // `node_modules` нельзя: у эталона (и у нас) в `files.exclude` его НЕТ —
+    // зависимости скрыты только из поиска, настройкой `search.exclude`.
+    const decoyParent = root + "/.hg";
+    const decoyDir = decoyParent + "/decoy";
     try {
         await vscode.workspace.fs.createDirectory(vscode.Uri.file(decoyDir));
         // Ловушка для шага 3: чужой сборочный файл внутри зависимостей.
@@ -84,8 +89,9 @@ exports.activate = async function activate(context) {
 
     // ── 3. workspace.findFiles: детект сборочного файла ────────────────────
     // Этого члена не было вовсе, а redhat.java зовёт его около десяти раз на
-    // одной активации. Дефолтные исключения обязаны срезать `node_modules`:
-    // чужой pom зависимости — не признак проекта пользователя.
+    // одной активации. `exclude: undefined` обязан применить настройку
+    // `files.exclude` (и только её, как в контракте эталона) — чужой pom в
+    // служебном каталоге VCS не признак проекта пользователя.
     try {
         const withDefaults = await vscode.workspace.findFiles("**/pom.xml");
         const withoutExcludes = await vscode.workspace.findFiles("**/pom.xml", null);
@@ -105,7 +111,7 @@ exports.activate = async function activate(context) {
 
     // Ловушку за собой убираем — заодно это проверка `delete` с recursive.
     try {
-        await vscode.workspace.fs.delete(vscode.Uri.file(root + "/node_modules"), { recursive: true });
+        await vscode.workspace.fs.delete(vscode.Uri.file(decoyParent), { recursive: true });
         steps.push("fs: delete(recursive) убрал ловушку");
     } catch (err) {
         fail("fs.delete", err);
