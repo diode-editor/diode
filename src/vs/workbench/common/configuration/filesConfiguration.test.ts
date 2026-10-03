@@ -8,11 +8,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ConfigurationModel } from "../../../platform/configuration/common/configurationModel.ts";
 import type { ITreeFileWatchOptions } from "../../../platform/files/common/iTreeFileWatcher.ts";
 import { ChokidarTreeWatcher, isExcluded } from "../../../platform/files/node/chokidarTreeWatcher.ts";
-import { parseWatcherExclude } from "../../api/browser/fileWatcherAdapter.ts";
 
+import { parseExcludeSetting } from "./excludeSettings.ts";
 import { filesConfiguration } from "./filesConfiguration.ts";
 
-const DEFAULT_EXCLUDES = parseWatcherExclude(filesConfiguration.properties["files.watcherExclude"].default);
+const DEFAULT_EXCLUDES = parseExcludeSetting(filesConfiguration.properties["files.watcherExclude"].default);
 
 describe("filesConfiguration — files.watcherExclude, схема", () => {
     it("object с описанием про матчинг относительно корня watch'а", () => {
@@ -115,7 +115,7 @@ describe("filesConfiguration — files.watcherExclude, правка пользо
             "files.watcherExclude": filesConfiguration.properties["files.watcherExclude"].default,
         });
         const user = ConfigurationModel.fromRaw({ "files.watcherExclude": userValue });
-        return parseWatcherExclude(ConfigurationModel.merge(defaults, user).get("files.watcherExclude"));
+        return parseExcludeSetting(ConfigurationModel.merge(defaults, user).get("files.watcherExclude"));
     }
 
     it("свой шаблон добавляется к дефолтным, а не заменяет их", () => {

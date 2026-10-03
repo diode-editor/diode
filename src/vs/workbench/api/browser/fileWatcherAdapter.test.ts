@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ITreeFileWatcher, ITreeFileWatchOptions } from "../../../platform/files/common/iTreeFileWatcher.ts";
 
-import { FileWatcherAdapter, parseWatcherExclude } from "./fileWatcherAdapter.ts";
+import { FileWatcherAdapter } from "./fileWatcherAdapter.ts";
 
 interface IFakeWatcher extends ITreeFileWatcher {
     readonly calls: { root: string; options: ITreeFileWatchOptions }[];
@@ -52,22 +52,5 @@ describe("FileWatcherAdapter", () => {
         adapter.watch("/repo", true, () => undefined).dispose();
 
         expect(watcher.disposed).toBe(1);
-    });
-});
-
-describe("parseWatcherExclude", () => {
-    it("берёт только включённые шаблоны", () => {
-        expect(parseWatcherExclude({ "a/**": true, "b/**": false, "c/**": true })).toEqual(["a/**", "c/**"]);
-    });
-
-    it("не-карта даёт пустой набор", () => {
-        expect(parseWatcherExclude(undefined)).toEqual([]);
-        expect(parseWatcherExclude(null)).toEqual([]);
-        expect(parseWatcherExclude(["a/**"])).toEqual([]);
-        expect(parseWatcherExclude("a/**")).toEqual([]);
-    });
-
-    it("значения кроме true не включают шаблон", () => {
-        expect(parseWatcherExclude({ "a/**": 1, "b/**": "yes" })).toEqual([]);
     });
 });

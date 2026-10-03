@@ -21,6 +21,11 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  *   эталона скоуп не указан, то есть дефолтный `WINDOW` (одно значение на окно).
  * - `files.watcherExclude`, `scm.graph.pageSize` — `resource`: у эталона первый
  *   помечен `RESOURCE` явно, второй наследует `RESOURCE` от узла `scm`.
+ * - `files.exclude`, `search.exclude` — `resource`: у эталона оба помечены
+ *   `RESOURCE` явно, и это та же семья, что `files.watcherExclude` — «что
+ *   считать мусором» свойство ПАПКИ, а не окна: у python-проекта и у
+ *   node-проекта наборы разные, и в мульти-руте они должны уехать вместе с
+ *   папкой.
  * - `terminal.tier`, `keyboard.platform`, `terminal.capabilities`,
  *   `terminal.modes` — `machine`: это свойства терминала и клавиатуры машины,
  *   а не проекта (`keyboard.platform` ставят как раз из-за ssh с другой ОС),
@@ -51,7 +56,10 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "explorer.autoReveal": "window",
 
     "files.enableTrash": "window",
+    "files.exclude": "resource",
     "files.watcherExclude": "resource",
+
+    "search.exclude": "resource",
 
     "scm.graph.pageSize": "resource",
 

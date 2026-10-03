@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
@@ -113,7 +115,12 @@ const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService
 function make(
     search: ITextSearchService,
     workspace: IWorkspaceContextService,
-    opts: { reveal?: ISearchRevealTarget; state?: IStateService; contextKeys?: ContextKeyService } = {},
+    opts: {
+        reveal?: ISearchRevealTarget;
+        state?: IStateService;
+        contextKeys?: ContextKeyService;
+        configuration?: IConfigurationService;
+    } = {},
 ): SearchComponent {
     return new SearchComponent(
         search,
@@ -123,6 +130,7 @@ function make(
         opts.contextKeys ?? new ContextKeyService(),
         NULL_VIEWS_SERVICE,
         NULL_JUMP_RECORDER,
+        opts.configuration ?? NULL_CONFIGURATION_SERVICE,
     );
 }
 
@@ -276,6 +284,29 @@ describe("SearchComponent", () => {
             includes: ["*.ts", "*.js"],
             excludes: ["dist"],
         });
+    });
+
+    it("шаблоны настроек уезжают в ripgrep вместе с набранным в «files to exclude»", () => {
+        // Без этого «исключил в настройках, а в результатах видно»: поиск по
+        // содержимому у эталона применяет ОБА набора настроек.
+        const { service } = fakeSearch([]);
+        const spy = vi.spyOn(service, "search");
+        const values: Record<string, unknown> = {
+            "files.exclude": { "**/.git": true },
+            "search.exclude": { "**/node_modules": true, "**/off": false },
+        };
+        const configuration: IConfigurationService = {
+            ...NULL_CONFIGURATION_SERVICE,
+            get: (key: string) => values[key] as never,
+        };
+        const component = make(service, fakeWorkspace(ROOT), { configuration });
+        component.toggleQueryDetails(true, false);
+        const [, , exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
+        exclude.inputState.value = "*.min.js";
+        exclude.onChange?.("*.min.js");
+        typeQuery(component, "foo");
+
+        expect(spy.mock.calls.at(-1)?.[0].excludes).toEqual(["**/.git", "**/node_modules", "*.min.js"]);
     });
 
     it("appends to the same file group when its matches span several events", () => {
@@ -755,6 +786,7 @@ describe("SearchComponent", () => {
             new ContextKeyService(),
             viewsService,
             NULL_JUMP_RECORDER,
+            NULL_CONFIGURATION_SERVICE,
         );
         expect(registered).toHaveLength(1);
         expect(registered[0].id).toBe("workbench.search.results");

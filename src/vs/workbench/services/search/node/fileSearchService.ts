@@ -4,11 +4,17 @@ import * as path from "node:path";
 import { Disposable } from "@tuidom/core/common/disposable";
 
 import { charMask, fuzzyMatchBestLower } from "../../../../base/common/fuzzySearch.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    FILES_EXCLUDE_SETTING,
+    isExcludedPath,
+    SEARCH_EXCLUDE_SETTING,
+    searchExcludeGlobs,
+} from "../../../common/configuration/excludeSettings.ts";
 
 export const FileSearchServiceDIToken = token<FileSearchService>("FileSearchService");
-
-export const EXCLUDED_FS_NAMES = new Set(["node_modules", ".git", ".DS_Store"]);
 
 /**
  * Basename bonus so that a match in the filename beats a match only in the path.
@@ -54,7 +60,7 @@ export interface FileSearchResult {
  * opens). A just-created file may therefore appear with a small delay.
  */
 export class FileSearchService extends Disposable {
-    public static dependencies = [] as const;
+    public static dependencies = [IConfigurationServiceDIToken] as const;
 
     private entries: FileSearchEntry[] = [];
     private rootPath: string | null = null;
@@ -72,6 +78,32 @@ export class FileSearchService extends Disposable {
     private lastIndexedAt = 0;
     private readyPromise: Promise<void> = Promise.resolve();
     private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * @param configurationService Источник `files.exclude`/`search.exclude` —
+     * индекс режет по обоим наборам (поиск по именам файлов это ПОИСК, см.
+     * `searchExcludeGlobs`). Набор читается на каждый обход, а правка настройки
+     * пересобирает индекс сразу: иначе исключённое висело бы в Quick Open до
+     * перезапуска.
+     */
+    public constructor(private readonly configurationService: IConfigurationService) {
+        super();
+        this.register(
+            configurationService.onDidChangeConfiguration((event) => {
+                if (
+                    !event.affectsConfiguration(FILES_EXCLUDE_SETTING) &&
+                    !event.affectsConfiguration(SEARCH_EXCLUDE_SETTING)
+                ) {
+                    return;
+                }
+                if (this.isDisposedLocal) return;
+                // Снимаем throttle: индекс устарел по содержанию, а не по
+                // времени. Окно без папки отсеет сам `startIndexing`.
+                this.lastIndexedAt = 0;
+                this.readyPromise = this.startIndexing();
+            }),
+        );
+    }
 
     /** Resolves when the current (initial) background walk completes. */
     public get ready(): Promise<void> {
@@ -173,9 +205,10 @@ export class FileSearchService extends Disposable {
     // ─── Private: background indexing ─────────────────────────────────────────
 
     private startIndexing(): Promise<void> {
-        /* v8 ignore start -- defensive: callers (activate/refreshIfStale) only invoke this with a non-null rootPath */
+        // Окна без папки воркспейса достаточно: правка `files.exclude` прилетает
+        // и туда, а обходить там нечего (ветка живая, см. тест «правка до
+        // activate() обхода не запускает»).
         if (this.rootPath === null) return Promise.resolve();
-        /* v8 ignore stop */
         const root = this.rootPath;
         const generation = ++this.walkGeneration;
         this.indexing = true;
@@ -201,6 +234,11 @@ export class FileSearchService extends Disposable {
         const live = this.entries.length === 0;
         if (live) this.entries = next;
 
+        // Набор шаблонов — один на обход: правка настройки пересобирает индекс
+        // целиком (см. конструктор), поэтому перечитывать его на каждый вход
+        // незачем, а половина обхода по старому набору была бы хуже.
+        const excludes = searchExcludeGlobs(this.configurationService);
+
         const stack: string[] = [root];
         for (let dir = stack.pop(); dir !== undefined; dir = stack.pop()) {
             if (this.cancelled(generation)) return;
@@ -213,8 +251,10 @@ export class FileSearchService extends Disposable {
             }
 
             for (const dirent of dirents) {
-                if (EXCLUDED_FS_NAMES.has(dirent.name)) continue;
                 const absPath = path.join(dir, dirent.name);
+                // Шаблон вида `**/node_modules` совпадает с самим каталогом —
+                // ветка отсекается ДО спуска в неё, а не поштучно по файлам.
+                if (isExcludedPath(path.relative(root, absPath).split(path.sep).join("/"), excludes)) continue;
                 if (dirent.isDirectory()) {
                     stack.push(absPath);
                 } else if (dirent.isFile()) {

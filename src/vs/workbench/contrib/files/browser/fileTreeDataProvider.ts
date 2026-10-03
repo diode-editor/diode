@@ -6,8 +6,7 @@ import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDa
 import chokidar, { type FSWatcher } from "chokidar";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
-
-const EXCLUDED_NAMES = new Set(["node_modules", ".git", ".DS_Store"]);
+import { isExcludedPath } from "../../../common/configuration/excludeSettings.ts";
 
 export interface FileTreeNode {
     name: string;
@@ -34,7 +33,16 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
     // всплывает как unhandledRejection и убивает процесс.
     public onWatchError?: (dirPath: string, error: Error) => void;
 
-    public constructor(rootPath: string) {
+    /**
+     * @param excludes Шаблоны `files.exclude` (см. `excludeSettings.ts`).
+     * Функция, а не список: настройка живая, и дерево после `refresh()` обязано
+     * увидеть новый набор. Читать её на каждый `readdir` дешевле, чем кешировать
+     * и подписываться — обход каталога и так идёт в ФС.
+     */
+    public constructor(
+        rootPath: string,
+        private readonly excludes: () => readonly string[],
+    ) {
         super();
         this.rootPath = rootPath;
     }
@@ -92,10 +100,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         const watcher = chokidar.watch(dirPath, {
             depth: 0,
             ignoreInitial: true,
-            ignored: (filePath: string) => {
-                const name = path.basename(filePath);
-                return EXCLUDED_NAMES.has(name);
-            },
+            ignored: (filePath: string) => this.isExcluded(filePath, this.excludes()),
         });
 
         watcher.on("all", () => {
@@ -139,6 +144,16 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         super.dispose();
     }
 
+    /**
+     * Скрыт ли вход настройкой. Шаблоны матчатся против пути ОТНОСИТЕЛЬНО корня
+     * дерева в posix-форме — так же, как их матчат watcher и ripgrep, см.
+     * {@link isExcludedPath}.
+     */
+    private isExcluded(absolutePath: string, excludes: readonly string[]): boolean {
+        const relative = path.relative(this.rootPath, absolutePath).split(path.sep).join("/");
+        return isExcludedPath(relative, excludes);
+    }
+
     private readDirectory(dirPath: string): FileTreeNode[] {
         let entries: fs.Dirent[];
         try {
@@ -148,9 +163,10 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         }
 
         const nodes: FileTreeNode[] = [];
+        const excludes = this.excludes();
         for (const entry of entries) {
-            if (EXCLUDED_NAMES.has(entry.name)) continue;
             const fullPath = path.join(dirPath, entry.name);
+            if (this.isExcluded(fullPath, excludes)) continue;
             const isSymbolicLink = entry.isSymbolicLink();
             let isDirectory = entry.isDirectory();
             if (isSymbolicLink) {

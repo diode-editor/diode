@@ -31,8 +31,8 @@ function makeDirWithEntries(count: number): string {
 const dir1k = makeDirWithEntries(1_000);
 const dir5k = makeDirWithEntries(5_000);
 
-const provider1k = new FileTreeDataProvider(dir1k);
-const provider5k = new FileTreeDataProvider(dir5k);
+const provider1k = new FileTreeDataProvider(dir1k, () => []);
+const provider5k = new FileTreeDataProvider(dir5k, () => []);
 
 afterAll(() => {
     provider1k.dispose();

@@ -4,6 +4,7 @@ import { editorConfiguration } from "./editorConfiguration.ts";
 import { explorerConfiguration } from "./explorerConfiguration.ts";
 import { filesConfiguration } from "./filesConfiguration.ts";
 import { scmConfiguration } from "./scmConfiguration.ts";
+import { searchConfiguration } from "./searchConfiguration.ts";
 import { terminalConfiguration } from "./terminalConfiguration.ts";
 import { workbenchConfiguration } from "./workbenchConfiguration.ts";
 
@@ -25,5 +26,6 @@ export const CONFIGURATION_CONTRIBUTIONS: readonly IConfigurationNode[] = [
     explorerConfiguration,
     filesConfiguration,
     scmConfiguration,
+    searchConfiguration,
     terminalConfiguration,
 ];

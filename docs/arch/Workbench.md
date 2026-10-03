@@ -307,7 +307,9 @@ hide-toggle (`isHiddenByDefault`). См.
   и вешать туда `existsSync` по полусотне записей нельзя.
 - **Explorer-кластер (этап 7)** — дерево файлов сайдбара и файловые операции:
   - `Services/FileTreeDataProvider.ts` — данные дерева (ленивая загрузка по
-    уровням, chokidar-watch раскрытых каталогов, статус-декорации/иконки).
+    уровням, chokidar-watch раскрытых каталогов, статус-декорации/иконки,
+    исключения по живой настройке `files.exclude` — см.
+    [Configuration.md](Configuration.md#слой-exclude-настроек)).
   - `Services/ExplorerService.ts` — логика Explorer'а (аналог `IExplorerService`):
     корень воркспейса + владение провайдером (`setRootPath` пересоздаёт провайдер и
     файрит `onDidChangeRoot`), `revealPath` (построение цепочки предков),

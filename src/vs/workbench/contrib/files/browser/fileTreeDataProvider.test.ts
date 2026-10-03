@@ -9,10 +9,13 @@ import { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
 describe("FileTreeDataProvider", () => {
     let ws: ITempWorkspace;
     let provider: FileTreeDataProvider;
+    /** Шаблоны `files.exclude`: меняются по ходу теста — настройка живая. */
+    let excludes: string[];
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-test-" });
-        provider = new FileTreeDataProvider(ws.dir);
+        excludes = [];
+        provider = new FileTreeDataProvider(ws.dir, () => excludes);
     });
 
     afterEach(() => {
@@ -50,14 +53,47 @@ describe("FileTreeDataProvider", () => {
             expect(children.map((c) => c.name)).toEqual(["a.ts", "m.ts", "z.ts"]);
         });
 
-        it("excludes node_modules and .git", () => {
-            fs.mkdirSync(ws.path("node_modules"));
-            fs.mkdirSync(ws.path(".git"));
+        it("скрывает входы по шаблонам files.exclude", () => {
+            fs.mkdirSync(ws.path("__pycache__"));
+            ws.writeFile(".DS_Store", "");
             ws.writeFile("index.ts", "");
+            excludes = ["**/__pycache__", "**/.DS_Store"];
 
             const children = provider.getChildren();
-            expect(children).toHaveLength(1);
-            expect(children[0].name).toBe("index.ts");
+            expect(children.map((c) => c.name)).toEqual(["index.ts"]);
+        });
+
+        it("без шаблонов не скрывает ничего — захардкоженного списка больше нет", () => {
+            fs.mkdirSync(ws.path("node_modules"));
+            ws.writeFile("index.ts", "");
+
+            expect(provider.getChildren().map((c) => c.name)).toEqual(["node_modules", "index.ts"]);
+        });
+
+        it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня дерева", () => {
+            // `**/x` режет вход на любой глубине, `x` — только в корне: иначе
+            // шаблон либо не доставал бы вложенные каталоги, либо резал бы
+            // одноимённые где попало.
+            fs.mkdirSync(ws.path("pkg"), { recursive: true });
+            fs.mkdirSync(ws.path("pkg/out"));
+            fs.mkdirSync(ws.path("out"));
+            const pkg = { name: "pkg", path: ws.path("pkg"), isDirectory: true };
+
+            excludes = ["out"];
+            expect(provider.getChildren().map((c) => c.name)).toEqual(["pkg"]);
+            expect(provider.getChildren(pkg).map((c) => c.name)).toEqual(["out"]);
+
+            excludes = ["**/out"];
+            expect(provider.getChildren(pkg)).toEqual([]);
+        });
+
+        it("набор читается на каждое обращение — настройка применяется без рестарта", () => {
+            fs.mkdirSync(ws.path("__pycache__"));
+            excludes = ["**/__pycache__"];
+            expect(provider.getChildren()).toEqual([]);
+
+            excludes = [];
+            expect(provider.getChildren().map((c) => c.name)).toEqual(["__pycache__"]);
         });
 
         it("returns children of a subdirectory", () => {
@@ -265,6 +301,27 @@ describe("FileTreeDataProvider", () => {
 
             expect(callback).toHaveBeenCalled();
         }, 5000);
+
+        it("правка скрытого настройкой файла дерево не трогает", async () => {
+            // Исключение отдаётся chokidar'у как `ignored`, а не фильтруется по
+            // событиям: иначе `.DS_Store` или байткод перерисовывали бы дерево,
+            // в котором их не видно.
+            const callback = vi.fn();
+            provider.onChange = callback;
+            excludes = ["**/*.pyc"];
+
+            provider.watchDirectory(ws.dir);
+            await new Promise((r) => setTimeout(r, 500));
+            ws.writeFile("app.cpython-312.pyc", "");
+            await new Promise((r) => setTimeout(r, 1000));
+
+            expect(callback).not.toHaveBeenCalled();
+
+            // Контроль: свой файл в том же каталоге дерево перечитывает.
+            ws.writeFile("app.py", "");
+            await new Promise((r) => setTimeout(r, 1000));
+            expect(callback).toHaveBeenCalled();
+        }, 10000);
 
         it("does not notify after unwatch", async () => {
             const callback = vi.fn();

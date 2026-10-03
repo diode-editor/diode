@@ -41,7 +41,16 @@ function layout(root: string, files: Record<string, string>): string {
     return root;
 }
 
-function makeWorkspace(folders: readonly string[]): typeof vscode.workspace {
+/**
+ * Поднимает неймспейс на указанных папках. `configuration` — снапшот настроек
+ * в той же форме, в которой его присылает хост: ВЛОЖЕННОЕ дерево (`getValue()`),
+ * а не плоские dotted-ключи. Возвращает ещё и `setConfiguration` — правку
+ * настроек на живом неймспейсе (notif `workspace.configurationChanged`).
+ */
+function makeWorkspace(
+    folders: readonly string[],
+    configuration: Record<string, unknown> = {},
+): typeof vscode.workspace & { setConfiguration(next: Record<string, unknown>): void } {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -52,15 +61,22 @@ function makeWorkspace(folders: readonly string[]): typeof vscode.workspace {
     };
     const workspace = createWorkspaceNamespace(ctx);
     stub.fire("workspace.initialize", {
-        configuration: {},
+        configuration,
         workspaceFolders: folders.map((folder, index) => ({
             uri: Uri.file(folder).toString(),
             name: path.basename(folder),
             index,
         })),
     });
-    return workspace;
+    return Object.assign(workspace, {
+        setConfiguration: (next: Record<string, unknown>): void => {
+            stub.fire("workspace.configurationChanged", { configuration: next, affectedKeys: [] });
+        },
+    });
 }
+
+/** Снапшот с дефолтами `files.exclude` — в форме дерева, как у хоста. */
+const FILES_EXCLUDE_SNAPSHOT = { files: { exclude: { "**/.git": true, "**/node_modules": true } } };
 
 /** Пути результата относительно корня — читаемее абсолютных в ассертах. */
 function relative(root: string, uris: readonly vscode.Uri[]): string[] {
@@ -113,18 +129,54 @@ describe("workspace.findFiles — разбор GlobPattern", () => {
 describe("workspace.findFiles — exclude", () => {
     const tree = { "pom.xml": "", "node_modules/dep/pom.xml": "", ".git/pom.xml": "", "web/pom.xml": "" };
 
-    it("undefined — дефолтные исключения (.git и node_modules)", async () => {
+    it("undefined — шаблоны настройки files.exclude", async () => {
         const root = layout(tmpRoot, tree);
-        const workspace = makeWorkspace([root]);
+        const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
         const found = await workspace.findFiles("**/pom.xml");
 
         expect(relative(root, found)).toEqual(["pom.xml", path.join("web", "pom.xml")]);
     });
 
-    it("null — не исключает ничего", async () => {
+    it("undefined при пустой настройке — исключений нет", async () => {
+        // Дефолты живут в настройке, а не в коде обхода: снапшот без
+        // `files.exclude` значит «ничего не исключать», а не «взять что-то своё».
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root]);
+
+        const found = await workspace.findFiles("**/pom.xml");
+
+        expect(relative(root, found)).toContain(path.join("node_modules", "dep", "pom.xml"));
+    });
+
+    it("search.exclude в дефолты НЕ входит — так в контракте", async () => {
+        // «default file-excludes (e.g. the `files.exclude`-setting but not
+        // `search.exclude`)»: расширение ищет файл, чтобы с ним работать.
+        const root = layout(tmpRoot, tree);
+        const workspace = makeWorkspace([root], { search: { exclude: { "**/web": true } } });
+
+        const found = await workspace.findFiles("**/pom.xml");
+
+        expect(relative(root, found)).toContain(path.join("web", "pom.xml"));
+    });
+
+    it("правка настройки применяется к следующему же вызову", async () => {
+        const root = layout(tmpRoot, tree);
+        const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
+        expect(relative(root, await workspace.findFiles("**/pom.xml"))).not.toContain(
+            path.join("node_modules", "dep", "pom.xml"),
+        );
+
+        workspace.setConfiguration({ files: { exclude: { "**/.git": true, "**/node_modules": false } } });
+
+        expect(relative(root, await workspace.findFiles("**/pom.xml"))).toContain(
+            path.join("node_modules", "dep", "pom.xml"),
+        );
+    });
+
+    it("null — не исключает ничего", async () => {
+        const root = layout(tmpRoot, tree);
+        const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
         const found = await workspace.findFiles("**/pom.xml", null);
 
@@ -133,7 +185,7 @@ describe("workspace.findFiles — exclude", () => {
 
     it("явный шаблон ЗАМЕНЯЕТ дефолты, а не добавляется к ним", async () => {
         const root = layout(tmpRoot, tree);
-        const workspace = makeWorkspace([root]);
+        const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
         const found = await workspace.findFiles("**/pom.xml", "**/web/**");
 
@@ -147,7 +199,7 @@ describe("workspace.findFiles — exclude", () => {
 
     it("мусорный exclude — ничего не исключаем, а не падаем", async () => {
         const root = layout(tmpRoot, tree);
-        const workspace = makeWorkspace([root]);
+        const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
         // Объект без `pattern` разобрать нечем. Трактуем как «исключений нет»:
         // отбросить результат целиком было бы хуже молчаливого отсутствия фильтра.

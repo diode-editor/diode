@@ -15,7 +15,7 @@ export const meta: StoryMeta = {
 export function fileTree(ctx: StoryContext): void {
     const rootPath = ctx.args[0] ?? path.resolve(".");
 
-    const provider = new FileTreeDataProvider(rootPath);
+    const provider = new FileTreeDataProvider(rootPath, () => []);
     const tree = new TreeViewElement<FileTreeNode>(provider);
     tree.onExpandedChanged = (node, expanded) => {
         if (expanded) {

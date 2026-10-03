@@ -2,13 +2,7 @@ import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-    createNodeFindFilesScanner,
-    DEFAULT_FIND_FILES_EXCLUDE,
-    findFiles,
-    type IFindFilesEntry,
-    type IFindFilesScanner,
-} from "./findFiles.ts";
+import { createNodeFindFilesScanner, findFiles, type IFindFilesEntry, type IFindFilesScanner } from "./findFiles.ts";
 
 /**
  * Обход по карте каталогов в памяти: ключ — абсолютный путь, значение — записи.
@@ -50,7 +44,7 @@ describe("findFiles — матчинг шаблона", () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
-            exclude: null,
+            excludes: [],
         });
         expect(found.toSorted()).toEqual(["core/pom.xml", "node_modules/pom.xml", "pom.xml", "web/pom.xml"]);
     });
@@ -59,7 +53,7 @@ describe("findFiles — матчинг шаблона", () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "*/pom.xml",
-            exclude: null,
+            excludes: [],
         });
         // Корневой `pom.xml` не подходит: у него нет ведущего сегмента.
         expect(found.toSorted()).toEqual(["core/pom.xml", "node_modules/pom.xml", "web/pom.xml"]);
@@ -70,7 +64,7 @@ describe("findFiles — матчинг шаблона", () => {
             scannerFromTree({
                 [ROOT]: ["build.gradle", "settings.gradle.kts", "pom.xml", "notes.txt"],
             }),
-            { base: ROOT, include: "**/{pom.xml,build.gradle,settings.gradle.kts}", exclude: null },
+            { base: ROOT, include: "**/{pom.xml,build.gradle,settings.gradle.kts}", excludes: [] },
         );
         expect(found.toSorted()).toEqual(["build.gradle", "pom.xml", "settings.gradle.kts"]);
     });
@@ -79,13 +73,13 @@ describe("findFiles — матчинг шаблона", () => {
         const found = await findFiles(scannerFromTree({ [ROOT]: ["target/", "targetFile"], [at("target")]: [] }), {
             base: ROOT,
             include: "**/target*",
-            exclude: null,
+            excludes: [],
         });
         expect(found).toEqual(["targetFile"]);
     });
 
     it("пустое дерево — пустой результат", async () => {
-        const found = await findFiles(scannerFromTree({}), { base: ROOT, include: "**/pom.xml", exclude: null });
+        const found = await findFiles(scannerFromTree({}), { base: ROOT, include: "**/pom.xml", excludes: [] });
         expect(found).toEqual([]);
     });
 });
@@ -93,26 +87,27 @@ describe("findFiles — матчинг шаблона", () => {
 describe("findFiles — глубина обхода", () => {
     it("шаблон без `**` не читает каталоги глубже своего числа сегментов", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
-        await findFiles(scanner, { base: ROOT, include: "*.java", exclude: null });
+        await findFiles(scanner, { base: ROOT, include: "*.java", excludes: [] });
         // `*.java` живёт только в корне — спускаться незачем.
         expect(scanner.reads).toEqual([ROOT]);
     });
 
     it("шаблон с `**` спускается до дна", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
-        const found = await findFiles(scanner, { base: ROOT, include: "**/*.class", exclude: null });
+        const found = await findFiles(scanner, { base: ROOT, include: "**/*.class", excludes: [] });
         expect(found).toEqual(["web/target/classes/App.class"]);
         expect(scanner.reads).toContain(at("web", "target", "classes"));
     });
 });
 
 describe("findFiles — исключения", () => {
-    it("дефолтное исключение срезает .git и node_modules целиком", async () => {
+    it("набор шаблонов срезает каждый свой каталог целиком", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         const found = await findFiles(scanner, {
             base: ROOT,
             include: "**/pom.xml",
-            exclude: DEFAULT_FIND_FILES_EXCLUDE,
+            // Форма дефолтов `files.exclude`: по шаблону на каталог.
+            excludes: ["**/.git", "**/node_modules"],
         });
         expect(found.toSorted()).toEqual(["core/pom.xml", "pom.xml", "web/pom.xml"]);
         // Не просто отфильтровали результат — внутрь исключённого каталога не зашли.
@@ -120,32 +115,42 @@ describe("findFiles — исключения", () => {
         expect(scanner.reads).not.toContain(at(".git"));
     });
 
+    it("шаблоны набора независимы: совпал любой — вход отброшен", async () => {
+        const scanner = scannerFromTree(MAVEN_TREE);
+        const found = await findFiles(scanner, {
+            base: ROOT,
+            include: "**/pom.xml",
+            excludes: ["**/node_modules", "**/web"],
+        });
+        expect(found.toSorted()).toEqual(["core/pom.xml", "pom.xml"]);
+    });
+
     it("явный шаблон `**/<каталог>/**` даёт тот же результат через отсев файлов", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         const found = await findFiles(scanner, {
             base: ROOT,
             include: "**/pom.xml",
-            exclude: "**/node_modules/**",
+            excludes: ["**/node_modules/**"],
         });
         expect(found).not.toContain("node_modules/pom.xml");
         // Эта форма с самим каталогом не совпадает — внутрь обход заходит.
         expect(scanner.reads).toContain(at("node_modules"));
     });
 
-    it("`null` не исключает ничего", async () => {
+    it("пустой набор не исключает ничего", async () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
-            exclude: null,
+            excludes: [],
         });
         expect(found).toContain("node_modules/pom.xml");
     });
 
-    it("пустая строка исключения значит то же, что `null` (её шлёт redhat.java)", async () => {
+    it("пустая строка исключения не совпадает ни с чем (её шлёт redhat.java)", async () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
-            exclude: "",
+            excludes: [""],
         });
         expect(found).toContain("node_modules/pom.xml");
     });
@@ -156,7 +161,7 @@ describe("findFiles — границы результата", () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
-            exclude: null,
+            excludes: [],
             maxResults: 1,
         });
         // Обход в ширину: первым находится ближайший к корню.
@@ -168,7 +173,7 @@ describe("findFiles — границы результата", () => {
         const found = await findFiles(scanner, {
             base: ROOT,
             include: "**/pom.xml",
-            exclude: null,
+            excludes: [],
             maxResults: 0,
         });
         expect(found).toEqual([]);
@@ -189,7 +194,7 @@ describe("findFiles — границы результата", () => {
         const scanner = scannerFromTree(deep);
         const found = await findFiles(
             scanner,
-            { base: ROOT, include: "**/pom.xml", exclude: null },
+            { base: ROOT, include: "**/pom.xml", excludes: [] },
             { maxDirectories: 10 },
         );
         expect(found).toEqual([]);
@@ -201,7 +206,7 @@ describe("findFiles — границы результата", () => {
         let cancelled = false;
         const found = await findFiles(
             scanner,
-            { base: ROOT, include: "**/pom.xml", exclude: null },
+            { base: ROOT, include: "**/pom.xml", excludes: [] },
             {
                 isCancelled: () => {
                     // Корень читаем, дальше — отмена.

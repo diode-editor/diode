@@ -10,6 +10,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
+import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 
 import { FileTreeDataProvider, type FileTreeNode } from "./fileTreeDataProvider.ts";
@@ -70,6 +71,16 @@ export class ExplorerService extends Disposable {
                 this.setCutPaths(entry?.mode === "cut" ? entry.paths : []);
             }),
         );
+        // `files.exclude` живая: провайдер читает её на каждый readdir, но
+        // перечитать дерево ему никто не скажет — говорим здесь. Сам набор
+        // шаблонов в сравнении не участвует: дифф ключей уже посчитал
+        // ConfigurationService, а лишний refresh дешевле пропущенного.
+        this.register(
+            configurationService.onDidChangeConfiguration((event) => {
+                if (!event.affectsConfiguration(FILES_EXCLUDE_SETTING)) return;
+                void this.refresh();
+            }),
+        );
     }
 
     /** Смена корня перестраивает провайдер и оповещает подписчиков (компонент строит новое дерево). */
@@ -80,7 +91,9 @@ export class ExplorerService extends Disposable {
 
     public setRootPath(rootPath: string): void {
         this.rootPath = rootPath;
-        this.provider = this.register(new FileTreeDataProvider(rootPath));
+        this.provider = this.register(
+            new FileTreeDataProvider(rootPath, () => filesExcludeGlobs(this.configurationService)),
+        );
         // Ошибка файлового watcher'а не роняет процесс (см. FileTreeDataProvider):
         // ловим её здесь и пишем в лог. ENOSPC/EMFILE — исчерпан лимит inotify; даём
         // самодокументирующуюся подсказку, как в уведомлении VS Code.
