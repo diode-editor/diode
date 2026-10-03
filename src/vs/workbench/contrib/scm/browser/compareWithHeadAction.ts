@@ -1,6 +1,5 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
-import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
@@ -67,8 +66,8 @@ export async function buildHeadPairOptions(
 async function resolveOriginalUri(accessor: ServiceAccessor, uri: Uri, ref: string): Promise<Uri | null> {
     try {
         const original = await accessor.get(OriginalResourceProviderDIToken).provideOriginalResource(uri, ref);
-        if (original === null) return null;
-        if (!accessor.get(IFileServiceDIToken).hasProvider(original)) return null;
+        // Схема без провайдера отдельно не проверяется: сторона HEAD тогда не
+        // прочитается, и исход тот же — «сравнивать не с чем».
         return original;
     } catch {
         return null;
