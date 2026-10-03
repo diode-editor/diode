@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { requestFormattingEdits } from "./wireTypes.ts";
 
-// `requestFormattingEdits` — трёхзначный контракт: null = «нет форматтера»,
-// [] = менять нечего/таймаут/мусор, иначе — core-правки.
+// `requestFormattingEdits`: [] = менять нечего/таймаут/мусор, иначе — core-правки.
+// «Нет форматтера» решает ядро по реестру, а не провод.
 
 const WIRE_EDIT = { range: { startLine: 0, startCharacter: 5, endLine: 1, endCharacter: 2 }, text: "x" };
 
@@ -24,8 +24,8 @@ describe("requestFormattingEdits", () => {
         ]);
     });
 
-    it("null от субпроцесса проходит как null («нет форматтера»)", async () => {
-        expect(await requestFormattingEdits(() => Promise.resolve(null), PARAMS, 1000)).toBeNull();
+    it("null от субпроцесса (старая форма «нет форматтера») — пустой список", async () => {
+        expect(await requestFormattingEdits(() => Promise.resolve(null), PARAMS, 1000)).toEqual([]);
     });
 
     it("мусорный ответ — пустой список, не null", async () => {

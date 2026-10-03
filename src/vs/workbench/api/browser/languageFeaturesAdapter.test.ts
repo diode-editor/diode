@@ -46,6 +46,11 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
             Promise.resolve({ items: [{ label: `c${String(handle)}`, insertText: "c" }], isIncomplete: false }),
         ),
         resolveCompletionItem: vi.fn((id: string) => Promise.resolve({ detail: `resolved ${id}` })),
+        provideFormattingEdits: vi.fn((handle: number) =>
+            Promise.resolve([{ range: createRange(0, 0, 0, 0), text: `f${String(handle)}` }]),
+        ),
+        provideCodeActions: vi.fn((handle: number) => Promise.resolve([{ id: `${String(handle)}.0`, title: "fix" }])),
+        applyCodeAction: vi.fn(() => Promise.resolve(true)),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -149,6 +154,41 @@ describe("LanguageFeaturesAdapter", () => {
 
         const [md] = features.completionProvider.ordered(MD);
         expect(md.triggerCharacters).toEqual([]);
+    });
+
+    it("formatting/rangeFormatting/codeActions — прокси в своих реестрах, виды — из метаданных", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 1, kind: "formatting", selector: [{ language: "typescript" }] },
+            { handle: 2, kind: "rangeFormatting", selector: [{ language: "typescript" }] },
+            {
+                handle: 3,
+                kind: "codeActions",
+                selector: [{ language: "typescript" }],
+                providedCodeActionKinds: ["source.organizeImports"],
+            },
+            { handle: 4, kind: "codeActions", selector: [{ language: "markdown" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const format = { ...REQUEST, tabSize: 4, insertSpaces: true };
+
+        const [documentFormatter] = features.documentFormattingEditProvider.ordered(TS);
+        expect(await documentFormatter.provideDocumentFormattingEdits(format)).toEqual([
+            { range: createRange(0, 0, 0, 0), text: "f1" },
+        ]);
+        const [rangeFormatter] = features.documentRangeFormattingEditProvider.ordered(TS);
+        const ranged = { ...format, range: createRange(0, 0, 0, 1) };
+        await rangeFormatter.provideDocumentRangeFormattingEdits(ranged);
+        expect(bridge.provideFormattingEdits).toHaveBeenLastCalledWith(2, ranged);
+
+        const [codeActions] = features.codeActionProvider.ordered(TS);
+        expect(codeActions.providedCodeActionKinds).toEqual(["source.organizeImports"]);
+        const request = { ...REQUEST, range: createRange(0, 0, 0, 1) };
+        expect(await codeActions.provideCodeActions(request)).toEqual([{ id: "3.0", title: "fix" }]);
+        expect(await codeActions.applyCodeAction("3.0")).toBe(true);
+        expect(bridge.applyCodeAction).toHaveBeenCalledWith("3.0");
+        expect(features.codeActionProvider.ordered(MD)[0].providedCodeActionKinds).toEqual([]);
     });
 
     it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {

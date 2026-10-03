@@ -1,12 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideCodeActions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { type IInstalledRuff, installRuff, LINT_PY } from "../../../../../TestUtils/ruffFixture.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -51,6 +56,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         } as unknown as StatusBarService;
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => harness.group);
+        accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
         accessor.bind(StatusBarServiceDIToken, () => statusBar);
         registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, action);
     }
@@ -58,16 +64,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
     /** Дождаться непустого ответа сервера на source-вид (шов + готовность сервера). */
     async function untilSourceAction(harness: IExtensionHarness, uri: string, only: string): Promise<void> {
         await until(`${only} action от ruff`, async () => {
-            const source = harness.group.codeActionSource;
-            if (source === undefined) return null;
-            const actions = await source.provide({
+            const actions = await provideCodeActions(harness, {
                 uri,
                 languageId: "python",
                 text: LINT_PY,
                 range: createRange(0, 0, 4, 17),
                 only,
             });
-            return actions !== null && actions.length > 0 ? actions : null;
+            return actions.length > 0 ? actions : null;
         });
     }
 
@@ -118,15 +122,13 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
                 // субпроцесс собирает сам из своих DiagnosticCollection, по ним ruff
                 // матчит фиксы. Ждём именно quickfix-набор (сервер мог ещё линтить).
                 const quickfixes = await until("quickfix-набор для F401", async () => {
-                    const source = harness.group.codeActionSource;
-                    if (source === undefined) return null;
-                    const actions = await source.provide({
+                    const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "python",
                         text: LINT_PY,
                         range: createRange(0, 0, 0, 10),
                     });
-                    const found = actions?.filter((a) => a.kind === "quickfix") ?? [];
+                    const found = actions.filter((a) => a.kind === "quickfix");
                     return found.some((a) => a.title.includes("Remove unused import")) ? found : null;
                 });
 
@@ -135,7 +137,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
                 // Safe-фикс линтера помечен предпочтительным — его возьмёт Ctrl+. по умолчанию.
                 expect(removeImport?.isPreferred).toBe(true);
 
-                const applied = await harness.group.codeActionSource!.apply(removeImport!.id);
+                const applied = await harness.host.applyCodeAction(removeImport!.id);
                 expect(applied).toBe(true);
                 await settle();
                 expect(harness.group.getActiveEditor()?.getText() ?? "").not.toContain("import sys");

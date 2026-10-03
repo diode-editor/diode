@@ -3,7 +3,12 @@ import * as fs from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    formatDocumentFor,
+    type IExtensionHarness,
+    provideCodeActions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { type IInstalledRuff, installRuff, LINT_PY } from "../../../../../TestUtils/ruffFixture.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -68,16 +73,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
                 // Прогрев: дождаться, пока сервер начнёт отдавать fixAll-действия,
                 // иначе первый save попадёт в холодный старт и его 5с-таймауты.
                 await until("source.fixAll action от ruff", async () => {
-                    const source = harness.group.codeActionSource;
-                    if (source === undefined) return null;
-                    const actions = await source.provide({
+                    const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "python",
                         text: LINT_PY,
                         range: createRange(0, 0, 4, 17),
                         only: "source.fixAll",
                     });
-                    return actions !== null && actions.length > 0 ? actions : null;
+                    return actions.length > 0 ? actions : null;
                 });
 
                 const outcome = await harness.group.getActiveEditor()!.save();
@@ -99,9 +102,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
         try {
             // Прогрев: формат регистрируется клиентом динамически — дождаться правок.
             await until("formatting edits от ruff", async () => {
-                const source = harness.group.formattingSource;
-                if (source === undefined) return null;
-                const found: readonly ITextEdit[] | null = await source({
+                const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: lintUri,
                     languageId: "python",
                     text: LINT_PY,

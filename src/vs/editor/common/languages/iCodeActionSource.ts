@@ -41,16 +41,19 @@ export interface ICoreCodeAction {
 }
 
 /**
- * Code-action-источник: `provide` возвращает доступные действия, `apply`
- * резолвит и применяет выбранное. Инъектируется в ядро извне (host/харнесс) —
- * ядро не знает про extension-слой (зеркало {@link ./iFormattingSource.ts:FormattingSource}).
- *
- * `provide`: `null` — нет провайдера, матчащего документ (UI показывает «нет
- * действий»), пустой массив — провайдер есть, но действий не нашлось.
- * `apply`: `false` — действие протухло (кэш вытеснен), правки не применились
- * или команда упала.
+ * Провайдер code actions в реестре `ILanguageFeaturesService.codeActionProvider`
+ * (upstream `languages.CodeActionProvider` + метаданные регистрации).
+ * `provideCodeActions` возвращает доступные действия (пустой список — их нет),
+ * `applyCodeAction` резолвит и применяет своё действие: `false` — действие
+ * протухло (кэш вытеснен), правки не применились или команда упала.
  */
-export interface CodeActionSource {
-    provide(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[] | null>;
-    apply(id: string): Promise<boolean>;
+export interface CodeActionProvider {
+    /**
+     * Виды, которые провайдер вообще отдаёт (`providedCodeActionKinds`); пустой
+     * список — любые. Провайдера, чьи виды не пересекаются с запрошенным
+     * `only`, не спрашивают.
+     */
+    readonly providedCodeActionKinds: readonly string[];
+    provideCodeActions(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
+    applyCodeAction(id: string): Promise<boolean>;
 }

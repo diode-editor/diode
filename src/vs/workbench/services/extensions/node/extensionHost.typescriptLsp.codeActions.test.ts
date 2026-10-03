@@ -4,12 +4,17 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideCodeActions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -108,16 +113,14 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             // Шов: дождаться регистрации провайдера клиентом и непустого ответа
             // сервера на запрошенный вид (иерархический матч .ts-подвида).
             await until("organize imports action от tsserver", async () => {
-                const source = harness.group.codeActionSource;
-                if (source === undefined) return null;
-                const actions = await source.provide({
+                const actions = await provideCodeActions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: MAIN_TS,
                     range: createRange(0, 0, 4, 7),
                     only: "source.organizeImports",
                 });
-                return actions !== null && actions.length > 0 ? actions : null;
+                return actions.length > 0 ? actions : null;
             });
 
             const statusBar = {
@@ -125,6 +128,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             } as unknown as StatusBarService;
             const accessor = new Container();
             accessor.bind(EditorServiceDIToken, () => harness.group);
+            accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
             accessor.bind(StatusBarServiceDIToken, () => statusBar);
             registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, organizeImportsAction);
 
@@ -175,23 +179,22 @@ describe("ExtensionHost — code actions от стокового typescript-lang
                 );
 
                 const fix = await until("quickfix «Remove unused declaration»", async () => {
-                    const source = harness.group.codeActionSource;
-                    if (source === undefined) return null;
-                    const actions = await source.provide({
+                    const actions = await provideCodeActions(harness, {
                         uri: mainUri,
                         languageId: "typescript",
                         text: harness.group.getActiveEditor()?.getText() ?? "",
                         range: createRange(0, 16, 0, 20), // идентификатор `zeta`
                     });
-                    return actions?.find((a) => /unused declaration/i.test(a.title)) ?? null;
+                    return actions.find((a) => /unused declaration/i.test(a.title)) ?? null;
                 });
 
-                expect(await harness.group.codeActionSource!.apply(fix.id)).toBe(true);
+                expect(await harness.host.applyCodeAction(fix.id)).toBe(true);
                 await settle();
                 expect(harness.group.getActiveEditor()?.getText()).toBe(UNUSED_FIXED);
 
                 const accessor = new Container();
                 accessor.bind(EditorServiceDIToken, () => harness.group);
+                accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
                 const keybindings = new KeybindingRegistry();
                 registerAction(harness.commandRegistry, keybindings, accessor, undoAction);
                 registerAction(harness.commandRegistry, keybindings, accessor, redoAction);

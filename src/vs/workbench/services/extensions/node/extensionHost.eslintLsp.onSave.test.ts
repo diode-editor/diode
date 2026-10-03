@@ -12,7 +12,7 @@ import {
     linkEslintLibrary,
     LINT_JS,
 } from "../../../../../TestUtils/eslintFixture.ts";
-import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { createExtensionTestHarness, provideCodeActions } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -67,16 +67,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
             // Прогрев: дождаться, пока сервер начнёт отдавать fixAll-действия,
             // иначе первый save попадёт в холодный старт и его 5с-таймауты.
             await until("source.fixAll action от eslint", async () => {
-                const source = harness.group.codeActionSource;
-                if (source === undefined) return null;
-                const actions = await source.provide({
+                const actions = await provideCodeActions(harness, {
                     uri: lintUri,
                     languageId: "javascript",
                     text: LINT_JS,
                     range: createRange(0, 0, 0, 18),
                     only: "source.fixAll",
                 });
-                return actions !== null && actions.length > 0 ? actions : null;
+                return actions.length > 0 ? actions : null;
             });
 
             const outcome = await harness.group.getActiveEditor()!.save();

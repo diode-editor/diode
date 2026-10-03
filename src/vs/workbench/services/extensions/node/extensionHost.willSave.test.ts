@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -89,6 +90,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
             // id» должен ломаться здесь, если id или поведение ядра поедут.
             const accessor = new Container();
             accessor.bind(EditorServiceDIToken, () => harness.group);
+            accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
             registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, trimTrailingWhitespaceAction);
             await settle();
 

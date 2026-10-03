@@ -10,6 +10,7 @@ import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 // (субпроцессные интеграции не инструментируются per-test покрытием Stryker).
 
 const PARAMS = {
+    handle: 0,
     uri: "file:///proj/a.py",
     languageId: "python",
     text: "line one\n",

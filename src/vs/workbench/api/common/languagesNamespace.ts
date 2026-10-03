@@ -708,9 +708,6 @@ export function createLanguagesNamespace(
     languages: typeof vscode.languages;
     inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
-    formattingRegistrations: readonly IFormattingRegistration[];
-    rangeFormattingRegistrations: readonly IRangeFormattingRegistration[];
-    codeActionRegistrations: readonly ICodeActionRegistration[];
 } {
     const { rpc, documentSync } = ctx;
     const inlineCompletionRegistrations: IInlineCompletionRegistration[] = [];
@@ -722,6 +719,9 @@ export function createLanguagesNamespace(
     const referenceProviders = new Map<number, IReferenceRegistration>();
     const signatureHelpProviders = new Map<number, ISignatureHelpRegistration>();
     const completionProviders = new Map<number, ICompletionRegistration>();
+    const formattingProviders = new Map<number, IFormattingRegistration>();
+    const rangeFormattingProviders = new Map<number, IRangeFormattingRegistration>();
+    const codeActionProviders = new Map<number, ICodeActionRegistration>();
     let nextProviderHandle = 0;
 
     /**
@@ -744,9 +744,6 @@ export function createLanguagesNamespace(
             if (providers.delete(handle)) rpc.notify("languages.unregister", { handle });
         }) as unknown as vscode.Disposable;
     }
-    const formattingRegistrations: IFormattingRegistration[] = [];
-    const rangeFormattingRegistrations: IRangeFormattingRegistration[] = [];
-    const codeActionRegistrations: ICodeActionRegistration[] = [];
 
     // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
     // ответов: пользователь резолвит пункт из текущего списка, а гонка «ответ
@@ -807,11 +804,6 @@ export function createLanguagesNamespace(
     function pushSubscriptions(): void {
         rpc.notify("languages.updateSubscriptions", {
             hasFoldingProviders: foldingRegistrations.length > 0,
-            // Один флаг на оба вида форматирования: какой именно провайдер
-            // матчит документ, решает handler по запросу (`null` = «нет
-            // форматтера» для этого документа/вида).
-            hasFormattingProviders: formattingRegistrations.length > 0 || rangeFormattingRegistrations.length > 0,
-            hasCodeActionsProviders: codeActionRegistrations.length > 0,
             hasInlineCompletionProviders: inlineCompletionRegistrations.length > 0,
         });
     }
@@ -955,14 +947,42 @@ export function createLanguagesNamespace(
         return references;
     });
 
-    // Форматирование (#196): один RPC на оба вида — с `range` спрашиваются
-    // range-провайдеры (Format Selection), без — документные. Провайдеров
-    // может быть несколько: берём ПЕРВЫЙ матчащий по порядку регистрации
-    // (VS Code выбирает лучший по score / дефолтному форматтеру — люфт v1).
-    // `null` в ответе — провайдера под документ нет, командный слой покажет
-    // «нет форматтера»; сбой или пустой результат — пустой массив (no-op).
-    rpc.handleRequest("languages.provideFormattingEdits", async (params): Promise<WireTextEdit[] | null> => {
+    // Форматирование (#196): один RPC на оба вида — с `range` зовётся
+    // range-провайдер (Format Selection, а также «синтетический» формат
+    // документа range-провайдером на полный диапазон), без — документный.
+    // Провайдера выбрало ядро (по score — `editor/contrib/format`); снятый или
+    // чужой handle — пустой ответ, как и сбой провайдера (no-op).
+    rpc.handleRequest("languages.provideFormattingEdits", async (params): Promise<WireTextEdit[]> => {
         const p = params as IWireFormattingParams;
+        const handle = p.handle ?? -1;
+        const range = p.range;
+        // Вызов провайдера, выбранного ядром; `undefined` — handle снят или чужого вида.
+        let format:
+            | ((
+                  doc: vscode.TextDocument,
+                  options: vscode.FormattingOptions,
+                  token: vscode.CancellationToken,
+              ) => vscode.ProviderResult<vscode.TextEdit[]>)
+            | undefined;
+        if (range === undefined) {
+            const reg = formattingProviders.get(handle);
+            if (reg !== undefined) {
+                format = (doc, options, token) => reg.provider.provideDocumentFormattingEdits(doc, options, token);
+            }
+        } else {
+            const reg = rangeFormattingProviders.get(handle);
+            if (reg !== undefined) {
+                const selection = new Range(
+                    range.startLine,
+                    range.startCharacter,
+                    range.endLine,
+                    range.endCharacter,
+                ) as unknown as vscode.Range;
+                format = (doc, options, token) =>
+                    reg.provider.provideDocumentRangeFormattingEdits(doc, selection, options, token);
+            }
+        }
+        if (format === undefined) return [];
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
@@ -976,61 +996,16 @@ export function createLanguagesNamespace(
         const token = neverCancelledToken();
 
         let result: unknown;
-        if (p.range !== undefined) {
-            const reg = rangeFormattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
-            if (reg === undefined) return null;
-            const range = new Range(p.range.startLine, p.range.startCharacter, p.range.endLine, p.range.endCharacter);
-            try {
-                result = await Promise.resolve(
-                    reg.provider.provideDocumentRangeFormattingEdits(
-                        doc as unknown as vscode.TextDocument,
-                        range as unknown as vscode.Range,
-                        options,
-                        token,
-                    ),
-                );
-            } catch (err) {
-                // Сбойный провайдер — пустой ответ (no-op), не «нет форматтера»:
-                // `result` остаётся неприсвоенным, его отсеет проверка ниже.
-                reportProviderFailure("provideDocumentRangeFormattingEdits", err);
-            }
-        } else {
-            const docReg = formattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
-            if (docReg !== undefined) {
-                try {
-                    result = await Promise.resolve(
-                        docReg.provider.provideDocumentFormattingEdits(
-                            doc as unknown as vscode.TextDocument,
-                            options,
-                            token,
-                        ),
-                    );
-                } catch (err) {
-                    // Симметрично range-ветке: сбой = пустой ответ.
-                    reportProviderFailure("provideDocumentFormattingEdits", err);
-                }
-            } else {
-                // Документного провайдера нет, но range-провайдер — это тоже
-                // форматтер документа (пометка vscode API у registerDocument-
-                // RangeFormattingEditProvider): форматируем полный диапазон.
-                const rangeReg = rangeFormattingRegistrations.find((r) => matchDocumentSelector(r.selector, doc));
-                if (rangeReg === undefined) return null;
-                const lastLine = doc.lineCount - 1;
-                const fullRange = new Range(0, 0, lastLine, doc.lineAt(lastLine).text.length);
-                try {
-                    result = await Promise.resolve(
-                        rangeReg.provider.provideDocumentRangeFormattingEdits(
-                            doc as unknown as vscode.TextDocument,
-                            fullRange as unknown as vscode.Range,
-                            options,
-                            token,
-                        ),
-                    );
-                } catch (err) {
-                    // Симметрично: сбой = пустой ответ.
-                    reportProviderFailure("provideDocumentRangeFormattingEdits", err);
-                }
-            }
+        try {
+            result = await Promise.resolve(format(doc as unknown as vscode.TextDocument, options, token));
+        } catch (err) {
+            // Сбойный провайдер — пустой ответ (no-op), не «нет форматтера»:
+            // `result` остаётся неприсвоенным, его отсеет проверка ниже. В
+            // stderr — иначе сбой неотличим от «менять нечего».
+            reportProviderFailure(
+                range === undefined ? "provideDocumentFormattingEdits" : "provideDocumentRangeFormattingEdits",
+                err,
+            );
         }
         if (!Array.isArray(result)) return [];
         const edits: WireTextEdit[] = [];
@@ -1044,11 +1019,12 @@ export function createLanguagesNamespace(
     // Code actions (#196): контекст-диагностики собираются ЗДЕСЬ из локальных
     // DiagnosticCollection (те же объекты, что публиковал клиент, — с приватным
     // `data`, по которому сервер матчит фиксы), а не едут с хоста lossy-копией.
-    // Обходим ВСЕ матчащие провайдеры (как VS Code), метаданные
-    // `providedCodeActionKinds` отсекают заведомо нерелевантных при `only`.
-    // `null` в ответе — ни одного провайдера под документ.
-    rpc.handleRequest("languages.provideCodeActions", async (params): Promise<WireCodeAction[] | null> => {
+    // Провайдера выбрало ядро (по селектору и `providedCodeActionKinds`);
+    // снятый или чужой handle — пустой список.
+    rpc.handleRequest("languages.provideCodeActions", async (params): Promise<WireCodeAction[]> => {
         const p = params as IWireCodeActionParams;
+        const reg = codeActionProviders.get(p.handle ?? -1);
+        if (reg === undefined) return [];
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
@@ -1062,62 +1038,45 @@ export function createLanguagesNamespace(
             diagnostics: diagnosticsIntersecting(doc.uri.toString(), range),
             only,
         } as unknown as vscode.CodeActionContext;
-        const token = neverCancelledToken();
 
-        let matched = false;
         // Stryker disable next-line UpdateOperator: направление счётчика ненаблюдаемо — вёдра различает уникальность id, а не порядок
         const cacheId = nextCacheId++;
         const cached: ICachedCodeAction[] = [];
         const wire: WireCodeAction[] = [];
-        for (const reg of codeActionRegistrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
-            // Метаданные видов: провайдер, чьи виды не пересекаются с `only`,
-            // не спрашивается вовсе (ровно для этого метаданные и объявляют).
-            if (
-                only !== undefined &&
-                reg.providedKinds.length > 0 &&
-                !reg.providedKinds.some((kind) => only.intersects(new CodeActionKind(kind)))
-            ) {
-                matched = true; // провайдер под документ есть — просто не про этот вид
-                continue;
-            }
-            matched = true;
-            let result: unknown;
-            try {
-                result = await Promise.resolve(
-                    reg.provider.provideCodeActions(
-                        doc as unknown as vscode.TextDocument,
-                        range as unknown as vscode.Range,
-                        context,
-                        token,
-                    ),
-                );
-            } catch {
-                // Сбойный провайдер не роняет остальные: `result` остаётся
-                // неприсвоенным, и его отсеивает проверка ниже.
-            }
-            if (!Array.isArray(result)) continue;
-            // Элементы — `unknown`: что отдал провайдер расширения, тем и является;
-            // до проверки заголовка это ещё не `CodeAction | Command`.
-            for (const item of result as unknown[]) {
-                if (typeof item !== "object" || item === null) continue;
-                if (typeof (item as { title?: unknown }).title !== "string") continue;
-                // `only` фильтрует по виду; голые команды вида не имеют и при
-                // запрошенном `only` отбрасываются (как в VS Code).
-                const action: CodeAction | undefined = item instanceof CodeAction ? item : undefined;
-                const kind = action?.kind;
-                if (only !== undefined && (kind === undefined || !only.contains(kind))) continue;
-                const id = `${String(cacheId)}.${String(cached.length)}`;
-                cached.push({ item: item as vscode.CodeAction | vscode.Command, registration: reg });
-                wire.push({
-                    id,
-                    title: (item as { title: string }).title,
-                    ...(kind === undefined ? {} : { kind: kind.value }),
-                    ...(action?.isPreferred === true ? { isPreferred: true } : {}),
-                });
-            }
+        let result: unknown;
+        try {
+            result = await Promise.resolve(
+                reg.provider.provideCodeActions(
+                    doc as unknown as vscode.TextDocument,
+                    range as unknown as vscode.Range,
+                    context,
+                    neverCancelledToken(),
+                ),
+            );
+        } catch {
+            // Сбойный провайдер = «действий нет»: `result` остаётся
+            // неприсвоенным, и его отсеивает проверка ниже.
         }
-        if (!matched) return null;
+        if (!Array.isArray(result)) return [];
+        // Элементы — `unknown`: что отдал провайдер расширения, тем и является;
+        // до проверки заголовка это ещё не `CodeAction | Command`.
+        for (const item of result as unknown[]) {
+            // У примитива `title` читается как undefined — отсеется той же проверкой.
+            if (typeof (item as { title?: unknown } | null | undefined)?.title !== "string") continue;
+            // `only` фильтрует по виду; голые команды вида не имеют и при
+            // запрошенном `only` отбрасываются (как в VS Code).
+            const action: CodeAction | undefined = item instanceof CodeAction ? item : undefined;
+            const kind = action?.kind;
+            if (only !== undefined && (kind === undefined || !only.contains(kind))) continue;
+            const id = `${String(cacheId)}.${String(cached.length)}`;
+            cached.push({ item: item as vscode.CodeAction | vscode.Command, registration: reg });
+            wire.push({
+                id,
+                title: (item as { title: string }).title,
+                ...(kind === undefined ? {} : { kind: kind.value }),
+                ...(action?.isPreferred === true ? { isPreferred: true } : {}),
+            });
+        }
         rememberCodeActions(cacheId, cached);
         return wire;
     });
@@ -1551,34 +1510,13 @@ export function createLanguagesNamespace(
         registerDocumentFormattingEditProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentFormattingEditProvider,
-        ): vscode.Disposable => {
-            const registration: IFormattingRegistration = { selector, provider };
-            formattingRegistrations.push(registration);
-            if (formattingRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = formattingRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    formattingRegistrations.splice(idx, 1);
-                    if (formattingRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
-        },
+        ): vscode.Disposable => registerByHandle(formattingProviders, "formatting", selector, { selector, provider }),
 
         registerDocumentRangeFormattingEditProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentRangeFormattingEditProvider,
-        ): vscode.Disposable => {
-            const registration: IRangeFormattingRegistration = { selector, provider };
-            rangeFormattingRegistrations.push(registration);
-            if (rangeFormattingRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = rangeFormattingRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    rangeFormattingRegistrations.splice(idx, 1);
-                    if (rangeFormattingRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
-        },
+        ): vscode.Disposable =>
+            registerByHandle(rangeFormattingProviders, "rangeFormatting", selector, { selector, provider }),
 
         registerCodeActionsProvider: (
             selector: vscode.DocumentSelector,
@@ -1590,15 +1528,11 @@ export function createLanguagesNamespace(
                 .map((kind) => (kind as { value?: unknown }).value)
                 .filter((value): value is string => typeof value === "string");
             const registration: ICodeActionRegistration = { selector, provider, providedKinds };
-            codeActionRegistrations.push(registration);
-            if (codeActionRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = codeActionRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    codeActionRegistrations.splice(idx, 1);
-                    if (codeActionRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
+            // Виды едут метаданными: провайдера, чьи виды не пересекаются с
+            // запрошенным `only`, ядро не спрашивает вовсе.
+            return registerByHandle(codeActionProviders, "codeActions", selector, registration, {
+                providedCodeActionKinds: providedKinds,
+            });
         },
 
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
@@ -1644,8 +1578,5 @@ export function createLanguagesNamespace(
         languages: languagesNs as unknown as typeof vscode.languages,
         inlineCompletionRegistrations,
         foldingRegistrations,
-        formattingRegistrations,
-        rangeFormattingRegistrations,
-        codeActionRegistrations,
     };
 }

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideCodeActions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import {
+    type ILanguageFeaturesService,
+    LanguageFeaturesServiceDIToken,
+} from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -22,6 +30,7 @@ function registerCodeActionCommands(
     harness: {
         commandRegistry: Parameters<typeof registerAction>[0];
         group: unknown;
+        languageFeatures: ILanguageFeaturesService;
     },
     pickLabel?: string,
 ): string[] {
@@ -38,6 +47,7 @@ function registerCodeActionCommands(
     } as unknown as QuickInputService;
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => harness.group as never);
+    accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     accessor.bind(QuickInputServiceDIToken, () => quickInput);
     const keybindings = new KeybindingRegistry();
@@ -114,17 +124,16 @@ describe("ExtensionHost — code actions (subprocess)", () => {
         });
         try {
             await settle();
-            const source = harness.group.codeActionSource!;
-            const actions = await source.provide({
+            const actions = await provideCodeActions(harness, {
                 uri: harness.group.getActiveEditor()!.uri.toString(),
                 languageId: "plaintext",
                 text: "note",
                 range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } },
                 only: "quickfix",
             });
-            expect(actions?.map((action) => action.title)).toEqual(["Append marker"]);
+            expect(actions.map((action) => action.title)).toEqual(["Append marker"]);
 
-            expect(await source.apply(actions![0].id)).toBe(true);
+            expect(await harness.host.applyCodeAction(actions[0].id)).toBe(true);
             await settle();
             // Команда действия (test.appendMarker) исполнилась в субпроцессе и
             // дописала маркер через editor.edit — второй RPC-круг.

@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
+import {
+    type ILanguageFeaturesService,
+    LanguageFeaturesServiceDIToken,
+} from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -19,6 +23,7 @@ import { type StatusBarService, StatusBarServiceDIToken } from "../../../service
 function registerFormatActions(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;
+    languageFeatures: ILanguageFeaturesService;
 }): string[] {
     const notices: string[] = [];
     const statusBar = {
@@ -29,6 +34,7 @@ function registerFormatActions(harness: {
     } as unknown as StatusBarService;
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => harness.group as never);
+    accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     const keybindings = new KeybindingRegistry();
     registerAction(harness.commandRegistry, keybindings, accessor, formatDocumentAction);
