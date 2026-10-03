@@ -1,4 +1,5 @@
 import { createRange } from "../../editor/common/core/iRange.ts";
+import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
@@ -18,6 +19,7 @@ import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extension
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { FileWatcherAdapter } from "../../workbench/api/browser/fileWatcherAdapter.ts";
+import { LanguageFeaturesAdapter } from "../../workbench/api/browser/languageFeaturesAdapter.ts";
 import { NotificationExtensionAdapter } from "../../workbench/api/browser/notificationExtensionAdapter.ts";
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
@@ -251,6 +253,10 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // активироваться позже создания хоста.
         new FileSystemProviderAdapter(host, container.get(FileSystemProviderRegistryDIToken));
 
+        // Языковые провайдеры расширений (languages.register): прокси по handle
+        // в реестрах ядра — их читают потребители фич (HoverService, …).
+        new LanguageFeaturesAdapter(host, container.get(LanguageFeaturesServiceDIToken));
+
         // Save-pipeline: редакторы группы прогоняют will-save через host
         // (onWillSaveTextDocument), а состоявшееся сохранение уходит обратно
         // в subprocess (onDidSaveTextDocument).
@@ -302,11 +308,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             group.refreshVirtualDocument(uri);
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
-
-        // Hover: провайдеры расширений (languages.provideHover) подключаются
-        // как источник hover'ов группы (читает HoverService по Show Hover).
-        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.hoverSource = (req) => host.provideHover(req);
 
         // References: провайдеры расширений (languages.provideReferences)
         // подключаются как источник ссылок группы (читает ReferencesService по

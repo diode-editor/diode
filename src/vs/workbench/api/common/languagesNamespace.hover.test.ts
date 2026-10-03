@@ -22,60 +22,60 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
 const URI = "file:///proj/main.ts";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-    return { uri: URI, languageId: "typescript", text: "const a = b;\n", line: 0, character: 10, ...overrides };
+    return {
+        handle: 0,
+        uri: URI,
+        languageId: "typescript",
+        text: "const a = b;\n",
+        line: 0,
+        character: 10,
+        ...overrides,
+    };
 }
 
 describe("LanguagesNamespace — registerHoverProvider", () => {
-    it("подписка сигналится на переходах 0↔1 (hasHoverProviders)", () => {
+    it("каждая регистрация объявляется ядру с handle и селектором, dispose — снимает", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const subs = () => stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
+        const sent = () => stub.notifies.filter((n) => n.method.startsWith("languages."));
 
         const first = languages.registerHoverProvider({ language: "typescript" }, { provideHover: () => null });
-        expect(subs()).toEqual([
+        const second = languages.registerHoverProvider("markdown", { provideHover: () => null });
+        expect(sent()).toEqual([
             {
-                method: "languages.updateSubscriptions",
-                params: {
-                    hasCompletionProviders: false,
-                    hasFoldingProviders: false,
-                    hasDefinitionProviders: false,
-                    hasHoverProviders: true,
-                    hasReferenceProviders: false,
-                    hasSignatureHelpProviders: false,
-                    hasFormattingProviders: false,
-                    hasCodeActionsProviders: false,
-                    hasInlineCompletionProviders: false,
-                    signatureHelpTriggerCharacters: [],
-                    signatureHelpRetriggerCharacters: [],
-                    completionTriggerCharacters: [],
-                },
+                method: "languages.register",
+                params: { handle: 0, kind: "hover", selector: [{ language: "typescript" }] },
+            },
+            {
+                method: "languages.register",
+                params: { handle: 1, kind: "hover", selector: [{ language: "markdown" }] },
             },
         ]);
 
-        const second = languages.registerHoverProvider({ language: "typescript" }, { provideHover: () => null });
-        expect(subs()).toHaveLength(1);
-
         first.dispose();
-        expect(subs()).toHaveLength(1);
         second.dispose();
-        expect(subs()).toHaveLength(2);
-        expect(subs()[1].params).toEqual({
-            hasCompletionProviders: false,
-            hasFoldingProviders: false,
-            hasDefinitionProviders: false,
-            hasHoverProviders: false,
-            hasReferenceProviders: false,
-            hasSignatureHelpProviders: false,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
-            hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
-            completionTriggerCharacters: [],
-        });
+        expect(sent().slice(2)).toEqual([
+            { method: "languages.unregister", params: { handle: 0 } },
+            { method: "languages.unregister", params: { handle: 1 } },
+        ]);
+
         // Повторный dispose — идемпотентен, без лишних нотификаций.
         second.dispose();
-        expect(subs()).toHaveLength(2);
+        expect(sent()).toHaveLength(4);
+    });
+
+    it("снятый провайдер на запрос по своему handle не отвечает", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const registration = languages.registerHoverProvider(
+            { language: "typescript" },
+            { provideHover: () => new Hover("жив") as unknown as vscode.Hover },
+        );
+        expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["жив"] });
+
+        registration.dispose();
+
+        expect(await stub.callRequest("languages.provideHover", requestParams())).toBeNull();
     });
 });
 
@@ -105,12 +105,10 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(10);
         expect(ctx.registry.get(Uri.parse(URI))?.getText()).toBe("const a = b;\n");
-        expect(result).toEqual([
-            {
-                contents: ["```ts\nconst a: number\n```"],
-                range: { startLine: 0, startCharacter: 6, endLine: 0, endCharacter: 7 },
-            },
-        ]);
+        expect(result).toEqual({
+            contents: ["```ts\nconst a: number\n```"],
+            range: { startLine: 0, startCharacter: 6, endLine: 0, endCharacter: 7 },
+        });
     });
 
     it("contents нормализуется: строка, MarkdownString и MarkedString-codeblock → блоки markdown", async () => {
@@ -139,11 +137,9 @@ describe("LanguagesNamespace — languages.provideHover", () => {
 
         const result = await stub.callRequest("languages.provideHover", requestParams());
 
-        expect(result).toEqual([
-            {
-                contents: ["просто строка", "**markdown**", "```ts\nconst b = 1\n```", "без языка"],
-            },
-        ]);
+        expect(result).toEqual({
+            contents: ["просто строка", "**markdown**", "```ts\nconst b = 1\n```", "без языка"],
+        });
     });
 
     it("contents не-массивом и запрос без полей: позиция — (0,0), текст — пустой", async () => {
@@ -160,7 +156,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             },
         );
 
-        const result = await stub.callRequest("languages.provideHover", { uri: URI });
+        const result = await stub.callRequest("languages.provideHover", { handle: 0, uri: URI });
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
@@ -168,64 +164,47 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         // languageId в запросе не пришёл — документ остаётся на дефолте реестра,
         // а не получает undefined (иначе селекторы перестали бы матчиться).
         expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("plaintext");
-        expect(result).toEqual([{ contents: ["одна строка не в массиве"] }]);
+        expect(result).toEqual({ contents: ["одна строка не в массиве"] });
     });
 
-    it("несколько провайдеров: результаты конкатенируются в порядке регистрации, сбойные и пустые пропускаются", async () => {
+    it("зовётся ровно провайдер запрошенного handle; сбойный, пустой и неизвестный — null", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const calls: string[] = [];
-        languages.registerHoverProvider(
-            { language: "python" },
-            {
-                provideHover: () => {
-                    calls.push("python");
-                    return null;
-                },
+        const provider = (name: string, answer: () => vscode.ProviderResult<vscode.Hover>): vscode.HoverProvider => ({
+            provideHover: () => {
+                calls.push(name);
+                return answer();
             },
+        });
+        languages.registerHoverProvider(
+            { language: "typescript" },
+            provider("throwing", () => {
+                throw new Error("boom");
+            }),
         );
         languages.registerHoverProvider(
             { language: "typescript" },
-            {
-                provideHover: () => {
-                    calls.push("throwing");
-                    throw new Error("boom");
-                },
-            },
+            provider("empty", () => null),
         );
         languages.registerHoverProvider(
             { language: "typescript" },
-            {
-                provideHover: () => {
-                    calls.push("empty");
-                    return null;
-                },
-            },
-        );
-        languages.registerHoverProvider(
-            { language: "typescript" },
-            {
-                provideHover: () => {
-                    calls.push("first");
-                    return new Hover("от первого") as unknown as vscode.Hover;
-                },
-            },
-        );
-        languages.registerHoverProvider(
-            { language: "typescript" },
-            {
-                provideHover: () => {
-                    calls.push("second");
-                    return new Hover(["от второго", "и ещё"]) as unknown as vscode.Hover;
-                },
-            },
+            provider("second", () => new Hover(["от второго", "и ещё"]) as unknown as vscode.Hover),
         );
 
-        const result = await stub.callRequest("languages.provideHover", requestParams());
+        expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 2 }))).toEqual({
+            contents: ["от второго", "и ещё"],
+        });
+        expect(calls).toEqual(["second"]);
 
-        // Несовпавший селектор (python) вообще не вызывается; порядок — порядок регистрации.
-        expect(calls).toEqual(["throwing", "empty", "first", "second"]);
-        expect(result).toEqual([{ contents: ["от первого"] }, { contents: ["от второго", "и ещё"] }]);
+        expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 0 }))).toBeNull();
+        expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 1 }))).toBeNull();
+        expect(calls).toEqual(["second", "throwing", "empty"]);
+
+        // Неизвестный и отсутствующий handle — никого не зовём.
+        expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 42 }))).toBeNull();
+        expect(await stub.callRequest("languages.provideHover", requestParams({ handle: undefined }))).toBeNull();
+        expect(calls).toHaveLength(3);
     });
 
     it("hover с кривым range сериализуется без range; без contents — отбрасывается целиком", async () => {
@@ -243,8 +222,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             { provideHover: () => ({ contents: [] }) as unknown as vscode.Hover },
         );
 
-        const result = await stub.callRequest("languages.provideHover", requestParams());
-
-        expect(result).toEqual([{ contents: ["текст"] }]);
+        expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["текст"] });
+        expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 1 }))).toBeNull();
     });
 });

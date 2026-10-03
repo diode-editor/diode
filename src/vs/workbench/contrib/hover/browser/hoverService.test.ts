@@ -1,3 +1,4 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -7,7 +8,8 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
+import type { HoverProvider, ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { HoverComponentDIToken } from "./hoverComponent.ts";
@@ -75,9 +77,26 @@ describe("HoverService — показ и закрытие попапа", () => {
 
     const hoverOf = (contents: string[]): ICoreHover => ({ contents });
 
+    let providers: IDisposable[] = [];
+    /** Ставит единственного hover-провайдера для любого документа (снимает прежних). */
+    const useProvider = (provideHover: HoverProvider["provideHover"]): void => {
+        for (const provider of providers) provider.dispose();
+        providers = [h.container.get(LanguageFeaturesServiceDIToken).hoverProvider.register("*", { provideHover })];
+    };
+    /**
+     * По провайдеру на hover; в ответе — в порядке аргументов. Регистрируем с
+     * конца: при равном score реестр ставит более позднюю регистрацию первой.
+     */
+    const useHovers = (...hovers: ICoreHover[]): void => {
+        for (const provider of providers) provider.dispose();
+        const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
+        providers = hovers
+            .toReversed()
+            .map((hover) => registry.register("*", { provideHover: () => Promise.resolve(hover) }));
+    };
+
     it("показывает попап с очищенным от markdown контентом у каретки", async () => {
-        group().hoverSource = () =>
-            Promise.resolve([hoverOf(["```ts\nconst answer: number\n```", "Документация **ответа**"])]);
+        useHovers(hoverOf(["```ts\nconst answer: number\n```", "Документация **ответа**"]));
 
         await service().showHover();
 
@@ -91,7 +110,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("несколько провайдеров: по блоку на каждого, между ними линия-разделитель", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["первый провайдер"]), hoverOf(["второй провайдер"])]);
+        useHovers(hoverOf(["первый провайдер"]), hoverOf(["второй провайдер"]));
 
         await service().showHover();
 
@@ -101,28 +120,73 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(lines[2]).toBe("второй провайдер");
     });
 
-    it("пустой результат, пустой после стрипа и отсутствие источника — попап не открывается", async () => {
-        // Нет источника.
+    it("пустой результат, пустой после стрипа и отсутствие провайдеров — попап не открывается", async () => {
+        // Нет провайдеров.
         await service().showHover();
         expect(service().isOpen()).toBe(false);
 
-        // Пустой результат.
-        group().hoverSource = () => Promise.resolve([]);
+        // Провайдер ответил «hover'а нет».
+        useProvider(() => Promise.resolve(undefined));
         await service().showHover();
         expect(service().isOpen()).toBe(false);
 
         // Контент есть, но после стрипа пусто (пустой fenced-блок).
-        group().hoverSource = () => Promise.resolve([hoverOf(["```ts\n\n```"])]);
+        useHovers(hoverOf(["```ts\n\n```"]));
         await service().showHover();
         expect(service().isOpen()).toBe(false);
     });
 
+    it("провайдер чужого языка не спрашивается вовсе", async () => {
+        let asked = false;
+        const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
+        providers = [
+            registry.register("python", {
+                provideHover: () => {
+                    asked = true;
+                    return Promise.resolve(hoverOf(["питон"]));
+                },
+            }),
+        ];
+
+        await service().showHover();
+
+        expect(asked).toBe(false);
+        expect(service().isOpen()).toBe(false);
+    });
+
+    it("порядок блоков — по score селектора: точный язык выше `*`, хоть и зарегистрирован раньше", async () => {
+        const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
+        const languageId = group().getActiveEditor()!.languageId;
+        providers = [
+            registry.register(languageId, { provideHover: () => Promise.resolve(hoverOf(["точный"])) }),
+            registry.register("*", { provideHover: () => Promise.resolve(hoverOf(["любой"])) }),
+        ];
+
+        await service().showHover();
+
+        const lines = component().view.linesFor(30);
+        expect(lines[0]).toBe("точный");
+        expect(lines[2]).toBe("любой");
+    });
+
+    it("сбойный провайдер не роняет остальных", async () => {
+        const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
+        providers = [
+            registry.register("*", { provideHover: () => Promise.resolve(hoverOf(["живой"])) }),
+            registry.register("*", { provideHover: () => Promise.reject(new Error("boom")) }),
+        ];
+
+        await service().showHover();
+
+        expect(component().view.linesFor(30)).toEqual(["живой"]);
+    });
+
     it("запрос несёт снапшот и позицию каретки", async () => {
         const seen: { uri?: string; line?: number; character?: number; text?: string } = {};
-        group().hoverSource = (request) => {
+        useProvider((request) => {
             Object.assign(seen, request);
-            return Promise.resolve([hoverOf(["x"])]);
-        };
+            return Promise.resolve(hoverOf(["x"]));
+        });
         group().getActiveEditor()?.goToPosition(1, 6);
 
         await service().showHover();
@@ -132,7 +196,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("Ctrl+K Ctrl+U открывает попап, Escape закрывает — фокус остаётся в редакторе", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["const answer: number"])]);
+        useHovers(hoverOf(["const answer: number"]));
 
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("Ctrl+U");
@@ -146,7 +210,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("движение каретки и правка закрывают попап", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["x"])]);
+        useHovers(hoverOf(["x"]));
 
         await service().showHover();
         expect(service().isOpen()).toBe(true);
@@ -160,16 +224,18 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("устаревший ответ не переоткрывает закрытый попап", async () => {
-        let release: (hovers: ICoreHover[]) => void = () => undefined;
-        group().hoverSource = () =>
-            new Promise((resolve) => {
-                release = resolve;
-            });
+        let release: (hover: ICoreHover) => void = () => undefined;
+        useProvider(
+            () =>
+                new Promise((resolve) => {
+                    release = resolve;
+                }),
+        );
 
         const pending = service().showHover();
         // Пока ответ в полёте, попап закрыли (Escape) — seq устарел.
         service().close();
-        release([hoverOf(["опоздавший"])]);
+        release(hoverOf(["опоздавший"]));
         await pending;
 
         expect(service().isOpen()).toBe(false);
@@ -177,7 +243,7 @@ describe("HoverService — показ и закрытие попапа", () => {
 
     it("повторный showHover при открытом попапе обновляет контент и пере-анкорит сессию", async () => {
         let text = "первая версия";
-        group().hoverSource = () => Promise.resolve([hoverOf([text])]);
+        useProvider(() => Promise.resolve(hoverOf([text])));
 
         await service().showHover();
         expect(service().isOpen()).toBe(true);
@@ -191,10 +257,10 @@ describe("HoverService — показ и закрытие попапа", () => {
 
     it("нет активного редактора — источник не вызывается", async () => {
         let called = false;
-        group().hoverSource = () => {
+        useProvider(() => {
             called = true;
-            return Promise.resolve([hoverOf(["x"])]);
-        };
+            return Promise.resolve(hoverOf(["x"]));
+        });
         h.commands.execute("workbench.action.closeActiveEditor");
         expect(group().getActiveEditor()).toBeNull();
 
@@ -205,7 +271,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("каретка ушла из вьюпорта за время запроса — попап не открывается", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["x"])]);
+        useHovers(hoverOf(["x"]));
         const editor = group().getActiveEditor()!;
         // Якорь пропал (каретка вне видимой области) — тот же контракт, что у
         // suggest: getCaretAnchor() === null.
@@ -217,7 +283,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("клик мимо попапа закрывает его (pointer-политика overlay-сессии)", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["const answer: number"])]);
+        useHovers(hoverOf(["const answer: number"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
@@ -240,7 +306,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("настоящий уход фокуса в другой виджет закрывает попап", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["const answer: number"])]);
+        useHovers(hoverOf(["const answer: number"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
@@ -253,7 +319,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("уход фокуса с редактора закрывает попап, возврат фокуса — нет", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["x"])]);
+        useHovers(hoverOf(["x"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
@@ -266,8 +332,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("пустые блоки внутри одного hover'а не дают пустых строк в попапе", async () => {
-        group().hoverSource = () =>
-            Promise.resolve([hoverOf(["```ts\nconst a: number\n```", "```\n\n```", "документация"])]);
+        useHovers(hoverOf(["```ts\nconst a: number\n```", "```\n\n```", "документация"]));
 
         await service().showHover();
 
@@ -277,7 +342,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("смена активного редактора закрывает попап и переносит подписки на новый", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["x"])]);
+        useHovers(hoverOf(["x"]));
         const first = group().getActiveEditor()!;
         await service().showHover();
         expect(service().isOpen()).toBe(true);
@@ -298,7 +363,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("правка ниже каретки закрывает попап (текст под ним устарел)", async () => {
-        group().hoverSource = () => Promise.resolve([hoverOf(["x"])]);
+        useHovers(hoverOf(["x"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 

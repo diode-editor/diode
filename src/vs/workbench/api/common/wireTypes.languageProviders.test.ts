@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+
+import { parseWireLanguageProviderRegistration, parseWireLanguageProviderUnregistration } from "./wireTypes.ts";
+
+describe("wireTypes — parseWireLanguageProviderRegistration", () => {
+    it("валидная регистрация проходит как есть", () => {
+        const raw = {
+            handle: 3,
+            kind: "hover",
+            selector: [
+                { language: "typescript", scheme: "file", exclusive: true },
+                { pattern: "**/*.json", notebookType: "jupyter" },
+                { pattern: { base: "/w", pattern: "*.md" } },
+            ],
+        };
+        expect(parseWireLanguageProviderRegistration(raw)).toEqual(raw);
+    });
+
+    it("чужая форма конверта — null", () => {
+        expect(parseWireLanguageProviderRegistration(null)).toBeNull();
+        expect(parseWireLanguageProviderRegistration("hover")).toBeNull();
+        expect(parseWireLanguageProviderRegistration({ handle: "1", kind: "hover", selector: [] })).toBeNull();
+        expect(parseWireLanguageProviderRegistration({ handle: 1.5, kind: "hover", selector: [] })).toBeNull();
+        expect(parseWireLanguageProviderRegistration({ handle: 1, kind: "teleport", selector: [] })).toBeNull();
+        expect(parseWireLanguageProviderRegistration({ handle: 1, kind: "hover", selector: "ts" })).toBeNull();
+    });
+
+    it("фильтры: не-объекты отбрасываются, поля чужого типа — тоже, остальное остаётся", () => {
+        const parsed = parseWireLanguageProviderRegistration({
+            handle: 0,
+            kind: "hover",
+            selector: [
+                null,
+                "typescript",
+                { language: 1, scheme: "file", notebookType: false, exclusive: "yes" },
+                { pattern: { base: "/w" } },
+                { pattern: { base: 1, pattern: "*.md" } },
+                { pattern: 7 },
+            ],
+        });
+        expect(parsed?.selector).toEqual([{ scheme: "file" }, {}, {}, {}]);
+    });
+});
+
+describe("wireTypes — parseWireLanguageProviderUnregistration", () => {
+    it("берёт целый handle, остальное — null", () => {
+        expect(parseWireLanguageProviderUnregistration({ handle: 0 })).toEqual({ handle: 0 });
+        expect(parseWireLanguageProviderUnregistration({ handle: "0" })).toBeNull();
+        expect(parseWireLanguageProviderUnregistration({})).toBeNull();
+        expect(parseWireLanguageProviderUnregistration(null)).toBeNull();
+        expect(parseWireLanguageProviderUnregistration(5)).toBeNull();
+    });
+});

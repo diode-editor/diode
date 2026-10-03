@@ -1,10 +1,13 @@
 import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
 
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
+import { getHovers } from "./getHover.ts";
 import type { HoverComponent } from "./hoverComponent.ts";
 import { HoverComponentDIToken } from "./hoverComponent.ts";
 
@@ -44,13 +47,13 @@ export function stripMarkdown(value: string): string {
 
 /**
  * Логика hover'а. По команде (`editor.action.showHover` / Ctrl+K Ctrl+I)
- * запрашивает hover'ы у `EditorService.hoverSource` (провайдеры расширений
- * через host) для позиции каретки и показывает попап {@link HoverComponent}:
+ * запрашивает hover'ы у подошедших документу провайдеров реестра
+ * `ILanguageFeaturesService.hoverProvider` для позиции каретки и показывает попап {@link HoverComponent}:
  * по блоку на провайдера, блоки разделяются линией (VS Code мержит hover'ы
  * так же). Закрывается по Escape, правке, движению каретки и уходу фокуса.
  */
 export class HoverService extends Disposable {
-    public static dependencies = [HoverComponentDIToken, EditorServiceDIToken] as const;
+    public static dependencies = [HoverComponentDIToken, EditorServiceDIToken, LanguageFeaturesServiceDIToken] as const;
 
     /** Guard от устаревших ответов: пока ходили за hover'ом, запрос мог смениться. */
     private requestSeq = 0;
@@ -59,6 +62,7 @@ export class HoverService extends Disposable {
     public constructor(
         private readonly component: HoverComponent,
         private readonly group: EditorService,
+        private readonly languageFeatures: ILanguageFeaturesService,
     ) {
         super();
         // «Всегда-включённая» подписка на активный редактор: правка или движение
@@ -85,19 +89,17 @@ export class HoverService extends Disposable {
 
     /**
      * Запрашивает hover'ы для позиции каретки и показывает попап. No-op, если
-     * нет активного редактора, источника, провайдеры ничего не вернули или
-     * каретка вне вьюпорта.
+     * нет активного редактора, провайдеры ничего не вернули или каретка вне
+     * вьюпорта. Документ без подошедших провайдеров запросов не порождает.
      */
     public async showHover(): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
-        const source = this.group.hoverSource;
-        if (source === undefined) return;
 
         const caret = editor.viewState.selections[0].active;
         // Stryker disable next-line UpdateOperator: сравнение идёт на равенство, поэтому направление счётчика роли не играет — важно лишь, что каждый запрос берёт свежее значение
         const seq = ++this.requestSeq;
-        const hovers = await source({
+        const hovers = await getHovers(this.languageFeatures.hoverProvider, editor, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             text: editor.getText(),

@@ -870,10 +870,10 @@ export async function requestDefinition(
 // ─── Hover (LSP) ─────────────────────────────────────────────────────────────
 
 /**
- * Wire-форма одного hover'а (subprocess → host) — по элементу на непустой ответ
- * провайдера. `contents` — блоки сырого markdown (хост-сериализатор уже
- * нормализовал `MarkdownString`/строку/`{language, value}` в строки); разметку
- * стрипает UI-потребитель, протокол её не трогает.
+ * Wire-форма ответа одного hover-провайдера (subprocess → host). `contents` —
+ * блоки сырого markdown (хост-сериализатор уже нормализовал
+ * `MarkdownString`/строку/`{language, value}` в строки); разметку стрипает
+ * UI-потребитель, протокол её не трогает.
  */
 export interface WireHover {
     readonly contents: readonly string[];
@@ -881,8 +881,13 @@ export interface WireHover {
     readonly range?: IWireRange;
 }
 
-/** Параметры запроса hover (host → subprocess) — форма definition-запроса. */
+/**
+ * Параметры запроса hover (host → subprocess) — форма definition-запроса плюс
+ * `handle` провайдера: ядро само выбрало, кого спрашивать (см.
+ * `languages.register`), субпроцесс зовёт ровно его.
+ */
 export interface IWireHoverParams {
+    readonly handle: number;
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
@@ -891,8 +896,8 @@ export interface IWireHoverParams {
     readonly character: number;
 }
 
-/** Валидирует один wire-hover; `null`, если форма не распознана. */
-function parseWireHover(raw: unknown): WireHover | null {
+/** Валидирует wire-hover; `null`, если форма не распознана или контента нет. */
+export function parseWireHover(raw: unknown): WireHover | null {
     // Stryker disable next-line ConditionalExpression: не-объект всё равно отсеивается строкой ниже — у него нет массива `contents`; проверка стоит ради `null`, на котором чтение поля кинуло бы
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
@@ -902,23 +907,9 @@ function parseWireHover(raw: unknown): WireHover | null {
     return { contents, range: parseWireRange(obj.range) };
 }
 
-/**
- * Разбирает сырой ответ hover в массив валидных {@link WireHover}. Невалидные
- * элементы отбрасываются (drop+skip), а не роняют весь ответ.
- */
-export function parseWireHovers(raw: unknown): WireHover[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireHover[] = [];
-    for (const item of raw) {
-        const parsed = parseWireHover(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
-/** Переводит wire-hover'ы в core-hover'ы ({@link ICoreHover}). */
-export function wireToCoreHovers(wire: readonly WireHover[]): ICoreHover[] {
-    return wire.map((hover) => ({
+/** Переводит wire-hover в core-hover ({@link ICoreHover}). */
+export function wireToCoreHover(hover: WireHover): ICoreHover {
+    return {
         contents: hover.contents,
         ...(hover.range === undefined
             ? {}
@@ -930,24 +921,114 @@ export function wireToCoreHovers(wire: readonly WireHover[]): ICoreHover[] {
                       hover.range.endCharacter,
                   ),
               }),
-    }));
+    };
 }
 
 /**
- * Запрашивает у subprocess'а hover'ы с таймаутом. Возвращает пустой массив на
- * таймаут, ошибку RPC или невалидный ответ (hover — best-effort, не блокирует
- * UI). `request` — голая функция для юнит-тестов через {@link InProcessChannelPair}
- * без форка subprocess'а.
+ * Запрашивает у subprocess'а hover одного провайдера с таймаутом. Возвращает
+ * `undefined` на таймаут, ошибку RPC или невалидный ответ (hover — best-effort,
+ * не блокирует UI). `request` — голая функция для юнит-тестов через
+ * {@link InProcessChannelPair} без форка subprocess'а.
  */
 export async function requestHover(
     request: (method: string, params: unknown) => Promise<unknown>,
     params: IWireHoverParams,
     timeoutMs: number,
-): Promise<ICoreHover[]> {
+): Promise<ICoreHover | undefined> {
     const outcome = await raceWithTimeout(request("languages.provideHover", params), timeoutMs);
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === TIMED_OUT) return [];
-    return wireToCoreHovers(parseWireHovers(outcome));
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не hover, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
+    if (outcome === TIMED_OUT) return undefined;
+    const hover = parseWireHover(outcome);
+    return hover === null ? undefined : wireToCoreHover(hover);
+}
+
+// ─── Регистрации языковых провайдеров ────────────────────────────────────────
+
+/**
+ * Фичи, провайдеры которых субпроцесс регистрирует в реестре ядра по handle
+ * (`languages.register`/`languages.unregister`, аналог upstream
+ * `$registerHoverProvider(handle, selector)` + `$unregister(handle)`).
+ * Список растёт по мере переезда фич с `languages.updateSubscriptions`.
+ */
+export const WIRE_LANGUAGE_FEATURE_KINDS = ["hover"] as const;
+export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
+
+/**
+ * Фильтр документа на проводе — форма `LanguageFilter` ядра. Строковый
+ * селектор субпроцесс разворачивает в `{ language }`, `RelativePattern` — в
+ * `{ base: fsPath, pattern }`.
+ */
+export interface IWireLanguageFilter {
+    readonly language?: string;
+    readonly scheme?: string;
+    readonly pattern?: string | { readonly base: string; readonly pattern: string };
+    readonly notebookType?: string;
+    readonly exclusive?: boolean;
+}
+
+/** `languages.register`: провайдер фичи `kind` под селектором (subprocess → host). */
+export interface IWireLanguageProviderRegistration {
+    readonly handle: number;
+    readonly kind: WireLanguageFeatureKind;
+    readonly selector: readonly IWireLanguageFilter[];
+}
+
+/** `languages.unregister`: провайдер снят (subprocess → host). */
+export interface IWireLanguageProviderUnregistration {
+    readonly handle: number;
+}
+
+function isWireLanguageFeatureKind(value: unknown): value is WireLanguageFeatureKind {
+    return (WIRE_LANGUAGE_FEATURE_KINDS as readonly unknown[]).includes(value);
+}
+
+/** Валидирует один фильтр: поля чужого типа отбрасываются, а не роняют весь селектор. */
+function parseWireLanguageFilter(raw: unknown): IWireLanguageFilter | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    const pattern = obj.pattern;
+    let wirePattern: IWireLanguageFilter["pattern"];
+    if (typeof pattern === "string") {
+        wirePattern = pattern;
+    } else if (typeof pattern === "object" && pattern !== null) {
+        const relative = pattern as Record<string, unknown>;
+        if (typeof relative.base === "string" && typeof relative.pattern === "string") {
+            wirePattern = { base: relative.base, pattern: relative.pattern };
+        }
+    }
+    return {
+        ...(typeof obj.language === "string" ? { language: obj.language } : {}),
+        ...(typeof obj.scheme === "string" ? { scheme: obj.scheme } : {}),
+        ...(wirePattern === undefined ? {} : { pattern: wirePattern }),
+        ...(typeof obj.notebookType === "string" ? { notebookType: obj.notebookType } : {}),
+        ...(obj.exclusive === true ? { exclusive: true } : {}),
+    };
+}
+
+function isWireHandle(value: unknown): value is number {
+    return typeof value === "number" && Number.isInteger(value);
+}
+
+/** Разбирает `languages.register`; `null` — форма не распознана (регистрация игнорируется). */
+export function parseWireLanguageProviderRegistration(raw: unknown): IWireLanguageProviderRegistration | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (!isWireHandle(obj.handle) || !isWireLanguageFeatureKind(obj.kind) || !Array.isArray(obj.selector)) {
+        return null;
+    }
+    const selector: IWireLanguageFilter[] = [];
+    for (const item of obj.selector) {
+        const filter = parseWireLanguageFilter(item);
+        if (filter !== null) selector.push(filter);
+    }
+    return { handle: obj.handle, kind: obj.kind, selector };
+}
+
+/** Разбирает `languages.unregister`; `null` — форма не распознана. */
+export function parseWireLanguageProviderUnregistration(raw: unknown): IWireLanguageProviderUnregistration | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const handle = (raw as Record<string, unknown>).handle;
+    return isWireHandle(handle) ? { handle } : null;
 }
 
 // ─── References (LSP) ────────────────────────────────────────────────────────

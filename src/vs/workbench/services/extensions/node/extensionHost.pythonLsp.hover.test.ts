@@ -9,7 +9,11 @@ import {
     PY_LANGUAGE_SERVICE,
     until,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideHovers,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
@@ -52,9 +56,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
 
             // Каретка на вызове `greet` — ждём его сигнатуру от настоящего сервера.
             const hovers = await until("hover над `greet`", async () => {
-                const source = harness.group.hoverSource;
-                if (source === undefined) return null;
-                const found: readonly ICoreHover[] = await source({
+                const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
                     languageId: "python",
                     text: MAIN_PY,

@@ -8,7 +8,6 @@ import type { CompletionResolver, CompletionSource } from "../../../../editor/co
 import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
-import type { HoverSource } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
@@ -241,13 +240,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * провайдера иначе выглядит как «клавиша не работает».
      */
     public onOpenFailed?: (uri: Uri, reason: string) => void;
-
-    /**
-     * Hover-источник (host/харнесс подключает сюда провайдеры расширений через
-     * `languages.provideHover`). Читается `HoverService` по команде Show Hover;
-     * в редакторы не раздаётся (group-level).
-     */
-    public hoverSource?: HoverSource;
 
     /**
      * References-источник (host/харнесс подключает сюда провайдеры расширений

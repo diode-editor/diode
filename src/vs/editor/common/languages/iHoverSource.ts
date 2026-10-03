@@ -1,7 +1,7 @@
 import type { IRange } from "../core/iRange.ts";
 
 /**
- * Запрос «что за символ под позицией», отправляемый hover-источнику. Несёт
+ * Запрос «что за символ под позицией», отправляемый hover-провайдеру. Несёт
  * полный снапшот текста + позицию курсора (у хоста нет реестра документов —
  * как definition, снапшот передаётся целиком).
  */
@@ -28,17 +28,9 @@ export interface ICoreHover {
 }
 
 /**
- * Hover-источник: по запросу возвращает hover'ы всех провайдеров расширений
- * (по элементу на непустой ответ, в порядке регистрации провайдеров).
- * Инъектируется в ядро извне (host/харнесс) — ядро не знает про extension-слой
- * (зеркало {@link ./iDefinitionSource.ts:DefinitionSource}). Пустой результат =
- * hover'а нет.
- */
-export type HoverSource = (request: IHoverRequest) => Promise<readonly ICoreHover[]>;
-
-/**
  * Один hover-провайдер в реестре `ILanguageFeaturesService.hoverProvider`
- * (upstream `languages.HoverProvider`). Нет ответа — `undefined`.
+ * (upstream `languages.HoverProvider`). Нет ответа — `undefined`. Провайдеры
+ * расширений регистрирует туда `LanguageFeaturesAdapter` — прокси по handle.
  */
 export interface HoverProvider {
     provideHover(request: IHoverRequest): Promise<ICoreHover | undefined>;
