@@ -1,3 +1,4 @@
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
@@ -12,6 +13,7 @@ import type { IContextKeyContributor } from "../../../../platform/contextkey/com
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { bindActiveEditor } from "../../../services/editor/browser/activeEditorBinding.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { CompletionService } from "../../suggest/browser/completionService.ts";
@@ -54,7 +56,7 @@ export const DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS = 5000;
  * расширений через host), показывает первый подошедший пункт серым текстом
  * за кареткой ({@link TextEditorPane.setGhostText}); Tab принимает
  * (`editor.action.inlineSuggest.commit`), Escape гасит. Дисциплина
- * debounce/latest-wins/ревалидации — по образцу CompletionService/LightbulbService.
+ * debounce/latest-wins/ревалидации — по образцу CompletionService.
  *
  * Настройки читаются НА КАЖДОМ обращении, а не кэшируются в полях: правка
  * `settings.json` подхватывается живым конфигом (watcher → reload) и должна
@@ -76,14 +78,12 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     // Stryker disable next-line BooleanLiteral: значение инициализатора никогда не читается — show() переписывает поле до появления сессии, hide() возвращает true
     private indentationLessThanTabSize = true;
 
-    // Подписки на активный редактор (пере-навешиваются при смене активного).
-    private caretSub: IDisposable | null = null;
-    private contentSub: IDisposable | null = null;
-    // Маркер «была правка контента», выставляется content-листенером и
-    // потребляется в onCaretChanged (view-state там уже консистентен).
-    // Stryker disable next-line BooleanLiteral: инициализатор не читается — bindEditor в конструкторе тут же сбрасывает флаг через unbindEditor
-    private contentDidChange = false;
-    private autoTriggerTimer: ReturnType<typeof setTimeout> | null = null;
+    // Отложенный авто-запрос; задержка читается из настройки на каждом schedule().
+    private readonly autoTrigger = this.register(
+        new RunOnceScheduler(() => {
+            void this.trigger(InlineCompletionTriggerKind.Automatic);
+        }, 0),
+    );
     // Последний запрос к источнику. Отмена билета и отбрасывает устаревший
     // ОТВЕТ, и останавливает саму РАБОТУ провайдера через токен: за подсказкой
     // может стоять платный LLM-вызов.
@@ -102,24 +102,41 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         this.completionService = completionService;
         this.configuration = configuration;
 
-        const activeEditorSub = this.group.onActiveEditorChanged((editor) => {
-            this.bindEditor(editor);
-        });
-        this.bindEditor(this.group.getActiveEditor());
+        // Смена активного гасит и подсказку, и отложенный авто-запрос (hide()).
+        this.register(
+            bindActiveEditor(this.group, (editor, store) => {
+                this.hide();
+                if (editor === null) return;
+                // Маркер «была правка контента»: выставляет content-листенер,
+                // потребляет обработчик каретки (view-state там уже консистентен).
+                let contentDidChange = false;
+                store.add(
+                    editor.onDidChangeContent(() => {
+                        contentDidChange = true;
+                    }),
+                );
+                store.add(
+                    editor.onDidChangeCursorPosition(() => {
+                        const wasEdit = contentDidChange;
+                        contentDidChange = false;
+                        this.onCaretChanged(wasEdit);
+                    }),
+                );
+            }),
+        );
         // Попап закрылся (Esc, accept, уход из слова) — место освободилось:
         // перезапрашиваем подсказку, иначе призрак появился бы только на
         // следующей правке (VS Code на закрытии виджета так же пересеивает
         // inline-состояние). Дебаунс-планировщик, а не прямой trigger: сам
         // trigger перепроверит все гейты (редактор, каретка в конце строки).
-        const popupCloseSub = this.completionService.onDidClose(() => {
-            this.scheduleAutoTrigger();
-        });
+        this.register(
+            this.completionService.onDidClose(() => {
+                this.scheduleAutoTrigger();
+            }),
+        );
         this.register({
+            // hide() снимает подсказку, запрос в полёте и отложенный запрос.
             dispose: () => {
-                activeEditorSub.dispose();
-                popupCloseSub.dispose();
-                this.unbindEditor();
-                // hide() снимает подсказку, запрос в полёте и отложенный запрос.
                 this.hide();
             },
         });
@@ -373,39 +390,12 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     }
 
     /**
-     * Пере-навешивает подписки на нового активного редактора; смена активного
-     * гасит и подсказку, и отложенный авто-запрос.
-     */
-    private bindEditor(editor: TextEditorPane | null): void {
-        this.unbindEditor();
-        // hide() снимает и подсказку, и запрос, и отложенный авто-запрос.
-        this.hide();
-        if (editor === null) return;
-        this.contentSub = editor.onDidChangeContent(() => {
-            this.contentDidChange = true;
-        });
-        this.caretSub = editor.onDidChangeCursorPosition(() => {
-            this.onCaretChanged();
-        });
-    }
-
-    private unbindEditor(): void {
-        this.caretSub?.dispose();
-        this.caretSub = null;
-        this.contentSub?.dispose();
-        this.contentSub = null;
-        this.contentDidChange = false;
-    }
-
-    /**
      * Единый обработчик изменения каретки/текста. Живая сессия либо сжимается/
      * растёт локально (набранное совпадает с подсказкой), либо гаснет; правка
      * при погашенной планирует авто-запрос (как upstream — рефетч на любое
      * изменение текста: одиночный символ, paste, Backspace, Enter).
      */
-    private onCaretChanged(): void {
-        const wasEdit = this.contentDidChange;
-        this.contentDidChange = false;
+    private onCaretChanged(wasEdit: boolean): void {
         const suppressed = this.suppressAutoTriggerOnce;
         this.suppressAutoTriggerOnce = false;
         // Снапшот, по которому ушёл запрос, только что протух — и на правке
@@ -451,21 +441,11 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     }
 
     private scheduleAutoTrigger(): void {
-        this.cancelAutoTrigger();
-        this.autoTriggerTimer = setTimeout(() => {
-            this.autoTriggerTimer = null;
-            void this.trigger(InlineCompletionTriggerKind.Automatic);
-        }, this.autoTriggerDelayMs);
+        this.autoTrigger.schedule(this.autoTriggerDelayMs);
     }
 
     private cancelAutoTrigger(): void {
-        // true-ветка мутанта — clearTimeout(null): безвредный no-op, гард тут
-        // только экономит вызов. «Не отменять вовсе» ловят тесты отмены.
-        // Stryker disable next-line ConditionalExpression: см. выше
-        if (this.autoTriggerTimer !== null) {
-            clearTimeout(this.autoTriggerTimer);
-            this.autoTriggerTimer = null;
-        }
+        this.autoTrigger.cancel();
     }
 }
 
