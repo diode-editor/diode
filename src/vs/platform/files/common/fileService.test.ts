@@ -205,6 +205,25 @@ describe("FileService — чтение", () => {
         expect(file.children).toEqual([]);
     });
 
+    it("resolve файла не читает каталог; симлинк виден в stat", async () => {
+        const files = disposables.add(new FileService());
+        const readdir = vi.fn(() => Promise.resolve<[string, FileType][]>([["x", FileType.File]]));
+        disposables.add(
+            files.registerProvider("x", {
+                capabilities: FileSystemProviderCapabilities.None,
+                onDidChangeFile: Event.None,
+                readFile: () => Promise.resolve(bytes("")),
+                stat: () => Promise.resolve({ type: FileType.SymbolicLink | FileType.File, mtime: 1, size: 0 }),
+                readdir,
+            }),
+        );
+        const resolved = await files.resolve(Uri.from({ scheme: "x", path: "/link" }));
+        expect(resolved.children).toEqual([]);
+        expect(resolved.isSymbolicLink).toBe(true);
+        expect(resolved.isFile).toBe(true);
+        expect(readdir).not.toHaveBeenCalled();
+    });
+
     it("resolve каталога без readdir у провайдера — отказ", async () => {
         const files = disposables.add(new FileService());
         disposables.add(
@@ -341,6 +360,20 @@ describe("FileService — запись", () => {
         vi.spyOn(provider, "stat").mockRejectedValueOnce(new Error("EIO"));
         await expect(files.writeFile(mem("/a"), bytes("x"))).rejects.toThrow("EIO");
         expect(await files.exists(mem("/a"))).toBe(false);
+    });
+
+    it("провайдер со stat, но без writeFile, — запись недоступна", async () => {
+        const files = disposables.add(new FileService());
+        disposables.add(
+            files.registerProvider("x", {
+                capabilities: FileSystemProviderCapabilities.None,
+                onDidChangeFile: Event.None,
+                readFile: () => Promise.resolve(bytes("")),
+                stat: () => Promise.resolve({ type: FileType.File, mtime: 1, size: 0 }),
+            }),
+        );
+        const error = await rejection(files.writeFile(Uri.from({ scheme: "x", path: "/a" }), bytes("")));
+        expect(isFileOperationError(error, FileOperationResult.Unavailable)).toBe(true);
     });
 
     it("провайдер, умеющий писать, но без stat, — запись недоступна", async () => {

@@ -517,7 +517,8 @@ describe("Workbench — вкладка diff, вырожденные случаи
         );
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        bindApp(TestApp.create(workbench.view, new Size(80, 10)).app);
+        const testApp = TestApp.create(workbench.view, new Size(80, 10));
+        bindApp(testApp.app);
         commands.execute("workbench.openFile", ws.path("a.txt"));
         await settle(0);
 
@@ -525,6 +526,9 @@ describe("Workbench — вкладка diff, вырожденные случаи
         await settle(10);
 
         expect(editors.editorCount).toBe(1);
+        // Для пользователя это то же «сравнивать не с чем», а не ошибка чтения.
+        testApp.render();
+        expect(testApp.backend.screenToString()).toContain("No changes to compare");
         workbench.dispose();
         ws.dispose();
     });

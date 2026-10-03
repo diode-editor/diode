@@ -256,7 +256,7 @@ function toFileStat(resource: Uri, stat: IStat): IFileStat {
 }
 
 function checkLimit(resource: Uri, size: number, limit: number | undefined): void {
-    if (limit !== undefined && size > limit) {
+    if (size > (limit ?? Infinity)) {
         throw new FileOperationError(
             `'${resource.toString()}' is too large (${String(size)} > ${String(limit)} bytes)`,
             FileOperationResult.TooLarge,

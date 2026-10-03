@@ -207,7 +207,7 @@ export class QuickDiffService extends Disposable {
         try {
             const originalResource = await this.originalResources.provideOriginalResource(uri);
             if (originalResource === null) return null;
-            if (!this.providers.hasProvider(originalResource)) return null;
+            // Схема без провайдера — отказ readFile (Unavailable), ловится ниже.
             return new TextDecoder().decode((await this.providers.readFile(originalResource)).value);
         } catch {
             // Расширения нет, git недоступен, файла нет в ревизии — во всех

@@ -150,7 +150,7 @@ const RESULT_BY_CODE: Partial<Record<string, FileOperationResult>> = {
 
 export function toFileOperationError(error: unknown, resource: Uri): unknown {
     const code = (error as NodeJS.ErrnoException | null)?.code;
-    const result = code === undefined ? undefined : RESULT_BY_CODE[code];
+    const result = RESULT_BY_CODE[code ?? ""];
     if (result === undefined) return error;
     return new FileOperationError(`'${resource.toString()}': ${(error as Error).message}`, result);
 }
