@@ -117,8 +117,9 @@ export async function startWorkbench(
         for (const file of explicitFiles) workbench.openFile(file.path);
         // `--goto`: каретка в указанную позицию последнего открытого файла —
         // он же активный. Координаты CLI 1-based, редактора — 0-based.
-        const last = explicitFiles.at(-1);
-        if (last?.line !== undefined) {
+        const last = explicitFiles[explicitFiles.length - 1];
+        if (last.line !== undefined) {
+            // Stryker disable next-line OptionalChaining: openFile всегда делает открытую вкладку активной (отсутствующий файл — пустой буфер), null тут недостижим; `?.` — страховка типа
             accessor
                 .get(EditorServiceDIToken)
                 .getActiveEditor()

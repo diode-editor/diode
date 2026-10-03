@@ -1,18 +1,23 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { createAppTestHarness } from "../../TestUtils/AppTestHarness.ts";
 import type { ITempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { createTempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../TestUtils/TestApp.ts";
 import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../base/common/performance.ts";
 import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
+import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
+import type { IStateService } from "../platform/state/common/iStateService.ts";
+import { loadState } from "../platform/state/node/stateService.ts";
 import { computeThemeVars } from "../platform/theme/browser/themeStyleVars.ts";
 import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { DiffEditorPane2 } from "../workbench/browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../workbench/browser/parts/editor/textEditorPane.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
+import { StateServiceDIToken } from "../workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
@@ -43,15 +48,19 @@ interface IStartup {
     readonly preloaded: (readonly string[])[];
     /** Отложенный «после первого кадра» колбэк — тест зовёт его сам. */
     firstFrame(): void;
+    /** Приложение, поднятое в `host.run()`. */
+    testApp(): TestApp | undefined;
     run(targets: IStartupTargets, extensions?: readonly IExtension[]): Promise<void>;
 }
 
 /** Тестовый контейнер + хост, который записывает, в каком порядке его дёргают. */
-function setup(): IStartup {
+function setup(stateService?: IStateService): IStartup {
     const { container, bindApp } = createTestContainer();
+    if (stateService !== undefined) container.bind(StateServiceDIToken, () => stateService);
     const log: string[] = [];
     const preloaded: (readonly string[])[] = [];
     let deferred: (() => void) | undefined;
+    let testApp: TestApp | undefined;
     const lifecycle = container.get(LifecycleServiceDIToken);
     lifecycle.onDidChangePhase((phase) => log.push(`phase:${phase}`));
     const host: IWorkbenchStartupHost = {
@@ -60,7 +69,8 @@ function setup(): IStartup {
             log.push("run");
             const workbench = container.get(WorkbenchComponentDIToken);
             const theme = container.get(ThemeServiceDIToken).theme;
-            bindApp(TestApp.create(workbench.view, new Size(80, 24), computeThemeVars(theme)).app);
+            testApp = TestApp.create(workbench.view, new Size(80, 24), computeThemeVars(theme));
+            bindApp(testApp.app);
         },
         afterMounted: () => {
             log.push("afterMounted");
@@ -85,6 +95,7 @@ function setup(): IStartup {
         log,
         preloaded,
         firstFrame: () => deferred?.(),
+        testApp: () => testApp,
         run: (targets, extensions = []) => startWorkbench(container, { targets, extensions }, host),
     };
 }
@@ -222,6 +233,86 @@ describe("startWorkbench", () => {
 
         const active = startup.container.get(EditorServiceDIToken).getActiveEditor();
         expect([active?.primaryCursorLine, active?.primaryCursorColumn]).toEqual([2, 0]);
+    });
+
+    describe("сохранённая сессия", () => {
+        let userData: ITempWorkspace;
+
+        beforeEach(() => {
+            userData = createTempWorkspace({ prefix: "diode-startup-userdata-" });
+        });
+
+        afterEach(() => {
+            userData.dispose();
+        });
+
+        function newState(): IStateService {
+            return loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        }
+
+        /** Прошлый запуск: в окне (с папкой или без) были открыты эти файлы. */
+        function seedSession(folder: string | undefined, files: readonly string[]): void {
+            const state = newState();
+            const h = createAppTestHarness({ workspaceFolder: folder, stateService: state });
+            for (const file of files) h.workbench.openFile(file);
+            state.flushSync();
+            h.dispose();
+        }
+
+        function openPaths(startup: IStartup): string[] {
+            return startup.container
+                .get(EditorServiceDIToken)
+                .getPanes()
+                .map((p) => (p as TextEditorPane).uri.fsPath);
+        }
+
+        it("папка без файлов: файлы сессии греются до открытия и восстанавливаются", async () => {
+            const a = ws.path("a.ts");
+            const b = ws.path("b.ts");
+            seedSession(ws.dir, [a, b]);
+            const startup = setup(newState());
+
+            await startup.run({ ...NO_TARGETS, folder: ws.dir });
+
+            expect(startup.preloaded).toEqual([[a, b]]);
+            expect(openPaths(startup)).toEqual([a, b]);
+            // Окно поднимается с фокусом в редакторе — печатать можно сразу.
+            expect(startup.testApp()?.focusedElement?.constructor.name).toBe("EditorElement");
+        });
+
+        it("явные файлы перебивают сессию", async () => {
+            const a = ws.path("a.ts");
+            const b = ws.path("b.ts");
+            seedSession(ws.dir, [a]);
+            const startup = setup(newState());
+
+            await startup.run({ ...NO_TARGETS, folder: ws.dir, files: [{ path: b }] });
+
+            expect(startup.preloaded).toEqual([[b]]);
+            expect(openPaths(startup)).toEqual([b]);
+        });
+
+        it("дифф перебивает сессию", async () => {
+            const a = ws.path("a.ts");
+            const b = ws.path("b.ts");
+            seedSession(ws.dir, [a]);
+            const startup = setup(newState());
+
+            await startup.run({ ...NO_TARGETS, folder: ws.dir, diff: { original: a, modified: b } });
+
+            expect(startup.preloaded).toEqual([[a, b]]);
+            expect(startup.container.get(EditorServiceDIToken).getPanes()).toHaveLength(1);
+        });
+
+        it("у пустого окна сессии нет, даже если прошлое пустое окно что-то открывало", async () => {
+            seedSession(undefined, [ws.path("a.ts")]);
+            const startup = setup(newState());
+
+            await startup.run(NO_TARGETS);
+
+            expect(startup.preloaded).toEqual([[]]);
+            expect(openPaths(startup)).toEqual([]);
+        });
     });
 
     it("дифф открывается командой vscode.diff, греются обе стороны", async () => {
