@@ -441,6 +441,34 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(host.hasExtension("ext.fast")).toBe(true);
     });
 
+    it("упавший activate() одного — в лог с id, сосед по событию активирован", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
+        host.registerExtension(makeReg("ext.bad", "/bad.js"));
+        host.registerExtension(makeReg("ext.good", "/good.js"));
+        child.autoRespond = false;
+
+        const activation = host.activateByEvent("*");
+        await waitUntil(
+            () => child.sent.filter((m) => m.kind === "req" && m.method === "host.activateExtension").length === 2,
+        );
+        for (const req of child.sent) {
+            if (req.kind !== "req" || req.method !== "host.activateExtension") continue;
+            const id = (req.params as { id: string }).id;
+            child.receiveFromHostPeer(
+                id === "ext.bad"
+                    ? { kind: "res", id: req.id, error: { message: "boom" } }
+                    : { kind: "res", id: req.id, result: null },
+            );
+        }
+        await activation;
+
+        expect(host.hasExtension("ext.bad")).toBe(false);
+        expect(host.hasExtension("ext.good")).toBe(true);
+        expect(logger.error).toHaveBeenCalledWith('failed to activate extension "ext.bad"', expect.anything());
+    });
+
     it("disposeNow без поднятого субпроцесса просто гасит host", () => {
         const host = spawnReadyHost(new FakeChild(), new FakeEditorOptions());
 

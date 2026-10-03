@@ -54,6 +54,7 @@ class FakeHost implements IExtensionActivationHost {
 
     public activateByWorkspaceContains(): Promise<void> {
         this.log.push("workspaceContains");
+        if (this.failOn === "workspaceContains") return Promise.reject(new Error("scan failed"));
         return Promise.resolve();
     }
 }
@@ -205,6 +206,21 @@ describe("ExtensionService", () => {
         await service.activateByEvent("onLanguage:rust");
         expect(host.log.at(-1)).toBe("onLanguage:rust");
     });
+
+    it.each(["workspaceContains", "onStartupFinished"])(
+        "сбой host'а на %s — в лог с этим событием, старт доходит до конца",
+        async (event) => {
+            const host = new FakeHost();
+            host.failOn = event;
+            const logger = recordingLogger();
+            const service = new ExtensionService(host, [], ENV, logger);
+
+            await service.start();
+
+            expect(logger.errors).toEqual([`extension host activation failed (${event})`]);
+            expect(host.log).toEqual(["*", "workspaceContains", "onStartupFinished"]);
+        },
+    );
 
     it("повисший * не держит onStartupFinished дольше тайм-аута", async () => {
         const host = new FakeHost();
