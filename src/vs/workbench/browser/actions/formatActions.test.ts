@@ -27,6 +27,8 @@ interface ISetup {
     requests: IFormattingRequest[];
     selections(): readonly ISelectionLike[];
     setText(next: string): void;
+    /** Сколько подписок на правку документа висит сейчас. */
+    contentListenerCount(): number;
     dropActiveEditor(): void;
     swapActiveEditor(): void;
 }
@@ -38,10 +40,16 @@ function makeSetup(
     let text = "const  a=1;\nsecond line\nthird";
     const applied: { edits: readonly ITextEdit[]; label: string }[] = [];
     const requests: IFormattingRequest[] = [];
+    // Правка документа — событие модели: по нему action узнаёт, что ответ устарел.
+    const contentListeners = new Set<() => void>();
     const editor = {
         uri: Uri.file("/proj/a.py"),
         languageId: "python",
         getText: () => text,
+        onDidChangeContent: (listener: () => void) => {
+            contentListeners.add(listener);
+            return { dispose: () => contentListeners.delete(listener) };
+        },
         viewState: {
             tabSize: 2,
             insertSpaces: true,
@@ -84,7 +92,9 @@ function makeSetup(
         selections: () => editor.viewState.selections,
         setText: (next) => {
             text = next;
+            for (const listener of [...contentListeners]) listener();
         },
+        contentListenerCount: () => contentListeners.size,
         dropActiveEditor: () => {
             active = null;
         },
@@ -111,6 +121,8 @@ describe("editor.action.formatDocument", () => {
         await formatDocumentAction.run(setup.accessor);
         expect(setup.applied).toEqual([{ edits: [EDIT], label: "Format Document" }]);
         expect(setup.notices).toEqual([]);
+        // Слежка за правками на время запроса снята вместе с ответом.
+        expect(setup.contentListenerCount()).toBe(0);
         // После применения — ОДНА каретка на прежнем месте, а не по каретке на
         // каждую правку (мультикурсорная семантика applyEdits форматтеру чужая).
         expect(setup.selections()).toEqual([createSelection(0, 7, 0, 7)]);

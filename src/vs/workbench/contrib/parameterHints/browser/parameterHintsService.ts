@@ -1,3 +1,4 @@
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
@@ -42,7 +43,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
     public triggerDelayMs = 120;
 
     /** Guard от устаревших ответов: пока ходили за подсказкой, запрос мог смениться. */
-    private requestSeq = 0;
+    private readonly latest = new LatestRequest();
     private caretSub: IDisposable | null = null;
     private contentSub: IDisposable | null = null;
     // Затравки полей ниже перетираются ещё в конструкторе (`bindEditor` зовёт
@@ -108,8 +109,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         if (source === undefined) return;
 
         const caret = editor.viewState.selections[0].active;
-        // Stryker disable next-line UpdateOperator: сравнение идёт на равенство, поэтому направление счётчика роли не играет — важно лишь, что каждый запрос берёт свежее значение
-        const seq = ++this.requestSeq;
+        const ticket = this.latest.start();
         const isRetrigger = this.isOpen();
         const help = await source({
             uri: editor.uri.toString(),
@@ -129,7 +129,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         });
         // Пока ходили за ответом, попап могли закрыть или перезапросить — старый
         // ответ не имеет права перекрыть новое состояние.
-        if (seq !== this.requestSeq) return;
+        if (ticket.isStale()) return;
         if (help === null) {
             this.close();
             return;
@@ -177,9 +177,8 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         this.component.setHint(null);
         this.currentHelp = null;
         this.activeSignatureIndex = 0;
-        // Ответ «в полёте» больше не нужен: его seq устареет и будет отброшен.
-        // Stryker disable next-line UpdateOperator: сдвиг счётчика в любую сторону делает «летящий» seq неравным — направление роли не играет
-        this.requestSeq++;
+        // Ответ «в полёте» больше не нужен: его билет устареет и ответ будет отброшен.
+        this.latest.cancel();
     }
 
     private stepSignature(delta: 1 | -1): void {

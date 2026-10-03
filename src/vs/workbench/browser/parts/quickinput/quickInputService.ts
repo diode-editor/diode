@@ -1,3 +1,4 @@
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { QuickPickItem, ValidationSeverity } from "../../../common/quickPickItem.ts";
 
@@ -132,12 +133,12 @@ export class QuickInputService {
 
             const validate = opts.validateInput;
             /**
-             * Порядковый номер запроса валидации. Асинхронная валидация — это
-             * гонка: пока расширение думает над `ab`, пользователь дописал до
-             * `abcde`, и ответ про `ab` пришёл бы последним. Применяем только
-             * ответ на САМЫЙ СВЕЖИЙ запрос этой сессии.
+             * Последний запрос валидации. Асинхронная валидация — это гонка:
+             * пока расширение думает над `ab`, пользователь дописал до `abcde`,
+             * и ответ про `ab` пришёл бы последним. Применяем только ответ на
+             * САМЫЙ СВЕЖИЙ запрос этой сессии.
              */
-            let validationSeq = 0;
+            const validation = new LatestRequest();
             const showValidation = (outcome: InputValidation | null): void => {
                 if (outcome === null) {
                     view.validationMessage = null;
@@ -156,8 +157,7 @@ export class QuickInputService {
                     showValidation(null);
                     return;
                 }
-                // Stryker disable next-line UpdateOperator: номер нужен только чтобы отличать запросы друг от друга — декремент даёт ровно ту же последовательность различных значений
-                const seq = ++validationSeq;
+                const ticket = validation.start();
                 const outcome = validate(query);
                 if (!isThenable(outcome)) {
                     showValidation(outcome);
@@ -166,7 +166,7 @@ export class QuickInputService {
                 void outcome.then((result) => {
                     // Ответ устарел либо сессию уже перехватили — молча гасим:
                     // иначе под полем висело бы сообщение о чужом тексте.
-                    if (seq !== validationSeq || this.pendingResolve !== owner) return;
+                    if (ticket.isStale() || this.pendingResolve !== owner) return;
                     showValidation(result);
                 });
             };

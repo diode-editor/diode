@@ -819,6 +819,29 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
+    it("ответ, пришедший после закрытия, попап не поднимает", async () => {
+        const fake = makeEditor("ind", 3, "ind");
+        let resolveSlow: ((value: ICoreCompletionResult) => void) | null = null;
+        const source = vi.fn<() => Promise<ICoreCompletionResult>>(
+            () =>
+                new Promise<ICoreCompletionResult>((res) => {
+                    resolveSlow = res;
+                }),
+        );
+        const { service, component } = createService(makeGroup(fake.editor, source));
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+
+        const pending = service.trigger();
+        // Запрос в полёте, попап ещё не открыт — закрытие гасит именно запрос.
+        service.close();
+        resolveSlow!(completionResult(ITEMS));
+        await pending;
+
+        expect(service.isOpen()).toBe(false);
+    });
+
     it("accept вставляет элемент, заменяя префикс, и исполняет item.command через CommandRegistry", async () => {
         const { service, fake, execute } = setup(ITEMS);
         await service.trigger();
