@@ -105,7 +105,9 @@ export class ViewWelcomeElement extends TUIElement {
         const rows = this.rowsFor(width);
         for (const [y, row] of rows.entries()) {
             if (row.kind !== "text") continue;
-            context.drawText(LEFT_PADDING, y, row.text, { fg, bg }, { maxWidth: width });
+            // Без `maxWidth`: строки уже перенесены ровно под эту ширину, а всё,
+            // что вылезло бы за секцию, обрежет клип её прямоугольника.
+            context.drawText(LEFT_PADDING, y, row.text, { fg, bg });
         }
     }
 
