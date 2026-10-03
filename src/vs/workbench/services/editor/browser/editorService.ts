@@ -441,7 +441,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.fileWatcher = fileWatcher;
         this.contextMenuController = contextMenuController;
         this.languageConfigurationService = languageConfigurationService;
-        this.logger = logService.createLogger("workbench.editorGroups");
+        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
+        this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
         this.closeHandler = new EditorCloseHandler(dialogService, {
             surfaces: () => [...this.textPanes(), ...this.diffSidePanes()],
         });

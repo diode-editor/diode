@@ -148,7 +148,8 @@ export class KeybindingDispatcher extends Disposable {
         this.statusBarService = statusBarService;
         this.armory = armory;
         this.terminalEnv = terminalEnv;
-        this.logger = logService.createLogger("input.keybindings");
+        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
+        this.logger = logService.createLogger("input.keybindings", { label: "Keybindings" });
         this.register({
             dispose: () => {
                 this.clearChordTimeout();

@@ -51,8 +51,8 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         logService: ILogService,
     ) {
         super();
-        // Stryker disable next-line StringLiteral: имя канала логгера — диагностика, не поведение.
-        this.logger = logService.createLogger("keybindings.editor");
+        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала логгера и его метка в Output — диагностика, не поведение.
+        this.logger = logService.createLogger("keybindings.editor", { label: "Keyboard Shortcuts Editor" });
     }
 
     public hasUserModifications(commandId: string): boolean {

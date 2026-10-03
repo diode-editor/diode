@@ -2,7 +2,9 @@ import { EventEmitter } from "node:events";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { IFileWatcherDIToken } from "../../platform/files/common/iFileWatcherDIToken.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
+import { ChokidarFileWatcher } from "../../platform/files/node/chokidarFileWatcher.ts";
 import { SubprocessTreeWatcherDIToken } from "../../platform/files/node/subprocessTreeWatcher.ts";
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import type { LogEntry } from "../../platform/log/common/iLogService.ts";
@@ -54,7 +56,7 @@ afterEach(() => {
  * редактора), и прощание (`LifecycleService.shutdown`) снимает именно его.
  */
 describe("fileWatcherModule", () => {
-    function setup(): { container: Container; entries: LogEntry[]; child: FakeChild } {
+    function setup(): { container: Container; entries: LogEntry[]; child: FakeChild; logService: LogService } {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const logService = new LogService();
@@ -65,7 +67,7 @@ describe("fileWatcherModule", () => {
             .bind(ILogServiceDIToken, () => logService)
             .bind(LifecycleServiceDIToken, () => new LifecycleService(new DialogService()))
             .use(fileWatcherModule);
-        return { container, entries, child };
+        return { container, entries, child, logService };
     }
 
     it("запрос на слежение уходит в отдельный процесс, а не поднимает обход здесь", () => {
@@ -80,6 +82,21 @@ describe("fileWatcherModule", () => {
         expect(child.sent).toEqual([
             { t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: ["**/node_modules"] } },
         ]);
+    });
+
+    it("пофайловый watcher — chokidar в этом процессе, его канал подписан для Output", () => {
+        const { container, logService } = setup();
+
+        expect(container.get(IFileWatcherDIToken)).toBeInstanceOf(ChokidarFileWatcher);
+        expect(logService.getRegisteredChannels()).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
+    });
+
+    it("канал watcher-процесса подписан для Output и без пофайлового watcher'а", () => {
+        const { container, logService } = setup();
+
+        container.get(SubprocessTreeWatcherDIToken);
+
+        expect(logService.getRegisteredChannels()).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
     });
 
     it("оба токена дают один объект", () => {

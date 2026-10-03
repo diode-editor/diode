@@ -51,8 +51,8 @@ describe("Workbench — Output panel", () => {
         logService = new LogService();
         const history = new RingBufferSink();
         logService.addSink(history);
-        logService.createLogger("bootstrap").info("diode starting");
-        logService.createLogger("configuration").warn("settings.json is empty");
+        logService.createLogger("bootstrap", { label: "Bootstrap" }).info("diode starting");
+        logService.createLogger("configuration", { label: "Configuration" }).warn("settings.json is empty");
 
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -210,8 +210,8 @@ describe("Workbench — Output: селектор канала", () => {
         const logService = new LogService();
         const history = new RingBufferSink();
         logService.addSink(history);
-        logService.createLogger("bootstrap").info("diode starting");
-        logService.createLogger("configuration").warn("empty settings");
+        logService.createLogger("bootstrap", { label: "Bootstrap" }).info("diode starting");
+        logService.createLogger("configuration", { label: "Configuration" }).warn("empty settings");
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
             size: new Size(120, 32),
@@ -250,7 +250,10 @@ describe("Workbench — Output: селектор канала", () => {
 
     it("канал зарегистрирован как команда — её видно и в палитре", () => {
         // Пункты селектора — это команды `workbench.action.output.show.<id>`,
-        // как в VS Code; поэтому канал доступен и с клавиатуры.
+        // как в VS Code; поэтому канал доступен и с клавиатуры. Канал заводится
+        // уже после подъёма панели (хост расширений стартует позже) — метка
+        // создателя доезжает и до селектора, и до палитры.
+        h.container.get(ILogServiceDIToken).createLogger("extensions.host", { label: "Extension Host" });
         const titles = h.commands.listCommands().map((c) => c.title);
         expect(titles).toContain("Output: Show Extension Host");
     });
@@ -354,8 +357,8 @@ describe("Workbench — Output: регрессии", () => {
         logService = new LogService();
         history = new RingBufferSink();
         logService.addSink(history);
-        logService.createLogger("bootstrap").info("diode starting");
-        logService.createLogger("configuration").warn("empty settings");
+        logService.createLogger("bootstrap", { label: "Bootstrap" }).info("diode starting");
+        logService.createLogger("configuration", { label: "Configuration" }).warn("empty settings");
         h = boot(newState());
     });
 
@@ -576,12 +579,19 @@ describe("Workbench — Output: потребители, которым нужн�
 
 describe("Workbench — Output: пустые каналы", () => {
     it("канал без записей открывается пустым редактором, а не падением", () => {
-        // Реестр пред-заполнен известными каналами, поэтому активный канал есть
-        // всегда — даже когда в него ещё ничего не написали (профиль тестов даёт
-        // NULL_LOG_SERVICE). Это и есть поведение VS Code: вкладка открыта, канал
+        // Канал с меткой виден с момента создания логгера — даже когда в него ещё
+        // ничего не написали. Это и есть поведение VS Code: вкладка открыта, канал
         // выбран, содержимое пустое.
         const ws = createTempWorkspace({ prefix: "diode-output-empty-" });
-        const h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(120, 32) });
+        const logService = new LogService();
+        logService.createLogger("bootstrap", { label: "Bootstrap" });
+        const h = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            size: new Size(120, 32),
+            containerOverrides: (container) => {
+                container.bind(ILogServiceDIToken, () => logService);
+            },
+        });
 
         h.commands.execute(TOGGLE_OUTPUT);
 
@@ -594,8 +604,8 @@ describe("Workbench — Output: пустые каналы", () => {
 
     it("с пустым реестром вкладка показывает placeholder", () => {
         // Ветка «активного канала нет вовсе»: в приложении недостижима, потому что
-        // реестр заполняется в DI-модуле, но контракт компонента обязан её держать —
-        // иначе пустой реестр давал бы редактор без канала.
+        // bootstrap заводит каналы с метками до подъёма UI, но контракт компонента
+        // обязан её держать — иначе пустой реестр давал бы редактор без канала.
         const ws = createTempWorkspace({ prefix: "diode-output-noreg-" });
         const h = createAppTestHarness({
             workspaceFolder: ws.dir,
