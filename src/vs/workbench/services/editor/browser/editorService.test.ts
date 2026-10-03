@@ -87,9 +87,6 @@ describe("EditorService", () => {
             // Провайдеров подключает host/харнесс; до этого ядро не должно
             // считать какой-либо символ триггером — иначе попапы полезли бы
             // сами по себе в запуске без расширений.
-            expect(ctrl.signatureHelpSource).toBeUndefined();
-            expect(ctrl.signatureHelpTriggerCharacters).toEqual([]);
-            expect(ctrl.signatureHelpRetriggerCharacters).toEqual([]);
             expect(ctrl.completionTriggerCharacters).toEqual([]);
         });
     });

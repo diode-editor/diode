@@ -30,6 +30,7 @@ import {
 import type {
     IWireCodeActionParams,
     IWireFormattingParams,
+    IWireLanguageProviderMetadata,
     IWireSignatureHelpParams,
     WireCodeAction,
     WireCompletionItem,
@@ -706,7 +707,6 @@ export function createLanguagesNamespace(
     registrations: readonly ICompletionRegistration[];
     inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
-    signatureHelpRegistrations: readonly ISignatureHelpRegistration[];
     formattingRegistrations: readonly IFormattingRegistration[];
     rangeFormattingRegistrations: readonly IRangeFormattingRegistration[];
     codeActionRegistrations: readonly ICodeActionRegistration[];
@@ -720,6 +720,7 @@ export function createLanguagesNamespace(
     const hoverProviders = new Map<number, IHoverRegistration>();
     const definitionProviders = new Map<number, IDefinitionRegistration>();
     const referenceProviders = new Map<number, IReferenceRegistration>();
+    const signatureHelpProviders = new Map<number, ISignatureHelpRegistration>();
     let nextProviderHandle = 0;
 
     /**
@@ -733,15 +734,15 @@ export function createLanguagesNamespace(
         kind: WireLanguageFeatureKind,
         selector: vscode.DocumentSelector,
         registration: T,
+        metadata: IWireLanguageProviderMetadata = {},
     ): vscode.Disposable {
         const handle = nextProviderHandle++;
         providers.set(handle, registration);
-        rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector) });
+        rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector), ...metadata });
         return new DisposableImpl(() => {
             if (providers.delete(handle)) rpc.notify("languages.unregister", { handle });
         }) as unknown as vscode.Disposable;
     }
-    const signatureHelpRegistrations: ISignatureHelpRegistration[] = [];
     const formattingRegistrations: IFormattingRegistration[] = [];
     const rangeFormattingRegistrations: IRangeFormattingRegistration[] = [];
     const codeActionRegistrations: ICodeActionRegistration[] = [];
@@ -807,12 +808,6 @@ export function createLanguagesNamespace(
         for (const reg of registrations) {
             for (const char of reg.triggerCharacters) triggerCharacters.add(char);
         }
-        const signatureTriggers = new Set<string>();
-        const signatureRetriggers = new Set<string>();
-        for (const reg of signatureHelpRegistrations) {
-            for (const char of reg.triggerCharacters) signatureTriggers.add(char);
-            for (const char of reg.retriggerCharacters) signatureRetriggers.add(char);
-        }
         rpc.notify("languages.updateSubscriptions", {
             hasCompletionProviders: registrations.length > 0,
             hasFoldingProviders: foldingRegistrations.length > 0,
@@ -821,12 +816,6 @@ export function createLanguagesNamespace(
             // клиент передаёт их в registerCompletionItemProvider — до этой
             // задачи мы их хранили и не читали.
             completionTriggerCharacters: [...triggerCharacters],
-            hasSignatureHelpProviders: signatureHelpRegistrations.length > 0,
-            // Символы, после которых ядро само открывает подсказку («(», «,»,
-            // «<» у tsserver), и ретриггеры («)») — они перезапрашивают
-            // подсказку, только пока она показана.
-            signatureHelpTriggerCharacters: [...signatureTriggers],
-            signatureHelpRetriggerCharacters: [...signatureRetriggers],
             // Один флаг на оба вида форматирования: какой именно провайдер
             // матчит документ, решает handler по запросу (`null` = «нет
             // форматтера» для этого документа/вида).
@@ -904,6 +893,9 @@ export function createLanguagesNamespace(
         // Всё, кроме `uri`, читаем как необязательное: по RPC приезжает что
         // прислали, и дефолты ниже — не украшение, а обработка недоехавшего поля.
         const p = params as Pick<IWireSignatureHelpParams, "uri"> & Partial<IWireSignatureHelpParams>;
+        // Провайдер мог сняться, пока запрос летел: отвечаем «подсказки нет».
+        const reg = signatureHelpProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
@@ -917,32 +909,21 @@ export function createLanguagesNamespace(
             isRetrigger: p.isRetrigger === true,
             activeSignatureHelp: p.activeSignatureHelp,
         };
-        const token = neverCancelledToken();
-
-        // В отличие от hover/references результаты НЕ склеиваются: vscode API
-        // предписывает спрашивать провайдеров по очереди до первого валидного
-        // ответа (у подсказки один активный параметр — склеивать нечего).
-        for (const reg of signatureHelpRegistrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
-            let result: unknown;
-            try {
-                result = await Promise.resolve(
-                    reg.provider.provideSignatureHelp(
-                        doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
-                        token,
-                        context as unknown as vscode.SignatureHelpContext,
-                    ),
-                );
-            } catch {
-                // Сбойный провайдер не роняет остальные: `result` остаётся
-                // неприсвоенным, и его отсеивает сериализация ниже — своего
-                // `continue` тут нет намеренно, иначе ветка неотличима от неё.
-            }
-            const help = serializeSignatureHelp(result);
-            if (help !== null) return help;
+        let result: unknown;
+        try {
+            result = await Promise.resolve(
+                reg.provider.provideSignatureHelp(
+                    doc as unknown as vscode.TextDocument,
+                    position as unknown as vscode.Position,
+                    neverCancelledToken(),
+                    context as unknown as vscode.SignatureHelpContext,
+                ),
+            );
+        } catch {
+            // Сбойный провайдер = «подсказки нет»: `result` остаётся
+            // неприсвоенным, и его отсеивает сериализация ниже.
         }
-        return null;
+        return serializeSignatureHelp(result);
     });
 
     rpc.handleRequest("languages.provideReferences", async (params): Promise<WireReference[]> => {
@@ -1562,21 +1543,13 @@ export function createLanguagesNamespace(
             ...rest: (string | vscode.SignatureHelpProviderMetadata)[]
         ): vscode.Disposable => {
             const registration: ISignatureHelpRegistration = { selector, provider, ...readSignatureHelpMetadata(rest) };
-            signatureHelpRegistrations.push(registration);
-            // Как у completion, сигналим не только на переходе 0↔1: у второго
-            // провайдера могут быть свои триггер-символы.
-            if (signatureHelpRegistrations.length === 1 || registration.triggerCharacters.length > 0) {
-                pushSubscriptions();
-            }
-            return new DisposableImpl(() => {
-                const idx = signatureHelpRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    signatureHelpRegistrations.splice(idx, 1);
-                    if (signatureHelpRegistrations.length === 0 || registration.triggerCharacters.length > 0) {
-                        pushSubscriptions();
-                    }
-                }
-            }) as unknown as vscode.Disposable;
+            // Символы, после которых ядро само открывает подсказку («(», «,»,
+            // «<» у tsserver), и ретриггеры («)») едут метаданными регистрации:
+            // ядро берёт их только у провайдеров, подошедших документу.
+            return registerByHandle(signatureHelpProviders, "signatureHelp", selector, registration, {
+                triggerCharacters: registration.triggerCharacters,
+                retriggerCharacters: registration.retriggerCharacters,
+            });
         },
 
         registerDocumentFormattingEditProvider: (
@@ -1676,7 +1649,6 @@ export function createLanguagesNamespace(
         registrations,
         inlineCompletionRegistrations,
         foldingRegistrations,
-        signatureHelpRegistrations,
         formattingRegistrations,
         rangeFormattingRegistrations,
         codeActionRegistrations,

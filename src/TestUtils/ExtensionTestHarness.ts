@@ -11,6 +11,7 @@ import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iH
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import type { ICoreReference, IReferenceRequest } from "../vs/editor/common/languages/iReferenceSource.ts";
+import type { ICoreSignatureHelp, ISignatureHelpRequest } from "../vs/editor/common/languages/iSignatureHelpSource.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
 import type { ILanguageFeaturesService } from "../vs/editor/common/services/languageFeatures.ts";
@@ -37,6 +38,7 @@ import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEd
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/node/workspaceEditService.ts";
 import { getDefinitions } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
+import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
 import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import {
@@ -351,8 +353,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     host.onDidChangeTextContent((uri) => {
         group.refreshVirtualDocument(uri);
     });
-    // Signature help (LSP): источник подсказки параметров — как в extensionHostModule.
-    group.signatureHelpSource = (req) => host.provideSignatureHelp(req);
     // Formatting (LSP): источник правок форматирования — как в extensionHostModule.
     group.formattingSource = (req) => host.provideFormattingEdits(req);
     // Code actions (LSP): источник действий — как в extensionHostModule.
@@ -360,12 +360,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         provide: (req) => host.provideCodeActions(req),
         apply: (id) => host.applyCodeAction(id),
     };
-    group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
-    group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
-    host.onSignatureHelpTriggerCharactersChanged(() => {
-        group.signatureHelpTriggerCharacters = host.signatureHelpTriggerCharacters;
-        group.signatureHelpRetriggerCharacters = host.signatureHelpRetriggerCharacters;
-    });
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
     group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
     host.onFoldingProvidersChanged(() => {
@@ -440,6 +434,30 @@ export function provideDefinitions(
 /** Ссылки так, как их собирает `ReferencesService` (реестр харнесса). */
 export function provideReferences(harness: IExtensionHarness, request: IReferenceRequest): Promise<ICoreReference[]> {
     return getReferences(harness.languageFeatures.referenceProvider, targetOf(request), request);
+}
+
+/** Подсказка параметров так, как её собирает `ParameterHintsService` (реестр харнесса). */
+export function provideSignatureHelp(
+    harness: IExtensionHarness,
+    request: ISignatureHelpRequest,
+): Promise<ICoreSignatureHelp | null> {
+    return provideSignatureHelpFrom(harness.languageFeatures.signatureHelpProvider.ordered(targetOf(request)), request);
+}
+
+/**
+ * Триггер- и ретриггер-символы подсказки параметров для документа — то, что
+ * `ParameterHintsService` видит у подошедших провайдеров (объединение, без
+ * повторов, в порядке `ordered`).
+ */
+export function signatureHelpCharacters(
+    harness: IExtensionHarness,
+    document: { readonly uri: string; readonly languageId: string },
+): { triggerCharacters: string[]; retriggerCharacters: string[] } {
+    const providers = harness.languageFeatures.signatureHelpProvider.ordered(targetOf(document));
+    return {
+        triggerCharacters: [...new Set(providers.flatMap((provider) => provider.triggerCharacters))],
+        retriggerCharacters: [...new Set(providers.flatMap((provider) => provider.retriggerCharacters))],
+    };
 }
 
 /** Документ запроса как цель скоринга реестра. */

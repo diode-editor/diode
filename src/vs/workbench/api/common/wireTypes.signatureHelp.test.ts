@@ -5,6 +5,7 @@ import { SignatureHelpTriggerKind } from "../../../editor/common/languages/iSign
 import { type IWireSignatureHelpParams, parseWireSignatureHelp, requestSignatureHelp } from "./wireTypes.ts";
 
 const PARAMS: IWireSignatureHelpParams = {
+    handle: 0,
     uri: "file:///a.ts",
     languageId: "typescript",
     text: "greet(\n",

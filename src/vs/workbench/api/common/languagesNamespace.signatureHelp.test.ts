@@ -25,6 +25,7 @@ const URI = "file:///proj/main.ts";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
+        handle: 0,
         uri: URI,
         languageId: "typescript",
         text: "greet(\n",
@@ -50,60 +51,48 @@ function help(label: string, parameterLabel: string | [number, number] = "name: 
 
 describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
     const provider = { provideSignatureHelp: () => null };
+    const registrations = (stub: { notifies: { method: string; params: unknown }[] }): unknown[] =>
+        stub.notifies.filter((n) => n.method === "languages.register").map((n) => n.params);
 
-    it("подписка сигналится на переходах 0↔1 (hasSignatureHelpProviders)", () => {
+    it("регистрация объявляется ядру с handle, селектором и символами; dispose — снимает один раз", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const subs = (): typeof stub.notifies =>
-            stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
 
-        const first = languages.registerSignatureHelpProvider({ language: "typescript" }, provider);
-        expect(subs()).toHaveLength(1);
-        expect(subs()[0].params).toMatchObject({ hasSignatureHelpProviders: true });
+        const registration = languages.registerSignatureHelpProvider({ language: "typescript" }, provider);
+        expect(registrations(stub)).toEqual([
+            {
+                handle: 0,
+                kind: "signatureHelp",
+                selector: [{ language: "typescript" }],
+                triggerCharacters: [],
+                retriggerCharacters: [],
+            },
+        ]);
 
-        // Второй провайдер БЕЗ своих символов ничего не меняет — молчим.
-        const second = languages.registerSignatureHelpProvider({ language: "typescript" }, provider);
-        expect(subs()).toHaveLength(1);
-
-        second.dispose();
-        expect(subs()).toHaveLength(1);
-        first.dispose();
-        expect(subs()).toHaveLength(2);
-        expect(subs()[1].params).toMatchObject({
-            hasSignatureHelpProviders: false,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
-            hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
-        });
+        registration.dispose();
+        registration.dispose();
+        expect(stub.notifies.filter((n) => n.method === "languages.unregister")).toEqual([
+            { method: "languages.unregister", params: { handle: 0 } },
+        ]);
     });
 
-    it("метаданные сервера (обе перегрузки) доезжают до ядра", () => {
+    it("метаданные сервера (обе перегрузки) едут с регистрацией своего провайдера", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const last = (): Record<string, unknown> =>
-            stub.notifies.filter((n) => n.method === "languages.updateSubscriptions").at(-1)?.params as Record<
-                string,
-                unknown
-            >;
 
         // Форма клиента при `retriggerCharacters` в capability сервера.
         languages.registerSignatureHelpProvider({ language: "typescript" }, provider, {
             triggerCharacters: ["(", ",", "<"],
             retriggerCharacters: [")"],
         });
-        expect(last()).toMatchObject({
-            signatureHelpTriggerCharacters: ["(", ",", "<"],
-            signatureHelpRetriggerCharacters: [")"],
-        });
-
-        // Вторая перегрузка — rest-строками; символы объединяются по регистрациям.
+        // Вторая перегрузка — rest-строками; символы НЕ объединяются по
+        // регистрациям: у каждого провайдера свои.
         languages.registerSignatureHelpProvider({ language: "python" }, provider, "(", "[");
-        expect(last()).toMatchObject({
-            signatureHelpTriggerCharacters: ["(", ",", "<", "["],
-            signatureHelpRetriggerCharacters: [")"],
-        });
+
+        expect(registrations(stub)).toMatchObject([
+            { handle: 0, triggerCharacters: ["(", ",", "<"], retriggerCharacters: [")"] },
+            { handle: 1, triggerCharacters: ["(", "["], retriggerCharacters: [] },
+        ]);
     });
 
     it("мусор вместо метаданных не роняет регистрацию", () => {
@@ -115,37 +104,16 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
             retriggerCharacters: [")", 7 as unknown as string],
         });
 
-        expect(stub.notifies.at(-1)?.params).toMatchObject({
-            hasSignatureHelpProviders: true,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
-            hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [")"],
-        });
+        expect(registrations(stub)).toMatchObject([{ triggerCharacters: [], retriggerCharacters: [")"] }]);
     });
 
-    it("повторный dispose идемпотентен — лишней нотификации нет", () => {
+    it("updateSubscriptions подсказку параметров больше не несёт", () => {
         const { ctx, stub } = makeCtx();
-        const { languages, signatureHelpRegistrations } = createLanguagesNamespace(ctx);
-        const subs = (): number => stub.notifies.filter((n) => n.method === "languages.updateSubscriptions").length;
+        const { languages } = createLanguagesNamespace(ctx);
 
-        const registration = languages.registerSignatureHelpProvider({ language: "typescript" }, provider);
-        registration.dispose();
-        expect(signatureHelpRegistrations).toHaveLength(0);
-        const after = subs();
+        languages.registerSignatureHelpProvider({ language: "typescript" }, provider, "(");
 
-        registration.dispose();
-        expect(signatureHelpRegistrations).toHaveLength(0);
-        expect(subs()).toBe(after);
-    });
-
-    it("реестр регистраций доступен снаружи (его читают тесты и диагностика хоста)", () => {
-        const { ctx } = makeCtx();
-        const { languages, signatureHelpRegistrations } = createLanguagesNamespace(ctx);
-        expect(signatureHelpRegistrations).toHaveLength(0);
-        languages.registerSignatureHelpProvider({ language: "typescript" }, provider);
-        expect(signatureHelpRegistrations).toHaveLength(1);
+        expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 });
 
@@ -244,20 +212,12 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(seen[0].triggerCharacter).toBeUndefined();
     });
 
-    it("выигрывает ПЕРВЫЙ непустой ответ: чужой селектор, сбойный и пустые пропускаются", async () => {
+    it("зовётся ровно провайдер запрошенного handle; сбойный и пустые — null", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const asked: string[] = [];
+        const ask = (handle: number) => stub.callRequest("languages.provideSignatureHelp", requestParams({ handle }));
 
-        languages.registerSignatureHelpProvider(
-            { language: "python" },
-            {
-                provideSignatureHelp: () => {
-                    asked.push("foreign");
-                    return help("python()");
-                },
-            },
-        );
         languages.registerSignatureHelpProvider(
             { language: "typescript" },
             {
@@ -295,21 +255,15 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
                 },
             },
         );
-        languages.registerSignatureHelpProvider(
-            { language: "typescript" },
-            {
-                provideSignatureHelp: () => {
-                    asked.push("after");
-                    return help("never(): void");
-                },
-            },
-        );
 
-        const result = await stub.callRequest("languages.provideSignatureHelp", requestParams());
-
-        // Чужой селектор не спрашивали, после победителя — тоже.
-        expect(asked).toEqual(["throws", "null", "empty", "winner"]);
+        const result = await ask(3);
+        expect(asked).toEqual(["winner"]);
         expect((result as { signatures: { label: string }[] }).signatures[0].label).toBe("greet(name: string): void");
+
+        expect(await ask(0)).toBeNull();
+        expect(await ask(1)).toBeNull();
+        expect(await ask(2)).toBeNull();
+        expect(asked).toEqual(["winner", "throws", "null", "empty"]);
     });
 
     it("асинхронный провайдер и отказ промиса", async () => {
@@ -324,12 +278,13 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             { provideSignatureHelp: () => Promise.resolve(help("greet(name: string): void")) },
         );
 
-        const result = await stub.callRequest("languages.provideSignatureHelp", requestParams());
+        expect(await stub.callRequest("languages.provideSignatureHelp", requestParams())).toBeNull();
+        const result = await stub.callRequest("languages.provideSignatureHelp", requestParams({ handle: 1 }));
 
         expect((result as { signatures: { label: string }[] }).signatures[0].label).toBe("greet(name: string): void");
     });
 
-    it("битая форма от провайдера отбраковывается целиком — спрашиваем следующего", async () => {
+    it("битая форма от провайдера отбраковывается целиком", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerSignatureHelpProvider(
@@ -423,7 +378,11 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             { provideSignatureHelp: () => help("greet(name: string): void") },
         );
 
-        const result = await stub.callRequest("languages.provideSignatureHelp", requestParams());
+        // Каждая битая форма — «подсказки нет», целая — доезжает.
+        for (let handle = 0; handle < 11; handle++) {
+            expect(await stub.callRequest("languages.provideSignatureHelp", requestParams({ handle }))).toBeNull();
+        }
+        const result = await stub.callRequest("languages.provideSignatureHelp", requestParams({ handle: 11 }));
 
         expect((result as { signatures: { label: string }[] }).signatures[0].label).toBe("greet(name: string): void");
     });
@@ -545,6 +504,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         });
 
         await stub.callRequest("languages.provideSignatureHelp", {
+            handle: 0,
             uri: URI,
             triggerKind: CoreTriggerKind.Invoke,
             isRetrigger: false,
@@ -555,14 +515,27 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(seen.pos?.character).toBe(0);
     });
 
-    it("никто не совпал по селектору — подсказки нет", async () => {
+    it("неизвестный и отсутствующий handle — подсказки нет, никого не зовём, документ не синхронизируем", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        languages.registerSignatureHelpProvider(
-            { language: "python" },
-            { provideSignatureHelp: () => help("python()") },
-        );
+        let asked = false;
+        const provider: vscode.SignatureHelpProvider = {
+            provideSignatureHelp: () => {
+                asked = true;
+                return help("greet()");
+            },
+        };
+        languages.registerSignatureHelpProvider({ language: "typescript" }, provider);
+        languages.registerSignatureHelpProvider({ language: "typescript" }, provider);
 
-        expect(await stub.callRequest("languages.provideSignatureHelp", requestParams())).toBeNull();
+        const stale = "file:///proj/stale.ts";
+        expect(
+            await stub.callRequest("languages.provideSignatureHelp", requestParams({ handle: 5, uri: stale })),
+        ).toBeNull();
+        expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
+        expect(
+            await stub.callRequest("languages.provideSignatureHelp", requestParams({ handle: undefined })),
+        ).toBeNull();
+        expect(asked).toBe(false);
     });
 });

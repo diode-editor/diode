@@ -605,16 +605,10 @@ export class ExtensionHost extends Disposable {
     private inlineCompletionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
     private foldingSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные провайдеры подсказки параметров (см. `languages.updateSubscriptions`). */
-    private signatureHelpSubscribed = false;
     /** Есть ли в субпроцессе провайдеры форматирования — документные или range (см. `languages.updateSubscriptions`). */
     private formattingSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные code-action-провайдеры (см. `languages.updateSubscriptions`). */
     private codeActionsSubscribed = false;
-    /** Символы, открывающие подсказку параметров («(», «,», «<» у tsserver). */
-    private signatureHelpTriggerCharactersValue: readonly string[] = [];
-    /** Символы, перезапрашивающие подсказку, пока она показана («)» у tsserver). */
-    private signatureHelpRetriggerCharactersValue: readonly string[] = [];
     /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
     private documentSyncSubscribed = false;
     /**
@@ -682,7 +676,6 @@ export class ExtensionHost extends Disposable {
     /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */
     private readonly foldingProvidersChangedListeners: (() => void)[] = [];
     private readonly completionTriggerCharactersListeners: ((characters: readonly string[]) => void)[] = [];
-    private readonly signatureHelpTriggerCharactersListeners: (() => void)[] = [];
 
     public constructor(
         editorOptions: IEditorOptionsService,
@@ -1470,16 +1463,16 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса подсказку параметров для позиции каретки
-     * (`languages.provideSignatureHelp`). `null`, если субпроцесса нет, никто
-     * не зарегистрировал провайдеры, документ слишком большой или расширение
-     * не ответило за `signatureHelpTimeoutMs`. Подключается в
-     * `EditorService.signatureHelpSource` (wiring в module/харнессе).
+     * Запрашивает у провайдера подсказки параметров `handle` подсказку для
+     * позиции каретки (`languages.provideSignatureHelp`). `null`, если
+     * субпроцесса нет, документ слишком большой или расширение не ответило за
+     * `signatureHelpTimeoutMs`. Зовёт его прокси из реестра ядра
+     * (`LanguageFeaturesAdapter`).
      */
-    public async provideSignatureHelp(req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
+    public async provideSignatureHelp(handle: number, req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
         const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null || !this.signatureHelpSubscribed) return null;
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return null;
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping signature help: document too large", {
                 uri: req.uri,
@@ -1490,6 +1483,7 @@ export class ExtensionHost extends Disposable {
         return requestSignatureHelp(
             (method, params) => rpc.request(method, params),
             {
+                handle,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -1611,32 +1605,6 @@ export class ExtensionHost extends Disposable {
             id,
             this.options.applyCodeActionTimeoutMs,
         );
-    }
-
-    /** Символы, открывающие подсказку параметров (объединение по регистрациям). */
-    public get signatureHelpTriggerCharacters(): readonly string[] {
-        return this.signatureHelpTriggerCharactersValue;
-    }
-
-    /** Символы, перезапрашивающие показанную подсказку (`)` у tsserver). */
-    public get signatureHelpRetriggerCharacters(): readonly string[] {
-        return this.signatureHelpRetriggerCharactersValue;
-    }
-
-    /**
-     * Триггер-символы подсказки параметров сменились. Как и у completion, их
-     * объявляет language server при регистрации провайдера — то есть уже после
-     * активации расширения, и без подписки «(» не открыло бы подсказку до
-     * рестарта.
-     */
-    public onSignatureHelpTriggerCharactersChanged(cb: () => void): { dispose(): void } {
-        this.signatureHelpTriggerCharactersListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.signatureHelpTriggerCharactersListeners.indexOf(cb);
-                if (idx >= 0) this.signatureHelpTriggerCharactersListeners.splice(idx, 1);
-            },
-        };
     }
 
     /**
@@ -2062,12 +2030,9 @@ export class ExtensionHost extends Disposable {
                 hasCompletionProviders?: unknown;
                 hasFoldingProviders?: unknown;
                 completionTriggerCharacters?: unknown;
-                hasSignatureHelpProviders?: unknown;
                 hasFormattingProviders?: unknown;
                 hasCodeActionsProviders?: unknown;
                 hasInlineCompletionProviders?: unknown;
-                signatureHelpTriggerCharacters?: unknown;
-                signatureHelpRetriggerCharacters?: unknown;
             };
             this.completionSubscribed = p.hasCompletionProviders === true;
             this.inlineCompletionSubscribed = p.hasInlineCompletionProviders === true;
@@ -2078,24 +2043,8 @@ export class ExtensionHost extends Disposable {
                     cb(this.completionTriggerCharactersValue);
                 }
             }
-            this.signatureHelpSubscribed = p.hasSignatureHelpProviders === true;
             this.formattingSubscribed = p.hasFormattingProviders === true;
             this.codeActionsSubscribed = p.hasCodeActionsProviders === true;
-            // Сериализуем пару списков целиком: склейка join'ом уравняла бы
-            // ["ab"] и ["a", "b"], и смена набора прошла бы мимо слушателей.
-            const signatureBefore = JSON.stringify([
-                this.signatureHelpTriggerCharactersValue,
-                this.signatureHelpRetriggerCharactersValue,
-            ]);
-            this.signatureHelpTriggerCharactersValue = readStringArray(p.signatureHelpTriggerCharacters);
-            this.signatureHelpRetriggerCharactersValue = readStringArray(p.signatureHelpRetriggerCharacters);
-            const signatureAfter = JSON.stringify([
-                this.signatureHelpTriggerCharactersValue,
-                this.signatureHelpRetriggerCharactersValue,
-            ]);
-            if (signatureBefore !== signatureAfter) {
-                for (const cb of [...this.signatureHelpTriggerCharactersListeners]) cb();
-            }
             const foldingBefore = this.foldingSubscribed;
             this.foldingSubscribed = p.hasFoldingProviders === true;
             // Провайдер folding появился/исчез (обычно — расширение активировалось
@@ -2521,14 +2470,12 @@ export class ExtensionHost extends Disposable {
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
         this.completionSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и signatureHelpSubscribed ниже
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и formattingSubscribed ниже
         this.inlineCompletionSubscribed = false;
         this.foldingSubscribed = false;
         // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
-        this.signatureHelpSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и signatureHelpSubscribed выше
         this.formattingSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и signatureHelpSubscribed выше
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и formattingSubscribed выше
         this.codeActionsSubscribed = false;
         this.documentSyncSubscribed = false;
         // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из

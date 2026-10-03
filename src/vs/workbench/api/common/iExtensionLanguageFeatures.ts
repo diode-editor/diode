@@ -6,6 +6,10 @@ import type {
 } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
+import type {
+    ICoreSignatureHelp,
+    ISignatureHelpRequest,
+} from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
 import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
 
@@ -24,4 +28,5 @@ export interface IExtensionLanguageFeaturesBridge {
     provideHover(handle: number, request: IHoverRequest): Promise<ICoreHover | undefined>;
     provideDefinition(handle: number, request: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]>;
     provideReferences(handle: number, request: IReferenceRequest): Promise<readonly ICoreReference[]>;
+    provideSignatureHelp(handle: number, request: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null>;
 }

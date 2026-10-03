@@ -16,6 +16,25 @@ describe("wireTypes — parseWireLanguageProviderRegistration", () => {
         expect(parseWireLanguageProviderRegistration(raw)).toStrictEqual(raw);
     });
 
+    it("триггер-символы: только непустые строки; не-массив — поля нет", () => {
+        const parsed = parseWireLanguageProviderRegistration({
+            handle: 1,
+            kind: "signatureHelp",
+            selector: [],
+            triggerCharacters: ["(", "", 7, ","],
+            retriggerCharacters: ")",
+        });
+        expect(parsed).toEqual({ handle: 1, kind: "signatureHelp", selector: [], triggerCharacters: ["(", ","] });
+        expect(
+            parseWireLanguageProviderRegistration({
+                handle: 1,
+                kind: "signatureHelp",
+                selector: [],
+                retriggerCharacters: [")"],
+            }),
+        ).toEqual({ handle: 1, kind: "signatureHelp", selector: [], retriggerCharacters: [")"] });
+    });
+
     it("чужая форма конверта — null", () => {
         expect(parseWireLanguageProviderRegistration(null)).toBeNull();
         expect(parseWireLanguageProviderRegistration(undefined)).toBeNull();

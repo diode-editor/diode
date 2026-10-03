@@ -8,6 +8,8 @@ import type {
     SignatureHelpTriggerKind as TriggerKind,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -21,6 +23,7 @@ import { isSingleCharInsert } from "../../suggest/browser/completionService.ts";
 
 import type { ParameterHintsComponent } from "./parameterHintsComponent.ts";
 import { ParameterHintsComponentDIToken } from "./parameterHintsComponent.ts";
+import { provideSignatureHelp } from "./provideSignatureHelp.ts";
 import { activeParameterSpan } from "./signatureLayout.ts";
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
@@ -37,7 +40,12 @@ export const ParameterHintsServiceDIToken = token<ParameterHintsService>("Parame
  * владеет попапом и его overlay-сессией, сервис — запросами и состоянием.
  */
 export class ParameterHintsService extends Disposable implements IContextKeyContributor {
-    public static dependencies = [ParameterHintsComponentDIToken, EditorServiceDIToken, FocusTrackerDIToken] as const;
+    public static dependencies = [
+        ParameterHintsComponentDIToken,
+        EditorServiceDIToken,
+        FocusTrackerDIToken,
+        LanguageFeaturesServiceDIToken,
+    ] as const;
 
     /** Задержка авто-запроса, мс (в тестах — 0). Как `autoSuggestDelayMs` у suggest. */
     public triggerDelayMs = 120;
@@ -66,6 +74,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         private readonly component: ParameterHintsComponent,
         private readonly group: EditorService,
         focusTracker: FocusTracker,
+        private readonly languageFeatures: ILanguageFeaturesService,
     ) {
         super();
         // Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец.
@@ -96,7 +105,8 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
 
     /**
      * Запрашивает подсказку для позиции каретки и показывает попап. No-op, если
-     * нет активного редактора или источника; пустой ответ закрывает попап.
+     * нет активного редактора или провайдеров для документа; пустой ответ
+     * закрывает попап.
      */
     public async trigger(
         triggerKind: TriggerKind = SignatureHelpTriggerKind.Invoke,
@@ -105,13 +115,13 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         this.cancelScheduledTrigger();
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
-        const source = this.group.signatureHelpSource;
-        if (source === undefined) return;
+        const providers = this.languageFeatures.signatureHelpProvider.ordered(editor);
+        if (providers.length === 0) return;
 
         const caret = editor.viewState.selections[0].active;
         const ticket = this.latest.start();
         const isRetrigger = this.isOpen();
-        const help = await source({
+        const help = await provideSignatureHelp(providers, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             text: editor.getText(),
@@ -273,13 +283,16 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         // триггером не объявляет (а если бы объявил, его отсеет readStringArray).
         // Stryker disable next-line StringLiteral: любая заглушка ведёт себя одинаково — сервер не объявляет триггером ни её, ни пустую строку
         const inserted = wasEdit ? this.insertedChar(line, active) : "";
-        if (this.group.signatureHelpTriggerCharacters.includes(inserted)) {
+        // Триггеры — метаданные провайдеров, подошедших именно этому документу:
+        // «(» сервера TypeScript не будит подсказку в markdown.
+        const providers = this.languageFeatures.signatureHelpProvider.ordered(editor);
+        if (providers.some((provider) => provider.triggerCharacters.includes(inserted))) {
             this.scheduleTrigger(SignatureHelpTriggerKind.TriggerCharacter, inserted);
         } else if (this.isOpen()) {
             // Ретриггер-символ (`)`) отличается от прочих правок только тем, что
             // сервер получает его в контексте — ответ на нём обычно пустой,
             // и подсказка закрывается сама.
-            const isRetriggerChar = this.group.signatureHelpRetriggerCharacters.includes(inserted);
+            const isRetriggerChar = providers.some((provider) => provider.retriggerCharacters.includes(inserted));
             this.scheduleTrigger(
                 isRetriggerChar ? SignatureHelpTriggerKind.TriggerCharacter : SignatureHelpTriggerKind.ContentChange,
                 isRetriggerChar ? inserted : undefined,

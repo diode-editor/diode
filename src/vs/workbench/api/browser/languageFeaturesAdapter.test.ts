@@ -35,6 +35,13 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideDefinition: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///def${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
+        provideSignatureHelp: vi.fn((handle: number) =>
+            Promise.resolve({
+                signatures: [{ label: `sig ${String(handle)}`, parameters: [] }],
+                activeSignature: 0,
+                activeParameter: 0,
+            }),
+        ),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -89,6 +96,33 @@ describe("LanguageFeaturesAdapter", () => {
             { uri: "file:///ref5.ts", range: createRange(0, 0, 0, 1) },
         ]);
         expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest);
+    });
+
+    it("signatureHelp: триггеры из метаданных регистрации, без метаданных — пустые", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            {
+                handle: 6,
+                kind: "signatureHelp",
+                selector: [{ language: "typescript" }],
+                triggerCharacters: ["("],
+                retriggerCharacters: [")"],
+            },
+            { handle: 7, kind: "signatureHelp", selector: [{ language: "markdown" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [ts] = features.signatureHelpProvider.ordered(TS);
+        expect(ts.triggerCharacters).toEqual(["("]);
+        expect(ts.retriggerCharacters).toEqual([")"]);
+        const request = { ...REQUEST, triggerKind: 1 as const, isRetrigger: false };
+        expect((await ts.provideSignatureHelp(request))?.signatures[0].label).toBe("sig 6");
+        expect(bridge.provideSignatureHelp).toHaveBeenCalledWith(6, request);
+
+        const [md] = features.signatureHelpProvider.ordered(MD);
+        expect(md.triggerCharacters).toEqual([]);
+        expect(md.retriggerCharacters).toEqual([]);
     });
 
     it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {

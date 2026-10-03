@@ -64,12 +64,9 @@ describe("LanguagesNamespace", () => {
         expect(subs[0].params).toEqual({
             hasCompletionProviders: true,
             hasFoldingProviders: false,
-            hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
             completionTriggerCharacters: [],
         });
 
@@ -81,12 +78,9 @@ describe("LanguagesNamespace", () => {
         expect(after[1].params).toEqual({
             hasCompletionProviders: false,
             hasFoldingProviders: false,
-            hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
             completionTriggerCharacters: [],
         });
     });
@@ -262,12 +256,9 @@ describe("LanguagesNamespace", () => {
         expect(subs[0].params).toEqual({
             hasCompletionProviders: false,
             hasFoldingProviders: true,
-            hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
             completionTriggerCharacters: [],
         });
 
@@ -280,12 +271,9 @@ describe("LanguagesNamespace", () => {
         expect(after[1].params).toEqual({
             hasCompletionProviders: false,
             hasFoldingProviders: false,
-            hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
             completionTriggerCharacters: [],
         });
     });

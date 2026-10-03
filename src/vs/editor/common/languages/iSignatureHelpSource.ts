@@ -12,7 +12,7 @@ export type SignatureHelpTriggerKind = (typeof SignatureHelpTriggerKind)[keyof t
 
 /**
  * Запрос «какая сигнатура вызывается в этой позиции», отправляемый
- * signature-help-источнику. Несёт полный снапшот текста + позицию каретки
+ * signature-help-провайдеру. Несёт полный снапшот текста + позицию каретки
  * (у хоста нет реестра документов — как definition/hover, снапшот целиком).
  */
 export interface ISignatureHelpRequest {
@@ -69,10 +69,17 @@ export interface ICoreSignatureHelp {
 }
 
 /**
- * Источник подсказки параметров: по запросу возвращает результат ПЕРВОГО
- * провайдера, который его дал (в отличие от hover/references, где ответы
- * склеиваются — так предписывает vscode API). Инъектируется в ядро извне
- * (host/харнесс) — ядро не знает про extension-слой (зеркало
- * {@link ./iFormattingSource.ts}). `null` = подсказки нет.
+ * Один провайдер подсказки параметров в реестре
+ * `ILanguageFeaturesService.signatureHelpProvider` (upstream
+ * `languages.SignatureHelpProvider` + метаданные регистрации). Потребитель
+ * спрашивает подошедших по очереди до ПЕРВОГО ответа (в отличие от
+ * hover/references, где ответы склеиваются — так предписывает vscode API).
+ * `null` = подсказки нет.
  */
-export type SignatureHelpSource = (request: ISignatureHelpRequest) => Promise<ICoreSignatureHelp | null>;
+export interface SignatureHelpProvider {
+    /** Символы, набор которых сам открывает подсказку («(», «,», «<» у tsserver). */
+    readonly triggerCharacters: readonly string[];
+    /** Символы, перезапрашивающие подсказку, пока она показана («)»). */
+    readonly retriggerCharacters: readonly string[];
+    provideSignatureHelp(request: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null>;
+}
