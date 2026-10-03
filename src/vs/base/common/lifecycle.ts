@@ -11,8 +11,10 @@
 //   проекта писались под него. Эталон освобождает в порядке добавления.
 // - `register` вместо `_register`, приватный стор без подчёркивания —
 //   правило проекта про имена (AGENTS.md).
-// - Добавление в уже освобождённый стор молча оставляет объект неосвобождённым
-//   (паритет с прежним классом; эталон в этом случае ещё и предупреждает).
+// - Добавление в уже освобождённый стор освобождает объект сразу: владелец
+//   умер, держать объект некому. Эталон в этом случае предупреждает и оставляет
+//   объект утекать; прежний класс из `@tuidom/core` молча копил его навсегда.
+//   Типичный случай — асинхронная работа, договорившая после смерти владельца.
 
 /**
  * Объект, который что-то освобождает по вызову `dispose()`: отписка
@@ -251,7 +253,8 @@ export class DisposableStore implements IDisposable {
         if ((o as IDisposable) === Disposable.None) return o;
         if ((o as IDisposable) === this) throw new Error("Cannot register a disposable on itself!");
         setParentOfDisposable(o, this);
-        if (!this.disposed) this.toDispose.add(o);
+        if (this.disposed) o.dispose();
+        else this.toDispose.add(o);
         return o;
     }
 
