@@ -92,6 +92,8 @@ describe("parseWireApplyWorkspaceEditParams", () => {
 
     it.each([
         ["не объект", [null]],
+        // `undefined` — отдельно от null: у него падает даже доступ к свойству.
+        ["операция undefined", [undefined]],
         ["строка вместо операции", ["junk"]],
         ["неизвестный kind", [{ kind: "notebook", resource: "file:///a.ts" }]],
         // Неизвестный вид с полями переименования не должен проехать как rename.
