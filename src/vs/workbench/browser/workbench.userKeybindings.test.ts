@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { UserKeybindingsDIToken } from "../../diode/modules/keybindingsModule.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { KeyboardEventLike } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
-import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
+import type { IUserKeybindingRule } from "../../platform/keybinding/common/userKeybindings.ts";
+import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
 
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 

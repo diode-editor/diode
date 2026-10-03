@@ -60,9 +60,6 @@ const EXCEPTIONS = [
     // Мост тема→стили держит unthemed-дефолты у виджета редактора; разнос —
     // follow-up (unthemed-дефолты в platform или getEditorStyles в editor).
     ["src/vs/platform/theme/browser/defaultStyles.ts", "src/vs/editor/browser/editorElement.ts"],
-    // WorkbenchComponent тянет DI-токен из модуля профиля; вынос токенов из
-    // diode/modules в слои-владельцы — follow-up.
-    ["src/vs/workbench/browser/workbenchComponent.ts", "src/vs/diode/modules/"],
 ];
 
 function zoneOf(rel) {
