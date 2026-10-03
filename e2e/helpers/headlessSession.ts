@@ -110,12 +110,27 @@ export class HeadlessSession {
     /**
      * Ждёт новое окно после `workbench.action.reloadWindow`: процесс заменяет
      * себя новым с теми же аргументами, поэтому инспектор поднимается на том же
-     * порту — прежний сокет к этому моменту уже мёртв.
+     * порту. Прежний сокет закрывается не сразу: прощание сперва вежливо
+     * останавливает extension host, — поэтому сначала ждём его закрытия (оно и
+     * есть признак, что окно ушло на перезапуск), а потом подключаемся заново.
      */
     public async reconnect(timeoutMs = 30_000): Promise<void> {
-        this.ws.close();
+        await this.waitForSocketClose(timeoutMs);
         this.ws = await connectWithRetry(`ws://127.0.0.1:${String(this.port)}`, timeoutMs);
         this.listenToSocket();
+    }
+
+    private waitForSocketClose(timeoutMs: number): Promise<void> {
+        if (this.ws.readyState === this.ws.CLOSED) return Promise.resolve();
+        return new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => {
+                reject(new Error("окно не ушло на перезапуск: сокет инспектора всё ещё открыт"));
+            }, timeoutMs);
+            this.ws.once("close", () => {
+                clearTimeout(timer);
+                resolve();
+            });
+        });
     }
 
     private listenToSocket(): void {

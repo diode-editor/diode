@@ -13,6 +13,7 @@ import type { IUserKeybindingRule } from "../../platform/keybinding/common/userK
 import type { ILogService } from "../../platform/log/common/iLogService.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";
 import type { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
+import type { IHostProcess } from "../../workbench/services/lifecycle/common/hostProcess.ts";
 import type { ILogHistory } from "../../workbench/services/output/common/output.ts";
 import { terminalEnvironmentModule } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts";
 import type { ThemeRegistry } from "../../workbench/services/themes/common/themeRegistry.ts";
@@ -65,8 +66,8 @@ export interface ProductionProfileContext {
      * `storageUri` / `logUri`) из активного профиля user-data.
      */
     extensionStorage: IExtensionHostModuleContext;
-    /** Перезагрузка окна (`workbench.action.reloadWindow`) — владелец процесса заменяет себя новым. */
-    reloadWindow: () => void;
+    /** Чем заканчивается прощание: выход или замена процесса новым (`workbench.action.reloadWindow`). */
+    hostProcess: IHostProcess;
 }
 
 /**
@@ -97,7 +98,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(fileWatcherModule)
         .use(markersModule, { settingsResource: ctx.settingsResource, keybindingsResource: ctx.keybindingsResource })
         .use(workbenchModule)
-        .use(lifecycleModule, { reloadWindow: ctx.reloadWindow })
+        .use(lifecycleModule, ctx)
         .use(extensionsModule, ctx.extensions)
         .use(preferencesModule)
         .use(extensionHostModule, ctx.extensionStorage);

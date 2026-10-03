@@ -1,8 +1,58 @@
-import { describe, expect, it } from "vitest";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
+
+import { describe, expect, it, vi } from "vitest";
 
 import { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
+import { ExtensionHostDIToken } from "../../workbench/services/extensions/node/extensionHost.ts";
+import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 
-import { workspaceFoldersProvider } from "./extensionHostModule.ts";
+import { extensionHostModule, workspaceFoldersProvider } from "./extensionHostModule.ts";
+import { createTestContainer } from "./testProfile.ts";
+
+/**
+ * Проводка extension host'а в прощание: продовый модуль поверх тестового
+ * контейнера. Субпроцесс не поднимается (расширений нет) — проверяем, что
+ * прощание вообще доходит до host'а: снятый host больше не принимает
+ * регистраций. Порядок и тайм-аут закрыты юнитами `LifecycleService`, вежливый
+ * выход и добивание субпроцесса — юнитами `ExtensionHost`.
+ */
+describe("extensionHostModule — прощание", () => {
+    it("shutdown снимает extension host", async () => {
+        const { container } = createTestContainer();
+        const dir = path.join(tmpdir(), "diode-exthost-module-test");
+        container.use(extensionHostModule, {
+            globalStorageDir: dir,
+            workspaceStorageDir: dir,
+            logsDir: dir,
+            secretsFile: path.join(dir, "secrets.json"),
+        });
+        const host = container.get(ExtensionHostDIToken);
+        const lifecycle = container.get(LifecycleServiceDIToken);
+        const shutdown = vi.spyOn(host, "shutdown");
+        const disposeNow = vi.spyOn(host, "disposeNow");
+        // Подписан позже host'а — в синхронной фазе срабатывает раньше него:
+        // к этому моменту host уже снят вежливо, в асинхронной фазе.
+        let shutdownBeforeSyncPhase = false;
+        lifecycle.onShutdownSync(() => {
+            shutdownBeforeSyncPhase = shutdown.mock.calls.length === 1;
+        });
+
+        await lifecycle.shutdown("quit", () => undefined);
+
+        expect(shutdownBeforeSyncPhase).toBe(true);
+        // Синхронная фаза добивает субпроцесс, если вежливое прощание не успело.
+        expect(disposeNow).toHaveBeenCalledOnce();
+        expect(() => {
+            host.registerExtension({
+                id: "a.b",
+                manifest: { name: "b", publisher: "a", version: "1.0.0" },
+                source: "",
+                filename: "/a.js",
+            });
+        }).toThrow(/disposed/);
+    });
+});
 
 /**
  * Источник папок — настоящий `WorkspaceContextService` (он без зависимостей, так

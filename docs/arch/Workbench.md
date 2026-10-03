@@ -621,29 +621,41 @@ hide-toggle (`isHiddenByDefault`). См.
   `showAboutDialog`, `getOpen*` для тестов/оркестрации. OverlayLayer приходит
   через late-init шов `attachHost(BodyElement)` — его зовёт владелец корневой
   view (`WorkbenchComponent`) после её постройки.
-- **Жизненный цикл (этап 5c)** — `Services/LifecycleService.ts`:
-  `requestShutdown(onProceed)` последовательно спрашивает про «грязные» элементы
-  участников через `DialogService.confirmSave` (Cancel прерывает прощание; чистый
-  выход — синхронно, до первого await). Шов — интерфейс `IShutdownParticipant`
-  (`collectDirty(): IShutdownDirtyItem[]` — имя + `isStillDirty()` + `save()`
-  с overwrite): Workbench объявляет, `EditorService` реализует
-  структурно, регистрирует его `WorkbenchComponent`; что произойдёт после
-  прощания — колбэк вызывающего. Сценариев два, протокол один:
-  - **выход** (`quitAction` → `QuitHandlerDIToken` → `WorkbenchComponent`):
-    teardown TUI + `process.exit`;
-  - **перезагрузка окна** (`reloadWindowAction` → `WindowReloadHandlerDIToken`,
-    `services/lifecycle/common/windowReload.ts`): владелец приложения (`main.ts`)
-    отпускает терминал, сокет инспектора, оба служебных субпроцесса (extension
-    host и watcher-процесс — синхронно, сигналом) и состояние сессии, а
-    затем заменяет процесс новым с теми же аргументами
-    (`base/node/restartProcess.ts`). Первый reload превращает текущий процесс в
-    супервизор (`spawnSync` со `stdio: "inherit"`), дальнейшие делает уже он —
-    так терминал не отбирается у нового окна и процессы не копятся. Отсюда же
-    требование гасить субпроцессы **синхронно**: супервизор блокируется в
-    `spawnSync`, его IPC-каналы остаются открытыми, и не убитый ребёнок пережил
-    бы своё окно (watcher — ещё и со всеми inotify-подписками). Нужна
-    перезагрузка потому, что вклады расширений сканируются один раз на старте:
-    установленное из UI начинает работать именно после неё.
+- **Жизненный цикл (этап 5c, C6)** — `services/lifecycle/browser/lifecycleService.ts`.
+  Прощание в два шага, общих для выхода, перезагрузки окна и выхода по команде
+  инспектора:
+  1. **подтверждение** — `requestShutdown(onProceed)` последовательно спрашивает про
+     «грязные» элементы участников через `DialogService.confirmSave` (Cancel прерывает
+     прощание; чистый выход — синхронно, до первого await). Шов — интерфейс
+     `IShutdownParticipant` (`collectDirty(): IShutdownDirtyItem[]` — имя +
+     `isStillDirty()` + `save()` с overwrite): Workbench объявляет, `EditorService`
+     реализует структурно, регистрирует его `WorkbenchComponent`;
+  2. **прощание** — `shutdown(reason, then)` (аналог vscode `onWillShutdown`):
+     асинхронная фаза `onWillShutdown` (участник отдаёт промис через
+     `event.join(promise)`, общий тайм-аут `SHUTDOWN_JOIN_TIMEOUT_MS` = 2 с),
+     затем синхронная `onShutdownSync` в порядке, обратном подписке, и только потом
+     `then`. Повторный вызов присоединяется к первому прощанию; сбой участника не
+     останавливает остальных.
+
+  Участники подписываются там, где создаются: extension host — в
+  `extensionHostModule` (вежливый `ExtensionHost.shutdown()` с `deactivate()`
+  расширений в асинхронной фазе, `disposeNow()` — SIGKILL недоушедшему — в
+  синхронной), watcher дерева — в `fileWatcherModule`, а созданное до DI (стор
+  состояния — `flushSync`, терминал — `teardown`, сокет инспектора) — владелец
+  процесса `main.ts`. Чем закончится прощание, решает шов `HostProcessDIToken`
+  (`services/lifecycle/common/hostProcess.ts`, `exit()` / `restart()`; биндит
+  `lifecycleModule` хуками из `main.ts`): `quitAction` → `exit`,
+  `reloadWindowAction` → `restart` — замена процесса новым с теми же аргументами
+  (`base/node/restartProcess.ts`). Первый reload превращает текущий процесс в
+  супервизор (`spawnSync` со `stdio: "inherit"`), дальнейшие делает уже он — так
+  терминал не отбирается у нового окна и процессы не копятся. Отсюда требование:
+  к `restart` все субпроцессы уже сняты — асинхронная фаза идёт до `spawnSync`,
+  пока event loop ещё крутится, а то, что не вышло за тайм-аут, добивается
+  сигналом в синхронной фазе (не убитый ребёнок пережил бы своё окно, watcher —
+  ещё и со всеми inotify-подписками). Нужна перезагрузка потому, что вклады
+  расширений сканируются один раз на старте: установленное из UI начинает работать
+  именно после неё. `process.on("exit")` в `main.ts` остаётся страховкой сброса
+  состояния для путей мимо прощания (SIGINT в терминальном backend'е).
 - **Статус-бар — эталонная пара Service ↔ Component** (пилот, этап 4):
   - `Services/StatusBarService.ts` — реестр записей статус-бара (аналог
     `IStatusbarService` VS Code): `addEntry(IStatusBarEntry) → IStatusBarEntryHandle`
@@ -997,11 +1009,9 @@ hide-toggle (`isHiddenByDefault`). См.
     контекст-меню редактора, команда `workbench.openFile`, статус-бар) вынесена в
     workbench-contribution'ы — корень лишь прогоняет их по фазам через реестр
     (`restored` — в `mount()`, `eventually` — из `main.ts` через
-    `runEventuallyPhase()`; см. «Workbench-contributions»). Выход (`quitAction`)
-    делегируется корню через шов `QuitHandlerDIToken` → `requestQuit`: confirm-save
-    через `LifecycleService`, затем teardown TUI + `process.exit`; перезагрузка
-    окна (`reloadWindowAction`) идёт тем же протоколом прощания, но заканчивается
-    не выходом, а перезапуском процесса (шов `WindowReloadHandlerDIToken`). Тему
+    `runEventuallyPhase()`; см. «Workbench-contributions»). Выхода в корне нет:
+    `quitAction` и `reloadWindowAction` ведут прощание через `LifecycleService`
+    (см. «Жизненный цикл»). Тему
     кладёт в корневой var-scope (`applyThemeVars` по `onThemeChange`) — единственная
     точка «тема → цвета», дальше каскад. Единственный компонент с lifecycle за пределами конструктора — bootstrap
     ведёт `main.ts`: `setWorkspaceFolder` (**только если папку назвали** — без неё

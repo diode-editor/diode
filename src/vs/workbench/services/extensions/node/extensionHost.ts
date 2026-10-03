@@ -513,7 +513,8 @@ export interface IExtensionHostOptions {
  *   `workspaceContains:<паттерн>` сверяется с открытыми папками воркспейса.
  * - `unregisterExtension(id)` — `host.deactivateExtension`.
  * - `dispose()` — `host.shutdown` (best effort) → ждём exit → SIGTERM →
- *   SIGKILL fallback.
+ *   SIGKILL fallback; {@link ExtensionHost.shutdown} — то же, но отдаёт промис
+ *   прощания (его ждёт `LifecycleService.onWillShutdown`).
  */
 export class ExtensionHost extends Disposable {
     private readonly editorOptions: IEditorOptionsService;
@@ -587,6 +588,10 @@ export class ExtensionHost extends Disposable {
     private rpc: RpcEndpoint | null = null;
     private readyPromise: Promise<void> | null = null;
     private hostDisposed = false;
+    /** Прощание с субпроцессом, начатое {@link dispose}: его ждёт {@link shutdown}. */
+    private shutdownDone: Promise<void> = Promise.resolve();
+    /** Субпроцесс, которого вежливо попросили выйти, а он ещё не вышел (см. {@link disposeNow}). */
+    private exitingSubprocess: ChildProcess | null = null;
     /** Есть ли в субпроцессе активные подписки на will/did-save (см. `workspace.updateSubscriptions`). */
     private willSaveSubscribed = false;
     private didSaveSubscribed = false;
@@ -1754,23 +1759,32 @@ export class ExtensionHost extends Disposable {
         // которые уже некого поднимать.
         for (const id of [...this.commandActivationStubs.keys()]) this.disarmCommandActivation(id);
         this.disposeFileWatchers();
-        void this.shutdownSubprocess();
+        this.shutdownDone = this.shutdownSubprocess();
         super.dispose();
     }
 
     /**
+     * Вежливое прощание с ожиданием: `deactivate()` расширений в субпроцессе,
+     * затем его выход (с эскалацией до сигналов, см. {@link dispose}).
+     * Повторный вызов отдаёт то же прощание.
+     */
+    public shutdown(): Promise<void> {
+        this.dispose();
+        return this.shutdownDone;
+    }
+
+    /**
      * Снимает host там, где event loop дальше не крутится — при перезагрузке
-     * окна сразу за этим идёт синхронный запуск нового процесса. Вежливое
-     * прощание из {@link dispose} асинхронное и в таком месте просто не доедет:
-     * субпроцесс остался бы сиротой у заблокированного родителя, поэтому здесь
-     * он снимается сигналом, синхронно.
+     * окна сразу за этим идёт синхронный запуск нового процесса. Если вежливое
+     * прощание ({@link shutdown}) не начиналось или не успело довести субпроцесс
+     * до выхода, он снимается сигналом, синхронно: иначе остался бы сиротой у
+     * заблокированного родителя. Субпроцесс, уже вышедший по-хорошему, не трогается.
      */
     public disposeNow(): void {
-        const child = this.subprocess;
         this.dispose();
         // Мёртвому ребёнку `kill` не бросает — просто вернёт false, так что
         // отдельной проверки «а жив ли он» здесь не нужно.
-        child?.kill("SIGKILL");
+        this.exitingSubprocess?.kill("SIGKILL");
     }
 
     /** Снимает один watcher субпроцесса (если он есть). */
@@ -2532,6 +2546,7 @@ export class ExtensionHost extends Disposable {
             channel?.dispose();
             return;
         }
+        this.exitingSubprocess = child;
         const exit = waitForExit(child);
         /* v8 ignore start -- defensive: ensureSubprocess sets `subprocess` and `rpc` together and shutdownSubprocess captures them together, so a non-null child always implies a non-null rpc here */
         if (rpc !== null) {
@@ -2558,6 +2573,7 @@ export class ExtensionHost extends Disposable {
             }
             await Promise.race([exit, sleep(500)]);
         }
+        this.exitingSubprocess = null;
         rpc?.dispose();
         channel?.dispose();
     }

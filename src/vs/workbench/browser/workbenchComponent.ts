@@ -122,8 +122,7 @@ export const WorkbenchComponentDIToken = token<WorkbenchComponent>("WorkbenchCom
  * Единственный компонент с жизненным циклом за пределами конструктора: у корня
  * есть реальная bootstrap-последовательность, которую ведёт `main.ts`
  * (mount → activate → open/restore файлов) — см. {@link mount}/{@link activate}.
- * Здесь же остаётся квит-флоу ({@link requestQuit} + doQuit: teardown TUI и
- * `process.exit`; вызывается через шов `QuitHandlerDIToken` из `quitAction`).
+ * Выхода здесь нет: его ведут `quitAction` и `LifecycleService.shutdown`.
  */
 export class WorkbenchComponent extends Component {
     public static dependencies = [
@@ -145,7 +144,6 @@ export class WorkbenchComponent extends Component {
     private editorService: EditorService;
     private editorPartComponent: EditorPartComponent;
     private dialogService: DialogService;
-    private lifecycleService: LifecycleService;
     private workspaceContext: WorkspaceContextService;
     private explorerService: ExplorerService;
     private explorerComponent: ExplorerComponent;
@@ -189,9 +187,8 @@ export class WorkbenchComponent extends Component {
         this.themeService = themeService;
         this.terminalEnv = terminalEnv;
         this.dialogService = this.register(dialogService);
-        this.lifecycleService = lifecycleService;
         // Несохранённые редакторы участвуют в confirm-save последовательности выхода.
-        this.lifecycleService.registerShutdownParticipant(editorService);
+        lifecycleService.registerShutdownParticipant(editorService);
         this.editorService = this.register(editorService);
         // Editor-кластер: компонент группового контрола (tab strip + контент
         // активного редактора) поверх EditorService.
@@ -603,18 +600,5 @@ export class WorkbenchComponent extends Component {
         callbacks: { onSave: () => void; onDontSave: () => void; onCancel: () => void },
     ): void {
         this.dialogService.showConfirmSaveDialog(filename, callbacks);
-    }
-
-    private doQuit(accessor: ServiceAccessor): void {
-        accessor.get(TuiApplicationDIToken).backend.teardown();
-        process.exit(0);
-    }
-
-    public requestQuit(accessor: ServiceAccessor): void {
-        // Последовательность confirm-save живёт в LifecycleService; сам выход
-        // (teardown TUI + process.exit) остаётся колбэком владельца приложения.
-        void this.lifecycleService.requestShutdown(() => {
-            this.doQuit(accessor);
-        });
     }
 }

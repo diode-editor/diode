@@ -73,11 +73,16 @@ export function createTestContainer(): TestContainerHandle {
         .use(fileWatcherModuleDefault)
         .use(markersModule, { settingsResource: null, keybindingsResource: null })
         .use(workbenchModule)
-        // Перезагрузка окна в тестах — no-op: настоящий перезапуск процесса
-        // унёс бы раннер. Тест, которому важен сам вызов, перебивает биндинг.
+        // Выход и перезагрузка окна в тестах — no-op: настоящие унесли бы
+        // раннер. Тест, которому важен сам вызов, перебивает биндинг.
         .use(lifecycleModule, {
-            reloadWindow: () => {
-                /* no-op */
+            hostProcess: {
+                exit: () => {
+                    /* no-op */
+                },
+                restart: () => {
+                    /* no-op */
+                },
             },
         })
         // Магазин — та же продовая проводка, что в приложении, но по путям,

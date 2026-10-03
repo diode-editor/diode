@@ -127,7 +127,7 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Reload Window"));
 
-        // Ответа на этот ввод не будет: окно уходит на перезапуск вместе с сокетом.
+        // Ответ на этот ввод может и не прийти: окно уходит на перезапуск вместе с сокетом.
         await app.session.sendKey("Enter").catch(() => undefined);
         await app.session.reconnect();
 

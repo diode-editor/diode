@@ -47,6 +47,7 @@ import {
 } from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
+import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
@@ -378,6 +379,18 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             });
         });
         // Stryker restore CallExpression,BlockStatement,StringLiteral
+
+        // Прощание (выход, перезагрузка окна, выход по инспектору) — один путь:
+        // сперва вежливо, с `deactivate()` расширений, а что не успело выйти за
+        // общий тайм-аут — сигналом в синхронной фазе (перезагрузка дальше
+        // блокирует event loop, и субпроцесс остался бы сиротой).
+        const lifecycle = container.get(LifecycleServiceDIToken);
+        lifecycle.onWillShutdown((event) => {
+            event.join(host.shutdown());
+        });
+        lifecycle.onShutdownSync(() => {
+            host.disposeNow();
+        });
 
         return host;
     });

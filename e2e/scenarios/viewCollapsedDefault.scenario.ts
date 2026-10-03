@@ -91,14 +91,12 @@ export default defineScenario({
         await expectExpanded(editor, "workbench.scm.graph", true);
         await editor.capture("expanded");
 
-        // Перезагрузка окна: ответа на этот ввод быть НЕ должно — процесс уходит
-        // на перезапуск вместе с сокетом инспектора. Ответ пришёл — окно живо,
-        // и всё ниже проверяло бы ту же самую сессию, а не новую.
-        const reloaded = await editor
-            .sendKey("F9")
-            .then(() => false)
-            .catch(() => true);
-        if (!reloaded) throw new Error("Reload Window не перезапустил окно");
+        // Перезагрузка окна: процесс уходит на перезапуск вместе с сокетом
+        // инспектора — ответ на этот ввод может и не успеть прийти. Что окно
+        // действительно перезапустилось, проверяет `reconnect`: он ждёт закрытия
+        // прежнего сокета, а живое окно его не закроет — всё ниже иначе
+        // проверяло бы ту же самую сессию, а не новую.
+        await editor.sendKey("F9").catch(() => undefined);
         await editor.reconnect();
         await editor.waitForText((t) => t.includes("app.ts"), { timeoutMs: 60_000 });
 
