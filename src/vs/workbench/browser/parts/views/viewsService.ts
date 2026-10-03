@@ -27,7 +27,7 @@ import { type IViewContainerViewsState, SIDEBAR_VIEWS_STATE } from "../../../com
 import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
 import type { PanelService } from "../panel/panelService.ts";
 import { PanelServiceDIToken } from "../panel/panelService.ts";
-import type { SidebarService } from "../sidebar/sidebarService.ts";
+import type { BooleanContextKey, SidebarService } from "../sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "../sidebar/sidebarService.ts";
 
 import { PaneViewElement } from "./paneViewElement.ts";
@@ -62,6 +62,11 @@ export interface IViewContainerDescriptor {
     readonly location: ViewContainerLocation;
     /** Порядок среди контейнеров одного места (меньше — раньше). */
     readonly order?: number;
+    /**
+     * Контекст-ключ «вьюлет показан» (`searchViewletVisible`) — только для
+     * `location: "sidebar"`; выставляет {@link SidebarService}.
+     */
+    readonly visibleContextKey?: BooleanContextKey;
 }
 
 /**
@@ -477,9 +482,14 @@ export class ViewsService {
         entry.stack = stack;
         entry.view = stack;
         this.rebuildPanes(entry);
-        this.sidebarService.registerViewlet(containerId, stack, () => {
-            this.focusContainer(containerId);
-        });
+        this.sidebarService.registerViewlet(
+            containerId,
+            stack,
+            () => {
+                this.focusContainer(containerId);
+            },
+            entry.descriptor.visibleContextKey,
+        );
     }
 
     /**

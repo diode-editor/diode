@@ -18,13 +18,9 @@ import type { ServiceAccessor, Token } from "../../platform/instantiation/common
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { macKeysLevel } from "../../platform/keybinding/common/macKeys.ts";
-import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";
-import { REFERENCES_VIEWLET_ID } from "../contrib/references/browser/referencesComponent.ts";
 import { ScmCommitInputElement } from "../contrib/scm/browser/scmInputComponent.ts";
-import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
-import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -42,8 +38,6 @@ import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironme
 
 import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
-import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
-import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
 export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("WorkbenchContextKeys");
 
@@ -72,7 +66,6 @@ export class WorkbenchContextKeys extends Disposable {
         InputWidgetServiceDIToken,
         KeybindingDispatcherDIToken,
         LayoutServiceDIToken,
-        SidebarServiceDIToken,
         HistoryServiceDIToken,
         TabSwitcherComponentDIToken,
         FocusTrackerDIToken,
@@ -92,7 +85,6 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly inputWidgetService: InputWidgetService,
         private readonly dispatcher: KeybindingDispatcher,
         private readonly layoutService: LayoutService,
-        private readonly sidebarService: SidebarService,
         private readonly historyService: HistoryService,
         private readonly tabSwitcher: TabSwitcherComponent,
         private readonly focusTracker: FocusTracker,
@@ -179,22 +171,6 @@ export class WorkbenchContextKeys extends Disposable {
         // гаснет и помимо конца серии (уход из группы), а стрелки обязаны
         // вернуться редактору ровно тогда, когда список исчез с экрана.
         this.contextKeys.set("tabSwitcherVisible", this.tabSwitcher.isOpen());
-        this.contextKeys.set(
-            "searchViewletVisible",
-            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SEARCH_VIEWLET_ID,
-        );
-        this.contextKeys.set(
-            "extensionsViewletVisible",
-            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === EXTENSIONS_VIEWLET_ID,
-        );
-        this.contextKeys.set(
-            "referencesViewletVisible",
-            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === REFERENCES_VIEWLET_ID,
-        );
-        this.contextKeys.set(
-            "scmViewletVisible",
-            this.layoutService.isSidebarVisible() && this.sidebarService.getActiveViewletId() === SCM_VIEWLET_ID,
-        );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         this.contextKeys.set("terminalIsOpen", this.terminalService.hasOpenTerminals);
         // Ключи фич — у самих фич (IContextKeyContributor), тайминг тот же.

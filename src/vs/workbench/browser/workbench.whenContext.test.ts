@@ -54,7 +54,7 @@ describe("Workbench when-context integration", () => {
         expect(contextKeys.get("textInputFocus")).toBe(false);
     });
 
-    it("sets scmViewletVisible only while the SCM viewlet is active in the sidebar", async () => {
+    it("sets <viewlet>ViewletVisible only while that viewlet is active in the sidebar", async () => {
         const h = createIntegrationApp();
         const contextKeys = h.container.get(ContextKeyServiceDIToken);
         await h.workbench.activate();
@@ -67,9 +67,16 @@ describe("Workbench when-context integration", () => {
         expect(contextKeys.get("scmViewletVisible")).toBe(true);
         expect(contextKeys.get("searchViewletVisible")).toBe(false);
 
+        // Ключ объявляет дескриптор контейнера — у Search он свой.
+        sidebar.showViewlet("search", false);
+        h.testApp.sendKey("Escape");
+        expect(contextKeys.get("searchViewletVisible")).toBe(true);
+        expect(contextKeys.get("scmViewletVisible")).toBe(false);
+
         sidebar.showViewlet("explorer", false);
         h.testApp.sendKey("Escape");
         expect(contextKeys.get("scmViewletVisible")).toBe(false);
+        expect(contextKeys.get("searchViewletVisible")).toBe(false);
     });
 
     it("sets listFocus when a ListViewElement is focused (search results)", async () => {

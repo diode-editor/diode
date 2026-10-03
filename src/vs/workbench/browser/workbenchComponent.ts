@@ -470,6 +470,7 @@ export class WorkbenchComponent extends Component {
             id: SEARCH_VIEWLET_ID,
             title: "SEARCH",
             location: "sidebar",
+            visibleContextKey: "searchViewletVisible",
         });
         this.viewsService.attachContainer(SEARCH_VIEWLET_ID);
         // Source Control — контейнер view-секций (SOURCE CONTROL, GRAPH): сборку
@@ -480,6 +481,7 @@ export class WorkbenchComponent extends Component {
             id: SCM_VIEWLET_ID,
             title: "SOURCE CONTROL",
             location: "sidebar",
+            visibleContextKey: "scmViewletVisible",
         });
         this.viewsService.attachContainer(SCM_VIEWLET_ID);
         // Extensions — контейнер с единственной view, как Search; порядок среди
@@ -489,6 +491,7 @@ export class WorkbenchComponent extends Component {
             title: "EXTENSIONS",
             // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
             location: "sidebar",
+            visibleContextKey: "extensionsViewletVisible",
         });
         this.viewsService.attachContainer(EXTENSIONS_VIEWLET_ID);
         // References — контейнер с единственной view; до первого Find All
@@ -498,6 +501,7 @@ export class WorkbenchComponent extends Component {
             title: "REFERENCES",
             // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
             location: "sidebar",
+            visibleContextKey: "referencesViewletVisible",
         });
         this.viewsService.attachContainer(REFERENCES_VIEWLET_ID);
         this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
