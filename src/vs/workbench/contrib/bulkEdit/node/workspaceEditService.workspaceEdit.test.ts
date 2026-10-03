@@ -243,6 +243,18 @@ describe("WorkspaceEditService.applyWorkspaceEdit — закрытые файл�
         expect(read(closed)).toBe("someone else\n");
     });
 
+    it("redo отказывается (а не падает), если после отката файл удалили снаружи", async () => {
+        const { service, undoRedo } = makeService();
+        const closed = write("b.ts", "before\n");
+        service.applyWorkspaceEdit([textEdit(closed, replaceFirstLine("after\n"))], "Edit");
+        await undoRedo.undo(WORKSPACE_UNDO_CONTEXT);
+
+        fs.rmSync(closed);
+
+        expect(await undoRedo.redo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
+        expect(fs.existsSync(closed)).toBe(false);
+    });
+
     it("нечитаемый ресурс отбивает ВЕСЬ edit — соседний файл не тронут", () => {
         const { service, undoRedo } = makeService();
         const existing = write("a.ts", "keep\n");
@@ -547,6 +559,22 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         expect(await undoRedo.undo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
         expect(fs.existsSync(created)).toBe(false);
         expect(fs.existsSync(path.join(tmpDir, "new"))).toBe(false);
+    });
+
+    it("создание БЕЗ содержимого даёт пустой файл — правка ложится в него одна", () => {
+        const { service } = makeService();
+        const created = path.join(tmpDir, "empty.ts");
+
+        const applied = service.applyWorkspaceEdit(
+            [
+                { kind: "create", to: created },
+                { resource: resourceOf(created), edits: [replaceFirstLine("hello")] },
+            ],
+            "Create",
+        );
+
+        expect(applied).toBe(true);
+        expect(read(created)).toBe("hello");
     });
 
     it("переименование + правка по НОВОМУ пути в одном edit'е", () => {

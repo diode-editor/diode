@@ -115,6 +115,10 @@ class ResourceProjection {
     public rename(from: string, to: string): void {
         const kept = this.read(from);
         this.remove(from);
+        // Источник, который не читается текстом (каталог), проецируем пустым:
+        // текстовая правка по новому пути всё равно упрётся в файловую систему,
+        // а не в проекцию.
+        // Stryker disable next-line StringLiteral: содержимое такого источника проекции не известно — любое значение одинаково ненаблюдаемо
         this.state.set(to, kept === null ? "" : kept.text);
     }
 }

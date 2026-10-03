@@ -98,6 +98,14 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(step.resources).toEqual([pane.absoluteFilePath]);
     });
 
+    it("у безымянного буфера шаг путей не называет — на диске его ещё нет", () => {
+        const pane = createEditorPane({ undoRedoService: new UndoRedoService() });
+        const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
+
+        expect(pane.absoluteFilePath).toBeNull();
+        expect(step.resources).toEqual([]);
+    });
+
     it("применение и откат вещают «буфер изменился» всем прикреплённым вью", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
