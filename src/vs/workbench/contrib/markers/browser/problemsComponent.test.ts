@@ -60,6 +60,8 @@ describe("ProblemsComponent", () => {
         panelComponent = new PanelComponent(panelService, new CommandRegistry());
         revealTarget = makeRevealTarget();
         component = new ProblemsComponent(markerService, views.service, revealTarget, NULL_JUMP_RECORDER);
+        // Контейнер PROBLEMS строит mount() workbench'а — здесь его роль.
+        views.service.attachRegisteredContainers();
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     });
 

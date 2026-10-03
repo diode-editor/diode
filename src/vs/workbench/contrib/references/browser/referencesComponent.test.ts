@@ -15,7 +15,7 @@ import type { IReferenceGroup } from "./referencePreview.ts";
 import { type IReferencesRevealTarget, ReferencesComponent } from "./referencesComponent.ts";
 
 /** Реестр view не участвует в юнит-тестах компонента — контейнер собирает workbench. */
-const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService;
+const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
 
 /** Reveal-цель, записывающая открытия и переходы (аналог фейка Search/Problems). */
 function fakeReveal(opts: { noEditor?: boolean } = {}): {

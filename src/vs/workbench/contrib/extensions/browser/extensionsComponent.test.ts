@@ -22,12 +22,13 @@ import type { IExtensionPageActions } from "./extensionPageActions.ts";
 import { ExtensionsComponent, type IExtensionsEditorTarget } from "./extensionsComponent.ts";
 
 /** Реестр view не участвует в юнит-тестах компонента — контейнер собирает workbench. */
-const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService;
+const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
 
 /** Реестр view, запоминающий дескриптор: через него проверяется показ секции. */
 function recordingViewsService(): { service: ViewsService; descriptor: () => { focus: () => void; title: string } } {
     let captured: { focus: () => void; title: string } | undefined;
     const service = {
+        registerContainer: () => {},
         registerView: (d: { focus: () => void; title: string }) => {
             captured = d;
         },

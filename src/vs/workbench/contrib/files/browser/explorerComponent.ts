@@ -83,6 +83,16 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         // рисует welcome — как `viewsWelcome` в VS Code, тем же составом (текст
         // плюс кнопка, которая зовёт обычную команду Open Folder). Кнопки Clone
         // Repository у нас нет, потому что нет и самой команды клона.
+        // Контейнер сайдбара регистрирует сама фича (как `registerViewContainer`
+        // у VS Code): первый по порядку и показывается по умолчанию.
+        viewsService.registerContainer({
+            id: EXPLORER_VIEWLET_ID,
+            title: "EXPLORER",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            location: "sidebar",
+            order: 0,
+            isDefault: true,
+        });
         viewsService.registerView({
             id: EXPLORER_VIEW_ID,
             containerId: EXPLORER_VIEWLET_ID,

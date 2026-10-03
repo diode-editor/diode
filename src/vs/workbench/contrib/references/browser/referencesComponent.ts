@@ -133,10 +133,20 @@ export class ReferencesComponent extends Component {
         this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);
 
+        // До первого Find All References контейнер пуст, поэтому по умолчанию
+        // в сайдбаре не показывается.
+        viewsService.registerContainer({
+            id: REFERENCES_VIEWLET_ID,
+            title: "REFERENCES",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            location: "sidebar",
+            order: 4,
+            visibleContextKey: "referencesViewletVisible",
+        });
         viewsService.registerView({
             id: REFERENCES_VIEW_ID,
             containerId: REFERENCES_VIEWLET_ID,
-            // Stryker disable next-line StringLiteral: контейнер с единственной видимой view рисуется merged — на экране заголовок КОНТЕЙНЕРА (его задаёт WorkbenchComponent), а заголовок самой view не виден нигде (проверено подменой строки: кадр не меняется)
+            // Stryker disable next-line StringLiteral: контейнер с единственной видимой view рисуется merged — на экране заголовок КОНТЕЙНЕРА (его задаёт registerContainer выше), а заголовок самой view не виден нигде (проверено подменой строки: кадр не меняется)
             title: "REFERENCES",
             order: 10,
             body: this.root,

@@ -30,7 +30,7 @@
 - [ ] **Направление ядро workbench → contrib** — храповик `DIRECTION_EXCEPTIONS`
   в `scripts/check-layers.mjs`: 9 файлов ядра ещё импортируют фичи. Корень и
   агрегатор (`workbenchComponent.ts`, `workbenchContributions.ts`) — E4
-  (саморегистрация контейнеров, хост оверлеев, фаза `blockStartup`, агрегатор
+  (саморегистрация контейнеров с `order` — сделана, хост оверлеев, фаза `blockStartup`, агрегатор
   `workbench.common.main.ts`); `workbenchContextKeyContributors.ts` — F3;
   `builtinActions.ts` и мелкие action-файлы — F2. Запись удаляет задача, которая
   её закрыла.

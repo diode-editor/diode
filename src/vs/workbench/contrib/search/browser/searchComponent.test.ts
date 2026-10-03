@@ -112,7 +112,7 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
 }
 
 /** Реестр view не участвует в юнит-тестах компонента — merged-контейнер собирает workbench. */
-const NULL_VIEWS_SERVICE = { registerView: () => {} } as unknown as ViewsService;
+const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
 
 function make(
     search: ITextSearchService,
@@ -814,6 +814,7 @@ describe("SearchComponent", () => {
     it("регистрирует свою view в merged-контейнере Search при создании", () => {
         const registered: { id: string; containerId: string; focus: () => void }[] = [];
         const viewsService = {
+            registerContainer: () => {},
             registerView: (d: { id: string; containerId: string; focus: () => void }) => registered.push(d),
         } as unknown as ViewsService;
         const component = new SearchComponent(

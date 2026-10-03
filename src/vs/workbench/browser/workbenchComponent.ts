@@ -22,15 +22,8 @@ import {
     WorkbenchContributionsRegistryDIToken,
 } from "../common/workbenchContributionsRegistry.ts";
 import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareActions.ts";
-import {
-    EXTENSIONS_VIEWLET_ID,
-    ExtensionsComponentDIToken,
-} from "../contrib/extensions/browser/extensionsComponent.ts";
-import {
-    EXPLORER_VIEWLET_ID,
-    ExplorerComponent,
-    ExplorerComponentDIToken,
-} from "../contrib/files/browser/explorerComponent.ts";
+import { ExtensionsComponentDIToken } from "../contrib/extensions/browser/extensionsComponent.ts";
+import { ExplorerComponent, ExplorerComponentDIToken } from "../contrib/files/browser/explorerComponent.ts";
 import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
 import { FileOperationsService, FileOperationsServiceDIToken } from "../contrib/files/browser/fileOperationsService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
@@ -46,20 +39,12 @@ import { ParameterHintsComponentDIToken } from "../contrib/parameterHints/browse
 import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
 import { KeybindingRecorderComponentDIToken } from "../contrib/preferences/browser/keybindingRecorderComponent.ts";
 import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
-import {
-    REFERENCES_VIEWLET_ID,
-    ReferencesComponentDIToken,
-} from "../contrib/references/browser/referencesComponent.ts";
+import { ReferencesComponentDIToken } from "../contrib/references/browser/referencesComponent.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
 import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
 import { ScmRepoStateServiceDIToken } from "../contrib/scm/browser/repoStateService.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
-import { SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
-import {
-    SEARCH_VIEWLET_ID,
-    SearchComponent,
-    SearchComponentDIToken,
-} from "../contrib/search/browser/searchComponent.ts";
+import { SearchComponent, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
 import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
 import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
@@ -369,7 +354,7 @@ export class WorkbenchComponent extends Component {
         // Сайдбар собирается до restoreLayout() в хвосте этого же метода —
         // порядок тот же, что был, когда контейнеры жили в setWorkspaceFolder
         // (бутстрап зовёт его ДО mount).
-        this.registerViewContainers();
+        this.viewsService.attachRegisteredContainers();
         // Свёрнутость/веса/скрытость секций — строго ПОСЛЕ сборки контейнеров:
         // применять их не на что, пока панелей нет. Собственный restore в
         // setWorkspaceFolder на бутстрапе именно поэтому и впустую — он нужен
@@ -445,71 +430,8 @@ export class WorkbenchComponent extends Component {
     }
 
     /**
-     * Собирает контейнеры сайдбара и показывает Explorer по умолчанию, не трогая
-     * видимость самого сайдбара — её восстанавливает персист layout'а. Все идут
-     * одним путём: view записались в реестр из конструкторов компонентов,
-     * ViewsService строит контейнер и отдаёт его сайдбару.
-     *
-     * Зовётся из {@link mount} — то есть ВСЕГДА, а не только при открытой папке:
-     * окно без воркспейса обязано иметь сайдбар (Explorer рисует свой
-     * welcome с кнопкой Open Folder, магазин расширений работает как обычно),
-     * иначе из пустого окна нечем даже открыть папку.
-     */
-    private registerViewContainers(): void {
-        this.viewsService.registerContainer({
-            id: EXPLORER_VIEWLET_ID,
-            title: "EXPLORER",
-            location: "sidebar",
-        });
-        this.viewsService.attachContainer(EXPLORER_VIEWLET_ID);
-        // Search — контейнер с единственной view: заголовок секции сам сливается
-        // с заголовком контейнера (merged выводится из числа видимых секций),
-        // «⋯»-меню из коробки; view записалась в реестр из конструктора
-        // SearchComponent.
-        this.viewsService.registerContainer({
-            id: SEARCH_VIEWLET_ID,
-            title: "SEARCH",
-            location: "sidebar",
-            visibleContextKey: "searchViewletVisible",
-        });
-        this.viewsService.attachContainer(SEARCH_VIEWLET_ID);
-        // Source Control — контейнер view-секций (SOURCE CONTROL, GRAPH): сборку
-        // и регистрацию вьюлета берёт на себя ViewsService; view записались в
-        // реестр из конструкторов компонентов. Контролы коммита — внутри тела
-        // первой секции, её собирает ChangesComponent.
-        this.viewsService.registerContainer({
-            id: SCM_VIEWLET_ID,
-            title: "SOURCE CONTROL",
-            location: "sidebar",
-            visibleContextKey: "scmViewletVisible",
-        });
-        this.viewsService.attachContainer(SCM_VIEWLET_ID);
-        // Extensions — контейнер с единственной view, как Search; порядок среди
-        // вьюлетов тот же, что в activity bar VS Code: магазин последний.
-        this.viewsService.registerContainer({
-            id: EXTENSIONS_VIEWLET_ID,
-            title: "EXTENSIONS",
-            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
-            location: "sidebar",
-            visibleContextKey: "extensionsViewletVisible",
-        });
-        this.viewsService.attachContainer(EXTENSIONS_VIEWLET_ID);
-        // References — контейнер с единственной view; до первого Find All
-        // References он пуст, поэтому в сайдбаре по умолчанию не показывается.
-        this.viewsService.registerContainer({
-            id: REFERENCES_VIEWLET_ID,
-            title: "REFERENCES",
-            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
-            location: "sidebar",
-            visibleContextKey: "referencesViewletVisible",
-        });
-        this.viewsService.attachContainer(REFERENCES_VIEWLET_ID);
-        this.sidebarService.showViewlet(EXPLORER_VIEWLET_ID, false);
-    }
-
-    /**
      * Открывает папку как воркспейс. Здесь остаётся ТОЛЬКО то, что зависит от
-     * папки: контейнеры сайдбара живут своей жизнью ({@link registerViewContainers}).
+     * папки: контейнеры сайдбара живут своей жизнью (их собирает `mount()`).
      * Зовётся из бутстрапа (до `mount()`) и из команды Open Folder (после), так
      * что ничего «одноразового» тут быть не должно.
      */

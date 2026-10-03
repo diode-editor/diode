@@ -268,6 +268,14 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);
         for (const gap of this.gaps) gap.setColors(INHERITED_FG, INHERITED_BG);
 
+        viewsService.registerContainer({
+            id: SEARCH_VIEWLET_ID,
+            title: "SEARCH",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            location: "sidebar",
+            order: 1,
+            visibleContextKey: "searchViewletVisible",
+        });
         // Тело единственной view merged-контейнера Search: заголовок секции —
         // заголовок вьюлета, «⋯»-меню приходит от PaneHeaderElement.
         viewsService.registerView({

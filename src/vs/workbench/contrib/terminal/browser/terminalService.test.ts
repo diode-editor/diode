@@ -21,6 +21,8 @@ function buildHarness() {
         return surface;
     };
     const service = new TerminalService(panelService, views.service, factory);
+    // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
+    views.service.attachRegisteredContainers();
     return { panelService, views, service, created: sessions, factoryOptions };
 }
 
