@@ -724,6 +724,11 @@ hide-toggle (`isHiddenByDefault`). См.
     оверлея** (`TabSwitcherComponent.isOpen()`). Он же разводит их с
     `scrollLineUp`/`scrollLineDown`, сидящими на тех же аккордах: список погас —
     прокрутка редактора вернулась.
+  - `parts/editor/editorStateCancellation.ts` — `EditorStateCancellationTokenSource`
+    (аналог upstream `editor/contrib/editorState`): токен, который отменяется на
+    правку документа (`EditorStateFlag.Value`) и/или движение каретки
+    (`EditorStateFlag.Position`) панели; принимает родительский токен. Им
+    гасится ответ, ставший неуместным, пока человек печатал или двигал каретку.
   - `Parts/Editor/DiffEditorPane2.ts` — живая дифф-вкладка (DiffEditable):
     **композиция двух настоящих редакторов** — стороны это `TextFileModel` +
     `EditorComponent` в `TextEditorPane` (file-сторона — общая модель из
