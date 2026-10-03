@@ -63,8 +63,8 @@ export async function toExtensionRegistration(
             filename: `/${virtualPath}`,
         };
     }
-    const dirName = ext.location.slice(env.userPrefix.length).replace(/\/$/, "");
-    const extensionPath = path.resolve(env.userExtensionsDir, dirName);
+    // Хвостовой `/` локации `path.resolve` снимает сам.
+    const extensionPath = path.resolve(env.userExtensionsDir, ext.location.slice(env.userPrefix.length));
     return { ...common, mainPath: path.resolve(extensionPath, main), extensionPath };
 }
 
@@ -81,9 +81,10 @@ export function collectCommandMeta(commands: readonly ICommandContribution[] | u
     titles?: Record<string, string>;
     categories?: Record<string, string>;
 } {
+    if (commands === undefined) return {};
     const titles: Record<string, string> = {};
     const categories: Record<string, string> = {};
-    for (const cmd of commands ?? []) {
+    for (const cmd of commands) {
         if (typeof cmd.command !== "string" || typeof cmd.title !== "string") continue;
         titles[cmd.command] = cmd.title;
         if (typeof cmd.category === "string" && cmd.category !== "") {

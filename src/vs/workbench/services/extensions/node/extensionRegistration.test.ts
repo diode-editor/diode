@@ -134,7 +134,7 @@ describe("toExtensionRegistration", () => {
 
 describe("collectCommandMeta", () => {
     it("без команд — ни заголовков, ни категорий", () => {
-        expect(collectCommandMeta(undefined)).toEqual({ titles: undefined, categories: undefined });
+        expect(collectCommandMeta(undefined)).toStrictEqual({});
         const empty = collectCommandMeta([]);
         expect(empty.titles).toBeUndefined();
         expect(empty.categories).toBeUndefined();
@@ -145,9 +145,11 @@ describe("collectCommandMeta", () => {
             { command: "a", title: "A", category: "" },
             { command: "b" } as never,
             { title: "C" } as never,
+            { command: "d", title: "D", category: 7 } as never,
         ]);
 
-        expect(meta.titles).toEqual({ a: "A" });
+        // Строго: пропущенная запись не должна оставить ключ с undefined.
+        expect(meta.titles).toStrictEqual({ a: "A", d: "D" });
         expect(meta.categories).toBeUndefined();
     });
 });
