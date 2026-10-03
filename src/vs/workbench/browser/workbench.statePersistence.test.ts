@@ -297,6 +297,12 @@ describe("Workbench — session state persistence", () => {
         h1.commands.execute("workbench.action.openGlobalKeybindings");
         h1.workbench.openFile(ws.path("b.ts"));
         h1.container.get(EditorServiceDIToken).activateTab(1);
+        // Для сборок без `editors` — только файлы; активная вкладка не файл.
+        expect(state1.get(EDITOR_GROUPS_STATE)?.groups[0]).toMatchObject({
+            files: [ws.path("a.ts"), ws.path("b.ts")],
+            activeIndex: -1,
+            activeEditor: 1,
+        });
         state1.flushSync();
         h1.dispose();
 
