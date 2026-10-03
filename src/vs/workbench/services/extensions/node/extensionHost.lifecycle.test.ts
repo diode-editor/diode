@@ -1025,6 +1025,21 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
+    it("регистрацию сняли, пока поднимался субпроцесс, — активация тихо её пропускает", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        const registration = host.registerExtension(makeReg("ext.a", "/a.js"));
+
+        const activation = host.activateByEvent("*");
+        // Субпроцесс ещё не ответил ready — снимаем расширение из очереди.
+        registration.dispose();
+
+        await expect(activation).resolves.toBeUndefined();
+        expect(host.hasExtension("ext.a")).toBe(false);
+        expect(activated(child, "ext.a")).toBe(false);
+        host.dispose();
+    });
+
     it("activateByEvent дожидается расширения, которое уже поднимает другой вызов", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
