@@ -11,13 +11,13 @@ import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import type { IStateService } from "../platform/state/common/iStateService.ts";
+import { StateServiceDIToken } from "../platform/state/common/iStateService.ts";
 import { loadState } from "../platform/state/node/stateService.ts";
 import { computeThemeVars } from "../platform/theme/browser/themeStyleVars.ts";
 import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { DiffEditorPane2 } from "../workbench/browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../workbench/browser/parts/editor/textEditorPane.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
-import { StateServiceDIToken } from "../workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
