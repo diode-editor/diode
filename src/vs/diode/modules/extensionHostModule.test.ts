@@ -22,6 +22,13 @@ describe("extensionHostModule — прощание", () => {
         const { container } = createTestContainer();
         const dir = path.join(tmpdir(), "diode-exthost-module-test");
         container.use(extensionHostModule, {
+            extensions: [],
+            registration: {
+                userPrefix: "UserExtensions/",
+                userExtensionsDir: dir,
+                readBuiltinSource: () => Promise.resolve(""),
+                configInjection: () => ({}),
+            },
             globalStorageDir: dir,
             workspaceStorageDir: dir,
             logsDir: dir,

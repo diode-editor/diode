@@ -62,10 +62,11 @@ export interface ProductionProfileContext {
     /** Магазин расширений: источник реестра (`--registry`), каталог установки и версии сборки. */
     extensions: ExtensionsModuleContext;
     /**
-     * Корни приватных каталогов расширений (`ExtensionContext.globalStorageUri` /
-     * `storageUri` / `logUri`) из активного профиля user-data.
+     * Extension host и сервис расширений: просканированный набор, окружение сборки
+     * регистраций и корни приватных каталогов расширений
+     * (`ExtensionContext.globalStorageUri` / `storageUri` / `logUri`) из профиля user-data.
      */
-    extensionStorage: IExtensionHostModuleContext;
+    extensionHost: IExtensionHostModuleContext;
     /** Чем заканчивается прощание: выход или замена процесса новым (`workbench.action.reloadWindow`). */
     hostProcess: IHostProcess;
 }
@@ -101,5 +102,5 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(lifecycleModule, ctx)
         .use(extensionsModule, ctx.extensions)
         .use(preferencesModule)
-        .use(extensionHostModule, ctx.extensionStorage);
+        .use(extensionHostModule, ctx.extensionHost);
 }
