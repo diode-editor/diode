@@ -27,8 +27,8 @@ describe("macKeys", () => {
     it("хелперы строят when-выражения над числовым ключом", () => {
         expect(macKeysAtLeast("cmd")).toBe("macKeys >= 3");
         expect(macKeysIs("legacy")).toBe("macKeys == 1");
-        expect(macKeysBelow("cmd")).toBe("macKeys < 3");
-        expect(notMacKeys()).toBe("macKeys < 1");
+        expect(macKeysBelow("cmd")).toBe("!(macKeys >= 3)");
+        expect(notMacKeys()).toBe("!(macKeys >= 1)");
     });
 
     // Наследование вверх: объявленное на рунге действует и выше, но не ниже.

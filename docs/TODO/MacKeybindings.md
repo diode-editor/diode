@@ -37,7 +37,7 @@ Doctor. С `@tuidom/*` 0.3.0 добавились XTVERSION-проба имен�
   на Alt. В when-клаузах — типизированные `macKeysAtLeast` / `macKeysIs` /
   `notMacKeys`, рунг другого семейства даёт ошибку типа.
 - **Механическая половина — токен `mod`** (`parseKeybinding("mod+s")`):
-  реестр разворачивает его в две записи, Ctrl при `macKeys < 3` и Cmd при
+  реестр разворачивает его в две записи, Ctrl при `!(macKeys >= 3)` и Cmd при
   `macKeys >= 3`.
 - **Ручная половина — таблица мак-дельт** (`workbench/browser/actions/macKeybindings.ts`),
   одна на всё, по эталону vscode. `withMacKeybindings` при регистрации вешает

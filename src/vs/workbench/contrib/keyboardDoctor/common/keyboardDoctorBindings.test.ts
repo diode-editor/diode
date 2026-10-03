@@ -44,7 +44,7 @@ describe("lookupBindings", () => {
             { commandId: "other", when: "listFocus", active: false },
         ]);
         expect(lookupBindings(registry, parseKeybinding("ctrl+s"), MAC_CMD)).toEqual([
-            { commandId: "save", when: "macKeys < 3", active: false },
+            { commandId: "save", when: "!(macKeys >= 3)", active: false },
             { commandId: "unrelated", when: "isLinux", active: false },
         ]);
         expect(lookupBindings(registry, parseKeybinding("alt+s"), MAC_CMD)).toEqual([]);

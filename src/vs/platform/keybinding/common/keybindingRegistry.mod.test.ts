@@ -43,12 +43,12 @@ describe("токен mod (Ctrl на pc, Cmd на mac-cmd)", () => {
     it("expandModKey: взаимоисключающие Ctrl-ниже-cmd и Cmd-на-cmd, каждая часть чорда", () => {
         const variants = expandModKey(parseChord("mod+k mod+s"), "textInputFocus");
         expect(variants.map((v) => [formatKeybinding(v.chord), v.when])).toEqual([
-            ["Ctrl+K Ctrl+S", "(textInputFocus) && (macKeys < 3)"],
+            ["Ctrl+K Ctrl+S", "(textInputFocus) && (!(macKeys >= 3))"],
             ["Meta+K Meta+S", "(textInputFocus) && (macKeys >= 3)"],
         ]);
         expect(variants.flatMap((v) => v.chord).some((part) => "modKey" in part)).toBe(false);
         expect(expandModKey(parseChord("mod+s"), undefined).map((v) => v.when)).toEqual([
-            "macKeys < 3",
+            "!(macKeys >= 3)",
             "macKeys >= 3",
         ]);
     });

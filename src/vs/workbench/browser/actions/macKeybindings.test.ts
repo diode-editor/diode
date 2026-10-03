@@ -115,7 +115,7 @@ function deliverableOnMacLegacy(chord: readonly Keybinding[]): boolean {
 function modFallbackChords(): ReadonlySet<string> {
     const chords = new Set<string>();
     for (const entry of registerBuiltins().listBindings()) {
-        if (entry.when?.includes("macKeys < 3") === true) chords.add(serializeChord(entry.chord));
+        if (entry.when?.includes("!(macKeys >= 3)") === true) chords.add(serializeChord(entry.chord));
     }
     return chords;
 }
@@ -150,7 +150,7 @@ describe("withMacKeybindings", () => {
                 return [serializeChord(conditional.keys), conditional.when];
             }),
         ).toEqual([
-            ["ctrl+left", "macKeys < 1"],
+            ["ctrl+left", "!(macKeys >= 1)"],
             ["ctrl+k left", undefined],
             ["alt+left", "tier == 'legacy'"],
             ["alt+left", "macKeys >= 1"],
@@ -176,7 +176,7 @@ describe("withMacKeybindings", () => {
             }),
         ).toEqual([
             ["ctrl+k ctrl+e", "tier != 'legacy'"],
-            ["ctrl+e", "macKeys < 1"],
+            ["ctrl+e", "!(macKeys >= 1)"],
         ]);
     });
 
@@ -186,7 +186,7 @@ describe("withMacKeybindings", () => {
             deltas({ command: "a", pcOnly: ["mod+a"] }),
         );
         expect(result.keybindings).toEqual([
-            { keys: [parseKeybinding("mod+a")], when: "(listFocus) && (macKeys < 1)" },
+            { keys: [parseKeybinding("mod+a")], when: "(listFocus) && (!(macKeys >= 1))" },
         ]);
     });
 

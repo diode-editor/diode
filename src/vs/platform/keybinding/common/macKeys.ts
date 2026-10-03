@@ -50,10 +50,17 @@ export function macKeysIs(rung: MacKeysRung): string {
 
 /** when: клавиатура не маковская (pc-раскладка). */
 export function notMacKeys(): string {
-    return `${MAC_KEYS_CONTEXT_KEY} < 1`;
+    return `!(${MAC_KEYS_CONTEXT_KEY} >= 1)`;
 }
 
-/** when: маковская клавиатура ниже рунга `rung` либо не мак вовсе. */
+/**
+ * when: маковская клавиатура ниже рунга `rung` либо не мак вовсе.
+ *
+ * «Ниже» записано отрицанием «не ниже», а не через `<`: при незаданном ключе
+ * (контекст до старта окружения, свежий контекст в тестах) `macKeys < 3` по
+ * грамматике when ложно — `parseFloat(undefined)` даёт NaN, — а pc-бинд должен
+ * действовать. `!(macKeys >= 3)` истинно и тогда.
+ */
 export function macKeysBelow(rung: MacKeysRung): string {
-    return `${MAC_KEYS_CONTEXT_KEY} < ${String(macKeysLevel(rung))}`;
+    return `!(${MAC_KEYS_CONTEXT_KEY} >= ${String(macKeysLevel(rung))})`;
 }

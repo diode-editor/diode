@@ -138,7 +138,7 @@ describe("KeybindingRegistry — подпись выбирается по дос
         // Палитра: Ctrl+Shift+P проходит по `when` и на legacy, но до приложения
         // не доходит — подписывать надо F1.
         const registry = new KeybindingRegistry();
-        registry.register(parseKeybinding("ctrl+shift+p"), "palette", "macKeys < 3");
+        registry.register(parseKeybinding("ctrl+shift+p"), "palette", "!(macKeys >= 3)");
         registry.register(parseKeybinding("f1"), "palette");
         const chord = registry.getKeybindingForCommand("palette", contextFor("legacy"));
         expect(chord && formatKeybinding(chord)).toBe("F1");
@@ -146,7 +146,7 @@ describe("KeybindingRegistry — подпись выбирается по дос
 
     it("когда доставляемого бинда нет вовсе, подпись — прежний приоритет", () => {
         const registry = new KeybindingRegistry();
-        registry.register(parseKeybinding("ctrl+shift+m"), "problems", "macKeys < 3");
+        registry.register(parseKeybinding("ctrl+shift+m"), "problems", "!(macKeys >= 3)");
         const chord = registry.getKeybindingForCommand("problems", contextFor("legacy"));
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+Shift+M");
     });
