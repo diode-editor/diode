@@ -18,6 +18,7 @@ interface CommandEntry {
     handler: CommandHandler;
     title?: string;
     enablement?: string;
+    category?: string;
 }
 
 /** Запись реестра для потребителей, которые перечисляют команды (палитра). */
@@ -30,6 +31,22 @@ export interface ICommandSnapshot {
      * здесь это метаданные для тех, кто рисует список команд.
      */
     readonly enablement?: string;
+    /**
+     * Группа команды (`category` из `contributes.commands`: `"Java"`). В САМ
+     * заголовок не входит — её приклеивает тот, кто рисует список команд
+     * ({@link commandPaletteLabel}). Так и в VS Code: в палитре пункт выглядит
+     * как «Java: Switch to Standard Mode», а пункт меню или подпись в
+     * статус-баре остаются без префикса.
+     */
+    readonly category?: string;
+}
+
+/**
+ * Подпись команды для палитры: `category: title`, как в VS Code («Java: Switch
+ * to Standard Mode»). Без категории — сам заголовок.
+ */
+export function commandPaletteLabel(cmd: Pick<ICommandSnapshot, "title" | "category">): string {
+    return cmd.category === undefined || cmd.category === "" ? cmd.title : `${cmd.category}: ${cmd.title}`;
 }
 
 export class CommandRegistry implements IDisposable {
@@ -42,8 +59,14 @@ export class CommandRegistry implements IDisposable {
      */
     public constructor(private readonly logger: ILogger = NULL_LOGGER) {}
 
-    public register(id: string, handler: CommandHandler, title?: string, enablement?: string): IDisposable {
-        this.entries.set(id, { handler, title, enablement });
+    public register(
+        id: string,
+        handler: CommandHandler,
+        title?: string,
+        enablement?: string,
+        category?: string,
+    ): IDisposable {
+        this.entries.set(id, { handler, title, enablement, category });
         return {
             dispose: () => {
                 if (this.entries.get(id)?.handler === handler) {
@@ -92,7 +115,7 @@ export class CommandRegistry implements IDisposable {
         const result: ICommandSnapshot[] = [];
         for (const [id, entry] of this.entries) {
             if (entry.title !== undefined) {
-                result.push({ id, title: entry.title, enablement: entry.enablement });
+                result.push({ id, title: entry.title, enablement: entry.enablement, category: entry.category });
             }
         }
         return result;

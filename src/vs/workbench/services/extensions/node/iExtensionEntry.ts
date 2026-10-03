@@ -62,6 +62,14 @@ export interface IExtensionRegistration {
      */
     readonly commandTitles?: Readonly<Record<string, string>>;
     /**
+     * Группы команд из `contributes.commands` (`{ "java.clean.workspace":
+     * "Java" }`) — те же id, что у {@link commandTitles}, но только для команд,
+     * объявивших `category`. В палитре категория становится префиксом подписи
+     * («Java: Clean Workspace»); в сам заголовок она не входит, иначе протекла
+     * бы в меню и в статус-бар.
+     */
+    readonly commandCategories?: Readonly<Record<string, string>>;
+    /**
      * События активации из `manifest.activationEvents` (`["onLanguage:json",
      * "onStartupFinished"]`). {@link ExtensionHost.registerExtension} только
      * запоминает регистрацию; реальная активация (`host.activateExtension`)

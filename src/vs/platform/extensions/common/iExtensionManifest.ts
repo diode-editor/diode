@@ -11,6 +11,12 @@ import type { IThemeContribution } from "./iThemeContribution.ts";
  * объявлены ниже как **закомментированные** TS-типы — они задокументированы,
  * но не активны, чтобы расширения, копируемые из VS Code, не падали по
  * типам, и чтобы было ясно, какие поля будут добавлены в будущем.
+ *
+ * **Локализация.** Любая строка манифеста может быть ключом `"%key%"` —
+ * человеческий текст лежит в `package.nls[.<locale>].json`. Манифест, который
+ * видят потребители, уже резолвнут: подмену одним проходом по дереву делает
+ * `extensionNls.ts` на этапе `scanExtensions`. То есть `title` ниже — строка, а
+ * не ключ, и приклеивать резолв у себя потребителю не надо.
  */
 export interface IExtensionManifest {
     /** Технический id (нижний регистр, без пробелов). */
@@ -97,10 +103,11 @@ export interface IExtensionContributions {
     readonly configuration?: IConfigurationContribution | readonly IConfigurationContribution[];
 
     /**
-     * Команды расширения. Пока используем только `command`/`title` — заголовок
-     * прокидывается в host, чтобы рантайм-`registerCommand` показался в палитре
-     * (см. `IExtensionRegistration.commandTitles`). Остальные поля (`category`,
-     * `icon`, …) игнорируются до Phase 5.
+     * Команды расширения. Используем `command`/`title`/`category`: заголовок и
+     * группа прокидываются в host, чтобы рантайм-`registerCommand` показался в
+     * палитре (см. `IExtensionRegistration.commandTitles` /
+     * `commandCategories`), а подпись выглядела как «Java: Clean Workspace».
+     * Остальные поля (`icon`, `enablement`, …) пока игнорируются.
      */
     readonly commands?: readonly ICommandContribution[];
 
@@ -166,12 +173,15 @@ export interface IExtensionContributions {
 }
 
 /**
- * Элемент `contributes.commands`. Нас интересуют `command` (id) и `title` для
- * показа в палитре; остальные поля игнорируются до Phase 5.
+ * Элемент `contributes.commands`. Нас интересуют `command` (id), `title` и
+ * `category` для показа в палитре; остальные поля пока игнорируются.
+ *
+ * `title`/`category` приезжают уже локализованными (см. шапку файла).
  */
 export interface ICommandContribution {
     readonly command: string;
     readonly title: string;
+    /** Группа команды (`"Java"`) — префикс подписи в палитре, но не часть `title`. */
     readonly category?: string;
     readonly [key: string]: unknown;
 }

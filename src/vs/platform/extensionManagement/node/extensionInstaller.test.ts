@@ -248,6 +248,92 @@ describe("ExtensionInstaller", () => {
         });
     });
 
+    it("list резолвит %ключи% displayName/description по package.nls.json", async () => {
+        await installVsix(
+            await makeVsix(
+                "nls.vsix",
+                vsixEntries(
+                    {
+                        name: "java",
+                        publisher: "redhat",
+                        version: "1.0.0",
+                        displayName: "%displayName%",
+                        description: "%description%",
+                    },
+                    {
+                        "extension/package.nls.json": JSON.stringify({
+                            displayName: "Language Support for Java(TM)",
+                            description: "Java linting and more",
+                        }),
+                    },
+                ),
+            ),
+            extensionsDir,
+        );
+
+        expect(listInstalledExtensions(extensionsDir)[0]).toMatchObject({
+            id: "redhat.java",
+            displayName: "Language Support for Java(TM)",
+            description: "Java linting and more",
+        });
+    });
+
+    it("нет nls-файла или ключа — строка остаётся ключом, расширение из списка не выпадает", async () => {
+        await installVsix(
+            await makeVsix(
+                "nonls.vsix",
+                vsixEntries({
+                    name: "java",
+                    publisher: "redhat",
+                    version: "1.0.0",
+                    displayName: "%displayName%",
+                    description: "%description%",
+                }),
+            ),
+            extensionsDir,
+        );
+        await installVsix(
+            await makeVsix(
+                "partial.vsix",
+                vsixEntries(
+                    {
+                        name: "kotlin",
+                        publisher: "acme",
+                        version: "1.0.0",
+                        displayName: "%displayName%",
+                        description: "%description%",
+                    },
+                    { "extension/package.nls.json": JSON.stringify({ displayName: "Kotlin" }) },
+                ),
+            ),
+            extensionsDir,
+        );
+
+        const byId = new Map(listInstalledExtensions(extensionsDir).map((e) => [e.id, e]));
+        expect(byId.get("redhat.java")?.displayName).toBe("%displayName%");
+        expect(byId.get("redhat.java")?.description).toBe("%description%");
+        expect(byId.get("acme.kotlin")?.displayName).toBe("Kotlin");
+        expect(byId.get("acme.kotlin")?.description).toBe("%description%");
+    });
+
+    it("битый package.nls.json не ломает list", async () => {
+        await installVsix(
+            await makeVsix(
+                "broken-nls.vsix",
+                vsixEntries(
+                    { name: "java", publisher: "redhat", version: "1.0.0", displayName: "%displayName%" },
+                    { "extension/package.nls.json": "{not json" },
+                ),
+            ),
+            extensionsDir,
+        );
+
+        expect(listInstalledExtensions(extensionsDir)[0]).toMatchObject({
+            id: "redhat.java",
+            displayName: "%displayName%",
+        });
+    });
+
     it("манифест без описательных полей (или с мусором в них) отдаёт undefined, а не мусор", async () => {
         await installVsix(
             await makeVsix("bare.vsix", vsixEntries({ name: "bare", publisher: "acme", version: "1.0.0" })),

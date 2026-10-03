@@ -105,6 +105,38 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
+    it("категория из contributes.commands держится и на заглушке, и на живом прокси", async () => {
+        const harness = await createExtensionTestHarness({
+            activateEvents: [],
+            extensions: [
+                {
+                    ...extensionFixture("test.category", "registersCommand.cjs"),
+                    activationEvents: ["onCommand:test.applyTab"],
+                    commandTitles: { "test.applyTab": "Apply Tab Size" },
+                    commandCategories: { "test.applyTab": "Test" },
+                },
+            ],
+        });
+        try {
+            // Заглушка-активатор: расширение ещё не поднято, но в палитре пункт
+            // уже с группой — иначе подпись «прыгнула» бы после первого запуска.
+            expect(harness.host.hasExtension("test.category")).toBe(false);
+            expect(harness.commandRegistry.listCommands()).toEqual([
+                { id: "test.applyTab", title: "Apply Tab Size", enablement: undefined, category: "Test" },
+            ]);
+
+            // Активация сменяет заглушку настоящим прокси — категория обязана остаться.
+            await harness.commandRegistry.execute("test.applyTab", 4);
+            await settle();
+            expect(harness.host.hasExtension("test.category")).toBe(true);
+            expect(harness.commandRegistry.listCommands()).toEqual([
+                { id: "test.applyTab", title: "Apply Tab Size", enablement: undefined, category: "Test" },
+            ]);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
     it("команда без заголовка исполнима, но в палитре не показывается (как `_java.*`)", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
