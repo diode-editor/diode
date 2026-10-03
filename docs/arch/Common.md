@@ -17,6 +17,17 @@
 
 IO-абстракции (интерфейс + no-op/in-memory заглушка), которыми пользуются разные слои: `IClipboard`/`InMemoryClipboard`, `IFileClipboard`/`InMemoryFileClipboard`, `IFileWatcher`/`NULL_FILE_WATCHER` (слежение за отдельным файлом; реальная `ChokidarFileWatcher` и DI-токен `IFileWatcherDIToken` — в `Workbench/Services/`, но интерфейс живёт здесь, чтобы им мог пользоваться и слой Configuration для live-reload настроек). Разбор ошибок watcher'ов — `describeFileWatchError` (`src/vs/platform/files/common/fileWatchErrors.ts`): переводит ошибку (`ENOSPC`/`EMFILE` — упёрлись в лимит inotify) в код + подсказку по тюнингу; им пользуются оба реальных watcher'а (`ChokidarFileWatcher`, `ExplorerService`), чтобы текст рекомендации был один.
 
+## Отмена и устаревание: `cancellation.ts`
+
+Шим upstream `vs/base/common/cancellation.ts`: `ICancellationToken`, `CancellationTokenNone`,
+`CancellationTokenSource(parent?)` — отмена родителя отменяет источник, `dispose()` снимает слушателей
+и подписку на родителя, не отменяя. Поверх — наш `LatestRequest` («последний запрос побеждает»):
+`start(parent?)` отменяет прежний запрос и выдаёт билет `{ token, isStale(), done() }`, `cancel()` —
+замена `requestSeq++` в `close()`. Асинхронный запрос UI пишется так: `const ticket = latest.start();
+await …; if (ticket.isStale()) return;` — а не рукописным счётчиком поколений, и токен билета
+доезжает до исполнителя. Привязки к документу в хелпере нет (base про документ не знает): «отменить
+на правку/движение каретки» — `EditorStateCancellationTokenSource` в workbench (см. Workbench.md).
+
 ## Вехи старта: `performance.ts`
 
 `mark(name, detail?)` — тонкая обёртка над стандартным `performance.mark` (аналог
