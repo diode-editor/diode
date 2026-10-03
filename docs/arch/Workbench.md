@@ -137,12 +137,81 @@ Inspector'а (поиск по дереву, скриншот-демо). Конт
 2. Раскладка: сервис области — `src/vs/workbench/services/<area>/` (контракт в
    `common/`, реализация в `browser/`/`node/`), фича — `src/vs/workbench/contrib/<feature>/browser/`,
    часть окна — `src/vs/workbench/browser/parts/<part>/`. Компонент наследует `Component`.
+   Что ещё фича обязана держать в своей папке — [«Состав фичи»](#состав-фичи).
 3. Цвета — имена токенов темы в `style`/`setStyleVars`; новый цвет — определение в
    `src/vs/platform/theme/common/colors/` (см. [Theme.md](Theme.md)).
 4. Wiring — в конструктор компонента, async-часть — в сервис (`IActivatable`);
    обратная связь view → сервис — событием или портом, не `?:`-хуком.
 5. DI-токен — `*DIToken` рядом с классом; биндинг — в DI-модуле слоя (см. [../DI.md](../DI.md)).
 6. `view.id` — на корневой контрол компонента; тесты живут рядом с кодом.
+
+## Состав фичи
+
+**Фича** — папка `src/vs/workbench/contrib/<feature>/` с подпапками по оси окружения:
+`common/` — данные и объявления без node и UI, `browser/` — UI и команды, `node/` —
+процессы и FS. Набор файлов в фиче выбирается **по нужде, а не по шаблону**: у
+gotoDefinition нет компонента, у search нет своего сервиса, у scm есть
+contribution'ы. Так же устроено и в VS Code. Обязательно одно правило: **всё, что
+фича регистрирует в приложении, объявлено в её папке**, а центр знает фичу одной
+строкой в агрегаторе `src/vs/workbench/workbench.common.main.ts`.
+
+Прообраз в VS Code — точка сборки `<feature>.contribution.ts` внутри папки фичи
+(`search.contribution.ts`, `scm.contribution.ts`, `markers.contribution.ts`). Она
+регистрирует сервисы, вью, команды, конфигурацию и contribution'ы, а
+`workbench.common.main.ts` подключает фичу строкой импорта. Механизм мы не
+повторяем: вместо import-side-effect и `Registry.as` фича делает **явный экспорт**, а
+агрегатор собирает экспорты в **явные массивы** (см.
+[VscodeStructureFollowUps.md](../TODO/VscodeStructureFollowUps.md), раздел «Механика»).
+
+| Элемент | Где | Имя | Когда нужен |
+|---|---|---|---|
+| Сервис | `browser/<f>Service.ts`; если сервисом пользуются несколько фич — `services/<area>/` | `XxxService` и рядом `XxxServiceDIToken` | у фичи есть состояние или логика без view |
+| Компонент | `browser/<f>Component.ts` | `XxxComponent` и `XxxComponentDIToken` | у фичи есть `view`; форма пары — одна из [трёх](#три-формы-пары) |
+| Команды | `browser/<f>Actions.ts`, можно несколько файлов | фича экспортирует **один** массив `<FEATURE>_ACTIONS: readonly CommandAction[]` | статические команды. Динамические и сервисные команды — `commands.register` в сервисе или contribution |
+| Контекст-ключи: объявление | `common/<f>ContextKeys.ts` | константы `RawContextKey<T>` | у фичи есть свои ключи |
+| Контекст-ключи: значение | сервис или компонент — владелец состояния | `implements IContextKeyContributor` (pull) либо `set` в точке перехода (push) | там же |
+| Ключи состояния | `common/<f>StateKeys.ts` или локальная константа у владельца | `XXX_STATE: IStateDescriptor<T>` | фича сохраняет UI-состояние между сессиями ([State.md](State.md)) |
+| Contribution | `browser/<x>Contribution.ts` | `implements IWorkbenchContribution`, запись `{ ctor, phase }` | фоновый работник без view и API: подписки, сегмент статус-бара, мост между сервисами |
+| Контейнер вью | регистрирует компонент-владелец | `IViewContainerDescriptor` с `order` | у фичи есть вьюлет или вкладка панели |
+| Конфигурация | `common/<f>Configuration.ts` | `xxxConfiguration: IConfigurationNode`, чистые данные | у фичи свои ключи настроек. Секции `editor.*` и `workbench.*` — центральные, как `editorOptions.ts` в VS Code |
+| DI-биндинги | сейчас — блок фичи в `src/vs/diode/modules/workbenchModule.ts` | — | у фичи есть классы под DI |
+| Цвета | центрально, `src/vs/platform/theme/common/colors/` | — | всегда центрально: из общего массива `COLOR_CONTRIBUTIONS` выводится тип `WorkbenchColorKey` ([Theme.md](Theme.md)) |
+
+**Запреты:**
+- центральные файлы (`workbench/{browser,common,services,api}`) не импортируют
+  `contrib/`. Направление проверяет `scripts/check-layers.mjs`, а признанные
+  исключения собраны в храповик, который только убывает;
+- компонент не обращается к чужому компоненту напрямую;
+- фича не импортирует внутренности соседней фичи — только её сервис, DI-токен и
+  экспорты из `common/`. Циклов между фичами нет;
+- фича не добавляет свои команды, ключи и состояние в центральные реестры
+  (`builtinActions.ts`, `contextKeys.ts`, `stateKeys.ts`).
+
+**Агрегатор** `workbench.common.main.ts` — единственный файл workbench, которому
+разрешено импортировать `contrib/`. Он разворачивает массивы фич в
+`WORKBENCH_ACTIONS`, `MENU_CONTRIBUTIONS`, `WORKBENCH_CONTRIBUTIONS`,
+`CONFIGURATION_CONTRIBUTIONS` и подключает контрибьюторов контекст-ключей.
+
+Отдельного линта «у фичи обязаны быть файлы X, Y, Z» нет и не будет: формы фич законно
+разные. Канон держит правило направления. Когда исключение для центрального файла
+снято, вернуть регистрацию фичи в центр уже нельзя.
+
+### Где канон ещё не выполнен
+
+Канон записан как целевой. Ниже — центральные файлы, где регистрации фич лежат
+сегодня, и задачи кампании рефакторингов, которые их разносят. Задача, закрывшая
+строку, удаляет её отсюда.
+
+| Сегодня в центре | Что там | Куда уходит | Задача |
+|---|---|---|---|
+| `workbench/browser/actions/builtinActions.ts`, `searchActions.ts`, `menuContributions.ts` | команды и меню фич | `<FEATURE>_ACTIONS` у фич + агрегатор | F2 |
+| `workbench/browser/workbenchContextKeys.ts` | значения ключей фич | `IContextKeyContributor` у владельцев | F3 |
+| `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
+| `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
+| `workbench/browser/workbenchComponent.ts`, `workbenchContributions.ts` | контейнеры вью, `attachHost`, список contribution'ов; агрегатора `workbench.common.main.ts` ещё нет; правило «центр не импортирует contrib» не проверяется | контейнеры — владельцам, агрегатор, храповик направления в `check-layers.mjs` | E4 |
+| `workbench/common/configuration/{scm,terminal,explorer,files,search}Configuration.ts` | узлы настроек фич | `contrib/<f>/common/` вместе с переездом `CONFIGURATION_CONTRIBUTIONS` в агрегатор | H6, необязательно |
+| `src/vs/diode/modules/workbenchModule.ts` | DI-биндинги фич | дескриптор фичи `contrib/<f>/browser/<f>.contribution.ts` | H6/C5, необязательно, после F2, E4 и F3 |
+| `contrib/diff/browser/compareActions.ts` | команды ревизий scm; из-за них цикл diff ↔ scm | `contrib/scm` | H6, необязательно |
 
 ## Workbench-contributions (`src/vs/workbench/Contributions/`)
 
