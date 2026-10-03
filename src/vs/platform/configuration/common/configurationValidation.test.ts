@@ -38,11 +38,13 @@ describe("isValidConfigurationValue", () => {
     });
 
     it("minimum и maximum — границы включительно", () => {
-        const delay = schema({ type: "number", minimum: 0, maximum: 10 });
-        expect(isValidConfigurationValue(delay, 0)).toBe(true);
-        expect(isValidConfigurationValue(delay, 10)).toBe(true);
-        expect(isValidConfigurationValue(delay, -1)).toBe(false);
-        expect(isValidConfigurationValue(delay, 11)).toBe(false);
+        const timeout = schema({ type: "number", minimum: 1, maximum: 10 });
+        expect(isValidConfigurationValue(timeout, 1)).toBe(true);
+        expect(isValidConfigurationValue(timeout, 10)).toBe(true);
+        expect(isValidConfigurationValue(timeout, 0)).toBe(false);
+        expect(isValidConfigurationValue(timeout, 11)).toBe(false);
+        // Без границ — любое конечное число, в том числе отрицательное.
+        expect(isValidConfigurationValue(schema({ type: "number" }), -5)).toBe(true);
     });
 });
 

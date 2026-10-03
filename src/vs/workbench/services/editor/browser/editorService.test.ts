@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
@@ -22,6 +22,7 @@ import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatche
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
@@ -485,6 +486,21 @@ describe("EditorService", () => {
             const editor = ctrl.getActiveEditor()!;
             expect(editor.viewState.tabSize).toBe(2);
             expect(editor.viewState.insertSpaces).toBe(true);
+        });
+
+        it("editor.occurrencesHighlight: off гасит подсветку вхождений, дефолт — включает", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
+            try {
+                createEditorService({
+                    configurationService: stubConfigurationService({ "editor.occurrencesHighlight": "off" }),
+                }).openFile(writeFile("a.ts", "const x = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(false);
+
+                createEditorService().openFile(writeFile("b.ts", "const y = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(true);
+            } finally {
+                spy.mockRestore();
+            }
         });
 
         it("seeds cursorSurroundingLines from the configuration service", () => {

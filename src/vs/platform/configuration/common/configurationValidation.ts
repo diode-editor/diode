@@ -11,10 +11,11 @@ export function isValidConfigurationValue(schema: IConfigurationPropertySchema, 
     if (schema.enum !== undefined && !schema.enum.includes(value)) return false;
     switch (schema.type) {
         case "number":
-            if (typeof value !== "number" || !Number.isFinite(value)) return false;
-            if (schema.minimum !== undefined && value < schema.minimum) return false;
-            if (schema.maximum !== undefined && value > schema.maximum) return false;
-            return true;
+            return (
+                isFiniteNumber(value) &&
+                value >= (schema.minimum ?? Number.NEGATIVE_INFINITY) &&
+                value <= (schema.maximum ?? Number.POSITIVE_INFINITY)
+            );
         case "boolean":
             return typeof value === "boolean";
         case "string":
@@ -26,6 +27,11 @@ export function isValidConfigurationValue(schema: IConfigurationPropertySchema, 
         case "null":
             return value === null;
     }
+}
+
+/** `Number.isFinite` с сужением типа: не-числа он и так отвергает, без приведения. */
+function isFiniteNumber(value: unknown): value is number {
+    return Number.isFinite(value);
 }
 
 /**
