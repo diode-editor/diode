@@ -20,6 +20,11 @@ export async function loadUserKeybindings(filePath: string, logger?: ILogger): P
         return [];
     }
 
+    return parseUserKeybindings(content, filePath, logger);
+}
+
+/** Разбирает содержимое `keybindings.json` (JSONC) теми же правилами, что и загрузка. */
+export function parseUserKeybindings(content: string, filePath: string, logger?: ILogger): IUserKeybindingRule[] {
     const errors: ParseError[] = [];
     const parsed: unknown = parseJsonc(content, errors, { allowTrailingComma: true });
     for (const err of errors) {

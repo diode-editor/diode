@@ -81,13 +81,15 @@ describe("KeybindingRegistry — кэш приоритета инвалидир�
         expect(registry.listBindings().map((entry) => entry.commandId)).toEqual(["first"]);
     });
 
-    it("removeBindings снимает и из кэша", () => {
+    it("смена слоя (снятие, затем отмена снятия) учитывается", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("escape"), "first");
         registry.register(parseKeybinding("escape"), "second");
         expect(resolve(registry)).toBe("second");
-        registry.removeBindings("second");
+        registry.setUserKeybindings([{ command: "-second" }]);
         expect(resolve(registry)).toBe("first");
+        registry.setUserKeybindings([]);
+        expect(resolve(registry)).toBe("second");
     });
 
     it("dispose реестра очищает и кэш", () => {

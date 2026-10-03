@@ -973,11 +973,13 @@ hide-toggle (`isHiddenByDefault`). См.
     `services/keybinding/node/keybindingsEditorService.ts` — единственный владелец
     user-слоя биндингов: применяет `keybindings.json` на bootstrap (переезд
     `applyUserKeybindings` из `KeybindingDispatcher`) и мутирует из UI
-    (`defineKeybinding`/`removeKeybinding`/`resetKeybinding`) с мгновенным
-    применением к реестру И записью в файл (`keybindingsFileEditor.ts`, JSONC-
-    правки через jsonc-parser). Контракт в `common/`, реализация в `node/` — как
-    у Extensions-кластера. Сессионный леджер эффектов user-правил даёт reset без
-    Reload Window; file-watcher нет (ручные правки — после Reload).
+    (`defineKeybinding`/`removeKeybinding`/`resetKeybinding`): правка пишется в
+    файл (`keybindingsFileEditor.ts`, JSONC-правки через jsonc-parser), и слой
+    user реестра пересобирается из записанного содержимого целиком
+    (`KeybindingRegistry.setUserKeybindings`). Журнала эффектов нет: reset просто
+    убирает правила из файла, и восстановленные дефолты возвращаются на прежний
+    приоритет. Контракт в `common/`, реализация в `node/` — как у
+    Extensions-кластера; file-watcher нет (ручные правки — после Reload).
   - `platform/keybinding/common/keybindingConflicts.ts` — конфликт-детекция
     (одна комбинация + пересекающийся when; when-пересечение упрощено до
     равенства строк, не SAT).
@@ -1321,6 +1323,17 @@ hide-toggle (`isHiddenByDefault`). См.
   when-клаузах (`tier == 'kitty'`, `cap_osc52`, `mode_ssh`, `os == 'mac'`);
   пользовательские бинды — через `keybindings.json` (VS Code-семантика
   `-command` для unbind).
+- **Слои кейбиндов** (`KeybindingRegistry`, как upstream `KeybindingResolver`):
+  default (встроенные экшены, `register`) → extension (`setExtensionKeybindings`,
+  `contributes.keybindings` всех расширений разом) → user (`setUserKeybindings`,
+  `keybindings.json`). Старший слой сильнее младшего на той же комбинации
+  независимо от веса и от того, когда слой пришёл (расширения регистрируются при
+  старте позже user-правил). Снятия (`-command`) декларативны: применяются при
+  сборке резолвера и убирают записи default и extension, но не user;
+  `when` снятия сопоставляется включением конъюнктов (запись снимается, если её
+  `when` содержит все условия снятия). Слои заменяются целиком, записи никуда
+  не удаляются — поэтому смена слоя (reset во вкладке шорткатов) не сдвигает
+  приоритет остальных.
 - **Гейт по tier у дефолтного бинда — только в одну сторону.** Канонический
   бинд VS Code, который терминал без extended keys физически не передаёт
   (`Ctrl+Shift+<буква>`, `Shift+Alt+<буква>`, `Ctrl+Enter`, `Ctrl+Backspace`,

@@ -10,8 +10,22 @@ export const KeybindingWeight = {
     WorkbenchContrib: 200,
 } as const;
 
+/**
+ * Ранг слоя, из которого пришла запись: user сильнее extension, extension
+ * сильнее дефолтов — независимо от веса и от того, когда слой зарегистрирован
+ * (как у upstream: резолвер склеивает дефолты и расширения, а user-правила
+ * кладёт поверх).
+ */
+export const KeybindingLayerRank = {
+    default: 0,
+    extension: 1,
+    user: 2,
+} as const;
+
 /** Что резолверу нужно знать о записи, чтобы упорядочить её. */
 export interface IKeybindingPriority {
+    /** {@link KeybindingLayerRank} слоя записи. */
+    readonly layer: number;
     readonly weight: number;
     /**
      * Порядковый номер правила (вызова регистрации): стабильный тайбрейк при
@@ -20,9 +34,9 @@ export interface IKeybindingPriority {
     readonly seq: number;
 }
 
-/** Сравнение по приоритету: отрицательное — `a` слабее `b`. Сначала вес, при равном — номер правила. */
+/** Сравнение по приоритету: отрицательное — `a` слабее `b`. Слой, потом вес, потом номер правила. */
 export function compareKeybindingPriority(a: IKeybindingPriority, b: IKeybindingPriority): number {
-    return a.weight - b.weight || a.seq - b.seq;
+    return a.layer - b.layer || a.weight - b.weight || a.seq - b.seq;
 }
 
 /**

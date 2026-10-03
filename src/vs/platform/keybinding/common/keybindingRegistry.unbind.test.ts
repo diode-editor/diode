@@ -17,13 +17,13 @@ const KEY = (key: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEventL
     ...mods,
 });
 
-describe("KeybindingRegistry.removeBindings", () => {
+describe("KeybindingRegistry — снятие бинда правилом `-command`", () => {
     it("removes all bindings for a command when no chord is given", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+s"), "save");
         registry.register(parseChord("ctrl+k s"), "save");
 
-        registry.removeBindings("save");
+        registry.setUserKeybindings([{ command: "-save" }]);
 
         expect(resolve(registry, KEY("s", { ctrlKey: true }))).toBeUndefined();
     });
@@ -33,7 +33,7 @@ describe("KeybindingRegistry.removeBindings", () => {
         registry.register(parseKeybinding("ctrl+s"), "save");
         registry.register(parseKeybinding("ctrl+alt+s"), "save");
 
-        registry.removeBindings("save", parseChord("ctrl+s"));
+        registry.setUserKeybindings([{ command: "-save", chord: parseChord("ctrl+s") }]);
 
         expect(resolve(registry, KEY("s", { ctrlKey: true }))).toBeUndefined();
         expect(resolve(registry, KEY("s", { ctrlKey: true, altKey: true }))).toBe("save");
@@ -44,7 +44,7 @@ describe("KeybindingRegistry.removeBindings", () => {
         registry.register(parseKeybinding("ctrl+s"), "save");
         registry.register(parseKeybinding("ctrl+s"), "other");
 
-        registry.removeBindings("save");
+        registry.setUserKeybindings([{ command: "-save" }]);
 
         // The remaining ctrl+s belongs to "other".
         expect(resolve(registry, KEY("s", { ctrlKey: true }))).toBe("other");
@@ -56,7 +56,7 @@ describe("KeybindingRegistry.removeBindings", () => {
         registry.register(parseChord("ctrl+k s"), "save");
 
         // Unbind targets a single combination → lengths differ → chord is NOT removed.
-        registry.removeBindings("save", parseChord("ctrl+s"));
+        registry.setUserKeybindings([{ command: "-save", chord: parseChord("ctrl+s") }]);
 
         // The two-part chord still resolves.
         expect(registry.resolveKey(KEY("k", { ctrlKey: true })).kind).toBe("chord");

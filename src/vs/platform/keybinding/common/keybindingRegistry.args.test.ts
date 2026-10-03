@@ -53,21 +53,18 @@ describe("KeybindingRegistry — args у записи", () => {
         expect(res).toEqual({ kind: "command", commandId: "test.chord", when: undefined, args: 42 });
     });
 
-    it("снапшоты listBindings и removeBindings сохраняют args (леджер reset)", () => {
+    it("снапшот listBindings и правило слоя user сохраняют args", () => {
         const registry = new KeybindingRegistry();
-        registry.register(parseKeybinding("f6"), "test.open", "textViewFocus", "user", "prefill");
+        registry.register(parseKeybinding("f6"), "test.open", "textViewFocus", "default", "prefill");
+        registry.setUserKeybindings([{ command: "test.user", chord: parseChord("f7"), args: { query: "x" } }]);
 
         const listed = registry.listBindings().find((entry) => entry.commandId === "test.open");
         expect(listed?.args).toBe("prefill");
-
-        const removed = registry.removeBindings("test.open");
-        expect(removed).toHaveLength(1);
-        expect(removed[0].args).toBe("prefill");
-
-        // Restore из снапшота (путь resetKeybinding) не теряет args.
-        registry.register(removed[0].chord, removed[0].commandId, removed[0].when, removed[0].source, removed[0].args);
-        registry.resolveKey(makeEvent({ key: "F6" })); // when не прошёл без контекста — none
-        const restored = registry.listBindings().find((entry) => entry.commandId === "test.open");
-        expect(restored?.args).toBe("prefill");
+        expect(registry.resolveKey(makeEvent({ key: "F7" }))).toEqual({
+            kind: "command",
+            commandId: "test.user",
+            when: undefined,
+            args: { query: "x" },
+        });
     });
 });

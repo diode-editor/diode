@@ -1,7 +1,11 @@
 import { combineWhen } from "../../../../platform/actions/common/commandAction.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { IKeybindingContribution } from "../../../../platform/extensions/common/iExtensionManifest.ts";
-import { type KeybindingRegistry, parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    type IKeybindingLayerRule,
+    type KeybindingRegistry,
+    parseChord,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
 /** ОС клавиатуры, как её называет контекст-ключ `os`. */
@@ -10,7 +14,8 @@ type KeyboardOs = "mac" | "linux" | "windows";
 const KEYBOARD_OSES: readonly KeyboardOs[] = ["mac", "linux", "windows"];
 
 /**
- * Регистрирует `contributes.keybindings` расширений в {@link KeybindingRegistry}.
+ * Собирает `contributes.keybindings` всех расширений в слой extension
+ * {@link KeybindingRegistry} (`setExtensionKeybindings` — слой заменяется целиком).
  *
  * `key` (или платформенный оверрайд `mac`/`linux`/`win`) парсится как аккорд
  * (`parseChord`), `when` прокидывается как when-выражение. Платформу выбирает
@@ -19,28 +24,31 @@ const KEYBOARD_OSES: readonly KeyboardOs[] = ["mac", "linux", "windows"];
  * tmux). Поэтому различающиеся варианты регистрируются все, каждый со своим
  * условием `os == …`, и активный выбирается при резолве.
  *
- * Команда с ведущим `-` (`"-editor.action.foo"`) снимает привязку, как в VS Code.
- * Порядок важен: extension-биндинги регистрируются ПОСЛЕ builtin — резолвер идёт
- * с конца, так что расширение переопределяет встроенную привязку того же аккорда
- * (VS Code parity). Команда сама по себе резолвится через `CommandRegistry`
- * (builtin action либо прокси extension-команды из ExtensionHost).
+ * Команда с ведущим `-` (`"-editor.action.foo"`) снимает привязку из слоёв
+ * default и extension, как в VS Code; user-бинды не трогает. Бинд расширения
+ * сильнее встроенного на той же комбинации, а пользовательский — сильнее бинда
+ * расширения: приоритет задают слои реестра, а не момент вызова. Команда сама по
+ * себе резолвится через `CommandRegistry` (builtin action либо прокси
+ * extension-команды из ExtensionHost).
  */
 export function registerExtensionKeybindings(
     extensions: readonly IExtension[],
     keybindingRegistry: KeybindingRegistry,
     logger?: ILogger,
 ): void {
+    const rules: IKeybindingLayerRule[] = [];
     for (const ext of extensions) {
         const keybindings = ext.manifest.contributes?.keybindings;
         if (keybindings === undefined) continue;
         for (const kb of keybindings) {
             try {
-                applyKeybinding(kb, keybindingRegistry);
+                rules.push(...rulesOf(kb));
             } catch (err) {
                 logger?.warn(`${ext.id}: не удалось применить keybinding "${kb.key}" → ${kb.command}`, err);
             }
         }
     }
+    keybindingRegistry.setExtensionKeybindings(rules);
 }
 
 /** Привязка для ОС `os`: платформенный оверрайд поверх кросс-платформенного `key`. */
@@ -69,14 +77,13 @@ function variantsOf(kb: IKeybindingContribution): { key: string; when: string | 
     }));
 }
 
-function applyKeybinding(kb: IKeybindingContribution, registry: KeybindingRegistry): void {
-    for (const variant of variantsOf(kb)) {
+/** Правила слоя по одному `contributes.keybindings[]`: вариант на каждую различающуюся ОС. */
+function rulesOf(kb: IKeybindingContribution): IKeybindingLayerRule[] {
+    return variantsOf(kb).map((variant) => {
         const chord = parseChord(variant.key);
-        // Ведущий `-` в command — снятие привязки (VS Code `-command`).
-        if (kb.command.startsWith("-")) {
-            registry.removeBindings(kb.command.slice(1), chord);
-            continue;
-        }
-        registry.register(chord, kb.command, combineWhen(variant.when, kb.when), "extension");
-    }
+        // Ведущий `-` в command — снятие привязки (VS Code `-command`); условие ОС
+        // у снятия не нужно — снимается ровно эта комбинация.
+        if (kb.command.startsWith("-")) return { command: kb.command, chord };
+        return { command: kb.command, chord, when: combineWhen(variant.when, kb.when) };
+    });
 }

@@ -1,9 +1,15 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { type ContextKeyExpression, deserializeWhen, serializeWhen } from "../../contextkey/common/contextKeyExpr.ts";
 import type { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import { requiresExtendedKeys } from "./keybindingPortability.ts";
-import { type IKeybindingPriority, KeybindingWeight, sortByPriority } from "./keybindingResolver.ts";
+import {
+    type IKeybindingPriority,
+    KeybindingLayerRank,
+    KeybindingWeight,
+    sortByPriority,
+} from "./keybindingResolver.ts";
 import { macKeysAtLeast, macKeysBelow } from "./macKeys.ts";
 
 export const KeybindingRegistryDIToken = token<KeybindingRegistry>("KeybindingRegistry");
@@ -71,6 +77,59 @@ interface KeybindingEntry extends IKeybindingPriority {
     when?: string;
     source: KeybindingSource;
     args?: unknown;
+}
+
+/** Правило слоя extension или user: бинд либо снятие (`-command`, как в VS Code). */
+export interface IKeybindingLayerRule {
+    /** Id команды; ведущий `-` — снять её бинды из слоёв default и extension. */
+    readonly command: string;
+    /** У снятия необязательна: без комбинации снимаются все бинды команды. */
+    readonly chord?: KeybindingChord;
+    /** У снятия — снимаются только записи, чей `when` содержит все условия этого. */
+    readonly when?: string;
+    readonly args?: unknown;
+}
+
+/** Снятие бинда: какие записи default/extension исключить из резолва. */
+interface IKeybindingRemoval {
+    readonly commandId: string;
+    readonly chord: KeybindingChord | undefined;
+    readonly when: string | undefined;
+}
+
+type LayerSource = Exclude<KeybindingSource, "default">;
+
+/** Слой extension или user: его бинды и снятия, заменяются целиком. */
+interface IKeybindingLayer {
+    readonly entries: readonly KeybindingEntry[];
+    readonly removals: readonly IKeybindingRemoval[];
+}
+
+const EMPTY_LAYER: IKeybindingLayer = { entries: [], removals: [] };
+
+/** Условия when как набор канонических конъюнктов: `(a) && (b && c)` → `{a, b, c}`. */
+function whenTerms(when: string): string[] {
+    const expr = deserializeWhen(when);
+    return expr === undefined ? [when] : conjuncts(expr);
+}
+
+function conjuncts(expr: ContextKeyExpression): string[] {
+    return expr.type === "and" ? expr.exprs.flatMap(conjuncts) : [serializeWhen(expr)];
+}
+
+/**
+ * Снимает ли снятие запись. When у снятия сопоставляется включением (как
+ * `whenIsEntirelyIncluded` upstream, в упрощении до конъюнктов): запись
+ * снимается, если её `when` содержит все условия снятия.
+ */
+function isTargetedForRemoval(removal: IKeybindingRemoval, entry: KeybindingEntry): boolean {
+    if (removal.commandId !== entry.commandId) return false;
+    if (removal.chord !== undefined && !chordsEqual(removal.chord, entry.chord)) return false;
+    if (removal.when === undefined) return true;
+    // Stryker disable next-line ConditionalExpression: эквивалентный — разбор undefined даёт [undefined], и непустые условия снятия в нём не найдутся
+    if (entry.when === undefined) return false;
+    const entryTerms = whenTerms(entry.when);
+    return whenTerms(removal.when).every((term) => entryTerms.includes(term));
 }
 
 /** Необязательные параметры правила. */
@@ -314,6 +373,8 @@ export class KeybindingRegistry implements IDisposable {
     private prioritized: KeybindingEntry[] | null = null;
     /** Номер следующего правила — тайбрейк при равном весе. */
     private nextSeq = 0;
+    /** Слои extension и user: заменяются целиком ({@link setExtensionKeybindings}, {@link setUserKeybindings}). */
+    private layers: Record<LayerSource, IKeybindingLayer> = { extension: EMPTY_LAYER, user: EMPTY_LAYER };
 
     // Events accumulated for an in-progress chord (empty when not in chord mode).
     private pendingEvents: KeyboardEventLike[] = [];
@@ -326,17 +387,14 @@ export class KeybindingRegistry implements IDisposable {
         args?: unknown,
         options: IKeybindingRuleOptions = {},
     ): IDisposable {
-        const seq = this.nextSeq++;
-        const weight = options.weight ?? KeybindingWeight.EditorCore;
-        const added: KeybindingEntry[] = expandModKey(Array.isArray(chord) ? chord : [chord], when).map((variant) => ({
-            chord: variant.chord,
+        const added = this.createEntries(
+            Array.isArray(chord) ? chord : [chord],
             commandId,
-            when: variant.when,
+            when,
             source,
             args,
-            weight,
-            seq,
-        }));
+            options,
+        );
         this.entries.push(...added);
         this.prioritized = null;
         return {
@@ -350,34 +408,86 @@ export class KeybindingRegistry implements IDisposable {
         };
     }
 
-    /** Записи по возрастанию приоритета — порядок, в котором их читает резолвер (с конца). */
+    private createEntries(
+        chord: KeybindingChord,
+        commandId: string,
+        when: string | undefined,
+        source: KeybindingSource,
+        args: unknown,
+        options: IKeybindingRuleOptions,
+    ): KeybindingEntry[] {
+        const seq = this.nextSeq++;
+        const weight = options.weight ?? KeybindingWeight.EditorCore;
+        return expandModKey(chord, when).map((variant) => ({
+            chord: variant.chord,
+            commandId,
+            when: variant.when,
+            source,
+            args,
+            layer: KeybindingLayerRank[source],
+            weight,
+            seq,
+        }));
+    }
+
+    /**
+     * Заменяет слой расширений (`contributes.keybindings` всех расширений разом,
+     * как upstream `setExtensionKeybindings`). Снятия слоя (`-command`) убирают
+     * записи default и extension; user-бинды они не трогают.
+     */
+    public setExtensionKeybindings(rules: readonly IKeybindingLayerRule[]): void {
+        this.setLayer("extension", rules);
+    }
+
+    /**
+     * Заменяет слой пользователя (`keybindings.json` целиком). Его бинды
+     * сильнее default и extension независимо от момента регистрации, снятия
+     * убирают записи default и extension — свои user-бинды не трогают.
+     */
+    public setUserKeybindings(rules: readonly IKeybindingLayerRule[]): void {
+        this.setLayer("user", rules);
+    }
+
+    private setLayer(source: LayerSource, rules: readonly IKeybindingLayerRule[]): void {
+        const entries: KeybindingEntry[] = [];
+        // Stryker disable next-line ArrayDeclaration: эквивалентный — посторонний элемент без commandId ни с одной записью не совпадёт
+        const removals: IKeybindingRemoval[] = [];
+        for (const rule of rules) {
+            if (rule.command.startsWith("-")) {
+                removals.push({ commandId: rule.command.slice(1), chord: rule.chord, when: rule.when });
+            } else if (rule.chord !== undefined) {
+                entries.push(...this.createEntries(rule.chord, rule.command, rule.when, source, rule.args, {}));
+            }
+        }
+        this.layers = { ...this.layers, [source]: { entries, removals } };
+        this.prioritized = null;
+    }
+
+    /**
+     * Действующие записи по возрастанию приоритета — порядок, в котором их
+     * читает резолвер (с конца). Снятия слоёв применяются здесь, декларативно:
+     * записи никуда не удаляются, поэтому смена слоя не сдвигает приоритет
+     * остальных.
+     */
     private byPriority(): readonly KeybindingEntry[] {
-        this.prioritized ??= sortByPriority(this.entries);
+        this.prioritized ??= this.computePriority();
         return this.prioritized;
     }
 
-    /**
-     * Removes registered bindings for a command (VS Code `-command` unbind).
-     * With a `chord`, only the entry matching that exact combination is removed;
-     * without one, every binding for the command is removed. Returns the removed
-     * entries so a caller (user-rule bookkeeping) can restore them on reset.
-     */
-    public removeBindings(commandId: string, chord?: KeybindingChord): IKeybindingEntrySnapshot[] {
-        const removed: IKeybindingEntrySnapshot[] = [];
-        this.entries = this.entries.filter((entry) => {
-            if (entry.commandId !== commandId) return true;
-            if (chord && !chordsEqual(entry.chord, chord)) return true;
-            removed.push(entry);
-            return false;
-        });
-        this.prioritized = null;
-        return removed;
+    private computePriority(): KeybindingEntry[] {
+        const { extension, user } = this.layers;
+        const removals = [...extension.removals, ...user.removals];
+        const live = [...this.entries, ...extension.entries, ...user.entries].filter(
+            (entry) => entry.source === "user" || !removals.some((removal) => isTargetedForRemoval(removal, entry)),
+        );
+        return sortByPriority(live);
     }
 
     /**
-     * Все бинды по возрастанию приоритета: из записей одной комбинации с
-     * проходящим `when` резолвер выбирает последнюю. При равном весе это
-     * порядок регистрации.
+     * Действующие бинды по возрастанию приоритета: из записей одной
+     * комбинации с проходящим `when` резолвер выбирает последнюю. Слой user
+     * сильнее extension, extension — дефолтов; внутри слоя — вес, при равном
+     * весе — порядок регистрации. Снятые записи сюда не попадают.
      */
     public listBindings(): readonly IKeybindingEntrySnapshot[] {
         return this.byPriority().map((entry) => ({
@@ -538,6 +648,7 @@ export class KeybindingRegistry implements IDisposable {
 
     public dispose(): void {
         this.entries.length = 0;
+        this.layers = { extension: EMPTY_LAYER, user: EMPTY_LAYER };
         this.prioritized = null;
         this.pendingEvents = [];
     }

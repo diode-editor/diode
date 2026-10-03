@@ -117,28 +117,19 @@ describe("registerExtensionKeybindings", () => {
         expect(registry.getKeybindingForCommand("cmd")).toBeUndefined();
     });
 
-    it("сбой применения одного биндинга не роняет остальные (изоляция + лог)", () => {
+    it("кривой элемент манифеста не роняет остальные (изоляция + лог)", () => {
         const warn = vi.fn();
         const registry = new KeybindingRegistry();
-        let calls = 0;
-        // Первый register бросает, второй — нормальный.
-        const throwingRegistry = {
-            register: (...args: Parameters<KeybindingRegistry["register"]>) => {
-                calls++;
-                if (calls === 1) throw new Error("boom");
-                return registry.register(...args);
-            },
-            removeBindings: registry.removeBindings.bind(registry),
-        } as unknown as KeybindingRegistry;
 
         registerExtensionKeybindings(
             [
                 ext([
-                    { command: "a", key: "ctrl+a" },
+                    // Манифест — чужой JSON: command не строка.
+                    { command: 42 as unknown as string, key: "ctrl+a" },
                     { command: "b", key: "ctrl+b" },
                 ]),
             ],
-            throwingRegistry,
+            registry,
             { warn } as never,
         );
         expect(warn).toHaveBeenCalledOnce();

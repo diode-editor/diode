@@ -22,14 +22,16 @@ Preferences-кластер. Ключевое:
 - **Вкладка** `KeybindingsEditorPane` + чистые модель/строки
   (`contrib/preferences/`), **рекордер** `KeybindingRecorderComponent`
   (модальный оверлей), **сервис** `KeybindingsEditorService`
-  (`services/keybinding/`) — применение keybindings.json + запись JSONC + леджер
-  для reset, **конфликты** `keybindingConflicts.ts`.
+  (`services/keybinding/`) — применение keybindings.json + запись JSONC, слой
+  user реестра пересобирается из файла после каждой правки, **конфликты**
+  `keybindingConflicts.ts`.
 
 ## Осознанно НЕ в PR (follow-ups)
 
 - **File-watcher на keybindings.json** — ручные правки файла применяются после
-  Reload Window, как и раньше. Live-reload потребует откатываемого user-слоя в
-  диспатчере (сейчас леджер сессионный, в сервисе).
+  Reload Window, как и раньше. Шов для live-reload есть: слой user заменяется
+  целиком (`KeybindingRegistry.setUserKeybindings`), не хватает только
+  наблюдателя файла.
 - **Валидатор keybindings.json** в редакторе (неизвестный commandId → маркер) —
   аналог `validateSettingsJson`, отдельным поставщиком `DiagnosticsService`.
 - **`QuickPickItem.hint = "Configure Binding"`** в палитре команд — поле
@@ -45,8 +47,6 @@ Preferences-кластер. Ключевое:
 
 - **Конфликт-детекция** — when-пересечение упрощено до равенства строк (не SAT);
   ложноотрицательные возможны, это фильтр-помощник.
-- **Порядок после reset** — re-регистрируемые дефолты встают в конец реестра;
-  приоритет среди конфликтующих дефолтов может сместиться до Reload.
 - **Терминал** — на legacy-tier часть комбинаций неразличима; рекордер
   предупреждает (`keybindingPortability.ts`), но не запрещает запись.
 - **Коллизии дефолтов, вскрытые срезом приоритета (F1)** — сохранены как были
