@@ -10,54 +10,94 @@
  * `../node/workspaceContainsActivation.ts`.
  */
 
+import type {
+    IExtensionContributions,
+    IExtensionManifest,
+} from "../../../../platform/extensions/common/iExtensionManifest.ts";
+
 /** «В открытой папке воркспейса есть файл по паттерну». */
 const WORKSPACE_CONTAINS_PREFIX = "workspaceContains:";
 
 /** «Исполнили команду с таким id». */
 const ON_COMMAND_PREFIX = "onCommand:";
 
+/** «Модели понадобились фичи этого языка». */
+const ON_LANGUAGE_PREFIX = "onLanguage:";
+
 /**
- * Манифестная часть регистрации, из которой читаются события активации:
- * объявленные события плюс `contributes.commands` (источник НЕЯВНЫХ событий,
- * см. {@link readActivationEvents}).
+ * Регистрация, из которой читаются события активации: ПОЛНЫЙ набор,
+ * посчитанный при её сборке ({@link computeActivationEvents}). Хост только
+ * сравнивает строки и про `contributes` не знает.
  */
 export interface IActivationEventSource {
     readonly activationEvents?: readonly string[];
-    readonly commandTitles?: Readonly<Record<string, string>>;
 }
 
 /**
- * Нормализует `activationEvents`: пусто/отсутствует ⇒ `["*"]` (eager). Так
- * расширение без описанных событий сохраняет прежнее поведение — активируется
- * на общем стартовом `activateByEvent("*")`.
+ * Генератор неявных событий одной точки расширения (как `activationEventsGenerator`
+ * у дескрипторов точек эталона): из вклада `contributes.<point>` — события, по
+ * которым расширение поднимается, даже если само их не объявляло.
  */
-export function normalizeActivationEvents(events: readonly string[] | undefined): readonly string[] {
-    return events !== undefined && events.length > 0 ? events : ["*"];
+export interface IImplicitActivationEventGenerator {
+    readonly point: keyof IExtensionContributions;
+    generate(contributes: IExtensionContributions): Iterable<string>;
 }
+
+/**
+ * Явный список генераторов (без синглтон-реестра с саморегистрацией):
+ * - `commands` ⇒ `onCommand:<id>` — иначе видимая в палитре команда не-eager
+ *   расширения была бы вечным no-op;
+ * - `languages` ⇒ `onLanguage:<id>` — расширение, принёсшее язык, встаёт на нём.
+ *
+ * Генераторы для поверхностей, которых у нас нет (`onView`, `onUri`, …),
+ * появятся вместе с поверхностью.
+ */
+export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationEventGenerator[] = [
+    {
+        point: "commands",
+        *generate(contributes) {
+            for (const command of contributes.commands ?? []) {
+                if (typeof command.command === "string") yield `${ON_COMMAND_PREFIX}${command.command}`;
+            }
+        },
+    },
+    {
+        point: "languages",
+        *generate(contributes) {
+            for (const language of contributes.languages ?? []) {
+                if (typeof language.id === "string") yield `${ON_LANGUAGE_PREFIX}${language.id}`;
+            }
+        },
+    },
+];
 
 /**
  * Полный набор событий активации расширения: объявленные в манифесте плюс
- * НЕЯВНЫЕ.
- *
- * Неявные события — эталонное поведение (`ImplicitActivationEvents` в
- * `abstractExtensionService`): каждая запись `contributes.commands` порождает
- * `onCommand:<id>`, поэтому расширение, объявившее команду и НЕ объявившее под
- * неё событие, всё равно поднимается по её исполнению. Без этого команда из
- * палитры была бы вечным no-op у любого не-eager расширения.
+ * неявные от генераторов, без повторов. Эталонный дефолт: расширение без
+ * событий само не поднимается — пусто значит пусто (никакого неявного `*`).
  */
-export function readActivationEvents(source: IActivationEventSource): readonly string[] {
-    const events = [...normalizeActivationEvents(source.activationEvents)];
-    for (const id of Object.keys(source.commandTitles ?? {})) {
-        const implicit = `${ON_COMMAND_PREFIX}${id}`;
-        if (!events.includes(implicit)) events.push(implicit);
+export function computeActivationEvents(
+    manifest: Pick<IExtensionManifest, "activationEvents" | "contributes">,
+): readonly string[] {
+    const events = [...(manifest.activationEvents ?? [])];
+    const contributes = manifest.contributes ?? {};
+    for (const generator of IMPLICIT_ACTIVATION_EVENT_GENERATORS) {
+        for (const event of generator.generate(contributes)) {
+            if (!events.includes(event)) events.push(event);
+        }
     }
     return events;
+}
+
+/** События активации регистрации (см. {@link IActivationEventSource}). */
+export function readActivationEvents(source: IActivationEventSource): readonly string[] {
+    return source.activationEvents ?? [];
 }
 
 /**
  * id команд, по исполнению которых расширение обязано активироваться —
  * `onCommand:<id>` из манифеста плюс неявные из `contributes.commands`
- * (см. {@link readActivationEvents}). Без дублей; порядок — манифестный.
+ * (см. {@link computeActivationEvents}). Без дублей; порядок — манифестный.
  */
 export function readCommandActivationIds(source: IActivationEventSource): readonly string[] {
     const ids: string[] = [];
@@ -101,7 +141,7 @@ export function hasWorkspaceContainsPatterns(patterns: IWorkspaceContainsPattern
 export function readWorkspaceContainsPatterns(source: IActivationEventSource): IWorkspaceContainsPatterns {
     const paths: string[] = [];
     const globs: string[] = [];
-    for (const event of normalizeActivationEvents(source.activationEvents)) {
+    for (const event of readActivationEvents(source)) {
         if (!event.startsWith(WORKSPACE_CONTAINS_PREFIX)) continue;
         const pattern = event.slice(WORKSPACE_CONTAINS_PREFIX.length);
         if (pattern === "") continue;

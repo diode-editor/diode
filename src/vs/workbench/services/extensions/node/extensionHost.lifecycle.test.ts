@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { registerAndActivate } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { registerAndActivate, testRegistration } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -153,7 +153,8 @@ class FakeEditorOptions implements IEditorOptionsService {
 const spawnArgs = () => ({ command: "node", args: ["host.js"] });
 
 function makeReg(id: string, mainPath: string): IExtensionRegistration {
-    return { id, manifest: { name: id, publisher: "test", version: "0.0.1" }, mainPath };
+    // Eager, как в тестах принято (см. `testRegistration`): дефолта `*` у регистрации нет.
+    return { id, manifest: { name: id, publisher: "test", version: "0.0.1" }, mainPath, activationEvents: ["*"] };
 }
 
 function makeLogger() {
@@ -922,7 +923,10 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const child = new FakeChild();
         const commands = new FakeCommandService();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {}, commands);
-        host.registerExtension({ ...makeReg("ext.a", "/a.js"), commandTitles: { "ext.a.run": "Run" } });
+        // Неявный `onCommand:` считается при сборке регистрации — здесь его даёт `testRegistration`.
+        host.registerExtension(
+            testRegistration({ ...makeReg("ext.a", "/a.js"), commandTitles: { "ext.a.run": "Run" } }),
+        );
         await host.activateByEvent("*");
         // Субпроцесс завёл настоящий прокси — заглушка снята.
         child.receiveFromHostPeer({ kind: "notif", method: "commands.registerCommand", params: { id: "ext.a.run" } });

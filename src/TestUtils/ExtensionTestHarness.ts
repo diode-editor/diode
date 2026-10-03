@@ -102,25 +102,42 @@ export const EXTENSION_FIXTURES_DIR = path.dirname(SUBPROCESS_ENTRY);
 
 /**
  * Регистрация fixture-расширения из {@link EXTENSION_FIXTURES_DIR} с минимальным
- * тестовым манифестом (`publisher: "test"`). Расширяемые поля (`commandTitles`,
- * `configDefaults`) добавляются спредом: `{ ...extensionFixture(...), commandTitles }`.
+ * тестовым манифестом (`publisher: "test"`) и eager-событием `*`. Расширяемые поля
+ * (`commandTitles`, `configDefaults`, свои `activationEvents`) добавляются спредом:
+ * `{ ...extensionFixture(...), commandTitles }`.
  */
 export function extensionFixture(id: string, file: string): IExtensionRegistration {
     return {
         id,
         manifest: { name: id, publisher: "test", version: "0.0.1" },
         mainPath: path.join(EXTENSION_FIXTURES_DIR, file),
+        // Eager — тестовый дефолт (см. `testRegistration`); свои события — спредом.
+        activationEvents: ["*"],
     };
 }
 
 /**
- * Тест-хелпер: регистрирует расширение и сразу активирует его через
- * `activateByEvent("*")` (reg без `activationEvents` нормализуется в `["*"]`).
+ * Регистрация в тестовом виде: без своих событий расширение eager (`["*"]`) —
+ * в проде такого дефолта нет (пусто значит пусто), это удобство тестов, — плюс
+ * неявные `onCommand:<id>` из `commandTitles`, как их посчитал бы
+ * `computeActivationEvents` по `contributes.commands` при сборке регистрации.
+ */
+export function testRegistration(reg: IExtensionRegistration): IExtensionRegistration {
+    const events = [...(reg.activationEvents ?? ["*"])];
+    for (const id of Object.keys(reg.commandTitles ?? {})) {
+        if (!events.includes(`onCommand:${id}`)) events.push(`onCommand:${id}`);
+    }
+    return { ...reg, activationEvents: events };
+}
+
+/**
+ * Тест-хелпер: регистрирует расширение (в тестовом виде, см.
+ * {@link testRegistration}) и сразу активирует его через `activateByEvent("*")`.
  * Заменяет прежний eager `await host.registerExtension(reg)` в тестах, которым
  * важно, что расширение активно сразу. Возвращает disposable от регистрации.
  */
 export async function registerAndActivate(host: ExtensionHost, reg: IExtensionRegistration): Promise<IDisposable> {
-    const disposable = host.registerExtension(reg);
+    const disposable = host.registerExtension(testRegistration(reg));
     await host.activateByEvent("*");
     return disposable;
 }
@@ -382,7 +399,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     };
 
     for (const reg of options.extensions ?? []) {
-        host.registerExtension(reg);
+        host.registerExtension(testRegistration(reg));
     }
     // Активация теперь событийная: фаерим согласованные события (по умолчанию
     // `*` — eager, как раньше). Последовательно — каждый activateByEvent ждёт

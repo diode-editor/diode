@@ -56,7 +56,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         }
     });
 
-    it('пустой activationEvents тоже нормализуется в ["*"]', async () => {
+    it("пустой activationEvents — эталонный дефолт: расширение не поднимается даже на *", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [{ ...extensionFixture("test.empty", "noopExtension.cjs"), activationEvents: [] }],
@@ -64,7 +64,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         try {
             await harness.host.activateByEvent("*");
             await settle();
-            expect(harness.host.hasExtension("test.empty")).toBe(true);
+            expect(harness.host.hasExtension("test.empty")).toBe(false);
         } finally {
             await harness.dispose();
         }

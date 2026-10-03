@@ -88,6 +88,24 @@ describe("toExtensionRegistration", () => {
         expect(reg?.activationEvents).toEqual(["onLanguage:python"]);
     });
 
+    it("события активации — полный набор: объявленные плюс неявные от contributes, без неявного *", async () => {
+        const m = manifest({
+            main: "ext.js",
+            activationEvents: ["onStartupFinished"],
+            contributes: { commands: [{ command: "sample.run", title: "Run" }], languages: [{ id: "sample" }] },
+        });
+
+        const withContributes = await toExtensionRegistration(extension({ manifest: m }), env());
+        const bare = await toExtensionRegistration(extension({ manifest: manifest({ main: "ext.js" }) }), env());
+
+        expect(withContributes?.activationEvents).toEqual([
+            "onStartupFinished",
+            "onCommand:sample.run",
+            "onLanguage:sample",
+        ]);
+        expect(bare?.activationEvents).toEqual([]);
+    });
+
     it("дефолты настроек: манифестные, поверх — инъекция host'а для этого расширения", async () => {
         const m = manifest({
             main: "ext.js",

@@ -1,31 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    computeActivationEvents,
     hasWorkspaceContainsPatterns,
+    IMPLICIT_ACTIVATION_EVENT_GENERATORS,
     NO_WORKSPACE_CONTAINS_PATTERNS,
-    normalizeActivationEvents,
     readActivationEvents,
     readCommandActivationIds,
     readWorkspaceContainsPatterns,
 } from "./activationEvents.ts";
 
-describe("normalizeActivationEvents", () => {
-    it("отсутствующий список ⇒ eager [*]", () => {
-        expect(normalizeActivationEvents(undefined)).toEqual(["*"]);
-    });
-
-    it("пустой список ⇒ eager [*]", () => {
-        expect(normalizeActivationEvents([])).toEqual(["*"]);
-    });
-
-    it("непустой список отдаётся как есть", () => {
-        expect(normalizeActivationEvents(["onLanguage:json"])).toEqual(["onLanguage:json"]);
-    });
-});
-
-describe("readActivationEvents", () => {
-    it("манифестные события отдаются как есть", () => {
-        expect(readActivationEvents({ activationEvents: ["onStartupFinished", "onLanguage:java"] })).toEqual([
+describe("computeActivationEvents", () => {
+    it("объявленные события отдаются как есть", () => {
+        expect(computeActivationEvents({ activationEvents: ["onStartupFinished", "onLanguage:java"] })).toEqual([
             "onStartupFinished",
             "onLanguage:java",
         ]);
@@ -33,39 +20,74 @@ describe("readActivationEvents", () => {
 
     it("каждая contributes.commands добавляет НЕЯВНОЕ onCommand:<id>", () => {
         expect(
-            readActivationEvents({
+            computeActivationEvents({
                 activationEvents: ["onLanguage:python"],
-                commandTitles: { "ruff.restart": "Restart Server", "ruff.showLogs": "Show client logs" },
+                contributes: {
+                    commands: [
+                        { command: "ruff.restart", title: "Restart Server" },
+                        { command: "ruff.showLogs", title: "Show client logs" },
+                    ],
+                },
             }),
         ).toEqual(["onLanguage:python", "onCommand:ruff.restart", "onCommand:ruff.showLogs"]);
     });
 
+    it("каждый contributes.languages добавляет НЕЯВНОЕ onLanguage:<id>", () => {
+        expect(computeActivationEvents({ contributes: { languages: [{ id: "toml" }, { id: "ini" }] } })).toEqual([
+            "onLanguage:toml",
+            "onLanguage:ini",
+        ]);
+    });
+
     it("неявное событие не дублирует уже объявленное руками", () => {
         expect(
-            readActivationEvents({
-                activationEvents: ["onCommand:a.b"],
-                commandTitles: { "a.b": "A B" },
+            computeActivationEvents({
+                activationEvents: ["onCommand:a.b", "onLanguage:x"],
+                contributes: { commands: [{ command: "a.b", title: "A B" }], languages: [{ id: "x" }] },
             }),
-        ).toEqual(["onCommand:a.b"]);
+        ).toEqual(["onCommand:a.b", "onLanguage:x"]);
     });
 
-    it("без activationEvents остаётся eager [*] — плюс неявные команды", () => {
-        expect(readActivationEvents({ commandTitles: { "a.b": "A B" } })).toEqual(["*", "onCommand:a.b"]);
+    it("записи без строкового id неявных событий не дают", () => {
+        expect(
+            computeActivationEvents({
+                contributes: { commands: [{ title: "No id" } as never], languages: [{} as never] },
+            }),
+        ).toEqual([]);
     });
 
-    it("совсем пустой источник ⇒ [*]", () => {
-        expect(readActivationEvents({})).toEqual(["*"]);
+    it("эталонный дефолт: без событий и вкладов — пусто, никакого неявного *", () => {
+        expect(computeActivationEvents({})).toEqual([]);
+        expect(computeActivationEvents({ activationEvents: [] })).toEqual([]);
+    });
+
+    it("генераторы перечислены явно — по точке расширения на каждый", () => {
+        expect(IMPLICIT_ACTIVATION_EVENT_GENERATORS.map((g) => g.point)).toEqual(["commands", "languages"]);
+    });
+});
+
+describe("readActivationEvents", () => {
+    it("отдаёт посчитанный набор регистрации как есть", () => {
+        expect(readActivationEvents({ activationEvents: ["*", "onCommand:a.b"] })).toEqual(["*", "onCommand:a.b"]);
+    });
+
+    it("регистрация без событий — пусто", () => {
+        expect(readActivationEvents({})).toEqual([]);
     });
 });
 
 describe("readCommandActivationIds", () => {
-    it("id из onCommand: и из contributes.commands, без дублей", () => {
+    it("id из onCommand:, без дублей, в порядке набора", () => {
         expect(
             readCommandActivationIds({
-                activationEvents: ["onCommand:_java.templateVariables", "onLanguage:java", "onCommand:x.y"],
-                commandTitles: { "x.y": "X Y", "java.clean": "Clean Workspace" },
+                activationEvents: [
+                    "onCommand:_java.templateVariables",
+                    "onLanguage:java",
+                    "onCommand:x.y",
+                    "onCommand:x.y",
+                ],
             }),
-        ).toEqual(["_java.templateVariables", "x.y", "java.clean"]);
+        ).toEqual(["_java.templateVariables", "x.y"]);
     });
 
     it("расширение без команд не даёт ни одного id", () => {

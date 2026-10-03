@@ -4,6 +4,7 @@ import { joinVirtualPath } from "../../../../base/common/assets/assetBundleForma
 import { flattenConfigDefaults } from "../../../../platform/extensions/common/configDefaults.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ICommandContribution } from "../../../../platform/extensions/common/iExtensionManifest.ts";
+import { computeActivationEvents } from "../common/activationEvents.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
@@ -52,7 +53,9 @@ export async function toExtensionRegistration(
         },
         commandTitles: commandMeta.titles,
         commandCategories: commandMeta.categories,
-        activationEvents: ext.manifest.activationEvents,
+        // Полный набор — объявленные плюс неявные (`contributes.commands` /
+        // `languages`): хост дальше только сравнивает строки.
+        activationEvents: computeActivationEvents(ext.manifest),
     };
     if (ext.isBuiltin) {
         const virtualPath = joinVirtualPath(ext.location, main);
