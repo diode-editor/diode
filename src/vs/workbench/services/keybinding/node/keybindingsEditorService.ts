@@ -15,7 +15,7 @@ import {
     parseChord,
     serializeChord,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import type { IUserKeybindingRule } from "../../../../platform/keybinding/node/keybindingsService.ts";
+import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";

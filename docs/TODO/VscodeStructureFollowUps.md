@@ -35,8 +35,6 @@
 - [ ] **`defaultStyles` → `editorElement`** (value-импорт unthemed-дефолтов):
   либо unthemed-дефолты редактора в platform, либо `getEditorStyles` в
   `editor/browser`.
-- [ ] **DI-токены в `diode/modules`**: `workbenchComponent` импортирует токен из
-  модуля профиля (слой выше) — вынести токены из модулей в слои-владельцы.
 - [ ] **`MenuEntry` в `platform/actions`** — type-only импорт из
   `base/browser/ui/menu`; завести собственный тип entry в platform.
 

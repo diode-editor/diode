@@ -5,7 +5,7 @@ import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import type { IUserKeybindingRule } from "../../../../platform/keybinding/node/keybindingsService.ts";
+import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
 
 /**
  * Исход мутации: ошибка записи файла — не исключение, а результат (приём

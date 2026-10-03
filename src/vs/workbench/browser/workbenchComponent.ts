@@ -2,7 +2,6 @@ import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent"
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
 
-import { UserKeybindingsDIToken } from "../../diode/modules/keybindingsModule.ts";
 import { registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
@@ -11,7 +10,8 @@ import type { ServiceAccessor } from "../../platform/instantiation/common/diCont
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { KeybindingRegistry } from "../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
-import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
+import type { IUserKeybindingRule } from "../../platform/keybinding/common/userKeybindings.ts";
+import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
 import type { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
 import { WorkspaceContextServiceDIToken } from "../../platform/workspace/common/workspaceContextService.ts";

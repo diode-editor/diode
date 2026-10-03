@@ -1,6 +1,6 @@
 import { applyEdits, modify, parse as parseJsonc } from "jsonc-parser";
 
-import type { IUserKeybindingRule } from "../../../../platform/keybinding/node/keybindingsService.ts";
+import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
 
 /**
  * Правки текста `keybindings.json` (массив правил, JSONC): чистые функции над

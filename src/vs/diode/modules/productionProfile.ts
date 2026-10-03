@@ -9,7 +9,7 @@ import type { IClipboard } from "../../platform/clipboard/common/iClipboard.ts";
 import type { ConfigurationRegistry } from "../../platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
-import type { IUserKeybindingRule } from "../../platform/keybinding/node/keybindingsService.ts";
+import type { IUserKeybindingRule } from "../../platform/keybinding/common/userKeybindings.ts";
 import type { ILogService } from "../../platform/log/common/iLogService.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";
 import type { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
