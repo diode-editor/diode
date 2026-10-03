@@ -16,6 +16,7 @@ import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import type { IViewWelcomeBlock } from "../../../browser/parts/views/viewWelcomeElement.ts";
 import { SCM_VIEW_MODE_STATE, type ScmViewMode } from "../../../common/stateKeys.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
@@ -37,6 +38,17 @@ import type { ScmInputComponent } from "./scmInputComponent.ts";
 import { SCM_INPUT_HEIGHT, ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 export const ChangesComponentDIToken = token<ChangesComponent>("ChangesComponent");
+
+/**
+ * Пустое состояние Source Control без открытой папки — по эталону («In order to
+ * use Git features, you can open a folder containing a Git repository…»), минус
+ * клон: команды клонирования у нас нет.
+ */
+const SCM_WELCOME: readonly IViewWelcomeBlock[] = [
+    { kind: "text", text: "To use source control, open a folder containing a Git repository." },
+    { kind: "text", text: "" },
+    { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
+];
 
 /** Метаданные строки списка — мост «id строки → модель» (как rowMeta у поиска). */
 type ScmRowMeta =
@@ -135,6 +147,11 @@ export class ChangesComponent extends Component {
             title: "CHANGES",
             order: 10,
             body: this.view,
+            // Без папки репозитория нет, расширение git не активируется, и поле
+            // коммита с пустым списком изменений выглядит рабочим, ничего при
+            // этом не делая. Честное пустое состояние вместо этого.
+            requiresWorkspaceFolder: true,
+            placeholder: SCM_WELCOME,
             focus: () => {
                 this.focus();
             },

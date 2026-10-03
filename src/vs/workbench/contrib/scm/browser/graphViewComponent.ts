@@ -100,6 +100,11 @@ export class GraphViewComponent extends Component {
             // запускается вовсе (см. `ScmGraphService.setActive`).
             collapsed: true,
             body: this.view,
+            // Истории без репозитория нет. Кнопки тут нет осознанно: welcome с
+            // кнопкой Open Folder показывает CHANGES, и дублировать её второй
+            // раз в том же контейнере — шум (у эталона welcome на контейнер один).
+            requiresWorkspaceFolder: true,
+            placeholder: "No folder opened.",
             focus: () => {
                 this.focus();
             },

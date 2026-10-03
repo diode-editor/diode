@@ -14,11 +14,15 @@ import type {
 import { CHECKED_ICON, joinMenuGroups } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
+import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { type IViewContainerViewsState, SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
 import type { PanelService } from "../panel/panelService.ts";
@@ -29,6 +33,8 @@ import { SidebarServiceDIToken } from "../sidebar/sidebarService.ts";
 import { PaneViewElement } from "./paneViewElement.ts";
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";
+import type { IViewWelcomeBlock } from "./viewWelcomeElement.ts";
+import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
 
 export const ViewsServiceDIToken = token<ViewsService>("ViewsService");
 
@@ -76,8 +82,24 @@ export interface IViewDescriptor {
      * (аналог `viewsWelcome` VS Code). Подменяется {@link ViewsService.setViewBody}.
      */
     readonly body: TUIElement | null;
-    /** Текст пустого состояния, пока `body === null`. */
-    readonly placeholder?: string;
+    /**
+     * Пустое состояние (аналог `viewsWelcome` VS Code): строка-подсказка либо
+     * список блоков — текст и кнопки-команды. Рисуется, пока `body === null`
+     * или пока секция погашена {@link requiresWorkspaceFolder}.
+     */
+    readonly placeholder?: string | readonly IViewWelcomeBlock[];
+    /**
+     * `true` — секция работает только при открытой папке: без неё рисуется
+     * {@link placeholder}, даже если тело уже построено. Аналог `when:
+     * workbenchState == empty` у `viewsWelcome` эталона — там пустое состояние
+     * тоже перекрывает содержимое по условию, а не по пустоте модели.
+     *
+     * Explorer'у флаг не нужен: его тело и так появляется только вместе с
+     * деревом, то есть вместе с папкой. Нужен тем, кто строит тело заранее
+     * (Search, Source Control) и без папки показывал бы рабочий с виду
+     * интерфейс, который молча ничего не делает.
+     */
+    readonly requiresWorkspaceFolder?: boolean;
     /** Отдать фокус содержимому view (команда показа, reveal контейнера). */
     readonly focus: () => void;
     readonly minBodyHeight?: number;
@@ -114,7 +136,9 @@ interface ViewRecord {
     readonly order: number;
     readonly focus: () => void;
     readonly minBodyHeight: number | undefined;
-    readonly placeholder: string | undefined;
+    readonly placeholder: string | readonly IViewWelcomeBlock[] | undefined;
+    /** Нужна ли секции открытая папка (см. {@link IViewDescriptor.requiresWorkspaceFolder}). */
+    readonly requiresWorkspaceFolder: boolean;
     readonly canToggleVisibility: boolean;
     /** Дефолт свёрнутости (см. {@link IViewDescriptor.collapsed}). */
     readonly collapsed: boolean;
@@ -187,6 +211,8 @@ export class ViewsService {
         ContextMenuServiceDIToken,
         MenuServiceDIToken,
         StateServiceDIToken,
+        IWorkspaceContextServiceDIToken,
+        CommandRegistryDIToken,
     ] as const;
 
     private readonly containers = new Map<string, ContainerEntry>();
@@ -203,7 +229,15 @@ export class ViewsService {
         private readonly contextMenuService: ContextMenuService,
         private readonly menuService: MenuService,
         private readonly stateService: IStateService,
-    ) {}
+        private readonly workspaceContext: IWorkspaceContextService,
+        private readonly commands: CommandRegistry,
+    ) {
+        // Подписка живёт столько же, сколько сервис (он синглтон на всё окно),
+        // поэтому снимать её некому и незачем.
+        workspaceContext.onDidChangeWorkspaceFolders(() => {
+            this.refreshWorkspaceGatedViews();
+        });
+    }
 
     /** Регистрирует контейнер (повторная регистрация заменяет описание). */
     public registerContainer(descriptor: IViewContainerDescriptor): void {
@@ -231,6 +265,7 @@ export class ViewsService {
             focus: descriptor.focus,
             minBodyHeight: descriptor.minBodyHeight,
             placeholder: descriptor.placeholder,
+            requiresWorkspaceFolder: descriptor.requiresWorkspaceFolder ?? false,
             canToggleVisibility: descriptor.canToggleVisibility ?? true,
             collapsed: descriptor.collapsed ?? false,
             body: descriptor.body,
@@ -491,7 +526,13 @@ export class ViewsService {
         if (paneView === null) return;
         const visible = this.visibleViews(entry);
         const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible.at(0);
-        target?.focus();
+        if (target === undefined) return;
+        // На экране пустое состояние — фокус уходит в него, а не в тело, которого
+        // не видно: из «папка не открыта» выход должен быть одним нажатием Enter
+        // по кнопке welcome, а не Tab'ами из невидимого инпута.
+        const body = this.bodyOf(target);
+        if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;
+        target.focus();
     }
 
     // ─── Меню и inline-действия заголовков ───
@@ -748,14 +789,49 @@ export class ViewsService {
         return entry.descriptor?.location === "panel";
     }
 
-    /** Тело секции: собственное либо (при `body === null`) пустое состояние. */
+    /**
+     * Тело секции: собственное либо пустое состояние — когда тела ещё нет
+     * (`body === null`) или когда секция погашена отсутствием папки
+     * ({@link IViewDescriptor.requiresWorkspaceFolder}).
+     */
     private bodyOf(record: ViewRecord): TUIElement {
-        if (record.body !== null) return record.body;
+        if (record.body !== null && !this.isGatedOut(record)) return record.body;
         if (record.placeholderView === null) {
-            record.placeholderView = createViewPlaceholder(record.placeholder ?? "");
+            record.placeholderView = this.createPlaceholder(record);
             record.placeholderView.id = `viewPlaceholder-${record.id.replaceAll(".", "-")}`;
         }
         return record.placeholderView;
+    }
+
+    /** Секция требует папку, а папки нет — на экране пустое состояние, не тело. */
+    private isGatedOut(record: ViewRecord): boolean {
+        return record.requiresWorkspaceFolder && this.workspaceContext.getWorkbenchState() === "empty";
+    }
+
+    private createPlaceholder(record: ViewRecord): TUIElement {
+        const placeholder = record.placeholder;
+        if (placeholder === undefined || typeof placeholder === "string") {
+            return createViewPlaceholder(placeholder ?? "");
+        }
+        return new ViewWelcomeElement(placeholder, (command, args) => {
+            this.commands.execute(command, ...args);
+        });
+    }
+
+    /**
+     * Папку открыли (или сменили) — секции, которым она нужна, меняют пустое
+     * состояние на своё тело. Пересборки секций тут не нужно: меняется только
+     * тело, а свёрнутость и веса обязаны пережить открытие папки.
+     */
+    private refreshWorkspaceGatedViews(): void {
+        for (const entry of this.containers.values()) {
+            const paneView = entry.paneView;
+            if (paneView === null) continue;
+            for (const record of entry.views) {
+                if (!record.requiresWorkspaceFolder || entry.hidden.has(record.id)) continue;
+                paneView.setPaneBody(record.id, this.bodyOf(record));
+            }
+        }
     }
 
     /**

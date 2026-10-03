@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { defineScenario } from "./framework.ts";
 
 // `diode` без аргументов: пустое окно. Папка не открыта (Explorer показывает
-// подсказку вместо дерева), текущий каталог не сканируется, вкладок нет —
+// welcome вместо дерева), текущий каталог не сканируется, вкладок нет —
 // выйти из этого состояния можно командой Open Folder, которая наполняет дерево.
+// Сам welcome и его кнопка — в сценарии `no-folder-welcome`.
 
 /** Маленький воркспейс: в кадр целиком влезает весь его список файлов. */
 function makeFolder(): string {
@@ -27,7 +28,7 @@ export default defineScenario({
     rows: 24,
     async run(editor) {
         // Сайдбар собран и без воркспейса: секция EXPLORER на месте, тела нет.
-        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("No folder opened."));
+        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("You have not yet opened a"));
         await editor.capture("empty");
 
         // Ctrl+K Ctrl+O — выход из пустого окна.
@@ -40,7 +41,7 @@ export default defineScenario({
         await editor.sendKey("Enter");
         // Дерево обязано НАПОЛНИТЬСЯ, а не просто потерять подсказку: смена
         // корня строит новый TreeViewElement, который грузится только refresh'ем.
-        await editor.waitForText((t) => t.includes("greeting.ts") && !t.includes("No folder opened."));
+        await editor.waitForText((t) => t.includes("greeting.ts") && !t.includes("You have not yet opened a"));
         await editor.capture("folder-opened");
     },
 });

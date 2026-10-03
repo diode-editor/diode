@@ -1,4 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -48,17 +49,60 @@ describe("Workbench — окно без воркспейса", () => {
         ws.dispose();
     });
 
-    it("сайдбар собран и показывает Explorer с подсказкой вместо дерева", () => {
+    it("сайдбар собран и показывает Explorer с welcome вместо дерева", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXPLORER_VIEWLET_ID);
         const shown = screen();
         expect(shown).toContain("EXPLORER");
-        expect(shown).toContain("No folder opened.");
+        expect(shown).toContain("You have not yet opened a");
+        expect(shown).toContain("[ Open Folder ]");
+    });
+
+    it("кнопка welcome ведёт в ту же команду Open Folder, что и бинд", () => {
+        const welcome = h.testApp.querySelector("#viewPlaceholder-workbench-explorer-fileView");
+        const button = welcome?.getChildren().find((child) => child instanceof ButtonElement)!;
+        const ran: string[] = [];
+        // Подменяем саму команду: тест держит маршрут «кнопка → команда», а не
+        // диалог ввода пути (он проверен в fileActions).
+        h.commands.register("workbench.action.files.openFolder", () => {
+            ran.push("openFolder");
+        });
+
+        button.onActivate?.();
+
+        expect(ran).toEqual(["openFolder"]);
+    });
+
+    it("фокус Explorer'а в пустом окне стоит на кнопке welcome — выход одним Enter'ом", () => {
+        h.commands.execute("workbench.view.explorer");
+
+        const welcome = h.testApp.querySelector("#viewPlaceholder-workbench-explorer-fileView");
+        const button = welcome?.getChildren().find((child) => child instanceof ButtonElement);
+        expect(h.testApp.focusedElement).toBe(button);
+    });
+
+    it("Search без папки не делает вид, что ищет, — честное пустое состояние", () => {
+        h.commands.execute("workbench.view.search");
+        const shown = screen();
+        expect(shown).toContain("SEARCH");
+        expect(shown).toContain("Search needs an open folder.");
+        expect(shown).toContain("[ Open Folder ]");
+    });
+
+    it("Source Control без папки тоже говорит, чего не хватает", () => {
+        h.commands.execute("workbench.view.scm");
+        const shown = screen();
+        expect(shown).toContain("To use source control, open a");
+        expect(shown).toContain("[ Open Folder ]");
     });
 
     it("остальные вьюлеты тоже на месте — магазин открывается без папки", () => {
         h.commands.execute("workbench.view.extensions");
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXTENSIONS_VIEWLET_ID);
-        expect(screen()).toContain("EXTENSIONS");
+        const shown = screen();
+        expect(shown).toContain("EXTENSIONS");
+        // Магазину папка не нужна — его секция работает целиком, а не гасится:
+        // поле поиска по каталогу на экране, пустого состояния нет.
+        expect(shown).toContain("Search Extensions");
     });
 
     it("не открывает ни одного редактора", () => {
@@ -79,7 +123,16 @@ describe("Workbench — окно без воркспейса", () => {
 
         const shown = screen();
         expect(shown).toContain("EXPLORER");
-        expect(shown).not.toContain("No folder opened.");
+        expect(shown).not.toContain("You have not yet opened a");
+    });
+
+    it("Open Folder расклеивает и Search с Source Control — их welcome уходит", () => {
+        h.workbench.setWorkspaceFolder(ws.dir);
+
+        h.commands.execute("workbench.view.search");
+        expect(screen()).not.toContain("Search needs an open folder.");
+        h.commands.execute("workbench.view.scm");
+        expect(screen()).not.toContain("To use source control, open a");
     });
 
     // Продюсер-тест к `terminalService.setWorkingDirectory` в setWorkspaceFolder:
