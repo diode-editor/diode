@@ -9,7 +9,7 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../common/coreTokens.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
+import { type EditorService, EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
 import type { WorkbenchComponent } from "./workbenchComponent.ts";
@@ -235,6 +235,22 @@ describe("Workbench quit with save dialog", () => {
         dialog.onDontSave?.();
         await tick();
         expect(exitSpy).toHaveBeenCalledOnce();
+    });
+
+    it("Save безымянного буфера на выходе не сохраняет — выход отменён, текст жив", async () => {
+        const { testApp, workbench, accessor, commands } = createTestContext(exitSpy);
+        commands.execute("workbench.action.files.newUntitledFile");
+        workbench.focusEditor();
+        testApp.sendKey("x");
+
+        quit(accessor);
+        accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()?.onSave?.();
+        await tick();
+
+        // Сохранять некуда («no-file») — как у закрытия вкладки: вето, а не выход
+        // с потерей текста.
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(accessor.get(EditorServiceDIToken).getEditors()[0].isModified).toBe(true);
     });
 
     it("mixes Save then Don't Save across the sequence and quits at the end", async () => {

@@ -25,7 +25,7 @@ function dirtyItem(name: string, overrides: Partial<IShutdownDirtyItem> = {}): I
     return {
         name,
         isStillDirty: () => true,
-        save: vi.fn().mockResolvedValue(undefined),
+        save: vi.fn().mockResolvedValue(true),
         ...overrides,
     };
 }
@@ -74,6 +74,23 @@ describe("LifecycleService", () => {
 
         expect(second.save).not.toHaveBeenCalled();
         expect(onQuit).toHaveBeenCalledOnce();
+    });
+
+    it("Save, который не сохранил, прерывает выход: onQuit не зовётся, остальных не спрашивают", async () => {
+        const { dialogService, lifecycle } = makeServices();
+        const onQuit = vi.fn();
+        const second = dirtyItem("b.txt");
+        lifecycle.registerShutdownParticipant({
+            collectDirty: () => [dirtyItem("a.txt", { save: vi.fn().mockResolvedValue(false) }), second],
+        });
+
+        const request = lifecycle.requestShutdown(onQuit);
+        dialogService.getOpenConfirmSaveDialog()!.onSave?.();
+        await request;
+
+        expect(onQuit).not.toHaveBeenCalled();
+        expect(dialogService.getOpenConfirmSaveDialog()).toBeNull();
+        expect(second.save).not.toHaveBeenCalled();
     });
 
     it("Cancel прерывает выход: onQuit не зовётся, остальных не спрашивают", async () => {
