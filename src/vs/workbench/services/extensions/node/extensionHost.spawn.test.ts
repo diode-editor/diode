@@ -115,7 +115,12 @@ class FakeEditorOptions implements IEditorOptionsService {
 }
 
 function makeReg(id: string): IExtensionRegistration {
-    return { id, manifest: { name: id, publisher: "test", version: "0.0.1" }, mainPath: "/main.js" };
+    return {
+        id,
+        manifest: { name: id, publisher: "test", version: "0.0.1" },
+        mainPath: "/main.js",
+        activationEvents: ["*"],
+    };
 }
 
 async function waitUntil(pred: () => boolean, timeoutMs = 2000): Promise<void> {
