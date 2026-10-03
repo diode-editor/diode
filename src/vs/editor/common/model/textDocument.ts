@@ -86,8 +86,15 @@ export class TextDocument implements ITextDocument {
         this.onDidChangeEolEmitter.fire();
     }
 
+    /**
+     * Заменяет содержимое целиком **в том же документе**: версия растёт,
+     * подписчики получают событие контента с `isFlush`, EOL пере-детектится (и
+     * объявляется, если сменился). Так перечитка — обычная правка для всех, кто
+     * держит документ: view, токены, синхронизация с расширениями.
+     */
     public setText(text: string): void {
         const oldEndLine = this.lines.length - 1;
+        const eolBefore = this.eolValue;
         this.innerVersionId++;
         this.eolValue = detectEndOfLine(text);
         this.lines = text.split(/\r\n|\n/);
@@ -95,7 +102,9 @@ export class TextDocument implements ITextDocument {
             startLine: 0,
             oldEndLine,
             newEndLine: this.lines.length - 1,
+            isFlush: true,
         });
+        if (this.eolValue !== eolBefore) this.onDidChangeEolEmitter.fire();
     }
 
     public getTextInRange(range: IRange): string {

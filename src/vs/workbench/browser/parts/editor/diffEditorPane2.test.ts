@@ -356,8 +356,8 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
 
         pane.replaceSnapshotContent("original", "a\nb2\nc");
         await settle(5);
-        // View-state пересоздан перечиткой, но синк перевешан: скролл зеркалится.
-        expect(original.viewState).not.toBe(viewStateBefore);
+        // Перечитка меняет текст в том же документе: view-state и синк скролла живы.
+        expect(original.viewState).toBe(viewStateBefore);
         expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
         modified.viewState.scrollTop = 1;
         expect(original.viewState.scrollTop).toBe(1);

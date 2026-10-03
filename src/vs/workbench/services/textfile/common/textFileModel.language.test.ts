@@ -72,20 +72,24 @@ describe("TextFileModel — language", () => {
 
     it("setLanguage меняет язык и ретранслирует событие подписчикам контроллера", () => {
         const changes: IDocumentLanguageChange[] = [];
-        // Подписка ДО openFile — должна пережить пересоздание документа.
+        // Подписка ДО openFile: открытие — тоже смена языка (документ один на
+        // всю жизнь модели и рождается plaintext).
         ctrl.onDidChangeLanguage((change) => changes.push(change));
 
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
         ctrl.setLanguage("markdown");
 
         expect(ctrl.languageId).toBe("markdown");
-        expect(changes).toEqual([{ oldLanguageId: "typescript", newLanguageId: "markdown" }]);
+        expect(changes).toEqual([
+            { oldLanguageId: "plaintext", newLanguageId: "typescript" },
+            { oldLanguageId: "typescript", newLanguageId: "markdown" },
+        ]);
     });
 
     it("dispose подписки onDidChangeLanguage останавливает доставку, повторный dispose — no-op", () => {
+        ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
         let fired = 0;
         const subscription = ctrl.onDidChangeLanguage(() => fired++);
-        ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
 
         ctrl.setLanguage("markdown");
         subscription.dispose();

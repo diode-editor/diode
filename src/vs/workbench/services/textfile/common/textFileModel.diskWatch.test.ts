@@ -234,24 +234,6 @@ describe("TextFileModel — external change detection", () => {
             controller.dispose();
         });
 
-        it("stops delivering reload events after dispose (double dispose is a no-op)", () => {
-            const controller = createEditorPane();
-            const fp = writeFile("sub3.txt", "v1\n");
-            controller.openFile(Uri.file(fp));
-
-            let events = 0;
-            const subscription = controller.model.onDidReloadDocument(() => events++);
-            controller.revertToDisk();
-            expect(events).toBe(1);
-
-            subscription.dispose();
-            subscription.dispose(); // no-op
-
-            controller.revertToDisk();
-            expect(events).toBe(1);
-            controller.dispose();
-        });
-
         it("stops delivering content events after dispose (double dispose is a no-op)", () => {
             const controller = createEditorPane();
             const fp = writeFile("sub2.txt", "v1\n");
@@ -286,6 +268,54 @@ describe("TextFileModel — external change detection", () => {
         it("returns false without a file path", () => {
             const controller = createEditorPane();
             expect(controller.revertToDisk()).toBe(false);
+            controller.dispose();
+        });
+
+        it("меняет текст в том же документе: версия растёт, история отмены забыта", () => {
+            const controller = createEditorPane();
+            const fp = writeFile("same.txt", "disk\n");
+            controller.openFile(Uri.file(fp));
+            const document = controller.model.document;
+            controller.viewState.type("edit ");
+            const versionBefore = document.versionId;
+
+            writeFileExternally(fp, "fresh\n");
+            controller.revertToDisk();
+
+            expect(controller.model.document).toBe(document);
+            expect(document.versionId).toBeGreaterThan(versionBefore);
+            expect(controller.model.undoManager.canUndo).toBe(false);
+            controller.dispose();
+        });
+
+        it("подписчики контента и EOL видят перечитку уже чистым буфером", () => {
+            const controller = createEditorPane();
+            const fp = writeFile("eol.txt", "a\nb\n");
+            controller.openFile(Uri.file(fp));
+            controller.viewState.type("x");
+            const seen: string[] = [];
+            controller.model.onDidChangeContent(() => seen.push(`content:${String(controller.isModified)}`));
+            controller.model.onDidChangeEol(() => seen.push(`eol:${String(controller.isModified)}`));
+
+            writeFileExternally(fp, "a\r\nb\r\n");
+            controller.revertToDisk();
+
+            // По одному событию, и оба — после того как буфер снова «сохранён».
+            expect(seen).toEqual(["content:false", "eol:false"]);
+            controller.dispose();
+        });
+
+        it("тот же EOL — события EOL нет", () => {
+            const controller = createEditorPane();
+            const fp = writeFile("eol2.txt", "a\nb\n");
+            controller.openFile(Uri.file(fp));
+            let eolEvents = 0;
+            controller.model.onDidChangeEol(() => eolEvents++);
+
+            writeFileExternally(fp, "c\nd\n");
+            controller.revertToDisk();
+
+            expect(eolEvents).toBe(0);
             controller.dispose();
         });
     });

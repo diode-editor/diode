@@ -367,7 +367,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.insertSpaces).toBe(true);
         });
 
-        it("переживает перечитку файла с диска (view-state пересоздаётся)", () => {
+        it("переживает перечитку файла с диска", () => {
             const ctrl = createEditorPane();
             const fp = writeFile("a.ts", "x");
             ctrl.openFile(Uri.file(fp));
@@ -449,7 +449,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(renderBgAt(ctrl, 0)).toBe(panelBg);
         });
 
-        it("переживает перечитку файла с диска (EditorElement пересоздаётся)", () => {
+        it("переживает перечитку файла с диска", () => {
             const ctrl = createEditorPane();
             const fp = writeFile("a.txt", "hi");
             ctrl.openFile(Uri.file(fp));
@@ -584,14 +584,14 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             ctrl.viewState.selections = [createCursorSelection(1, 0)];
             expect(fired).toBe(1);
 
-            // Перечитка пересоздаёт view-state — подписчик (extension host,
-            // проецирующий выделение в субпроцесс) обязан её пережить.
-            fs.writeFileSync(fp, "changed\ncontent", "utf-8");
+            // Перечитка укоротила файл до одной строки — каретку прижало к
+            // новому тексту, и подписчик (extension host, проецирующий
+            // выделение в субпроцесс) узнаёт об этом ровно один раз.
+            fs.writeFileSync(fp, "changed", "utf-8");
             ctrl.revertToDisk();
             const afterReload = fired;
-            // Сама перечитка — тоже смена выделения (каретка пересажена на новый
-            // view-state): подписчик узнаёт о ней ровно один раз.
             expect(afterReload).toBe(2);
+            expect(ctrl.viewState.selections).toEqual([createCursorSelection(0, 0)]);
             ctrl.viewState.selections = [createCursorSelection(1, 2)];
             expect(fired).toBeGreaterThan(afterReload);
 

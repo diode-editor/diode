@@ -66,6 +66,15 @@ export class UndoManager {
         this.doc = doc;
     }
 
+    /**
+     * Забывает всю историю: содержимое документа заменено целиком (перечитка),
+     * и шаги адресуют текст, которого больше нет.
+     */
+    public clear(): void {
+        this.undoStack = [];
+        this.redoStack = [];
+    }
+
     public get canUndo(): boolean {
         return this.undoStack.length > 0;
     }

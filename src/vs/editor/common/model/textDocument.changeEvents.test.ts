@@ -16,7 +16,7 @@ describe("TextDocument change events", () => {
         const doc = new TextDocument("a\nb\nc");
         const changes = recordChanges(doc);
         doc.setText("X\nY");
-        expect(changes).toEqual([{ startLine: 0, oldEndLine: 2, newEndLine: 1 }]);
+        expect(changes).toEqual([{ startLine: 0, oldEndLine: 2, newEndLine: 1, isFlush: true }]);
     });
 
     it("single-line insert reports unchanged line range", () => {

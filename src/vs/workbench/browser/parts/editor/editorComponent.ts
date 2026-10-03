@@ -26,11 +26,7 @@ import { computeIndentationFolds } from "../../../../editor/contrib/folding/fold
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
-import type {
-    DocumentReloadReason,
-    ITextFileEditTarget,
-    TextFileModel,
-} from "../../../services/textfile/common/textFileModel.ts";
+import type { ITextFileEditTarget, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 import { Component } from "../../component.ts";
 
 /**
@@ -236,9 +232,12 @@ export class EditorComponent extends Component {
         };
         this.register(model.attachEditTarget(this.editTargetValue));
 
+        // Содержимое заменено целиком (перечитка с диска, смена содержимого
+        // владельцем): каретку и фолды view-state уже ремапнул как при любой
+        // правке; заново выводим то, что выводится из текста целиком.
         this.register(
-            model.onDidReloadDocument((reason) => {
-                this.rebuildForReloadedDocument(reason);
+            model.document.onDidChangeContent((change) => {
+                if (change.isFlush === true) this.handleDocumentFlush();
             }),
         );
         // Смена языка (setLanguage / saveAs с новым расширением) пересаживает
@@ -276,82 +275,24 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * Пересобирает view поверх пересозданного документа модели (перечитка с диска):
-     * свежие view-state/токен-кеш/EditorElement — undo и курсор сбрасываются, как
-     * при открытии файла заново. Стили и контекст-меню переносятся из кэша;
-     * движок undo берётся у модели (она пересоздала его вместе с документом).
-     * При перечитке того же файла с диска (`reason === "disk"`) скролл
-     * сохраняется — внешняя правка не должна уводить вьюпорт в начало; смена
-     * содержимого владельцем (Output-канал) скролл сбрасывает.
+     * Содержимое документа заменено целиком: документ, view-state и редактор те
+     * же (read-only, фокус, отступы из конфига, стили — на месте), каретка уже
+     * ремапнута к новому тексту. Заново — то, что выводится из текста целиком:
+     * детект отступа, фолды (сразу, а не с паузой — разметка от прежнего текста
+     * ничего не значит) и кламп скролла по новому числу строк.
      */
-    private rebuildForReloadedDocument(reason: DocumentReloadReason): void {
-        // Read-only — свойство редактора, а не документа: перечитка не должна его
-        // снимать. Без переноса «Reopen with Encoding» на read-only вкладке молча
-        // возвращал её в редактируемое состояние.
-        const wasReadOnly = this.editorViewState.readOnly;
-        const previousScrollTop = this.editorViewState.scrollTop;
-        const previousScrollLeft = this.editorViewState.scrollLeft;
-        const previousSelections = this.editorViewState.cloneSelections();
-        // Фокус переносим на новый виджет: старый уходит с дерева, и `FocusManager`
-        // остаётся указывать в никуда — клавиатура переставала доходить куда-либо
-        // вовсе. Заметнее всего это было на смене канала Output, где пересборка
-        // происходит на каждое переключение.
-        const hadFocus = holdsFocus(this.editor);
+    private handleDocumentFlush(): void {
         const indentBefore = { tabSize: this.editorViewState.tabSize, insertSpaces: this.editorViewState.insertSpaces };
-        this.editorViewState.dispose();
-        this.editorViewState = new EditorViewState(this.model.document);
-        this.editorViewState.readOnly = wasReadOnly;
-        // Настройки отступа — свойство редактора, как и read-only: новый
-        // view-state знает только встроенные дефолты, конфиг помнит компонент.
-        this.applyIndentConfigurationToViewState();
-        // Пере-детекция по новому содержимому могла сменить действующий отступ.
+        const { scrollTop, scrollLeft } = this.editorViewState;
+        this.editorViewState.runDetectIndentation();
         this.notifyIndentIfChanged(indentBefore);
-        this.tokenStore.dispose();
-        this.tokenStore = new DocumentTokenStore(
-            this.model.document,
-            this.ensureTokenizerForLanguage(this.model.languageId),
-        );
-        this.editorViewState.tokenStore = this.tokenStore;
-        if (reason === "disk") {
-            // Каретка переживает перечитку того же файла (как revert в VS Code);
-            // кламп — файл мог укоротиться.
-            this.editorViewState.selections = previousSelections.map((sel) => ({
-                anchor: this.clampToDocument(sel.anchor),
-                active: this.clampToDocument(sel.active),
-            }));
-        }
-        this.editor = new EditorElement(this.editorViewState);
-        this.editor.tokenStyleResolver = this.tokenStyleResolver;
-        this.attachLanguageConfiguration();
-        this.editor.focusable = true;
-        this.applyEditorStyle();
-        this.editor.undoManager = this.model.undoManager;
-        // Курсор сброшен на (0,0) вместе с view-state — перевешиваем форвардинг и
-        // сообщаем подписчикам, иначе extension host остался бы со старым выделением.
-        this.attachSelectionForwarding();
-        this.attachTypeForwarding();
-        this.onDidChangeSelectionEmitter.fire();
-        this.view.setChild(this.editor);
         this.recomputeFoldingRegions();
-        if (reason === "disk") {
-            // Скролл — ПОСЛЕ пересчёта фолдов: тот заканчивается reveal'ом каретки
-            // и перетёр бы восстановленную позицию вьюпорта. Кламп — по новому
-            // числу строк.
-            this.editorViewState.scrollTop = Math.min(
-                previousScrollTop,
-                Math.max(0, this.editorViewState.getViewLineCount() - 1),
-            );
-            this.editorViewState.scrollLeft = previousScrollLeft;
-        }
-        if (hadFocus) this.editor.focus();
-    }
-
-    /** Кламп позиции к границам текущего документа модели. */
-    private clampToDocument(pos: { line: number; character: number }): { line: number; character: number } {
-        const doc = this.model.document;
-        const line = Math.max(0, Math.min(pos.line, doc.lineCount - 1));
-        const character = Math.max(0, Math.min(pos.character, doc.getLineLength(line)));
-        return { line, character };
+        // Вьюпорт — ПОСЛЕ пересчёта фолдов: тот заканчивается reveal'ом каретки
+        // и увёл бы вьюпорт к ней; внешняя правка уводить его не должна. Кламп —
+        // по новому числу строк.
+        this.editorViewState.scrollTop = Math.min(scrollTop, Math.max(0, this.editorViewState.getViewLineCount() - 1));
+        this.editorViewState.scrollLeft = scrollLeft;
+        this.editor.markDirty();
     }
 
     /**
@@ -785,10 +726,4 @@ export class EditorComponent extends Component {
         this.editorViewState.gotoPreviousFold(this.editorViewState.selections[0].active.line);
         this.editor.markDirty();
     }
-}
-
-/** Держит ли фокус сам виджет или что-то в его поддереве. */
-function holdsFocus(editor: EditorElement): boolean {
-    const active = editor.getRoot()?.focusManager?.activeElement ?? null;
-    return active?.getAncestorPath().includes(editor) === true;
 }

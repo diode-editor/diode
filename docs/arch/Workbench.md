@@ -768,11 +768,13 @@ hide-toggle (`isHiddenByDefault`). См.
     `ITextFileEditorModel`): владеет `TextDocument`, dirty-статусом
     (`isModified` = versionId + EOL-ось), осями encoding/EOL/language, записью
     на диск (`save`/`saveAs`/`saveWithEncoding` + save-участник с клампом правок),
-    перечиткой (`revertToDisk`/`reopenWithEncoding` → событие
-    `onDidReloadDocument` с reason `disk`/`owned`) и слежением за файлом на диске
+    перечиткой (`revertToDisk`/`reopenWithEncoding`, `replaceOwnedContent` у
+    синтетики — текст меняется **в том же документе** через `TextDocument.setText`:
+    событие контента с `isFlush`, версия растёт, история отмены забывается; документ
+    один на всю жизнь модели) и слежением за файлом на диске
     через `IFileWatcher` (авто-перечитка чистого буфера / `hasDiskConflict` у
     «грязного»). **Владеет движком undo**: `UndoManager` (класс — в
-    `src/vs/editor`) — один на документ, пересоздаётся с ним; модель сама
+    `src/vs/editor`) — один на документ (перечитка его чистит, а не пересоздаёт); модель сама
     роутит шаги в `UndoRedoService` (`undoContext`), а `undo/redo(view)`
     принимают «действующую вью», которой восстанавливается снимок выделений.
     **Не** singleton-сервис: экземпляр на файл, но один при любом числе вкладок —
@@ -785,9 +787,10 @@ hide-toggle (`isHiddenByDefault`). См.
   - `Components/Editor/EditorComponent.ts` — `Component`; владеет
     `EditorElement` + view-state + токен-кешем (`view` = `ScrollBarDecorator`),
     принимает модель в конструктор (модель может делиться несколькими
-    компонентами — по вью на группу): по `onDidReloadDocument` пересобирает
-    view-state/`EditorElement` (перенося стили/контекст-меню; при
-    `reason === "disk"` — ещё каретку и скролл), по
+    компонентами — по вью на группу): view-state и `EditorElement` живут с ним
+    всё время (перечитка — обычное событие контента: каретка ремапится, на
+    `isFlush` компонент пере-детектит отступ, сразу пересчитывает фолды и
+    клампит скролл), по
     `onDidChangeLanguage` и `TokenizationRegistry.onDidChange` пересаживает
     токенизатор, по контенту пересчитывает folding-регионы (микротаск-коалесинг).
     Чужие правки документа (другая вью, undo, владелец буфера) строчно ремапят
