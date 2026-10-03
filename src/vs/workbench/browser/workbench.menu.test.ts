@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
+import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
 /** Open a top-level menu by mnemonic (Alt+<letter>) and return the live popup element. */
 function openMenu(testApp: TestApp, mnemonic: string): PopupMenuElement {
@@ -108,21 +109,23 @@ describe("Workbench — menu bar wiring", () => {
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.openGlobalKeybindings");
     });
 
-    it("File → Exit triggers the quit command (and the quit flow)", () => {
-        const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
-        try {
-            const { testApp, commands } = createAppTestHarness();
-            const executeSpy = vi.spyOn(commands, "execute");
-            const popup = openMenu(testApp, "f");
+    it("File → Exit triggers the quit command (and the quit flow)", async () => {
+        const exit = vi.fn();
+        const { testApp, commands } = createAppTestHarness({
+            containerOverrides: (container) => {
+                container.bind(HostProcessDIToken, () => ({ exit, restart: () => undefined }));
+            },
+        });
+        const executeSpy = vi.spyOn(commands, "execute");
+        const popup = openMenu(testApp, "f");
 
-            entryByLabel(popup, "Exit").onSelect?.();
+        entryByLabel(popup, "Exit").onSelect?.();
 
-            expect(executeSpy).toHaveBeenCalledWith("workbench.action.quit");
-            // No unsaved editors → quit proceeds.
-            expect(exitSpy).toHaveBeenCalledWith(0);
-        } finally {
-            vi.restoreAllMocks();
-        }
+        expect(executeSpy).toHaveBeenCalledWith("workbench.action.quit");
+        // No unsaved editors → quit proceeds (the farewell runs on microtasks).
+        await vi.waitFor(() => {
+            expect(exit).toHaveBeenCalledOnce();
+        });
     });
 
     it("opens the Edit menu and renders its entries", () => {
