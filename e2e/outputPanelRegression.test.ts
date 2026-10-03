@@ -118,7 +118,9 @@ describe("Output panel fix — регрессии соседних механи�
         await clickText(session, "const greeting", { dx: "const greeting".length });
         await session.key("Tab");
         const row = findTextRow(await session.captureFrame(), "const greeting");
-        expect(frameLine(await session.captureFrame(), row)).toContain("const greeting     = ");
+        // Каретка на видимой колонке 14, tabSize 4 (детекция по фикстуре) → два
+        // пробела ДО табстопа 16, а не четыре: Tab выравнивает по табстопам.
+        expect(frameLine(await session.captureFrame(), row)).toContain("const greeting   = ");
         expect(await focusedType(session)).toBe("EditorElement");
     }, 180_000);
 
