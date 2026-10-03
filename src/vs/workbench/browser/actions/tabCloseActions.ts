@@ -2,7 +2,6 @@ import type { CommandAction } from "../../../platform/actions/common/commandActi
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
-import { closeTabsWithConfirm } from "./editorCloseHelpers.ts";
 import { resolveTabTarget } from "./editorTabTarget.ts";
 import {
     editorTabHasOthers,
@@ -29,12 +28,11 @@ export const closeOtherEditorsAction: CommandAction = {
         const target = resolveTabTarget(service, args);
         if (target === null) return;
         // С хвоста: диалоги по несохранённым идут справа налево, как у Ctrl+K W.
-        const indices = target.group
+        const panes = target.group
             .getPanes()
-            .map((_pane, index) => index)
-            .filter((index) => index !== target.index)
+            .filter((_pane, index) => index !== target.index)
             .reverse();
-        void closeTabsWithConfirm(accessor, service, target.group, indices);
+        void service.closeEditors(target.group, panes);
     },
 };
 
@@ -55,12 +53,11 @@ export const closeEditorsToTheRightAction: CommandAction = {
         const service = accessor.get(EditorServiceDIToken);
         const target = resolveTabTarget(service, args);
         if (target === null) return;
-        const indices = target.group
+        const panes = target.group
             .getPanes()
-            .map((_pane, index) => index)
-            .filter((index) => index > target.index)
+            .filter((_pane, index) => index > target.index)
             .reverse();
-        void closeTabsWithConfirm(accessor, service, target.group, indices);
+        void service.closeEditors(target.group, panes);
     },
 };
 
@@ -82,19 +79,13 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
         const target = resolveTabTarget(service, args);
         if (target === null) return;
         // Ни одного диалога по построению: закрываем ровно то, что не изменено.
-        // Отсюда же ненаблюдаемость двух хвостовых шагов, и мутанта в них не убить:
-        // серия не прерывается на полпути, панели резолвятся до закрытий, а индекс
-        // ищется заново перед каждым, — так что от порядка набор закрытых вкладок не
-        // зависит. Отрицательные индексы дошли бы до getPane(-1), то есть до null,
-        // и отсеялись бы там же.
-        // Stryker disable MethodExpression,ConditionalExpression: см. выше
-        const indices = target.group
-            .getPanes()
-            .map((pane, index) => (pane.isModified ? -1 : index))
-            .filter((index) => index >= 0)
-            .reverse();
-        // Stryker restore MethodExpression,ConditionalExpression
-        void closeTabsWithConfirm(accessor, service, target.group, indices);
+        // Отсюда же ненаблюдаемость порядка, и мутанта в развороте не убить: серия
+        // не прерывается на полпути, а позиция ищется заново перед каждым
+        // закрытием, — так что набор закрытых вкладок от порядка не зависит.
+        const unmodified = target.group.getPanes().filter((pane) => !pane.isModified);
+        // Stryker disable next-line MethodExpression: см. выше
+        const panes = unmodified.reverse();
+        void service.closeEditors(target.group, panes);
     },
 };
 

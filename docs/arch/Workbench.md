@@ -261,9 +261,10 @@ hasSavedTabs }` — вкладка под правым кликом (хелпе�
 вкладку, если аргументов нет: палитра и клавиатура), а видимость решается
 императивно через `visible(context)`: глобальные when-ключи вкладку под курсором
 не различают, а `enablement` тут не поможет — он гасит пункт, а не адресует его.
-Пункт закрытия ходит через
-`closeTabsWithConfirm` (`Actions/editorCloseHelpers.ts`) — общая серия закрытий с
-confirm-диалогом по несохранённым и прерыванием на Cancel.
+Пункты закрытия ходят через
+`EditorService.closeEditors` — общая серия закрытий с confirm-диалогом по
+несохранённым и прерыванием на Cancel (см. «Закрытие с подтверждением» у
+`EditorService` ниже).
 
 **MenuService (потребление).** `MenuService.createMenu(menuId) → IMenu` (аналог
 `IMenuService`/`IMenu`): живое меню одной точки — `getEntries(context?)`/
@@ -719,7 +720,17 @@ hide-toggle (`isHiddenByDefault`). См.
     Open to the Side), `newUntitled`, `displayName`/`suggestedSaveName`,
     применение `editor.*`-настроек, группа-уровневые швы host'а
     (`saveParticipant`, `completionSource`), `IShutdownParticipant`
-    (`collectDirty` — дедуп по документу). События: `onActiveEditorChanged`
+    (`collectDirty` — дедуп по документу). **Закрытие с подтверждением** —
+    одна точка `closeEditor(group, pane|index)` / `closeEditors(group, panes)` /
+    `closeAllEditors(group)` → `Promise<boolean>` (аналог upstream
+    `IEditorGroup.closeEditor`; `false` — вето). Реализация — `EditorCloseHandler`
+    (`editorCloseHandler.ts`, не DI-сервис, держит `DialogService`): «надо ли
+    спросить» (`needsCloseConfirm` — документ не виден больше ни на одной
+    поверхности полосы, считая стороны диффов) и развязка диалога — Save
+    закрывает, только если сохранилось всё (`"no-file"` у untitled — вето),
+    Don't Save закрывает, Cancel обрывает серию; перед вопросом вкладка
+    активируется, повторный запрос по той же панели присоединяется к открытому
+    диалогу. События: `onActiveEditorChanged`
     (смена вкладки активной группы ЛИБО активной группы), `onEditorSaved`,
     `onDidChangeEditors` (агрегат групп), `onDidActiveGroupChange`,
     `onDidGroupsChange({kind: added|removed|moved})`, `onDidChangeMruCycle`

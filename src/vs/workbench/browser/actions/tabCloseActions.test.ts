@@ -87,6 +87,8 @@ describe("Tab close actions", () => {
         await settle();
 
         expect(labels()).toEqual(["b.txt"]);
+        // Изменённую вкладку команда не трогает вовсе — и не спрашивает про неё.
+        expect(h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).toBeNull();
     });
 
     it("Close Others спрашивает про несохранённую вкладку, Cancel прерывает серию", async () => {
@@ -107,6 +109,22 @@ describe("Tab close actions", () => {
         // Cancel в первом же диалоге останавливает всю серию: c.txt осталась, а
         // до чистой a.txt очередь не дошла.
         expect(labels()).toEqual(["a.txt", "b.txt", "c.txt"]);
+    });
+
+    it("Close Others: Save по untitled без пути не закрывает вкладку — текст не теряется", async () => {
+        openAll("a.txt");
+        service().newUntitled();
+        const untitled = group().getPanes()[1] as unknown as { viewState: { type(text: string): unknown } };
+        untitled.viewState.type("keepme");
+
+        h.commands.execute("workbench.action.closeOtherEditors", group().id, 0);
+        await settle();
+        h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()?.onSave?.();
+        await settle();
+
+        // Сохранять некуда («no-file») — вето, как у Ctrl+W: вкладка с текстом жива.
+        expect(labels()).toEqual(["a.txt", "Untitled-1"]);
+        expect(group().getPanes()[1].isModified).toBe(true);
     });
 
     it("адресованная команда работает по чужой группе, не трогая активную", async () => {

@@ -42,6 +42,7 @@ import {
     TokenizationRegistryDIToken,
     TokenStyleResolverDIToken,
 } from "../../../common/coreTokens.ts";
+import { DialogService, DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
 import { TextFileModel } from "../../textfile/common/textFileModel.ts";
@@ -52,6 +53,7 @@ import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
 import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
+import { EditorCloseHandler } from "./editorCloseHandler.ts";
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 import {
     createCodeActionsOnSaveParticipant,
@@ -109,6 +111,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         ContextMenuControllerDIToken,
         ILogServiceDIToken,
         LanguageConfigurationServiceDIToken,
+        DialogServiceDIToken,
     ] as const;
 
     /**
@@ -148,6 +151,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private fileWatcher: IFileWatcher;
     private contextMenuController: ContextMenuController;
     private readonly logger: ILogger;
+    /** Закрытие вкладок с подтверждением (см. {@link closeEditor}). */
+    private readonly closeHandler: EditorCloseHandler;
     private activeEditorListeners: ((editor: TextEditorPane | null) => void)[] = [];
     private editorSavedListeners: ((meta: IEditorSavedMeta) => void)[] = [];
     private editorsChangedListeners: (() => void)[] = [];
@@ -422,6 +427,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // Опционален с NULL-дефолтом, как параметр EditorComponent: два десятка
         // тестовых конструкторов сервиса живут без авто-закрытия скобок.
         languageConfigurationService: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
+        // Без хоста диалог не покажется: закрытие грязной вкладки в таком
+        // сервисе громко упадёт, а не потеряет правки молча.
+        dialogService: DialogService = new DialogService(),
     ) {
         super();
         this.themeService = themeService;
@@ -434,6 +442,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.contextMenuController = contextMenuController;
         this.languageConfigurationService = languageConfigurationService;
         this.logger = logService.createLogger("workbench.editorGroups");
+        this.closeHandler = new EditorCloseHandler(dialogService, {
+            surfaces: () => [...this.textPanes(), ...this.diffSidePanes()],
+        });
         // Участники сохранения по настройкам (`editor.codeActionsOnSave` /
         // `editor.formatOnSave`): источники читаются лениво — host подключает
         // их уже после создания сервиса.
@@ -1602,44 +1613,46 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     /**
-     * Правда, если `editor` — последняя вкладка, показывающая свой документ:
-     * закрытие потеряет несохранённые правки, нужен confirm-диалог. Пока документ
-     * виден где-то ещё — в другой группе или стороной диффа, — вкладка
-     * закрывается молча: правки живут в общей модели (семантика VS Code).
-     */
-    public isLastPaneForDocument(editor: TextEditorPane): boolean {
-        return this.holdersOf(editor.model) <= 1;
-    }
-
-    /** Сколько поверхностей (вкладок и дифф-сторон) показывают модель. */
-    private holdersOf(model: TextFileModel): number {
-        let count = 0;
-        for (const pane of [...this.textPanes(), ...this.diffSidePanes()]) {
-            if (pane.model === model) count++;
-        }
-        return count;
-    }
-
-    /**
-     * Нужен ли confirm-диалог перед закрытием вкладки — единая формула для
-     * крестика, Ctrl+W и закрытий из адаптеров. Текстовая вкладка: изменена и
-     * последняя у документа. Дифф v2: есть сторона с несохранёнными правками,
-     * которую больше нигде не видно. Прочие панели: по `isModified`.
+     * Нужен ли confirm-диалог перед закрытием вкладки — единая формула для всех
+     * путей закрытия (см. {@link EditorCloseHandler.needsCloseConfirm}).
      */
     public needsCloseConfirm(pane: IEditorPane): boolean {
-        if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane).length > 0;
-        /* v8 ignore start -- задел под будущие виды панелей: в полосе только текстовые и дифф-вкладки */
-        if (!(pane instanceof TextEditorPane)) return pane.isModified;
-        /* v8 ignore stop */
-        return pane.isModified && this.isLastPaneForDocument(pane);
+        return this.closeHandler.needsCloseConfirm(pane);
     }
 
     /**
-     * Стороны диффа с несохранёнными правками, которые не показаны больше нигде:
-     * закрытие вкладки потеряло бы их. Для confirm-диалога закрытия.
+     * Стороны диффа с несохранёнными правками, которые не показаны больше нигде
+     * (см. {@link EditorCloseHandler.dirtyExclusiveDiffSides}).
      */
     public dirtyExclusiveDiffSides(pane: DiffEditorPane2): TextEditorPane[] {
-        return pane.sidePanes().filter((side) => side.isModified && this.holdersOf(side.model) <= 1);
+        return this.closeHandler.dirtyExclusiveDiffSides(pane);
+    }
+
+    /**
+     * Закрывает вкладку группы — панель или её позицию — с confirm-диалогом,
+     * если закрытие потеряет несохранённые правки (аналог upstream
+     * `IEditorGroup.closeEditor`). `false` — пользователь отменил или Save не
+     * удался, вкладка осталась. Позиция вне полосы — закрывать нечего, `true`.
+     */
+    public closeEditor(group: EditorGroup, target: IEditorPane | number): Promise<boolean> {
+        const pane = typeof target === "number" ? group.getPane(target) : target;
+        return this.closeEditors(group, pane === null ? [] : [pane]);
+    }
+
+    /**
+     * Последовательно закрывает `panes` группы в заданном порядке (он же порядок
+     * диалогов); первое вето обрывает серию. `true` — закрыты все.
+     */
+    public closeEditors(group: EditorGroup, panes: readonly IEditorPane[]): Promise<boolean> {
+        return this.closeHandler.confirmAndClose(group, panes);
+    }
+
+    /**
+     * Закрывает группу целиком — с хвоста, как Ctrl+K W: диалоги по
+     * несохранённым идут справа налево, а Cancel прерывает серию.
+     */
+    public closeAllEditors(group: EditorGroup): Promise<boolean> {
+        return this.closeEditors(group, [...group.getPanes()].reverse());
     }
 
     /**
