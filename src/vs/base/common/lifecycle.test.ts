@@ -174,15 +174,24 @@ describe("DisposableStore", () => {
         expect(log).toEqual(["b", "a"]);
     });
 
-    it("добавленное после dispose не освобождается (паритет с прежним классом)", () => {
+    it("добавленное после dispose освобождается сразу и один раз", () => {
         const log: string[] = [];
         const store = new DisposableStore();
         store.dispose();
         const late = logged(log, "late");
         expect(store.add(late)).toBe(late);
+        expect(log).toEqual(["late"]);
         store.dispose();
         store.clear();
-        expect(log).toEqual([]);
+        expect(log).toEqual(["late"]);
+    });
+
+    it("Disposable: зарегистрированное после dispose освобождается сразу", () => {
+        const log: string[] = [];
+        const owner = new Owner();
+        owner.dispose();
+        owner.add(logged(log, "late"));
+        expect(log).toEqual(["late"]);
     });
 
     it("Disposable.None не хранит, себя добавить не даёт", () => {
