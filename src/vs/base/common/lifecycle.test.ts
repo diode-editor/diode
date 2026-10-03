@@ -5,11 +5,13 @@ import {
     Disposable,
     DisposableMap,
     DisposableStore,
+    DisposableTracker,
     dispose,
     type IDisposable,
     type IDisposableTracker,
     isDisposable,
     markAsDisposed,
+    markAsSingleton,
     MutableDisposable,
     setDisposableTracker,
     toDisposable,
@@ -377,6 +379,7 @@ describe("хуки учёта утечек", () => {
                 trackDisposable: (d) => events.push(`track ${name(d)}`),
                 setParent: (child, parent) => events.push(`parent ${name(child)} ← ${name(parent)}`),
                 markAsDisposed: (d) => events.push(`disposed ${name(d)}`),
+                markAsSingleton: (d) => events.push(`singleton ${name(d)}`),
             },
         };
     }
@@ -388,7 +391,17 @@ describe("хуки учёта утечек", () => {
     it("без трекера хуки — no-op", () => {
         const d = toDisposable(() => undefined);
         expect(trackDisposable(d)).toBe(d);
+        expect(markAsSingleton(d)).toBe(d);
         markAsDisposed(d);
+    });
+
+    it("markAsSingleton доходит до трекера", () => {
+        const { tracker, events, names } = recordingTracker();
+        const d: IDisposable = { dispose: () => undefined };
+        names.set(d, "d");
+        setDisposableTracker(tracker);
+        expect(markAsSingleton(d)).toBe(d);
+        expect(events).toEqual(["singleton d"]);
     });
 
     it("trackDisposable и markAsDisposed доходят до трекера", () => {
@@ -458,5 +471,130 @@ describe("хуки учёта утечек", () => {
         map.deleteAndLeak("k");
         map.dispose();
         expect(events).toEqual(["track ?", "parent a ← map", "parent a ← null", "disposed map"]);
+    });
+});
+
+describe("DisposableTracker", () => {
+    afterEach(() => {
+        setDisposableTracker(null);
+    });
+
+    function underTracker<T>(body: () => T): { tracker: DisposableTracker; result: T } {
+        const tracker = new DisposableTracker();
+        setDisposableTracker(tracker);
+        try {
+            return { tracker, result: body() };
+        } finally {
+            setDisposableTracker(null);
+        }
+    }
+
+    it("всё освобождённое — утечек нет", () => {
+        const { tracker } = underTracker(() => {
+            const store = new DisposableStore();
+            store.add(toDisposable(() => undefined));
+            const owner = new Owner();
+            owner.add(new MutableDisposable());
+            store.dispose();
+            owner.dispose();
+        });
+        expect(tracker.computeLeakingDisposables()).toBeUndefined();
+    });
+
+    it("отчёт — по корням: дети утёкшего владельца не считаются", () => {
+        const { tracker, result: store } = underTracker(() => {
+            const store = new DisposableStore();
+            store.add(toDisposable(() => undefined));
+            store.add(new MutableDisposable());
+            return store;
+        });
+        const report = tracker.computeLeakingDisposables();
+        expect(report?.leaks).toEqual([store]);
+        expect(report?.details).toContain("Leaking disposable 1/1: DisposableStore");
+        // Стек начинается с места создания, а не с кадров учёта.
+        expect(report?.details).not.toMatch(/^\s*at .*trackDisposable/m);
+        expect(report?.details).toContain("lifecycle.test.ts");
+        expect(report?.details.match(/\n\s+at /g)?.length).toBeGreaterThan(1);
+    });
+
+    it("объект, созданный до трекера, в учёт не попадает, даже став чьим-то ребёнком", () => {
+        const early = toDisposable(() => undefined);
+        const { tracker } = underTracker(() => {
+            new MutableDisposable<IDisposable>().value = early;
+        });
+        expect(tracker.computeLeakingDisposables()?.leaks).toHaveLength(1);
+        expect(tracker.computeLeakingDisposables()?.leaks).not.toContain(early);
+    });
+
+    it("объект без места создания, отданный из-под владельца, утечкой не считается", () => {
+        const early = toDisposable(() => undefined);
+        const { tracker } = underTracker(() => {
+            const store = new DisposableStore();
+            store.add(early);
+            store.deleteAndLeak(early);
+            store.dispose();
+        });
+        expect(tracker.computeLeakingDisposables()).toBeUndefined();
+    });
+
+    it("ребёнок владельца, созданного до трекера, — сам себе корень", () => {
+        const early = new DisposableStore();
+        const { tracker, result: child } = underTracker(() => early.add(toDisposable(() => undefined)));
+        expect(tracker.computeLeakingDisposables()?.leaks).toEqual([child]);
+        early.dispose();
+    });
+
+    it("синглтон и всё под ним утечкой не считаются", () => {
+        const { tracker } = underTracker(() => {
+            const registry = markAsSingleton(new DisposableStore());
+            const nested = registry.add(new DisposableStore());
+            nested.add(toDisposable(() => undefined));
+        });
+        expect(tracker.computeLeakingDisposables()).toBeUndefined();
+    });
+
+    it("отданный из-под владельца объект снова свой корень", () => {
+        const { tracker, result: leaked } = underTracker(() => {
+            const store = new DisposableStore();
+            const child = store.add(toDisposable(() => undefined));
+            store.deleteAndLeak(child);
+            store.dispose();
+            return child;
+        });
+        expect(tracker.computeLeakingDisposables()?.leaks).toEqual([leaked]);
+    });
+
+    it("режет отчёт по maxReported и называет остаток", () => {
+        const { tracker } = underTracker(() => {
+            for (let i = 0; i < 3; i++) toDisposable(() => undefined);
+        });
+        const report = tracker.computeLeakingDisposables(2);
+        expect(report?.leaks).toHaveLength(3);
+        expect(report?.details).toContain("Leaking disposable 2/3: FunctionDisposable");
+        expect(report?.details).not.toContain("Leaking disposable 3/3");
+        expect(report?.details).toContain("... and 1 more leaking disposables");
+        expect(tracker.computeLeakingDisposables(3)?.details).not.toContain("more leaking");
+    });
+
+    it("цикл владельцев без корня — ошибка", () => {
+        const tracker = new DisposableTracker();
+        const a: IDisposable = { dispose: () => undefined };
+        const b: IDisposable = { dispose: () => undefined };
+        tracker.trackDisposable(a);
+        tracker.trackDisposable(b);
+        tracker.setParent(a, b);
+        tracker.setParent(b, a);
+        expect(() => tracker.computeLeakingDisposables()).toThrow("There are cyclic disposable chains!");
+    });
+
+    it("повторный trackDisposable не переписывает место создания", () => {
+        const tracker = new DisposableTracker();
+        const d: IDisposable = { dispose: () => undefined };
+        tracker.trackDisposable(d);
+        const first = tracker.computeLeakingDisposables()?.details;
+        (function elsewhere(): void {
+            tracker.trackDisposable(d);
+        })();
+        expect(tracker.computeLeakingDisposables()?.details).toBe(first);
     });
 });

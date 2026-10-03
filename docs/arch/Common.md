@@ -33,7 +33,7 @@ await …; if (ticket.isStale()) return;` — а не рукописным сч�
 - `IDisposable`, `isDisposable`, `dispose(x | iterable)` (освобождает всех, ошибки — в конце, несколько — `AggregateError`), `toDisposable(fn)` (функция зовётся не больше раза), `combinedDisposable`;
 - `DisposableStore` — набор вместо `IDisposable[]` с ручным циклом; `Disposable` — база класса-владельца поверх стора (`register(…)`, `Disposable.None`);
 - `MutableDisposable` — слот под сменяемое значение вместо поля `handle?.dispose()`; `DisposableMap` — карта, освобождающая значения при перезаписи и удалении;
-- хуки учёта утечек (`setDisposableTracker`, `trackDisposable`, `markAsDisposed`): по умолчанию трекера нет, хук — одна проверка на `null`.
+- учёт утечек: хуки (`setDisposableTracker`, `trackDisposable`, `markAsDisposed`, `markAsSingleton`) — по умолчанию трекера нет, хук стоит одной проверки на `null`; `DisposableTracker` помнит живые объекты и их владельцев и отдаёт утёкшие корни со стеком создания. В тестах включается на сьют хелпером `ensureNoDisposablesAreLeakedInTestSuite` (см. [../TESTING.md](../TESTING.md#учёт-утечек-testutilsdisposableleaksts)).
 
 Отклонения от эталона: освобождение в обратном порядке добавления (LIFO — так работал прежний класс из `@tuidom/core`, под него писались классы проекта), `register` без подчёркивания, добавление в уже освобождённый стор молча оставляет объект неосвобождённым.
 

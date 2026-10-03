@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
+
 import { ProgressService } from "./progressService.ts";
+
+const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 const VIEW = "workbench.scm.changes";
 

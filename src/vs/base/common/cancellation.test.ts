@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../TestUtils/disposableLeaks.ts";
+
 import type { ICancellationListener, ICancellationToken } from "./cancellation.ts";
 import { CancellationTokenNone, CancellationTokenSource, LatestRequest } from "./cancellation.ts";
+
+ensureNoDisposablesAreLeakedInTestSuite();
 
 /** Родитель-шпион: видно, подписан ли на него кто-то прямо сейчас. */
 function spyParent(): { token: ICancellationToken; fire: () => void; readonly subscribers: number } {

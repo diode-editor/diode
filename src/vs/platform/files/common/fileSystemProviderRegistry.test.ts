@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
 import { Uri } from "../../../base/common/uri.ts";
 
 import { FileSystemProviderRegistry } from "./fileSystemProviderRegistry.ts";
 import type { IReadOnlyFileSystemProvider } from "./iFileSystemProviderRegistry.ts";
 import { NULL_FILE_SYSTEM_PROVIDER_REGISTRY } from "./iFileSystemProviderRegistry.ts";
+
+const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 /** Поставщик-фейк: отдаёт заданный текст и умеет вручную фаерить изменения. */
 function fakeProvider(content = "hello"): IReadOnlyFileSystemProvider & { fire: (uris: readonly Uri[]) => void } {
@@ -30,32 +33,32 @@ const gitUri = Uri.from({ scheme: "git", path: "/repo/a.ts" });
 
 describe("FileSystemProviderRegistry", () => {
     it("читает ресурс поставщиком его схемы", async () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         registry.registerProvider("git", fakeProvider("original text"));
 
         expect(new TextDecoder().decode(await registry.readFile(gitUri))).toBe("original text");
     });
 
     it("сообщает о наличии поставщика — чтобы потребитель не ловил исключение зря", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         expect(registry.hasProvider("git")).toBe(false);
         registry.registerProvider("git", fakeProvider());
         expect(registry.hasProvider("git")).toBe(true);
     });
 
     it("readFile по незарегистрированной схеме отклоняется", async () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         await expect(registry.readFile(gitUri)).rejects.toThrow(/no file system provider for scheme "git"/);
     });
 
     it("повторная регистрация занятой схемы — ошибка", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         registry.registerProvider("git", fakeProvider());
         expect(() => registry.registerProvider("git", fakeProvider())).toThrow(/already registered/);
     });
 
     it("после снятия регистрации схема свободна и читать нечем", async () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const registration = registry.registerProvider("git", fakeProvider());
         registration.dispose();
 
@@ -64,7 +67,7 @@ describe("FileSystemProviderRegistry", () => {
     });
 
     it("изменения поставщика доходят до подписчиков реестра", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const provider = fakeProvider();
         registry.registerProvider("git", provider);
         const seen = vi.fn();
@@ -76,7 +79,7 @@ describe("FileSystemProviderRegistry", () => {
     });
 
     it("пустой список изменений не будит подписчиков", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const provider = fakeProvider();
         registry.registerProvider("git", provider);
         const seen = vi.fn();
@@ -88,7 +91,7 @@ describe("FileSystemProviderRegistry", () => {
     });
 
     it("снятие регистрации отписывает и от событий поставщика", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const provider = fakeProvider();
         const registration = registry.registerProvider("git", provider);
         const seen = vi.fn();
@@ -101,7 +104,7 @@ describe("FileSystemProviderRegistry", () => {
     });
 
     it("отписанный слушатель больше не получает событий", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const provider = fakeProvider();
         registry.registerProvider("git", provider);
         const seen = vi.fn();
@@ -114,7 +117,7 @@ describe("FileSystemProviderRegistry", () => {
 
     it("перерегистрация схемы переживает dispose прежней регистрации", async () => {
         // Иначе отложенный dispose умершего host'а сносил бы живого поставщика.
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const first = registry.registerProvider("git", fakeProvider("первый"));
         first.dispose();
         registry.registerProvider("git", fakeProvider("второй"));
@@ -127,7 +130,7 @@ describe("FileSystemProviderRegistry", () => {
 
 describe("FileSystemProviderRegistry — событие смены поставщиков", () => {
     it("регистрация и снятие будят подписчиков", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const seen = vi.fn();
         registry.onDidChangeProviders(seen);
 
@@ -139,7 +142,7 @@ describe("FileSystemProviderRegistry — событие смены постав�
     });
 
     it("повторный dispose не фаерит второй раз", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const registration = registry.registerProvider("git", fakeProvider());
         const seen = vi.fn();
         registry.onDidChangeProviders(seen);
@@ -151,7 +154,7 @@ describe("FileSystemProviderRegistry — событие смены постав�
     });
 
     it("отписка работает", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = disposables.add(new FileSystemProviderRegistry());
         const seen = vi.fn();
         registry.onDidChangeProviders(seen).dispose();
 
