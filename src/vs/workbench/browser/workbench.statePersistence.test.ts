@@ -301,8 +301,11 @@ describe("Workbench — session state persistence", () => {
         h1.dispose();
 
         const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: newState() });
+        const focusedBefore = h2.testApp.focusedElement;
         h2.workbench.restoreOpenEditors();
 
+        // Рестор фокус не трогает — его расставляет старт.
+        expect(h2.testApp.focusedElement).toBe(focusedBefore);
         const service = h2.container.get(EditorServiceDIToken);
         expect(service.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([
             Uri.file(ws.path("a.ts")).toString(),

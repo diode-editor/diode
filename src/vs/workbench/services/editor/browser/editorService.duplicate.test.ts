@@ -122,6 +122,22 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(events.at(-1)).toBeNull();
     });
 
+    it("запись сессии чужого вида или не-файл у текстовой фабрики — ничего не открывает", () => {
+        const target = { group: service.activeGroup, focus: false };
+
+        const notAFile = {
+            typeId: "workbench.editors.files.fileEditorInput",
+            value: Uri.from({ scheme: "untitled", path: ws.path("a.txt") }).toString(),
+        };
+
+        service.openSerializedEditor({ typeId: "workbench.editors.fromTheFuture", value: "x" }, target);
+        service.openSerializedEditor(notAFile, target);
+
+        expect(service.activeGroup.editorCount).toBe(0);
+        // Путь существует, но это не file: — текстовая фабрика такое не пишет и не читает.
+        expect(service.deserializeEditor(notAFile)).toBeUndefined();
+    });
+
     it("копия из пустой группы — no-op", () => {
         service.copyActiveEditorToGroup("next");
 

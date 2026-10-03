@@ -715,8 +715,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         entry: ISerializedEditor,
     ): { factory: IEditorPaneFactory<unknown>; descriptor: unknown } | undefined {
         const factory = this.paneFactories.find((candidate) => candidate.typeId === entry.typeId);
-        const descriptor = factory?.deserialize(entry.value);
-        return factory === undefined || descriptor === undefined ? undefined : { factory, descriptor };
+        if (factory === undefined) return undefined;
+        const descriptor = factory.deserialize(entry.value);
+        return descriptor === undefined ? undefined : { factory, descriptor };
     }
 
     /** Открыть вкладку по записи сессии (см. {@link deserializeEditor}) в группу. */

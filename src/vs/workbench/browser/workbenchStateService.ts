@@ -210,14 +210,13 @@ export class WorkbenchStateService extends Disposable {
             const canFitMore = this.layoutView?.canFitGroups(groups.length + 1) ?? true;
             if (groups.length > 0 && !canFitMore) {
                 // Терминал уже полосы: доливаем вкладки в последнюю влезшую группу.
+                // Дубли не отсеиваем: повторное открытие той же вкладки в группе
+                // её лишь активирует, а активную всё равно выбирают последней.
                 const last = groups[groups.length - 1];
-                groups[groups.length - 1] = {
-                    editors: [...last.editors, ...editors.filter((editor) => !includesEditor(last.editors, editor))],
-                    active: last.active,
-                };
+                groups[groups.length - 1] = { editors: [...last.editors, ...editors], active: last.active };
                 continue;
             }
-            groups.push({ editors, active: active !== undefined && editors.includes(active) ? active : undefined });
+            groups.push({ editors, active: editors.find((editor) => editor === active) });
             weights.push(stored.weights[index] ?? 1);
         }
         return {
@@ -237,6 +236,10 @@ export class WorkbenchStateService extends Disposable {
                 value: Uri.file(path.resolve(file)).toString(),
             }));
         const activeAt = group.editors !== undefined ? (group.activeEditor ?? -1) : group.activeIndex;
+        // `>= 0`, а не `.at` без проверки: у `.at(-1)` семантика «последняя».
+        // Мутант `> 0` эквивалентен — без активной открывается первая, а это и
+        // есть индекс 0.
+        // Stryker disable next-line EqualityOperator: эквивалентен — см. выше
         return { editors, active: activeAt >= 0 ? editors.at(activeAt) : undefined };
     }
 
@@ -250,9 +253,4 @@ export class WorkbenchStateService extends Disposable {
             activeGroup: 0,
         };
     }
-}
-
-/** Есть ли такая же запись (вид и строка) в списке. */
-function includesEditor(editors: readonly ISerializedEditor[], editor: ISerializedEditor): boolean {
-    return editors.some((candidate) => candidate.typeId === editor.typeId && candidate.value === editor.value);
 }
