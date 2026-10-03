@@ -3,23 +3,23 @@ import * as path from "node:path";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
-import { Emitter, type Event } from "../../../../base/common/event.ts";
+import { Emitter, Event } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import { DEFAULT_ENCODING } from "../../../../editor/common/model/encoding.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
-import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
-import type { SaveParticipant } from "../../../services/textfile/common/iSaveParticipant.ts";
-import type { SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
+import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
+import { type SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 import type { EditorComponent, IIndentConfiguration } from "./editorComponent.ts";
 import type { IEditorPane } from "./iEditorPane.ts";
@@ -27,8 +27,10 @@ import type { IEditorPane } from "./iEditorPane.ts";
 /**
  * Пара «модель + view-компонент» одного открытого **текстового** редактора.
  * Владеет временем жизни обоих и делегирует единый публичный API по
- * принадлежности: файлово-модельное — в {@link TextFileModel},
- * view-обвязочное — в {@link EditorComponent}. Это поверхность, которую видят
+ * принадлежности: буферное — в модель ({@link BaseTextEditorModel}), файловое —
+ * в {@link fileModel} (у синтетики его нет: сохранять, перечитывать и
+ * перекодировать нечего — ответы честные: `"no-file"`, `false`, кодировка по
+ * умолчанию), view-обвязочное — в {@link EditorComponent}. Это поверхность, которую видят
  * потребители «активного редактора» (экшены, Find/Completion, швы Workbench,
  * host-адаптеры); создаёт и хранит пары `EditorService`.
  *
@@ -37,7 +39,10 @@ import type { IEditorPane } from "./iEditorPane.ts";
  * EOL, кодировка, folding, автодополнение), доступно только тем, кто явно
  * спросил текстовую панель.
  */
-export class TextEditorPane extends Disposable implements IEditorPane {
+export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorModel>
+    extends Disposable
+    implements IEditorPane
+{
     private readonly onDidChangeReadOnlyEmitter = this.register(new Emitter<void>());
     /**
      * Редактор вне таб-строки (нижняя Panel: Output). Такой редактор попадает в
@@ -56,7 +61,7 @@ export class TextEditorPane extends Disposable implements IEditorPane {
      * Без параметра панель владеет моделью единолично (untitled, detached).
      */
     public constructor(
-        public readonly model: TextFileModel,
+        public readonly model: TModel,
         public readonly component: EditorComponent,
         modelOwnership?: IDisposable,
     ) {
@@ -80,7 +85,7 @@ export class TextEditorPane extends Disposable implements IEditorPane {
             // Сохранение меняет вид вкладки: гаснет маркер изменённости, после
             // saveAs — имя. Событие модели, а не слот onDidSave: у документа
             // может быть несколько вкладок, и перерисоваться обязана каждая.
-            this.model.onDidSaveDocument(cb),
+            this.onDidSave(cb),
         ];
         return {
             dispose: () => {
@@ -90,6 +95,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     }
 
     // ─── Модель: ресурс, dirty, save, оси encoding/EOL/language ────────────────
+
+    /** Файловая модель вкладки; `null` — синтетика (Output, виртуальный документ, снимок). */
+    public get fileModel(): TextFileModel | null {
+        return this.model instanceof TextFileModel ? this.model : null;
+    }
 
     public get uri(): Uri {
         return this.model.uri;
@@ -112,11 +122,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     }
 
     public get fileName(): string | null {
-        return this.model.fileName;
+        return this.fileModel?.fileName ?? null;
     }
 
     public get absoluteFilePath(): string | null {
-        return this.model.absoluteFilePath;
+        return this.fileModel?.absoluteFilePath ?? null;
     }
 
     public get isModified(): boolean {
@@ -128,7 +138,7 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     }
 
     public get encoding(): string {
-        return this.model.encoding;
+        return this.fileModel?.encoding ?? DEFAULT_ENCODING;
     }
 
     public get languageId(): string {
@@ -136,16 +146,16 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     }
 
     public get hasDiskConflict(): boolean {
-        return this.model.hasDiskConflict;
+        return this.fileModel?.hasDiskConflict ?? false;
     }
 
     public get undoContext(): string {
         return this.model.undoContext;
     }
 
-    /** Документ записан на диск (save/saveAs) — событие модели. */
+    /** Документ записан на диск (save/saveAs) — событие файловой модели; у синтетики молчит. */
     public get onDidSave(): Event<void> {
-        return this.model.onDidSaveDocument;
+        return this.fileModel?.onDidSaveDocument ?? Event.None;
     }
 
     /** Токен темы для фона редактора (см. `EditorComponent.backgroundToken`). */
@@ -158,33 +168,45 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         return this.component.onDidChangeSelection(cb);
     }
 
+    /** Файловая модель — или отказ: операция осмысленна только для файла. */
+    private requireFileModel(operation: string): TextFileModel {
+        const fileModel = this.fileModel;
+        if (fileModel === null) throw new Error(`${operation}: у буфера ${this.uri.toString()} нет файла`);
+        return fileModel;
+    }
+
     public openFile(uri: Uri): void {
-        this.model.openFile(uri);
+        this.requireFileModel("openFile").openFile(uri);
     }
 
     public save(options?: { overwrite?: boolean }): Promise<SaveOutcome> {
-        return this.model.save(options);
+        return this.fileModel?.save(options) ?? Promise.resolve("no-file");
     }
 
     public saveWithEncoding(encoding: string, options?: { overwrite?: boolean }): Promise<SaveOutcome> {
-        return this.model.saveWithEncoding(encoding, options);
+        return this.fileModel?.saveWithEncoding(encoding, options) ?? Promise.resolve("no-file");
     }
 
+    /**
+     * Save As файла: запись по новому пути и перепривязка модели к нему.
+     * Синтетику так не сохранить — её копию на диск пишет вызывающий
+     * (`fileActions`, как upstream: сохранённое открывается обычным файлом).
+     */
     public saveAs(newPath: string): Promise<void> {
-        return this.model.saveAs(newPath);
+        return this.requireFileModel("saveAs").saveAs(newPath);
     }
 
     public revertToDisk(): boolean {
-        return this.model.revertToDisk();
+        return this.fileModel?.revertToDisk() ?? false;
     }
 
     public reopenWithEncoding(encoding: string): boolean {
-        return this.model.reopenWithEncoding(encoding);
+        return this.fileModel?.reopenWithEncoding(encoding) ?? false;
     }
 
     public setEncoding(encoding: string): void {
         if (this.readOnly) return;
-        this.model.setEncoding(encoding);
+        this.fileModel?.setEncoding(encoding);
     }
 
     public setEol(eol: EndOfLine): void {
@@ -237,11 +259,11 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     }
 
     public onDidChangeEncoding(listener: () => void): IDisposable {
-        return this.model.onDidChangeEncoding(listener);
+        return (this.fileModel?.onDidChangeEncoding ?? Event.None)(listener);
     }
 
     public onDidChangeDiskState(listener: () => void): IDisposable {
-        return this.model.onDidChangeDiskState(listener);
+        return (this.fileModel?.onDidChangeDiskState ?? Event.None)(listener);
     }
 
     // ─── Компонент: view, курсор/скролл, декорации, folding ────────────────────
@@ -413,4 +435,13 @@ export class TextEditorPane extends Disposable implements IEditorPane {
     public gotoPreviousFold(): void {
         this.component.gotoPreviousFold();
     }
+}
+
+/**
+ * Текстовая ли это вкладка — с сужением к `TextEditorPane` над любой моделью.
+ * Голый `instanceof` у обобщённого класса сужает к `TextEditorPane<any>`, и
+ * дальше по коду расползается `any`.
+ */
+export function isTextEditorPane(pane: unknown): pane is TextEditorPane {
+    return pane instanceof TextEditorPane;
 }

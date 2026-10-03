@@ -2,15 +2,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
-import type { IRange } from "../../../../editor/common/core/iRange.ts";
-import { createRange } from "../../../../editor/common/core/iRange.ts";
-import type { ISelection } from "../../../../editor/common/core/iSelection.ts";
-import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import {
     decodeBuffer,
@@ -18,14 +12,9 @@ import {
     encodeText,
     getEncodingInfo,
 } from "../../../../editor/common/model/encoding.ts";
-import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
-import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
-import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
-import type { IUndoViewBinding, UndoStepToken } from "../../../../editor/common/model/undoManager.ts";
-import { UndoManager } from "../../../../editor/common/model/undoManager.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
-import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 
 import type { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
@@ -42,9 +31,6 @@ interface IDiskStat {
     size: number;
 }
 
-/** Источник непрозрачных ключей истории отмены (см. {@link TextFileModel.undoContext}). */
-let nextUndoContextId = 1;
-
 /**
  * Ресурс свежесозданной модели: безымянный буфер без номера. Номер назначает группа
  * ({@link TextFileModel.setUntitled}) — она владеет счётчиком; до этого модель ещё
@@ -53,43 +39,15 @@ let nextUndoContextId = 1;
 const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled" });
 
 /**
- * Шов модели к одной редактирующей поверхности (view). Правки, которые модель
- * применяет сама (save-участник, смена EOL, программные батчи), идут через
- * view-state **действующей** вью — там живут выделения и inverse-edits для undo.
- * Прикрепляет каждый парный `EditorComponent` в своём конструкторе; целей может
- * быть несколько (один документ в нескольких группах): действующую передаёт
- * вызывающий, `markDirty` вещается всем.
- */
-export interface ITextFileEditTarget {
-    cloneSelections(): ISelection[];
-    applyEdits(edits: readonly ITextEdit[], label: string): IUndoElement | undefined;
-    markDirty(): void;
-}
-
-/**
  * Per-file модель текстового файла без view (аналог `ITextFileEditorModel` VS Code):
- * владеет {@link TextDocument}, dirty-статусом, осями encoding/EOL/language, записью
- * на диск (save/saveAs + save-участник) и слежением за файлом на диске (авто-перечитка
- * чистого буфера / флаг конфликта у «грязного»). Не singleton-сервис: экземпляр на
- * файл, создаёт владелец (`EditorService`) вместе с парным
- * `EditorComponent`.
+ * поверх буфера ({@link BaseTextEditorModel}: документ, язык, EOL, история) — ось
+ * кодировки, dirty-статус против диска, запись на диск (save/saveAs + save-участник)
+ * и слежение за файлом (авто-перечитка чистого буфера / флаг конфликта у
+ * «грязного»). Файл с диска либо безымянный буфер; синтетика (Output, виртуальные
+ * документы, снимки) — `SyntheticTextModel`. Не singleton-сервис: экземпляр на
+ * файл, создаёт владелец (`EditorService`).
  */
-export class TextFileModel extends Disposable {
-    /**
-     * Документ модели — один на всю её жизнь: перечитка с диска и смена
-     * содержимого владельцем меняют текст в нём ({@link replaceText}), а не
-     * подменяют объект. Поэтому view, токены и синхронизация с расширениями
-     * видят перечитку обычной правкой.
-     */
-    private readonly doc: TextDocument;
-    /**
-     * Идёт замена содержимого целиком ({@link replaceText}): ретрансляция
-     * событий документа ждёт, пока модель согласует «сохранённую» версию, —
-     * иначе подписчик увидел бы свежий текст с признаком несохранённых правок.
-     */
-    private replacingText = false;
-    private readonly onDidChangeLanguageEmitter = this.register(new Emitter<IDocumentLanguageChange>());
-    private readonly onDidChangeEolEmitter = this.register(new Emitter<void>());
+export class TextFileModel extends BaseTextEditorModel {
     /**
      * Кодировка байтового представления на диске (id из SUPPORTED_ENCODINGS).
      * В отличие от EOL это состояние модели, а не документа: документ видит
@@ -99,16 +57,6 @@ export class TextFileModel extends Disposable {
      */
     private encodingValue: string = DEFAULT_ENCODING;
     private readonly onDidChangeEncodingEmitter = this.register(new Emitter<void>());
-    private readonly onDidChangeContentEmitter = this.register(new Emitter<void>());
-    /**
-     * Идентичность ресурса этой модели — первичное состояние, из которого выводится
-     * всё остальное (путь, имя, признак безымянности). Не `null`: у свежей модели
-     * это `untitled:`-буфер, а не «модель без ресурса», поэтому ветку «пути нет»
-     * задаёт схема, а не отсутствие значения.
-     */
-    private uriValue: Uri = UNTITLED_PLACEHOLDER_URI;
-    private savedVersionId = 0;
-    private savedEol: EndOfLine;
     /**
      * Метаданные файла на момент последнего чтения/записи. Сверяя их с текущим
      * stat, мы отличаем внешнее изменение файла от собственной записи и от
@@ -118,50 +66,10 @@ export class TextFileModel extends Disposable {
     private diskConflictValue = false;
     private readonly onDidChangeDiskStateEmitter = this.register(new Emitter<void>());
     private fileWatch: IDisposable | null = null;
-    private readonly languageService: ILanguageService;
-    private readonly undoRedoService: UndoRedoService;
-    /**
-     * Редактирующие поверхности прикреплённых вью (см. {@link ITextFileEditTarget}).
-     * Порядок — порядок прикрепления; первый служит целью по умолчанию для
-     * программных путей без действующей вью (save-участник).
-     */
-    private editTargets: ITextFileEditTarget[] = [];
-    /**
-     * Движок undo документа — история одна на документ, сколько бы вью его ни
-     * показывало. Перечитка содержимого целиком историю забывает
-     * ({@link resetUndoHistory}); роутинг шагов в {@link UndoRedoService} модель
-     * ставит сама в {@link createUndoManager}.
-     */
-    private readonly undoManagerValue: UndoManager;
-    /**
-     * Вью, инициировавшая текущий undo/redo (ей восстанавливается снимок
-     * выделений). Живёт только на время синхронного окна вызова: обёртка-элемент
-     * в `UndoRedoService` исполняется до первого await внутри `undo(context)`.
-     */
-    private actingView: IUndoViewBinding | null = null;
-    /**
-     * Куда уходят обёртки шагов, пока идёт {@link applyExternalEditsDetached}:
-     * `null` — штатный режим (шаг сразу в общий бакет), массив — шаг забирает
-     * вызывающий. Живёт только на время синхронного окна применения.
-     */
-    private detachedUndoSteps: IUndoRedoElement[] | null = null;
-
-    public get isModified(): boolean {
-        return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
-    }
-
-    public get eol(): EndOfLine {
-        return this.doc.eol;
-    }
 
     /** Кодировка, в которой документ читается с диска и пишется на диск. */
     public get encoding(): string {
         return this.encodingValue;
-    }
-
-    /** Открытый документ — один на всю жизнь модели (см. {@link doc}). */
-    public get document(): TextDocument {
-        return this.doc;
     }
 
     /**
@@ -226,45 +134,11 @@ export class TextFileModel extends Disposable {
      */
     public readonly onDidChangeDiskState = this.onDidChangeDiskStateEmitter.event;
 
-    public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;
-
-    /** Language id открытого документа (`plaintext`, если язык не определён). */
-    public get languageId(): string {
-        return this.doc.languageId;
-    }
-
-    /**
-     * Меняет язык документа вручную (закладка под будущий language picker,
-     * аналог `editor.action.changeLanguage` из VS Code). Токенизатор
-     * пересаживает парный компонент через подписку на onDidChangeLanguage.
-     */
-    public setLanguage(languageId: string): void {
-        this.doc.setLanguage(languageId);
-    }
-
-    /**
-     * Событие смены языка документа. Подписка живёт на модели, а не на
-     * конкретном документе — переживает пересоздание документа в openFile.
-     */
-    public readonly onDidChangeLanguage = this.onDidChangeLanguageEmitter.event;
-
-    /**
-     * Событие смены EOL документа (командой, undo/redo — любым путём через
-     * doc.setEol). Подписка живёт на модели, а не на конкретном
-     * документе — переживает пересоздание документа в openFile.
-     */
-    public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
-
     /**
      * Событие смены кодировки (setEncoding, reopenWithEncoding или детект при
      * открытии другого файла). Подписка живёт на модели.
      */
     public readonly onDidChangeEncoding = this.onDidChangeEncodingEmitter.event;
-
-    /** Идентичность ресурса: `file:` — файл на диске, `untitled:` — безымянный буфер. */
-    public get uri(): Uri {
-        return this.uriValue;
-    }
 
     /**
      * Путь ресурса на диске или `null`, если его там нет (безымянный буфер).
@@ -286,138 +160,24 @@ export class TextFileModel extends Disposable {
         return this.filePath;
     }
 
+    /**
+     * Свежая модель — безымянный буфер без номера (`untitled:Untitled`): номер
+     * назначает группа ({@link setUntitled}), файл — {@link openFile}. Не `null`:
+     * ветку «пути нет» задаёт схема, а не отсутствие значения.
+     */
     public constructor(languageService: ILanguageService, undoRedoService: UndoRedoService) {
-        super();
-
-        this.languageService = languageService;
-        this.undoRedoService = undoRedoService;
-
-        this.doc = new TextDocument("");
-        this.savedEol = this.doc.eol;
-        this.bindDocumentListeners();
-        this.undoManagerValue = this.createUndoManager();
-
+        super(languageService, undoRedoService, UNTITLED_PLACEHOLDER_URI);
         this.register({
             dispose: () => {
                 this.fileWatch?.dispose();
             },
         });
-        // Очищаем историю отмены этого редактора при закрытии вкладки.
-        this.register({
-            dispose: () => {
-                this.undoRedoService.clear(this.undoContext);
-            },
-        });
     }
 
-    /**
-     * Прикрепляет редактирующую поверхность (см. {@link ITextFileEditTarget}).
-     * Вызывает каждый парный `EditorComponent` в своём конструкторе; возвращённый
-     * disposable снимает цель, когда вью закрывается раньше модели (сплиты).
-     */
-    public attachEditTarget(target: ITextFileEditTarget): IDisposable {
-        this.editTargets.push(target);
-        return {
-            dispose: () => {
-                const i = this.editTargets.indexOf(target);
-                if (i >= 0) this.editTargets.splice(i, 1);
-            },
-        };
-    }
-
-    /** Общий движок undo документа (для `EditorElement` прикреплённых вью). */
-    public get undoManager(): UndoManager {
-        return this.undoManagerValue;
-    }
-
-    /** Перерисовка всех прикреплённых вью (dirty-маркер, EOL — видимое меняется везде). */
-    private broadcastMarkDirty(): void {
-        for (const target of [...this.editTargets]) target.markDirty();
-    }
-
-    /**
-     * Пересоздаёт движок undo под текущий документ и подключает его к общей
-     * истории: каждый шаг регистрирует обёртку в `UndoRedoService` под контекстом
-     * модели. Обёртка — токен порядка: её undo/redo делегируют в {@link UndoManager}
-     * (LIFO 1:1, поэтому стеки идут в ногу) и передают действующую вью
-     * ({@link actingView}), взведённую публичными {@link undo}/{@link redo}.
-     *
-     */
-    private createUndoManager(): UndoManager {
-        const undoManager = new UndoManager(this.doc);
-        undoManager.onDidPush = (element) => {
-            const wrapper = this.wrapUndoStep(element.label);
-            // Шаг забирает вызывающий (bulk edit) — в общий бакет он НЕ идёт:
-            // иначе на один workspace edit пришлось бы столько же Ctrl+Z,
-            // сколько документов он тронул.
-            if (this.detachedUndoSteps !== null) {
-                this.detachedUndoSteps.push(wrapper);
-                return;
-            }
-            this.undoRedoService.pushElement(wrapper, this.undoContext);
-        };
-        return undoManager;
-    }
-
-    /**
-     * Забывает историю отмены: содержимое заменено целиком, и накопленные шаги
-     * адресуют текст, которого больше нет (их version-гейт всё равно отбросил
-     * бы каждый молча).
-     */
-    private resetUndoHistory(): void {
-        this.undoRedoService.clear(this.undoContext);
-        this.undoManagerValue.clear();
-    }
-
-    /**
-     * Заменяет содержимое целиком в том же документе (перечитка с диска, смена
-     * содержимого владельцем). Буфер после этого чистый и без истории; события
-     * контента и EOL доходят до подписчиков модели уже после того, как она
-     * согласовала «сохранённую» версию.
-     */
-    private replaceText(text: string): void {
-        const eolBefore = this.doc.eol;
-        this.replacingText = true;
-        try {
-            this.doc.setText(text);
-        } finally {
-            this.replacingText = false;
-        }
-        this.savedVersionId = this.doc.versionId;
-        this.savedEol = this.doc.eol;
-        this.resetUndoHistory();
-        this.onDidChangeContentEmitter.fire();
-        if (this.doc.eol !== eolBefore) this.onDidChangeEolEmitter.fire();
-    }
-
-    /**
-     * Обёртка шага документа для общей истории: токен порядка, чьи undo/redo
-     * делегируют в {@link UndoManager}. Токен шага снимается здесь же — им
-     * обёртка отвечает на вопрос «снимется ли ИМЕННО мой шаг» ({@link
-     * IUndoRedoElement.canUndo}); при откате/повторе запись переезжает в
-     * противоположный стек новым объектом, поэтому токен каждый раз
-     * перечитывается.
-     */
-    private wrapUndoStep(label: string): IUndoRedoElement {
+    /** У файла шаг истории касается его пути; у безымянного буфера — ничего. */
+    protected override get undoResources(): string[] {
         const filePath = this.filePath;
-        let undoToken = this.undoManagerValue.peekUndoStep();
-        let redoToken: UndoStepToken | undefined;
-        return {
-            label,
-            resources: filePath === null ? [] : [filePath],
-            canUndo: () => this.undoManagerValue.canUndoStep(undoToken),
-            canRedo: () => this.undoManagerValue.canRedoStep(redoToken),
-            undo: () => {
-                this.undoManagerValue.undo(this.actingView);
-                redoToken = this.undoManagerValue.peekRedoStep();
-                this.broadcastMarkDirty();
-            },
-            redo: () => {
-                this.undoManagerValue.redo(this.actingView);
-                undoToken = this.undoManagerValue.peekUndoStep();
-                this.broadcastMarkDirty();
-            },
-        };
+        return filePath === null ? [] : [filePath];
     }
 
     /**
@@ -448,48 +208,7 @@ export class TextFileModel extends Disposable {
         this.startWatchingFile(filePath);
     }
 
-    /**
-     * Открывает буфер, которого нет на диске: содержимое даёт владелец, а не
-     * файловая система (Output-канал — `output:<channel>`, как в VS Code). Ни
-     * чтения, ни watcher'а, ни `diskStat` — значит `save()` вернёт `"no-file"`,
-     * а внешних изменений у такого ресурса не бывает по построению.
-     *
-     * Язык задаётся явно: выводить его из «пути» вида `output:extensions` нечем.
-     */
-    public openSynthetic(uri: Uri, languageId: string): void {
-        this.uriValue = uri;
-        this.doc.setLanguage(languageId);
-    }
-
-    /**
-     * Дописывает текст в конец буфера от имени **владельца** документа.
-     *
-     * Идёт мимо `EditorViewState`, в отличие от {@link applyExternalEdits}, и это
-     * намеренно: там стоит read-only-гард, а владелец писать обязан. Это ровно
-     * разделение VS Code — `OutputChannelModel` пишет в `ITextModel`, а `readOnly`
-     * живёт на виджете редактора и правки владельца не касается.
-     *
-     * API специально **только append**: правка в самом конце документа не сдвигает
-     * ни выделения, ни фолды выше неё, поэтому пропуск ремапа во view-state
-     * безопасен. Произвольные правки так проводить нельзя — для них
-     * {@link applyExternalEdits}.
-     */
-    public appendOwnedContent(text: string): void {
-        if (text.length === 0) return;
-        const line = this.doc.lineCount - 1;
-        const column = this.doc.getLineLength(line);
-        this.doc.applyEdits([createTextEdit(createRange(line, column, line, column), text)]);
-        // Правка владельца не должна пачкать буфер: у синтетического ресурса нет
-        // диска, и «несохранённых изменений» у него быть не может.
-        this.savedVersionId = this.doc.versionId;
-        this.broadcastMarkDirty();
-    }
-
     /** Заменяет содержимое буфера целиком (смена активного Output-канала). */
-    public replaceOwnedContent(text: string): void {
-        this.replaceText(text);
-    }
-
     /**
      * Читает файл с диска в документ модели ({@link replaceText}: история
      * отмены сбрасывается, view ремапит каретку и скролл как при любой правке).
@@ -531,8 +250,7 @@ export class TextFileModel extends Disposable {
         if (participation !== null) await participation;
         fs.writeFileSync(this.filePath, encodeText(this.doc.serialize(), this.encodingValue));
         this.diskStat = this.readDiskStat(this.filePath);
-        this.savedVersionId = this.doc.versionId;
-        this.savedEol = this.doc.eol;
+        this.markSaved();
         this.setDiskConflict(false);
         this.fireSaved();
         return "saved";
@@ -571,35 +289,6 @@ export class TextFileModel extends Disposable {
     }
 
     /**
-     * Changes the document's end-of-line sequence. The change is undoable and
-     * marks the buffer dirty (EOL is tracked as a separate axis from content —
-     * see {@link isModified}). `target` — действующая вью (её выделения попадают
-     * в снимок undo-шага); программные пути (save-участник) её не передают —
-     * берётся первая прикреплённая.
-     */
-    public setEol(eol: EndOfLine, target?: ITextFileEditTarget): void {
-        const previous = this.doc.eol;
-        if (previous === eol) return;
-
-        const acting = target ?? this.editTargets.at(0);
-        const selections = acting?.cloneSelections() ?? [];
-        const version = this.doc.versionId;
-        this.doc.setEol(eol);
-        this.undoManagerValue.pushUndoElement({
-            label: "Change End of Line Sequence",
-            versionBefore: version,
-            versionAfter: version,
-            forwardEdits: [],
-            backwardEdits: [],
-            beforeSelections: selections,
-            afterSelections: selections,
-            eolBefore: previous,
-            eolAfter: eol,
-        });
-        this.broadcastMarkDirty();
-    }
-
-    /**
      * Writes the document to a new path and re-points the model to it.
      *
      * Unlike {@link openFile}, the document/view-state/undo-history/cursor are
@@ -618,8 +307,7 @@ export class TextFileModel extends Disposable {
         fs.writeFileSync(newPath, encodeText(this.doc.serialize(), this.encodingValue));
         this.diskStat = this.readDiskStat(newPath);
         this.doc.setLanguage(this.resolveLanguageId(newPath));
-        this.savedVersionId = this.doc.versionId;
-        this.savedEol = this.doc.eol;
+        this.markSaved();
         this.setDiskConflict(false);
         this.startWatchingFile(newPath);
         this.fireSaved();
@@ -684,132 +372,11 @@ export class TextFileModel extends Disposable {
         this.onDidChangeDiskStateEmitter.fire();
     }
 
-    public getText(): string {
-        return this.doc.getText();
-    }
-
-    /**
-     * Applies a programmatic batch of edits as a single undoable operation.
-     *
-     * A seam for edits that don't originate from user input — editor commands
-     * (trim-trailing-whitespace, insert-final-newline) and save participants.
-     * Pushes an undo element (if anything changed) and repaints. Document
-     * dirtiness follows automatically from the version bump. `target` —
-     * действующая вью: её view-state применяет правки (и пересчитывает свои
-     * выделения точно); остальные вью ремапятся по событию документа.
-     */
-    public applyExternalEdits(edits: readonly ITextEdit[], label: string, target?: ITextFileEditTarget): void {
-        const acting = target ?? this.editTargets.at(0);
-        if (acting === undefined) return;
-        const element = acting.applyEdits(edits, label);
-        if (element) this.undoManagerValue.pushUndoElement(element);
-        this.broadcastMarkDirty();
-    }
-
-    /**
-     * То же, что {@link applyExternalEdits}, но шаг истории НЕ попадает в общий
-     * `UndoRedoService` — его забирает вызывающий. Так bulk edit собирает ОДИН
-     * шаг на весь `workspace.applyEdit`: правки по нескольким документам и
-     * файловые операции отменяются вместе, одним Ctrl+Z.
-     *
-     * В {@link UndoManager} самого документа шаг ложится как обычно — без него
-     * version-гейт отбрасывал бы собственную историю документа как устаревшую.
-     *
-     * `null` — применять нечего (нет прикреплённой вью либо правки ничего не
-     * изменили): вызывающий обязан различать это от успеха.
-     */
-    public applyExternalEditsDetached(
-        edits: readonly ITextEdit[],
-        label: string,
-        target?: ITextFileEditTarget,
-    ): IUndoRedoElement | null {
-        const acting = target ?? this.editTargets.at(0);
-        if (acting === undefined) return null;
-        const captured: IUndoRedoElement[] = [];
-        this.detachedUndoSteps = captured;
-        try {
-            const element = acting.applyEdits(edits, label);
-            if (element) this.undoManagerValue.pushUndoElement(element);
-        } finally {
-            this.detachedUndoSteps = null;
-        }
-        this.broadcastMarkDirty();
-        return captured.at(0) ?? null;
-    }
-
-    /** Откат шага истории; `view` — действующая вью (восстановление выделений в неё). */
-    public undo(view?: IUndoViewBinding): void {
-        this.actingView = view ?? null;
-        try {
-            // Обёртка-элемент читает actingView синхронно: UndoRedoService зовёт
-            // element.undo() до первого await внутри undo(context).
-            void this.undoRedoService.undo(this.undoContext);
-        } finally {
-            this.actingView = null;
-        }
-    }
-
-    /** Повтор откаченного шага; `view` — как в {@link undo}. */
-    public redo(view?: IUndoViewBinding): void {
-        this.actingView = view ?? null;
-        try {
-            void this.undoRedoService.redo(this.undoContext);
-        } finally {
-            this.actingView = null;
-        }
-    }
-
-    /**
-     * Контекст-бакет истории отмены этого **документа** — непрозрачный
-     * идентификатор, выданный при создании модели. Намеренно НЕ путь и НЕ uri:
-     * ключ обязан быть стабильным на всём времени жизни. Путь бакетом быть не
-     * может — на нём ломались два бага: все безымянные буферы сходились в общий
-     * бакет `"untitled"`, а `saveAs` менял ключ и осиротлял уже накопленную
-     * историю. Модель одна на документ (реестр в `EditorService`), поэтому ключ
-     * per-модель и есть ключ per-документ — сплит-вью делят историю через неё.
-     *
-     * Ключ бакета и `resources` обёртки-элемента — разные вещи: первый адресует
-     * историю, второй перечисляет затронутые пути и у безымянного буфера пуст.
-     */
-    public readonly undoContext = `editor-${nextUndoContextId++}`;
-
     /**
      * Language detection is delegated to the {@link ILanguageService}
      * (implemented by `LanguageRegistry` from the Extensions layer).
      */
     private resolveLanguageId(filePath: string): string {
         return this.languageService.getLanguageIdForResource(filePath) ?? "plaintext";
-    }
-
-    /**
-     * Подписывается на события документа (один раз — документ живёт с моделью):
-     * смена языка, смена EOL и правки контента ретранслируются подписчикам
-     * модели; замену содержимого целиком модель объявляет сама
-     * ({@link replaceText}).
-     *
-     * Язык документа — повод поднять его фичи (`requestLanguageFeatures`, у
-     * vscode — `requestRichLanguageFeatures`): и у нового документа, и при
-     * смене языка (Change Language Mode, Save As с другим расширением). Так
-     * расширение с `onLanguage:<id>` встаёт для любой модели, а не только для
-     * активного редактора.
-     */
-    private bindDocumentListeners(): void {
-        this.languageService.requestLanguageFeatures(this.doc.languageId);
-        this.register(
-            this.doc.onDidChangeLanguage((change) => {
-                this.languageService.requestLanguageFeatures(change.newLanguageId);
-                this.onDidChangeLanguageEmitter.fire(change);
-            }),
-        );
-        this.register(
-            this.doc.onDidChangeEol(() => {
-                if (!this.replacingText) this.onDidChangeEolEmitter.fire();
-            }),
-        );
-        this.register(
-            this.doc.onDidChangeContent(() => {
-                if (!this.replacingText) this.onDidChangeContentEmitter.fire();
-            }),
-        );
     }
 }

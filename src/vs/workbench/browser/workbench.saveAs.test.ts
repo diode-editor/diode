@@ -7,7 +7,9 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
+import { Uri } from "../../base/common/uri.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
+import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
 import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 
@@ -86,6 +88,33 @@ describe("Workbench — Save As", () => {
             expect(fs.readFileSync(alphaPath, "utf-8")).toBe("XAlpha content");
         });
         expect(h.container.get(DialogServiceDIToken).getOpenConfirmDialog()).toBeNull();
+    });
+
+    it("Save As виртуального документа пишет копию и открывает её файлом; исходная вкладка остаётся", async () => {
+        const service = h.container.get(EditorServiceDIToken);
+        service.virtualDocumentSource = {
+            canProvide: (scheme) => scheme === "jdt",
+            provide: () => Promise.resolve("class Lib {}\n"),
+        };
+        const jdt = Uri.parse("jdt://contents/lib.jar/Lib.java");
+        await service.openUri(jdt);
+
+        h.commands.execute("workbench.action.files.saveAs");
+        h.testApp.render();
+        const copyPath = ws.path("Lib.java");
+        openInputBox(h.testApp).setQuery(copyPath);
+        h.testApp.sendKey("Enter");
+        // Запись — через файловый сервис, асинхронно.
+        await vi.waitFor(() => {
+            expect(service.activeGroup.editorCount).toBe(2);
+        });
+
+        expect(fs.readFileSync(copyPath, "utf-8")).toBe("class Lib {}\n");
+        expect(service.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([
+            jdt.toString(),
+            Uri.file(copyPath).toString(),
+        ]);
+        expect(service.getActiveTabPane()?.uri.toString()).toBe(Uri.file(copyPath).toString());
     });
 
     it("prompts before overwriting a different existing file", async () => {

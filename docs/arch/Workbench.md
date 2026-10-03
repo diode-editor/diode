@@ -769,14 +769,21 @@ hide-toggle (`isHiddenByDefault`). См.
     `IDiagnosticsEditor` (`EditorService`/`EditorPane`
     структурно; биндинг `DiagnosticsEditorSourceDIToken` — в WorkbenchModule).
 - **Editor-кластер (этапы 9a/9b)** — редактор целиком в Workbench:
-  - `Services/TextFile/TextFileModel.ts` — per-file модель без view (аналог
-    `ITextFileEditorModel`): владеет `TextDocument`, dirty-статусом
-    (`isModified` = versionId + EOL-ось), осями encoding/EOL/language, записью
-    на диск (`save`/`saveAs`/`saveWithEncoding` + save-участник с клампом правок),
-    перечиткой (`revertToDisk`/`reopenWithEncoding`, `replaceOwnedContent` у
-    синтетики — текст меняется **в том же документе** через `TextDocument.setText`:
-    событие контента с `isFlush`, версия растёт, история отмены забывается; документ
-    один на всю жизнь модели) и слежением за файлом на диске
+  - `common/editor/textEditorModel.ts` — `BaseTextEditorModel` (аналог upstream
+    `BaseTextEditorModel`): буфер без view и без файловых осей — `TextDocument`
+    (один на всю жизнь модели), язык, EOL, история отмены, правки через
+    прикреплённые вью (`ITextEditTarget`), события буфера. Замена содержимого
+    целиком — **в том же документе** (`TextDocument.setText`: событие контента с
+    `isFlush`, версия растёт, история отмены забывается).
+    `common/editor/syntheticTextModel.ts` — `SyntheticTextModel`: буфер, чьё
+    содержимое даёт владелец (Output, виртуальный документ `jdt:`, снимочная
+    сторона диффа) — `appendContent`/`replaceContent`, без save/encoding/watch/dirty.
+  - `Services/TextFile/TextFileModel.ts` — per-file модель (аналог
+    `ITextFileEditorModel`) поверх `BaseTextEditorModel`: файл с диска либо
+    untitled — dirty-статус против диска (`isModified` = versionId + EOL-ось),
+    ось encoding, запись на диск (`save`/`saveAs`/`saveWithEncoding` +
+    `TextFileSaveParticipant`), перечитка (`revertToDisk`/`reopenWithEncoding`) и
+    слежение за файлом на диске
     через `IFileWatcher` (авто-перечитка чистого буфера / `hasDiskConflict` у
     «грязного»). **Владеет движком undo**: `UndoManager` (класс — в
     `src/vs/editor`) — один на документ (перечитка его чистит, а не пересоздаёт); модель сама
@@ -806,8 +813,11 @@ hide-toggle (`isHiddenByDefault`). См.
     цвета — токены в `editor.style={fg,bg}`, остальное — каскадом.
   - `Components/Editor/EditorPane.ts` — пара «модель + view-компонент» одного
     открытого редактора (аналог editor input + pane): владеет временем жизни
-    `TextFileModel` + `EditorComponent` и делегирует единый API по
-    принадлежности. Это поверхность «активного редактора» для потребителей
+    модели (`BaseTextEditorModel`) + `EditorComponent` и делегирует единый API по
+    принадлежности; файловые операции — через `fileModel` (`TextFileModel | null`):
+    у синтетики ответы честные (`save` → `"no-file"`, перечитка → `false`,
+    кодировка по умолчанию), а Save As синтетики (`fileActions`) пишет копию и
+    открывает её обычным файлом, как upstream. Это поверхность «активного редактора» для потребителей
     (экшены, Find/Completion, host-адаптеры, швы `IActiveEditorStatus`/
     `IDiagnosticsEditor`/`IMarkerRevealEditor`/`IGotoLineEditor` — выполняются
     структурно делегатами в модель/компонент).

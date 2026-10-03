@@ -1,6 +1,7 @@
 import * as path from "node:path";
 
 import { Uri } from "../../../../base/common/uri.ts";
+import { encodeText } from "../../../../editor/common/model/encoding.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -165,7 +166,19 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
     const resolved = path.resolve(target.trim());
     const doSave = async (): Promise<void> => {
         try {
-            await editor.saveAs(resolved);
+            if (editor.fileModel !== null) {
+                await editor.saveAs(resolved);
+            } else {
+                // Синтетика (виртуальный документ, снимок): своего файла у неё нет,
+                // и перепривязать буфер не к чему — копия пишется на диск и
+                // открывается обычным файлом (как upstream Save As не-файлового
+                // ресурса), а исходная вкладка остаётся собой.
+                await files.writeFile(
+                    Uri.file(resolved),
+                    encodeText(editor.model.document.serialize(), editor.encoding),
+                );
+                editorService.openFile(resolved);
+            }
             accessor.get(WorkbenchContextKeysDIToken).update();
         } catch (error) {
             /* v8 ignore start -- defensive: surfaces a filesystem write failure (permissions/disk); not reproducible in tests */
