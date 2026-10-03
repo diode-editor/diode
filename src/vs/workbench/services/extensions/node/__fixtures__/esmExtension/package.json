@@ -1,0 +1,6 @@
+{
+    "name": "esm-extension-fixture",
+    "private": true,
+    "type": "module",
+    "main": "./extension.js"
+}

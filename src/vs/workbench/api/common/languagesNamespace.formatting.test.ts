@@ -192,6 +192,58 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(await stub3.callRequest("languages.provideFormattingEdits", requestParams())).toEqual([WIRE_EDIT]);
     });
 
+    it("сбой провайдера пишется в stderr — иначе он неотличим от «менять нечего»", async () => {
+        const errors: string[] = [];
+        const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+            errors.push(args.map(String).join(" "));
+        });
+        try {
+            const { ctx, stub } = makeCtx();
+            const { languages } = createLanguagesNamespace(ctx);
+            languages.registerDocumentFormattingEditProvider({ language: "typescript" }, {
+                provideDocumentFormattingEdits: () => {
+                    throw new Error("provider boom");
+                },
+            } as unknown as vscode.DocumentFormattingEditProvider);
+            expect(await stub.callRequest("languages.provideFormattingEdits", requestParams())).toEqual([]);
+
+            expect(errors).toHaveLength(1);
+            expect(errors[0]).toContain("provideDocumentFormattingEdits failed");
+            expect(errors[0]).toContain("provider boom");
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
+    it("сбой range-провайдера пишется в stderr в обеих ветках", async () => {
+        const errors: string[] = [];
+        const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+            errors.push(args.map(String).join(" "));
+        });
+        try {
+            const { ctx, stub } = makeCtx();
+            const { languages } = createLanguagesNamespace(ctx);
+            languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
+                provideDocumentRangeFormattingEdits: () => {
+                    throw new Error("range boom");
+                },
+            } as unknown as vscode.DocumentRangeFormattingEditProvider);
+            await stub.callRequest(
+                "languages.provideFormattingEdits",
+                requestParams({ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 } }),
+            );
+            await stub.callRequest("languages.provideFormattingEdits", requestParams());
+
+            expect(errors).toHaveLength(2);
+            for (const line of errors) {
+                expect(line).toContain("provideDocumentRangeFormattingEdits failed");
+                expect(line).toContain("range boom");
+            }
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
     it("сбойный range-провайдер — пустой ответ в обеих ветках (range и full-range fallback)", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);

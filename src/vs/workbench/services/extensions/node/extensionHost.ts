@@ -989,6 +989,11 @@ export class ExtensionHost extends Disposable {
                     mainPath: reg.mainPath,
                     source: reg.source,
                     filename: reg.filename,
+                    // `"type"` из package.json расширения — им субпроцесс решает,
+                    // грузить точку входа как CJS или как ESM (`isEsmEntry`).
+                    // Едет как есть: нормализует его ОДНА сторона — та, что
+                    // разбирает параметры (`parseActivateParams`).
+                    moduleType: reg.manifest.type,
                     extensionPath: reg.extensionPath,
                     configDefaults: reg.configDefaults,
                     globalStoragePath: storage.globalStoragePath,

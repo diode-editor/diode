@@ -239,11 +239,14 @@ output-каналы, декорации, пункты статус-бара и �
 ## Типы с неполной поверхностью
 
 Активно 115 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
-(bounded member-level uncommenting — раскомментировано подмножество членов).
+(bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
+(`TextDocument`) — про другое: там раскомментировано всё, но два члена ещё не реализованы
+в рантайме; помечена отдельно, потому что для автора расширения разницы нет.
 
 | тип | активно | не активно |
 | --- | :-: | --- |
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
+| `TextDocument` | 17/19 | `save`, `getWordRangeAtPosition` — объявлены в `vscode.d.ts`, но в субпроцессе отсутствуют: обращение бросает `TypeError`. Остальное рабочее, включая `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
 | `ExtensionContext` | 14/17 | `environmentVariableCollection`, `extension`, `languageModelAccessInformation` |
 | `WorkspaceEdit` | 11/11 | — |

@@ -108,16 +108,71 @@ export class ExtHostTextDocument {
 
     public getText(range?: Range): string {
         if (range === undefined) return this.text;
+        // По контракту `vscode.d.ts` диапазон «will be adjusted» — провайдер,
+        // посчитавший границу по своей копии текста, не должен получить
+        // исключение из-за одного лишнего символа.
+        const valid = this.validateRange(range);
         const lines = this.lines();
-        if (range.start.line === range.end.line) {
-            return lines[range.start.line].slice(range.start.character, range.end.character);
+        if (valid.start.line === valid.end.line) {
+            return lines[valid.start.line].slice(valid.start.character, valid.end.character);
         }
-        const parts: string[] = [lines[range.start.line].slice(range.start.character)];
-        for (let n = range.start.line + 1; n < range.end.line; n++) {
+        const parts: string[] = [lines[valid.start.line].slice(valid.start.character)];
+        for (let n = valid.start.line + 1; n < valid.end.line; n++) {
             parts.push(lines[n]);
         }
-        parts.push(lines[range.end.line].slice(0, range.end.character));
+        parts.push(lines[valid.end.line].slice(0, valid.end.character));
         return parts.join("\n");
+    }
+
+    /**
+     * Смещение позиции в тексте документа. Считается по ТОМУ ЖЕ тексту, который
+     * отдаёт {@link getText}: строки разделены `\n`, а `\r` у CRLF-документа
+     * остаётся частью строки — поэтому «длина строки + 1» точна для обоих EOL.
+     */
+    public offsetAt(position: Position): number {
+        const valid = this.validatePosition(position);
+        const lines = this.lines();
+        let offset = 0;
+        for (let n = 0; n < valid.line; n++) offset += lines[n].length + 1;
+        return offset + valid.character;
+    }
+
+    /**
+     * Позиция по смещению — обратная {@link offsetAt}. Смещение за границами
+     * текста прижимается к ним (контракт `vscode.d.ts`: «the offset will be
+     * adjusted»); именно так `prettier` строит минимальную правку, сравнивая
+     * строки посимвольно.
+     */
+    public positionAt(offset: number): Position {
+        const lines = this.lines();
+        let remaining = Math.min(Math.max(0, offset), this.text.length);
+        // Шагаем, пока остаток не влезает в строку. Проверки «не вышли за
+        // последнюю строку» тут нет и не нужно: сумма длин строк с
+        // разделителями равна длине текста, а смещение к ней прижато — значит
+        // на последней строке остаток заведомо не больше её длины.
+        let line = 0;
+        while (remaining > lines[line].length) {
+            remaining -= lines[line].length + 1;
+            line++;
+        }
+        return new Position(line, remaining);
+    }
+
+    /**
+     * Позиция, прижатая к границам документа (контракт `vscode.d.ts`). Новый
+     * объект возвращается ВСЕГДА: на входе бывает не наш `Position`, а любой
+     * `{line, character}` из расширения, и отдавать его обратно — отдавать
+     * чужой тип.
+     */
+    public validatePosition(position: Position): Position {
+        const lines = this.lines();
+        const line = Math.min(Math.max(0, position.line), lines.length - 1);
+        return new Position(line, Math.min(Math.max(0, position.character), lines[line].length));
+    }
+
+    /** Диапазон, прижатый к границам документа (контракт `vscode.d.ts`). */
+    public validateRange(range: Range): Range {
+        return new Range(this.validatePosition(range.start), this.validatePosition(range.end));
     }
 
     public get lineCount(): number {
