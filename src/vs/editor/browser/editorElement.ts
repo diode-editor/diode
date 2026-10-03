@@ -10,6 +10,7 @@ import type { TUIPasteEvent } from "@tuidom/core/dom/events/tuiPasteEvent";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { IScrollable } from "@tuidom/elements/scrollbar/iScrollable";
 
+import type { IDisposable } from "../../base/common/lifecycle.ts";
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { withCursorChangeSource } from "../common/core/cursorChangeSource.ts";
@@ -127,6 +128,27 @@ export class EditorElement extends TUIElement implements IScrollable {
      * редакторы, дифф).
      */
     public languageConfigurationSource: (() => IResolvedLanguageConfiguration | undefined) | null = null;
+
+    private readonly typeListeners: ((text: string) => void)[] = [];
+
+    /**
+     * Набор печатного символа с клавиатуры (upstream `ICodeEditor.onDidType`).
+     * Приходит ПОСЛЕ правки — текст и каретка уже на месте — в том числе когда
+     * символ ушёл в пару языка: auto-close `(` (вставлено `()`), typeover `)`
+     * (правки нет, каретка перешагнула), auto-surround выделения. Вставка,
+     * Enter, undo/redo, правки расширений и read-only набором не считаются:
+     * подписчикам (триггер-символы попапов) нужен именно набор, а не «строка
+     * подросла на символ».
+     */
+    public onDidType(listener: (text: string) => void): IDisposable {
+        this.typeListeners.push(listener);
+        return {
+            dispose: (): void => {
+                const idx = this.typeListeners.indexOf(listener);
+                if (idx >= 0) this.typeListeners.splice(idx, 1);
+            },
+        };
+    }
 
     public get tabSize(): number {
         return this.viewState.tabSize;
@@ -1179,8 +1201,9 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         // Printable character: single char, no ctrl/alt/meta modifiers
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
-            if (this.tryTypePaired(event.key)) return;
-            this.pushUndo(this.viewState.type(event.key));
+            if (!this.tryTypePaired(event.key)) this.pushUndo(this.viewState.type(event.key));
+            if (this.viewState.readOnly) return;
+            for (const listener of [...this.typeListeners]) listener(event.key);
             return;
         }
     }

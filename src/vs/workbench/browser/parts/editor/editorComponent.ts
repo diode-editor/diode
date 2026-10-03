@@ -127,6 +127,7 @@ export class EditorComponent extends Component {
      * при перечитке документа, а подписка (статус-бар) обязана это пережить.
      */
     private readonly indentListeners: (() => void)[] = [];
+    private readonly typeListeners: ((text: string) => void)[] = [];
 
     /** Редактирующая поверхность этой вью — для acting-view путей модели. */
     public get editTarget(): ITextFileEditTarget {
@@ -189,6 +190,26 @@ export class EditorComponent extends Component {
     }
 
     /** Перевешивает форвардинг cursor-change на текущий view-state. */
+    /**
+     * Набор символа (см. {@link EditorElement.onDidType}). Слушатели живут на
+     * компоненте и переживают пересоздание `EditorElement` при перечитке файла.
+     */
+    public onDidType(listener: (text: string) => void): IDisposable {
+        this.typeListeners.push(listener);
+        return {
+            dispose: (): void => {
+                const idx = this.typeListeners.indexOf(listener);
+                if (idx >= 0) this.typeListeners.splice(idx, 1);
+            },
+        };
+    }
+
+    private attachTypeForwarding(): void {
+        this.editor.onDidType((text) => {
+            for (const listener of [...this.typeListeners]) listener(text);
+        });
+    }
+
     private attachSelectionForwarding(): void {
         this.viewStateCursorSubscription?.dispose();
         this.viewStateCursorSubscription = this.editorViewState.onDidChangeCursorPosition(() => {
@@ -222,6 +243,7 @@ export class EditorComponent extends Component {
         // rebuildForReloadedDocument).
         this.editor.undoManager = model.undoManager;
         this.attachSelectionForwarding();
+        this.attachTypeForwarding();
         this.view = new ScrollBarDecorator(this.editor);
 
         // Шов модели к редактирующей поверхности этой вью: правки, которые модель
@@ -330,6 +352,7 @@ export class EditorComponent extends Component {
         // Курсор сброшен на (0,0) вместе с view-state — перевешиваем форвардинг и
         // сообщаем подписчикам, иначе extension host остался бы со старым выделением.
         this.attachSelectionForwarding();
+        this.attachTypeForwarding();
         for (const cb of [...this.selectionListeners]) cb();
         this.view.setChild(this.editor);
         this.recomputeFoldingRegions();
