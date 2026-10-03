@@ -29,6 +29,7 @@ import { Component } from "../../../browser/component.ts";
 import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyViewElement.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import type { IViewWelcomeBlock } from "../../../browser/parts/views/viewWelcomeElement.ts";
 import { searchExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
@@ -59,6 +60,17 @@ export const SEARCH_VIEWLET_ID = "search";
 
 /** Id единственной view merged-контейнера Search (контекст меню «⋯», конвенция SCM). */
 export const SEARCH_VIEW_ID = "workbench.search.results";
+
+/**
+ * Пустое состояние Search без открытой папки. Текст у эталона другой («Only open
+ * editors are currently searched») — у него поиск по открытым редакторам есть, у
+ * нас запрос уходит в ripgrep по корню, поэтому обещать нечего.
+ */
+const SEARCH_WELCOME: readonly IViewWelcomeBlock[] = [
+    { kind: "text", text: "Search needs an open folder." },
+    { kind: "text", text: "" },
+    { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
+];
 
 /** Редактор, в котором раскрывается позиция результата поиска. */
 export interface ISearchRevealEditor {
@@ -264,6 +276,12 @@ export class SearchComponent extends Component implements IContextKeyContributor
             title: "SEARCH",
             order: 10,
             body: this.root,
+            // Корень запроса — папка воркспейса (см. runSearch), поэтому без
+            // папки искать физически негде: вместо рабочего с виду поля, которое
+            // на любой запрос молча отвечает «No results», секция честно говорит,
+            // чего не хватает, и даёт кнопку это исправить.
+            requiresWorkspaceFolder: true,
+            placeholder: SEARCH_WELCOME,
             focus: () => {
                 this.focus();
             },

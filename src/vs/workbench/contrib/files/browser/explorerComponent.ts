@@ -13,6 +13,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import type { IViewWelcomeBlock } from "../../../browser/parts/views/viewWelcomeElement.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
 import type { ExplorerService } from "./explorerService.ts";
@@ -26,6 +27,17 @@ export const EXPLORER_VIEWLET_ID = "explorer";
 
 /** Id единственной view контейнера — дерева файлов (VS Code `workbench.explorer.fileView`). */
 export const EXPLORER_VIEW_ID = "workbench.explorer.fileView";
+
+/**
+ * Пустое состояние Explorer, когда папка не открыта (редактор поднят на одном
+ * файле или вовсе без аргументов). Текст — эталонный, кнопка зовёт обычную
+ * команду Open Folder: другой двери из этого состояния нет, и теперь она видна.
+ */
+const EXPLORER_WELCOME: readonly IViewWelcomeBlock[] = [
+    { kind: "text", text: "You have not yet opened a folder." },
+    { kind: "text", text: "" },
+    { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
+];
 
 interface ExplorerViewParts {
     readonly tree: TreeViewElement<FileTreeNode>;
@@ -66,14 +78,16 @@ export class ExplorerComponent extends Component {
     ) {
         super();
         // Пустое тело до первого setRootPath: пока папка не открыта, секция
-        // рисует подсказку — как view welcome в VS Code.
+        // рисует welcome — как `viewsWelcome` в VS Code, тем же составом (текст
+        // плюс кнопка, которая зовёт обычную команду Open Folder). Кнопки Clone
+        // Repository у нас нет, потому что нет и самой команды клона.
         viewsService.registerView({
             id: EXPLORER_VIEW_ID,
             containerId: EXPLORER_VIEWLET_ID,
             title: "EXPLORER",
             order: 10,
             body: null,
-            placeholder: "No folder opened.",
+            placeholder: EXPLORER_WELCOME,
             focus: () => {
                 this.explorerService.focus();
             },

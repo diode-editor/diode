@@ -11,6 +11,7 @@ import type { IContextMenuDelegate } from "../../../../platform/contextview/comm
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IPanelView } from "../panel/panelService.ts";
 import { PanelService } from "../panel/panelService.ts";
 import type { SidebarService } from "../sidebar/sidebarService.ts";
@@ -28,6 +29,12 @@ export interface IViewsHarness {
     readonly menuService: MenuService;
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
+    /**
+     * Настоящий источник правды о папках: тест открывает папку
+     * `workspace.setWorkspaceFolder(path)` и проверяет, что секции с
+     * `requiresWorkspaceFolder` сменили пустое состояние на тело.
+     */
+    readonly workspace: WorkspaceContextService;
     /** Делегаты, с которыми открывали контекст-меню (последний — самый свежий). */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
@@ -96,12 +103,14 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         // под стопкой с заголовком.
         return (element.id === selector.slice(1) ? element : element.querySelector(selector)) as PaneViewElement;
     };
+    const workspace = new WorkspaceContextService();
     return {
-        service: new ViewsService(sidebar, panelService, contextMenu, menuService, state),
+        service: new ViewsService(sidebar, panelService, contextMenu, menuService, state, workspace, commands),
         panelService,
         menuService,
         commands,
         contextKeys,
+        workspace,
         shown,
         stored,
         root,

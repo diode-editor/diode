@@ -452,7 +452,7 @@ export class WorkbenchComponent extends Component {
      *
      * Зовётся из {@link mount} — то есть ВСЕГДА, а не только при открытой папке:
      * окно без воркспейса обязано иметь сайдбар (Explorer рисует свой
-     * плейсхолдер «No folder opened.», магазин расширений работает как обычно),
+     * welcome с кнопкой Open Folder, магазин расширений работает как обычно),
      * иначе из пустого окна нечем даже открыть папку.
      */
     private registerViewContainers(): void {

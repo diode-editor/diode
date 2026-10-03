@@ -29,8 +29,8 @@ export default defineScenario({
     rows: 20,
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting.ts ↔ greeting.v2.ts"));
-        // Сторон диффа две, а воркспейса нет — сайдбар держит подсказку.
-        await editor.waitForText((t) => t.includes("No folder opened."));
+        // Сторон диффа две, а воркспейса нет — сайдбар держит welcome Explorer'а.
+        await editor.waitForText((t) => t.includes("You have not yet opened a"));
         await editor.capture("diff");
     },
 });

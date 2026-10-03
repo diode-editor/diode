@@ -1045,10 +1045,13 @@ hide-toggle (`isHiddenByDefault`). См.
     Extensions, References — и показывает Explorer. `setWorkspaceFolder` отвечает
     ровно за то, что зависит от папки: корень Explorer'а, cwd терминалов,
     per-project стор состояния, restore-вызовы view и индекс файлов. Поэтому окно
-    без папки не слепое: Explorer рисует свой плейсхолдер «No folder opened.»
-    (`IViewDescriptor.placeholder`, аналог `viewsWelcome`), а `Open Folder`
-    доступен и работает. Смена корня на живом приложении (после `mount()`) сама
-    зовёт `explorerService.refresh()`: `setRootPath` лишь пересоздаёт провайдер, а
+    без папки не слепое: Explorer рисует интерактивное пустое состояние
+    (`IViewDescriptor.placeholder` блоками, аналог `viewsWelcome`) — текст «You
+    have not yet opened a folder.» и кнопку `Open Folder`, которая зовёт обычную
+    команду; Search и Source Control в этом состоянии погашены
+    (`requiresWorkspaceFolder`) и тоже говорят, чего не хватает, а магазин
+    расширений работает целиком — папка ему не нужна. Смена корня на живом
+    приложении (после `mount()`) сама зовёт `explorerService.refresh()`: `setRootPath` лишь пересоздаёт провайдер, а
     `TreeViewElement` наполняется исключительно `refresh()` — на бутстрапе эту
     единственную загрузку делает `activate()`. Решение и его мотивы —
     [docs/TODO/Startup.md](../TODO/Startup.md).
@@ -1082,7 +1085,8 @@ hide-toggle (`isHiddenByDefault`). См.
     **Дескрипторы (`viewsService.ts`).** Контейнер — «активити»:
     `{id, title, location: "sidebar" | "panel", order?}`. View — секция внутри
     него: `{id, containerId, title, order, body, placeholder?, focus,
-    minBodyHeight?, canToggleVisibility?, collapsed?}`. `containerId` —
+    minBodyHeight?, canToggleVisibility?, collapsed?,
+    requiresWorkspaceFolder?}`. `containerId` —
     реестровая связь, а не свойство контрола: перенос view между контейнерами
     ляжет сменой поля. `collapsed` (как у `IViewDescriptor` VS Code) — ТОЛЬКО
     начальное состояние секции; сохранённый выбор пользователя его перебивает
@@ -1091,6 +1095,30 @@ hide-toggle (`isHiddenByDefault`). См.
     `body === null` рисует `placeholder` (аналог `viewsWelcome`); тело и виджет
     заголовка меняются на месте (`setViewBody`/`setViewTitleWidget`), поэтому
     место держит одну и ту же ссылку на корень контейнера всю жизнь.
+
+    **Пустое состояние — строка или блоки.** `placeholder: string` рисуется
+    плоской подсказкой (`No problems have been detected.`, `No output yet.`);
+    `placeholder: IViewWelcomeBlock[]` — интерактивным `ViewWelcomeElement`
+    (`viewWelcomeElement.ts`): абзацы с переносом по словам и кнопки, каждая
+    зовёт команду по id (как `[label](command:id)` в `viewsWelcome` эталона).
+    Кнопки — обычные `ButtonElement`, то есть фокусируемые: их достаёт штатный
+    Tab-обход движка, а `focusContainer` при показе секции ставит фокус на
+    первую из них вместо `focus()` дескриптора — из состояния «папка не открыта»
+    выход должен быть одним Enter'ом. Текст элемент рисует сам, а не
+    детьми-лейблами: перенос зависит от ширины, известной только в
+    `performLayout`, а менять там состав детей или текст прикреплённого лейбла
+    нельзя.
+
+    **`requiresWorkspaceFolder`** гасит секцию без открытой папки: пустое
+    состояние перекрывает уже построенное тело (аналог `when: workbenchState ==
+    empty` у `viewsWelcome`, где welcome тоже спорит с содержимым по условию, а
+    не по пустоте модели). Флаг стоит у Search и обеих секций Source Control —
+    тех, кто строит тело заранее и без папки показывал бы рабочий с виду
+    интерфейс, молча ничего не делающий. Explorer'у он не нужен: его тело
+    появляется вместе с деревом, то есть вместе с папкой. Переключение —
+    единственная подписка сервиса на `onDidChangeWorkspaceFolders`
+    (`IWorkspaceContextService`), которая меняет только тело: свёрнутость и веса
+    обязаны пережить открытие папки.
 
     **Merged выводится, а не объявляется.** Контейнер с ровно одной ВИДИМОЙ
     секцией сливает заголовки (как VS Code): в сайдбаре заголовка контейнера нет

@@ -1,3 +1,4 @@
+import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -10,6 +11,7 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
 import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { ViewWelcomeElement } from "../../../browser/parts/views/viewWelcomeElement.ts";
 
 import { EXPLORER_VIEW_ID, EXPLORER_VIEWLET_ID, ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
@@ -63,11 +65,13 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         });
     });
 
-    it("до открытия папки секция рисует подсказку, после — дерево", () => {
+    it("до открытия папки секция рисует welcome с кнопкой Open Folder, после — дерево", () => {
         attach();
         const paneView = h.paneView(EXPLORER_VIEWLET_ID);
-        const placeholder = paneView.querySelector("#viewPlaceholder-workbench-explorer-fileView") as TextLabelElement;
-        expect(placeholder.getText()).toBe("No folder opened.");
+        const placeholder = paneView.querySelector("#viewPlaceholder-workbench-explorer-fileView");
+        expect(placeholder).toBeInstanceOf(ViewWelcomeElement);
+        const button = (placeholder?.getChildren() ?? []).find((child) => child instanceof ButtonElement)!;
+        expect(button.getLabel()).toBe("Open Folder");
 
         service.setRootPath(ws.dir);
         expect(paneView.querySelector("#explorerView")).toBe(component.view);
