@@ -12,6 +12,7 @@ import {
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { computeWorkspaceId, EMPTY_WINDOW_WORKSPACE_ID } from "../../workspace/common/workspaceId.ts";
 import type { IStateDescriptor } from "../common/iStateService.ts";
+import { NULL_STATE_SERVICE } from "../common/nullStateService.ts";
 
 import { loadState, StateService } from "./stateService.ts";
 
@@ -176,6 +177,65 @@ describe("StateService", () => {
         const onDisk = JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8")) as Record<string, unknown>;
         expect(onDisk["future.unknown.key"]).toEqual({ a: 1 });
         expect(onDisk["workbench.sideBar.width"]).toBe(33);
+    });
+
+    describe("remove", () => {
+        it("удаляет ключ и его версию: get отдаёт дефолт, в файле пустышек нет", () => {
+            const p = paths();
+            const versioned: IStateDescriptor<string> = { key: "ext.v", scope: "global", default: "def", version: 2 };
+            const svc = loadState(p);
+            svc.store(versioned, "value");
+            svc.store(width, 41);
+
+            svc.remove(versioned);
+            svc.flushSync();
+
+            expect(svc.get(versioned)).toBe("def");
+            expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toEqual({ "workbench.sideBar.width": 41 });
+        });
+
+        it("версии соседей остаются; удаление ключа без версии их не трогает", () => {
+            const p = paths();
+            const a: IStateDescriptor<string> = { key: "a", scope: "global", default: "", version: 1 };
+            const b: IStateDescriptor<string> = { key: "b", scope: "global", default: "", version: 3 };
+            const svc = loadState(p);
+            svc.store(a, "x");
+            svc.store(b, "y");
+            svc.store(width, 7);
+
+            svc.remove(a);
+            svc.remove(width);
+            svc.flushSync();
+
+            expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toEqual({ b: "y", $versions: { b: 3 } });
+        });
+
+        it("удаление по workspace-скоупу правит стор открытого проекта, а запись — по таймеру", async () => {
+            const p = paths();
+            const svc = new StateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 0,
+            });
+            const folder = computeWorkspaceId("/projects/rm");
+            svc.openWorkspace(folder);
+            svc.store(wsWidth, 33);
+            svc.flushSync();
+
+            svc.remove(wsWidth);
+
+            const stateFile = resolveWorkspaceStatePath(p.workspaceStorageDir, folder);
+            await vi.waitFor(() => {
+                expect(JSON.parse(fs.readFileSync(stateFile, "utf-8"))).toEqual({});
+            });
+        });
+
+        it("у заглушки remove — no-op", () => {
+            expect(() => {
+                NULL_STATE_SERVICE.remove(width);
+            }).not.toThrow();
+            expect(NULL_STATE_SERVICE.get(width)).toBe(30);
+        });
     });
 
     describe("tolerant load", () => {

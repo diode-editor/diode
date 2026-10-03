@@ -177,6 +177,7 @@ function makeStateService(): IStateService {
         store: <T>(descriptor: IStateDescriptor<T>, value: T): void => {
             store.set(descriptor.key, value);
         },
+        remove: () => undefined,
         openWorkspace: () => undefined,
         flushSync: () => undefined,
     };

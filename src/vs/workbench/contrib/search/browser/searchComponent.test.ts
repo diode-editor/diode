@@ -104,6 +104,7 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
         store<T>(descriptor: IStateDescriptor<T>, value: T): void {
             stored.set(descriptor.key, value);
         },
+        remove: () => undefined,
         openWorkspace: () => {},
         flushSync: () => {},
     };
