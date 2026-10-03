@@ -52,10 +52,10 @@ export class EditorCloseHandler {
     public async confirmAndClose(group: EditorGroup, panes: readonly IEditorPane[]): Promise<boolean> {
         for (const pane of panes) {
             if (this.needsCloseConfirm(pane) && !(await this.confirm(group, pane))) return false;
-            const index = group.getPanes().indexOf(pane);
-            // Цель уже закрыта (пока шёл диалог, или её закрыл параллельный
-            // запрос, присоединившийся к тому же диалогу) — закрывать нечего.
-            if (index >= 0) group.closeTab(index);
+            // Цель могла уже закрыться (пока шёл диалог, или её закрыл
+            // параллельный запрос, присоединившийся к тому же диалогу): позиция
+            // -1 группа сама пропускает — закрывать нечего.
+            group.closeTab(group.getPanes().indexOf(pane));
         }
         return true;
     }
@@ -97,6 +97,7 @@ export class EditorCloseHandler {
     public needsCloseConfirm(pane: IEditorPane): boolean {
         if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane).length > 0;
         /* v8 ignore start -- задел под будущие виды панелей: в полосе только текстовые и дифф-вкладки */
+        // Stryker disable next-line ConditionalExpression: ветка недостижима — см. v8 ignore выше
         if (!(pane instanceof TextEditorPane)) return pane.isModified;
         /* v8 ignore stop */
         return pane.isModified && this.isLastPaneForDocument(pane);
