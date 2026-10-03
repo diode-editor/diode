@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -9,7 +10,6 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
@@ -43,12 +43,7 @@ const JAVA_LANGUAGE_SERVICE: ILanguageService = {
 
 /** Конфиг-стаб: точечные ключи из карты, остальное — как у NULL-сервиса. */
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            return key in values ? (values[key] as T) : defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 /** Лог-сервис, копящий `error`-строки: по ним проверяется, что причина названа. */
@@ -75,7 +70,7 @@ function createEditorService(
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         languages,
-        options.configurationService ?? NULL_CONFIGURATION_SERVICE,
+        options.configurationService ?? createTestConfigurationService(),
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),

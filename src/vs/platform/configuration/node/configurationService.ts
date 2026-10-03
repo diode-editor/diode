@@ -8,15 +8,15 @@ import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
-import { createConfigurationChangeEvent, diffConfigurationKeys } from "../common/configurationChangeEvent.ts";
 import { ConfigurationModel } from "../common/configurationModel.ts";
 import type { ConfigurationRegistry, IConfigurationPropertySchema } from "../common/configurationRegistry.ts";
-import { sanitizeConfiguration } from "../common/configurationValidation.ts";
+import { ConfigurationSnapshot } from "../common/configurationSnapshot.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationData,
     IConfigurationInspectResult,
     IConfigurationKeys,
+    IConfigurationOverrides,
     IConfigurationService,
 } from "../common/iConfigurationService.ts";
 
@@ -43,7 +43,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private readonly defaultsLayer: ConfigurationModel;
     private userLayer: ConfigurationModel;
     private profileLayer: ConfigurationModel;
-    private merged: ConfigurationModel;
+    private snapshot: ConfigurationSnapshot;
     /**
      * settings.json активного профиля — цель для {@link updateValue}. Для
      * default-профиля это `User/settings.json` (совпадает с user-слоем); для
@@ -88,7 +88,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.profileSettingsPath = input.profileSettingsPath;
         this.logger = input.logger;
         this.schemas = input.schemas ?? new Map();
-        this.merged = this.computeMerged();
+        this.snapshot = this.computeSnapshot();
 
         if (input.fileWatcher !== undefined) {
             this.startWatching(input.fileWatcher);
@@ -113,30 +113,30 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         }
     }
 
-    public get<K extends keyof IConfigurationKeys>(key: K): IConfigurationKeys[K];
-    public get<T>(key: string, defaultValue?: T): T | undefined;
-    public get<T>(key: string, defaultValue?: T): T | undefined {
-        const v = this.merged.get<T>(key);
-        return v ?? defaultValue;
+    public get<K extends keyof IConfigurationKeys>(key: K, overrides?: IConfigurationOverrides): IConfigurationKeys[K];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T — приведение для чужих ключей, как у ConfigurationModel.get
+    public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined;
+    public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined {
+        return this.snapshot.model(overrides).get<T>(key);
     }
 
     public getValue(section?: string): unknown {
-        return this.merged.getValue(section);
+        return this.snapshot.model().getValue(section);
     }
 
     public getConfigurationData(): IConfigurationData {
         return {
-            defaults: this.defaultsLayer.getValue() as Record<string, unknown>,
-            user: ConfigurationModel.merge(this.userLayer, this.profileLayer).getValue() as Record<string, unknown>,
+            defaults: this.defaultsLayer.toRaw(),
+            user: ConfigurationModel.merge(this.userLayer, this.profileLayer).toRaw(),
         };
     }
 
-    public inspect<T>(key: string): IConfigurationInspectResult<T> {
+    public inspect<T>(key: string, overrides?: IConfigurationOverrides): IConfigurationInspectResult<T> {
         return {
             default: this.defaultsLayer.get<T>(key),
             user: this.userLayer.get<T>(key),
             profile: this.profileLayer.get<T>(key),
-            value: this.merged.get<T>(key),
+            value: this.snapshot.model(overrides).get<T>(key),
         };
     }
 
@@ -146,16 +146,16 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
      * диффом. Ошибки чтения/парсинга трактуются как пустой слой (тот же
      * best-effort, что в bootstrap). Пустой дифф события не порождает.
      */
-    /** Слои по приоритету, затем значения вне схемы — к дефолту схемы. */
-    private computeMerged(): ConfigurationModel {
-        return sanitizeConfiguration(
+    /** Слои по приоритету; чтение — через снапшот (схема, секции языков). */
+    private computeSnapshot(): ConfigurationSnapshot {
+        return new ConfigurationSnapshot(
             ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer),
             this.schemas,
         );
     }
 
     public async reload(): Promise<void> {
-        const prev = this.merged;
+        const prev = this.snapshot;
         if (this.userSettingsPath !== undefined) {
             this.userLayer = await loadSettingsLayer(this.userSettingsPath, this.logger);
         }
@@ -170,11 +170,10 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
      * относительно `prev`, эмитит событие изменения. Общая точка для reload и
      * {@link updateValue}.
      */
-    private recompute(prev: ConfigurationModel): void {
-        this.merged = this.computeMerged();
-        const affectedKeys = diffConfigurationKeys(prev, this.merged);
-        if (affectedKeys.length === 0) return;
-        this.onDidChangeConfigurationEmitter.fire(createConfigurationChangeEvent(affectedKeys));
+    private recompute(prev: ConfigurationSnapshot): void {
+        this.snapshot = this.computeSnapshot();
+        const event = this.snapshot.changeFrom(prev);
+        if (event !== null) this.onDidChangeConfigurationEmitter.fire(event);
     }
 
     public async updateValue(key: string, value: unknown): Promise<void> {
@@ -201,7 +200,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         await fs.promises.writeFile(this.writeTargetPath, next, "utf-8");
 
         // Обновляем in-memory слой, чтобы get/inspect сразу видели новое значение.
-        const prev = this.merged;
+        const prev = this.snapshot;
         const parsed: unknown = parseJsonc(next, [], { allowTrailingComma: true });
         const model = ConfigurationModel.fromRaw(parsed);
         if (this.writesToProfileLayer) {

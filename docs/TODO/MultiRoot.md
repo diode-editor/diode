@@ -47,7 +47,7 @@
 | M2 | Explorer с несколькими корнями (строки-заголовки папок) | |
 | M3 | Поиск / Quick Open / индекс файлов по N корням, путь с префиксом папки | |
 | M4 | SCM: N репозиториев, группировка панели по репозиториям | |
-| M5 | Слои конфигурации: default < user < **workspace** < **folder** (+ language overrides) | `.code-workspace` → `settings`, `<folder>/.vscode/settings.json` |
+| M5 | Слои конфигурации: default < user < **workspace** < **folder** (language overrides уже есть — секции `"[lang]"`, C8) | `.code-workspace` → `settings`, `<folder>/.vscode/settings.json` |
 | M6 | `scope` у каждого ключа настроек (`APPLICATION/MACHINE/WINDOW/RESOURCE/LANGUAGE_OVERRIDABLE`) — решает, можно ли переопределить ключ на уровне папки | |
 | M7 | `.code-workspace`: формат (`folders`, `settings`, `extensions`, `launch`, `tasks`), относительные пути от файла, untitled-воркспейсы в user-data |
 | M8 | Идентичность воркспейса: `workspace.id` → `workspaceStorage/<id>`, `storageUri` расширений, per-workspace state | |

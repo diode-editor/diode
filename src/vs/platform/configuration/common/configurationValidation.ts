@@ -60,3 +60,33 @@ export function sanitizeConfiguration(
     }
     return invalid ? ConfigurationModel.merge(model, ConfigurationModel.fromRaw(fixes)) : model;
 }
+
+/**
+ * Модель для языка: итоговое значение, поверх — секция `"[identifier]"` из
+ * слитых слоёв, без ключей ядра, которые не объявлены `language-overridable`
+ * (их значение в секции игнорируется, как у VS Code), и уже прошедшее схему.
+ * Ключи вне схемы ядра (настройки расширений) в секции действуют как есть.
+ */
+export function languageConfiguration(
+    merged: ConfigurationModel,
+    identifier: string,
+    schemas: ReadonlyMap<string, IConfigurationPropertySchema>,
+): ConfigurationModel {
+    const section = structuredClone(merged.getOverride(identifier).getValue()) as Record<string, unknown>;
+    for (const [key, schema] of schemas) {
+        if (schema.scope !== "language-overridable") deletePath(section, key.split("."));
+    }
+    return sanitizeConfiguration(ConfigurationModel.merge(merged, ConfigurationModel.fromRaw(section)), schemas);
+}
+
+function deletePath(tree: Record<string, unknown>, segments: readonly string[]): void {
+    const [head, ...rest] = segments;
+    if (rest.length === 0) {
+        Reflect.deleteProperty(tree, head);
+        return;
+    }
+    const child = tree[head];
+    if (typeof child === "object" && child !== null && !Array.isArray(child)) {
+        deletePath(child as Record<string, unknown>, rest);
+    }
+}

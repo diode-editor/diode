@@ -53,6 +53,32 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(workspace.getConfiguration().get("editor.tabSize")).toBe(2);
     });
 
+    it("scope с languageId (TextDocument или { languageId }) выбирает секцию языка", () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("workspace.initialize", {
+            configuration: {
+                defaults: { editor: { formatOnSave: false } },
+                user: { "[python]": { "editor.formatOnSave": true } },
+            },
+            workspaceFolders: [],
+        });
+        const pythonDocument = { uri: "file:///a.py", languageId: "python" };
+
+        expect(workspace.getConfiguration("editor").get("formatOnSave")).toBe(false);
+        expect(workspace.getConfiguration("editor", pythonDocument as never).get("formatOnSave")).toBe(true);
+        expect(workspace.getConfiguration("editor", { languageId: "python" } as never).has("formatOnSave")).toBe(true);
+        const editor = workspace.getConfiguration("editor", { languageId: "python" } as never) as unknown as {
+            formatOnSave: boolean;
+            inspect(key: string): { defaultValue: unknown } | undefined;
+        };
+        expect(editor.formatOnSave).toBe(true);
+        expect(editor.inspect("formatOnSave")?.defaultValue).toBe(false);
+        // Пустой или нестроковый languageId, не-объект — без секции.
+        expect(workspace.getConfiguration("editor", { languageId: "" } as never).get("formatOnSave")).toBe(false);
+        expect(workspace.getConfiguration("editor", { languageId: 1 } as never).get("formatOnSave")).toBe(false);
+        expect(workspace.getConfiguration("editor", "python" as never).get("formatOnSave")).toBe(false);
+    });
+
     it("get с defaultValue для отсутствующего ключа", () => {
         const { workspace } = makeCtx();
         expect(workspace.getConfiguration("editor").get("tabSize", 4)).toBe(4);

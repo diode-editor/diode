@@ -33,10 +33,11 @@ export interface IOnSaveParticipantHost {
  * «kind → значение», где `true | "explicit" | "always"` включают вид, а
  * `false | "never"` выключают (все сохранения diode ручные, так что
  * `"explicit"` ≡ `true`); массив — все перечисленные виды включены. Порядок
- * прогона — порядок ключей в настройке.
+ * прогона — порядок ключей в настройке. `languageId` — язык документа: значение
+ * читается с его секцией `"[lang]"`.
  */
-export function enabledCodeActionKindsOnSave(configuration: IConfigurationService): string[] {
-    const raw = configuration.get<unknown>("editor.codeActionsOnSave");
+export function enabledCodeActionKindsOnSave(configuration: IConfigurationService, languageId?: string): string[] {
+    const raw: unknown = configuration.get("editor.codeActionsOnSave", { overrideIdentifier: languageId });
     if (Array.isArray(raw)) {
         return raw.filter((kind): kind is string => typeof kind === "string");
     }
@@ -59,7 +60,7 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
         const target = { uri: Uri.parse(snapshot.uri), languageId: snapshot.languageId };
         // Провайдеров для документа нет — и настройку читать незачем.
         if (!host.languageFeatures.codeActionProvider.has(target)) return [];
-        for (const kind of enabledCodeActionKindsOnSave(host.configuration)) {
+        for (const kind of enabledCodeActionKindsOnSave(host.configuration, snapshot.languageId)) {
             const text = host.paneForUri(snapshot.uri)?.getText() ?? snapshot.text;
             const lines = text.split("\n");
             const items = await getCodeActions(host.languageFeatures.codeActionProvider, target, {
@@ -89,7 +90,7 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
  */
 export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): SaveParticipant {
     return async (snapshot) => {
-        if (!host.configuration.get("editor.formatOnSave")) return [];
+        if (!host.configuration.get("editor.formatOnSave", { overrideIdentifier: snapshot.languageId })) return [];
         const pane = host.paneForUri(snapshot.uri);
         if (pane === null) return [];
         const text = pane.getText();

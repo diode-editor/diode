@@ -1,14 +1,14 @@
 import { Emitter } from "../../../base/common/event.ts";
 
-import { createConfigurationChangeEvent, diffConfigurationKeys } from "./configurationChangeEvent.ts";
 import { ConfigurationModel } from "./configurationModel.ts";
 import type { ConfigurationRegistry, IConfigurationPropertySchema } from "./configurationRegistry.ts";
-import { sanitizeConfiguration } from "./configurationValidation.ts";
+import { ConfigurationSnapshot } from "./configurationSnapshot.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationData,
     IConfigurationInspectResult,
     IConfigurationKeys,
+    IConfigurationOverrides,
     IConfigurationService,
 } from "./iConfigurationService.ts";
 
@@ -27,64 +27,59 @@ export class InMemoryConfigurationService implements IConfigurationService {
     /** Содержимое user-слоя в форме settings.json — запись заменяет ключ целиком, как в файле. */
     private readonly userSettings: Record<string, unknown>;
     private userLayer: ConfigurationModel;
-    private merged: ConfigurationModel;
+    private snapshot: ConfigurationSnapshot;
     private readonly onDidChangeConfigurationEmitter = new Emitter<IConfigurationChangeEvent>();
     public readonly onDidChangeConfiguration = this.onDidChangeConfigurationEmitter.event;
 
     /**
      * @param registry источник defaults-слоя; без него дефолтов нет.
      * @param initial начальное содержимое user-слоя (форма settings.json: точечные
-     *        ключи верхнего уровня разворачиваются).
+     *        ключи верхнего уровня разворачиваются, `"[lang]"` — секции языков).
      */
     public constructor(registry?: ConfigurationRegistry, initial: Readonly<Record<string, unknown>> = {}) {
         this.defaultsLayer = ConfigurationModel.fromRaw(registry?.getDefaultConfiguration() ?? {});
         this.schemas = registry?.getConfigurationProperties() ?? new Map();
         this.userSettings = { ...initial };
         this.userLayer = ConfigurationModel.fromRaw(this.userSettings);
-        this.merged = this.computeMerged();
+        this.snapshot = this.computeSnapshot();
     }
 
-    /** Слои по приоритету, затем значения вне схемы — к дефолту схемы (как у файловой реализации). */
-    private computeMerged(): ConfigurationModel {
-        return sanitizeConfiguration(ConfigurationModel.merge(this.defaultsLayer, this.userLayer), this.schemas);
+    private computeSnapshot(): ConfigurationSnapshot {
+        return new ConfigurationSnapshot(ConfigurationModel.merge(this.defaultsLayer, this.userLayer), this.schemas);
     }
 
-    public get<K extends keyof IConfigurationKeys>(key: K): IConfigurationKeys[K];
-    public get<T>(key: string, defaultValue?: T): T | undefined;
-    public get<T>(key: string, defaultValue?: T): T | undefined {
-        return this.merged.get<T>(key) ?? defaultValue;
+    public get<K extends keyof IConfigurationKeys>(key: K, overrides?: IConfigurationOverrides): IConfigurationKeys[K];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T — приведение для чужих ключей, как у ConfigurationModel.get
+    public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined;
+    public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined {
+        return this.snapshot.model(overrides).get<T>(key);
     }
 
     public getValue(section?: string): unknown {
-        return this.merged.getValue(section);
+        return this.snapshot.model().getValue(section);
     }
 
     public getConfigurationData(): IConfigurationData {
-        return {
-            defaults: this.defaultsLayer.getValue() as Record<string, unknown>,
-            user: this.userLayer.getValue() as Record<string, unknown>,
-        };
+        return { defaults: this.defaultsLayer.toRaw(), user: this.userLayer.toRaw() };
     }
 
-    public inspect<T>(key: string): IConfigurationInspectResult<T> {
+    public inspect<T>(key: string, overrides?: IConfigurationOverrides): IConfigurationInspectResult<T> {
         return {
             default: this.defaultsLayer.get<T>(key),
             user: this.userLayer.get<T>(key),
             profile: undefined,
-            value: this.merged.get<T>(key),
+            value: this.snapshot.model(overrides).get<T>(key),
         };
     }
 
     public updateValue(key: string, value: unknown): Promise<void> {
-        const prev = this.merged;
+        const prev = this.snapshot;
         // Тот же плоский точечный ключ, что пишет файловая реализация в settings.json.
         this.userSettings[key] = value;
         this.userLayer = ConfigurationModel.fromRaw(this.userSettings);
-        this.merged = this.computeMerged();
-        const affectedKeys = diffConfigurationKeys(prev, this.merged);
-        if (affectedKeys.length > 0) {
-            this.onDidChangeConfigurationEmitter.fire(createConfigurationChangeEvent(affectedKeys));
-        }
+        this.snapshot = this.computeSnapshot();
+        const event = this.snapshot.changeFrom(prev);
+        if (event !== null) this.onDidChangeConfigurationEmitter.fire(event);
         return Promise.resolve();
     }
 }

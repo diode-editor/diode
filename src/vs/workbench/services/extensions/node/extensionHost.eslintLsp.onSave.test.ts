@@ -14,10 +14,10 @@ import {
 } from "../../../../../TestUtils/eslintFixture.ts";
 import { createExtensionTestHarness, provideCodeActions } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 
 // Флагманский сценарий eslint (#196 + #310 поверх стока): настоящий
 // vscode-eslint.vsix, `editor.codeActionsOnSave: {"source.fixAll": true}` —
@@ -29,12 +29,7 @@ let installed: IInstalledEslint;
 let eslintNodeModules: string;
 
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            return key in values ? (values[key] as T) : defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с codeActionsOnSave и стоковым eslint", () => {
