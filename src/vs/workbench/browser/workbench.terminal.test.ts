@@ -1,5 +1,5 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import type { PanelContainerElement } from "@tuidom/elements/panel/panelContainerElement";
+import type { PanelContainerElement } from "./parts/panel/panelContainerElement.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";

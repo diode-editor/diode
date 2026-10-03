@@ -731,7 +731,11 @@ hide-toggle (`isHiddenByDefault`). См.
   - `Components/Panel/PanelComponent.ts` — `Component`; владеет
     `PanelContainerElement` (`view.id = "panel"`, стили —
     `getPanelContainerStyles`), отражает реестр сервиса (вкладки/контент/актив)
-    и возвращает клик по табу в `PanelService.activateView`.
+    и возвращает клик по табу в `PanelService.activateView`. Виджет живёт рядом,
+    в `parts/panel/panelContainerElement.ts` (приехал из `@tuidom/elements`), и
+    сам видимостью панели не распоряжается: клик по кнопке `×` в хвосте
+    таб-строки компонент переводит в команду `workbench.action.closePanel`
+    (`CLOSE_PANEL_COMMAND_ID`) — ту же дверь, что у Ctrl+J и палитры.
   - `Components/Panel/ProblemsComponent.ts` — `Component`; дерево
     «файл → маркеры» (`TreeViewElement` поверх `ProblemsTreeDataProvider`,
     `view` = `ScrollBarDecorator`, `view.id = "problemsView"`; стили —
@@ -1354,6 +1358,12 @@ hide-toggle (`isHiddenByDefault`). См.
 `EditorGroupComponent`, диалоги), либо, если посимвольная раскладка оправдывает
 ручной render (как у `EditorElement`), живёт рядом со своим компонентом в
 `parts/*`.
+
+Ручной render оправдан и у `PanelContainerElement` (`parts/panel/`): его таб-строка
+— посимвольная раскладка с подчёркиванием ровно под глифами названия и кнопкой
+закрытия в хвосте той же строки. Виджет тоже приехал из движка, где по этому
+критерию лежать не должен был (`PanelView` с welcome-состоянием и контролами
+вкладки — понятия VS Code).
 
 Смешанный случай — `QuickPickElement` (`parts/quickinput/`): сам он собран из
 примитивов (`InputElement`, `ListViewElement`, флексы, `PaddingContainerElement`)

@@ -207,6 +207,7 @@ import {
     inputUndoAction,
 } from "./inputActions.ts";
 import {
+    closePanelAction,
     decreaseSidebarWidthAction,
     increaseSidebarWidthAction,
     resetSidebarWidthAction,
@@ -501,6 +502,7 @@ export const builtinActions: readonly CommandAction[] = [
     decreaseSidebarWidthAction,
     resetSidebarWidthAction,
     togglePanelAction,
+    closePanelAction,
     toggleProblemsAction,
     toggleOutputAction,
     toggleTerminalAction,

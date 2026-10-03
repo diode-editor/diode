@@ -1,13 +1,23 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import { PanelContainerElement } from "@tuidom/elements/panel/panelContainerElement";
 
+import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../component.ts";
 
+import { PanelContainerElement } from "./panelContainerElement.ts";
 import type { PanelService } from "./panelService.ts";
 import { PanelServiceDIToken } from "./panelService.ts";
 
 export const PanelComponentDIToken = token<PanelComponent>("PanelComponent");
+
+/**
+ * Команда кнопки `×` в таб-строке панели. Объявлена здесь, рядом с
+ * потребителем, а экшен (`closePanelAction`) её импортирует — как у
+ * `FOCUS_MESSAGE_COMMAND_ID`: иначе компоненту пришлось бы тянуть весь модуль
+ * экшенов воркбенча ради одной строки.
+ */
+export const CLOSE_PANEL_COMMAND_ID = "workbench.action.closePanel";
 
 /**
  * Компонент нижней панели: владеет {@link PanelContainerElement} и отражает в
@@ -17,7 +27,7 @@ export const PanelComponentDIToken = token<PanelComponent>("PanelComponent");
  * (`PanelService.activateView`) — на нём висят ленивые фичи (спавн терминала).
  */
 export class PanelComponent extends Component {
-    public static dependencies = [PanelServiceDIToken] as const;
+    public static dependencies = [PanelServiceDIToken, CommandRegistryDIToken] as const;
 
     public readonly view: PanelContainerElement;
 
@@ -26,7 +36,10 @@ export class PanelComponent extends Component {
     /** То же для контролов шапки — чтобы не перевешивать их на каждый чих. */
     private actions = new Map<string, TUIElement | null>();
 
-    public constructor(private readonly panelService: PanelService) {
+    public constructor(
+        private readonly panelService: PanelService,
+        commands: CommandRegistry,
+    ) {
         super();
         this.view = new PanelContainerElement();
         this.view.id = "panel";
@@ -34,6 +47,11 @@ export class PanelComponent extends Component {
         // сервис и даём его подписчикам среагировать (ленивый спавн терминала и т.п.).
         this.view.onActivateView = (id) => {
             this.panelService.activateView(id);
+        };
+        // Кнопка `×` не трогает видимость сама: панель закрывает команда, и это
+        // та же дверь, что у Ctrl+J и у палитры (включая её `enablement`).
+        this.view.onClose = () => {
+            void commands.execute(CLOSE_PANEL_COMMAND_ID);
         };
         this.register(
             this.panelService.onDidChangeViews(() => {
