@@ -1040,6 +1040,17 @@ hide-toggle (`isHiddenByDefault`). См.
     `KeybindingDispatcher.updateContextKeys`; `handleFocusChange` (capture
     focus/blur листенеры вешает владелец дерева) сбрасывает незавершённый чорд и
     закрывает suggest-попап при уходе фокуса с редактора.
+    **Ключи фич — у фич.** Фича, у которой есть ключи от фокуса или своего
+    состояния, реализует `IContextKeyContributor`
+    (`platform/contextkey/common/contextKeyContributor.ts`,
+    `updateContextKeys(contextKeys, active)`) и встаёт строкой в явный список
+    `WORKBENCH_CONTEXT_KEY_CONTRIBUTORS` (`workbench/browser/
+    workbenchContextKeyContributors.ts`, токен `ContextKeyContributorsDIToken`).
+    Центр опрашивает контрибьюторов в том же `update()` — тайминг pull общий,
+    ключ самоисцеляется на следующем нажатии. Ключ с одним переходом состояния
+    фича пушит сама (`searchViewMode`, `hasSearchResult`, scm busy).
+    Контрибьюторы: `SearchComponent` (`searchViewletFocus`/`searchInputBoxFocus`/
+    `firstMatchFocus`).
   - Экшены: `LayoutActions.ts` (toggle sidebar Ctrl+B, show explorer
     Ctrl+Shift+E, reveal active file, width-команды, toggle panel Ctrl+J,
     Problems Ctrl+Shift+M) и `TerminalActions.ts` (toggle Ctrl+` / new

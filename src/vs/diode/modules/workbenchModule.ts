@@ -6,6 +6,7 @@ import { MenuContributionsDIToken } from "../../platform/actions/common/iMenuCon
 import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
 import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyContributorsDIToken } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import {
     ContextMenuService,
     ContextMenuServiceDIToken,
@@ -73,6 +74,7 @@ import {
     SetContextCommandContributionDIToken,
 } from "../../workbench/browser/setContextCommandContribution.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
+import { WORKBENCH_CONTEXT_KEY_CONTRIBUTORS } from "../../workbench/browser/workbenchContextKeyContributors.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/browser/workbenchContributions.ts";
 import { WorkbenchStateService, WorkbenchStateServiceDIToken } from "../../workbench/browser/workbenchStateService.ts";
@@ -530,6 +532,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ViewProgressContributionDIToken, ViewProgressContribution);
     container.bind(ViewTitleActionsContributionDIToken, ViewTitleActionsContribution);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
+    // Фичи, которые сами выставляют свои контекст-ключи (опрашивает WorkbenchContextKeys).
+    container.bind(ContextKeyContributorsDIToken, () => WORKBENCH_CONTEXT_KEY_CONTRIBUTORS);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);
     container.bind(MenuBarComponentDIToken, MenuBarComponent);
     // Этап 12: корневой компонент приложения — владелец корневой view и

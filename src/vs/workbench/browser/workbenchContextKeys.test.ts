@@ -5,13 +5,15 @@ import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { VFlexElement, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { describe, expect, it, vi } from "vitest";
 
+import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
+import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
+import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import type { FindService } from "../contrib/find/browser/findService.ts";
 import type { HoverService } from "../contrib/hover/browser/hoverService.ts";
 import type { InlineCompletionsService } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import type { ParameterHintsService } from "../contrib/parameterHints/browser/parameterHintsService.ts";
-import type { SearchComponent } from "../contrib/search/browser/searchComponent.ts";
 import type { CompletionService } from "../contrib/suggest/browser/completionService.ts";
 import type { TerminalService } from "../contrib/terminal/browser/terminalService.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
@@ -29,8 +31,14 @@ import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
  * Workbench-тестов: update() до attachView (фокуса ещё нет) и проводка
  * хуков (dispatcher.updateContextKeys, onDidChange терминального окружения).
  */
-function makeHarness() {
+function makeHarness(contributors: IContextKeyContributor[] = []) {
     const contextKeys = new ContextKeyService();
+    // Контрибьюторы фич — по токену на каждого, accessor отдаёт их по токену.
+    const contributorTokens = contributors.map((_, i) => token<IContextKeyContributor>(`Contributor${String(i)}`));
+    const accessor = {
+        get: (requested: Token<unknown>) =>
+            contributors[contributorTokens.indexOf(requested as Token<IContextKeyContributor>)],
+    } as unknown as ServiceAccessor;
     const setActive = vi.fn();
     const onFocusChanged = vi.fn();
     const onHoverFocusChanged = vi.fn();
@@ -78,13 +86,10 @@ function makeHarness() {
         dispatcher as unknown as KeybindingDispatcher,
         { isPanelVisible: () => true, isSidebarVisible: () => true } as unknown as LayoutService,
         { getActiveViewletId: () => "search" } as unknown as SidebarService,
-        {
-            containsFocus: () => false,
-            isInputBoxFocused: () => false,
-            isFirstResultFocused: () => false,
-        } as unknown as SearchComponent,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
         { isOpen: () => false } as unknown as TabSwitcherComponent,
+        accessor,
+        contributorTokens,
     );
 
     return {
@@ -185,6 +190,29 @@ describe("WorkbenchContextKeys", () => {
         // Фокуса нет вовсе (`activeElement === null`) — тоже false, а не undefined.
         focusOn(null);
         expect(h.contextKeys.get("filesExplorerFocus")).toBe(false);
+    });
+
+    it("опрашивает контрибьюторов фич по порядку списка — с сервисом ключей и активным элементом", () => {
+        const calls: { name: string; keys: ContextKeyService; active: TUIElement | null }[] = [];
+        const contributor = (name: string): IContextKeyContributor => ({
+            updateContextKeys: (keys, active) => {
+                calls.push({ name, keys, active });
+            },
+        });
+        const h = makeHarness([contributor("first"), contributor("second")]);
+        const focused = new FillerElement();
+        h.service.attachView({ focusManager: { activeElement: focused } } as unknown as BodyElement);
+
+        h.service.update();
+        expect(calls).toEqual([
+            { name: "first", keys: h.contextKeys, active: focused },
+            { name: "second", keys: h.contextKeys, active: focused },
+        ]);
+
+        // Тайминг общий с центральными ключами: и хук диспетчера, и смена фокуса.
+        h.dispatcher.updateContextKeys();
+        h.service.handleFocusChange({} as TUIFocusEvent);
+        expect(calls).toHaveLength(6);
     });
 
     it("handleFocusChange cancels a pending chord, refreshes keys and notifies completion", () => {
