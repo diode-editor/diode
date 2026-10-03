@@ -146,6 +146,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
         const explorer = container.get(ExplorerServiceDIToken);
         const configuration: IExtensionHostConfigProvider = {
+            // Stryker disable next-line ArrowFunction: production-проводка модуля; слои собирает и закрывает юнитами сервис настроек, сквозняк до расширения — e2e-сценарий inline-suggest-settings (расширение читает свою настройку через getConfiguration)
             getSnapshot: () => configService.getConfigurationData(),
             getWorkspaceFolders: workspaceFoldersProvider(workspaceContext),
             onDidChange: (cb) =>

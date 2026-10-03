@@ -33,6 +33,7 @@ describe("collectConfigurationProperties", () => {
                 { properties: { "x.noDefault": { type: "string" } } },
                 { title: "нет properties" },
                 { properties: { "x.broken": null as unknown as { default: unknown } } },
+                { properties: { "x.scalar": "not a schema" as unknown as { default: unknown } } },
             ]),
         ).toEqual({ "x.noDefault": { type: "string" } });
         expect(collectConfigurationProperties(undefined)).toEqual({});

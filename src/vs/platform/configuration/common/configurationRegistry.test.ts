@@ -82,8 +82,10 @@ describe("ConfigurationRegistry — настройки расширений", ()
             scope: "resource",
             extensionId: "acme.ruff",
         });
-        // Ключ без дефолта известен, но в дерево дефолтов не попадает.
+        // Ключ без дефолта известен, но в дерево дефолтов не попадает (даже
+        // `undefined`-значением: toEqual такого не различил бы).
         expect(registry.getExtensionConfigurationProperties().has("ruff.path")).toBe(true);
+        expect(Object.keys(registry.getDefaultConfiguration().ruff as object)).toEqual(["importStrategy"]);
         // Схемы ядра (по ним идёт валидация) ключей расширений не содержат.
         expect(registry.getConfigurationProperties().has("ruff.importStrategy")).toBe(false);
     });
@@ -121,6 +123,15 @@ describe("ConfigurationRegistry — настройки расширений", ()
             shared: { key: 1 },
             own: { key: 3 },
         });
+    });
+
+    it("дубль без колбэка проблем — тихий пропуск, не исключение", () => {
+        const registry = new ConfigurationRegistry([editorNode]);
+
+        expect(() => {
+            registry.registerExtensionConfiguration("x.ext", { "editor.tabSize": { default: 8 } });
+        }).not.toThrow();
+        expect(registry.getDefaultConfiguration()).toMatchObject({ editor: { tabSize: 4 } });
     });
 
     it("переопределения дефолтов — поверх ядра и расширений, позднее главнее", () => {

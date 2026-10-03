@@ -60,6 +60,19 @@ describe("ExtensionConfigurationContributor", () => {
         });
     });
 
+    it("без логгера дубль ключа — тихий пропуск", () => {
+        const registry = new ConfigurationRegistry();
+
+        expect(() => {
+            new ExtensionConfigurationContributor(
+                [ext("one.ext", { "shared.k": { default: 1 } }), ext("two.ext", { "shared.k": { default: 2 } })],
+                registry,
+                () => ({}),
+            ).apply();
+        }).not.toThrow();
+        expect(registry.getDefaultConfiguration()).toEqual({ shared: { k: 1 } });
+    });
+
     it("дубль ключа — предупреждение в лог, первый владелец остаётся", () => {
         const registry = new ConfigurationRegistry();
         const logger = recordingLogger();
