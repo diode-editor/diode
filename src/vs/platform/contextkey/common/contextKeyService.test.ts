@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { registerContextKeys } from "./contextKeys.ts";
 import { ContextKeyService } from "./contextKeyService.ts";
 
 describe("ContextKeyService", () => {
@@ -90,16 +89,12 @@ describe("ContextKeyService", () => {
             expect(ctx.evaluate("editorLangId.missing.deep")).toBe(false);
         });
 
-        it("новый динамический ключ виден выражению, скомпилированному раньше", () => {
+        it("новый ключ виден выражению, разобранному раньше, — без регистрации имени", () => {
             const ctx = new ContextKeyService();
             const expression = "mode_zen";
             expect(ctx.evaluate(expression)).toBe(false);
 
-            registerContextKeys(["mode_zen"]);
             ctx.setRaw("mode_zen", true);
-            // Кэш скомпилированных выражений обязан был сброситься вместе с
-            // ростом набора имён — иначе функция считает по старому списку
-            // параметров и ключ навсегда остаётся ложным.
             expect(ctx.evaluate(expression)).toBe(true);
         });
     });
@@ -196,7 +191,6 @@ describe("ContextKeyService — overlay («что если»)", () => {
     });
 
     it("работает и для точечных ключей расширений", () => {
-        registerContextKeys(["overlayExt.flag"]);
         const contextKeys = new ContextKeyService();
         expect(contextKeys.evaluate("overlayExt.flag")).toBe(false);
         expect(contextKeys.evaluate("overlayExt.flag", { "overlayExt.flag": true })).toBe(true);

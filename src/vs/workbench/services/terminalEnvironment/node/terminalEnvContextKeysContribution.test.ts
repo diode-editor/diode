@@ -25,7 +25,7 @@ function fakeEnv() {
 }
 
 describe("TerminalEnvContextKeysContribution", () => {
-    it("выставляет ключи окружения сразу при создании и регистрирует свои моды", () => {
+    it("выставляет ключи окружения сразу при создании", () => {
         const { env } = fakeEnv();
         const keys = new ContextKeyService();
         new TerminalEnvContextKeysContribution(keys, env as unknown as TerminalEnvironmentService);
@@ -36,8 +36,7 @@ describe("TerminalEnvContextKeysContribution", () => {
         expect(keys.get("cap_extendedKeys")).toBe(false);
         expect(keys.get("macKeys")).toBe(3);
         expect(keys.evaluate("mode_local")).toBe(true);
-        // Незарегистрированное имя в when даёт false целиком — `!` на нём не спасает.
-        expect(keys.evaluate("!mode_envContribCustom")).toBe(true);
+        expect(keys.evaluate("mode_envContribCustom")).toBe(false);
     });
 
     it("пушит ключи заново по onDidChange окружения, после dispose — нет", () => {

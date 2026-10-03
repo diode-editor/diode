@@ -33,6 +33,16 @@ describe("SetContextCommandContribution", () => {
         expect(contextKeys.evaluate("myext.armed")).toBe(false);
     });
 
+    it("массив доезжает оператором in — как ключ VS Code со списком", () => {
+        const { commands, contextKeys } = setup();
+
+        commands.execute("setContext", "myext.supportedFiles", ["a.ts", "b.ts"]);
+        commands.execute("setContext", "myext.current", "b.ts");
+
+        expect(contextKeys.evaluate("myext.current in myext.supportedFiles")).toBe(true);
+        expect(contextKeys.evaluate("myext.current not in myext.supportedFiles")).toBe(false);
+    });
+
     it("строки и числа доезжают сравнениями", () => {
         const { commands, contextKeys } = setup();
 
@@ -101,9 +111,10 @@ describe("normalizeContextValue", () => {
 
     // Массивы/объекты VS Code хранит целиком (под оператор `in`), наш
     // вычислитель работает с примитивами — сохраняем хотя бы истинность.
-    it("массивы и объекты сводятся к своей истинности", () => {
-        expect(normalizeContextValue([])).toBe(true);
-        expect(normalizeContextValue(["a"])).toBe(true);
-        expect(normalizeContextValue({})).toBe(true);
+    it("массив и объект хранятся как есть — под оператор in; из массива остаются примитивы", () => {
+        expect(normalizeContextValue([])).toEqual([]);
+        expect(normalizeContextValue(["a", 1, true, null, { x: 1 }])).toEqual(["a", 1, true]);
+        const map = { "a.ts": true };
+        expect(normalizeContextValue(map)).toBe(map);
     });
 });

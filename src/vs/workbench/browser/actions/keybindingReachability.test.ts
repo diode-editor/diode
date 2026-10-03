@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
-import { getAllContextKeyNames } from "../../../platform/contextkey/common/contextKeys.ts";
+import { parseWhen, whenKeys } from "../../../platform/contextkey/common/contextKeyExpr.ts";
 import { ContextKeyService } from "../../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { findConflictingBindings } from "../../../platform/keybinding/common/keybindingConflicts.ts";
@@ -91,7 +91,8 @@ function overlayFor(env: Environment, when: string | undefined): Readonly<Record
     const negated = new Set<string>();
     for (const match of (when ?? "").matchAll(/!\s*([A-Za-z_][\w.]*)/g)) negated.add(match[1]);
     const overlay: Record<string, boolean | string | number> = {};
-    for (const name of getAllContextKeyNames()) overlay[name] = !negated.has(name);
+    const expr = when === undefined ? undefined : parseWhen(when);
+    for (const name of expr === undefined ? [] : whenKeys(expr)) overlay[name] = !negated.has(name);
     return { ...overlay, ...environmentValues(env) };
 }
 
