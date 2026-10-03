@@ -1,3 +1,4 @@
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
@@ -20,7 +21,7 @@ export function createInProcessChannelPair(): [IMessageChannel, IMessageChannel]
 
 class InProcessChannel implements IMessageChannel {
     private peer: InProcessChannel | null = null;
-    private listeners: ((message: unknown) => void)[] = [];
+    private readonly onMessageEmitter = new Emitter<unknown>();
     private disposed = false;
 
     public connect(peer: InProcessChannel): void {
@@ -39,28 +40,18 @@ class InProcessChannel implements IMessageChannel {
         queueMicrotask(() => {
             if (peer.disposed) return;
             const decoded: unknown = JSON.parse(serialized);
-            for (const listener of peer.listeners.slice()) {
-                listener(decoded);
-            }
+            peer.onMessageEmitter.fire(decoded);
         });
     }
 
-    public onMessage(listener: (message: unknown) => void): IDisposable {
-        if (this.disposed) {
-            return { dispose: (): void => undefined };
-        }
-        this.listeners.push(listener);
-        return {
-            dispose: (): void => {
-                const index = this.listeners.indexOf(listener);
-                if (index >= 0) this.listeners.splice(index, 1);
-            },
-        };
-    }
+    public readonly onMessage = this.onMessageEmitter.event;
 
     public dispose(): void {
         if (this.disposed) return;
         this.disposed = true;
-        this.listeners.length = 0;
+        // Доставку после dispose и так отсекает гард `disposed`; снятие слушателей
+        // ненаблюдаемо снаружи и держится ради освобождения их замыканий.
+        // Stryker disable next-line CallExpression: эквивалентен — см. выше
+        this.onMessageEmitter.dispose();
     }
 }

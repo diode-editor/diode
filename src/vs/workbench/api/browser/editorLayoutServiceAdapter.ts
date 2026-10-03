@@ -1,3 +1,4 @@
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
@@ -32,7 +33,7 @@ const VIEW_COLUMN_BESIDE = -2;
  * созданием хвостовых групп — AS-5) и закрытий из `window.tabGroups`.
  */
 export class EditorLayoutServiceAdapter extends Disposable implements IEditorLayoutService {
-    private layoutListeners: ((layout: IWireEditorLayout) => void)[] = [];
+    private readonly onDidChangeLayoutEmitter = this.register(new Emitter<IWireEditorLayout>());
     private flushScheduled = false;
     private pendingLayout = false;
 
@@ -61,21 +62,13 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return { groups };
     }
 
-    public onDidChangeLayout(cb: (layout: IWireEditorLayout) => void): IDisposable {
-        this.layoutListeners.push(cb);
-        return {
-            dispose: () => {
-                const idx = this.layoutListeners.indexOf(cb);
-                if (idx >= 0) this.layoutListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeLayout = this.onDidChangeLayoutEmitter.event;
 
     public flushPendingLayout(): void {
         if (!this.pendingLayout) return;
         this.pendingLayout = false;
         const layout = this.getLayoutSnapshot();
-        for (const cb of [...this.layoutListeners]) cb(layout);
+        this.onDidChangeLayoutEmitter.fire(layout);
     }
 
     public async showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult> {
