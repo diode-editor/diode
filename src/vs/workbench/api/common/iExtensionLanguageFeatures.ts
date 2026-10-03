@@ -1,4 +1,5 @@
-import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import type { IDisposable } from "@tuidom/core/common/disposable";
+
 import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,

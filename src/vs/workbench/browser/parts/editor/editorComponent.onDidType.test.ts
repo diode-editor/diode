@@ -67,7 +67,7 @@ describe("TextEditorPane.onDidType", () => {
         expect(typed).toEqual(["y"]);
     });
 
-    it("рассылка идёт по снапшоту: отписанный посреди неё сосед символ ещё получает", () => {
+    it("отписанный посреди рассылки и ещё не достигнутый сосед символ уже не получает", () => {
         const pane = open("");
         const seen: string[] = [];
         let neighbour = { dispose: (): void => undefined };
@@ -79,6 +79,7 @@ describe("TextEditorPane.onDidType", () => {
         press(pane, "a");
         press(pane, "b");
 
-        expect(seen).toEqual(["a"]);
+        // Гарантия Emitter (docs/TODO/Events.md G2): снятый — не зовётся.
+        expect(seen).toEqual([]);
     });
 });

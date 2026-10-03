@@ -10,6 +10,7 @@ import type { TUIPasteEvent } from "@tuidom/core/dom/events/tuiPasteEvent";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { IScrollable } from "@tuidom/elements/scrollbar/iScrollable";
 
+import { Emitter } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
@@ -129,7 +130,7 @@ export class EditorElement extends TUIElement implements IScrollable {
      */
     public languageConfigurationSource: (() => IResolvedLanguageConfiguration | undefined) | null = null;
 
-    private readonly typeListeners: ((text: string) => void)[] = [];
+    private readonly onDidTypeEmitter = new Emitter<string>();
 
     /**
      * Набор печатного символа с клавиатуры (upstream `ICodeEditor.onDidType`).
@@ -140,15 +141,7 @@ export class EditorElement extends TUIElement implements IScrollable {
      * подписчикам (триггер-символы попапов) нужен именно набор, а не «строка
      * подросла на символ».
      */
-    public onDidType(listener: (text: string) => void): IDisposable {
-        this.typeListeners.push(listener);
-        return {
-            dispose: (): void => {
-                const idx = this.typeListeners.indexOf(listener);
-                if (idx >= 0) this.typeListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidType = this.onDidTypeEmitter.event;
 
     public get tabSize(): number {
         return this.viewState.tabSize;
@@ -1203,7 +1196,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
             if (!this.tryTypePaired(event.key)) this.pushUndo(this.viewState.type(event.key));
             if (this.viewState.readOnly) return;
-            for (const listener of [...this.typeListeners]) listener(event.key);
+            this.onDidTypeEmitter.fire(event.key);
             return;
         }
     }

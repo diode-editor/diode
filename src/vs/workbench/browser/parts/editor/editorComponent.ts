@@ -3,6 +3,7 @@ import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
@@ -120,14 +121,14 @@ export class EditorComponent extends Component {
      * при перечитке файла с диска view-state пересоздаётся, а подписчик (extension
      * host, который проецирует выделение в субпроцесс) должен это пережить.
      */
-    private readonly selectionListeners: (() => void)[] = [];
+    private readonly onDidChangeSelectionEmitter = new Emitter<void>();
     /**
      * Подписчики на смену действующих настроек отступа. Как и
      * {@link selectionListeners}, живут на компоненте: view-state пересоздаётся
      * при перечитке документа, а подписка (статус-бар) обязана это пережить.
      */
-    private readonly indentListeners: (() => void)[] = [];
-    private readonly typeListeners: ((text: string) => void)[] = [];
+    private readonly onDidChangeIndentOptionsEmitter = new Emitter<void>();
+    private readonly onDidTypeEmitter = new Emitter<string>();
 
     /** Редактирующая поверхность этой вью — для acting-view путей модели. */
     public get editTarget(): ITextFileEditTarget {
@@ -153,30 +154,14 @@ export class EditorComponent extends Component {
      * Подписка на смену курсора/выделения (движение каретки, набор, мышь,
      * undo/redo). Переживает пересоздание view-state при перечитке файла с диска.
      */
-    public onDidChangeSelection(cb: () => void): IDisposable {
-        this.selectionListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.selectionListeners.indexOf(cb);
-                if (idx >= 0) this.selectionListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeSelection = this.onDidChangeSelectionEmitter.event;
 
     /**
      * Подписка на смену действующих настроек отступа (`tabSize`/`insertSpaces`):
      * решение расширения, перечитка конфига или пере-детекция при перечитке
      * файла с диска. Файрится только при фактическом сдвиге значений.
      */
-    public onDidChangeIndentOptions(cb: () => void): IDisposable {
-        this.indentListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.indentListeners.indexOf(cb);
-                if (idx >= 0) this.indentListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidChangeIndentOptions = this.onDidChangeIndentOptionsEmitter.event;
 
     /** Сообщает подписчикам отступов, если действующие значения сдвинулись. */
     private notifyIndentIfChanged(before: { tabSize: number; insertSpaces: boolean }): void {
@@ -186,7 +171,7 @@ export class EditorComponent extends Component {
         ) {
             return;
         }
-        for (const cb of [...this.indentListeners]) cb();
+        this.onDidChangeIndentOptionsEmitter.fire();
     }
 
     /** Перевешивает форвардинг cursor-change на текущий view-state. */
@@ -194,26 +179,18 @@ export class EditorComponent extends Component {
      * Набор символа (см. {@link EditorElement.onDidType}). Слушатели живут на
      * компоненте и переживают пересоздание `EditorElement` при перечитке файла.
      */
-    public onDidType(listener: (text: string) => void): IDisposable {
-        this.typeListeners.push(listener);
-        return {
-            dispose: (): void => {
-                const idx = this.typeListeners.indexOf(listener);
-                if (idx >= 0) this.typeListeners.splice(idx, 1);
-            },
-        };
-    }
+    public readonly onDidType = this.onDidTypeEmitter.event;
 
     private attachTypeForwarding(): void {
         this.editor.onDidType((text) => {
-            for (const listener of [...this.typeListeners]) listener(text);
+            this.onDidTypeEmitter.fire(text);
         });
     }
 
     private attachSelectionForwarding(): void {
         this.viewStateCursorSubscription?.dispose();
         this.viewStateCursorSubscription = this.editorViewState.onDidChangeCursorPosition(() => {
-            for (const cb of [...this.selectionListeners]) cb();
+            this.onDidChangeSelectionEmitter.fire();
         });
     }
 
@@ -353,7 +330,7 @@ export class EditorComponent extends Component {
         // сообщаем подписчикам, иначе extension host остался бы со старым выделением.
         this.attachSelectionForwarding();
         this.attachTypeForwarding();
-        for (const cb of [...this.selectionListeners]) cb();
+        this.onDidChangeSelectionEmitter.fire();
         this.view.setChild(this.editor);
         this.recomputeFoldingRegions();
         if (reason === "disk") {
@@ -476,7 +453,7 @@ export class EditorComponent extends Component {
         if (applied) this.editorViewState.indentExplicitlySet = true;
         if (changed) {
             this.editor.markDirty();
-            for (const cb of [...this.indentListeners]) cb();
+            this.onDidChangeIndentOptionsEmitter.fire();
         }
     }
 
