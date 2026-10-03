@@ -135,10 +135,16 @@ describe("Workbench — Preferences commands", () => {
             h.testApp.sendKey("F6");
             h.testApp.sendKey("Enter");
 
-            await vi.waitFor(() => {
-                expect(fs.existsSync(keybindingsFile)).toBe(true);
-                expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"key": "f6"');
-            });
+            // Запись асинхронная (`fs.promises`): под полной нагрузкой прогона
+            // (8 воркеров, инструментация покрытия/Stryker) она не укладывается
+            // в секунду `vi.waitFor` по умолчанию — ждём с запасом.
+            await vi.waitFor(
+                () => {
+                    expect(fs.existsSync(keybindingsFile)).toBe(true);
+                    expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"key": "f6"');
+                },
+                { timeout: 5000 },
+            );
             expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"command": "test.custom"');
 
             // Строка вкладки обновилась (фильтр — чтобы строка попала в видимое окно).
@@ -146,16 +152,19 @@ describe("Workbench — Preferences commands", () => {
             // реестра в памяти — разные шаги, и на загруженной машине второй
             // отстаёт от первого (ловилось красным CI и dry run'ом Stryker'а).
             (pane as KeybindingsEditorPane).setFilter("Recorder Target");
-            await vi.waitFor(() => {
-                h.testApp.render();
-                const screen = h.testApp.backend.screenToString();
-                expect(screen).toContain("Recorder Target");
-                expect(screen).toContain("F6");
-            });
+            await vi.waitFor(
+                () => {
+                    h.testApp.render();
+                    const screen = h.testApp.backend.screenToString();
+                    expect(screen).toContain("Recorder Target");
+                    expect(screen).toContain("F6");
+                },
+                { timeout: 5000 },
+            );
             // …и команда исполняется по новой комбинации в том же сеансе (урок #194).
             h.testApp.sendKey("F6");
             expect(executed).toEqual(["test.custom"]);
-        });
+        }, 15_000);
     });
 
     describe("default harness — test environment", () => {
