@@ -45,6 +45,8 @@ interface MutableLanguageEntry {
  */
 export class LanguageRegistry implements ILanguageService {
     private readonly languages = new Map<string, MutableLanguageEntry>();
+    private readonly requestedLanguages = new Set<string>();
+    private readonly requestListeners = new Set<(languageId: string) => void>();
 
     public constructor() {
         // plaintext — core-язык (аналог modesRegistry в VS Code): его не
@@ -78,6 +80,21 @@ export class LanguageRegistry implements ILanguageService {
                 for (const lang of ownContributions) {
                     this.applyContribution(lang, extension.location, -1);
                 }
+            },
+        };
+    }
+
+    public requestLanguageFeatures(languageId: string): void {
+        if (this.requestedLanguages.has(languageId)) return;
+        this.requestedLanguages.add(languageId);
+        for (const listener of [...this.requestListeners]) listener(languageId);
+    }
+
+    public onDidRequestLanguageFeatures(listener: (languageId: string) => void): IDisposable {
+        this.requestListeners.add(listener);
+        return {
+            dispose: () => {
+                this.requestListeners.delete(listener);
             },
         };
     }

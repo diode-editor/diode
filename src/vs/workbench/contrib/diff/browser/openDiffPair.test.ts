@@ -214,6 +214,8 @@ describe("openDiffPair", () => {
             },
             getLanguageDisplayName: () => undefined,
             getExtensionForLanguage: () => undefined,
+            requestLanguageFeatures: () => undefined,
+            onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
         }));
         const bench = local.container.get(WorkbenchComponentDIToken);
         bench.setWorkspaceFolder(ws.dir);
@@ -277,6 +279,8 @@ describe("openDiffPair", () => {
             },
             getLanguageDisplayName: () => undefined,
             getExtensionForLanguage: () => undefined,
+            requestLanguageFeatures: () => undefined,
+            onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
         }));
         const bench = local.container.get(WorkbenchComponentDIToken);
         bench.setWorkspaceFolder(ws.dir);

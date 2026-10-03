@@ -34,6 +34,8 @@ describe("EditorComponent: авто-закрытие из language configuration
         getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
         getLanguageDisplayName: () => undefined,
         getExtensionForLanguage: () => undefined,
+        requestLanguageFeatures: () => undefined,
+        onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
     };
 
     beforeEach(() => {

@@ -945,10 +945,18 @@ export class TextFileModel extends Disposable {
      * в openFile): смена языка, смена EOL и правки контента ретранслируются
      * подписчикам модели — прямые подписки на старый doc иначе бы протухли
      * (revertToDisk перечитывает диск в новый TextDocument).
+     *
+     * Язык документа — повод поднять его фичи (`requestLanguageFeatures`, у
+     * vscode — `requestRichLanguageFeatures`): и у нового документа, и при
+     * смене языка (Change Language Mode, Save As с другим расширением). Так
+     * расширение с `onLanguage:<id>` встаёт для любой модели, а не только для
+     * активного редактора.
      */
     private bindDocumentListeners(): void {
+        this.languageService.requestLanguageFeatures(this.doc.languageId);
         this.languageSubscription?.dispose();
         this.languageSubscription = this.doc.onDidChangeLanguage((change) => {
+            this.languageService.requestLanguageFeatures(change.newLanguageId);
             for (const listener of [...this.languageChangeListeners]) listener(change);
         });
         this.eolSubscription?.dispose();
