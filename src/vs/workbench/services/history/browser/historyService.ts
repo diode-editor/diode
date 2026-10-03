@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";

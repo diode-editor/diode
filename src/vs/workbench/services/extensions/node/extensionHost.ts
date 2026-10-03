@@ -1,8 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import * as path from "node:path";
 
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
 import {
     CancellationTokenNone,
     CancellationTokenSource,
@@ -10,6 +8,7 @@ import {
 } from "../../../../base/common/cancellation.ts";
 import { renderCodicons } from "../../../../base/common/codicons.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";

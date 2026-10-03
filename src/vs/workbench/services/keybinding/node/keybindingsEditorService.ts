@@ -1,9 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,

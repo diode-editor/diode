@@ -1,9 +1,9 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type {

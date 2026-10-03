@@ -1,7 +1,6 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
 import { joinVirtualPath } from "../../../../base/common/assets/assetBundleFormat.ts";
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { IThemeContribution } from "../../../../platform/extensions/common/iThemeContribution.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";

@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 /** Что случилось с путём. Соответствует `vscode.FileChangeType` один-в-один. */
 export type TreeFileChangeType = "created" | "changed" | "deleted";

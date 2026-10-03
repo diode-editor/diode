@@ -1,6 +1,6 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 

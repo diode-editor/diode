@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 

@@ -1,8 +1,8 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { describe, expect, it } from "vitest";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";

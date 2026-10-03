@@ -1,4 +1,3 @@
-import { Disposable } from "@tuidom/core/common/disposable";
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
@@ -10,6 +9,7 @@ import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContaine
 import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { requiresExtendedKeys } from "../../../../platform/keybinding/common/keybindingPortability.ts";
 import type { Keybinding, KeybindingChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";

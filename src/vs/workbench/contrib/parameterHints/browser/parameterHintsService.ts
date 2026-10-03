@@ -1,5 +1,4 @@
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";

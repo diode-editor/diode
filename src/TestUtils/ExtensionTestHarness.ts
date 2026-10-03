@@ -3,8 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";

@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 /**
  * Тонкий «port» поверх host-реестра команд ({@link CommandRegistry}), нужный

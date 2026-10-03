@@ -1,5 +1,4 @@
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";

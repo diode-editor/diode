@@ -1,5 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import type { ICommandService } from "../common/iCommandService.ts";
 

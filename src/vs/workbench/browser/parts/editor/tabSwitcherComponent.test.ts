@@ -1,10 +1,10 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";

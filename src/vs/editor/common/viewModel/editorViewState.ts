@@ -1,6 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
-import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IMultiCursorFindSession } from "../../contrib/multicursor/iMultiCursorFindSession.ts";
 import type { IPosition } from "../core/iPosition.ts";

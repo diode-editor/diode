@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { Disposable } from "@tuidom/core/common/disposable";
 import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
 import chokidar, { type FSWatcher } from "chokidar";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { isExcludedPath } from "../../../common/configuration/excludeSettings.ts";
 
 export interface FileTreeNode {

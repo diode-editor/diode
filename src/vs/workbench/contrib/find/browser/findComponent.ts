@@ -1,4 +1,3 @@
-import { Disposable } from "@tuidom/core/common/disposable";
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
@@ -10,6 +9,7 @@ import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/
 import { SizedBoxElement } from "@tuidom/elements/layout/sizedBoxElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 

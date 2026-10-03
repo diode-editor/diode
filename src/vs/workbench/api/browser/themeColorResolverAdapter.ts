@@ -1,5 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IWorkbenchColors } from "../../../platform/theme/common/colors/colorContributions.ts";
 import type { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import type { ThemeService } from "../../services/themes/common/themeService.ts";

@@ -1,5 +1,4 @@
-import { Disposable } from "@tuidom/core/common/disposable";
-
+import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { ILineTokens } from "../languages/iLineTokens.ts";
 import { createLineTokens, createToken } from "../languages/iLineTokens.ts";
 import type { IState } from "../languages/iState.ts";

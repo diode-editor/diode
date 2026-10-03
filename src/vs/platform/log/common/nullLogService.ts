@@ -1,4 +1,4 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { ILogger } from "./iLogger.ts";
 import type { ILogChannelDescriptor, ILoggerOptions, ILogService, ILogSink, LogEntry } from "./iLogService.ts";

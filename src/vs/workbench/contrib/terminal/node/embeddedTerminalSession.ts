@@ -12,7 +12,6 @@
 // `ITerminalSurface`. См. docs/TODO/IntegratedTerminal.md.
 
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import type {
     ITerminalSurface,
     TerminalCell,
@@ -27,6 +26,7 @@ import type { IBufferCell, Terminal } from "@xterm/headless";
 import xtermHeadless from "@xterm/headless";
 import type { IPty } from "node-pty";
 
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { xtermPaletteToRgb } from "../common/xtermPalette.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";

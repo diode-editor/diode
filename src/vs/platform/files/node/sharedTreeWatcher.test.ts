@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type { IDisposable } from "@tuidom/core/common/disposable";
 import { describe, expect, it } from "vitest";
 
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { LogEntry } from "../../log/common/iLogService.ts";
 import { LogLevel } from "../../log/common/logLevel.ts";
 import { LogService } from "../../log/common/logService.ts";

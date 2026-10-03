@@ -1,7 +1,7 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-import { Disposable } from "@tuidom/core/common/disposable";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";

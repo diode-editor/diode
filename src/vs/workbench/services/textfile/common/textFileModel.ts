@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { Disposable, type IDisposable } from "@tuidom/core/common/disposable";
-
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";

@@ -1,6 +1,6 @@
-import { Disposable } from "@tuidom/core/common/disposable";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";

@@ -1,6 +1,5 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
 import { describeRejection } from "../../../base/common/describeRejection.ts";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { NULL_LOGGER } from "../../log/common/nullLogService.ts";

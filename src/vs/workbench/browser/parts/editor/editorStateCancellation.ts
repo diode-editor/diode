@@ -1,7 +1,6 @@
-import type { IDisposable } from "@tuidom/core/common/disposable";
-
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 
 import type { TextEditorPane } from "./textEditorPane.ts";
 
