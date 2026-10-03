@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { registerBuiltins } from "../../../../TestUtils/builtinKeybindings.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import { parseWhen, whenKeys } from "../../../platform/contextkey/common/contextKeyExpr.ts";
@@ -16,7 +17,6 @@ import {
 import { macKeysLevel, type MacKeysRung } from "../../../platform/keybinding/common/macKeys.ts";
 
 import { builtinActions } from "./builtinActions.ts";
-import { withMacKeybindings } from "./macKeybindings.ts";
 
 /**
  * Гейт достижимости дефолтных биндов.
@@ -40,15 +40,6 @@ import { withMacKeybindings } from "./macKeybindings.ts";
  */
 
 const noopRun = (): void => undefined;
-
-/** Все дефолтные бинды — так, как их регистрирует WorkbenchComponent. */
-function registerBuiltins(): KeybindingRegistry {
-    const keybindings = new KeybindingRegistry();
-    const commands = new CommandRegistry();
-    const accessor = {} as ServiceAccessor; // enablement резолвится только при исполнении
-    for (const builtin of builtinActions) registerAction(commands, keybindings, accessor, withMacKeybindings(builtin));
-    return keybindings;
-}
 
 interface Environment {
     readonly name: string;
