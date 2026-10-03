@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -10,6 +10,7 @@ import { resolveUserDataPaths } from "../../platform/environment/node/userDataPa
 import { loadState, StateService } from "../../platform/state/node/stateService.ts";
 import { computeWorkspaceId } from "../../platform/workspace/common/workspaceId.ts";
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
+import { openDiffPair } from "../contrib/diff/browser/openDiffPair.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
@@ -321,6 +322,31 @@ describe("Workbench — session state persistence", () => {
         expect(service.activeGroup.activePane?.uri.toString()).toBe("keybindings:global");
         // Прогрев грамматик берёт только файлы.
         expect(h2.workbench.getOpenEditorsToRestore()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
+        h2.dispose();
+    });
+
+    it("дифф двух файлов переживает рестарт, дифф с буфером обмена — нет", async () => {
+        const state1 = newState();
+        const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
+        await openDiffPair(h1.container, {
+            original: { uri: Uri.file(ws.path("a.ts")), label: "a.ts", identity: "a" },
+            modified: { uri: Uri.file(ws.path("b.ts")), label: "b.ts", identity: "b" },
+        });
+        await openDiffPair(h1.container, {
+            original: { text: "clip", label: "Clipboard", identity: "clip" },
+            modified: { uri: Uri.file(ws.path("c.ts")), label: "c.ts", identity: "c" },
+        });
+        state1.flushSync();
+        h1.dispose();
+
+        const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: newState() });
+        h2.workbench.restoreOpenEditors();
+
+        const group = h2.container.get(EditorServiceDIToken).activeGroup;
+        await vi.waitFor(() => {
+            expect(group.editorCount).toBe(1);
+        });
+        expect(group.activePane?.label).toBe("a.ts ↔ b.ts");
         h2.dispose();
     });
 

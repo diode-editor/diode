@@ -85,6 +85,7 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import { createDiffEditorPaneFactory } from "../../workbench/contrib/diff/browser/diffEditorPaneFactory.ts";
 import {
     DiffSnapshotRefreshContribution,
     DiffSnapshotRefreshContributionDIToken,
@@ -284,7 +285,10 @@ import {
 } from "../../workbench/services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
 /** Фабрики вкладок из contrib — по одной на вид вкладки (см. `IEditorPaneFactory`). */
-const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [createKeybindingsEditorPaneFactory];
+const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
+    createKeybindingsEditorPaneFactory,
+    createDiffEditorPaneFactory,
+];
 
 /**
  * Пары Service ↔ Component слоя Workbench (пилот — статус-бар, этап 4
