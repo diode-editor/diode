@@ -94,6 +94,26 @@ describe("StateService", () => {
             expect(loadState(p).get(wsWidth)).toBe(50);
         });
 
+        it("нетронутый стор пустого окна на диск не пишется — ни при flushSync, ни по таймеру", async () => {
+            const p = paths();
+            const svc = new StateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 0,
+            });
+            const emptyWindowFile = resolveWorkspaceStatePath(p.workspaceStorageDir, EMPTY_WINDOW_WORKSPACE_ID);
+
+            svc.flushSync();
+            expect(fs.existsSync(emptyWindowFile)).toBe(false);
+
+            // Запись только global-ключа будит общий таймер — стор пустого окна он не трогает.
+            svc.store(width, 44);
+            await vi.waitFor(() => {
+                expect(fs.existsSync(p.globalStateFile)).toBe(true);
+            });
+            expect(fs.existsSync(emptyWindowFile)).toBe(false);
+        });
+
         it("openWorkspace переключает с пустого окна на проект, сбросив стор пустого окна", () => {
             const p = paths();
             const svc = loadState(p);
