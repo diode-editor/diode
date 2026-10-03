@@ -42,7 +42,7 @@ describe("Workbench — Keyboard Doctor", () => {
 
         // Ctrl+S ищется в живом реестре: save — через mod, действует в этом окружении.
         testApp.sendKey("Ctrl+S");
-        expect(screen()).toContain("бинд: workbench.action.files.save [when: macKeys < 3]");
+        expect(screen()).toContain("бинд: workbench.action.files.save [when: !(macKeys >= 3)]");
 
         for (let i = 0; i < 30 && screen().includes("Keyboard Doctor"); i++) {
             testApp.sendKey(screen().includes("теперь отпусти модификатор") ? "Enter" : "Escape");
