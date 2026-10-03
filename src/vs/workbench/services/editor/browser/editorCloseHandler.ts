@@ -96,10 +96,12 @@ export class EditorCloseHandler {
      */
     public needsCloseConfirm(pane: IEditorPane): boolean {
         if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane).length > 0;
-        /* v8 ignore start -- задел под будущие виды панелей: в полосе только текстовые и дифф-вкладки */
-        // Stryker disable next-line ConditionalExpression: ветка недостижима — см. v8 ignore выше
+        // Без ветки панель чужого вида (Keyboard Shortcuts, страница расширения)
+        // упала бы в текстовую формулу с `model === undefined`: holders = 0,
+        // «последняя поверхность» — и ответ тот же `isModified`, поэтому мутант
+        // условия эквивалентен. Ветка держит смысл, а не результат.
+        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
         if (!(pane instanceof TextEditorPane)) return pane.isModified;
-        /* v8 ignore stop */
         return pane.isModified && this.isLastPaneForDocument(pane);
     }
 
@@ -128,7 +130,7 @@ export class EditorCloseHandler {
      */
     private saveTargetsOf(pane: IEditorPane): TextEditorPane[] {
         if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane);
-        /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели */
+        /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели: панели других видов (Keyboard Shortcuts, страница расширения) не бывают изменёнными */
         // Stryker disable next-line ConditionalExpression,ArrayDeclaration: ветка недостижима — см. v8 ignore выше
         if (!(pane instanceof TextEditorPane)) return [];
         /* v8 ignore stop */
