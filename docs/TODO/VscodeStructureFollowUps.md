@@ -35,6 +35,10 @@
 - [ ] **`defaultStyles` → `editorElement`** (value-импорт unthemed-дефолтов):
   либо unthemed-дефолты редактора в platform, либо `getEditorStyles` в
   `editor/browser`.
+- [ ] **`fileIcons.ts` в `base/common` на движковом `packRgb`** — единственное
+  значение из `@tuidom` в `base/common` (`EXCEPTIONS` в
+  `scripts/check-layers.mjs`): цветовую часть иконок поднять выше либо
+  хранить цвет в `base/common` своим типом. Разбор — [Lifecycle.md](Lifecycle.md) §8.
 - [ ] **`MenuEntry` в `platform/actions`** — type-only импорт из
   `base/browser/ui/menu`; завести собственный тип entry в platform.
 

@@ -22,15 +22,30 @@
    (дерево элементов, события), виджеты (`ui/*` — «HTML-элементы»),
    rendering, input, backend и Inspector (devtools). У vscode эту роль играет
    Chromium — поэтому tuidom не часть vscode-структуры и вынесен в отдельный
-   репозиторий; для diode-кода он — «браузерное API» (импорты в него, как в
-   любой пакет, осями не проверяются; сам пакет физически не может
-   импортировать `src/vs`).
+   репозиторий; для diode-кода он — «браузерное API» (сам пакет физически не
+   может импортировать `src/vs`). Импорты в него размечены осью окружений по
+   подпути (ниже).
 
 2. **Окружения** внутри слоя: `common` → [common], `browser` → [common,
    browser], `node` → [common, node]. «browser» — буквально, как у upstream,
    хотя рендерим в терминал: `base/browser` — это TUIDom (наш аналог DOM).
    `vs/diode` (сборка приложения) склеивает оба мира, env-ось к нему не
    применяется.
+
+   Подпути движка стоят на той же оси (`TUIDOM_ENVS` в
+   `scripts/check-layers.mjs`; как у upstream, считаются только значения, не
+   `import type`):
+
+   | Подпуть | Окружение |
+   |---|---|
+   | `@tuidom/core/common/*`, `@tuidom/core/input/*` (геометрия, цвет, Unicode-ширины, разбор ввода) | `common` |
+   | `@tuidom/core/{dom,rendering,backend}/*`, `@tuidom/elements/*`, `@tuidom/inspector/*` | `browser` |
+   | `@tuidom/terminal-backend/*`, `@tuidom/headless-backend/*` | `node` |
+   | `@tuidom/testing/*` | только тесты (и тестовый профиль в `vs/diode`) |
+   | `@tuidom/core/common/disposable` | запрещён во всём `src/` — примитив жизненного цикла наш, `vs/base/common/lifecycle.ts` |
+
+   `base/common` значений из движка не берёт вовсе (исключение — `fileIcons.ts`,
+   см. `EXCEPTIONS`).
 
 Имена файлов — camelCase по vscode-конвенции (`tuiElement.ts`,
 `menuRegistry.ts`); тесты — колокацией рядом с кодом (наше отличие от
@@ -45,7 +60,7 @@ upstream, где они в `test/`-деревьях; оси на тесты не
 
 | Каталог | Прежний слой | Что там | Детали |
 |---|---|---|---|
-| `@tuidom/*` (npm: core, elements, terminal-backend, headless-backend, inspector, testing) | TUIDom (+Widgets) + Rendering + Input + Backend + Inspector | «браузер»: DOM-ядро (`dom/`: дерево элементов, события, фокус, стили), **виджеты `ui/<widget>/`** (кнопка = «HTMLElement»; vscode-имена: scrollbar, list, tree, inputbox, menu, contextview, selectbox, editorpart (полоса групп редакторов: веса + саши)…; критерий: виджет живёт там ⇔ его публичный API не упоминает понятий Diode, иначе — компонент в `vs/workbench/browser/parts/*`), `rendering/`, `input/`, `backend/`, `inspector/` (devtools), `common/` (геометрия, `Disposable`, `DisplayLine`/Unicode, packed-цвета, `iTerminalSurface`), `testing/` (тест-харнесс). **Вынесен в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom)**, ставится из npm | [доки tuidom](https://github.com/tuidom/tuidom/tree/main/docs): LAYOUT.md, STYLES.md, arch/ |
+| `@tuidom/*` (npm: core, elements, terminal-backend, headless-backend, inspector, testing) | TUIDom (+Widgets) + Rendering + Input + Backend + Inspector | «браузер»: DOM-ядро (`dom/`: дерево элементов, события, фокус, стили), **виджеты `ui/<widget>/`** (кнопка = «HTMLElement»; vscode-имена: scrollbar, list, tree, inputbox, menu, contextview, selectbox, editorpart (полоса групп редакторов: веса + саши)…; критерий: виджет живёт там ⇔ его публичный API не упоминает понятий Diode, иначе — компонент в `vs/workbench/browser/parts/*`), `rendering/`, `input/`, `backend/`, `inspector/` (devtools), `common/` (геометрия, `DisplayLine`/Unicode, packed-цвета, `iTerminalSurface`), `testing/` (тест-харнесс). **Вынесен в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom)**, ставится из npm | [доки tuidom](https://github.com/tuidom/tuidom/tree/main/docs): LAYOUT.md, STYLES.md, arch/ |
 | `vs/base/common/` | Common | примитивы diode: `Uri` (адаптер `vscode-uri`), fuzzy, `fileIcons`, ассеты (`assets/`), жизненный цикл `lifecycle` (`IDisposable`/`Disposable`/`DisposableStore`), вехи старта `performance` (`mark` поверх `performance.mark`, no-op без трассы); плюс узкие **шимы** upstream-утилит под перенесённый diff-движок (`arrays`, `arraysFind`, `assert`, `errors`, `map`, `strings`, `equals`, `charCode`) | [arch/Common.md](arch/Common.md) |
 | `vs/base/node/` | Common (node-часть) | SEA/`isSea`, fs-доступ к ассетам, перезапуск процесса (`restartProcess`) и аргументы форка самого себя (`selfSpawnArgs`) | [arch/Common.md](arch/Common.md) |
 | `vs/platform/` | размазан (Common/Configuration/Theme/Editor/Workbench) | сервисы ниже editor: `instantiation` (наш DI), `log`, `configuration` (+`ConfigurationRegistry`), `state`, `markers`, `undoRedo`, `commands`, `contextkey`, `keybinding`, `actions` (`MenuRegistry`/`MenuId`), `progress` (`ProgressService` — модель прогресса и общий такт спиннеров), `layout`/`terminal` (DI-токены к типам `@tuidom/core`: `TuiApplicationDIToken`, `TerminalBackendDIToken`), `contextview` (`ContextMenuService` — делегаты контекстных меню поверх tuidom-механики), `theme` (определения цветов + мост `defaultStyles`), `clipboard`, `files`, `environment`, `extensions`, `extensionManagement`, `workspace` (`IWorkspaceContextService` — единственный источник правды о папках воркспейса и его идентичности `WorkspaceId`) | [arch/Theme.md](arch/Theme.md), [arch/Configuration.md](arch/Configuration.md), [arch/State.md](arch/State.md), [TODO/MultiRoot.md](TODO/MultiRoot.md) |

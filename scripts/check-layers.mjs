@@ -7,12 +7,18 @@
  *     base/common → base/node → platform → editor → workbench → diode.
  *     «Браузер» целиком (DOM-ядро, виджеты, rendering/input/backend,
  *     Inspector) — внешние npm-пакеты `@tuidom/*` (github.com/tuidom/tuidom);
- *     импорты в него, как и в прочие пакеты, осями не проверяются, а сам
- *     пакет физически не может импортировать src/vs.
+ *     сам пакет физически не может импортировать src/vs.
  *  2. Окружения: common → [common], browser → [common, browser],
  *     node → [common, node]. Окружение файла — первый сегмент
  *     common/browser/node в его пути; `vs/tui/{rendering,input}` считаются
  *     common (чистые структуры/парсинг), `vs/tui/backend` и `vs/diode` — node.
+ *  3. Импорты движка `@tuidom/*` размечены той же осью окружений по подпути
+ *     (TUIDOM_ENVS): чистый срез `core/common`, `core/input` — common; DOM,
+ *     rendering, виджеты, inspector — browser; бэкенды терминала — node;
+ *     `@tuidom/testing` — только тесты. `base/common` значений из движка не
+ *     берёт вовсе. `@tuidom/core/common/disposable` запрещён во всём `src/`
+ *     (и `import type` тоже): примитив жизненного цикла — наш
+ *     `vs/base/common/lifecycle.ts` (docs/TODO/Lifecycle.md).
  *
  * Не считаются зависимостями: jsdoc-ссылки в комментариях и `import type`
  * (типы стираются при компиляции — как в upstream layersChecker).
@@ -60,7 +66,31 @@ const EXCEPTIONS = [
     // Мост тема→стили держит unthemed-дефолты у виджета редактора; разнос —
     // follow-up (unthemed-дефолты в platform или getEditorStyles в editor).
     ["src/vs/platform/theme/browser/defaultStyles.ts", "src/vs/editor/browser/editorElement.ts"],
+    // Цвета иконок файлов упакованы движковым packRgb — значение из @tuidom в
+    // base/common. Перенос цветовой части иконок выше — follow-up.
+    ["src/vs/base/common/fileIcons.ts", "@tuidom/core/common/colorUtils"],
 ];
+
+/**
+ * Окружение подпути движка: та же ось, что у нашего кода. Первое совпадение
+ * побеждает; неразмеченный подпуть — нарушение (разметь его здесь).
+ */
+const TUIDOM_ENVS = [
+    [/^@tuidom\/core\/(common|input)\//, "common"],
+    [/^@tuidom\/(core\/(dom|rendering|backend)|elements|inspector)\//, "browser"],
+    [/^@tuidom\/(terminal|headless)-backend\//, "node"],
+    // Ни в одно окружение не входит — значит, доступен только тестам (они
+    // гейтом не проверяются) и сборке приложения `vs/diode` (тестовый профиль).
+    [/^@tuidom\/testing\//, "test"],
+];
+
+/** Импорт, запрещённый во всём `src/`: примитив живёт в vs/base/common/lifecycle.ts. */
+const TUIDOM_DISPOSABLE = "@tuidom/core/common/disposable";
+
+function tuidomEnvOf(specifier) {
+    for (const [re, env] of TUIDOM_ENVS) if (re.test(specifier)) return env;
+    return null;
+}
 
 function zoneOf(rel) {
     let best = null;
@@ -138,6 +168,41 @@ function checkTokenDeclarations(rel, raw, zoneIdx, violations) {
     }
 }
 
+function stripComments(raw) {
+    return raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
+/** Значения из движка: окружение подпути и запрет на значения в base/common. */
+function checkTuidomImports(rel, zone, env, content, violations) {
+    for (const m of content.matchAll(/(["'])(@tuidom\/[^"']+)\1/g)) {
+        const specifier = m[2];
+        if (EXCEPTIONS.some(([f, t]) => rel.startsWith(f) && specifier.startsWith(t))) continue;
+        const targetEnv = tuidomEnvOf(specifier);
+        if (targetEnv === null) {
+            violations.push(`${rel} → ${specifier}  (подпуть движка не размечен окружением — TUIDOM_ENVS)`);
+            continue;
+        }
+        if (zone === "src/vs/base/common") {
+            violations.push(`${rel} → ${specifier}  (base/common не берёт значений из движка)`);
+            continue;
+        }
+        if (env !== null && !ENV_ALLOWED[env].has(targetEnv)) {
+            violations.push(`${rel} → ${specifier}  (окружение: ${env} не может импортировать ${targetEnv})`);
+        }
+    }
+}
+
+/** `@tuidom/core/common/disposable` — во всём `src/`, тесты и `import type` включительно. */
+function checkDisposableImports(violations) {
+    for (const abs of listFiles(path.join(repoRoot, "src"))) {
+        const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
+        const content = stripComments(readFileSync(abs, "utf8"));
+        if (content.includes(`"${TUIDOM_DISPOSABLE}"`) || content.includes(`'${TUIDOM_DISPOSABLE}'`)) {
+            violations.push(`${rel} → ${TUIDOM_DISPOSABLE}  (примитив жизненного цикла — vs/base/common/lifecycle.ts)`);
+        }
+    }
+}
+
 function main() {
     if (!existsSync(vsRoot)) {
         console.log("[check-layers] src/vs не существует (до миграции) — нечего проверять");
@@ -145,6 +210,7 @@ function main() {
     }
 
     const violations = [];
+    checkDisposableImports(violations);
     for (const abs of listFiles(vsRoot)) {
         const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
         if (!isCheckedSource(rel)) continue;
@@ -155,11 +221,14 @@ function main() {
         const raw = readFileSync(abs, "utf8");
         checkTokenDeclarations(rel, raw, zoneIdx, violations);
         // Комментарии (jsdoc {@link import(...)}) и type-only импорты — не
-        // зависимости времени исполнения.
-        const content = raw
-            .replace(/\/\*[\s\S]*?\*\//g, "")
-            .replace(/^\s*\/\/.*$/gm, "")
-            .replace(/(?:import|export)\s+type\s[\s\S]*?from\s*["'][^"']+["'];/g, "");
+        // зависимости времени исполнения. Форма спецификатора перечислена явно:
+        // ленивое `type\s[\s\S]*?from` начиналось и на `export type X = …` и
+        // глотало код до ближайшего `from "…";`, пряча импорты за ним.
+        const content = stripComments(raw).replace(
+            /(?:import|export)\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s*["'][^"']+["'];/g,
+            "",
+        );
+        checkTuidomImports(rel, zone, env, content, violations);
 
         for (const m of content.matchAll(/(["'])(\.\.?\/[^"']+?\.(?:ts|tsx))\1/g)) {
             const target = path
