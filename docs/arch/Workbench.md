@@ -820,7 +820,9 @@ hide-toggle (`isHiddenByDefault`). См.
     Текстовая фабрика — своя у сервиса (`{uri, viewState}` через
     `openUri(uri, {group, viewState})`), фабрики contrib приходят списком
     `EditorPaneFactoriesDIToken` (собирает `workbenchModule`; Keyboard Shortcuts —
-    `contrib/preferences/browser/keybindingsEditorPaneFactory.ts`);
+    `contrib/preferences/browser/keybindingsEditorPaneFactory.ts`, дифф —
+    `contrib/diff/browser/diffEditorPaneFactory.ts`, рецепт — спеки сторон
+    `openDiffPair`);
     отказ по месту — `canAddGroupHook` + лог), схлопыванием опустевших групп,
     реестром моделей (`TextFileModelRegistry`: одна `TextFileModel` на ресурс,
     вкладка владеет ref-count-ссылкой), `openFile`/`openUri` (`{group:"beside"}` —

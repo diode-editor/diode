@@ -16,7 +16,7 @@ import { NULL_FILE_SYSTEM_PROVIDER_REGISTRY } from "../../../../platform/files/c
 import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
+import { diffPaneRecipe, openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
@@ -437,6 +437,8 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const pane = makePane("a", "b");
         await refreshDiffSnapshots(NULL_FILE_SYSTEM_PROVIDER_REGISTRY, pane);
         expect(pane.sidePanes()[0].getText()).toBe("a");
+        // Рецепта у такой панели тоже нет — сплит её не повторит.
+        expect(diffPaneRecipe(pane)).toBeUndefined();
         pane.dispose();
     });
 

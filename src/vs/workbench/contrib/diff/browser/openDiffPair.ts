@@ -10,6 +10,7 @@ import { UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/und
 import type { DiffV2SideSource, IDiffEditorPane2Input } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
+import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice, TRANSIENT_NOTICE_MS } from "../../../services/statusbar/common/transientNotice.ts";
@@ -70,6 +71,16 @@ export interface IOpenDiffPairOptions {
 export type OpenDiffPairResult = "opened" | "unreadable";
 
 /**
+ * Куда открыть вкладку: в эту группу (повтор вкладки по рецепту — сплит,
+ * рестор). Не задано — команда сравнения: вкладка ищется по всем группам, новая
+ * открывается в активной.
+ */
+export interface IOpenDiffPairTarget {
+    readonly group: EditorGroup;
+    readonly focus: boolean;
+}
+
+/**
  * Ядро сравнения: открывает **живую** дифф-вкладку v2 ({@link DiffEditorPane2})
  * для произвольной пары источников — им пользуются и «Compare with HEAD», и всё
  * семейство команд сравнения (два файла, буфер обмена, сохранённая версия,
@@ -82,6 +93,7 @@ export type OpenDiffPairResult = "opened" | "unreadable";
 export async function openDiffPair(
     accessor: ServiceAccessor,
     options: IOpenDiffPairOptions,
+    target?: IOpenDiffPairTarget,
 ): Promise<OpenDiffPairResult> {
     const editors = accessor.get(EditorServiceDIToken);
     const uri = pairUri(options);
@@ -89,7 +101,9 @@ export async function openDiffPair(
     // Дедуп по идентичности пары — по ВСЕМ группам (вкладка могла остаться в
     // другой группе): живые стороны уже актуальны, снимочные освежаем — иначе
     // повторный вызов (единственный способ «обновить» снимок) показал бы старое.
-    for (const group of editors.groups) {
+    // Повтор вкладки в заданную группу ищет только в ней: копия в соседней
+    // группе — ровно то, что просили.
+    for (const group of target !== undefined ? [target.group] : editors.groups) {
         const index = group.findPaneIndex(uri);
         if (index < 0) continue;
         const pane = group.getPane(index);
@@ -101,8 +115,12 @@ export async function openDiffPair(
         if (!(await refreshSnapshotSides(accessor.get(FileSystemProviderRegistryDIToken), pane, options))) {
             return "unreadable";
         }
-        editors.focusGroup(group.id, { focus: false });
-        editors.activateTab(index);
+        // Группу активной делает и сам фокус в её вкладке (activateTab ниже —
+        // capture-слушатель группы), так что мутанты строки ненаблюдаемы: явный
+        // вызов держит порядок событий «группа, потом вкладка».
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral,ConditionalExpression,EqualityOperator,CallExpression: эквивалентны — см. выше
+        if (target === undefined) editors.focusGroup(group.id, { focus: false });
+        group.activateTab(index, { focus: target === undefined || target.focus });
         return "opened";
     }
 
@@ -123,8 +141,20 @@ export async function openDiffPair(
     // Спеки сторон — для автоосвежения снимков по onDidChangeFile (US-31):
     // политика чтения (`onMissing`) остаётся в одном месте.
     paneOptions.set(pane, options);
-    editors.openPane(pane);
+    editors.openPane(pane, target);
     return "opened";
+}
+
+/**
+ * Рецепт открытой дифф-вкладки — спеки её сторон (фабрика вкладки диффа: сплит,
+ * копия в группу, рестор). `undefined` — вкладка открыта мимо этого ядра либо
+ * повторить её нельзя: сторона-модель (`ownedModel`, untitled-пара) принадлежит
+ * одной панели и во вторую не переезжает.
+ */
+export function diffPaneRecipe(pane: DiffEditorPane2): IOpenDiffPairOptions | undefined {
+    const options = paneOptions.get(pane);
+    if (options === undefined) return undefined;
+    return options.original.ownedModel === undefined && options.modified.ownedModel === undefined ? options : undefined;
 }
 
 /** Спеки сторон открытых вкладок; живут и умирают вместе с панелью. */
