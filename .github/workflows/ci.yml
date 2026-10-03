@@ -27,8 +27,8 @@ jobs:
 
       - run: npm install
 
-      # continue-on-error на первом гейте, чтобы второй тоже отработал и PR
-      # получил обе картины сразу; красным job делает шаг Gate.
+      # continue-on-error на каждом гейте, чтобы остальные тоже отработали и PR
+      # получил всю картину сразу; красным job делает шаг Gate.
       - name: Typecheck
         id: typecheck
         continue-on-error: true
@@ -39,11 +39,19 @@ jobs:
         continue-on-error: true
         run: npm run lint
 
+      # Оси слоёв и окружений (scripts/check-layers.mjs, docs/ARCHITECTURE.md),
+      # включая подпути @tuidom/* и запрет движкового disposable.
+      - name: Layers
+        id: layers
+        continue-on-error: true
+        run: npm run valid-layers-check
+
       - name: Gate
-        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure'
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure'
         run: |
           echo "typecheck: ${{ steps.typecheck.outcome }}"
           echo "lint:      ${{ steps.lint.outcome }}"
+          echo "layers:    ${{ steps.layers.outcome }}"
           echo 'Форматирование и сортировку импортов чинит `npm run lint:fix`, остальное — руками.'
           exit 1
 
