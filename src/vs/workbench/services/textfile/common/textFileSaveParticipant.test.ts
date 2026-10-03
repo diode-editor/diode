@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 import type { ISaveEdit } from "./iSaveParticipant.ts";
 import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
@@ -169,6 +170,54 @@ describe("TextFileSaveParticipant — композиция save-участник
         await controller.save();
 
         expect(calls).toBe(2);
+        controller.dispose();
+    });
+    it("клампит диапазоны правок к границам документа", async () => {
+        const controller = createEditorPane();
+        const fp = ws.writeFile("clamp.txt", "ab\ncd");
+        controller.openFile(Uri.file(fp));
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
+            () =>
+                Promise.resolve<ISaveEdit[]>([
+                    // line/char за верхней границей → (последняя строка, её длина)
+                    {
+                        kind: "text",
+                        range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } },
+                        text: "A",
+                    },
+                    // отрицательные line/char → (0, 0)
+                    {
+                        kind: "text",
+                        range: { start: { line: -1, character: -1 }, end: { line: -1, character: -1 } },
+                        text: "B",
+                    },
+                    // в границах → без изменений позиции
+                    {
+                        kind: "text",
+                        range: { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } },
+                        text: "C",
+                    },
+                ]),
+        ]);
+
+        await controller.save();
+
+        expect(fs.readFileSync(fp, "utf-8")).toBe("BaCb\ncdA");
+        controller.dispose();
+    });
+
+    it("правки участников — один шаг отмены с меткой пайплайна", async () => {
+        const undoRedoService = new UndoRedoService();
+        const controller = createEditorPane({ undoRedoService });
+        const fp = ws.writeFile("undo.txt", "x");
+        controller.openFile(Uri.file(fp));
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
+            () => Promise.resolve([insertAtStart("1"), insertAtStart("2")]),
+        ]);
+
+        await controller.save();
+
+        expect(undoRedoService.peekUndo(controller.model.undoContext)?.label).toBe("editorconfig: pre-save");
         controller.dispose();
     });
 });

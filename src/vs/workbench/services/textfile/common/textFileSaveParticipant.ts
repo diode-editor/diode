@@ -116,9 +116,7 @@ function clampRange(model: TextFileModel, range: IRange): IRange {
 }
 
 function clampPosition(model: TextFileModel, line: number, character: number): { line: number; character: number } {
-    const maxLine = model.document.lineCount - 1;
-    const clampedLine = line < 0 ? 0 : line > maxLine ? maxLine : line;
-    const maxChar = model.document.getLineLength(clampedLine);
-    const clampedChar = character < 0 ? 0 : character > maxChar ? maxChar : character;
+    const clampedLine = Math.min(Math.max(line, 0), model.document.lineCount - 1);
+    const clampedChar = Math.min(Math.max(character, 0), model.document.getLineLength(clampedLine));
     return { line: clampedLine, character: clampedChar };
 }

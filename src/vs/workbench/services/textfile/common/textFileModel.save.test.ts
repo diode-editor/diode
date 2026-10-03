@@ -46,39 +46,6 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("клампит диапазоны правок к границам документа", async () => {
-        const controller = createEditorPane();
-        const fp = writeFile("clamp.txt", "ab\ncd");
-        controller.openFile(Uri.file(fp));
-        setParticipant(controller, () =>
-            Promise.resolve<ISaveEdit[]>([
-                // line/char за верхней границей → (последняя строка, её длина)
-                {
-                    kind: "text",
-                    range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } },
-                    text: "A",
-                },
-                // отрицательные line/char → (0, 0)
-                {
-                    kind: "text",
-                    range: { start: { line: -1, character: -1 }, end: { line: -1, character: -1 } },
-                    text: "B",
-                },
-                // в границах → без изменений позиции
-                {
-                    kind: "text",
-                    range: { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } },
-                    text: "C",
-                },
-            ]),
-        );
-
-        await controller.save();
-
-        expect(fs.readFileSync(fp, "utf-8")).toBe("BaCb\ncdA");
-        controller.dispose();
-    });
-
     it("смена EOL из участника (kind: eol) пишет CRLF", async () => {
         const controller = createEditorPane();
         const fp = writeFile("eol.txt", "a\nb\n");
