@@ -2,7 +2,6 @@ import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness } from "../../../../../TestUtils/AppTestHarness.ts";
-import { registerContextKeys } from "../../../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { TerminalBackendDIToken } from "../../../../platform/terminal/common/terminalBackendDIToken.ts";
 import { statusSegments } from "../../../browser/parts/statusbar/statusBarComponent.testUtils.ts";
@@ -71,10 +70,9 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         expect(statusSegments(statusBar.view)[0]).toEqual({ text: "legacy · ssh", side: "left" });
     });
 
-    it("custom-mode identifiers are valid in when-expressions once registered", async () => {
-        registerContextKeys(["mode_presentation"]);
+    it("custom-mode identifiers are valid in when-expressions without registration", async () => {
         const { contextKeys } = await setup();
-        // Unknown-but-registered key evaluates to false without throwing.
+        // Unknown key evaluates to false without throwing.
         expect(contextKeys.evaluate("mode_presentation")).toBe(false);
         contextKeys.setRaw("mode_presentation", true);
         expect(contextKeys.evaluate("mode_presentation")).toBe(true);

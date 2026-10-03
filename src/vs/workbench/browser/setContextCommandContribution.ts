@@ -1,8 +1,7 @@
 import { Disposable } from "../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { registerContextKeys } from "../../platform/contextkey/common/contextKeys.ts";
-import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
+import type { ContextKeyService, ContextKeySettableValue } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../common/iWorkbenchContribution.ts";
@@ -16,21 +15,27 @@ export const SET_CONTEXT_COMMAND_ID = "setContext";
 
 /**
  * Нормализует значение из `executeCommand("setContext", key, value)` в наш
- * {@link ContextKeyService} (`boolean | string | number`).
+ * {@link ContextKeyService}.
  *
  * `null`/`undefined` — «сбросить», то есть `false`: у нас непрописанный
  * boolean-ключ и так читается как `false`, так что это одно и то же состояние.
- * Массивы и объекты VS Code хранит как есть (под оператор `in`), у нас
- * вычислитель работает только с примитивами — сохраняем их истинность, чтобы
- * простое `when: "ext.something"` вело себя ожидаемо.
+ * Массив и объект VS Code хранит как есть — под оператор `in`
+ * (`resource in ext.supportedFiles`); у нас так же. Из массива остаются только
+ * примитивы: с ними `in` и сравнивает.
  */
-export function normalizeContextValue(value: unknown): boolean | string | number {
+export function normalizeContextValue(value: unknown): ContextKeySettableValue {
     if (typeof value === "string") return value;
+    if (Array.isArray(value)) return value.filter(isPrimitive);
+    if (typeof value === "object" && value !== null) return value as Readonly<Record<string, unknown>>;
     // NaN/Infinity как значение ключа бессмысленны — их истинность честнее.
     // Stryker disable next-line ConditionalExpression: эквивалентный мутант — `Number.isFinite` истинен только для number, так что проверка `typeof` рядом с ним ничего не решает; оставлена ради читаемости
     if (typeof value === "number" && Number.isFinite(value)) return value;
     // Сюда же попадает boolean: `Boolean(v)` возвращает его как есть.
     return Boolean(value);
+}
+
+function isPrimitive(item: unknown): item is boolean | string | number {
+    return typeof item === "string" || typeof item === "number" || typeof item === "boolean";
 }
 
 /**
@@ -39,10 +44,8 @@ export function normalizeContextValue(value: unknown): boolean | string | number
  * "supermaven.isProUser", true)`). Без неё вызов отклоняется как «команда не
  * найдена», и все `when` расширения остаются мёртвыми.
  *
- * Ключ регистрируется в when-вычислителе (`registerContextKeys`) ДО записи
- * значения: иначе выражение, которое его упоминает, вычислялось бы по
- * неизвестному имени. Имена расширений точечные (`publisher.thing`) — как
- * вычислитель их раскрывает, см. `ContextKeyService.buildScope`.
+ * Регистрировать имя не нужно: when-вычислитель читает любой ключ целиком,
+ * в том числе точечный (`publisher.thing`) или с дефисом.
  *
  * Без `title` — в палитре команд `setContext` быть не должно (её там нет и в
  * VS Code): это программный шов, а не действие пользователя.
@@ -55,7 +58,6 @@ export class SetContextCommandContribution extends Disposable implements IWorkbe
         this.register(
             commands.register(SET_CONTEXT_COMMAND_ID, (key: unknown, value: unknown) => {
                 if (typeof key !== "string" || key === "") return undefined;
-                registerContextKeys([key]);
                 contextKeys.setRaw(key, normalizeContextValue(value));
                 return undefined;
             }),

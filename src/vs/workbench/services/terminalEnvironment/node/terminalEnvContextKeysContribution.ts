@@ -1,9 +1,8 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
-import { registerContextKeys } from "../../../../platform/contextkey/common/contextKeys.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { applyTerminalEnvContextKeys, modeContextKey } from "../common/terminalEnvContextKeys.ts";
+import { applyTerminalEnvContextKeys } from "../common/terminalEnvContextKeys.ts";
 
 import { ALL_CAPABILITIES } from "./terminalEnvironmentModel.ts";
 import type { TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
@@ -29,8 +28,6 @@ export class TerminalEnvContextKeysContribution extends Disposable {
         private readonly terminalEnv: TerminalEnvironmentService,
     ) {
         super();
-        // Имена своих модов (mode_<name>) — валидные идентификаторы `when`.
-        registerContextKeys(this.terminalEnv.getKnownModeNames().map(modeContextKey));
         this.push();
         this.register(
             this.terminalEnv.onDidChange(() => {

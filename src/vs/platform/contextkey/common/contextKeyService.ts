@@ -2,23 +2,14 @@ import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
+import { type ContextKeyValue, deserializeWhen, evaluateWhen } from "./contextKeyExpr.ts";
 import type { ContextKey, ContextKeyTypes } from "./contextKeys.ts";
-import { getAllContextKeyNames } from "./contextKeys.ts";
 
 export const ContextKeyServiceDIToken = token<ContextKeyService>("ContextKeyService");
 
-type ContextValue = boolean | string | number;
-
-/** Значение в скоупе вычислителя: сам ключ либо узел точечного пути. */
-type ScopeValue = ContextValue | ScopeObject;
-interface ScopeObject {
-    // `| undefined` честно: чтение по произвольному сегменту может не найти
-    // ничего, и `buildScope` на этом ветвится.
-    [segment: string]: ScopeValue | undefined;
-}
-
-/** Compiled `when`-expression: reads key values off the scope object. */
-type CompiledWhen = (scope: ScopeObject) => boolean;
+/** Значение ключа в сервисе: всё, что умеет when, кроме «нет значения». */
+export type ContextKeySettableValue = Exclude<ContextKeyValue, undefined>;
+type ContextValue = ContextKeySettableValue;
 
 export class ContextKeyService implements IDisposable {
     private values = new Map<string, ContextValue>();
@@ -35,9 +26,10 @@ export class ContextKeyService implements IDisposable {
     }
 
     /**
-     * Set a dynamically-registered context key (not in the typed {@link ContextKeyTypes}),
-     * e.g. a custom-mode `mode_<name>`. The name must have been registered via
-     * `registerContextKeys` so the `when`-evaluator knows it.
+     * Ключ вне типизированного {@link ContextKeyTypes}: свои моды окружения
+     * (`mode_<name>`), ключи расширений из `setContext` (`publisher.thing`, в том
+     * числе массив или объект под оператор `in`). Регистрировать имя заранее не
+     * нужно — вычислитель читает любой ключ, незнакомый просто `undefined`.
      */
     public setRaw(key: string, value: ContextValue): void {
         this.write(key, value);
@@ -66,88 +58,29 @@ export class ContextKeyService implements IDisposable {
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
     /**
-     * Evaluates a when-expression string using the current context values.
-     * Supports standard JS operators: &&, ||, !, ==, !=, >, <, >=, <=
-     * Boolean keys are false by default, string/number keys are undefined.
-     *
-     * Example: evaluate("textInputFocus && !listFocus")
-     * Example: evaluate("editorLangId == 'typescript'")
-     * Example: evaluate("supermaven.isProUser") — точечный ключ расширения
+     * Вычисляет when-выражение над текущими значениями. Грамматика — VS Code
+     * (`platform/contextkey/common/contextKeyExpr.ts`): `&& || ! == != < <= > >=`,
+     * `=~ /regex/`, `in`, `not in`, значение справа без кавычек — строка
+     * (`editorLangId == java`). Разобранное дерево кэшируется по строке.
+     * Битая строка ложна; незнакомый ключ — `undefined`.
      *
      * `overlay` — «что если» поверх текущих значений, не меняя их (аналог
      * `createOverlay` VS Code): например, какой бинд действовал бы при фокусе
      * в поле, которое сейчас не в фокусе, — для подписи в его плейсхолдере.
      */
     public evaluate(when: string, overlay?: Readonly<Record<string, ContextValue>>): boolean {
-        try {
-            // `with` над скоуп-объектом, а не список параметров: имя ключа
-            // приходит от расширения (`setContext`) и параметром быть не обязано
-            // (`foo-bar`, `2fa`, `class`) — такое имя развалило бы КОМПИЛЯЦИЮ, то
-            // есть все when-выражения сразу, а не только своё. `with` в теле
-            // `new Function` законен: функция всегда компилируется в sloppy-режиме,
-            // независимо от строгости модуля, который её создал.
-            // eslint-disable-next-line @typescript-eslint/no-implied-eval
-            const fn = new Function("__scope", `with (__scope) { return !!(${when}); }`) as CompiledWhen;
-            return fn(this.buildScope(overlay));
-        } catch {
-            // Неизвестное имя даёт ReferenceError — непрописанный ключ ложен,
-            // как и раньше. Сюда же падает синтаксически битое выражение.
-            return false;
-        }
+        const expr = deserializeWhen(when);
+        if (expr === undefined) return false;
+        return evaluateWhen(expr, {
+            getValue: (key) =>
+                overlay !== undefined && Object.hasOwn(overlay, key) ? overlay[key] : this.values.get(key),
+        });
     }
 
     public dispose(): void {
         this.values.clear();
         this.onDidChangeEmitter.dispose();
         this.pending = null;
-    }
-
-    /**
-     * Собирает объект-скоуп выражения.
-     *
-     * Плоское имя (`textInputFocus`) — свойство верхнего уровня. Точечное
-     * (`supermaven.isProUser`, их приносит команда `setContext` расширений) —
-     * вложенный объект под корневым сегментом: в выражении `supermaven.isProUser`
-     * это ровно обычное чтение свойства, то есть текст when-клаузы не меняется.
-     *
-     * Прототипа у скоупа нет (`Object.create(null)`): имя ключа приходит от
-     * расширения, а на обычном объекте запись по имени `__proto__` молча уходит
-     * в сеттер прототипа — значение бы не сохранилось, а чтение вернуло бы
-     * прототип, то есть истину вместо записанной лжи.
-     *
-     * Плоское имя — это вырожденный случай пути (сегмент один), поэтому проход
-     * один на всех. Столкновение плоского ключа с корнем точечного разрешается
-     * в пользу плоского при любом порядке: пришёл раньше — точечный упрётся в
-     * примитив и будет отброшен, пришёл позже — перезапишет собой объект.
-     * Отброшенная ветка именно отбрасывается, а не оседает у корня скоупа.
-     */
-    private buildScope(overlay?: Readonly<Record<string, ContextValue>>): ScopeObject {
-        const scope = Object.create(null) as ScopeObject;
-        for (const name of getAllContextKeyNames()) {
-            const segments = name.split(".");
-            let cursor = scope;
-            let blocked = false;
-            for (const segment of segments.slice(0, -1)) {
-                const next = cursor[segment];
-                if (next === undefined) {
-                    // Тоже без прототипа — по той же причине, что и корень.
-                    const created = Object.create(null) as ScopeObject;
-                    cursor[segment] = created;
-                    cursor = created;
-                    continue;
-                }
-                // На пути стоит примитив (плоский ключ или ключ-предок) — вложить
-                // в него нечего, ветку бросаем целиком.
-                if (typeof next !== "object") {
-                    blocked = true;
-                    break;
-                }
-                cursor = next;
-            }
-            if (blocked) continue;
-            cursor[segments[segments.length - 1]] = overlay?.[name] ?? this.values.get(name) ?? false;
-        }
-        return scope;
     }
 
     private write(key: string, value: ContextValue): void {

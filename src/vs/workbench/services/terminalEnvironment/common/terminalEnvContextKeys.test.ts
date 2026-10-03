@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { registerContextKeys } from "../../../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 
 import { applyTerminalEnvContextKeys, capabilityContextKey, modeContextKey } from "./terminalEnvContextKeys.ts";
@@ -14,7 +13,6 @@ describe("terminalEnvContextKeys", () => {
     });
 
     it("выставляет tier/os/isX/macKeys и cap_*/mode_* со значениями из среза", () => {
-        registerContextKeys(["mode_envKeysCustom"]);
         const keys = new ContextKeyService();
         applyTerminalEnvContextKeys(keys, {
             tier: "csi-u",
@@ -33,7 +31,7 @@ describe("terminalEnvContextKeys", () => {
         expect(keys.get("cap_extendedKeys")).toBe(true);
         expect(keys.get("cap_super")).toBe(false);
         expect(keys.evaluate("mode_local")).toBe(true);
-        expect(keys.evaluate("!mode_envKeysCustom")).toBe(true);
+        expect(keys.evaluate("mode_envKeysCustom")).toBe(false);
     });
 
     it("isLinux/isWindows следуют за os, macKeys без рунга — ноль", () => {
