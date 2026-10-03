@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
@@ -52,7 +53,7 @@ export class ExplorerService extends Disposable {
 
     private rootPath: string | null = null;
     private view: IExplorerView | null = null;
-    private rootListeners = new Set<() => void>();
+    private readonly onDidChangeRootEmitter = this.register(new Emitter<void>());
     private readonly configurationService: IConfigurationService;
     private readonly watcherLogger: ILogger;
 
@@ -84,10 +85,7 @@ export class ExplorerService extends Disposable {
     }
 
     /** Смена корня перестраивает провайдер и оповещает подписчиков (компонент строит новое дерево). */
-    public onDidChangeRoot(listener: () => void): { dispose(): void } {
-        this.rootListeners.add(listener);
-        return { dispose: () => this.rootListeners.delete(listener) };
-    }
+    public readonly onDidChangeRoot = this.onDidChangeRootEmitter.event;
 
     public setRootPath(rootPath: string): void {
         this.rootPath = rootPath;
@@ -101,7 +99,7 @@ export class ExplorerService extends Disposable {
             const { code, hint } = describeFileWatchError(error);
             this.watcherLogger.warn(`file watcher error${hint}`, { dirPath, code, error: String(error) });
         };
-        for (const listener of [...this.rootListeners]) listener();
+        this.onDidChangeRootEmitter.fire();
     }
 
     /** Регистрация дерева компонентом (null — отцепить). */

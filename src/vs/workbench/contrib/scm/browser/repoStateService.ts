@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -48,7 +49,7 @@ export class ScmRepoStateService extends Disposable {
     private repoState: IScmRepoState = NO_REPO;
     private hasRepo = false;
     private signature = "";
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());
 
     public constructor(
         commands: CommandRegistry,
@@ -73,14 +74,7 @@ export class ScmRepoStateService extends Disposable {
         return this.hasRepo;
     }
 
-    public onDidChangeState(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return {
-            dispose: () => {
-                this.listeners.delete(listener);
-            },
-        };
-    }
+    public readonly onDidChangeState = this.onDidChangeStateEmitter.event;
 
     private publish(payload: unknown): void {
         const parsed = parseRepoState(payload);
@@ -91,7 +85,7 @@ export class ScmRepoStateService extends Disposable {
         this.repoState = parsed;
         this.hasRepo = true;
         this.applyContextKeys();
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeStateEmitter.fire();
     }
 
     private applyContextKeys(): void {

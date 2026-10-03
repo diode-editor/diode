@@ -12,6 +12,7 @@ import { basename } from "node:path";
 
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -61,10 +62,10 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private nextId = 1;
     private cwd: string | null = null;
 
-    private openListeners = new Set<(instance: ITerminalInstance) => void>();
-    private closeListeners = new Set<(instance: ITerminalInstance) => void>();
-    private activeListeners = new Set<(instance: ITerminalInstance | null) => void>();
-    private focusListeners = new Set<() => void>();
+    private readonly onDidOpenInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
+    private readonly onDidCloseInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
+    private readonly onDidChangeActiveInstanceEmitter = this.register(new Emitter<ITerminalInstance | null>());
+    private readonly onDidRequestFocusEmitter = this.register(new Emitter<void>());
 
     public constructor(
         panelService: PanelService,
@@ -152,8 +153,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         };
         this.instances.push(instance);
         this.activeId = id;
-        for (const listener of [...this.openListeners]) listener(instance);
-        for (const listener of [...this.activeListeners]) listener(instance);
+        this.onDidOpenInstanceEmitter.fire(instance);
+        this.onDidChangeActiveInstanceEmitter.fire(instance);
     }
 
     /** Сфокусировать активный терминал (если он есть). */
@@ -162,24 +163,16 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     /** Открытие нового инстанса (компонент строит по нему виджет). */
-    public onDidOpenInstance(listener: (instance: ITerminalInstance) => void): IDisposable {
-        return this.subscribe(this.openListeners, listener);
-    }
+    public readonly onDidOpenInstance = this.onDidOpenInstanceEmitter.event;
 
     /** Закрытие инстанса — выход шелла (компонент dispose'ит его виджет). */
-    public onDidCloseInstance(listener: (instance: ITerminalInstance) => void): IDisposable {
-        return this.subscribe(this.closeListeners, listener);
-    }
+    public readonly onDidCloseInstance = this.onDidCloseInstanceEmitter.event;
 
     /** Смена активного инстанса; null — терминалов не осталось (вернуть placeholder). */
-    public onDidChangeActiveInstance(listener: (instance: ITerminalInstance | null) => void): IDisposable {
-        return this.subscribe(this.activeListeners, listener);
-    }
+    public readonly onDidChangeActiveInstance = this.onDidChangeActiveInstanceEmitter.event;
 
     /** Запрос фокуса на виджет активного инстанса. */
-    public onDidRequestFocus(listener: () => void): IDisposable {
-        return this.subscribe(this.focusListeners, listener);
-    }
+    public readonly onDidRequestFocus = this.onDidRequestFocusEmitter.event;
 
     public override dispose(): void {
         // Убиваем все PTY и рвём подписки до базового dispose(). События close не
@@ -205,12 +198,12 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const wasActive = this.activeId === instance.id;
         this.instances.splice(index, 1);
         this.destroyInstance(instance);
-        for (const listener of [...this.closeListeners]) listener(instance);
+        this.onDidCloseInstanceEmitter.fire(instance);
 
         if (!wasActive) return;
         const next = this.instances.at(-1) ?? null;
         this.activeId = next === null ? null : next.id;
-        for (const listener of [...this.activeListeners]) listener(next);
+        this.onDidChangeActiveInstanceEmitter.fire(next);
     }
 
     /** Освобождает ресурсы одного инстанса: PTY и наши подписки на сессию. */
@@ -224,11 +217,6 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     private fireFocus(): void {
-        for (const listener of [...this.focusListeners]) listener();
-    }
-
-    private subscribe<T>(listeners: Set<T>, listener: T): IDisposable {
-        listeners.add(listener);
-        return { dispose: () => listeners.delete(listener) };
+        this.onDidRequestFocusEmitter.fire();
     }
 }
