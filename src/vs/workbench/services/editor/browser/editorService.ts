@@ -49,6 +49,11 @@ import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.t
 import { EditorCloseHandler } from "./editorCloseHandler.ts";
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 import {
+    createTextEditorPaneFactory,
+    type IEditorPaneFactory,
+    type ITextEditorViewState,
+} from "./editorPaneFactory.ts";
+import {
     createCodeActionsOnSaveParticipant,
     createFormatOnSaveParticipant,
     enabledCodeActionKindsOnSave,
@@ -56,6 +61,18 @@ import {
 } from "./onSaveParticipants.ts";
 
 export const EditorServiceDIToken = token<EditorService>("EditorService");
+
+/** Параметры {@link EditorService.openUri}. */
+export interface IOpenUriOptions {
+    readonly focus?: boolean;
+    /**
+     * Куда открыть: по умолчанию — активная группа; `"beside"` — соседняя справа
+     * (создаётся при отсутствии); группа — ровно в неё (повтор вкладки по рецепту).
+     */
+    readonly group?: "beside" | EditorGroup;
+    /** Каретка и скролл новой вкладки (у уже открытой вкладки не трогаются). */
+    readonly viewState?: ITextEditorViewState;
+}
 
 /** Событие изменения полосы групп (для view-слоя и host-адаптеров). */
 export interface IGroupsChangeEvent {
@@ -144,6 +161,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private fileWatcher: IFileWatcher;
     private contextMenuController: ContextMenuController;
     private readonly logger: ILogger;
+    /**
+     * Фабрики вкладок по видам: через рецепт вкладки сплит и копия в группу
+     * повторяют вкладку, не зная её вида (см. {@link IEditorPaneFactory}).
+     */
+    private readonly paneFactories: readonly IEditorPaneFactory<unknown>[];
     /** Закрытие вкладок с подтверждением (см. {@link closeEditor}). */
     private readonly closeHandler: EditorCloseHandler;
     private activeEditorListeners: ((editor: TextEditorPane | null) => void)[] = [];
@@ -395,6 +417,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.languageConfigurationService = languageConfigurationService;
         // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
+        this.paneFactories = [createTextEditorPaneFactory(this)];
         this.closeHandler = new EditorCloseHandler(dialogService, {
             surfaces: () => [...this.textPanes(), ...this.diffSidePanes()],
         });
@@ -522,24 +545,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const group = this.createGroup(index);
         this.fireGroupsChanged({ kind: "added", group, index, source });
 
-        // Дубль активной вкладки. Общая модель — только у файлов (реестр);
-        // untitled/дифф не дублируются — новая группа остаётся пустой.
-        if (sourcePane instanceof TextEditorPane && sourcePane.uri.scheme === "file") {
-            const ref = this.modelRegistry.acquire(sourcePane.uri);
-            const copy = this.createPaneForModel(ref.model, ref);
-            this.applyConfigurationToEditor(copy);
-            // Каретка и скролл — как в источнике (US-1). Прямое присваивание, без
-            // reveal: восстановленная позиция и так была видима в источнике.
-            copy.viewState.selections = sourcePane.viewState.cloneSelections();
-            copy.viewState.scrollTop = sourcePane.viewState.scrollTop;
-            copy.viewState.scrollLeft = sourcePane.viewState.scrollLeft;
-            group.insertPane(copy);
-        }
-
+        // Дубль активной вкладки — по её рецепту (каретка и скролл — как в
+        // источнике, US-1). Вкладку, которую повторить нельзя (untitled), новая
+        // группа не получает и остаётся пустой.
         this.activeGroupValue = group;
-        if (group.editorCount > 0) {
-            group.activateTab(0, { focus });
-        } else {
+        const recipe = this.describePane(sourcePane);
+        if (recipe !== undefined) void recipe.factory.open(recipe.descriptor, { group, focus });
+        if (group.editorCount === 0) {
             this.fireActiveEditorChanged(null);
             if (focus) this.focusGroupContent(group);
         }
@@ -641,31 +653,34 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     }
 
     /**
-     * Копия активной вкладки в соседнюю группу (US-17): общий документ через
-     * реестр, каретка/скролл скопированы. Только файловые вкладки — untitled и
-     * дифф не дублируются. Ресурс уже в целевой — просто активируется там.
+     * Копия активной вкладки в соседнюю группу (US-17) — по её рецепту: общий
+     * документ через реестр, каретка/скролл скопированы. Вкладку, которую
+     * повторить нельзя (untitled), не копируем вовсе. Ресурс уже в целевой —
+     * просто активируется там.
      */
     public copyActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
         const sourcePane = this.activeGroupValue.activePane;
-        if (!(sourcePane instanceof TextEditorPane) || sourcePane.uri.scheme !== "file") return;
+        // Мутант условия эквивалентен: у пустой группы рецепта нет и так —
+        // `describe` всех фабрик на не-панели отдаёт `undefined`.
+        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+        if (sourcePane === null) return;
+        const recipe = this.describePane(sourcePane);
+        if (recipe === undefined) return;
         const target = this.neighborOrNewGroup(direction);
         if (target === null) return;
 
         this.activeGroupValue = target;
-        const existing = target.findPaneIndex(sourcePane.uri);
-        if (existing >= 0) {
-            target.activateTab(existing, { focus });
-        } else {
-            const ref = this.modelRegistry.acquire(sourcePane.uri);
-            const copy = this.createPaneForModel(ref.model, ref);
-            this.applyConfigurationToEditor(copy);
-            copy.viewState.selections = sourcePane.viewState.cloneSelections();
-            copy.viewState.scrollTop = sourcePane.viewState.scrollTop;
-            copy.viewState.scrollLeft = sourcePane.viewState.scrollLeft;
-            target.insertPane(copy);
-            target.activateTab(target.editorCount - 1, { focus });
-        }
+        void recipe.factory.open(recipe.descriptor, { group: target, focus });
         this.fireActiveGroupChanged(target);
+    }
+
+    /** Рецепт вкладки у фабрики её вида; `undefined` — повторить вкладку нельзя. */
+    private describePane(pane: IEditorPane): { factory: IEditorPaneFactory<unknown>; descriptor: unknown } | undefined {
+        for (const factory of this.paneFactories) {
+            const descriptor = factory.describe(pane);
+            if (descriptor !== undefined) return { factory, descriptor };
+        }
+        return undefined;
     }
 
     /**
@@ -1048,7 +1063,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * перед `Uri.file`: пути приходят относительными, а `Uri.file` их НЕ резолвит —
      * просто префиксует слэшем, и резолвить после подъёма было бы уже поздно.
      */
-    public openFile(filePath: string, options: { focus?: boolean; group?: "beside" } = {}): void {
+    public openFile(filePath: string, options: IOpenUriOptions = {}): void {
         void this.openUri(Uri.file(path.resolve(filePath)), options);
     }
 
@@ -1070,7 +1085,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * диска и активация уже открытой вкладки — делается до первого `await`,
      * поэтому навигация (Go Back, клик по маркеру) работает как раньше.
      */
-    public openUri(uri: Uri, options: { focus?: boolean; group?: "beside" } = {}): Promise<void> {
+    public openUri(uri: Uri, options: IOpenUriOptions = {}): Promise<void> {
         // Ресурсы не с диска идут своей дорогой: там нет ни чтения файла, ни
         // watcher'а, ни записи — только текст от провайдера схемы.
         if (uri.scheme === "file" || this.isOpenInTargetGroup(uri, options.group)) {
@@ -1089,27 +1104,36 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private openResolvedUri(
         uri: Uri,
         content: string | null,
-        { focus = true, group: where }: { focus?: boolean; group?: "beside" },
+        { focus = true, group: where, viewState }: IOpenUriOptions,
     ): void {
         // Идентичность вкладки — по ресурсу целиком В ПРЕДЕЛАХ группы, а не по
         // имени файла: два разных файла с одинаковым basename должны открываться
         // в отдельных вкладках, а тот же ресурс в другой группе — своей вкладкой
         // (общая модель через реестр).
-        const group = where === "beside" ? this.resolveBesideGroup() : this.activeGroupValue;
+        const group = where === "beside" ? this.resolveBesideGroup() : (where ?? this.activeGroupValue);
         const wasActive = group === this.activeGroupValue;
         this.activeGroupValue = group;
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
             group.activateTab(existingIndex, { focus });
-        } else if (content !== null) {
-            group.insertPane(this.createVirtualPane(uri, content));
-            group.activateTab(group.editorCount - 1, { focus });
         } else {
-            // Модель приходит из реестра уже загруженной (фабрика ставит watcher
-            // до openFile); вкладка владеет ссылкой, а не самой моделью.
-            const ref = this.modelRegistry.acquire(uri);
-            const editor = this.createPaneForModel(ref.model, ref);
-            this.applyConfigurationToEditor(editor);
+            // Модель файла приходит из реестра уже загруженной (фабрика ставит
+            // watcher до openFile); вкладка владеет ссылкой, а не самой моделью.
+            let editor: TextEditorPane;
+            if (content !== null) {
+                editor = this.createVirtualPane(uri, content);
+            } else {
+                const ref = this.modelRegistry.acquire(uri);
+                editor = this.createPaneForModel(ref.model, ref);
+                this.applyConfigurationToEditor(editor);
+            }
+            // Прямое присваивание, без reveal: позиция пришла из вкладки, где
+            // она и так была видима.
+            if (viewState !== undefined) {
+                editor.viewState.selections = [...viewState.selections];
+                editor.viewState.scrollTop = viewState.scrollTop;
+                editor.viewState.scrollLeft = viewState.scrollLeft;
+            }
             group.insertPane(editor);
             group.activateTab(group.editorCount - 1, { focus });
         }
@@ -1124,11 +1148,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * не надо (в эталоне модель тоже живёт, пока провайдер не сказал
      * `onDidChange`).
      */
-    private isOpenInTargetGroup(uri: Uri, where?: "beside"): boolean {
+    private isOpenInTargetGroup(uri: Uri, where?: "beside" | EditorGroup): boolean {
         const group =
             where === "beside"
                 ? this.groupsList.at(this.groupsList.indexOf(this.activeGroupValue) + 1)
-                : this.activeGroupValue;
+                : (where ?? this.activeGroupValue);
         return group !== undefined && group.findPaneIndex(uri) >= 0;
     }
 
@@ -1143,7 +1167,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * человек обязан увидеть, почему ничего не открылось, — молчаливый no-op
      * здесь худший из возможных исходов (см. {@link onOpenFailed}).
      */
-    private async openVirtualUri(uri: Uri, options: { focus?: boolean; group?: "beside" }): Promise<void> {
+    private async openVirtualUri(uri: Uri, options: IOpenUriOptions): Promise<void> {
         const source = this.virtualDocumentSource;
         if (!source.canProvide(uri.scheme)) {
             this.reportOpenFailed(uri, `no content provider is registered for the "${uri.scheme}:" scheme`);
