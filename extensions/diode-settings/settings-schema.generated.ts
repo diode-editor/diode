@@ -36,7 +36,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     },
     {
         key: "editor.codeActionsOnSave",
-        type: "object",
+        type: "object | array",
         default: {},
         description:
             'Code action kinds to be run on save (e.g. `{"source.fixAll": true}`). Kinds match hierarchically: `source.fixAll` also runs `source.fixAll.ruff`.',

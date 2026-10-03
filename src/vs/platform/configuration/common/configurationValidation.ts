@@ -1,15 +1,20 @@
 import { ConfigurationModel } from "./configurationModel.ts";
-import type { IConfigurationPropertySchema } from "./configurationRegistry.ts";
+import type { ConfigurationValueType, IConfigurationPropertySchema } from "./configurationRegistry.ts";
 
 /**
- * Проходит ли значение схему ключа: `type`, `enum`, `minimum`/`maximum` — то
- * подмножество JSON-schema, которое объявляют наши узлы. Аналог `validate()`
- * опций редактора vscode (`EditorBooleanOption` и соседи), но по схеме реестра,
- * а не по классу на опцию.
+ * Проходит ли значение схему ключа: `type` (один или любой из списка), `enum`,
+ * `minimum`/`maximum` — то подмножество JSON-schema, которое объявляют наши
+ * узлы. Аналог `validate()` опций редактора vscode (`EditorBooleanOption` и
+ * соседи), но по схеме реестра, а не по классу на опцию.
  */
 export function isValidConfigurationValue(schema: IConfigurationPropertySchema, value: unknown): boolean {
     if (schema.enum !== undefined && !schema.enum.includes(value)) return false;
-    switch (schema.type) {
+    const types: readonly ConfigurationValueType[] = typeof schema.type === "string" ? [schema.type] : schema.type;
+    return types.some((type) => matchesType(type, schema, value));
+}
+
+function matchesType(type: ConfigurationValueType, schema: IConfigurationPropertySchema, value: unknown): boolean {
+    switch (type) {
         case "number":
             return (
                 isFiniteNumber(value) &&
