@@ -1,11 +1,17 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 
 import { TrashService } from "./trashService.ts";
+
+vi.mock("node:os", async (importOriginal) => {
+    const actual = await importOriginal<typeof os>();
+    return { ...actual, homedir: vi.fn(actual.homedir) };
+});
 
 let tmpDir: string;
 let ws: ITempWorkspace;
@@ -94,17 +100,17 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
     });
 
     it("falls back to ~/.local/share when XDG_DATA_HOME is not set", () => {
-        const savedHome = process.env.HOME;
         delete process.env.XDG_DATA_HOME;
-        process.env.HOME = path.join(tmpDir, "home");
-        fs.mkdirSync(process.env.HOME, { recursive: true });
-        try {
-            const trash = new TrashService();
-            expect(trash.isAvailable()).toBe(true);
-            expect(fs.existsSync(path.join(tmpDir, "home", ".local", "share", "Trash", "files"))).toBe(true);
-        } finally {
-            process.env.HOME = savedHome;
-        }
+        // Домашний каталог подменяем у `os.homedir`, а не через `process.env.HOME`:
+        // в worker-потоке (пул `threads`, так гоняет Stryker) правка env до libuv
+        // не доходит, и тест смотрел бы в настоящий ~.
+        const home = path.join(tmpDir, "home");
+        fs.mkdirSync(home, { recursive: true });
+        vi.mocked(os.homedir).mockReturnValueOnce(home);
+
+        const trash = new TrashService();
+        expect(trash.isAvailable()).toBe(true);
+        expect(fs.existsSync(path.join(home, ".local", "share", "Trash", "files"))).toBe(true);
     });
 
     it("reports unavailable when the trash directories cannot be created", () => {
