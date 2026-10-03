@@ -184,4 +184,13 @@ describe("EditorService — повтор вкладки без фокуса", ()
         expect(service.groups[1].editorCount).toBe(1);
         expect(h.testApp.focusedElement).toBe(focused);
     });
+
+    it("сплит вкладки не текстового вида (Keyboard Shortcuts) — новая группа пустая", () => {
+        const service = h.container.get(EditorServiceDIToken);
+        h.commands.execute("workbench.action.openGlobalKeybindings");
+
+        const group = service.splitActiveGroup();
+
+        expect(group?.editorCount).toBe(0);
+    });
 });
