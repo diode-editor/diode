@@ -1,4 +1,4 @@
-import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -54,7 +54,7 @@ export const DEFAULT_INLINE_SUGGEST_REQUEST_TIMEOUT_MS = 5000;
  * расширений через host), показывает первый подошедший пункт серым текстом
  * за кареткой ({@link TextEditorPane.setGhostText}); Tab принимает
  * (`editor.action.inlineSuggest.commit`), Escape гасит. Дисциплина
- * debounce/seq/ревалидации — по образцу CompletionService/LightbulbService.
+ * debounce/latest-wins/ревалидации — по образцу CompletionService/LightbulbService.
  *
  * Настройки читаются НА КАЖДОМ обращении, а не кэшируются в полях: правка
  * `settings.json` подхватывается живым конфигом (watcher → reload) и должна
@@ -84,12 +84,10 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     // Stryker disable next-line BooleanLiteral: инициализатор не читается — bindEditor в конструкторе тут же сбрасывает флаг через unbindEditor
     private contentDidChange = false;
     private autoTriggerTimer: ReturnType<typeof setTimeout> | null = null;
-    // Номер последнего запроса к источнику: ответ с чужим номером устарел.
-    private requestSeq = 0;
-    // Источник отмены запроса, который сейчас в полёте. Seq-гард отбрасывает
-    // устаревший ОТВЕТ, а этот источник останавливает саму РАБОТУ провайдера:
-    // за подсказкой может стоять платный LLM-вызов.
-    private pendingRequest: CancellationTokenSource | null = null;
+    // Последний запрос к источнику. Отмена билета и отбрасывает устаревший
+    // ОТВЕТ, и останавливает саму РАБОТУ провайдера через токен: за подсказкой
+    // может стоять платный LLM-вызов.
+    private readonly latest = new LatestRequest();
     // Гасит одно авто-открытие после принятия (правка accept не должна сама
     // перезапросить подсказку).
     private suppressAutoTriggerOnce = false;
@@ -146,7 +144,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
      * `.hide` до сервиса не доедет — а отменить незавершённый запрос она обязана.
      */
     private isRequestPending(): boolean {
-        return this.pendingRequest !== null;
+        return this.latest.pending;
     }
 
     /**
@@ -189,12 +187,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         const lineContent = editor.viewState.document.getLineContent(caret.line);
 
         const versionId = editor.viewState.document.versionId;
-        // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
-        const seq = ++this.requestSeq;
         // Предыдущий запрос (если он ещё в полёте) устарел ровно сейчас.
-        this.cancelPendingRequest();
-        const cancellation = new CancellationTokenSource();
-        this.pendingRequest = cancellation;
+        const ticket = this.latest.start();
         const items = await source(
             {
                 uri: editor.uri.toString(),
@@ -205,27 +199,24 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
                 triggerKind,
                 timeoutMs: this.requestTimeoutMs,
             },
-            cancellation.token,
+            ticket.token,
         ).catch(() => []);
-        // Запрос отработал — отменять больше нечего (наш источник могли уже
-        // сменить на более свежий, тогда трогать поле нельзя).
-        if (this.pendingRequest === cancellation) this.pendingRequest = null;
-        // Stryker disable next-line CallExpression: уборка слушателей отработавшего источника — поведения не меняет
-        cancellation.dispose();
-        // Пока ходили за ответом: новый запрос обгоняет старый; правка или уход
-        // каретки делают снапшот недействительным; открывшийся попап — гейт показа.
-        if (seq !== this.requestSeq) return;
+        // Запрос отработал — отменять больше нечего.
+        ticket.done();
+        // Пока ходили за ответом: правка или уход каретки делают снапшот
+        // недействительным; открывшийся попап — гейт показа.
         if (this.group.getActiveEditor() !== editor) return;
         if (editor.viewState.document.versionId !== versionId) return;
         const current = editor.viewState.selections;
         if (current.length !== 1 || !isSelectionCollapsed(current[0])) return;
         if (current[0].active.line !== caret.line || current[0].active.character !== caret.character) return;
         if (this.completionService.isOpen()) return;
-        // Отдельный гейт от всех, что выше: Escape (и смена активного редактора
-        // без события) гасит запрос, НЕ меняя ни текста, ни каретки, ни номера
-        // запроса. Провайдер, проигнорировавший отмену, тут и отсекается —
-        // призрак не должен появиться задним числом.
-        if (cancellation.token.isCancellationRequested) return;
+        // Отдельный гейт от всех, что выше: новый запрос обгоняет старый, а
+        // Escape (и смена активного редактора без события) гасит запрос, НЕ
+        // меняя ни текста, ни каретки, — все эти пути отменяют билет. Провайдер,
+        // проигнорировавший отмену, тут и отсекается: призрак не должен
+        // появиться задним числом.
+        if (ticket.isStale()) return;
 
         for (const item of items) {
             const session = this.sessionFromItem(editor, item, caret, lineContent);
@@ -302,7 +293,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
      * всплыл бы через секунду после того, как его погасили.
      */
     public hide(): void {
-        this.cancelPendingRequest();
+        this.latest.cancel();
         this.cancelAutoTrigger();
         this.clearSession();
     }
@@ -389,8 +380,6 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         this.unbindEditor();
         // hide() снимает и подсказку, и запрос, и отложенный авто-запрос.
         this.hide();
-        // Stryker disable next-line UpdateOperator: направление счётчика не наблюдаемо — гейту важна только уникальность номера
-        this.requestSeq++;
         if (editor === null) return;
         this.contentSub = editor.onDidChangeContent(() => {
             this.contentDidChange = true;
@@ -423,7 +412,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         // (текст другой), и на уходе каретки (позиция другая). Его ответ всё
         // равно отсеют гарды ниже по трассе, поэтому провайдер вправе бросить
         // работу прямо сейчас.
-        this.cancelPendingRequest();
+        this.latest.cancel();
 
         const editor = this.group.getActiveEditor();
         if (editor === null) {
@@ -467,16 +456,6 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
             this.autoTriggerTimer = null;
             void this.trigger(InlineCompletionTriggerKind.Automatic);
         }, this.autoTriggerDelayMs);
-    }
-
-    /** Отменяет запрос в полёте: провайдер узнаёт об этом через свой токен. */
-    private cancelPendingRequest(): void {
-        const pending = this.pendingRequest;
-        if (pending === null) return;
-        this.pendingRequest = null;
-        pending.cancel();
-        // Stryker disable next-line CallExpression: уборка слушателей уже отменённого источника — поведения не меняет
-        pending.dispose();
     }
 
     private cancelAutoTrigger(): void {

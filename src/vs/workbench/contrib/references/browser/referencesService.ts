@@ -1,3 +1,4 @@
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
@@ -36,7 +37,7 @@ export class ReferencesService {
     ] as const;
 
     /** Guard от устаревших ответов: пока ходили за ссылками, запрос мог смениться. */
-    private requestSeq = 0;
+    private readonly latest = new LatestRequest();
 
     private readonly textSource: IReferenceTextSource;
 
@@ -72,7 +73,7 @@ export class ReferencesService {
         // это только гейт запроса.
         if (!isOnWord(text, caret.line, caret.character)) return;
 
-        const seq = ++this.requestSeq;
+        const ticket = this.latest.start();
         const references = await source({
             uri: editor.uri.toString(),
             languageId: editor.languageId,
@@ -82,7 +83,7 @@ export class ReferencesService {
             // VS Code показывает объявление первой строкой списка.
             includeDeclaration: true,
         });
-        if (seq !== this.requestSeq) return;
+        if (ticket.isStale()) return;
 
         // Корень — из IWorkspaceContextService; `folders.at(0)` здесь и есть видимое
         // сужение до однопапочной семантики (в мульти-руте путь ссылки будет
@@ -90,7 +91,7 @@ export class ReferencesService {
         // Stryker disable next-line StringLiteral: корень без открытой папки — любая строка, не являющаяся префиксом пути ссылки, даёт тот же результат (путь показывается целиком)
         const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? "";
         const groups = await buildReferenceGroups(references, this.textSource, root);
-        if (seq !== this.requestSeq) return;
+        if (ticket.isStale()) return;
 
         this.component.setResults(groups);
         this.sidebarService.showViewlet(REFERENCES_VIEWLET_ID);
@@ -99,7 +100,7 @@ export class ReferencesService {
     /** Очищает панель (команда Clear). */
     public clear(): void {
         // Ответ уже отправленного запроса не должен наполнить очищенную панель.
-        this.requestSeq++;
+        this.latest.cancel();
         this.component.clear();
     }
 }

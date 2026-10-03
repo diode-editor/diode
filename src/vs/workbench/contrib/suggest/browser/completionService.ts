@@ -1,6 +1,7 @@
 import type { CompletionDetailsContent } from "@tuidom/elements/completionlist/completionDetailsElement";
 import type { CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
 
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
@@ -96,8 +97,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     private autoSuggestTimer: ReturnType<typeof setTimeout> | null = null;
     // Символ, которым спровоцирован отложенный авто-запрос (`.`), если он был.
     private pendingTriggerCharacter: string | undefined = undefined;
-    // Номер последнего запроса к источнику: ответ с чужим номером устарел.
-    private requestSeq = 0;
+    // Последний запрос к источнику: ответ перебитого запроса устарел.
+    private readonly latest = new LatestRequest();
     // Последний ответ был неполным (сервер отфильтровал список под префикс) —
     // добор символа обязан перезапросить источник, а не сужать локально.
     private isIncomplete = false;
@@ -173,7 +174,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // Провайдеры расширений (если подключён источник) + word-based fallback
         // из всех открытых редакторов (как editor.wordBasedSuggestions в VS Code).
         const source = this.group.completionSource;
-        const seq = ++this.requestSeq;
+        const ticket = this.latest.start();
         const result = source
             ? await source({
                   uri: editor.uri.toString(),
@@ -190,7 +191,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             : EMPTY_RESULT;
         // Пока ходили за ответом, пользователь мог набрать ещё символ — свежий
         // запрос уже в пути, и старый ответ не имеет права перекрыть его.
-        if (seq !== this.requestSeq) return;
+        if (ticket.isStale()) return;
 
         const extensionItems = result.items;
         // Границу префикса задаёт сам провайдер: у LSP-пунктов `range` — это
@@ -242,8 +243,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.prefixFromProvider = false;
         this.triggerCaret = null;
         this.isIncomplete = false;
-        // Ответ «в полёте» больше не нужен: его seq устареет и будет отброшен.
-        this.requestSeq++;
+        // Ответ «в полёте» больше не нужен: его билет устареет и ответ будет отброшен.
+        this.latest.cancel();
         if (wasOpen) {
             for (const listener of [...this.closeListeners]) listener();
         }

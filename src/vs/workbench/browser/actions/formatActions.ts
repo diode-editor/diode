@@ -7,6 +7,7 @@ import { EditorServiceDIToken } from "../../services/editor/browser/editorServic
 import { StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../services/statusbar/common/transientNotice.ts";
 import { applyFormattingEdits } from "../parts/editor/applyFormattingEdits.ts";
+import { EditorStateCancellationTokenSource, EditorStateFlag } from "../parts/editor/editorStateCancellation.ts";
 
 // ─── Formatting (#196) ──────────────────────────────────────
 //
@@ -40,21 +41,29 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
 
     const text = editor.getText();
     const range = useSelection ? selectionRange(editor.viewState.selections[0], text) : undefined;
-    const edits = await source({
-        uri: editor.uri.toString(),
-        languageId: editor.languageId,
-        text,
-        tabSize: editor.viewState.tabSize,
-        insertSpaces: editor.viewState.insertSpaces,
-        ...(range === undefined ? {} : { range }),
-    });
+    // Правка документа за время запроса делает ответ неприменимым: его
+    // смещения посчитаны по снапшоту, который уже не совпадает с текстом.
+    const state = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value);
+    let edits: Awaited<ReturnType<typeof source>>;
+    try {
+        edits = await source({
+            uri: editor.uri.toString(),
+            languageId: editor.languageId,
+            text,
+            tabSize: editor.viewState.tabSize,
+            insertSpaces: editor.viewState.insertSpaces,
+            ...(range === undefined ? {} : { range }),
+        });
+    } finally {
+        state.dispose();
+    }
     if (edits === null) {
         noFormatter();
         return;
     }
     if (edits.length === 0) return;
     const current = group.getActiveEditor();
-    if (current !== editor || editor.getText() !== text) return;
+    if (current !== editor || state.token.isCancellationRequested) return;
     // Общий с format-on-save хвост: undoable-батч + схлопывание выделений в
     // одну каретку на прежнем месте (как VS Code).
     applyFormattingEdits(editor, edits, label);
