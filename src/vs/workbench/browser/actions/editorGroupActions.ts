@@ -7,7 +7,6 @@ import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerServ
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.ts";
 
-import { closeGroupEditorsWithConfirm } from "./editorCloseHelpers.ts";
 import { resolveAddressedTab } from "./editorTabTarget.ts";
 import { editorTabTargetArg } from "./menuContexts.ts";
 
@@ -416,7 +415,7 @@ export const closeEditorsInGroupAction: CommandAction = {
     when: "editorGroupHasEditors",
     run(accessor) {
         const service = accessor.get(EditorServiceDIToken);
-        void closeGroupEditorsWithConfirm(accessor, service, service.activeGroup);
+        void service.closeAllEditors(service.activeGroup);
     },
 };
 
@@ -426,7 +425,7 @@ export const closeEditorsAndGroupAction: CommandAction = {
     run(accessor) {
         // Схлопывание группы — следствие опустения; отдельного сноса не нужно.
         const service = accessor.get(EditorServiceDIToken);
-        void closeGroupEditorsWithConfirm(accessor, service, service.activeGroup);
+        void service.closeAllEditors(service.activeGroup);
     },
 };
 
@@ -446,7 +445,7 @@ export const closeAllEditorsAction: CommandAction = {
             for (;;) {
                 const group = service.groups.find((candidate) => candidate.editorCount > 0);
                 if (group === undefined) return;
-                const done = await closeGroupEditorsWithConfirm(accessor, service, group);
+                const done = await service.closeAllEditors(group);
                 if (!done) return;
             }
         })();
