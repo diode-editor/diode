@@ -158,10 +158,109 @@ describe("filterKeybindingItems", () => {
     });
 
     it("многословный запрос фильтрует по title (текст склеивается через пробел)", () => {
-        // «save file» должен найти «Save File»; при join('') получилось бы
-        // «savefile» — тоже матч, но проверяем именно пробельную склейку через
-        // многословный id-матч, где склейка наблюдаема.
         const filtered = filterKeybindingItems(items, "reveal panel");
+        expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
+    });
+
+    it("слова запроса — отдельные термы: порядок относительно title не важен", () => {
+        // Склейка остатка запроса через пробел тут наблюдаема: «panelreveal»
+        // подпоследовательностью в «Reveal Panel» не складывается.
+        const filtered = filterKeybindingItems(items, "panel reveal");
+        expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
+    });
+
+    it("найтись обязаны все термы", () => {
+        expect(filterKeybindingItems(items, "reveal zebra")).toEqual([]);
+    });
+
+    it("подсветка title собирается из кусков по терму", () => {
+        const [entry] = filterKeybindingItems(items, "rev panel");
+        // «Reveal Panel»: `rev` → 0..2, `panel` → 7..11.
+        expect(entry.titleMatch!.matchedIndices).toEqual([0, 1, 2, 7, 8, 9, 10, 11]);
+    });
+
+    it("лишние пробелы выдачу не меняют, хвостовой её не гасит", () => {
+        for (const query of ["reveal panel", "reveal  panel", " reveal panel", "reveal panel "]) {
+            expect(
+                filterKeybindingItems(items, query).map((entry) => entry.item.commandId),
+                query,
+            ).toEqual(["zeta.workbenchThing"]);
+        }
+    });
+
+    it("запрос из одних пробелов ведёт себя как пустой", () => {
+        const filtered = filterKeybindingItems(items, "   ");
+
+        expect(filtered).toHaveLength(items.length);
+        expect(filtered.every((entry) => entry.titleMatch === null)).toBe(true);
+    });
+
+    it("точное совпадение по подписи идёт первым, а не по алфавиту", () => {
+        // Регрессия: `Show Hover` термами находит и команды, у которых `show` и
+        // `hover` нашлись где-то в id («Parameter Hints: Previous Signature» —
+        // `editor.action.showPrevParameterHint`). В алфавитном порядке сама
+        // «Show Hover» оказывалась последней, и рекордер правил чужую строку.
+        const haystack = buildKeybindingItems(
+            [],
+            [
+                command("editor.action.showPrevParameterHint", "Parameter Hints: Previous Signature"),
+                command("workbench.files.action.showActiveFileInExplorer", "File: Reveal Active File in Explorer"),
+                command("editor.action.showHover", "Show Hover"),
+            ],
+        );
+
+        const filtered = filterKeybindingItems(haystack, "Show Hover");
+
+        expect(filtered[0].item.commandId).toBe("editor.action.showHover");
+        expect(filtered.map((entry) => entry.item.commandId)).toHaveLength(3);
+    });
+
+    it("совпадение по подписи выше совпадения только по id — даже при худших очках", () => {
+        const haystack = buildKeybindingItems(
+            [],
+            [
+                // Совпадение по id и очками выше (`save` с начала слова), и в
+                // алфавите раньше: обогнать его может только надбавка за подпись.
+                command("save", "Aaa Nothing"),
+                // В подписи `save` набирается вразбивку — очки низкие.
+                command("zzz.other", "Zzz Disavowed"),
+            ],
+        );
+
+        expect(filterKeybindingItems(haystack, "save").map((entry) => entry.item.commandId)).toEqual([
+            "zzz.other",
+            "save",
+        ]);
+    });
+
+    it("совпадение по id выше совпадения только по комбинации", () => {
+        const haystack = buildKeybindingItems(
+            // Строка с биндингом F6 стоит в алфавите первой — отсортировать её
+            // вниз может только разница очков.
+            [binding({ commandId: "mmm.plain", chord: parseChord("f6") })],
+            [command("mmm.plain", "Aaa Other"), command("zzz.f6thing", "Bbb Nothing")],
+        );
+
+        expect(filterKeybindingItems(haystack, "f6").map((entry) => entry.item.commandId)).toEqual([
+            "zzz.f6thing",
+            "mmm.plain",
+        ]);
+    });
+
+    it("при равных очках порядок остаётся исходным (сортировка стабильная)", () => {
+        // Одинаковый title — одинаковые очки: порядок обязан остаться тем, что
+        // задал buildKeybindingItems (title, затем id), иначе строки одной
+        // команды разъехались бы по списку.
+        const haystack = buildKeybindingItems([], [command("zzz.save", "Save File"), command("aaa.save", "Save File")]);
+
+        expect(filterKeybindingItems(haystack, "save").map((entry) => entry.item.commandId)).toEqual([
+            "aaa.save",
+            "zzz.save",
+        ]);
+    });
+
+    it("@source: оставляет свой отбор, а остаток разбирается на термы", () => {
+        const filtered = filterKeybindingItems(items, "@source:user panel reveal");
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
     });
 

@@ -1,7 +1,8 @@
 import * as nodePath from "node:path";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
-import { fuzzyMatchBest } from "../../../../base/common/fuzzySearch.ts";
+import type { PreparedQuery } from "../../../../base/common/fuzzySearch.ts";
+import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
@@ -82,7 +83,10 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
             return [{ label: "No opened editors" }];
         }
 
-        const filter = query.slice(OpenEditorsQuickAccessProvider.PREFIX.length).trim();
+        // Префикс срезается ДО разбора по пробелам: у этого пикера он сам
+        // кончается пробелом (`edt `), и разбор целого запроса оставил бы `edt`
+        // отдельным термом — ни одна вкладка его бы не прошла.
+        const filter = prepareQuery(query.slice(OpenEditorsQuickAccessProvider.PREFIX.length));
         const matched = entries.flatMap((entry) => {
             const match = matchEntry(entry, filter);
             return match === null ? [] : [match];
@@ -152,11 +156,11 @@ function searchTextOf(entry: OpenEditorEntry): string {
  * любым именем на нулевые очки и без подсветки, так что список остаётся целым и
  * в исходном (MRU) порядке.
  */
-function matchEntry(entry: OpenEditorEntry, filter: string): MatchedEntry | null {
+function matchEntry(entry: OpenEditorEntry, filter: PreparedQuery): MatchedEntry | null {
     const searchText = searchTextOf(entry);
     const offset = searchText.length - entry.label.length;
 
-    const byName = fuzzyMatchBest(filter, entry.label);
+    const byName = fuzzyMatchPrepared(filter, entry.label);
     if (byName !== null) {
         return {
             entry,
@@ -165,7 +169,7 @@ function matchEntry(entry: OpenEditorEntry, filter: string): MatchedEntry | null
         };
     }
 
-    const byPath = fuzzyMatchBest(filter, searchText);
+    const byPath = fuzzyMatchPrepared(filter, searchText);
     if (byPath === null) return null;
     return { entry, score: byPath.score, matchedIndices: byPath.matchedIndices };
 }

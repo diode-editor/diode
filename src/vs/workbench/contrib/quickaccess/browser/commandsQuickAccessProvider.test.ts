@@ -82,3 +82,100 @@ describe("CommandsQuickAccessProvider — префикс категории", ()
         expect(labels(provider, "")).toEqual([]);
     });
 });
+
+describe("CommandsQuickAccessProvider — fuzzy-фильтр", () => {
+    it("`go line` находит «Go to Line/Column...» (подстрочный поиск не находил ничего)", () => {
+        const { provider, commands } = createProvider();
+        commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
+
+        expect(labels(provider, "go line")).toEqual(["Go to Line/Column..."]);
+    });
+
+    it("`toggle panel` находит «Toggle Panel Visibility»", () => {
+        const { provider, commands } = createProvider();
+        commands.register(
+            "workbench.action.togglePanel",
+            () => undefined,
+            "Toggle Panel Visibility",
+            undefined,
+            "View",
+        );
+
+        expect(labels(provider, "toggle panel")).toEqual(["View: Toggle Panel Visibility"]);
+    });
+
+    it("термы матчатся в любом порядке", () => {
+        const { provider, commands } = createProvider();
+        commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
+
+        expect(labels(provider, "line go")).toEqual(["Go to Line/Column..."]);
+    });
+
+    it("найтись обязаны ВСЕ термы", () => {
+        const { provider, commands } = createProvider();
+        commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
+
+        expect(labels(provider, "go zebra")).toEqual([]);
+    });
+
+    it("несколько пробелов подряд и хвостовой пробел ничего не меняют", () => {
+        const { provider, commands } = createProvider();
+        commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
+
+        expect(labels(provider, "go  line")).toEqual(["Go to Line/Column..."]);
+        expect(labels(provider, "go line ")).toEqual(["Go to Line/Column..."]);
+        expect(labels(provider, " go line")).toEqual(["Go to Line/Column..."]);
+    });
+
+    it("запрос из одних пробелов отдаёт весь список, а не пустой", () => {
+        const { provider, commands } = createProvider();
+        commands.register("a.b", () => undefined, "Save");
+
+        expect(labels(provider, "   ")).toEqual(["Save"]);
+    });
+
+    it("fuzzy, а не подстрока: буквы могут идти с разрывами", () => {
+        const { provider, commands } = createProvider();
+        commands.register("a.b", () => undefined, "Toggle Word Wrap");
+
+        expect(labels(provider, "twwrap")).toEqual(["Toggle Word Wrap"]);
+    });
+});
+
+describe("CommandsQuickAccessProvider — порядок и подсветка", () => {
+    it("лучшее совпадение идёт первым, а не в порядке регистрации", () => {
+        const { provider, commands } = createProvider();
+        // Совпадение по серёдке слов регистрируем ПЕРВЫМ, чтобы порядок реестра
+        // не мог случайно совпасть с порядком по очкам.
+        commands.register("a.b", () => undefined, "Toggle Goal Baseline");
+        commands.register("c.d", () => undefined, "Go to Line/Column...");
+
+        expect(labels(provider, "go line")).toEqual(["Go to Line/Column...", "Toggle Goal Baseline"]);
+    });
+
+    it("пустой запрос сохраняет порядок реестра (сортировка стабильная)", () => {
+        const { provider, commands } = createProvider();
+        commands.register("a.b", () => undefined, "Zebra");
+        commands.register("c.d", () => undefined, "Apple");
+
+        expect(labels(provider, "")).toEqual(["Zebra", "Apple"]);
+    });
+
+    it("подсвечиваются совпавшие куски подписи — по куску на терм", () => {
+        const { provider, commands } = createProvider();
+        commands.register("c.d", () => undefined, "Go Line");
+
+        // "Go Line": `go` → 0..1, `line` → 3..6.
+        expect(provider.getItems(">go line")[0].labelMatchRanges).toEqual([
+            [0, 2],
+            [3, 7],
+        ]);
+    });
+
+    it("у пустого запроса подсветки нет", () => {
+        const { provider, commands } = createProvider();
+        commands.register("c.d", () => undefined, "Go Line");
+
+        expect(provider.getItems(">")[0].labelMatchRanges).toEqual([]);
+    });
+});

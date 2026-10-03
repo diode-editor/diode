@@ -198,6 +198,52 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
     });
 });
 
+describe("OpenEditorsQuickAccessProvider — запрос из нескольких термов", () => {
+    it("`edt ` остаётся рабочим префиксом: он срезается ДО разбора по пробелам", () => {
+        // Разбор целого запроса оставил бы `edt` отдельным термом, и ни одна
+        // вкладка его бы не прошла.
+        const { provider } = createProvider([makePane(`${ROOT}/src/index.ts`)]);
+
+        expect(provider.getItems(query("")).map((item) => item.label)).toEqual(["index.ts"]);
+    });
+
+    it("термы матчатся по каталогу и по имени разом", () => {
+        const { provider } = createProvider([
+            makePane(`${ROOT}/src/editor/core.ts`),
+            makePane(`${ROOT}/lib/editor/core.ts`),
+            makePane(`${ROOT}/src/main.ts`),
+        ]);
+
+        expect(provider.getItems(query("src core")).map((item) => item.label)).toEqual(["core.ts"]);
+    });
+
+    it("найтись обязаны все термы", () => {
+        const { provider } = createProvider([makePane(`${ROOT}/src/core.ts`)]);
+
+        expect(provider.getItems(query("src zebra"))).toEqual([]);
+    });
+
+    it("несколько пробелов подряд и хвостовой пробел не меняют выдачу", () => {
+        const { provider } = createProvider([makePane(`${ROOT}/src/core.ts`), makePane(`${ROOT}/lib/main.ts`)]);
+
+        for (const filter of ["src core", "src  core", "src core "]) {
+            expect(
+                provider.getItems(query(filter)).map((item) => item.label),
+                filter,
+            ).toEqual(["core.ts"]);
+        }
+    });
+
+    it("подсветка разносится по обеим половинам строки, кусок на терм", () => {
+        const { provider } = createProvider([makePane(`${ROOT}/src/core.ts`)]);
+
+        const [item] = provider.getItems(query("src core"));
+        expect(item.description).toBe("src");
+        expect(item.descriptionMatchRanges).toEqual([[0, 3]]);
+        expect(item.labelMatchRanges).toEqual([[0, 4]]);
+    });
+});
+
 describe("OpenEditorsQuickAccessProvider — строка и принятие", () => {
     it("несохранённая вкладка помечена точкой, сохранённая — нет", () => {
         const { provider } = createProvider([makePane(`${ROOT}/a.ts`, { modified: true }), makePane(`${ROOT}/b.ts`)]);

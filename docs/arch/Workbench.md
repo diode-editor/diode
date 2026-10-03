@@ -387,18 +387,31 @@ hide-toggle (`isHiddenByDefault`). См.
     `onIndexChanged` с сохранением курсора, `file:line[:col]`-суффикс через
     `QuickOpenParsing`), `CommandsQuickAccessProvider` (`>`:
     `CommandRegistry.listCommands` + шорткаты из
-    `KeybindingRegistry`/`ContextKeyService`), `GotoLineQuickAccessProvider`
+    `KeybindingRegistry`/`ContextKeyService`, fuzzy-фильтр по подписи с
+    сортировкой по очкам), `GotoLineQuickAccessProvider`
     (`:`; активный редактор — шов `IGotoLineEditorSource` → `EditorService`
     структурно, биндинг в `Modules/WorkbenchModule.ts`),
     `OpenEditorsQuickAccessProvider` (`edt ` — открытые вкладки,
     `workbench.action.showAllEditors`, Ctrl+K Ctrl+P: список всех групп в
     MRU-порядке через `EditorService.getOpenEditorsMru()`, переход —
     `revealPane` через границу группы; fuzzy — тот же, что у файлов
-    (`fuzzyMatchBest` + `BASENAME_BONUS`, раскладка совпадений по колонкам —
+    (`fuzzyMatchPrepared` + `BASENAME_BONUS`, раскладка совпадений по колонкам —
     общий `pathMatchRanges.ts`); швы `IOpenEditorsSource` → `EditorService` и
     `IWorkspaceRootSource` → `ExplorerService`, оба структурно). Соседний
     hold-оверлей Ctrl+Tab (`TabSwitcherComponent`) показывает тот же MRU, но
     без ввода — это разные поверхности над одной моделью.
+  - **Подготовка запроса — одна на все пикеры.** Строку запроса разбирает
+    `prepareQuery` (`base/common/fuzzySearch.ts`, аналог одноимённого
+    `vs/base/common/fuzzyScorer.ts`): пробел — **разделитель термов**, а не
+    искомый символ, совпасть обязаны все термы (AND), очки суммируются, индексы
+    сводятся в один возрастающий набор. Два правила, которые легко нарушить:
+    разбор идёт **после** снятия префикса провайдера (у `edt ` он сам кончается
+    пробелом) и **один раз на запрос**, до цикла по записям — `PreparedQuery`
+    носит и готовую маску символов (`bits`) для дешёвого отсева, которым
+    пользуется индекс `FileSearchService`. Потребители: палитра, файловый пикер,
+    пикер открытых редакторов, Keyboard Shortcuts. Поиск в Extensions view
+    остаётся подстрочным сознательно: его матчер (`matchesExtensionQuery`) —
+    часть формата реестра магазина, общего с витриной и сайтом.
   - `Services/QuickOpenService.ts` — контроллер показа Quick Open (аналог
     `QuickAccessController`): `show(prefix)` занимает общий виджет, дальше
     ведёт запрос через реестр (смена префикса на лету переключает провайдера),

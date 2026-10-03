@@ -44,9 +44,8 @@ export default defineScenario({
 
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput", { timeoutMs: 30_000 });
-        // Палитра фильтрует подстрокой (fuzzy — отдельный узел), поэтому запрос
-        // буквальный. Он же проверяет склейку: `Java: ` есть только в подписи,
-        // собранной из category и title, — в самом заголовке такого нет.
+        // Запрос проверяет склейку: `Java: ` есть только в подписи, собранной
+        // из category и title, — в самом заголовке такого нет.
         await editor.sendText("Java: ");
 
         const frame = await editor.waitForText((t) => t.includes("Java: Switch to Standard Mode"), {

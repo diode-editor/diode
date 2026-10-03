@@ -73,4 +73,12 @@ describe("FileSearchService.search (10k index)", () => {
     bench("search non-matching query", () => {
         searchService.search("zzzznomatch", 50);
     });
+
+    // Запрос из нескольких термов: матчер прогоняется по тексту на каждый терм,
+    // поэтому стоимость растёт с их числом. Контрольная точка против
+    // одно-термового «search path fragment» — чтобы разбиение по пробелам не
+    // уехало в разы на горячем пути.
+    bench("search two terms", () => {
+        searchService.search("dir2 module", 50);
+    });
 });

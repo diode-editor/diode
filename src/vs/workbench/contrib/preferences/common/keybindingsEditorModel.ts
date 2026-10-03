@@ -1,5 +1,5 @@
-import type { FuzzyMatch } from "../../../../base/common/fuzzySearch.ts";
-import { fuzzyMatchBest } from "../../../../base/common/fuzzySearch.ts";
+import type { FuzzyMatch, PreparedQuery } from "../../../../base/common/fuzzySearch.ts";
+import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import type { ICommandSnapshot } from "../../../../platform/commands/common/commandRegistry.ts";
 import { findConflictingBindings } from "../../../../platform/keybinding/common/keybindingConflicts.ts";
 import type {
@@ -92,15 +92,49 @@ function parseQuery(query: string): IParsedQuery {
     let source: KeybindingSource | null = null;
     let conflictsOnly = false;
     const rest: string[] = [];
-    // Stryker disable next-line MethodExpression,Regex: токенизация запроса устойчива к лишним пробелам — пустые токены не совпадают ни с одним префиксом-фильтром и не меняют fuzzy-текст.
-    for (const word of query.trim().split(/\s+/)) {
+    // Stryker disable next-line Regex: вид разделителя тут не наблюдаем — лишние пробелы и пустые токены прореживает prepareQuery ниже, а не этот сплит.
+    for (const word of query.split(/\s+/)) {
         const filter = SOURCE_FILTERS[word.toLowerCase()];
         if (filter !== undefined) source = filter;
         else if (word.toLowerCase() === "@conflicts") conflictsOnly = true;
         else rest.push(word);
     }
-    // Stryker disable next-line StringLiteral: join('') vs join(' ') не меняет членство в fuzzy-выдаче (пробел в запросе — необязательный символ), только счёт.
+    // Пробел обязателен: остаток запроса едет в prepareQuery, который режет его
+    // на термы по пробелам — склейка в одно слово сузила бы выдачу.
     return { source, conflictsOnly, text: rest.join(" ") };
+}
+
+/**
+ * Поиск по комбинации — по той подписи, что видна в таблице, а на маке ещё и по
+ * словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать.
+ */
+function matchesKeyLabel(query: PreparedQuery, chord: KeybindingChord, style: KeybindingLabelStyle): boolean {
+    const labels =
+        style === "mac"
+            ? [formatKeybinding(chord, "mac"), formatKeybinding(chord, "macWords")]
+            : [formatKeybinding(chord, style)];
+    return labels.some((label) => fuzzyMatchPrepared(query, label) !== null);
+}
+
+/**
+ * Надбавка за совпадение в подписи — тот же приём, что `BASENAME_BONUS` у
+ * файлового пикера: совпасть в том, что пользователь читает, важнее, чем в id
+ * команды. Совпадение только по подписи комбинации очков не приносит вовсе и
+ * оседает в хвосте.
+ */
+const TITLE_MATCH_BONUS = 200;
+
+/** Строка с ключом сортировки; наружу уезжает только {@link IFilteredKeybindingItem}. */
+interface IRankedKeybindingItem {
+    readonly entry: IFilteredKeybindingItem;
+    readonly score: number;
+}
+
+/** Префикс-фильтры запроса (`@source:`, `@conflicts`) — отбор до fuzzy. */
+function passesPrefixFilters(item: IKeybindingItem, parsed: IParsedQuery): boolean {
+    if (parsed.source !== null && item.source !== parsed.source) return false;
+    if (parsed.conflictsOnly && !item.hasConflict) return false;
+    return true;
 }
 
 /**
@@ -109,42 +143,46 @@ function parseQuery(query: string): IParsedQuery {
  * биндинга (поэтому `@conflicts ctrl+k ctrl+u` сужает до группы одной
  * комбинации). Подсветка возвращается только для совпадения по title:
  * подсвечивать колонку клавиш по fuzzy-огрызку — шум.
+ *
+ * Выдача **ранжируется**, а не остаётся в алфавитном порядке списка: запрос из
+ * нескольких термов ищет их по отдельности, и точное совпадение по подписи
+ * иначе тонет среди команд, у которых термы нашлись где-то в id («Show Hover»
+ * уезжала в конец, потому что `show` и `hover` есть в
+ * `editor.action.showPrevParameterHint`). Сортировка стабильная, поэтому при
+ * равных очках порядок остаётся исходным (по title) — строки одной команды
+ * держатся рядом.
  */
-/**
- * Поиск по комбинации — по той подписи, что видна в таблице, а на маке ещё и по
- * словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать.
- */
-function matchesKeyLabel(text: string, chord: KeybindingChord, style: KeybindingLabelStyle): boolean {
-    const labels =
-        style === "mac"
-            ? [formatKeybinding(chord, "mac"), formatKeybinding(chord, "macWords")]
-            : [formatKeybinding(chord, style)];
-    return labels.some((label) => fuzzyMatchBest(text, label) !== null);
-}
-
 export function filterKeybindingItems(
     items: readonly IKeybindingItem[],
     query: string,
     style: KeybindingLabelStyle = "pc",
 ): IFilteredKeybindingItem[] {
     const parsed = parseQuery(query);
-    const result: IFilteredKeybindingItem[] = [];
-    for (const item of items) {
-        if (parsed.source !== null && item.source !== parsed.source) continue;
-        if (parsed.conflictsOnly && !item.hasConflict) continue;
-        if (parsed.text === "") {
-            result.push({ item, titleMatch: null });
-            continue;
-        }
-        const titleMatch = fuzzyMatchBest(parsed.text, item.title);
+    const candidates = items.filter((item) => passesPrefixFilters(item, parsed));
+    // Разбор запроса — один раз на фильтр, а не на строку таблицы. Пробел режет
+    // его на термы, совпасть обязаны все: `go line` находит «Go to Line/Column…».
+    const prepared = prepareQuery(parsed.text);
+    // Пустой остаток запроса: отработали только префикс-фильтры, подсвечивать
+    // нечего и ранжировать не по чему — порядок исходный.
+    if (prepared.terms.length === 0) return candidates.map((item) => ({ item, titleMatch: null }));
+
+    const ranked: IRankedKeybindingItem[] = [];
+    for (const item of candidates) {
+        const titleMatch = fuzzyMatchPrepared(prepared, item.title);
         if (titleMatch !== null) {
-            result.push({ item, titleMatch });
+            ranked.push({ entry: { item, titleMatch }, score: titleMatch.score + TITLE_MATCH_BONUS });
             continue;
         }
-        const idMatch = fuzzyMatchBest(parsed.text, item.commandId);
-        if (idMatch !== null || (item.chord !== null && matchesKeyLabel(parsed.text, item.chord, style))) {
-            result.push({ item, titleMatch: null });
+        const idMatch = fuzzyMatchPrepared(prepared, item.commandId);
+        if (idMatch !== null) {
+            ranked.push({ entry: { item, titleMatch: null }, score: idMatch.score });
+            continue;
+        }
+        if (item.chord !== null && matchesKeyLabel(prepared, item.chord, style)) {
+            ranked.push({ entry: { item, titleMatch: null }, score: 0 });
         }
     }
-    return result;
+
+    ranked.sort((a, b) => b.score - a.score);
+    return ranked.map((rankedItem) => rankedItem.entry);
 }

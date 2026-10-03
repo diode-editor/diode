@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { Disposable } from "@tuidom/core/common/disposable";
 
-import { charMask, fuzzyMatchBestLower } from "../../../../base/common/fuzzySearch.ts";
+import { charMask, fuzzyMatchPreparedLower, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -132,12 +132,20 @@ export class FileSearchService extends Disposable {
      * Search the index for files matching `query`. Works on a partial index
      * while a background walk is still in progress.
      *
-     * - Empty query: returns first `maxResults` entries with score 0.
+     * - Empty query (or whitespace only): returns first `maxResults` entries
+     *   with score 0.
      * - Non-empty query: tries fuzzy match on the basename first (with bonus),
      *   falls back to matching the full relative path. Sorted by score desc.
+     *
+     * A query is split into space-separated terms, all of which must match
+     * (`prepareQuery`) — `src other` finds `src/.../other.ts`.
      */
     public search(query: string, maxResults = 50): FileSearchResult[] {
-        if (query === "") {
+        // Parse the query once per keystroke, before the loop over the index:
+        // lowercasing, the term split and the char mask must not repeat per
+        // entry (that is the whole point of the prepared query / `*Lower` API).
+        const prepared = prepareQuery(query);
+        if (prepared.terms.length === 0) {
             return this.entries.slice(0, maxResults).map((entry) => ({
                 entry,
                 score: 0,
@@ -146,15 +154,13 @@ export class FileSearchService extends Disposable {
         }
 
         const results: FileSearchResult[] = [];
-        // Lowercase the query once; entries carry pre-lowercased strings so the
-        // hot loop allocates no case-folded strings per keystroke.
-        const queryLower = query.toLowerCase();
-        // Char-presence mask of the query, computed once. A fuzzy match needs
-        // every query char present in the text, so an entry whose path lacks any
-        // of them cannot match at all — reject it with one integer AND before
-        // touching the matcher. The path mask covers the basename too (the path
-        // contains it), so it is the necessary condition for either match path.
-        const queryBits = charMask(queryLower);
+        // Char-presence mask of the query, computed once by `prepareQuery`. A
+        // fuzzy match needs every query char present in the text, so an entry
+        // whose path lacks any of them cannot match at all — reject it with one
+        // integer AND before touching the matcher. The path mask covers the
+        // basename too (the path contains it), so it is the necessary condition
+        // for either match path.
+        const queryBits = prepared.bits;
 
         for (const entry of this.entries) {
             // Cheap reject: path lacks some query char → neither basename nor
@@ -165,7 +171,7 @@ export class FileSearchService extends Disposable {
             // basename itself could contain every query char.
             const basenameMatch =
                 (entry.basenameBits & queryBits) === queryBits
-                    ? fuzzyMatchBestLower(queryLower, entry.basename, entry.basenameLower)
+                    ? fuzzyMatchPreparedLower(prepared, entry.basename, entry.basenameLower)
                     : null;
             if (basenameMatch !== null) {
                 // Re-map indices from basename space to relativePath space
@@ -179,7 +185,7 @@ export class FileSearchService extends Disposable {
             }
 
             // Fall back to matching against the full relative path
-            const pathMatch = fuzzyMatchBestLower(queryLower, entry.relativePath, entry.relativePathLower);
+            const pathMatch = fuzzyMatchPreparedLower(prepared, entry.relativePath, entry.relativePathLower);
             if (pathMatch !== null) {
                 results.push({
                     entry,
