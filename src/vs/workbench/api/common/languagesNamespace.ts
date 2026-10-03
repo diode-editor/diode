@@ -229,6 +229,8 @@ interface IWireFoldingParams {
 
 /** Wire-параметры запроса definition (host → subprocess). */
 interface IWireDefinitionParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle?: number;
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
@@ -251,6 +253,8 @@ interface IWireHoverParams {
 
 /** Wire-параметры запроса references (host → subprocess). */
 interface IWireReferenceParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle?: number;
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
@@ -702,8 +706,6 @@ export function createLanguagesNamespace(
     registrations: readonly ICompletionRegistration[];
     inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
-    definitionRegistrations: readonly IDefinitionRegistration[];
-    referenceRegistrations: readonly IReferenceRegistration[];
     signatureHelpRegistrations: readonly ISignatureHelpRegistration[];
     formattingRegistrations: readonly IFormattingRegistration[];
     rangeFormattingRegistrations: readonly IRangeFormattingRegistration[];
@@ -713,10 +715,11 @@ export function createLanguagesNamespace(
     const registrations: ICompletionRegistration[] = [];
     const inlineCompletionRegistrations: IInlineCompletionRegistration[] = [];
     const foldingRegistrations: IFoldingRegistration[] = [];
-    const definitionRegistrations: IDefinitionRegistration[] = [];
     // Провайдеры фич, переехавших в реестр ядра: по handle, который ядро
     // присылает в запросе (upstream ExtHostLanguageFeatures._adapter).
     const hoverProviders = new Map<number, IHoverRegistration>();
+    const definitionProviders = new Map<number, IDefinitionRegistration>();
+    const referenceProviders = new Map<number, IReferenceRegistration>();
     let nextProviderHandle = 0;
 
     /**
@@ -738,7 +741,6 @@ export function createLanguagesNamespace(
             if (providers.delete(handle)) rpc.notify("languages.unregister", { handle });
         }) as unknown as vscode.Disposable;
     }
-    const referenceRegistrations: IReferenceRegistration[] = [];
     const signatureHelpRegistrations: ISignatureHelpRegistration[] = [];
     const formattingRegistrations: IFormattingRegistration[] = [];
     const rangeFormattingRegistrations: IRangeFormattingRegistration[] = [];
@@ -814,8 +816,6 @@ export function createLanguagesNamespace(
         rpc.notify("languages.updateSubscriptions", {
             hasCompletionProviders: registrations.length > 0,
             hasFoldingProviders: foldingRegistrations.length > 0,
-            hasDefinitionProviders: definitionRegistrations.length > 0,
-            hasReferenceProviders: referenceRegistrations.length > 0,
             // Символы, после которых ядро обязано само открыть попап («.» у
             // tsserver). Сервер объявляет их в completionProvider, стоковый
             // клиент передаёт их в registerCompletionItemProvider — до этой
@@ -838,34 +838,32 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest("languages.provideDefinition", async (params): Promise<WireDefinitionLocation[]> => {
         const p = params as IWireDefinitionParams;
+        // Провайдер мог сняться, пока запрос летел: отвечаем «целей нет».
+        const reg = definitionProviders.get(p.handle ?? -1);
+        if (reg === undefined) return [];
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
         });
         const position = new Position(p.line ?? 0, p.character ?? 0);
-        const token = neverCancelledToken();
-
+        let result: unknown;
+        try {
+            result = await Promise.resolve(
+                reg.provider.provideDefinition(
+                    doc as unknown as vscode.TextDocument,
+                    position as unknown as vscode.Position,
+                    neverCancelledToken(),
+                ),
+            );
+        } catch {
+            // Сбойный провайдер = «целей нет»: `result` остаётся неприсвоенным,
+            // и сериализация ниже его отбрасывает.
+        }
         const locations: WireDefinitionLocation[] = [];
-        for (const reg of definitionRegistrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
-            let result: unknown;
-            try {
-                result = await Promise.resolve(
-                    reg.provider.provideDefinition(
-                        doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
-                        token,
-                    ),
-                );
-            } catch {
-                continue; // сбойный провайдер не роняет остальные
-            }
-            if (result == null) continue;
-            for (const item of Array.isArray(result) ? result : [result]) {
-                const wire = serializeDefinitionLocation(item);
-                if (wire !== null) locations.push(wire);
-            }
+        for (const item of Array.isArray(result) ? result : [result]) {
+            const wire = serializeDefinitionLocation(item);
+            if (wire !== null) locations.push(wire);
         }
         return locations;
     });
@@ -949,6 +947,9 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest("languages.provideReferences", async (params): Promise<WireReference[]> => {
         const p = params as IWireReferenceParams;
+        // Провайдер мог сняться, пока запрос летел: отвечаем «ссылок нет».
+        const reg = referenceProviders.get(p.handle ?? -1);
+        if (reg === undefined) return [];
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
@@ -957,33 +958,27 @@ export function createLanguagesNamespace(
         });
         const position = new Position(p.line ?? 0, p.character ?? 0);
         const context = { includeDeclaration: p.includeDeclaration === true };
-        const token = neverCancelledToken();
-
+        let result: unknown;
+        try {
+            result = await Promise.resolve(
+                reg.provider.provideReferences(
+                    doc as unknown as vscode.TextDocument,
+                    position as unknown as vscode.Position,
+                    context as vscode.ReferenceContext,
+                    neverCancelledToken(),
+                ),
+            );
+        } catch {
+            // Сбойный провайдер = «ссылок нет»: `result` остаётся неприсвоенным,
+            // и его отсеивает общая проверка ниже.
+        }
+        // References — всегда массив (`ProviderResult<Location[]>`), в
+        // отличие от definition с его одиночной формой.
+        if (!Array.isArray(result)) return [];
         const references: WireReference[] = [];
-        for (const reg of referenceRegistrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
-            let result: unknown;
-            try {
-                result = await Promise.resolve(
-                    reg.provider.provideReferences(
-                        doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
-                        context as vscode.ReferenceContext,
-                        token,
-                    ),
-                );
-            } catch {
-                // Сбойный провайдер не роняет остальные: `result` остаётся
-                // неприсвоенным, и его отсеивает общая проверка ниже — своего
-                // `continue` тут нет намеренно, иначе ветка неотличима от неё.
-            }
-            // References — всегда массив (`ProviderResult<Location[]>`), в
-            // отличие от definition с его одиночной формой.
-            if (!Array.isArray(result)) continue;
-            for (const item of result) {
-                const wire = serializeDefinitionLocation(item);
-                if (wire !== null) references.push(wire);
-            }
+        for (const item of result) {
+            const wire = serializeDefinitionLocation(item);
+            if (wire !== null) references.push(wire);
         }
         return references;
     });
@@ -1553,35 +1548,13 @@ export function createLanguagesNamespace(
         registerDefinitionProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DefinitionProvider,
-        ): vscode.Disposable => {
-            const registration: IDefinitionRegistration = { selector, provider };
-            definitionRegistrations.push(registration);
-            if (definitionRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = definitionRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    definitionRegistrations.splice(idx, 1);
-                    if (definitionRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
-        },
+        ): vscode.Disposable => registerByHandle(definitionProviders, "definition", selector, { selector, provider }),
         registerHoverProvider: (selector: vscode.DocumentSelector, provider: vscode.HoverProvider): vscode.Disposable =>
             registerByHandle(hoverProviders, "hover", selector, { selector, provider }),
         registerReferenceProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.ReferenceProvider,
-        ): vscode.Disposable => {
-            const registration: IReferenceRegistration = { selector, provider };
-            referenceRegistrations.push(registration);
-            if (referenceRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = referenceRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    referenceRegistrations.splice(idx, 1);
-                    if (referenceRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
-        },
+        ): vscode.Disposable => registerByHandle(referenceProviders, "references", selector, { selector, provider }),
 
         registerSignatureHelpProvider: (
             selector: vscode.DocumentSelector,
@@ -1703,8 +1676,6 @@ export function createLanguagesNamespace(
         registrations,
         inlineCompletionRegistrations,
         foldingRegistrations,
-        definitionRegistrations,
-        referenceRegistrations,
         signatureHelpRegistrations,
         formattingRegistrations,
         rangeFormattingRegistrations,

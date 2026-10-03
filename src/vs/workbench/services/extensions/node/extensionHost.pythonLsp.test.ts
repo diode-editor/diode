@@ -9,7 +9,11 @@ import {
     PY_LANGUAGE_SERVICE,
     until,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideDefinitions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -108,9 +112,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
 
             // Каретка на вызове `greet` (строка 2, внутри имени) → объявление.
             const locations = await until("definition вызова greet", async () => {
-                const source = harness.group.definitionSource;
-                if (source === undefined) return null;
-                const found = await source({
+                const found = await provideDefinitions(harness, {
                     uri: mainUri,
                     languageId: "python",
                     text: MAIN_PY,

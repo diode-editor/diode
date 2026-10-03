@@ -605,10 +605,6 @@ export class ExtensionHost extends Disposable {
     private inlineCompletionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
     private foldingSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные definition-провайдеры (см. `languages.updateSubscriptions`). */
-    private definitionSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные references-провайдеры (см. `languages.updateSubscriptions`). */
-    private referencesSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные провайдеры подсказки параметров (см. `languages.updateSubscriptions`). */
     private signatureHelpSubscribed = false;
     /** Есть ли в субпроцессе провайдеры форматирования — документные или range (см. `languages.updateSubscriptions`). */
@@ -1369,15 +1365,19 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса цели definition для позиции курсора
-     * (`languages.provideDefinition`). Возвращает `[]`, если субпроцесса нет,
-     * никто не зарегистрировал провайдеры, документ слишком большой или
-     * расширение не ответило за `definitionTimeoutMs`. Подключается в
-     * `EditorService.definitionSource` (wiring в module/харнессе).
+     * Запрашивает у definition-провайдера субпроцесса `handle` цели для позиции
+     * курсора (`languages.provideDefinition`). Возвращает `[]`, если субпроцесса
+     * нет, документ слишком большой или расширение не ответило за
+     * `definitionTimeoutMs`. Зовёт его прокси из реестра ядра
+     * (`LanguageFeaturesAdapter`).
      */
-    public async provideDefinition(req: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]> {
+    public async provideDefinition(
+        handle: number,
+        req: IDefinitionRequest,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
         const rpc = this.rpc;
-        if (rpc === null || !this.definitionSubscribed) return [];
+        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return [];
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping definition: document too large", {
                 uri: req.uri,
@@ -1388,6 +1388,7 @@ export class ExtensionHost extends Disposable {
         return requestDefinition(
             (method, params) => rpc.request(method, params),
             {
+                handle,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -1431,16 +1432,16 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса ссылки на символ под курсором
-     * (`languages.provideReferences`). Возвращает `[]`, если субпроцесса нет,
-     * никто не зарегистрировал провайдеры, документ слишком большой или
-     * расширение не ответило за `referencesTimeoutMs`. Подключается в
-     * `EditorService.referenceSource` (wiring в module/харнессе).
+     * Запрашивает у references-провайдера субпроцесса `handle` ссылки на символ
+     * под курсором (`languages.provideReferences`). Возвращает `[]`, если
+     * субпроцесса нет, документ слишком большой или расширение не ответило за
+     * `referencesTimeoutMs`. Зовёт его прокси из реестра ядра
+     * (`LanguageFeaturesAdapter`).
      */
-    public async provideReferences(req: IReferenceRequest): Promise<readonly ICoreReference[]> {
+    public async provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
         const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в shutdownSubprocess, который тем же блоком снимает подписку — пара «канала нет, но провайдеры есть» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null || !this.referencesSubscribed) return [];
+        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return [];
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping references: document too large", {
                 uri: req.uri,
@@ -1451,6 +1452,7 @@ export class ExtensionHost extends Disposable {
         return requestReferences(
             (method, params) => rpc.request(method, params),
             {
+                handle,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -2054,8 +2056,6 @@ export class ExtensionHost extends Disposable {
             const p = params as {
                 hasCompletionProviders?: unknown;
                 hasFoldingProviders?: unknown;
-                hasDefinitionProviders?: unknown;
-                hasReferenceProviders?: unknown;
                 completionTriggerCharacters?: unknown;
                 hasSignatureHelpProviders?: unknown;
                 hasFormattingProviders?: unknown;
@@ -2073,8 +2073,6 @@ export class ExtensionHost extends Disposable {
                     cb(this.completionTriggerCharactersValue);
                 }
             }
-            this.definitionSubscribed = p.hasDefinitionProviders === true;
-            this.referencesSubscribed = p.hasReferenceProviders === true;
             this.signatureHelpSubscribed = p.hasSignatureHelpProviders === true;
             this.formattingSubscribed = p.hasFormattingProviders === true;
             this.codeActionsSubscribed = p.hasCodeActionsProviders === true;
@@ -2518,17 +2516,14 @@ export class ExtensionHost extends Disposable {
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
         this.completionSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed ниже
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и signatureHelpSubscribed ниже
         this.inlineCompletionSubscribed = false;
         this.foldingSubscribed = false;
-        this.definitionSubscribed = false;
         // Stryker disable next-line BooleanLiteral: как и соседние флаги подписок, ненаблюдаем — после этого блока `rpc` уже null, и запрос отсекается гейтом раньше; сброс держим ради чистого листа при респавне
-        this.referencesSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed выше
         this.signatureHelpSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed выше
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и signatureHelpSubscribed выше
         this.formattingSubscribed = false;
-        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и referencesSubscribed выше
+        // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и signatureHelpSubscribed выше
         this.codeActionsSubscribed = false;
         this.documentSyncSubscribed = false;
         // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из

@@ -4,7 +4,6 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { CompletionResolver, CompletionSource } from "../../../../editor/common/languages/iCompletionSource.ts";
-import type { DefinitionSource } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
@@ -15,7 +14,6 @@ import {
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
-import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -217,13 +215,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public inlineCompletionSource?: InlineCompletionSource;
 
     /**
-     * Definition-источник (host/харнесс подключает сюда провайдеры расширений
-     * через `languages.provideDefinition`). Читается `DefinitionService` по
-     * команде Go to Definition; в редакторы не раздаётся (group-level).
-     */
-    public definitionSource?: DefinitionSource;
-
-    /**
      * Источник содержимого недисковых ресурсов (host подключает сюда
      * `workspace.registerTextDocumentContentProvider` расширений). Читается
      * самим сервисом в {@link openUri}: без источника `jdt:`/`class:`-ресурс
@@ -241,13 +232,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * провайдера иначе выглядит как «клавиша не работает».
      */
     public onOpenFailed?: (uri: Uri, reason: string) => void;
-
-    /**
-     * References-источник (host/харнесс подключает сюда провайдеры расширений
-     * через `languages.provideReferences`). Читается `ReferencesService` по
-     * команде Find All References; в редакторы не раздаётся (group-level).
-     */
-    public referenceSource?: ReferenceSource;
 
     /**
      * Источник подсказки параметров (host/харнесс подключает сюда провайдеры

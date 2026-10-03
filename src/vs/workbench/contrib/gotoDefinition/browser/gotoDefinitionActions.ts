@@ -6,7 +6,7 @@ import { DefinitionServiceDIToken } from "./definitionService.ts";
 /**
  * Прыжок к определению символа под кареткой (`editor.action.revealDefinition`).
  * Дефолтный кейбинд — F12 при фокусе редактора, как в VS Code. Цели отдают
- * definition-провайдеры расширений через `EditorService.definitionSource`.
+ * definition-провайдеры реестра `ILanguageFeaturesService.definitionProvider`.
  */
 export const revealDefinitionAction: CommandAction = {
     id: "editor.action.revealDefinition",

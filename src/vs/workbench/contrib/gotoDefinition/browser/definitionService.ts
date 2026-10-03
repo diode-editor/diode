@@ -1,6 +1,8 @@
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreDefinitionLocation } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     EditorStateCancellationTokenSource,
@@ -11,17 +13,20 @@ import { EditorServiceDIToken } from "../../../services/editor/browser/editorSer
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 
+import { getDefinitions } from "./goToSymbol.ts";
+
 export const DefinitionServiceDIToken = token<DefinitionService>("DefinitionService");
 
 /**
  * Логика Go to Definition. По команде (`editor.action.revealDefinition` / F12)
- * запрашивает цели у `EditorService.definitionSource` (провайдеры расширений
- * через host) для позиции каретки и раскрывает первую: в том же файле — прыжок
+ * запрашивает цели у подошедших документу провайдеров реестра
+ * `ILanguageFeaturesService.definitionProvider` для позиции каретки и раскрывает
+ * первую: в том же файле — прыжок
  * каретки, в другом — открытие ресурса и прыжок (паттерн
  * `ProblemsComponent.revealMarker`).
  */
 export class DefinitionService {
-    public static dependencies = [EditorServiceDIToken, JumpRecorderDIToken] as const;
+    public static dependencies = [EditorServiceDIToken, JumpRecorderDIToken, LanguageFeaturesServiceDIToken] as const;
 
     /** Повторный F12 перебивает прежний запрос: прыгает только последний. */
     private readonly latest = new LatestRequest();
@@ -29,11 +34,12 @@ export class DefinitionService {
     public constructor(
         private readonly group: EditorService,
         private readonly jumps: IJumpRecorder,
+        private readonly languageFeatures: ILanguageFeaturesService,
     ) {}
 
     /**
      * Раскрывает определение символа под кареткой активного редактора. No-op,
-     * если нет активного редактора, источника или провайдеры ничего не вернули.
+     * если нет активного редактора или провайдеры ничего не вернули.
      *
      * Ответ, пришедший после правки документа или ухода каретки, не применяется
      * (upstream `goToCommands.ts` — `EditorStateCancellationTokenSource(Value |
@@ -43,8 +49,6 @@ export class DefinitionService {
     public async revealDefinition({ toSide = false }: { toSide?: boolean } = {}): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
-        const source = this.group.definitionSource;
-        if (source === undefined) return;
 
         const state = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value | EditorStateFlag.Position);
         const ticket = this.latest.start(state.token);
@@ -56,7 +60,7 @@ export class DefinitionService {
         // подписка лишь отменила бы уже никому не нужный токен.
         // Stryker disable BlockStatement: см. выше — мутант пустого finally
         try {
-            locations = await source({
+            locations = await getDefinitions(this.languageFeatures.definitionProvider, editor, {
                 uri: editor.uri.toString(),
                 languageId: editor.languageId,
                 text: editor.getText(),

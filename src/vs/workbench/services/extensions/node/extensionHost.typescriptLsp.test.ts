@@ -8,6 +8,7 @@ import {
     createExtensionTestHarness,
     extensionFixture,
     type IExtensionHarness,
+    provideDefinitions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -216,9 +217,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(marker.source).toBe("typescript");
 
             // Go to Definition: каретка на вызове greet → объявление в defs.ts.
-            const source = harness.group.definitionSource;
             const definitionAt = (line: number, character: number) =>
-                source!({
+                provideDefinitions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: harness.group.getActiveEditor()?.getText() ?? "",

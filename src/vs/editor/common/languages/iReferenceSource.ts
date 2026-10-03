@@ -1,7 +1,7 @@
 import type { IRange } from "../core/iRange.ts";
 
 /**
- * Запрос «где используется символ», отправляемый references-источнику. Несёт
+ * Запрос «где используется символ», отправляемый references-провайдеру. Несёт
  * полный снапшот текста + позицию курсора (у хоста нет реестра документов —
  * как definition, снапшот передаётся целиком).
  */
@@ -34,10 +34,10 @@ export interface ICoreReference {
 }
 
 /**
- * References-источник: по запросу возвращает ссылки от всех провайдеров
- * расширений (конкатенация в порядке регистрации). Инъектируется в ядро извне
- * (host/харнесс) — ядро не знает про extension-слой (зеркало
- * {@link ./iDefinitionSource.ts:DefinitionSource}). Пустой результат = ссылок
- * нет либо провайдеров нет вовсе.
+ * Один references-провайдер в реестре `ILanguageFeaturesService.referenceProvider`
+ * (upstream `languages.ReferenceProvider`). Провайдеры расширений регистрирует
+ * туда `LanguageFeaturesAdapter`.
  */
-export type ReferenceSource = (request: IReferenceRequest) => Promise<readonly ICoreReference[]>;
+export interface ReferenceProvider {
+    provideReferences(request: IReferenceRequest): Promise<readonly ICoreReference[]>;
+}

@@ -378,12 +378,12 @@ export const workbenchModule: ContainerModule = (container) => {
     // рисует сам редактор (TextEditorPane.setGhostText), источник — провайдеры
     // расширений через inlineCompletionSource группы.
     container.bind(InlineCompletionsServiceDIToken, InlineCompletionsService);
-    // Go to Definition: сервис без компонента — цели отдаёт definitionSource
-    // группы (провайдеры расширений), навигация — паттерн Problems reveal.
+    // Go to Definition: сервис без компонента — цели отдают definition-провайдеры
+    // реестра ILanguageFeaturesService, навигация — паттерн Problems reveal.
     container.bind(DefinitionServiceDIToken, DefinitionService);
     // Hover: пара по образцу suggest — компонент владеет попапом и его
     // overlay-сессией (host прикрепляет WorkbenchComponent), сервис — логикой
-    // (hoverSource группы, стрип markdown, закрытие по фокусу/каретке).
+    // (hover-провайдеры реестра, стрип markdown, закрытие по фокусу/каретке).
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
     // Подсказка параметров: та же пара — компонент владеет попапом у каретки,
@@ -391,7 +391,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
     // References: вьюлет сайдбара со ссылками + сервис, который его наполняет
-    // (referenceSource группы → текст строк → панель).
+    // (references-провайдеры реестра → текст строк → панель).
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
     container.bind(ReferencesServiceDIToken, ReferencesService);
     // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.

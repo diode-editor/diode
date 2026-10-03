@@ -1,6 +1,11 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import type {
+    ICoreDefinitionLocation,
+    IDefinitionRequest,
+} from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
+import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
 
 import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
 
@@ -17,4 +22,6 @@ export interface IExtensionLanguageFeaturesBridge {
     /** Состав регистраций изменился (регистрация, снятие, смерть субпроцесса). */
     onLanguageProvidersChanged(cb: () => void): IDisposable;
     provideHover(handle: number, request: IHoverRequest): Promise<ICoreHover | undefined>;
+    provideDefinition(handle: number, request: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]>;
+    provideReferences(handle: number, request: IReferenceRequest): Promise<readonly ICoreReference[]>;
 }

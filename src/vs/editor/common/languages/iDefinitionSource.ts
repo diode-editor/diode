@@ -1,7 +1,7 @@
 import type { IRange } from "../core/iRange.ts";
 
 /**
- * Запрос «где определение символа», отправляемый definition-источнику. Несёт
+ * Запрос «где определение символа», отправляемый definition-провайдеру. Несёт
  * полный снапшот текста + позицию курсора (у хоста нет реестра документов —
  * как completion, снапшот передаётся целиком).
  */
@@ -28,9 +28,10 @@ export interface ICoreDefinitionLocation {
 }
 
 /**
- * Definition-источник: по запросу возвращает цели от провайдеров расширений.
- * Инъектируется в ядро извне (host/харнесс) — ядро не знает про extension-слой
- * (зеркало {@link ./iCompletionSource.ts:CompletionSource}). Пустой результат =
- * определение не найдено.
+ * Один definition-провайдер в реестре `ILanguageFeaturesService.definitionProvider`
+ * (upstream `languages.DefinitionProvider`). Пустой результат — определение не
+ * найдено. Провайдеры расширений регистрирует туда `LanguageFeaturesAdapter`.
  */
-export type DefinitionSource = (request: IDefinitionRequest) => Promise<readonly ICoreDefinitionLocation[]>;
+export interface DefinitionProvider {
+    provideDefinition(request: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]>;
+}

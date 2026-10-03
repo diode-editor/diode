@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideReferences,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -21,7 +25,7 @@ function requestFor(uri: string, line: number, includeDeclaration = true): IRefe
 }
 
 describe("ExtensionHost — reference providers (subprocess)", () => {
-    it("два настоящих провайдера: ссылки доезжают конкатенацией в порядке регистрации", async () => {
+    it("два настоящих провайдера: ссылки доезжают конкатенацией, при равном score — новый первым", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: TEXT },
             extensions: [extensionFixture("test.providesReferences", "providesReferences.cjs")],
@@ -30,36 +34,38 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
         try {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
             const otherUri = mainUri.replace("main.ts", "other.ts");
-            const source = harness.group.referenceSource;
-            expect(source).toBeDefined();
 
             // Строка 0 → отвечают оба: объявление + ссылка от первого, чужой
-            // файл от второго.
-            expect(await source!(requestFor(mainUri, 0))).toEqual([
+            // файл от второго. Score одинаковый — второй (зарегистрирован позже)
+            // идёт первым, как в vscode.
+            expect(await provideReferences(harness, requestFor(mainUri, 0))).toEqual([
+                { uri: otherUri, range: createRange(7, 2, 7, 8) },
                 { uri: mainUri, range: createRange(0, 0, 0, 5) },
                 { uri: mainUri, range: createRange(0, 6, 0, 12) },
-                { uri: otherUri, range: createRange(7, 2, 7, 8) },
             ]);
 
             // includeDeclaration: false доезжает до провайдера настоящим
             // `ReferenceContext` — объявления в ответе больше нет.
-            expect(await source!(requestFor(mainUri, 0, false))).toEqual([
-                { uri: mainUri, range: createRange(0, 6, 0, 12) },
+            expect(await provideReferences(harness, requestFor(mainUri, 0, false))).toEqual([
                 { uri: otherUri, range: createRange(7, 2, 7, 8) },
+                { uri: mainUri, range: createRange(0, 6, 0, 12) },
             ]);
 
             // Строка 1 → оба молчат: пустой ответ, не мусор.
-            expect(await source!(requestFor(mainUri, 1))).toEqual([]);
+            expect(await provideReferences(harness, requestFor(mainUri, 1))).toEqual([]);
 
             // Слишком большой документ не гоняется через RPC.
-            const huge = await source!({ ...requestFor(mainUri, 0), text: "x".repeat(8 * 1024 * 1024 + 1) });
+            const huge = await provideReferences(harness, {
+                ...requestFor(mainUri, 0),
+                text: "x".repeat(8 * 1024 * 1024 + 1),
+            });
             expect(huge).toEqual([]);
         } finally {
             await harness.dispose();
         }
     });
 
-    it("без subprocess'а и без провайдеров источник отдаёт []", async () => {
+    it("без subprocess'а и без провайдеров реестр references пуст", async () => {
         // Расширение зарегистрировано, но не активировано — subprocess не поднят.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesReferences", "providesReferences.cjs")],
@@ -67,7 +73,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await lazy.group.referenceSource!(requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideReferences(lazy, requestFor("file:///a.ts", 0))).toEqual([]);
         } finally {
             await lazy.dispose();
         }
@@ -78,7 +84,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await noProviders.group.referenceSource!(requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideReferences(noProviders, requestFor("file:///a.ts", 0))).toEqual([]);
         } finally {
             await noProviders.dispose();
         }

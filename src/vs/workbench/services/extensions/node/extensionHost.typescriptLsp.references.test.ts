@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideReferences,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -99,9 +103,7 @@ describe("ExtensionHost — references от стокового typescript-langua
             // Каретка на вызове `greet` в main.ts — ждём, пока сервер отдаст
             // ссылки не только из открытого файла, но и из defs.ts.
             const references = await until("references для `greet`", async () => {
-                const source = harness.group.referenceSource;
-                if (source === undefined) return null;
-                const found: readonly ICoreReference[] = await source({
+                const found: readonly ICoreReference[] = await provideReferences(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: MAIN_TS,

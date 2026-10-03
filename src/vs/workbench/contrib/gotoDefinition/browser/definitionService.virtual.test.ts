@@ -1,3 +1,4 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +7,8 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
+import type { DefinitionProvider } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { HistoryServiceDIToken } from "../../../services/history/browser/historyService.ts";
 
@@ -51,6 +54,14 @@ describe("DefinitionService — цель на недисковом ресурс�
     });
 
     const group = () => h.container.get(EditorServiceDIToken);
+    let definitions: IDisposable | undefined;
+    /** Единственный definition-провайдер для любого документа (снимает прежнего). */
+    const useDefinitions = (provideDefinition: DefinitionProvider["provideDefinition"]): void => {
+        definitions?.dispose();
+        definitions = h.container
+            .get(LanguageFeaturesServiceDIToken)
+            .definitionProvider.register("*", { provideDefinition });
+    };
     const service = () => h.container.get(DefinitionServiceDIToken);
     const caret = () => group().getActiveEditor()?.viewState.selections[0].active;
 
@@ -59,7 +70,7 @@ describe("DefinitionService — цель на недисковом ресурс�
             canProvide: (scheme) => scheme === "jdt",
             provide: () => Promise.resolve(JDT_SOURCE),
         };
-        group().definitionSource = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
+        useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
 
         await service().revealDefinition();
 
@@ -77,10 +88,11 @@ describe("DefinitionService — цель на недисковом ресурс�
             canProvide: () => true,
             provide: () => Promise.resolve(JDT_SOURCE),
         };
-        group().definitionSource = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(0, 8, 0, 20) }]);
+        useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(0, 8, 0, 20) }]));
 
         h.testApp.sendKey("F12");
-        await flushMicrotasks();
+        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        await flushMicrotasks(10);
 
         expect(group().getActiveEditor()?.uri.scheme).toBe("jdt");
         expect(caret()).toMatchObject({ line: 0, character: 8 });
@@ -89,10 +101,11 @@ describe("DefinitionService — цель на недисковом ресурс�
     it("провайдера схемы нет — F12 сообщает человеку и оставляет исходный файл", async () => {
         const failures: string[] = [];
         group().onOpenFailed = (_uri, reason) => failures.push(reason);
-        group().definitionSource = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
+        useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
 
         h.testApp.sendKey("F12");
-        await flushMicrotasks();
+        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        await flushMicrotasks(10);
 
         expect(group().editorCount).toBe(1);
         expect(group().getActiveEditor()?.uri.scheme).toBe("file");
@@ -107,7 +120,7 @@ describe("DefinitionService — цель на недисковом ресурс�
             canProvide: (scheme) => scheme === "jdt",
             provide: () => Promise.resolve(JDT_SOURCE),
         };
-        group().definitionSource = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
+        useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
         const appUri = Uri.file(ws.path("App.java")).toString();
         group().getActiveEditor()?.goToPosition(1, 4);
 
@@ -135,7 +148,7 @@ describe("DefinitionService — цель на недисковом ресурс�
     it("цель в АКТИВНОМ редакторе не переоткрывается, но каретка доезжает", async () => {
         const provide = vi.fn<() => Promise<string | null>>().mockResolvedValue(JDT_SOURCE);
         group().virtualDocumentSource = { canProvide: () => true, provide };
-        group().definitionSource = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
+        useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
         await service().revealDefinition();
         expect(provide).toHaveBeenCalledTimes(1);
 
@@ -155,7 +168,7 @@ describe("DefinitionService — цель на недисковом ресурс�
             provide: () => Promise.resolve(JDT_SOURCE),
         };
         const source = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
-        group().definitionSource = source;
+        useDefinitions(source);
 
         // Вкладок нет — спрашивать провайдеров определения не у чего.
         h.commands.execute("workbench.action.closeActiveEditor");
@@ -170,7 +183,7 @@ describe("DefinitionService — цель на недисковом ресурс�
             canProvide: () => true,
             provide: () => Promise.resolve(JDT_SOURCE),
         };
-        group().definitionSource = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
+        useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
 
         await service().revealDefinition({ toSide: true });
 

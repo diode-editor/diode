@@ -23,6 +23,7 @@ const URI = "file:///proj/main.ts";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
+        handle: 0,
         uri: URI,
         languageId: "typescript",
         text: "const a = b;\n",
@@ -43,69 +44,25 @@ function wireLocation(uri: string, line: number): unknown {
 }
 
 describe("LanguagesNamespace — registerReferenceProvider", () => {
-    it("подписка сигналится на переходах 0↔1 (hasReferenceProviders)", () => {
+    it("регистрация объявляется ядру с handle и селектором, dispose — снимает (один раз)", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const subs = (): typeof stub.notifies =>
-            stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
+        const sent = () => stub.notifies.filter((n) => n.method.startsWith("languages."));
 
-        const first = languages.registerReferenceProvider(
+        const registration = languages.registerReferenceProvider(
             { language: "typescript" },
             { provideReferences: () => null },
         );
-        expect(subs()).toEqual([
+        expect(sent()).toEqual([
             {
-                method: "languages.updateSubscriptions",
-                params: {
-                    hasCompletionProviders: false,
-                    hasFoldingProviders: false,
-                    hasDefinitionProviders: false,
-                    hasReferenceProviders: true,
-                    hasSignatureHelpProviders: false,
-                    hasFormattingProviders: false,
-                    hasCodeActionsProviders: false,
-                    hasInlineCompletionProviders: false,
-                    signatureHelpTriggerCharacters: [],
-                    signatureHelpRetriggerCharacters: [],
-                    completionTriggerCharacters: [],
-                },
+                method: "languages.register",
+                params: { handle: 0, kind: "references", selector: [{ language: "typescript" }] },
             },
         ]);
 
-        const second = languages.registerReferenceProvider(
-            { language: "typescript" },
-            { provideReferences: () => null },
-        );
-        expect(subs()).toHaveLength(1);
-
-        first.dispose();
-        expect(subs()).toHaveLength(1);
-        second.dispose();
-        expect(subs()).toHaveLength(2);
-        expect(subs()[1].params).toEqual({
-            hasCompletionProviders: false,
-            hasFoldingProviders: false,
-            hasDefinitionProviders: false,
-            hasReferenceProviders: false,
-            hasSignatureHelpProviders: false,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
-            hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
-            completionTriggerCharacters: [],
-        });
-        // Повторный dispose — идемпотентен, без лишних нотификаций.
-        second.dispose();
-        expect(subs()).toHaveLength(2);
-    });
-
-    it("реестр регистраций доступен снаружи (его читают тесты и диагностика хоста)", () => {
-        const { ctx } = makeCtx();
-        const { languages, referenceRegistrations } = createLanguagesNamespace(ctx);
-        expect(referenceRegistrations).toHaveLength(0);
-        languages.registerReferenceProvider({ language: "typescript" }, { provideReferences: () => null });
-        expect(referenceRegistrations).toHaveLength(1);
+        registration.dispose();
+        registration.dispose();
+        expect(sent().slice(1)).toEqual([{ method: "languages.unregister", params: { handle: 0 } }]);
     });
 });
 
@@ -157,27 +114,20 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
         expect(seen).toEqual([{ includeDeclaration: false }, { includeDeclaration: false }]);
     });
 
-    it("несколько провайдеров: результаты конкатенируются в порядке регистрации, сбойный пропускается", async () => {
+    it("зовётся ровно провайдер запрошенного handle; сбойный, пустой и неизвестный — []", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
+        const ask = (handle: unknown) => stub.callRequest("languages.provideReferences", requestParams({ handle }));
 
-        // 1. Чужой селектор — не спрашиваем вовсе.
-        let askedForeign = false;
-        languages.registerReferenceProvider(
-            { language: "python" },
-            {
-                provideReferences: () => {
-                    askedForeign = true;
-                    return [location("file:///proj/python.py", 0)];
-                },
-            },
-        );
-        // 2. Первый рабочий.
+        // 0. Рабочий — асинхронный, с двумя ссылками.
         languages.registerReferenceProvider(
             { language: "typescript" },
-            { provideReferences: () => [location("file:///proj/a.ts", 1)] },
+            {
+                provideReferences: () =>
+                    Promise.resolve([location("file:///proj/b.ts", 2), location("file:///proj/c.ts", 3)]),
+            },
         );
-        // 3. Сбойный — бросает синхронно.
+        // 1. Сбойный — бросает синхронно.
         languages.registerReferenceProvider(
             { language: "typescript" },
             {
@@ -186,31 +136,26 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
                 },
             },
         );
-        // 4. Отклонённый промис — тоже не роняет остальных.
+        // 2. Отклонённый промис.
         languages.registerReferenceProvider(
             { language: "typescript" },
             { provideReferences: () => Promise.reject(new Error("nope")) },
         );
-        // 5. Пустой ответ и null.
-        languages.registerReferenceProvider({ language: "typescript" }, { provideReferences: () => [] });
+        // 3. null.
         languages.registerReferenceProvider({ language: "typescript" }, { provideReferences: () => null });
-        // 6. Второй рабочий — асинхронный, с двумя ссылками.
+        // 4. Второй рабочий.
         languages.registerReferenceProvider(
             { language: "typescript" },
-            {
-                provideReferences: () =>
-                    Promise.resolve([location("file:///proj/b.ts", 2), location("file:///proj/c.ts", 3)]),
-            },
+            { provideReferences: () => [location("file:///proj/a.ts", 1)] },
         );
 
-        const result = await stub.callRequest("languages.provideReferences", requestParams());
-
-        expect(askedForeign).toBe(false);
-        expect(result).toEqual([
-            wireLocation("file:///proj/a.ts", 1),
-            wireLocation("file:///proj/b.ts", 2),
-            wireLocation("file:///proj/c.ts", 3),
-        ]);
+        expect(await ask(0)).toEqual([wireLocation("file:///proj/b.ts", 2), wireLocation("file:///proj/c.ts", 3)]);
+        expect(await ask(4)).toEqual([wireLocation("file:///proj/a.ts", 1)]);
+        expect(await ask(1)).toEqual([]);
+        expect(await ask(2)).toEqual([]);
+        expect(await ask(3)).toEqual([]);
+        expect(await ask(42)).toEqual([]);
+        expect(await ask(undefined)).toEqual([]);
     });
 
     it("не-массив от провайдера и мусор внутри массива отбрасываются", async () => {
@@ -236,9 +181,18 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
             },
         );
 
-        const result = await stub.callRequest("languages.provideReferences", requestParams());
+        expect(await stub.callRequest("languages.provideReferences", requestParams({ handle: 0 }))).toEqual([]);
+        expect(await stub.callRequest("languages.provideReferences", requestParams({ handle: 1 }))).toEqual([
+            wireLocation("file:///proj/ok.ts", 4),
+        ]);
 
-        expect(result).toEqual([wireLocation("file:///proj/ok.ts", 4)]);
+        // Отсутствующий и неизвестный handle — никого не зовём и документ не синхронизируем.
+        expect(await stub.callRequest("languages.provideReferences", requestParams({ handle: undefined }))).toEqual([]);
+        const stale = "file:///proj/stale.ts";
+        expect(
+            await stub.callRequest("languages.provideReferences", requestParams({ handle: 42, uri: stale })),
+        ).toEqual([]);
+        expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
     });
 
     it("запрос без полей: позиция (0,0), пустой текст, язык реестра не затирается", async () => {
@@ -255,7 +209,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
             },
         );
 
-        const result = await stub.callRequest("languages.provideReferences", { uri: URI });
+        const result = await stub.callRequest("languages.provideReferences", { handle: 0, uri: URI });
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);

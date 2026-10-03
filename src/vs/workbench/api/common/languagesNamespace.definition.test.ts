@@ -23,64 +23,37 @@ const URI = "file:///proj/main.ts";
 const DEFS = Uri.file("/proj/defs.ts");
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-    return { uri: URI, languageId: "typescript", text: "const a = b;\n", line: 0, character: 10, ...overrides };
+    return {
+        handle: 0,
+        uri: URI,
+        languageId: "typescript",
+        text: "const a = b;\n",
+        line: 0,
+        character: 10,
+        ...overrides,
+    };
 }
 
 describe("LanguagesNamespace — registerDefinitionProvider", () => {
-    it("подписка сигналится на переходах 0↔1 (hasDefinitionProviders)", () => {
+    it("регистрация объявляется ядру с handle и селектором, dispose — снимает (один раз)", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const subs = () => stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
+        const sent = () => stub.notifies.filter((n) => n.method.startsWith("languages."));
 
-        const first = languages.registerDefinitionProvider(
+        const registration = languages.registerDefinitionProvider(
             { language: "typescript" },
             { provideDefinition: () => null },
         );
-        expect(subs()).toEqual([
+        expect(sent()).toEqual([
             {
-                method: "languages.updateSubscriptions",
-                params: {
-                    hasCompletionProviders: false,
-                    hasFoldingProviders: false,
-                    hasDefinitionProviders: true,
-                    hasReferenceProviders: false,
-                    hasSignatureHelpProviders: false,
-                    hasFormattingProviders: false,
-                    hasCodeActionsProviders: false,
-                    hasInlineCompletionProviders: false,
-                    signatureHelpTriggerCharacters: [],
-                    signatureHelpRetriggerCharacters: [],
-                    completionTriggerCharacters: [],
-                },
+                method: "languages.register",
+                params: { handle: 0, kind: "definition", selector: [{ language: "typescript" }] },
             },
         ]);
 
-        const second = languages.registerDefinitionProvider(
-            { language: "typescript" },
-            { provideDefinition: () => null },
-        );
-        expect(subs()).toHaveLength(1);
-
-        first.dispose();
-        expect(subs()).toHaveLength(1);
-        second.dispose();
-        expect(subs()).toHaveLength(2);
-        expect(subs()[1].params).toEqual({
-            hasCompletionProviders: false,
-            hasFoldingProviders: false,
-            hasDefinitionProviders: false,
-            hasReferenceProviders: false,
-            hasSignatureHelpProviders: false,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
-            hasInlineCompletionProviders: false,
-            signatureHelpTriggerCharacters: [],
-            signatureHelpRetriggerCharacters: [],
-            completionTriggerCharacters: [],
-        });
-        // Повторный dispose — идемпотентен, без лишних нотификаций.
-        second.dispose();
-        expect(subs()).toHaveLength(2);
+        registration.dispose();
+        registration.dispose();
+        expect(sent().slice(1)).toEqual([{ method: "languages.unregister", params: { handle: 0 } }]);
     });
 });
 
@@ -132,7 +105,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
-        const result = await stub.callRequest("languages.provideDefinition", { uri: URI });
+        const result = await stub.callRequest("languages.provideDefinition", { handle: 0, uri: URI });
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
@@ -200,19 +173,10 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         ]);
     });
 
-    it("сбойный/пустой провайдер и несовпавший селектор пропускаются", async () => {
+    it("зовётся ровно провайдер запрошенного handle; сбойный, пустой и неизвестный — []", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const calls: string[] = [];
-        languages.registerDefinitionProvider(
-            { language: "python" },
-            {
-                provideDefinition: () => {
-                    calls.push("python");
-                    return null;
-                },
-            },
-        );
         languages.registerDefinitionProvider(
             { language: "typescript" },
             {
@@ -244,11 +208,23 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
-        const result = await stub.callRequest("languages.provideDefinition", requestParams());
-
-        expect(calls).toEqual(["throwing", "empty", "ok"]);
+        const result = await stub.callRequest("languages.provideDefinition", requestParams({ handle: 2 }));
+        expect(calls).toEqual(["ok"]);
         expect(result).toEqual([
             { uri: DEFS.toString(), range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 } },
         ]);
+
+        expect(await stub.callRequest("languages.provideDefinition", requestParams({ handle: 0 }))).toEqual([]);
+        expect(await stub.callRequest("languages.provideDefinition", requestParams({ handle: 1 }))).toEqual([]);
+        expect(calls).toEqual(["ok", "throwing", "empty"]);
+
+        // Неизвестный и отсутствующий handle — никого не зовём и документ не синхронизируем.
+        const stale = "file:///proj/stale.ts";
+        expect(
+            await stub.callRequest("languages.provideDefinition", requestParams({ handle: 42, uri: stale })),
+        ).toEqual([]);
+        expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
+        expect(await stub.callRequest("languages.provideDefinition", requestParams({ handle: undefined }))).toEqual([]);
+        expect(calls).toHaveLength(3);
     });
 });

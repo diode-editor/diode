@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
+import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
@@ -31,6 +32,12 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
             };
         },
         provideHover: vi.fn((handle: number) => Promise.resolve({ contents: [`handle ${String(handle)}`] })),
+        provideDefinition: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///def${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        provideReferences: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
         fire: () => {
             for (const cb of [...listeners]) cb();
         },
@@ -58,6 +65,30 @@ describe("LanguageFeaturesAdapter", () => {
         const [provider] = features.hoverProvider.ordered(TS);
         expect(await provider.provideHover(REQUEST)).toEqual({ contents: ["handle 1"] });
         expect(bridge.provideHover).toHaveBeenCalledWith(1, REQUEST);
+    });
+
+    it("definition и references — прокси в своих реестрах, зовут хост со своим handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 4, kind: "definition", selector: [{ language: "typescript" }] },
+            { handle: 5, kind: "references", selector: [{ language: "typescript" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        expect(features.hoverProvider.has(TS)).toBe(false);
+
+        const [definition] = features.definitionProvider.ordered(TS);
+        expect(await definition.provideDefinition(REQUEST)).toEqual([
+            { uri: "file:///def4.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(bridge.provideDefinition).toHaveBeenCalledWith(4, REQUEST);
+
+        const referenceRequest = { ...REQUEST, includeDeclaration: true };
+        const [references] = features.referenceProvider.ordered(TS);
+        expect(await references.provideReferences(referenceRequest)).toEqual([
+            { uri: "file:///ref5.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest);
     });
 
     it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {

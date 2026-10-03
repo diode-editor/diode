@@ -10,6 +10,7 @@ import { Uri } from "../../base/common/uri.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import type { ICoreReference, IReferenceRequest } from "../../editor/common/languages/iReferenceSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
@@ -19,8 +20,8 @@ import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 /**
  * Сквозной гейт Find All References «до кадра»: команда спрашивает
- * `EditorService.referenceSource` (тот самый шов, в который host кладёт
- * провайдеры расширений), добирает строки кода с диска и показывает вьюлет
+ * реестр `ILanguageFeaturesService.referenceProvider` (тот самый, в который
+ * host кладёт прокси провайдеров расширений), добирает строки кода с диска и показывает вьюлет
  * REFERENCES в сайдбаре; Enter на ссылке открывает её файл на позиции, F4 идёт
  * к следующей.
  *
@@ -77,17 +78,19 @@ describe("Workbench — Find All References end-to-end", () => {
         const workbenchContextKeys = container.get(WorkbenchContextKeysDIToken);
         const editors = container.get(EditorServiceDIToken);
 
-        // Шов, в который в проде extensionHostModule кладёт провайдеры
+        // Реестр, в который в проде LanguageFeaturesAdapter кладёт провайдеры
         // расширений: объявление в defs.ts, импорт и вызов в main.ts.
         const requests: IReferenceRequest[] = [];
-        editors.referenceSource = (request): Promise<readonly ICoreReference[]> => {
-            requests.push(request);
-            return Promise.resolve([
-                { uri: Uri.file(workspace.path("defs.ts")).toString(), range: createRange(0, 16, 0, 21) },
-                { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(0, 9, 0, 14) },
-                { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(2, 14, 2, 19) },
-            ]);
-        };
+        container.get(LanguageFeaturesServiceDIToken).referenceProvider.register("*", {
+            provideReferences: (request): Promise<readonly ICoreReference[]> => {
+                requests.push(request);
+                return Promise.resolve([
+                    { uri: Uri.file(workspace.path("defs.ts")).toString(), range: createRange(0, 16, 0, 21) },
+                    { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(0, 9, 0, 14) },
+                    { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(2, 14, 2, 19) },
+                ]);
+            },
+        });
 
         workbench.setWorkspaceFolder(workspace.dir);
         workbench.mount();

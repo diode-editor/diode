@@ -811,6 +811,8 @@ export interface WireDefinitionLocation {
 
 /** Параметры запроса definition (host → subprocess) — форма completion-запроса. */
 export interface IWireDefinitionParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle: number;
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
@@ -950,7 +952,7 @@ export async function requestHover(
  * `$registerHoverProvider(handle, selector)` + `$unregister(handle)`).
  * Список растёт по мере переезда фич с `languages.updateSubscriptions`.
  */
-export const WIRE_LANGUAGE_FEATURE_KINDS = ["hover"] as const;
+export const WIRE_LANGUAGE_FEATURE_KINDS = ["hover", "definition", "references"] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 
 /**
@@ -1048,6 +1050,8 @@ export interface WireReference {
  * плюс LSP-контекст `includeDeclaration`.
  */
 export interface IWireReferenceParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle: number;
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
