@@ -10,12 +10,12 @@
 
 ## Модель Service ↔ Component
 
-- **Service** — где живёт логика приложения: состояние, I/O, индексы, подписки на нижние
-  слои. Сервис ничего не знает про конкретные компоненты.
-- **Component** — принимает сервисы в конструктор и общается с ними (вызовы, подписки);
-  владеет корневым контролом и раздаёт данные/стили вниз.
+- **Service** — логика приложения: состояние, I/O, индексы, подписки на нижние слои.
+- **Component** — UI-сборка: владеет корневым контролом (`view`) и собирает под ним
+  дерево примитивов TUIDom.
 
-**Правило-инвариант:** есть `view` → Component; нет `view` → Service.
+**Правило-инвариант:** есть `view` → Component (`src/vs/workbench/browser/component.ts`);
+нет `view` → Service.
 
 Async-инициализация живёт в сервисах: интерфейс `IActivatable` (`src/vs/workbench/browser/iActivatable.ts`):
 
@@ -30,74 +30,119 @@ export interface IActivatable {
 bootstrap-последовательность приложения (mount → activate → open/restore файлов),
 которую ведёт `main.ts`.
 
-## Контракты Component / ThemedComponent (`src/vs/workbench/Component.ts`)
+Правила «сервис ничего не знает про view» **нет** — его нет и в VS Code: там сервис
+часто сам и есть view-часть (`EditorParts implements IEditorGroupsService`,
+`Layout implements IWorkbenchLayoutService`) или владелец виджета
+(`QuickInputService` → `QuickInputController`, `HoverService` → `HoverWidget`).
+Развязка идёт через **интерфейс сервиса** (контракт в `common/`, потребители знают
+контракт, а не реализацию), а не через направление владения. Кто кого знает, задаёт
+одна из трёх узаконенных форм пары.
+
+### Три формы пары
+
+| Форма | Кто кого инжектит | Наш эталон | Прообраз в VS Code |
+|---|---|---|---|
+| **Part/View над сервисом** | компонент ← сервис | `StatusBarComponent` ← `StatusBarService` | Part / ViewPane над сервисом |
+| **Владелец виджета** (попапы, editor-контрибуции) | сервис/контроллер ← `*ComponentDIToken` | `HoverService` → `HoverComponent` | `FindController` → `FindWidget`, `QuickInputService` → `QuickInputController` |
+| **Сервис-владелец layout-контрола** | сервис получает контрол late-init | `LayoutService.attachLayout(WorkbenchLayoutElement)` | `Layout implements IWorkbenchLayoutService` |
+
+1. **Part/View над сервисом.** Компонент берёт сервисы в конструктор, подписан на их
+   события и возвращает действия пользователя вызовами сервиса. Сервис про компонент
+   не знает. Так устроены части и вьюлеты: статус-бар, панель, строка меню, область
+   редактора, Explorer, Search, Problems, SCM, Extensions, нотификации
+   (`NotificationsComponent` ← `NotificationService`: модель показов + view-подписчик,
+   как `NotificationsCenter(notificationService.model)` у VS Code).
+2. **Владелец виджета.** Сервис или контроллер инжектит `*ComponentDIToken` и
+   командует виджетом: на каждом показе заполняет его, открывает и закрывает. Компонент-
+   виджет держит контрол и overlay-сессию, объявляет `static dependencies = []` и
+   сервисов не знает — его зависимость только хост. Так устроены все попапы:
+   `QuickInputService`/`QuickOpenService` → `QuickInputComponent`, `HoverService` →
+   `HoverComponent`, `ParameterHintsService` → `ParameterHintsComponent`, `FindService` →
+   `FindComponent`, `CompletionService` → `SuggestComponent`, `ReferencesService` →
+   `ReferencesComponent`. Отличие от VS Code: там владелец **сам создаёт** виджет (лениво,
+   с хостом из `layoutService`/редактора), а у нас виджет — DI-синглтон, и хост
+   приходит снаружи через `attachHost` от корня. Целевой каркас попапов («владелец
+   создаёт виджет сам») — задача H1.
+3. **Сервис-владелец layout-контрола.** `LayoutService` держит `WorkbenchLayoutElement`
+   через `attachLayout` и пишет в него сеттерами (`restoreLayout`/`captureLayout`).
+   Это ближе всего к VS Code, где layout-сервис и есть корневой view.
+
+### Что сервису можно знать про view
+
+- **Можно:** импортировать view-типы ради типов и `instanceof` (`EditorService` знает
+  `DiffEditorPane2`; upstream `EditorService` так же импортирует из
+  `browser/parts/editor`), инжектить компонент-виджет в форме «владелец виджета».
+- **Известное отклонение:** сервис **конструирует** view. `EditorService.createPaneForModel`
+  сам создаёт `EditorComponent`/`TextEditorPane`, а `DialogService` — диалоги и их
+  overlay-сессии. В VS Code панели создаёт группа по дескриптору из реестра
+  (`EditorPanes.doInstantiateEditorPane`), а диалоги — пара `DialogsModel` в сервисе +
+  подписчик `DialogHandlerContribution`. Перенос создания панелей — задачи E1/E2;
+  новый код этот приём не повторяет.
+
+### Обратная связь view → сервис
+
+Новая обратная связь — **событием сервиса** или **интерфейсом-портом** в конструкторе,
+а не публичным необязательным полем-хуком: `?:`-хук молча становится no-op там, где
+его никто не поставил (headless-тесты, профиль без корня). Существующие хуки — долг с
+адресом задачи:
+
+| Хук | Кто ставит | Куда уходит |
+|---|---|---|
+| `EditorService.canAddGroupHook`, `focusGroupContentHook` | `EditorPartComponent` | E1 (группы и полоса групп — одна сущность, как `EditorParts`) |
+| `EditorService.onRequestConfirmClose` | `WorkbenchComponent` | E8 (confirm-close в одной точке) |
+| `EditorService.onOpenFailed` | `OpenFailureNotificationContribution` | C1 (перевод `?:`-хуков на `Emitter`) |
+
+### Late-init `attach*`
+
+`attach*` допустим только для того, что физически появляется позже конструктора:
+хост корневой view (`attachHost(BodyElement)` у overlay-компонентов и `DialogService`,
+`attachLayout`, `attachEditorLayout`, `WorkbenchContextKeys.attachView`) и деревья,
+которые компонент строит по событию (`ExplorerService.attachView`). Сейчас эти вызовы
+собраны в `WorkbenchComponent.mount`-проводке, и каждый новый попап добавляет туда
+строку; уход от этого (владелец берёт хост из layout-сервиса) — задачи H1/E4.
+
+### Контракт Component
 
 ```ts
 export abstract class Component extends Disposable {
     public abstract readonly view: TUIElement;
 }
-
-export abstract class ThemedComponent extends Component {
-    protected constructor(protected readonly themeService: ThemeService);
-    protected get theme(): WorkbenchTheme;      // активная тема из themeService
-    protected initStyles(): void;               // подписка на onThemeChange → updateStyles()
-    protected abstract updateStyles(): void;    // пуш стилей во владеемые контролы
-}
 ```
 
 - Компонент **владеет** корневым контролом (`view`), но в жизненный цикл контролов не
   встраивается — только размещает их (как DOM-узлы) и не наследует `TUIElement`.
-- Наследник `ThemedComponent` вызывает `initStyles()` **последней строкой конструктора**
-  (из базового конструктора нельзя — поля наследника ещё не инициализированы).
-  `ThemeService.onThemeChange` файрит листенер немедленно с текущей темой, поэтому
-  начальная покраска происходит ровно один раз — внутри `initStyles()`; явный вызов
-  `updateStyles()` не нужен. Подписка снимается при `dispose()`.
+- Темизационной базы у компонентов нет. Цвета компонент задаёт **именами токенов**
+  темы в `style`/`setStyleVars` своих контролов один раз при создании; палитру активной
+  темы кладёт в корневой var-scope `WorkbenchComponent` (`applyThemeVars`), hot-swap темы
+  расходится каскадом — подписок на смену темы в компонентах нет. Детали —
+  [Theme.md](Theme.md) и [STYLES.md (tuidom)](https://github.com/tuidom/tuidom/blob/main/docs/STYLES.md).
 
 ### Идентичность в дереве
 
 Компонент вешает `view.id` на свой корневой контрол — это DOM-идентичность для тестов и
 Inspector'а (поиск по дереву, скриншот-демо). Контролы своих id не придумывают.
 
-## Стандарт стилей контролов + мост defaultStyles
-
-Контролы TUIDom про темы не знают. У контрола — плоский интерфейс packed-цветов и
-дефолты рядом с ним:
-
-```ts
-export interface IButtonStyles { readonly fg: number; readonly bg: number; /* … */ }
-export const unthemedButtonStyles: IButtonStyles = { /* историческая палитра */ };
-class ButtonElement {
-    constructor(label: string, options?: { styles?: IButtonStyles });
-    setStyles(styles: IButtonStyles): void; // единственный канал обновления, вызывает markDirty()
-}
-```
-
-Мост тема → стили — `src/vs/platform/theme/browser/defaultStyles.ts`: по функции
-`getXxxStyles(theme)` на контрол; **единственная точка знания «ключ темы → поле стиля»**.
-Раздача — **пуш-моделью**: компонент подписан на смену темы (`ThemedComponent.updateStyles()`)
-и заново вызывает `control.setStyles(getXxxStyles(this.theme))`. Никаких `applyTheme(theme)`
-у контролов и никаких литералов цвета вне темы (см. [Theme.md](Theme.md)).
-
 ## Правила коммуникации
 
-- **component → control**: вызовы методов контрола + `setStyles(...)`.
+- **component → control**: вызовы методов контрола, цвета — имена токенов в `style`.
 - **control → component**: колбэки `onX` (контрол не знает получателя).
-- **component ↔ service**: конструкторная инъекция + подписки на события сервиса.
+- **component ↔ service**: конструкторная инъекция + подписки на события сервиса;
+  направление — по форме пары (см. выше).
 - **component ↔ component**: напрямую **запрещено** — только через общий сервис.
 
 ## Чек-лист новой пары Service ↔ Component
 
-Исторически — чек-лист миграции view-контроллера (миграция завершена, слой
-Controllers растворён); остаётся конвенцией для нового кода:
-
-1. Логика — в `Workbench/Services/<Area>/`, UI-сборка — в `Workbench/Components/<Area>/`
-   (компонент наследует `Component`/`ThemedComponent`).
-2. Стили — `updateStyles()` + `getXxxStyles(theme)` из `Workbench/Styles/defaultStyles.ts`
-   (никаких `applyTheme(...)` у контролов и ручных подписок на тему).
-3. Wiring — в конструктор компонента, async-часть — в сервис (`IActivatable`).
-4. DI-токен компонента — `*ComponentDIToken`, рядом с компонентом; биндинг — в
-   `Workbench/Modules/`.
-5. `view.id` — на корневой контрол компонента; тесты живут рядом с кодом.
+1. Выбери форму пары (см. «Три формы пары»): часть/вьюлет — компонент над сервисом;
+   попап — сервис-владелец виджета.
+2. Раскладка: сервис области — `src/vs/workbench/services/<area>/` (контракт в
+   `common/`, реализация в `browser/`/`node/`), фича — `src/vs/workbench/contrib/<feature>/browser/`,
+   часть окна — `src/vs/workbench/browser/parts/<part>/`. Компонент наследует `Component`.
+3. Цвета — имена токенов темы в `style`/`setStyleVars`; новый цвет — определение в
+   `src/vs/platform/theme/common/colors/` (см. [Theme.md](Theme.md)).
+4. Wiring — в конструктор компонента, async-часть — в сервис (`IActivatable`);
+   обратная связь view → сервис — событием или портом, не `?:`-хуком.
+5. DI-токен — `*DIToken` рядом с классом; биндинг — в DI-модуле слоя (см. [../DI.md](../DI.md)).
+6. `view.id` — на корневой контрол компонента; тесты живут рядом с кодом.
 
 ## Workbench-contributions (`src/vs/workbench/Contributions/`)
 
@@ -266,9 +311,8 @@ hide-toggle (`isHiddenByDefault`). См.
 
 ## Текущие обитатели
 
-- `Component.ts` — база `Component`/`ThemedComponent`.
+- `Component.ts` — база `Component`.
 - `IActivatable.ts` — контракт async-инициализации сервисов.
-- `Styles/` — мост тема → стили контролов (`defaultStyles.ts`).
 - `Modules/` — DI-модули и профили (`ProductionProfile`/`TestProfile`,
   `WorkbenchModule` со всеми парами Service ↔ Component и интерфейсными швами,
   `ExtensionHostModule` и др.) — см. [../DI.md](../DI.md).
@@ -323,7 +367,7 @@ hide-toggle (`isHiddenByDefault`). См.
     `IExplorerView` (refresh/reveal/focus/selection/cut-keys):
     `TreeViewElement<FileTreeNode>` соответствует структурно, регистрирует его
     компонент через `attachView`.
-  - `Components/Explorer/ExplorerComponent.ts` — `ThemedComponent`; по
+  - `Components/Explorer/ExplorerComponent.ts` — `Component`; по
     `onDidChangeRoot` строит `TreeViewElement` поверх провайдера сервиса
     (обёрнут `ScrollBarDecorator` + `TitledPanelElement` «EXPLORER»,
     `view.id = "explorer"`; стили — `getFileTreeStyles`/`getScrollBarStyles`),
@@ -347,7 +391,7 @@ hide-toggle (`isHiddenByDefault`). См.
     `Workbench/Actions/InputActions.ts` под `when: inputWidgetFocus`).
 - **QuickInput-кластер (этап 8)** — квик-инпут/квик-опен поверх ОДНОГО общего
   виджета:
-  - `Components/QuickInput/QuickInputComponent.ts` — `ThemedComponent`; владеет
+  - `Components/QuickInput/QuickInputComponent.ts` — `Component`; владеет
     единственным переиспользуемым `QuickPickElement` (`view.id = "quickInput"`;
     внутри — `InputElement` строки запроса) и его overlay-сессией
     (`restoreFocus`, `closeOnEscape`, `pointerPolicy: "close-on-outside"`).
@@ -542,7 +586,7 @@ hide-toggle (`isHiddenByDefault`). См.
     пользователя, а не свойство проекта, так же в VS Code). Скрыть можно только
     запись с `name`: транзиентные сегменты (chord-хинт, прогресс расширения) имени
     не несут, в меню не показываются и всегда видимы.
-  - `Components/StatusBar/StatusBarComponent.ts` — `ThemedComponent`; **композиционный
+  - `Components/StatusBar/StatusBarComponent.ts` — `Component`; **композиционный
     корень** из примитивов tuidom (`view` = `HFlexElement`, `view.id = "statusBar"`:
     краевые `FillerElement`-паддинги, лейблы сегментов `TextLabelElement`,
     fill-филлер в середине). Отдельных разделителей нет: каждый сегмент несёт по
@@ -551,8 +595,8 @@ hide-toggle (`isHiddenByDefault`). См.
     строится один раз и мутируется по `onDidChangeEntries`: при неизменном числе
     сегментов — только `setText` (путь курсора `Ln X, Col Y`), пересборка
     `replaceChildren` — лишь при смене состава; лейблы живут в пулах, клик резолвит
-    запись по (стороне, индексу) в момент клика. Красит бар из темы в
-    `updateStyles()` — дети наследуют цвета каскадом.
+    запись по (стороне, индексу) в момент клика. Корень несёт токены
+    `statusBar.foreground`/`statusBar.background` в `style` — дети наследуют цвета каскадом.
   - **Наведение и меню видимости.** Кликабельный сегмент (запись с `onClick`) несёт
     `when`-стиль `statusBarItem.hoverBackground`/`hoverForeground` — hover движок
     ставит сам, лейблы настоящие цели хит-теста. Инертные сегменты подсветки не
@@ -588,11 +632,11 @@ hide-toggle (`isHiddenByDefault`). См.
     **не** порождает — на нём висят ленивые фичи), `onDidChangeVisibility`
     (с этапа 11 за ней следует `LayoutService`: двигает `WorkbenchLayoutElement`
     и контекст-ключ `panelVisible`).
-  - `Components/Panel/PanelComponent.ts` — `ThemedComponent`; владеет
+  - `Components/Panel/PanelComponent.ts` — `Component`; владеет
     `PanelContainerElement` (`view.id = "panel"`, стили —
     `getPanelContainerStyles`), отражает реестр сервиса (вкладки/контент/актив)
     и возвращает клик по табу в `PanelService.activateView`.
-  - `Components/Panel/ProblemsComponent.ts` — `ThemedComponent`; дерево
+  - `Components/Panel/ProblemsComponent.ts` — `Component`; дерево
     «файл → маркеры» (`TreeViewElement` поверх `ProblemsTreeDataProvider`,
     `view` = `ScrollBarDecorator`, `view.id = "problemsView"`; стили —
     `getProblemsTreeStyles` + `getScrollBarStyles`). Регистрирует контейнер и
@@ -639,7 +683,7 @@ hide-toggle (`isHiddenByDefault`). См.
     `applyExternalEdits`), идут через шов `ITextFileEditTarget` — прикрепляет
     каждый парный компонент (целей может быть несколько — сплит-вью; действующую
     передаёт вызывающий, `markDirty` вещается всем).
-  - `Components/Editor/EditorComponent.ts` — `ThemedComponent`; владеет
+  - `Components/Editor/EditorComponent.ts` — `Component`; владеет
     `EditorElement` + view-state + токен-кешем (`view` = `ScrollBarDecorator`),
     принимает модель в конструктор (модель может делиться несколькими
     компонентами — по вью на группу): по `onDidReloadDocument` пересобирает
@@ -651,9 +695,8 @@ hide-toggle (`isHiddenByDefault`). См.
     выделения/фолды/скролл каждой вью — `EditorViewState.remapForDocumentChange`
     по `onDidChangeContent` (свои мутаторы гейтятся и пересчитывают себя точно).
     Здесь же view-API: курсор/reveal/goToPosition, декорации (search/markers/
-    gutter change-bars), folding-команды, контекст-меню редактора,
-    `updateStyles()` → `getEditorStyles` + `editor.style={fg,bg}` +
-    `getScrollBarStyles`.
+    gutter change-bars), folding-команды, контекст-меню редактора;
+    цвета — токены в `editor.style={fg,bg}`, остальное — каскадом.
   - `Components/Editor/EditorPane.ts` — пара «модель + view-компонент» одного
     открытого редактора (аналог editor input + pane): владеет временем жизни
     `TextFileModel` + `EditorComponent` и делегирует единый API по
@@ -810,7 +853,7 @@ hide-toggle (`isHiddenByDefault`). См.
     равенства строк, не SAT).
 - **Find/Suggest-кластер (этап 10)** — поиск по файлу и автодополнение поверх
   активного редактора (`EditorService`):
-  - `Components/Editor/FindComponent.ts` — `ThemedComponent`; **композиционный
+  - `Components/Editor/FindComponent.ts` — `Component`; **композиционный
     корень**, собранный из примитивов (`view` = `SizedBoxElement`(preferredWidth×3)
     → `BoxContainerElement` → `HFlexElement` со строкой запроса `InputElement`,
     счётчиком совпадений и кнопками ↑ ↓ ✕ `ButtonElement`; `view.id = "findWidget"`).
@@ -836,9 +879,8 @@ hide-toggle (`isHiddenByDefault`). См.
     виджет (подписка на `onActiveEditorChanged` — find оперирует только
     активным редактором).
   - `Components/Editor/SuggestComponent.ts` — компонент suggest-попапа; владеет
-    `CompletionListElement` (`view.id = "suggestWidget"`; НЕ `ThemedComponent` —
-    контрол живёт на unthemed-палитре `unthemedCompletionListStyles`, маппинг
-    на тему — отдельная задача) и overlay-сессией в глобальном body-слое
+    `CompletionListElement` (`view.id = "suggestWidget"`; цвета — токены `editorSuggestWidget.*`
+    каскадом) и overlay-сессией в глобальном body-слое
     (`attachHost(BodyElement)`; `capturesKeyboard: false` — редактор сохраняет
     фокус, команды идут по `suggestWidgetVisible`; `close-on-outside`).
     `openAt(anchor)`/`setAnchor` — позиционирование у каретки
@@ -874,9 +916,9 @@ hide-toggle (`isHiddenByDefault`). См.
     делегируется корню через шов `QuitHandlerDIToken` → `requestQuit`: confirm-save
     через `LifecycleService`, затем teardown TUI + `process.exit`; перезагрузка
     окна (`reloadWindowAction`) идёт тем же протоколом прощания, но заканчивается
-    не выходом, а перезапуском процесса (шов `WindowReloadHandlerDIToken`). Наследник
-    `ThemedComponent`: `updateStyles()` красит корень (fg/bg body) и hover-цвет
-    сэшей. Единственный компонент с lifecycle за пределами конструктора — bootstrap
+    не выходом, а перезапуском процесса (шов `WindowReloadHandlerDIToken`). Тему
+    кладёт в корневой var-scope (`applyThemeVars` по `onThemeChange`) — единственная
+    точка «тема → цвета», дальше каскад. Единственный компонент с lifecycle за пределами конструктора — bootstrap
     ведёт `main.ts`: `setWorkspaceFolder` (**только если папку назвали** — без неё
     поднимается пустое окно) → `mount()` (`registerViewContainers()` +
     contribution'ы фазы `restored` + листенеры + restore layout до первого кадра) →
@@ -896,7 +938,7 @@ hide-toggle (`isHiddenByDefault`). См.
     `TreeViewElement` наполняется исключительно `refresh()` — на бутстрапе эту
     единственную загрузку делает `activate()`. Решение и его мотивы —
     [docs/TODO/Startup.md](../TODO/Startup.md).
-  - `Components/Shell/MenuBarComponent.ts` — `ThemedComponent`; владеет
+  - `Components/Shell/MenuBarComponent.ts` — `Component`; владеет
     `MenuBarElement` (`view.id = "menuBar"`; стили — `getMenuStyles`), строит
     top-уровень из submenu-записей `MenuId.MenubarMainMenu`, а entries каждого
     меню резолвит лениво при открытии попапа через живые `IMenu`

@@ -16,7 +16,7 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
                                                                                │
    workbench.colorTheme (Configuration) ──▶ выбор активной ──▶ ThemeService ──┤ onThemeChange
                                                                                ▼
-                              WorkbenchComponent / ThemedComponent-наследники … updateStyles()
+                              WorkbenchComponent: applyThemeVars → корневой var-scope → каскад
 ```
 
 ## Сделано
