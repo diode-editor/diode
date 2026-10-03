@@ -109,7 +109,8 @@ export const editorConfiguration = {
         // выключают; все сохранения diode ручные, так что "explicit" ≡ true.
         "editor.codeActionsOnSave": {
             scope: "language-overridable",
-            type: "object",
+            // Как у VS Code: объект «kind → включён» или массив включённых видов.
+            type: ["object", "array"],
             default: {},
             description:
                 'Code action kinds to be run on save (e.g. `{"source.fixAll": true}`). ' +

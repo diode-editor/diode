@@ -31,6 +31,13 @@ describe("isValidConfigurationValue", () => {
         expect(isValidConfigurationValue(schema({ type }), value)).toBe(expected);
     });
 
+    it("список типов — годится любой из них", () => {
+        const kinds = schema({ type: ["object", "array"] });
+        expect(isValidConfigurationValue(kinds, { "source.fixAll": true })).toBe(true);
+        expect(isValidConfigurationValue(kinds, ["source.fixAll"])).toBe(true);
+        expect(isValidConfigurationValue(kinds, "source.fixAll")).toBe(false);
+    });
+
     it("enum пропускает только перечисленное", () => {
         const wordWrap = schema({ enum: ["off", "on"] });
         expect(isValidConfigurationValue(wordWrap, "on")).toBe(true);

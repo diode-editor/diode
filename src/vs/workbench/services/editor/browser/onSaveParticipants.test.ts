@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ISelection } from "../../../../editor/common/core/iSelection.ts";
 import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
@@ -69,6 +70,13 @@ describe("enabledCodeActionKindsOnSave", () => {
         expect(
             enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": ["source.fixAll", 5, null] })),
         ).toEqual(["source.fixAll"]);
+    });
+
+    it("массивная форма проходит схему настроек приложения, а не подменяется дефолтом", () => {
+        const configuration = createTestConfigurationService({
+            "editor.codeActionsOnSave": ["source.organizeImports"],
+        });
+        expect(enabledCodeActionKindsOnSave(configuration)).toEqual(["source.organizeImports"]);
     });
 
     it("не задано / null / не-объект → пусто", () => {

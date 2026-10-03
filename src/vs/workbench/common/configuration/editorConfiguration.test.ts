@@ -49,9 +49,9 @@ describe("editorConfiguration — onSave-настройки", () => {
         expect(schema.description).toContain("Format a file on save");
     });
 
-    it("editor.codeActionsOnSave: object, пустой по умолчанию, описание про иерархию kind'ов", () => {
+    it("editor.codeActionsOnSave: объект или массив, пустой по умолчанию, описание про иерархию kind'ов", () => {
         const schema = editorConfiguration.properties["editor.codeActionsOnSave"];
-        expect(schema.type).toBe("object");
+        expect(schema.type).toEqual(["object", "array"]);
         expect(schema.default).toEqual({});
         // Обе половины склейки: «run on save» есть только в первой,
         // «hierarchically» — только во второй.

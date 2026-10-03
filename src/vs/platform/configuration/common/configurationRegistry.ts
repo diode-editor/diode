@@ -27,8 +27,12 @@ export type ConfigurationScope =
  * и опциональные описание/enum — то, что нужно defaults-слою конфигурации,
  * валидации settings.json и автодополнению ключей.
  */
+/** Тип значения ключа (JSON-schema `type`). */
+export type ConfigurationValueType = "string" | "number" | "boolean" | "object" | "array" | "null";
+
 export interface IConfigurationPropertySchema {
-    readonly type: "string" | "number" | "boolean" | "object" | "array" | "null";
+    /** Тип значения или несколько допустимых (`["object", "array"]`), как в JSON-schema. */
+    readonly type: ConfigurationValueType | readonly ConfigurationValueType[];
     /** JSON-совместимое значение по умолчанию. */
     readonly default: unknown;
     /**

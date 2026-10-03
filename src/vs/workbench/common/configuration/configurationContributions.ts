@@ -30,20 +30,29 @@ export const CONFIGURATION_CONTRIBUTIONS = [
     terminalConfiguration,
 ] as const satisfies readonly IConfigurationNode[];
 
-/** Тип значения ключа по его схеме: `enum` → union литералов, иначе по `type`. */
+/** Значение одного JSON-schema типа. */
+type ValueOfType<T> = T extends "number"
+    ? number
+    : T extends "boolean"
+      ? boolean
+      : T extends "string"
+        ? string
+        : T extends "array"
+          ? readonly unknown[]
+          : T extends "object"
+            ? Readonly<Record<string, unknown>>
+            : T extends "null"
+              ? null
+              : unknown;
+
+/** Тип значения ключа по его схеме: `enum` → union литералов, иначе по `type` (список типов — union). */
 type SettingValue<S> = S extends { readonly enum: readonly (infer E)[] }
     ? E
-    : S extends { readonly type: "number" }
-      ? number
-      : S extends { readonly type: "boolean" }
-        ? boolean
-        : S extends { readonly type: "string" }
-          ? string
-          : S extends { readonly type: "array" }
-            ? readonly unknown[]
-            : S extends { readonly type: "object" }
-              ? Readonly<Record<string, unknown>>
-              : unknown;
+    : S extends { readonly type: readonly (infer T)[] }
+      ? ValueOfType<T>
+      : S extends { readonly type: infer T }
+        ? ValueOfType<T>
+        : unknown;
 
 type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
 

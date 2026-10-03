@@ -43,7 +43,7 @@ async function loadAppConfiguration(repoRoot) {
         for (const [key, schema] of Object.entries(node.properties)) {
             out.push({
                 key,
-                type: schema.type,
+                type: Array.isArray(schema.type) ? schema.type.join(" | ") : schema.type,
                 default: schema.default,
                 description: schema.description,
                 enum: schema.enum,
