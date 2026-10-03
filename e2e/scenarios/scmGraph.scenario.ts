@@ -72,16 +72,14 @@ export default defineScenario({
         // Готовность: Explorer показал файлы (папка открыта, расширение стартует).
         await editor.waitForText((t) => t.includes("app.ts"));
 
-        // Source Control: контейнер с двумя секциями. Ждём и заголовки, и данные
-        // обеих (расширение публикует статус и лог асинхронно).
+        // Source Control: контейнер с двумя секциями. GRAPH открывается
+        // свёрнутым (дефолт его дескриптора) — раскрываем шевроном, иначе
+        // расширение и `git log` не запустит. Ждём данные обеих секций:
+        // расширение публикует статус и лог асинхронно.
         await editor.sendKey("Alt+C");
-        await editor.waitForText(
-            (t) =>
-                t.includes("SOURCE CONTROL") &&
-                t.includes("GRAPH") &&
-                t.includes("merge: ветка") &&
-                t.includes("app.ts"),
-        );
+        await editor.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("GRAPH"));
+        await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
+        await editor.waitForText((t) => t.includes("merge: ветка") && t.includes("app.ts"));
         await editor.capture("sections");
 
         // Клик по заголовку Source Control сворачивает секцию — вместе со списком

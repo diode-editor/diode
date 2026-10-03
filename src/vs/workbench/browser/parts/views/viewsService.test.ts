@@ -58,7 +58,12 @@ describe("ViewsService", () => {
 
         h.paneView("scm").toggleCollapsed("scm.graph");
         expect(h.stored.get(SIDEBAR_VIEWS_STATE.key)).toEqual({
-            scm: { collapsed: ["scm.graph"], weights: { "scm.changes": 1, "scm.graph": 1 }, hidden: [] },
+            scm: {
+                // Пишутся ОБА состояния: развёрнутость — тоже выбор пользователя.
+                collapsed: { "scm.changes": false, "scm.graph": true },
+                weights: { "scm.changes": 1, "scm.graph": 1 },
+                hidden: [],
+            },
         });
     });
 

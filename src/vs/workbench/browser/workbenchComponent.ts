@@ -367,6 +367,11 @@ export class WorkbenchComponent extends Component {
         // порядок тот же, что был, когда контейнеры жили в setWorkspaceFolder
         // (бутстрап зовёт его ДО mount).
         this.registerViewContainers();
+        // Свёрнутость/веса/скрытость секций — строго ПОСЛЕ сборки контейнеров:
+        // применять их не на что, пока панелей нет. Собственный restore в
+        // setWorkspaceFolder на бутстрапе именно поэтому и впустую — он нужен
+        // команде Open Folder, которая меняет воркспейс на уже собранном сайдбаре.
+        this.viewsService.restoreViewsState();
         // Фаза Restored: view построена, лёгкие сервисы готовы — инстанцируем
         // contribution'ы этой фазы (статус-бар и пр.). Между конструктором и mount
         // ни один редактор не открывается → эквивалентно прежней проводке в ctor.
@@ -566,7 +571,11 @@ export class WorkbenchComponent extends Component {
         this.changesComponent.restoreViewMode();
         // Черновик сообщения коммита — из workspace-стора.
         this.scmInputComponent.restoreDraft();
-        // Свёрнутость/веса view-секций — тоже из workspace-стора.
+        // Свёрнутость/веса/скрытость view-секций — тоже из workspace-стора.
+        // На бутстрапе контейнеров ещё нет (их строит mount()), поэтому там
+        // состояние применяет он; здесь вызов работает для Open Folder на живом
+        // приложении, где сайдбар уже собран. Write-through'а у restore нет, так
+        // что лишний вызов безвреден.
         this.viewsService.restoreViewsState();
         // Fire-and-forget: the index builds in the background so startup and the
         // first render are not blocked. `fileIndexReady` exposes completion for
