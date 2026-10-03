@@ -258,9 +258,11 @@ import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whites
 
 /**
  * Реестр встроенных экшенов Workbench'а. Регистрирует их владелец приложения
- * (`WorkbenchComponent`) единым циклом `registerAction`; ПОРЯДОК ВАЖЕН —
- * `KeybindingRegistry.resolveKey` берёт последний зарегистрированный биндинг с
- * проходящим `when` (см. комментарий у Find/Suggest-хвоста).
+ * (`WorkbenchComponent`) единым циклом `registerAction`. Порядок здесь
+ * поведения не держит: кто получит клавишу из команд на одной комбинации,
+ * решает вес правила (`CommandAction.weight`, `KeybindingWeight`).
+ * `builtinKeybindings.slice.test.ts` фиксирует старшинство и проверяет, что
+ * обратный порядок массива его не меняет.
  */
 export const builtinActions: readonly CommandAction[] = [
     // App
@@ -318,9 +320,7 @@ export const builtinActions: readonly CommandAction[] = [
     scrollLineDownAction,
     toggleWordWrapAction,
 
-    // Multi-cursor. Стоит ДО Find/Suggest-хвоста намеренно: резолвер берёт последний
-    // подходящий биндинг, и Escape у `removeSecondaryCursors` обязан проигрывать
-    // закрытию find-виджета и попапа автодополнения.
+    // Multi-cursor
     ...MULTI_CURSOR_ACTIONS,
 
     // Editing
@@ -411,9 +411,7 @@ export const builtinActions: readonly CommandAction[] = [
     navigateBackAction,
     navigateForwardAction,
 
-    // Tabs. Стоит ПОСЛЕ `scrollLineUp/Down` намеренно: у `nextEditorInGroupAction` и
-    // `previousEditorInGroupAction` есть бинды Ctrl+Вверх/Вниз под `tabSwitcherVisible`,
-    // и они обязаны перебивать прокрутку, пока список переключателя виден.
+    // Tabs
     nextEditorAction,
     nextEditorInGroupAction,
     previousEditorAction,
@@ -449,18 +447,12 @@ export const builtinActions: readonly CommandAction[] = [
     inputUndoAction,
     inputRedoAction,
 
-    // Find / Suggest (этап 10: run-обработчики живут в самих экшенах поверх
-    // FindService/CompletionService). Регистрируются ПОСЛЕДНИМИ, чтобы биндинги
-    // `findWidgetVisible`/`suggestWidgetVisible` победили editor-команды
-    // (cursorDown/indentLines и т.п.) — KeybindingRegistry.resolveKey берёт
-    // последний зарегистрированный с проходящим `when`.
+    // Find / Suggest / попапы над редактором (run-обработчики — поверх
+    // FindService/CompletionService/…; старшинство на общих клавишах — веса).
     findAction,
     nextMatchAction,
     previousMatchAction,
     closeFindWidgetAction,
-    // Призрачные подсказки — ПЕРЕД suggest-экшенами: при открытом попапе Tab и
-    // Escape должны достаться попапу (последний зарегистрированный побеждает);
-    // у commit к тому же `!suggestWidgetVisible` в `when`.
     triggerInlineSuggestAction,
     commitInlineSuggestAction,
     hideInlineSuggestAction,
@@ -470,22 +462,14 @@ export const builtinActions: readonly CommandAction[] = [
     selectPrevPageSuggestionAction,
     acceptSelectedSuggestionAction,
     hideSuggestWidgetAction,
-    // Ctrl+Space при открытом попапе — тумблер панели описания (перебивает
-    // triggerSuggest, потому что зарегистрирован после него).
     toggleSuggestionDetailsAction,
-    // Escape при открытом hover-попапе — тот же хвостовой приём, что у
-    // hideSuggestWidget: биндинг `editorHoverVisible` перебивает editor-команды.
     hideHoverAction,
-    // Тот же приём для подсказки параметров: Escape закрывает её, а стрелки
-    // листают перегрузки — и то, и другое обязано перебить editor-команды, но
-    // только пока попап показан (`parameterHintsVisible` в `when`).
     closeParameterHintsAction,
     showNextParameterHintAction,
     showPrevParameterHintAction,
 
-    // Layout / Panel / Terminal (этап 11: run-обработчики поверх LayoutService/
-    // PanelService/TerminalService). Ключи не пересекаются с editor/find/suggest-
-    // биндингами, поэтому позиция после Find/Suggest-хвоста безопасна.
+    // Layout / Panel / Terminal (run-обработчики поверх LayoutService/
+    // PanelService/TerminalService).
     toggleSidebarAction,
     showExplorerAction,
     showSearchAction,

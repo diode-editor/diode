@@ -139,7 +139,7 @@ export const selectHighlightsAction: CommandAction = {
     },
 };
 
-/** Порядок — как в меню Selection; регистрируется единым куском в `builtinActions.ts`. */
+/** Порядок — как в меню Selection. */
 export const MULTI_CURSOR_ACTIONS: readonly CommandAction[] = [
     insertCursorAboveAction,
     insertCursorBelowAction,

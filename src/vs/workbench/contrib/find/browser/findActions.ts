@@ -1,14 +1,16 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 
 import { FindServiceDIToken } from "./findService.ts";
 
+/** Вес find-виджета (upstream: EditorContrib + 5): Escape и Enter виджета сильнее базовых команд редактора, но слабее попапов над текстом — inline, suggest, hover и подсказки параметров. */
+const FIND_WEIGHT = KeybindingWeight.EditorContrib;
+
 // Тонкие экшены find-виджета поверх FindService (этап 10: run-обработчики живут
-// в самих экшенах, как у quick-open). nextMatch/previousMatch/closeFindWidget
-// регистрируются ПОСЛЕ builtin editor-экшенов (хвост builtinActions в
-// WorkbenchComponent): резолвер кейбиндов берёт последний зарегистрированный с
-// проходящим `when`, и биндинги `findWidgetVisible` должны победить.
+// в самих экшенах, как у quick-open). Биндинги `findWidgetVisible` перебивают
+// editor-команды на тех же клавишах весом FIND_WEIGHT.
 
 export const findAction: CommandAction = {
     id: "actions.find",
@@ -24,6 +26,7 @@ export const findAction: CommandAction = {
 
 export const nextMatchAction: CommandAction = {
     id: "editor.action.nextMatchFindAction",
+    weight: FIND_WEIGHT,
     title: "Find: Next Match",
     shortTitle: "Find Next",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "3_find", order: 20 }],
@@ -55,6 +58,7 @@ export const previousMatchAction: CommandAction = {
 
 export const closeFindWidgetAction: CommandAction = {
     id: "closeFindWidget",
+    weight: FIND_WEIGHT,
     title: "Find: Close",
     keybinding: parseKeybinding("escape"),
     when: "findWidgetVisible",

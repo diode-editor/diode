@@ -561,9 +561,8 @@ hide-toggle (`isHiddenByDefault`). См.
   (Shift+F10-меню редактора). С этапа 10 — `FindActions.ts` (Ctrl+F/Enter/F3/
   Escape → `FindService`) и `SuggestActions.ts` (Ctrl+Space triggerSuggest +
   навигация/accept/hide попапа → `CompletionService`); экшены под
-  `findWidgetVisible`/`suggestWidgetVisible` идут ХВОСТОМ `builtinActions`,
-  чтобы победить editor-команды (резолвер берёт последний зарегистрированный
-  с проходящим `when`). С этапа 11 `Controllers/Actions/` растворён целиком:
+  `findWidgetVisible`/`suggestWidgetVisible` перебивают editor-команды весом
+  правила (`KeybindingWeight`, см. «Система команд»). С этапа 11 `Controllers/Actions/` растворён целиком:
   сюда переехали Editor*/Input*/Clipboard*/Folding*/List*/Tab*/Whitespace*/App*/
   Preferences*-экшены (Preferences и save/saveAs/newUntitled — с реальными
   `run(accessor)`, About — экшен поверх DialogService; у quit `run` перекрывает
@@ -1387,9 +1386,13 @@ hide-toggle (`isHiddenByDefault`). См.
   берёт самую приоритетную: сначала **вес** правила (`CommandAction.weight` /
   `ConditionalKeybinding.weight`, ступени `KeybindingWeight` в
   `platform/keybinding/common/keybindingResolver.ts`, дефолт `EditorCore`),
-  при равном весе — позже зарегистрированное правило. Пока веса не
-  проставлены, порядок в `builtinActions.ts` по-прежнему решает (F1, срез
-  `builtinKeybindings.slice.test.ts` фиксирует старшинство).
+  при равном весе — позже зарегистрированное правило. Порядок в
+  `builtinActions.ts` поведения не держит: попапы над редактором и
+  tab-switcher перебивают базовые команды весами (find `EditorContrib`,
+  inline `+ 80`, suggest `+ 90`, hover `+ 92`, подсказка параметров `+ 93`,
+  стрелки tab-switcher `WorkbenchContrib`), а срез `builtinKeybindings.slice.test.ts`
+  фиксирует старшинство и проверяет, что обратный порядок массива его не
+  меняет.
 - **`setContext`** — встроенная команда VS Code, которой РАСШИРЕНИЯ публикуют свои
   when-ключи. Регистрирует `SetContextCommandContribution` (`workbench/browser/`)
   без title: в палитре её быть не должно, это программный шов. Значение

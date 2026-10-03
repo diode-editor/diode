@@ -1,15 +1,19 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 
 import { ParameterHintsServiceDIToken } from "./parameterHintsService.ts";
+
+/** Вес подсказки параметров: стрелки и Escape у неё сильнее редактора и остальных попапов (кроме suggest: их when взаимоисключающие через `!suggestWidgetVisible`). */
+const PARAMETER_HINTS_WEIGHT = KeybindingWeight.EditorContrib + 93;
 
 /**
  * Стрелки листают перегрузки, только когда их больше одной, попап показан — и
  * НЕ показан попап автодополнения: у каретки они живут одновременно (подсказка
  * сверху, автодополнение снизу), и в этой паре стрелки принадлежат списку
- * пунктов. В VS Code тот же порядок задан весами кейбиндов (у suggest он выше),
- * у нас его выражает `when` — весов в реестре нет, выигрывает последний с
- * проходящим условием.
+ * пунктов. В VS Code это решает вес (у suggest он выше), у нас — `when`:
+ * подсказка параметров весит больше suggest (PARAMETER_HINTS_WEIGHT), и без
+ * `!suggestWidgetVisible` её стрелки перехватили бы список.
  */
 const MULTIPLE_SIGNATURES = "parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible";
 
@@ -49,6 +53,7 @@ export const triggerParameterHintsAction: CommandAction = {
  */
 export const showNextParameterHintAction: CommandAction = {
     id: "showNextParameterHint",
+    weight: PARAMETER_HINTS_WEIGHT,
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Parameter Hints: Next Signature",
     keybinding: parseKeybinding("down"),
@@ -62,6 +67,7 @@ export const showNextParameterHintAction: CommandAction = {
 /** Предыдущая перегрузка (`showPrevParameterHint`), зеркало предыдущей команды. */
 export const showPrevParameterHintAction: CommandAction = {
     id: "showPrevParameterHint",
+    weight: PARAMETER_HINTS_WEIGHT,
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Parameter Hints: Previous Signature",
     keybinding: parseKeybinding("up"),
@@ -73,13 +79,12 @@ export const showPrevParameterHintAction: CommandAction = {
 };
 
 /**
- * Закрывает подсказку по Escape (`closeParameterHints`). Регистрируется ПОСЛЕ
- * builtin editor-экшенов (хвост builtinActions), чтобы победить
- * removeSecondaryCursors при открытом попапе (KeybindingRegistry.resolveKey:
- * последний с проходящим `when` выигрывает) — приём hover'а и suggest'а.
+ * Закрывает подсказку по Escape (`closeParameterHints`); вес
+ * PARAMETER_HINTS_WEIGHT перебивает removeSecondaryCursors и остальные попапы.
  */
 export const closeParameterHintsAction: CommandAction = {
     id: "closeParameterHints",
+    weight: PARAMETER_HINTS_WEIGHT,
     // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
     title: "Parameter Hints: Close",
     keybinding: parseKeybinding("escape"),

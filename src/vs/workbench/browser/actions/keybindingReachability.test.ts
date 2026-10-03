@@ -251,8 +251,8 @@ describe("коллизии дефолтных биндов", () => {
      * осознанно, а не появиться молча.
      */
     const KNOWN_COLLISIONS = [
-        // Хвост builtinActions намеренно зарегистрирован последним: при открытом
-        // попапе автодополнения навигация достаётся ему, а не редактору.
+        // При открытом попапе автодополнения навигация достаётся ему, а не
+        // редактору: у suggest-экшенов вес выше.
         "ctrl+space: editor.action.triggerSuggest / toggleSuggestionDetails",
         "down: cursorDown / selectNextSuggestion",
         "pagedown: cursorPageDown / selectNextPageSuggestion",

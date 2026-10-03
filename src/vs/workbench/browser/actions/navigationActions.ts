@@ -1,6 +1,7 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../platform/keybinding/common/keybindingResolver.ts";
 import { HistoryServiceDIToken } from "../../services/history/browser/historyService.ts";
 
 /**
@@ -46,6 +47,8 @@ export const navigateBackAction: CommandAction = {
 /** Шаг вперёд по истории навигации (VS Code `workbench.action.navigateForward`). */
 export const navigateForwardAction: CommandAction = {
     id: "workbench.action.navigateForward",
+    // Чорд Ctrl+K Ctrl+F делит с pc-биндом `editor.action.formatSelection` и сейчас его перебивает (так было и при порядке регистрации; коллизия записана в docs/TODO/KeybindingsEditor.md). Вес держит это поведение, пока коллизию не развели.
+    weight: KeybindingWeight.WorkbenchContrib,
     title: "Go Forward",
     shortTitle: "Forward",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: HISTORY_GROUP, order: 20, when: "canNavigateForward" }],

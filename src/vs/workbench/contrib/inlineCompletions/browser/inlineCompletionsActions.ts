@@ -1,15 +1,18 @@
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 
 import { InlineCompletionsServiceDIToken } from "./inlineCompletionsService.ts";
 
+/** Вес призрака inline: Tab/Escape у него сильнее find и Tab-отступа, но слабее открытого suggest-попапа (Escape сначала закрывает попап). */
+const INLINE_WEIGHT = KeybindingWeight.EditorContrib + 80;
+
 // Тонкие экшены призрачных подсказок поверх InlineCompletionsService. Id команд
 // и when-ключи — дословно VS Code (`editor.action.inlineSuggest.*`,
-// `inlineSuggestionVisible`). Регистрируются в хвосте builtinActions ПЕРЕД
-// suggest-экшенами: KeybindingRegistry.resolveKey берёт последний
-// зарегистрированный с проходящим `when`, поэтому при открытом попапе Tab
-// достаётся acceptSelectedSuggestion (у commit к тому же `!suggestWidgetVisible`).
+// `inlineSuggestionVisible`). Вес INLINE_WEIGHT ниже suggest-попапа, поэтому при
+// открытом попапе Tab достаётся acceptSelectedSuggestion (у commit к тому же
+// `!suggestWidgetVisible`).
 
 /**
  * Явный запрос подсказки у каретки (без дебаунса,
@@ -39,6 +42,7 @@ export const triggerInlineSuggestAction: CommandAction = {
  */
 export const commitInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.commit",
+    weight: INLINE_WEIGHT,
     title: "Accept Inline Suggestion",
     keybinding: parseKeybinding("tab"),
     when: "inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize",
@@ -56,6 +60,7 @@ export const commitInlineSuggestAction: CommandAction = {
  */
 export const hideInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.hide",
+    weight: INLINE_WEIGHT,
     title: "Hide Inline Suggestion",
     keybinding: parseKeybinding("escape"),
     when: "inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)",

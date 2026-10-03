@@ -2,11 +2,15 @@ import type { CommandAction } from "../../../platform/actions/common/commandActi
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../platform/keybinding/common/keybindingResolver.ts";
 import { ModifierReleaseArmoryDIToken } from "../../../platform/keybinding/common/modifierReleaseArmory.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 import { resolveTabTarget } from "./editorTabTarget.ts";
 import { editorTabTargetArg } from "./menuContexts.ts";
+
+/** Стрелки по видимому списку tab-switcher сильнее прокрутки строк редактора (upstream: навигация пикера — WorkbenchContrib + 50; ступени хватает). */
+const TAB_SWITCHER_WEIGHT = KeybindingWeight.WorkbenchContrib;
 
 /**
  * Один шаг MRU-переключения вкладок. Каждое нажатие шагает по стеку, а отпускание
@@ -65,14 +69,14 @@ export const previousEditorAction: CommandAction = {
  * первая же стрелка ушла бы мимо списка.
  *
  * Гейт `tabSwitcherVisible` разводит их с `scrollLineUp`/`scrollLineDown`, которые
- * сидят на тех же Ctrl+Вверх/Вниз: список погас — прокрутка вернулась. Регистрация
- * tab-экшенов идёт ПОСЛЕ editor-экшенов (см. `builtinActions.ts`), а резолвер
- * берёт последний подходящий биндинг — поэтому при видимом списке побеждают эти.
+ * сидят на тех же Ctrl+Вверх/Вниз: список погас — прокрутка вернулась; при
+ * видимом списке побеждают эти — у них вес TAB_SWITCHER_WEIGHT.
  */
 const TAB_SWITCHER_ARROWS = "tabSwitcherVisible";
 
 export const nextEditorInGroupAction: CommandAction = {
     id: "workbench.action.nextEditorInGroup",
+    weight: TAB_SWITCHER_WEIGHT,
     title: "Next Editor In Group",
     shortTitle: "Next Used Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 10 }],
@@ -89,6 +93,7 @@ export const nextEditorInGroupAction: CommandAction = {
 
 export const previousEditorInGroupAction: CommandAction = {
     id: "workbench.action.previousEditorInGroup",
+    weight: TAB_SWITCHER_WEIGHT,
     title: "Previous Editor In Group",
     shortTitle: "Previous Used Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 20 }],
