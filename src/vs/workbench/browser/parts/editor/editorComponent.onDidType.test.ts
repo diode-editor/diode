@@ -33,14 +33,17 @@ describe("TextEditorPane.onDidType", () => {
         const pane = open("");
         const typed: string[] = [];
         const subscription = pane.onDidType((text) => typed.push(text));
+        const other: string[] = [];
+        pane.onDidType((text) => other.push(text));
 
         press(pane, "a");
         subscription.dispose();
-        // Повторная отписка безвредна.
+        // Повторная отписка безвредна и не снимает чужого (последнего в списке).
         subscription.dispose();
         press(pane, "b");
 
         expect(typed).toEqual(["a"]);
+        expect(other).toEqual(["a", "b"]);
     });
 
     it("безымянный буфер (виджет из конструктора, без перечитки) тоже шлёт набор", () => {

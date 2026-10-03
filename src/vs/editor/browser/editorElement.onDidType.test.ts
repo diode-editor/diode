@@ -96,10 +96,13 @@ describe("EditorElement.onDidType", () => {
         press(editor, "b");
         expect(seen).toEqual(["a"]);
 
+        const last: string[] = [];
+        editor.onDidType((text) => last.push(text));
         subscription.dispose();
-        // Повторная отписка безвредна и не снимает чужих.
+        // Повторная отписка безвредна и не снимает чужих (в том числе последнего в списке).
         subscription.dispose();
         press(editor, "c");
         expect(typed.map((t) => t.text)).toEqual(["a", "b"]);
+        expect(last).toEqual(["c"]);
     });
 });
