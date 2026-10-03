@@ -528,7 +528,7 @@ export class WorkbenchComponent extends Component {
         this.workbenchState.openWorkspace(workspaceId);
         // Состояние view поиска (режим дерево/плоско, раскрытость include/exclude)
         // — из workspace-стора; строго после openWorkspace, иначе прочитается
-        // global-стор.
+        // стор пустого окна.
         this.searchComponent.restoreViewState();
         this.changesComponent.restoreViewMode();
         // Черновик сообщения коммита — из workspace-стора.

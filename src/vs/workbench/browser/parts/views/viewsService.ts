@@ -495,7 +495,7 @@ export class ViewsService {
     /**
      * Применяет свёрнутость/веса/скрытость из workspace-стора ко всем
      * построенным контейнерам. Строго после `openWorkspace` (как
-     * `restoreViewMode`), иначе прочитается global-стор. Без write-through.
+     * `restoreViewMode`), иначе прочитается стор пустого окна. Без write-through.
      */
     public restoreViewsState(): void {
         const stored = this.stateService.get(SIDEBAR_VIEWS_STATE);

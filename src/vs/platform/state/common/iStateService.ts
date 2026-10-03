@@ -30,8 +30,8 @@ export interface IStateService {
     /**
      * Открывает (или переключает) стор `workspace`-scope на проект
      * `workspaceId`. Предыдущий workspace-стор сначала синхронно сбрасывается
-     * на диск. Пока воркспейс не открыт, `workspace`-дескрипторы обслуживаются
-     * `global`-стором (fallback без открытого проекта).
+     * на диск. Пока воркспейс не открыт, `workspace`-дескрипторы обслуживает
+     * стор пустого окна (`EMPTY_WINDOW_WORKSPACE_ID`), а не `global`.
      *
      * Аргумент — идентичность проекта, а не путь папки: см.
      * `resolveWorkspaceStorageDir`.
