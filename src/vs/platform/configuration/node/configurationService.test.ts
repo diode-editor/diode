@@ -297,7 +297,7 @@ describe("ConfigurationService.updateUserValue", () => {
     it("updateUserValue emits onDidChangeConfiguration with the changed key", async () => {
         const cfg = await loadCfg(paths());
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         await cfg.updateUserValue("workbench.colorTheme", "Monokai");
 
@@ -313,7 +313,7 @@ describe("ConfigurationService.updateUserValue", () => {
         fs.writeFileSync(p.settingsFile, `{ "editor.tabSize": 4 }`); // same as default
         const cfg = await loadCfg(p);
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         // Write the same value that is already effective — merged doesn't change.
         await cfg.updateUserValue("editor.tabSize", 4);
@@ -375,7 +375,7 @@ describe("ConfigurationService — live reload", () => {
         writeSettings(p.settingsFile, `{ "editor.tabSize": 2 }`);
         const cfg = await loadCfg(p);
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         writeSettings(p.settingsFile, `{ "editor.tabSize": 8, "editor.insertSpaces": false }`);
         await cfg.reload();
@@ -391,7 +391,7 @@ describe("ConfigurationService — live reload", () => {
         writeSettings(p.settingsFile, `{ "editor.tabSize": 2 }`);
         const cfg = await loadCfg(p);
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         // Re-write identical content (different formatting, same values).
         writeSettings(p.settingsFile, `{\n  "editor.tabSize": 2,\n}`);
@@ -405,7 +405,7 @@ describe("ConfigurationService — live reload", () => {
         writeSettings(p.settingsFile, `{ "editor.tabSize": 2 }`);
         const cfg = await loadCfg(p);
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         // Remove the override → effective value falls back to default (4).
         writeSettings(p.settingsFile, `{}`);
@@ -421,7 +421,7 @@ describe("ConfigurationService — live reload", () => {
         writeSettings(p.settingsFile, `{ "editor.tabSize": 8 }`);
         const cfg = await loadCfg(p);
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         writeSettings(p.settingsFile, `{ "editor.tabSize": 3 }`);
         await cfg.reload();
@@ -447,7 +447,7 @@ describe("ConfigurationService — live reload", () => {
         const p = paths();
         const cfg = await loadCfg(p, undefined, watcher);
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         writeSettings(p.settingsFile, `{ "editor.tabSize": 6 }`);
         watcher.fire(userSettingsPath());
@@ -480,7 +480,7 @@ describe("ConfigurationService — live reload", () => {
             }),
         );
         const events: IConfigurationChangeEvent[] = [];
-        cfg.onDidChangeConfiguration((e) => events.push(e));
+        disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
         expect(watcher.watchedCount).toBe(0);
         await expect(cfg.reload()).resolves.toBeUndefined();

@@ -1,3 +1,4 @@
+import { Emitter } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../base/common/uri.ts";
 
@@ -13,8 +14,10 @@ import type { IFileSystemProviderRegistry, IReadOnlyFileSystemProvider } from ".
  */
 export class FileSystemProviderRegistry extends Disposable implements IFileSystemProviderRegistry {
     private readonly providers = new Map<string, IReadOnlyFileSystemProvider>();
-    private readonly changeListeners = new Set<(uris: readonly Uri[]) => void>();
-    private readonly providerListeners = new Set<() => void>();
+    private readonly onDidChangeFileEmitter = new Emitter<readonly Uri[]>();
+    public readonly onDidChangeFile = this.onDidChangeFileEmitter.event;
+    private readonly onDidChangeProvidersEmitter = new Emitter<void>();
+    public readonly onDidChangeProviders = this.onDidChangeProvidersEmitter.event;
 
     public registerProvider(scheme: string, provider: IReadOnlyFileSystemProvider): IDisposable {
         if (this.providers.has(scheme)) {
@@ -49,30 +52,12 @@ export class FileSystemProviderRegistry extends Disposable implements IFileSyste
         return provider.readFile(uri);
     }
 
-    public onDidChangeFile(cb: (uris: readonly Uri[]) => void): IDisposable {
-        this.changeListeners.add(cb);
-        return {
-            dispose: () => {
-                this.changeListeners.delete(cb);
-            },
-        };
-    }
-
-    public onDidChangeProviders(cb: () => void): IDisposable {
-        this.providerListeners.add(cb);
-        return {
-            dispose: () => {
-                this.providerListeners.delete(cb);
-            },
-        };
-    }
-
     private fireDidChangeProviders(): void {
-        for (const cb of [...this.providerListeners]) cb();
+        this.onDidChangeProvidersEmitter.fire();
     }
 
     private fireDidChangeFile(uris: readonly Uri[]): void {
         if (uris.length === 0) return;
-        for (const cb of [...this.changeListeners]) cb(uris);
+        this.onDidChangeFileEmitter.fire(uris);
     }
 }

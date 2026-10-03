@@ -1,3 +1,4 @@
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { ILogger } from "./iLogger.ts";
@@ -22,9 +23,13 @@ const DEFAULT_LEVEL: LogLevel = LogLevel.Trace;
 export class LogService implements ILogService {
     private readonly sinks: ILogSink[] = [];
     private readonly levels = new Map<string, LogLevel>();
-    private readonly listeners = new Set<(entry: LogEntry) => void>();
+    // Ошибку слушателя записи глушим, а не отдаём в onUnexpectedError: тот в
+    // проде пишет в этот же лог — была бы рекурсия «ошибка → лог → слушатель».
+    private readonly onDidAppendEmitter = new Emitter<LogEntry>({ onListenerError: () => undefined });
+    public readonly onDidAppend = this.onDidAppendEmitter.event;
     private readonly channels = new Map<string, ILogChannelDescriptor>();
-    private readonly channelListeners = new Set<(descriptor: ILogChannelDescriptor) => void>();
+    private readonly onDidRegisterChannelEmitter = new Emitter<ILogChannelDescriptor>();
+    public readonly onDidRegisterChannel = this.onDidRegisterChannelEmitter.event;
     private version = 0;
 
     public createLogger(channel: string, options?: ILoggerOptions): ILogger {
@@ -32,22 +37,13 @@ export class LogService implements ILogService {
         if (label !== undefined && !this.channels.has(channel)) {
             const descriptor = { id: channel, label };
             this.channels.set(channel, descriptor);
-            for (const listener of [...this.channelListeners]) listener(descriptor);
+            this.onDidRegisterChannelEmitter.fire(descriptor);
         }
         return new ChannelLogger(this, channel);
     }
 
     public getRegisteredChannels(): readonly ILogChannelDescriptor[] {
         return [...this.channels.values()];
-    }
-
-    public onDidRegisterChannel(listener: (descriptor: ILogChannelDescriptor) => void): IDisposable {
-        this.channelListeners.add(listener);
-        return {
-            dispose: (): void => {
-                this.channelListeners.delete(listener);
-            },
-        };
     }
 
     public setLevel(channelOrWildcard: string, level: LogLevel): void {
@@ -81,15 +77,6 @@ export class LogService implements ILogService {
         };
     }
 
-    public onDidAppend(listener: (entry: LogEntry) => void): IDisposable {
-        this.listeners.add(listener);
-        return {
-            dispose: (): void => {
-                this.listeners.delete(listener);
-            },
-        };
-    }
-
     /**
      * Вызывается логгером после фильтрации по уровню. Фан-аут на sinks
      * защищён try/catch — падение одного sink не должно ломать остальные.
@@ -102,13 +89,7 @@ export class LogService implements ILogService {
                 // sinks не должны валить процесс
             }
         }
-        for (const listener of this.listeners) {
-            try {
-                listener(entry);
-            } catch {
-                // изоляция листенеров
-            }
-        }
+        this.onDidAppendEmitter.fire(entry);
     }
 
     public get configVersion(): number {

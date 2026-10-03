@@ -71,7 +71,7 @@ describe("FileSystemProviderRegistry", () => {
         const provider = fakeProvider();
         registry.registerProvider("git", provider);
         const seen = vi.fn();
-        registry.onDidChangeFile(seen);
+        disposables.add(registry.onDidChangeFile(seen));
 
         provider.fire([gitUri]);
 
@@ -83,7 +83,7 @@ describe("FileSystemProviderRegistry", () => {
         const provider = fakeProvider();
         registry.registerProvider("git", provider);
         const seen = vi.fn();
-        registry.onDidChangeFile(seen);
+        disposables.add(registry.onDidChangeFile(seen));
 
         provider.fire([]);
 
@@ -95,7 +95,7 @@ describe("FileSystemProviderRegistry", () => {
         const provider = fakeProvider();
         const registration = registry.registerProvider("git", provider);
         const seen = vi.fn();
-        registry.onDidChangeFile(seen);
+        disposables.add(registry.onDidChangeFile(seen));
 
         registration.dispose();
         provider.fire([gitUri]);
@@ -132,7 +132,7 @@ describe("FileSystemProviderRegistry — событие смены постав�
     it("регистрация и снятие будят подписчиков", () => {
         const registry = disposables.add(new FileSystemProviderRegistry());
         const seen = vi.fn();
-        registry.onDidChangeProviders(seen);
+        disposables.add(registry.onDidChangeProviders(seen));
 
         const registration = registry.registerProvider("git", fakeProvider());
         expect(seen).toHaveBeenCalledTimes(1);
@@ -145,7 +145,7 @@ describe("FileSystemProviderRegistry — событие смены постав�
         const registry = disposables.add(new FileSystemProviderRegistry());
         const registration = registry.registerProvider("git", fakeProvider());
         const seen = vi.fn();
-        registry.onDidChangeProviders(seen);
+        disposables.add(registry.onDidChangeProviders(seen));
 
         registration.dispose();
         registration.dispose();

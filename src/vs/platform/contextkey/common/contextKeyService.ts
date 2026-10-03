@@ -1,3 +1,4 @@
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
@@ -19,12 +20,10 @@ interface ScopeObject {
 /** Compiled `when`-expression: reads key values off the scope object. */
 type CompiledWhen = (scope: ScopeObject) => boolean;
 
-/** Listener of context changes; receives the names whose values actually changed. */
-export type ContextKeyChangeListener = (changed: ReadonlySet<string>) => void;
-
 export class ContextKeyService implements IDisposable {
     private values = new Map<string, ContextValue>();
-    private readonly listeners = new Set<ContextKeyChangeListener>();
+    /** Names whose values actually changed since the previous event. */
+    private readonly onDidChangeEmitter = new Emitter<ReadonlySet<string>>();
     /**
      * Names changed since the last flush. Non-null means a flush is already
      * queued — several `set` in one tick become one event.
@@ -64,14 +63,7 @@ export class ContextKeyService implements IDisposable {
      * rewrites ~20 keys before every keybinding resolve), and several writes in
      * one tick coalesce into a single event.
      */
-    public onDidChange(listener: ContextKeyChangeListener): IDisposable {
-        this.listeners.add(listener);
-        return {
-            dispose: () => {
-                this.listeners.delete(listener);
-            },
-        };
-    }
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     /**
      * Evaluates a when-expression string using the current context values.
@@ -106,7 +98,7 @@ export class ContextKeyService implements IDisposable {
 
     public dispose(): void {
         this.values.clear();
-        this.listeners.clear();
+        this.onDidChangeEmitter.dispose();
         this.pending = null;
     }
 
@@ -180,6 +172,6 @@ export class ContextKeyService implements IDisposable {
         // не бывает — flush планирует только `markChanged`, уже положивший ключ.
         const changed = this.pending ?? new Set<string>();
         this.pending = null;
-        for (const listener of [...this.listeners]) listener(changed);
+        this.onDidChangeEmitter.fire(changed);
     }
 }

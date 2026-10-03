@@ -1,10 +1,11 @@
-import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { Emitter } from "../../../base/common/event.ts";
 
 import type { FileClipboardEntry, FileClipboardMode, IFileClipboard } from "./iFileClipboard.ts";
 
 export class InMemoryFileClipboard implements IFileClipboard {
     private entry: FileClipboardEntry | null = null;
-    private listeners: ((entry: FileClipboardEntry | null) => void)[] = [];
+    private readonly onDidChangeEmitter = new Emitter<FileClipboardEntry | null>();
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     public read(): FileClipboardEntry | null {
         return this.entry;
@@ -21,19 +22,7 @@ export class InMemoryFileClipboard implements IFileClipboard {
         this.notify();
     }
 
-    public onDidChange(listener: (entry: FileClipboardEntry | null) => void): IDisposable {
-        this.listeners.push(listener);
-        return {
-            dispose: () => {
-                const index = this.listeners.indexOf(listener);
-                if (index >= 0) this.listeners.splice(index, 1);
-            },
-        };
-    }
-
     private notify(): void {
-        for (const listener of this.listeners) {
-            listener(this.entry);
-        }
+        this.onDidChangeEmitter.fire(this.entry);
     }
 }

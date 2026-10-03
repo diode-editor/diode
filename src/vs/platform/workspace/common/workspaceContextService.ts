@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { Emitter } from "../../../base/common/event.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
@@ -37,7 +37,8 @@ const EMPTY_WORKSPACE: IWorkspace = { id: null, folders: [] };
  */
 export class WorkspaceContextService implements IWorkspaceContextService {
     private workspace: IWorkspace = EMPTY_WORKSPACE;
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeWorkspaceFoldersEmitter = new Emitter<void>();
+    public readonly onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFoldersEmitter.event;
 
     public getWorkspace(): IWorkspace {
         return this.workspace;
@@ -55,11 +56,6 @@ export class WorkspaceContextService implements IWorkspaceContextService {
             if (resource.path === base || resource.path.startsWith(prefix)) return folder;
         }
         return null;
-    }
-
-    public onDidChangeWorkspaceFolders(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
     }
 
     /**
@@ -82,7 +78,7 @@ export class WorkspaceContextService implements IWorkspaceContextService {
             id,
             folders: [{ uri: Uri.file(resolved), name: path.basename(resolved), index: 0 }],
         };
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeWorkspaceFoldersEmitter.fire();
         return id;
     }
 }

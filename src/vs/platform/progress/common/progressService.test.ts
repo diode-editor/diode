@@ -56,7 +56,7 @@ describe("ProgressService", () => {
 
     it("после задержки показывает кадр, крутит его тикером и зовёт слушателей на каждый кадр", async () => {
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         const task = deferred();
         const running = service.withProgress(
             { location: "view", viewId: VIEW, title: "Committing…" },
@@ -119,7 +119,7 @@ describe("ProgressService", () => {
 
     it("короткая операция не оставляет висящих таймеров", async () => {
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         const task = deferred();
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Staging…" }, () => task.promise);
 
@@ -137,7 +137,7 @@ describe("ProgressService", () => {
 
     it("после конца долгой операции тикер останавливается", async () => {
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         const task = deferred();
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Pushing…" }, () => task.promise);
 
@@ -174,7 +174,7 @@ describe("ProgressService", () => {
 
     it("после dispose сервис молчит", () => {
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         service.dispose();
 
         void service.withProgress({ location: "window", title: "Fetching…" }, () => deferred().promise);
@@ -249,7 +249,7 @@ describe("ProgressService", () => {
 
     it("тикер гаснет вместе с последним спиннером", async () => {
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         const task = deferred();
         const running = service.withProgress(
             { location: "view", viewId: VIEW, title: "Committing…" },
@@ -287,7 +287,7 @@ describe("ProgressService", () => {
 
     it("снятый слушатель больше не зовётся", () => {
         const listener = vi.fn();
-        const subscription = service.onDidChange(listener);
+        const subscription = disposables.add(service.onDidChange(listener));
         subscription.dispose();
         void service.withProgress({ location: "window", title: "Fetching…" }, () => deferred().promise);
         expect(listener).not.toHaveBeenCalled();
@@ -295,7 +295,7 @@ describe("ProgressService", () => {
 
     it("dispose гасит живые записи и таймеры", () => {
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         void service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => deferred().promise);
         vi.advanceTimersByTime(300);
 
@@ -363,7 +363,7 @@ describe("ProgressService", () => {
         expect(service.windowProgress()).toBeNull();
 
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         vi.advanceTimersByTime(100);
         expect(listener).not.toHaveBeenCalled();
 
@@ -379,7 +379,7 @@ describe("ProgressService", () => {
         await running;
 
         const listener = vi.fn();
-        service.onDidChange(listener);
+        disposables.add(service.onDidChange(listener));
         service.dispose();
         vi.advanceTimersByTime(10_000);
         expect(listener).not.toHaveBeenCalled();

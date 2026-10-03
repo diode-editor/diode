@@ -1,5 +1,6 @@
 import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 
+import { Emitter } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
@@ -76,7 +77,8 @@ export class MenuService {
 }
 
 class Menu extends Disposable implements IMenu {
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeEmitter = this.register(new Emitter<void>());
+    public readonly onDidChange = this.onDidChangeEmitter.event;
 
     public constructor(
         private readonly registry: MenuRegistry,
@@ -86,9 +88,7 @@ class Menu extends Disposable implements IMenu {
         this.register(
             this.registry.onDidChangeMenu((changed) => {
                 if (changed !== this.menuId) return;
-                for (const listener of [...this.listeners]) {
-                    listener();
-                }
+                this.onDidChangeEmitter.fire();
             }),
         );
     }
@@ -99,10 +99,5 @@ class Menu extends Disposable implements IMenu {
 
     public getSubmenus(): ISubmenuEntry[] {
         return this.registry.getSubmenus(this.menuId);
-    }
-
-    public onDidChange(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return { dispose: () => this.listeners.delete(listener) };
     }
 }

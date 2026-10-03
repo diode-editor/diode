@@ -5,6 +5,7 @@ import type {
     MenuSubmenuEntry,
 } from "@tuidom/elements/menu/popupMenuElement";
 
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../commands/common/commandRegistry.ts";
@@ -122,7 +123,7 @@ export class MenuRegistry {
     ] as const;
 
     private readonly items: MenuContribution[];
-    private readonly changeListeners = new Set<(menuId: MenuId) => void>();
+    private readonly onDidChangeMenuEmitter = new Emitter<MenuId>();
 
     public constructor(
         private readonly commands: CommandRegistry,
@@ -153,15 +154,10 @@ export class MenuRegistry {
      * срабатывает при `appendMenuItem` и снятии пункта. Живой пересбор по
      * событию — забота консюмера (`IMenu` в `MenuService`).
      */
-    public onDidChangeMenu(listener: (menuId: MenuId) => void): IDisposable {
-        this.changeListeners.add(listener);
-        return { dispose: () => this.changeListeners.delete(listener) };
-    }
+    public readonly onDidChangeMenu = this.onDidChangeMenuEmitter.event;
 
     private fireDidChangeMenu(menuId: MenuId): void {
-        for (const listener of [...this.changeListeners]) {
-            listener(menuId);
-        }
+        this.onDidChangeMenuEmitter.fire(menuId);
     }
 
     /**

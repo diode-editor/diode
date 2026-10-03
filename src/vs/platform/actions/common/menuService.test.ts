@@ -49,7 +49,7 @@ describe("MenuService — живые меню (IMenu)", () => {
         const { registry, service } = setup();
         const menu = disposables.add(service.createMenu(MenuId.EditorContext));
         let fired = 0;
-        menu.onDidChange(() => fired++);
+        disposables.add(menu.onDidChange(() => fired++));
 
         registry.appendMenuItem({ menuId: MenuId.ExplorerContext, command: "other" });
         expect(fired).toBe(0);
@@ -64,7 +64,7 @@ describe("MenuService — живые меню (IMenu)", () => {
         const { registry, service } = setup();
         const menu = disposables.add(service.createMenu(MenuId.EditorContext));
         let fired = 0;
-        const subscription = menu.onDidChange(() => fired++);
+        const subscription = disposables.add(menu.onDidChange(() => fired++));
         subscription.dispose();
 
         registry.appendMenuItem({ menuId: MenuId.EditorContext, command: "x" });
@@ -75,7 +75,7 @@ describe("MenuService — живые меню (IMenu)", () => {
         const { registry, service } = setup();
         const menu = disposables.add(service.createMenu(MenuId.EditorContext));
         let fired = 0;
-        menu.onDidChange(() => fired++);
+        disposables.add(menu.onDidChange(() => fired++));
         menu.dispose();
 
         registry.appendMenuItem({ menuId: MenuId.EditorContext, command: "x" });

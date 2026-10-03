@@ -1,4 +1,5 @@
-import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
+import { Emitter } from "../../../base/common/event.ts";
+import { Disposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой
@@ -86,7 +87,9 @@ export class ProgressService extends Disposable {
     public static dependencies = [] as const;
 
     private readonly entries = new Set<ProgressEntry>();
-    private readonly listeners = new Set<() => void>();
+    private readonly onDidChangeEmitter = new Emitter<void>();
+    /** Любое изменение: старт, показ, смена кадра, конец. */
+    public readonly onDidChange = this.onDidChangeEmitter.event;
     private readonly delayMs: number;
     private readonly minVisibleMs: number;
     private readonly intervalMs: number;
@@ -148,20 +151,10 @@ export class ProgressService extends Disposable {
         return null;
     }
 
-    /** Любое изменение: старт, показ, смена кадра, конец. */
-    public onDidChange(listener: () => void): IDisposable {
-        this.listeners.add(listener);
-        return {
-            dispose: () => {
-                this.listeners.delete(listener);
-            },
-        };
-    }
-
     public override dispose(): void {
         for (const entry of [...this.entries]) this.forget(entry);
         this.stopTickerIfIdle();
-        this.listeners.clear();
+        this.onDidChangeEmitter.dispose();
         // Stryker disable next-line CallExpression: своих зарегистрированных disposable у сервиса нет, вызов держим ради контракта базового класса
         super.dispose();
     }
@@ -233,6 +226,6 @@ export class ProgressService extends Disposable {
     }
 
     private fire(): void {
-        for (const listener of [...this.listeners]) listener();
+        this.onDidChangeEmitter.fire();
     }
 }
