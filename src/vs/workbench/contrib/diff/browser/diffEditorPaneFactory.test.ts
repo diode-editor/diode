@@ -129,6 +129,17 @@ describe("Фабрика дифф-вкладки", () => {
         expect(h.testApp.focusedElement).not.toBe(focusedBefore);
     });
 
+    it("дифф со стороной-моделью слева не повторить", async () => {
+        const owned = service().createUntitledModel();
+        await openDiffPair(h.container, {
+            original: { ownedModel: owned, label: "Untitled", identity: "u" },
+            modified: { uri: Uri.file(ws.path("a.txt")), label: "a.txt", identity: "a" },
+        });
+        const pane = service().getActiveTabPane() as DiffEditorPane2;
+
+        expect(factory().describe(pane)).toBeUndefined();
+    });
+
     it("дифф со стороной-моделью справа не повторить", async () => {
         const owned = service().createUntitledModel();
         await openDiffPair(h.container, {
