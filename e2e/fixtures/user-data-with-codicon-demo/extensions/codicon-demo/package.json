@@ -1,0 +1,26 @@
+{
+    "name": "codicon-demo",
+    "displayName": "Codicon Demo",
+    "description": "Пишет разметку значков $(name) во все раковины «текст от расширения → интерфейс»: заголовок и категорию команды, метки и описания quick pick'а, подсказку поля ввода, имя канала Output, текст пункта статус-бара и подпись прогресса.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            {
+                "command": "codiconDemo.pick",
+                "title": "$(list-selection) Pick a Target",
+                "category": "$(beaker) Codicon Demo"
+            },
+            { "command": "codiconDemo.ask", "title": "$(edit) Codicon Demo: Ask for a Port" },
+            { "command": "codiconDemo.askValidated", "title": "Codicon Demo: Ask with Validation" },
+            { "command": "codiconDemo.index", "title": "$(sync) Codicon Demo: Reindex" },
+            { "command": "codiconDemo.done", "title": "Codicon Demo: Stop" },
+            { "command": "codiconDemo.showLog", "title": "Codicon Demo: Show Log" }
+        ]
+    }
+}

@@ -79,7 +79,8 @@ function entryFields(item: IWireStatusBarItem): {
         text: renderStatusBarItemText(item.text),
         alignment: item.alignment,
         priority: item.priority ?? NO_PRIORITY,
-        ...(item.name !== undefined ? { name: item.name } : {}),
+        // Имя — подпись пункта в меню видимости полосы, тоже ярлык.
+        ...(item.name !== undefined ? { name: renderCodicons(item.name) } : {}),
     };
 }
 

@@ -1,3 +1,4 @@
+import { renderCodicons } from "../../../base/common/codicons.ts";
 import type { InputValidation, QuickInputService } from "../../browser/parts/quickinput/quickInputService.ts";
 import type { QuickPickItem } from "../../common/quickPickItem.ts";
 import type { IQuickInputBoxRequest, IQuickInputSink } from "../../services/extensions/node/extensionHost.ts";
@@ -9,6 +10,13 @@ import type { IWireQuickPickRequest, IWireValidationMessage } from "../common/wi
  * субпроцесса поднимает тот же виджет, которым пользуются палитра, Quick Open и
  * наши команды, а введённое/выбранное уезжает обратно расширению. Проводка —
  * `extensionHostModule` (сток `ExtensionHost.quickInputSink`).
+ *
+ * Все ЯРЛЫКИ просьбы (заголовок, подсказка, placeholder, метки и описания
+ * пунктов, сообщение валидации) проходят через {@link renderCodicons}: разметку
+ * `$(check)` расширения пишут именно в них, и без подмены человек видел бы
+ * литерал. Исключение одно — `value`: это не ярлык, а текст, который правят и
+ * который уезжает обратно расширению. Перечень раковин и обоснование по каждому
+ * полю — в `extensionTextSinks.test.ts`.
  *
  * Оверлей один на всё приложение, и хозяев у него теперь четверо. Отсюда
  * {@link currentHandle}: гасить по токену расширения можно ТОЛЬКО свой живой
@@ -32,12 +40,14 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
             toValidation(await ask?.(value));
         this.currentHandle = request.handle;
         try {
-            // Поля кладём как есть: у опций пикера отсутствие и `undefined` —
-            // одно и то же, поэтому условные спреды тут были бы лишним швом.
+            // Условных спредов нет: у опций пикера отсутствие поля и
+            // `undefined` — одно и то же, так что ветка была бы лишним швом.
             return await this.quickInput.input({
-                title: request.title,
-                prompt: request.prompt,
-                placeholder: request.placeHolder,
+                title: renderLabel(request.title),
+                prompt: renderLabel(request.prompt),
+                placeholder: renderLabel(request.placeHolder),
+                // `value` — НЕ ярлык: это текст, который человек правит и который
+                // уезжает обратно расширению. Подмена испортила бы данные.
                 value: request.value,
                 password: request.password,
                 validateInput,
@@ -51,23 +61,23 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         // Предметы строим один раз и отвечаем ИНДЕКСАМИ в этом массиве: расширение
         // должно получить обратно свои объекты, а не пересобранные по проводу.
         const items: QuickPickItem[] = request.items.map((item) => ({
-            label: item.label,
-            description: item.description,
+            label: renderCodicons(item.label),
+            description: renderLabel(item.description),
         }));
         this.currentHandle = request.handle;
         try {
             if (!request.canPickMany) {
                 const picked = await this.quickInput.quickPick({
-                    title: request.title,
-                    placeholder: request.placeHolder,
+                    title: renderLabel(request.title),
+                    placeholder: renderLabel(request.placeHolder),
                     items,
                 });
                 if (picked === undefined) return undefined;
                 return [items.indexOf(picked)];
             }
             const picked = await this.quickInput.quickPickMany({
-                title: request.title,
-                placeholder: request.placeHolder,
+                title: renderLabel(request.title),
+                placeholder: renderLabel(request.placeHolder),
                 items,
                 picked: request.picked.map((index) => items[index]),
             });
@@ -100,5 +110,13 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
  */
 function toValidation(message: IWireValidationMessage | null | undefined): InputValidation | null {
     if (message == null) return null;
-    return { message: message.message, severity: message.severity };
+    return { message: renderCodicons(message.message), severity: message.severity };
+}
+
+/**
+ * {@link renderCodicons} для необязательного ярлыка: «поля нет» остаётся
+ * `undefined` — у опций пикера отсутствие и пустая строка значат разное.
+ */
+function renderLabel(text: string | undefined): string | undefined {
+    return text === undefined ? undefined : renderCodicons(text);
 }
