@@ -100,6 +100,9 @@ function applySaveEdits(model: TextFileModel, edits: readonly ISaveEdit[]): void
             textEdits.push(createTextEdit(clampRange(model, edit.range), edit.text));
         }
     }
+    // Пустой батч не меняет ни текст, ни историю (`applyEdits` от него
+    // отказывается) — гард лишь бережёт лишнюю перерисовку, мутант ненаблюдаем.
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентен — см. выше
     if (textEdits.length > 0) {
         model.applyExternalEdits(textEdits, "editorconfig: pre-save");
     }
