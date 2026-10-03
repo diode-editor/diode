@@ -239,8 +239,6 @@ describe("LanguagesNamespace", () => {
         expect(subs).toHaveLength(1);
         expect(subs[0].params).toEqual({
             hasFoldingProviders: true,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
         });
 
@@ -252,8 +250,6 @@ describe("LanguagesNamespace", () => {
         const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(after[1].params).toEqual({
             hasFoldingProviders: false,
-            hasFormattingProviders: false,
-            hasCodeActionsProviders: false,
             hasInlineCompletionProviders: false,
         });
     });

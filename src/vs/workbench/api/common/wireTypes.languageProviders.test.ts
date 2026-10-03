@@ -35,6 +35,22 @@ describe("wireTypes — parseWireLanguageProviderRegistration", () => {
         ).toEqual({ handle: 1, kind: "signatureHelp", selector: [], retriggerCharacters: [")"] });
     });
 
+    it("виды code actions: только непустые строки", () => {
+        expect(
+            parseWireLanguageProviderRegistration({
+                handle: 2,
+                kind: "codeActions",
+                selector: [],
+                providedCodeActionKinds: ["quickfix", "", 3, "source.organizeImports"],
+            }),
+        ).toStrictEqual({
+            handle: 2,
+            kind: "codeActions",
+            selector: [],
+            providedCodeActionKinds: ["quickfix", "source.organizeImports"],
+        });
+    });
+
     it("чужая форма конверта — null", () => {
         expect(parseWireLanguageProviderRegistration(null)).toBeNull();
         expect(parseWireLanguageProviderRegistration(undefined)).toBeNull();

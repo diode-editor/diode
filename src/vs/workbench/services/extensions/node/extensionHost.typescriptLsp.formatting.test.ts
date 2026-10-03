@@ -4,12 +4,17 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    formatDocumentFor,
+    type IExtensionHarness,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -95,9 +100,7 @@ describe("ExtensionHost — форматирование от стокового
             // Шов: дождаться, пока стоковый клиент зарегистрирует провайдер и
             // настоящий tsserver ответит правками.
             const edits = await until("formatting edits от tsserver", async () => {
-                const source = harness.group.formattingSource;
-                if (source === undefined) return null;
-                const found: readonly ITextEdit[] | null = await source({
+                const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: MESSY_TS,
@@ -114,6 +117,7 @@ describe("ExtensionHost — форматирование от стокового
             } as unknown as StatusBarService;
             const accessor = new Container();
             accessor.bind(EditorServiceDIToken, () => harness.group);
+            accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
             accessor.bind(StatusBarServiceDIToken, () => statusBar);
             registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, formatDocumentAction);
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseWireCodeActions, requestApplyCodeAction, requestCodeActions } from "./wireTypes.ts";
 
-// Wire-слой code actions: трёхзначный контракт provide (null/[]/список) и
+// Wire-слой code actions: provide — список (мусор, null и таймаут — []) и
 // строгий boolean apply.
 
 const PARAMS = {
@@ -34,8 +34,8 @@ describe("parseWireCodeActions", () => {
 });
 
 describe("requestCodeActions", () => {
-    it("null — «нет провайдера»; массив — как есть; мусор и таймаут — []", async () => {
-        expect(await requestCodeActions(() => Promise.resolve(null), PARAMS, 1000)).toBeNull();
+    it("массив — как есть; null, мусор и таймаут — []", async () => {
+        expect(await requestCodeActions(() => Promise.resolve(null), PARAMS, 1000)).toEqual([]);
         expect(await requestCodeActions(() => Promise.resolve([ITEM]), PARAMS, 1000)).toEqual([ITEM]);
         expect(await requestCodeActions(() => Promise.resolve({ items: [ITEM] }), PARAMS, 1000)).toEqual([]);
         const never = new Promise<unknown>(() => undefined);

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICodeActionRequest } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -12,9 +11,9 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
 /**
- * Гейт запросов code actions: субпроцесса нет, канал сшит in-process — так
- * проверяются ветки, недостижимые через настоящий fork (подписка ещё не
- * пришла, отсечка по размеру, форма параметров). Образец —
+ * Запросы code actions по handle: субпроцесса нет, канал сшит in-process — так
+ * проверяются ветки, недостижимые через настоящий fork (отсечка по размеру,
+ * форма параметров, остановка субпроцесса). Образец —
  * `extensionHost.formattingInProcess.test.ts`.
  */
 
@@ -62,23 +61,16 @@ function makeHost(options: { warn?: ILogger["warn"] } = {}): { host: ExtensionHo
     return { host, peer };
 }
 
-describe("ExtensionHost — гейт code actions (in-process)", () => {
-    it("без подписки provide → null и apply → false, RPC не гоняется", async () => {
+describe("ExtensionHost — code actions по handle (in-process)", () => {
+    it("provide несёт handle, apply — id действия; после остановки субпроцесса оба не уходят", async () => {
         const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve([WIRE_ACTION]));
+        const provide = vi.fn((_params: unknown) => Promise.resolve([WIRE_ACTION]));
         const apply = vi.fn(() => Promise.resolve(true));
         peer.handleRequest("languages.provideCodeActions", provide);
         peer.handleRequest("languages.applyCodeAction", apply);
 
-        expect(await host.provideCodeActions(requestOf("x"))).toBeNull();
-        expect(await host.applyCodeAction("1.0")).toBe(false);
-        expect(provide).not.toHaveBeenCalled();
-        expect(apply).not.toHaveBeenCalled();
-
-        peer.notify("languages.updateSubscriptions", { hasCodeActionsProviders: true });
-        await flushMicrotasks();
-
-        expect(await host.provideCodeActions(requestOf("x"))).toEqual([WIRE_ACTION]);
+        expect(await host.provideCodeActions(3, requestOf("x"))).toEqual([WIRE_ACTION]);
+        expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 3 });
         expect(await host.applyCodeAction("1.0")).toBe(true);
         // Второй аргумент любого хендлера — токен отмены запроса (RpcEndpoint
         // выдаёт его всем методам; code actions его пока не используют).
@@ -86,6 +78,13 @@ describe("ExtensionHost — гейт code actions (in-process)", () => {
             { id: "1.0" },
             expect.objectContaining({ isCancellationRequested: false }),
         );
+
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(await host.provideCodeActions(3, requestOf("x"))).toEqual([]);
+        expect(await host.applyCodeAction("1.0")).toBe(false);
+        expect(provide).toHaveBeenCalledTimes(1);
+        expect(apply).toHaveBeenCalledTimes(1);
     });
 
     it("параметры provide едут как есть; only не выдумывается без запроса", async () => {
@@ -95,20 +94,21 @@ describe("ExtensionHost — гейт code actions (in-process)", () => {
             seen.push(params);
             return Promise.resolve(null);
         });
-        peer.notify("languages.updateSubscriptions", { hasCodeActionsProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideCodeActions(requestOf("x", { range: createRange(1, 2, 3, 4) }))).toBeNull();
-        await host.provideCodeActions(requestOf("x", { only: "source.organizeImports" }));
+        // `null` от субпроцесса (старая форма «провайдера нет») читается как «действий нет».
+        expect(await host.provideCodeActions(0, requestOf("x", { range: createRange(1, 2, 3, 4) }))).toEqual([]);
+        await host.provideCodeActions(0, requestOf("x", { only: "source.organizeImports" }));
 
         expect(seen).toEqual([
             {
+                handle: 0,
                 uri: "file:///a.py",
                 languageId: "python",
                 text: "x",
                 range: { startLine: 1, startCharacter: 2, endLine: 3, endCharacter: 4 },
             },
             {
+                handle: 0,
                 uri: "file:///a.py",
                 languageId: "python",
                 text: "x",
@@ -123,11 +123,9 @@ describe("ExtensionHost — гейт code actions (in-process)", () => {
         const { host, peer } = makeHost({ warn });
         const provide = vi.fn(() => Promise.resolve([WIRE_ACTION]));
         peer.handleRequest("languages.provideCodeActions", provide);
-        peer.notify("languages.updateSubscriptions", { hasCodeActionsProviders: true });
-        await flushMicrotasks();
 
         const huge = "x".repeat(MAX_TEXT_BYTES + 1);
-        expect(await host.provideCodeActions(requestOf(huge))).toEqual([]);
+        expect(await host.provideCodeActions(0, requestOf(huge))).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
         expect(warn).toHaveBeenCalledExactlyOnceWith("skipping code actions: document too large", {
             uri: "file:///a.py",
@@ -135,20 +133,11 @@ describe("ExtensionHost — гейт code actions (in-process)", () => {
         });
 
         // Ровно на границе — запрос уходит.
-        await host.provideCodeActions(requestOf("x".repeat(MAX_TEXT_BYTES)));
+        await host.provideCodeActions(0, requestOf("x".repeat(MAX_TEXT_BYTES)));
         expect(provide).toHaveBeenCalledTimes(1);
 
         const silent = makeHost();
         silent.peer.handleRequest("languages.provideCodeActions", provide);
-        silent.peer.notify("languages.updateSubscriptions", { hasCodeActionsProviders: true });
-        await flushMicrotasks();
-        expect(await silent.host.provideCodeActions(requestOf(huge))).toEqual([]);
-    });
-
-    it("чужая форма подписки (не true) не включает гейт", async () => {
-        const { host, peer } = makeHost();
-        peer.notify("languages.updateSubscriptions", { hasCodeActionsProviders: "true" });
-        await flushMicrotasks();
-        expect(await host.provideCodeActions(requestOf("x"))).toBeNull();
+        expect(await silent.host.provideCodeActions(0, requestOf(huge))).toEqual([]);
     });
 });

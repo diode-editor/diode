@@ -3,9 +3,7 @@ import * as path from "node:path";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { CodeActionSource } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
-import type { FormattingSource } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
@@ -18,9 +16,13 @@ import type { ITokenStyleResolver } from "../../../../editor/common/languages/iT
 import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { TokenizationRegistryDIToken } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
+import { hasDocumentFormatter } from "../../../../editor/contrib/format/format.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
@@ -126,6 +128,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         LanguageConfigurationServiceDIToken,
         DialogServiceDIToken,
         EditorPaneFactoriesDIToken,
+        LanguageFeaturesServiceDIToken,
     ] as const;
 
     /**
@@ -158,6 +161,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private tokenStyleResolver: ITokenStyleResolver;
     private languageService: ILanguageService;
     private languageConfigurationService: ILanguageConfigurationService;
+    private readonly languageFeatures: ILanguageFeaturesService;
     private configurationService: IConfigurationService;
     /** Transient-состояние Alt+Z: `null` — действует конфиг (см. {@link toggleWordWrap}). */
     private wordWrapSessionOverride: "off" | "on" | null = null;
@@ -186,7 +190,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * Пайплайн save-участников — один на все модели сервиса; состав собирается
      * в момент сохранения ({@link collectSaveParticipants}).
      */
-    private readonly textFileSaveParticipant = new TextFileSaveParticipant(() => this.collectSaveParticipants());
+    private readonly textFileSaveParticipant = new TextFileSaveParticipant((model) =>
+        this.collectSaveParticipants(model),
+    );
     /** Участник `editor.codeActionsOnSave` (см. {@link collectSaveParticipants}). */
     private readonly codeActionsOnSaveParticipant: SaveParticipant;
     /** Участник `editor.formatOnSave` (см. {@link collectSaveParticipants}). */
@@ -245,22 +251,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public readonly onDidFailOpen = this.onDidFailOpenEmitter.event;
 
     /**
-     * Formatting-источник (host/харнесс подключает сюда провайдеры расширений
-     * через `languages.provideFormattingEdits`). Читается командами
-     * `editor.action.formatDocument` / `formatSelection`; в редакторы не
-     * раздаётся (group-level).
-     */
-    public formattingSource?: FormattingSource;
-
-    /**
-     * Code-action-источник (host/харнесс подключает сюда провайдеры расширений
-     * через `languages.provideCodeActions` / `applyCodeAction`). Читается
-     * командами `editor.action.organizeImports` / `fixAll`; в редакторы не
-     * раздаётся (group-level).
-     */
-    public codeActionSource?: CodeActionSource;
-
-    /**
      * Save-участник расширений (host/харнесс подключает сюда
      * `onWillSaveTextDocument`). Модели читают его через провайдер пайплайна
      * ({@link collectSaveParticipants}) в момент сохранения — присваивание в
@@ -280,14 +270,21 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * каждого ложатся в буфер до следующего и до записи на диск). С дефолтами
      * (обе настройки выключены) список состоит из одного will-save участника —
      * поведение сохранения не меняется; без host'а он пуст, и save остаётся
-     * синхронным.
+     * синхронным. Участник по провайдерам входит, только если для ЭТОГО
+     * документа есть подходящий провайдер (реестр по селектору).
      */
-    private collectSaveParticipants(): readonly SaveParticipant[] {
+    private collectSaveParticipants(model: TextFileModel): readonly SaveParticipant[] {
         const participants: SaveParticipant[] = [];
-        if (this.codeActionSource !== undefined && enabledCodeActionKindsOnSave(this.configurationService).length > 0) {
+        if (
+            this.languageFeatures.codeActionProvider.has(model) &&
+            enabledCodeActionKindsOnSave(this.configurationService).length > 0
+        ) {
             participants.push(this.codeActionsOnSaveParticipant);
         }
-        if (this.formattingSource !== undefined && this.configurationService.get("editor.formatOnSave")) {
+        if (
+            hasDocumentFormatter(this.languageFeatures, model) &&
+            this.configurationService.get("editor.formatOnSave")
+        ) {
             participants.push(this.formatOnSaveParticipant);
         }
         if (this.saveParticipantValue !== undefined) {
@@ -358,6 +355,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // Фабрики вкладок из contrib (Keyboard Shortcuts, дифф); текстовая —
         // своя, сервису она и так известна.
         contributedPaneFactories: readonly IEditorPaneFactory<unknown>[] = [],
+        // Реестры языковых провайдеров (on-save участники спрашивают их по
+        // документу). Дефолт — пустые: тестовым конструкторам без провайдеров
+        // он не нужен.
+        languageFeatures: ILanguageFeaturesService = new LanguageFeaturesService(),
     ) {
         super();
         this.themeService = themeService;
@@ -369,6 +370,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.fileWatcher = fileWatcher;
         this.contextMenuController = contextMenuController;
         this.languageConfigurationService = languageConfigurationService;
+        this.languageFeatures = languageFeatures;
         // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
         this.paneFactories = [createTextEditorPaneFactory(this), ...contributedPaneFactories];
@@ -376,12 +378,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             surfaces: () => [...this.textPanes(), ...this.diffSidePanes()],
         });
         // Участники сохранения по настройкам (`editor.codeActionsOnSave` /
-        // `editor.formatOnSave`): источники читаются лениво — host подключает
-        // их уже после создания сервиса.
+        // `editor.formatOnSave`): провайдеров берут из реестров по документу.
         const onSaveHost: IOnSaveParticipantHost = {
             configuration: configurationService,
-            codeActionSource: () => this.codeActionSource,
-            formattingSource: () => this.formattingSource,
+            languageFeatures,
             paneForUri: (uri) => this.textPanes().find((pane) => pane.uri.toString() === uri) ?? null,
         };
         this.codeActionsOnSaveParticipant = createCodeActionsOnSaveParticipant(onSaveHost);

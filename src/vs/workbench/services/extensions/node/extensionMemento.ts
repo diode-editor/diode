@@ -1,11 +1,9 @@
 /**
- * Наивный in-memory `vscode.Memento` для `ExtensionContext.globalState` /
- * `workspaceState`: честные get/update/keys в пределах жизни субпроцесса,
- * БЕЗ персистентности — перезапуск редактора начинает с чистого листа.
- * Этого достаточно типовому потребителю (ruff помечает разово показанную
- * рекомендацию: `globalState.get(...)` при активации падал на отсутствии
- * memento вовсе); настоящее хранилище — вместе с `IStateService`-мостом,
- * когда появится потребитель, которому важно переживать перезапуск.
+ * `vscode.Memento` для `ExtensionContext.globalState` / `workspaceState` на
+ * стороне субпроцесса: локальный словарь (поэтому `get`/`keys` синхронны), а
+ * хранилище — на хосте (`extensionStateStore.ts`). Начальный словарь приезжает
+ * в параметрах `host.activateExtension`, каждый `update` отдаёт хосту словарь
+ * целиком (`persist`) — memento переживает перезапуск редактора.
  */
 export interface IExtensionMemento {
     keys(): readonly string[];
@@ -15,13 +13,22 @@ export interface IExtensionMemento {
     setKeysForSync?(keys: readonly string[]): void;
 }
 
-/**
- * `withSync` добавляет no-op `setKeysForSync` — он есть ТОЛЬКО у globalState
- * (`Memento & { setKeysForSync }` в vscode API), и расширения зовут его без
- * проверки на существование.
- */
-export function createExtensionMemento(withSync: boolean): IExtensionMemento {
-    const store = new Map<string, unknown>();
+export interface IExtensionMementoOptions {
+    /** Словарь, сохранённый с прошлых запусков. */
+    readonly initial: Readonly<Record<string, unknown>>;
+    /**
+     * Добавить no-op `setKeysForSync` — он есть ТОЛЬКО у globalState
+     * (`Memento & { setKeysForSync }` в vscode API), и расширения зовут его без
+     * проверки на существование. Settings Sync у нас нет — синхронизировать
+     * нечего.
+     */
+    readonly withSync: boolean;
+    /** Отдать хосту словарь целиком; промис `update` резолвится по его ответу. */
+    persist(value: Record<string, unknown>): Promise<void>;
+}
+
+export function createExtensionMemento(options: IExtensionMementoOptions): IExtensionMemento {
+    const store = new Map<string, unknown>(Object.entries(options.initial));
     const memento: IExtensionMemento = {
         keys: () => [...store.keys()],
         get: (key, defaultValue) => (store.has(key) ? store.get(key) : defaultValue),
@@ -29,10 +36,10 @@ export function createExtensionMemento(withSync: boolean): IExtensionMemento {
             // Семантика vscode: update(key, undefined) удаляет ключ.
             if (value === undefined) store.delete(key);
             else store.set(key, value);
-            return Promise.resolve();
+            return options.persist(Object.fromEntries(store));
         },
     };
-    if (withSync) {
+    if (options.withSync) {
         memento.setKeysForSync = () => undefined;
     }
     return memento;

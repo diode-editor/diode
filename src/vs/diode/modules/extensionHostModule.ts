@@ -13,6 +13,7 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
+import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import type { IWorkspaceContextService } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
@@ -47,6 +48,7 @@ import {
 import type { IExtensionRegistrationEnv } from "../../workbench/services/extensions/node/extensionRegistration.ts";
 import { createFileExtensionSecretStore } from "../../workbench/services/extensions/node/extensionSecretsStore.ts";
 import { ExtensionService } from "../../workbench/services/extensions/node/extensionService.ts";
+import { createExtensionStateStore } from "../../workbench/services/extensions/node/extensionStateStore.ts";
 import {
     extensionStorageHomes,
     type IExtensionStorageHomes,
@@ -194,14 +196,17 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const storageHomes = (): IExtensionStorageHomes =>
             extensionStorageHomes(environment, workspaceContext.getWorkspace().id);
 
-        // Секреты расширений — файл в user-data (в отличие от memento, они
-        // обязаны пережить перезапуск). Беды хранилища уходят в лог хоста; сами
-        // значения не логируются нигде и никогда.
+        // Секреты расширений — отдельный файл в user-data (0600, синхронная
+        // запись). Беды хранилища уходят в лог хоста; сами значения не логируются
+        // нигде и никогда.
         // Stryker disable BlockStatement,CallExpression: production-проводка модуля (как у `storageHomes` выше) — решение о хранилище живёт в `extensionSecretsStore` и закрыто юнитами, сквозняк — e2e-сценарий extension-secrets
         const secrets = createFileExtensionSecretStore(environment.secretsFile, (message, err) => {
             logger.error(message, err);
         });
         // Stryker restore BlockStatement,CallExpression
+        // Memento расширений (`globalState`/`workspaceState`) — поверх общего
+        // StateService: переживает перезапуск, как состояние самого workbench'а.
+        const extensionState = createExtensionStateStore(container.get(StateServiceDIToken));
 
         const host = new ExtensionHost(adapter, commandAdapter, {
             logger,
@@ -217,6 +222,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             fileWatcher,
             storageHomes,
             secrets,
+            extensionState,
             diagnosticsSink,
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
@@ -298,23 +304,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             group.refreshVirtualDocument(uri);
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
-
-        // Formatting: провайдеры расширений (languages.provideFormattingEdits)
-        // подключаются как formatting-источник группы (читают команды
-        // editor.action.formatDocument / formatSelection).
-        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.formattingSource = (req) => host.provideFormattingEdits(req);
-
-        // Code actions: провайдеры расширений (languages.provideCodeActions /
-        // applyCodeAction) — источник действий группы (читают команды
-        // editor.action.organizeImports / fixAll).
-        // Stryker disable next-line ObjectLiteral: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.codeActionSource = {
-            // Stryker disable next-line ArrowFunction: см. выше
-            provide: (req) => host.provideCodeActions(req),
-            // Stryker disable next-line ArrowFunction: см. выше
-            apply: (id) => host.applyCodeAction(id),
-        };
 
         // Folding: провайдеры расширений (languages.provideFoldingRanges)
         // подключаются как источник областей сворачивания группы (читает

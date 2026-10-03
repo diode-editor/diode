@@ -1,5 +1,6 @@
 import { createRange } from "../../../editor/common/core/iRange.ts";
-import type { ICoreCodeAction } from "../../../editor/common/languages/iCodeActionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
+import { getCodeActions, type ICodeActionItem } from "../../../editor/contrib/codeAction/codeAction.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -13,7 +14,8 @@ import { selectionRange } from "./formatActions.ts";
 // ─── Code actions (#196) ────────────────────────────────────
 //
 // Source-команды поверх провайдеров расширений
-// (`EditorService.codeActionSource` ← host ← `languages.provideCodeActions`).
+// (реестр `ILanguageFeaturesService.codeActionProvider` ← прокси host'а ←
+// `languages.provideCodeActions`).
 // Меню выбора действий (quick fix по Ctrl+.) — отдельным PR; здесь только
 // действия «на весь документ», которым меню не нужно: organize imports и
 // fix all берут предпочтительное/первое действие запрошенного вида.
@@ -28,6 +30,7 @@ import { selectionRange } from "./formatActions.ts";
 async function runSourceAction(accessor: ServiceAccessor, only: string, noun: string): Promise<void> {
     const group = accessor.get(EditorServiceDIToken);
     const statusBar = accessor.get(StatusBarServiceDIToken);
+    const languageFeatures = accessor.get(LanguageFeaturesServiceDIToken);
     const editor = group.getActiveEditor();
     if (editor === null) return;
 
@@ -35,16 +38,10 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
         showTransientNotice(statusBar, "codeAction.notice", text);
     };
 
-    const source = group.codeActionSource;
-    if (source === undefined) {
-        notice(`No ${noun} action for '${editor.languageId}'`);
-        return;
-    }
-
     const text = editor.getText();
     const lines = text.split("\n");
     const lastLine = lines.length - 1;
-    const actions = await source.provide({
+    const items = await getCodeActions(languageFeatures.codeActionProvider, editor, {
         uri: editor.uri.toString(),
         languageId: editor.languageId,
         text,
@@ -53,14 +50,14 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
         range: createRange(0, 0, lastLine, lines[lastLine].length),
         only,
     });
-    if (actions === null || actions.length === 0) {
+    if (items.length === 0) {
         notice(`No ${noun} action for '${editor.languageId}'`);
         return;
     }
 
-    const pick: ICoreCodeAction = actions.find((action) => action.isPreferred === true) ?? actions[0];
-    const applied = await source.apply(pick.id);
-    if (!applied) notice(`Code action failed: ${pick.title}`);
+    const pick: ICodeActionItem = items.find((item) => item.action.isPreferred === true) ?? items[0];
+    const applied = await pick.provider.applyCodeAction(pick.action.id);
+    if (!applied) notice(`Code action failed: ${pick.action.title}`);
 }
 
 /**
@@ -96,6 +93,7 @@ export const quickFixAction: CommandAction = {
         const group = accessor.get(EditorServiceDIToken);
         const statusBar = accessor.get(StatusBarServiceDIToken);
         const quickInput = accessor.get(QuickInputServiceDIToken);
+        const languageFeatures = accessor.get(LanguageFeaturesServiceDIToken);
         const editor = group.getActiveEditor();
         if (editor === null) return;
 
@@ -103,14 +101,8 @@ export const quickFixAction: CommandAction = {
             showTransientNotice(statusBar, "codeAction.notice", text);
         };
 
-        const source = group.codeActionSource;
-        if (source === undefined) {
-            notice("No code actions available");
-            return;
-        }
-
         const text = editor.getText();
-        const actions = await source.provide({
+        const found = await getCodeActions(languageFeatures.codeActionProvider, editor, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             text,
@@ -118,7 +110,7 @@ export const quickFixAction: CommandAction = {
             // выделение — строка каретки, чтобы накрыть диагностики строки).
             range: selectionRange(editor.viewState.selections[0], text),
         });
-        if (actions === null || actions.length === 0) {
+        if (found.length === 0) {
             notice("No code actions available");
             return;
         }
@@ -134,7 +126,7 @@ export const quickFixAction: CommandAction = {
             if (kind === "source" || kind.startsWith("source.")) return 2;
             return 3;
         };
-        const sorted = [...actions].sort((a, b) => {
+        const sorted = [...found].sort(({ action: a }, { action: b }) => {
             const byKind = kindRank(a.kind) - kindRank(b.kind);
             if (byKind !== 0) return byKind;
             const aPreferred = a.isPreferred === true;
@@ -144,7 +136,7 @@ export const quickFixAction: CommandAction = {
             if (aPreferred === bPreferred) return 0;
             return aPreferred ? -1 : 1;
         });
-        const items = sorted.map((action) => ({
+        const items = sorted.map(({ action }) => ({
             label: action.title,
             ...(action.kind === undefined ? {} : { description: action.kind }),
             ...(action.isPreferred === true ? { badge: "preferred" } : {}),
@@ -157,8 +149,8 @@ export const quickFixAction: CommandAction = {
         if (picked === undefined) return; // отмена — не событие
 
         const pick = sorted[items.indexOf(picked)];
-        const applied = await source.apply(pick.id);
-        if (!applied) notice(`Code action failed: ${pick.title}`);
+        const applied = await pick.provider.applyCodeAction(pick.action.id);
+        if (!applied) notice(`Code action failed: ${pick.action.title}`);
     },
 };
 

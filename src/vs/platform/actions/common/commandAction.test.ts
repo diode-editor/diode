@@ -288,6 +288,41 @@ describe("registerAction", () => {
     });
 });
 
+describe("registerAction — вес кейбиндов", () => {
+    const register = (keybindings: KeybindingRegistry, action: Omit<CommandAction, "title" | "run">): void => {
+        registerAction(new CommandRegistry(), keybindings, new Container(), {
+            title: action.id,
+            run: vi.fn(),
+            ...action,
+        });
+    };
+
+    it("вес экшена перебивает экшен, зарегистрированный позже", () => {
+        const keybindings = new KeybindingRegistry();
+        register(keybindings, { id: "popup.hide", keybinding: parseKeybinding("escape"), weight: 100 });
+        register(keybindings, { id: "editor.cancel", keybinding: parseKeybinding("escape") });
+        expect(resolve(keybindings, KEY("Escape"))).toBe("popup.hide");
+    });
+
+    it("вес условного бинда — свой, иначе — экшена", () => {
+        const keybindings = new KeybindingRegistry();
+        register(keybindings, {
+            id: "heavy",
+            weight: 0,
+            keybindings: [{ keys: parseKeybinding("f1"), weight: 100 }, { keys: parseKeybinding("f2") }],
+        });
+        register(keybindings, {
+            id: "light",
+            weight: 50,
+            keybindings: [{ keys: parseKeybinding("f1") }, { keys: parseKeybinding("f2") }],
+        });
+        // F1: собственный вес бинда (100) сильнее веса чужого экшена (50).
+        expect(resolve(keybindings, KEY("F1"))).toBe("heavy");
+        // F2: у бинда веса нет — берётся вес экшена (0 против 50).
+        expect(resolve(keybindings, KEY("F2"))).toBe("light");
+    });
+});
+
 describe("registerAction — enablement", () => {
     function setup(action: CommandAction): {
         commands: CommandRegistry;

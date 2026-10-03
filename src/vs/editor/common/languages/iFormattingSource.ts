@@ -25,12 +25,23 @@ export interface IFormattingRequest {
 }
 
 /**
- * Formatting-источник: по запросу возвращает правки от провайдера расширений.
- * Инъектируется в ядро извне (host/харнесс) — ядро не знает про extension-слой
- * (зеркало {@link ./iDefinitionSource.ts:DefinitionSource}).
- *
- * Трёхзначный ответ: `null` — НЕТ провайдера, матчащего документ (командный
- * слой показывает «нет форматтера»); пустой массив — провайдер есть, но менять
- * нечего (или он не ответил вовремя); иначе — правки к применению.
+ * Провайдер форматирования документа в реестре
+ * `ILanguageFeaturesService.documentFormattingEditProvider` (upstream
+ * `languages.DocumentFormattingEditProvider`). Пустой ответ — менять нечего
+ * (или провайдер не ответил вовремя). Выбор провайдера — `editor/contrib/format`.
  */
-export type FormattingSource = (request: IFormattingRequest) => Promise<readonly ITextEdit[] | null>;
+export interface DocumentFormattingEditProvider {
+    provideDocumentFormattingEdits(request: IFormattingRequest): Promise<readonly ITextEdit[]>;
+}
+
+/**
+ * Провайдер форматирования диапазона в реестре
+ * `ILanguageFeaturesService.documentRangeFormattingEditProvider` (upstream
+ * `languages.DocumentRangeFormattingEditProvider`). Он же — «синтетический»
+ * форматтер документа: на полный диапазон, когда документного нет.
+ */
+export interface DocumentRangeFormattingEditProvider {
+    provideDocumentRangeFormattingEdits(
+        request: IFormattingRequest & { readonly range: IRange },
+    ): Promise<readonly ITextEdit[]>;
+}

@@ -969,6 +969,9 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "references",
     "signatureHelp",
     "completion",
+    "formatting",
+    "rangeFormatting",
+    "codeActions",
 ] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 
@@ -995,6 +998,12 @@ export interface IWireLanguageProviderMetadata {
     readonly triggerCharacters?: readonly string[];
     /** Символы, перезапрашивающие подсказку, пока она показана (signature help). */
     readonly retriggerCharacters?: readonly string[];
+    /**
+     * Виды code actions, которые провайдер вообще отдаёт
+     * (`CodeActionProviderMetadata.providedCodeActionKinds`): ядро не спрашивает
+     * провайдера, чьи виды не пересекаются с запрошенным `only`.
+     */
+    readonly providedCodeActionKinds?: readonly string[];
 }
 
 /** `languages.register`: провайдер фичи `kind` под селектором (subprocess → host). */
@@ -1063,10 +1072,13 @@ export function parseWireLanguageProviderRegistration(raw: unknown): IWireLangua
         ...(Array.isArray(obj.retriggerCharacters)
             ? { retriggerCharacters: readWireCharacters(obj.retriggerCharacters) }
             : {}),
+        ...(Array.isArray(obj.providedCodeActionKinds)
+            ? { providedCodeActionKinds: readWireCharacters(obj.providedCodeActionKinds) }
+            : {}),
     };
 }
 
-/** Символы-триггеры: только непустые строки, мусор отбрасывается. */
+/** Символы-триггеры и виды действий: только непустые строки, мусор отбрасывается. */
 function readWireCharacters(raw: readonly unknown[]): string[] {
     return raw.filter((item): item is string => typeof item === "string" && item !== "");
 }
@@ -1318,6 +1330,11 @@ export async function requestSignatureHelp(
  * документные (Format Document).
  */
 export interface IWireFormattingParams {
+    /**
+     * Провайдер, выбранный ядром: с `range` — range-провайдер, без — документный
+     * (см. `languages.register`, виды `formatting`/`rangeFormatting`).
+     */
+    readonly handle?: number;
     readonly uri: string;
     readonly languageId?: string;
     readonly text?: string;
@@ -1339,11 +1356,10 @@ export async function requestFormattingEdits(
     request: (method: string, params: unknown) => Promise<unknown>,
     params: IWireFormattingParams,
     timeoutMs: number,
-): Promise<readonly ITextEdit[] | null> {
+): Promise<readonly ITextEdit[]> {
     const outcome = await raceWithTimeout(request("languages.provideFormattingEdits", params), timeoutMs);
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив и не null, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
     if (outcome === TIMED_OUT) return [];
-    if (outcome === null) return null;
     return parseWireEditorEdits(outcome).map((edit) =>
         createTextEdit(
             createRange(edit.range.startLine, edit.range.startCharacter, edit.range.endLine, edit.range.endCharacter),
@@ -1360,6 +1376,8 @@ export async function requestFormattingEdits(
  * с `range` — так провайдер получает те же объекты, что публиковал сервер.
  */
 export interface IWireCodeActionParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle?: number;
     readonly uri: string;
     readonly languageId?: string;
     readonly text?: string;
@@ -1412,11 +1430,10 @@ export async function requestCodeActions(
     request: (method: string, params: unknown) => Promise<unknown>,
     params: IWireCodeActionParams,
     timeoutMs: number,
-): Promise<readonly WireCodeAction[] | null> {
+): Promise<readonly WireCodeAction[]> {
     const outcome = await raceWithTimeout(request("languages.provideCodeActions", params), timeoutMs);
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив и не null, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
     if (outcome === TIMED_OUT) return [];
-    if (outcome === null) return null;
     return parseWireCodeActions(outcome);
 }
 
@@ -2502,6 +2519,35 @@ export function parseWireSecretKeysRequest(raw: unknown): string | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { extensionId } = raw as { extensionId?: unknown };
     return typeof extensionId === "string" && extensionId !== "" ? extensionId : null;
+}
+
+/**
+ * Запрос `memento.update` (subprocess → host): словарь memento расширения
+ * целиком. `shared` — `globalState`, иначе `workspaceState`.
+ */
+export interface IWireMementoUpdate {
+    readonly extensionId: string;
+    readonly shared: boolean;
+    readonly value: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Словарь memento в проводе: plain-объект. Иное (массив, примитив, отсутствие)
+ * — пустой словарь: без сохранённого memento расширение начинает с чистого.
+ */
+export function parseWireMementoValue(raw: unknown): Readonly<Record<string, unknown>> {
+    return typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+}
+
+/** Разбирает `memento.update`; `null` — форма чужая. */
+export function parseWireMementoUpdate(raw: unknown): IWireMementoUpdate | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеют проверки полей ниже
+    if (typeof raw !== "object" || raw === null) return null;
+    const { extensionId, shared, value } = raw as { extensionId?: unknown; shared?: unknown; value?: unknown };
+    if (typeof extensionId !== "string" || extensionId === "") return null;
+    if (typeof shared !== "boolean") return null;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+    return { extensionId, shared, value: value as Record<string, unknown> };
 }
 
 /**

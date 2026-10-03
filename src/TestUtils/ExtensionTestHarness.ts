@@ -5,9 +5,12 @@ import { fileURLToPath } from "node:url";
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
+import type { ITextEdit } from "../vs/editor/common/core/iTextEdit.ts";
 import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
+import type { ICodeActionRequest, ICoreCodeAction } from "../vs/editor/common/languages/iCodeActionSource.ts";
 import type { ICompletionRequest, ICoreCompletionResult } from "../vs/editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
+import type { IFormattingRequest } from "../vs/editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
@@ -17,11 +20,14 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenS
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
 import type { ILanguageFeaturesService } from "../vs/editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../vs/editor/common/services/languageFeaturesService.ts";
+import { getCodeActions } from "../vs/editor/contrib/codeAction/codeAction.ts";
+import { formatDocument, formatRange } from "../vs/editor/contrib/format/format.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { TrashService } from "../vs/platform/files/node/trashService.ts";
+import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
 import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
@@ -54,6 +60,7 @@ import {
     type IWorkspaceFolderInfo,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
+import type { IExtensionStateStore } from "../vs/workbench/services/extensions/node/extensionStateStore.ts";
 import type { IExtensionStorageHomes } from "../vs/workbench/services/extensions/node/extensionStoragePaths.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 import type { IWorkspaceScanner } from "../vs/workbench/services/extensions/node/workspaceContainsActivation.ts";
@@ -218,6 +225,13 @@ export interface IExtensionHarnessOptions {
      */
     readonly secrets?: IExtensionSecretStore;
     /**
+     * Хранилище memento расширений (`globalState`/`workspaceState`). По
+     * умолчанию — без персиста (memento живёт в памяти субпроцесса).
+     */
+    readonly extensionState?: IExtensionStateStore;
+    /** Логгер хоста — тестам, которые проверяют предупреждения. По умолчанию его нет. */
+    readonly logger?: ILogger;
+    /**
      * Доступ к дереву воркспейса для `workspaceContains:`-активации. По
      * умолчанию — настоящая ФС (то есть `tmpDir` харнесса, куда пишет
      * `writeFile`); тесты обхода передают карту каталогов в памяти.
@@ -273,6 +287,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const configurationService = options.configurationService ?? NULL_CONFIGURATION_SERVICE;
     const undoRedoService = new UndoRedoService();
+    // Реестры языковых провайдеров — общие у группы (on-save участники) и
+    // адаптера host'а, как один DI-синглтон в extensionHostModule.
+    const languageFeatures = new LanguageFeaturesService();
     const group = new EditorService(
         themeService,
         new TokenizationRegistry(),
@@ -283,6 +300,10 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
+        undefined,
+        undefined,
+        [],
+        languageFeatures,
     );
     const groupComponent = new EditorGroupComponent(group.activeGroup, group, createTestContextMenuService());
 
@@ -325,6 +346,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         spawnArgs: subprocessSpawnArgsForTests(options.subprocessLoader),
         configuration,
         storageHomes,
+        ...(options.logger !== undefined ? { logger: options.logger } : {}),
         openDocumentsProvider: () => openDocumentSnapshots(group),
         editorLayout,
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
@@ -340,11 +362,11 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),
         ...(options.fileWatcher !== undefined ? { fileWatcher: options.fileWatcher } : {}),
         ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
+        ...(options.extensionState !== undefined ? { extensionState: options.extensionState } : {}),
         ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
     });
 
     // Языковые провайдеры (languages.register) → прокси в реестрах ядра — как в extensionHostModule.
-    const languageFeatures = new LanguageFeaturesService();
     new LanguageFeaturesAdapter(host, languageFeatures);
     // Save-pipeline (WP6): проброс will-save/did-save между группой и хостом.
     group.saveParticipant = (snapshot) => host.willSaveTextDocument(snapshot);
@@ -364,13 +386,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     host.onDidChangeTextContent((uri) => {
         group.refreshVirtualDocument(uri);
     });
-    // Formatting (LSP): источник правок форматирования — как в extensionHostModule.
-    group.formattingSource = (req) => host.provideFormattingEdits(req);
-    // Code actions (LSP): источник действий — как в extensionHostModule.
-    group.codeActionSource = {
-        provide: (req) => host.provideCodeActions(req),
-        apply: (id) => host.applyCodeAction(id),
-    };
     // Folding (#87): источник областей сворачивания — провайдеры расширений через host.
     group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
     host.onFoldingProvidersChanged(() => {
@@ -488,6 +503,29 @@ export function completionTriggerCharacters(
 ): string[] {
     const providers = harness.languageFeatures.completionProvider.ordered(targetOf(document));
     return [...new Set(providers.flatMap((provider) => provider.triggerCharacters))];
+}
+
+/**
+ * Правки форматирования так, как их собирают команды Format Document/Selection
+ * (`editor/contrib/format`): `null` — форматтера для документа нет.
+ */
+export function formatDocumentFor(
+    harness: IExtensionHarness,
+    request: IFormattingRequest,
+): Promise<readonly ITextEdit[] | null> {
+    const { range } = request;
+    return range === undefined
+        ? formatDocument(harness.languageFeatures, targetOf(request), request)
+        : formatRange(harness.languageFeatures, targetOf(request), { ...request, range });
+}
+
+/** Code actions так, как их собирают команды (`editor/contrib/codeAction`). */
+export async function provideCodeActions(
+    harness: IExtensionHarness,
+    request: ICodeActionRequest,
+): Promise<readonly ICoreCodeAction[]> {
+    const items = await getCodeActions(harness.languageFeatures.codeActionProvider, targetOf(request), request);
+    return items.map((item) => item.action);
 }
 
 /** Документ запроса как цель скоринга реестра. */

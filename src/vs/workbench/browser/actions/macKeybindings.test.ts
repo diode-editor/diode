@@ -2,6 +2,13 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import {
+    contextFor,
+    type Environment,
+    ENVIRONMENTS,
+    FOCUS_CONTEXTS,
+    registerBuiltins,
+} from "../../../../TestUtils/builtinKeybindings.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
@@ -34,55 +41,6 @@ const noopRun = (): void => undefined;
 
 function action(partial: Partial<CommandAction> & { id: string }): CommandAction {
     return { title: partial.id, run: noopRun, ...partial };
-}
-
-/** Все дефолтные бинды — так, как их регистрирует WorkbenchComponent. */
-function registerBuiltins(): KeybindingRegistry {
-    const keybindings = new KeybindingRegistry();
-    const commands = new CommandRegistry();
-    const accessor = {} as ServiceAccessor; // enablement резолвится только при исполнении
-    for (const builtin of builtinActions) registerAction(commands, keybindings, accessor, withMacKeybindings(builtin));
-    return keybindings;
-}
-
-interface Environment {
-    readonly name: string;
-    readonly tier: "legacy" | "csi-u" | "kitty";
-    readonly rung?: MacKeysRung;
-    readonly tmux?: boolean;
-}
-
-const ENVIRONMENTS: readonly Environment[] = [
-    { name: "pc legacy", tier: "legacy" },
-    { name: "pc csi-u", tier: "csi-u" },
-    { name: "pc kitty", tier: "kitty" },
-    { name: "mac-legacy (Terminal.app)", tier: "legacy", rung: "legacy" },
-    { name: "mac-legacy (tmux)", tier: "legacy", rung: "legacy", tmux: true },
-    { name: "mac-extended (tmux + extended-keys)", tier: "csi-u", rung: "extended", tmux: true },
-    { name: "mac-cmd (kitty)", tier: "kitty", rung: "cmd" },
-];
-
-/** Представительные фокус-контексты: у биндов с разным фокусом when взаимоисключающие сами. */
-const FOCUS_CONTEXTS: readonly Readonly<Record<string, boolean>>[] = [
-    {},
-    { textViewFocus: true, textInputFocus: true, editorGroupHasEditors: true, editorTabsMultiple: true },
-    { inputWidgetFocus: true },
-    { listFocus: true },
-];
-
-function contextFor(env: Environment, focus: Readonly<Record<string, boolean>>): ContextKeyService {
-    const contextKeys = new ContextKeyService();
-    const os = env.rung === undefined ? "linux" : "mac";
-    contextKeys.set("tier", env.tier);
-    contextKeys.set("os", os);
-    contextKeys.set("isMac", os === "mac");
-    contextKeys.set("isLinux", os === "linux");
-    contextKeys.set("cap_extendedKeys", env.tier !== "legacy");
-    contextKeys.set("cap_super", env.rung === "cmd");
-    contextKeys.set("macKeys", macKeysLevel(env.rung));
-    contextKeys.set("mode_tmux", env.tmux === true);
-    for (const [key, value] of Object.entries(focus)) contextKeys.setRaw(key, value);
-    return contextKeys;
 }
 
 function activeEntries(

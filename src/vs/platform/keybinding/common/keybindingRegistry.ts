@@ -3,6 +3,7 @@ import type { ContextKeyService } from "../../contextkey/common/contextKeyServic
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import { requiresExtendedKeys } from "./keybindingPortability.ts";
+import { type IKeybindingPriority, KeybindingWeight, sortByPriority } from "./keybindingResolver.ts";
 import { macKeysAtLeast, macKeysBelow } from "./macKeys.ts";
 
 export const KeybindingRegistryDIToken = token<KeybindingRegistry>("KeybindingRegistry");
@@ -64,12 +65,18 @@ export interface IKeybindingEntrySnapshot {
     readonly args?: unknown;
 }
 
-interface KeybindingEntry {
+interface KeybindingEntry extends IKeybindingPriority {
     chord: KeybindingChord;
     commandId: string;
     when?: string;
     source: KeybindingSource;
     args?: unknown;
+}
+
+/** Необязательные параметры правила. */
+export interface IKeybindingRuleOptions {
+    /** Вес правила ({@link KeybindingWeight}); по умолчанию `EditorCore`. */
+    readonly weight?: number;
 }
 
 const specialKeyMap: Record<string, string> = {
@@ -303,6 +310,10 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
 
 export class KeybindingRegistry implements IDisposable {
     private entries: KeybindingEntry[] = [];
+    /** Записи по возрастанию приоритета ({@link sortByPriority}); `null` — пересобрать при следующем чтении. */
+    private prioritized: KeybindingEntry[] | null = null;
+    /** Номер следующего правила — тайбрейк при равном весе. */
+    private nextSeq = 0;
 
     // Events accumulated for an in-progress chord (empty when not in chord mode).
     private pendingEvents: KeyboardEventLike[] = [];
@@ -313,23 +324,36 @@ export class KeybindingRegistry implements IDisposable {
         when?: string,
         source: KeybindingSource = "default",
         args?: unknown,
+        options: IKeybindingRuleOptions = {},
     ): IDisposable {
+        const seq = this.nextSeq++;
+        const weight = options.weight ?? KeybindingWeight.EditorCore;
         const added: KeybindingEntry[] = expandModKey(Array.isArray(chord) ? chord : [chord], when).map((variant) => ({
             chord: variant.chord,
             commandId,
             when: variant.when,
             source,
             args,
+            weight,
+            seq,
         }));
         this.entries.push(...added);
+        this.prioritized = null;
         return {
             dispose: () => {
                 for (const entry of added) {
                     const index = this.entries.indexOf(entry);
                     if (index !== -1) this.entries.splice(index, 1);
                 }
+                this.prioritized = null;
             },
         };
+    }
+
+    /** Записи по возрастанию приоритета — порядок, в котором их читает резолвер (с конца). */
+    private byPriority(): readonly KeybindingEntry[] {
+        this.prioritized ??= sortByPriority(this.entries);
+        return this.prioritized;
     }
 
     /**
@@ -346,12 +370,17 @@ export class KeybindingRegistry implements IDisposable {
             removed.push(entry);
             return false;
         });
+        this.prioritized = null;
         return removed;
     }
 
-    /** All registered bindings, in registration order (last one wins on resolve). */
+    /**
+     * Все бинды по возрастанию приоритета: из записей одной комбинации с
+     * проходящим `when` резолвер выбирает последнюю. При равном весе это
+     * порядок регистрации.
+     */
     public listBindings(): readonly IKeybindingEntrySnapshot[] {
-        return this.entries.map((entry) => ({
+        return this.byPriority().map((entry) => ({
             chord: entry.chord,
             commandId: entry.commandId,
             when: entry.when,
@@ -386,9 +415,10 @@ export class KeybindingRegistry implements IDisposable {
         };
 
         let hasLongerCandidate = false;
-        // Iterate backward: last-registered wins on a complete match.
-        for (let i = this.entries.length - 1; i >= 0; i--) {
-            const entry = this.entries[i];
+        // С конца — от самого сильного: на полном совпадении побеждает он.
+        const entries = this.byPriority();
+        for (let i = entries.length - 1; i >= 0; i--) {
+            const entry = entries[i];
             if (!whenPasses(entry) || !prefixMatches(entry)) continue;
             if (entry.chord.length === seq.length) {
                 this.pendingEvents = [];
@@ -428,8 +458,9 @@ export class KeybindingRegistry implements IDisposable {
      */
     public getPendingChord(contextKeys?: ContextKeyService): KeybindingChord {
         const seq = this.pendingEvents;
-        for (let i = this.entries.length - 1; i >= 0; i--) {
-            const entry = this.entries[i];
+        const entries = this.byPriority();
+        for (let i = entries.length - 1; i >= 0; i--) {
+            const entry = entries[i];
             if (entry.chord.length <= seq.length) continue;
             if (entry.when && !contextKeys?.evaluate(entry.when)) continue;
             let matches = true;
@@ -489,7 +520,7 @@ export class KeybindingRegistry implements IDisposable {
         const passing: KeybindingChord[] = [];
         const unconditional: KeybindingChord[] = [];
         const any: KeybindingChord[] = [];
-        for (const entry of this.entries) {
+        for (const entry of this.byPriority()) {
             if (entry.commandId !== commandId) continue;
             any.push(entry.chord);
             if (!entry.when) {
@@ -507,6 +538,7 @@ export class KeybindingRegistry implements IDisposable {
 
     public dispose(): void {
         this.entries.length = 0;
+        this.prioritized = null;
         this.pendingEvents = [];
     }
 }

@@ -6,7 +6,11 @@ import {
     PY_LANGUAGE_SERVICE,
     until,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    formatDocumentFor,
+    type IExtensionHarness,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { type IInstalledRuff, installRuff } from "../../../../../TestUtils/ruffFixture.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -73,9 +77,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
 
             // Формат: единственный формат-провайдер — ruff; правки чинят присваивание.
             const edits = await until("formatting edits при двух серверах", async () => {
-                const source = harness.group.formattingSource;
-                if (source === undefined) return null;
-                const found: readonly ITextEdit[] | null = await source({
+                const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: duoUri,
                     languageId: "python",
                     text: DUO_PY,

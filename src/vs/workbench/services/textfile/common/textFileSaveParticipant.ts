@@ -49,7 +49,11 @@ function raceSaveParticipantTimeout(run: Promise<readonly ISaveEdit[]>): Promise
  * (undoable) до вызова следующего.
  */
 export class TextFileSaveParticipant {
-    public constructor(private readonly participants: () => readonly SaveParticipant[]) {}
+    /**
+     * @param participants — состав пайплайна для модели: часть участников зависит
+     * от того, есть ли у её документа провайдер (code actions, форматтер).
+     */
+    public constructor(private readonly participants: (model: TextFileModel) => readonly SaveParticipant[]) {}
 
     /**
      * Прогоняет участников по модели. `null` — участников нет: вызывающий
@@ -63,7 +67,7 @@ export class TextFileSaveParticipant {
      * Сбойный (бросивший) участник пропускается по той же причине.
      */
     public participate(model: TextFileModel): Promise<void> | null {
-        const participants = this.participants();
+        const participants = this.participants(model);
         return participants.length > 0 ? this.run(model, participants) : null;
     }
 

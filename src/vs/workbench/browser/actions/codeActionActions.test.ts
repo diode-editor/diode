@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
-import type { CodeActionSource, ICodeActionRequest } from "../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeActionRequest, ICoreCodeAction } from "../../../editor/common/languages/iCodeActionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { QuickPickItem } from "../../common/quickPickItem.ts";
@@ -23,8 +25,14 @@ interface ISetup {
     pickCalls: { title?: string; placeholder?: string; items: readonly QuickPickItem[] }[];
 }
 
+/** Провайдер code actions теста: что вернуть на запрос и чем ответить на apply. */
+interface FakeCodeActions {
+    provide(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
+    apply(id: string): Promise<boolean>;
+}
+
 function makeSetup(
-    source: CodeActionSource | undefined,
+    source: FakeCodeActions | undefined,
     options: {
         /** Выбор в quick pick по label; отсутствие поля — отмена (undefined). */
         pickLabel?: string;
@@ -42,22 +50,22 @@ function makeSetup(
             selections: [options.selection ?? { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }],
         },
     };
-    const wrapped: CodeActionSource | undefined =
-        source === undefined
-            ? undefined
-            : {
-                  provide: async (request) => {
-                      requests.push(request);
-                      return source.provide(request);
-                  },
-                  apply: async (id) => {
-                      appliedIds.push(id);
-                      return source.apply(id);
-                  },
-              };
+    const languageFeatures = new LanguageFeaturesService();
+    if (source !== undefined) {
+        languageFeatures.codeActionProvider.register("*", {
+            providedCodeActionKinds: [],
+            provideCodeActions: async (request) => {
+                requests.push(request);
+                return source.provide(request);
+            },
+            applyCodeAction: async (id) => {
+                appliedIds.push(id);
+                return source.apply(id);
+            },
+        });
+    }
     const group = {
         getActiveEditor: () => editor,
-        codeActionSource: wrapped,
     } as unknown as EditorService;
     const notices: string[] = [];
     const statusBar = {
@@ -80,6 +88,7 @@ function makeSetup(
     accessor.bind(EditorServiceDIToken, () => group);
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     accessor.bind(QuickInputServiceDIToken, () => quickInput);
+    accessor.bind(LanguageFeaturesServiceDIToken, () => languageFeatures);
     return { accessor, requests, appliedIds, notices, pickCalls };
 }
 
@@ -122,15 +131,10 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(setup.appliedIds).toEqual(["1.1"]);
     });
 
-    it("нет источника, нет провайдера (null) или нет действий ([]) — notice, apply не зовётся", async () => {
+    it("нет провайдера для документа или нет действий ([]) — notice, apply не зовётся", async () => {
         const noSource = makeSetup(undefined);
         await organizeImportsAction.run(noSource.accessor);
         expect(noSource.notices).toEqual(["codeAction.notice: No organize imports action for 'python'"]);
-
-        const nullAnswer = makeSetup({ provide: () => Promise.resolve(null), apply: () => Promise.resolve(true) });
-        await organizeImportsAction.run(nullAnswer.accessor);
-        expect(nullAnswer.notices).toEqual(["codeAction.notice: No organize imports action for 'python'"]);
-        expect(nullAnswer.appliedIds).toEqual([]);
 
         const emptyAnswer = makeSetup({ provide: () => Promise.resolve([]), apply: () => Promise.resolve(true) });
         await fixAllAction.run(emptyAnswer.accessor);
@@ -145,7 +149,7 @@ describe("editor.action.organizeImports / fixAll", () => {
 
     it("без активного редактора — тихий выход", async () => {
         const provide = vi.fn();
-        const setup = makeSetup({ provide, apply: () => Promise.resolve(true) } as unknown as CodeActionSource);
+        const setup = makeSetup({ provide, apply: () => Promise.resolve(true) } as unknown as FakeCodeActions);
         (setup.accessor.get(EditorServiceDIToken) as { getActiveEditor: () => unknown }).getActiveEditor = () => null;
         await organizeImportsAction.run(setup.accessor);
         expect(provide).not.toHaveBeenCalled();
@@ -266,15 +270,11 @@ describe("editor.action.organizeImports / fixAll", () => {
         const noSource = makeSetup(undefined);
         await quickFixAction.run(noSource.accessor);
         expect(noSource.notices).toEqual(["codeAction.notice: No code actions available"]);
-
-        const nullAnswer = makeSetup({ provide: () => Promise.resolve(null), apply: () => Promise.resolve(true) });
-        await quickFixAction.run(nullAnswer.accessor);
-        expect(nullAnswer.notices).toEqual(["codeAction.notice: No code actions available"]);
     });
 
     it("quickFix: без активного редактора — тихий выход", async () => {
         const provide = vi.fn();
-        const setup = makeSetup({ provide, apply: () => Promise.resolve(true) } as unknown as CodeActionSource);
+        const setup = makeSetup({ provide, apply: () => Promise.resolve(true) } as unknown as FakeCodeActions);
         (setup.accessor.get(EditorServiceDIToken) as { getActiveEditor: () => unknown }).getActiveEditor = () => null;
         await quickFixAction.run(setup.accessor);
         expect(provide).not.toHaveBeenCalled();

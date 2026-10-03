@@ -11,6 +11,7 @@ import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { buildVscodeNamespace } from "../../../api/common/vscodeNamespace.ts";
 import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
+import { parseWireMementoValue } from "../../../api/common/wireTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
 
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
@@ -116,8 +117,16 @@ export function runExtensionHostSubprocess(): void {
 
     const extensions = new Map<string, ActivatedExtension>();
 
+    const persistMemento = async (
+        extensionId: string,
+        shared: boolean,
+        value: Record<string, unknown>,
+    ): Promise<void> => {
+        await rpc.request("memento.update", { extensionId, shared, value });
+    };
+
     rpc.handleRequest("host.activateExtension", async (params): Promise<unknown> => {
-        const { id, mainPath, source, filename, moduleType, extensionPath, configDefaults, storage } =
+        const { id, mainPath, source, filename, moduleType, extensionPath, configDefaults, storage, memento } =
             parseActivateParams(params);
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
@@ -137,12 +146,21 @@ export function runExtensionHostSubprocess(): void {
             extensionPath: rootPath,
             extensionUri: Uri.file(rootPath),
             extensionMode: ExtensionMode.Production,
-            // In-memory memento (setKeysForSync — только у globalState, как в
-            // vscode API); без него activate() ruff падал на globalState.get.
-            globalState: createExtensionMemento(true),
-            workspaceState: createExtensionMemento(false),
-            // Секреты — в отличие от memento — переживают перезапуск: хранилище
-            // на хосте, в user-data. Лоток адресуется id расширения.
+            // Memento: словарь здесь (синхронные get/keys), хранилище — на хосте,
+            // переживает перезапуск. setKeysForSync — только у globalState, как в
+            // vscode API.
+            globalState: createExtensionMemento({
+                initial: memento.globalState,
+                withSync: true,
+                persist: (value) => persistMemento(id, true, value),
+            }),
+            workspaceState: createExtensionMemento({
+                initial: memento.workspaceState,
+                withSync: false,
+                persist: (value) => persistMemento(id, false, value),
+            }),
+            // Секреты — тоже на хосте, но отдельным файлом 0600. Лоток
+            // адресуется id расширения.
             secrets: secrets.create(id),
             asAbsolutePath: (relativePath: string): string => path.join(rootPath, relativePath),
             // Приватные каталоги расширения. `storageUri` отсутствует, когда папка
@@ -296,6 +314,7 @@ function parseActivateParams(raw: unknown): {
     extensionPath: string | undefined;
     configDefaults: Record<string, unknown> | undefined;
     storage: { globalStoragePath: string; storagePath: string | null; logPath: string };
+    memento: { globalState: Readonly<Record<string, unknown>>; workspaceState: Readonly<Record<string, unknown>> };
 } {
     if (typeof raw !== "object" || raw === null) {
         throw new Error("activateExtension: params must be an object");
@@ -311,6 +330,8 @@ function parseActivateParams(raw: unknown): {
         globalStoragePath?: unknown;
         storagePath?: unknown;
         logPath?: unknown;
+        globalState?: unknown;
+        workspaceState?: unknown;
     };
     if (typeof obj.id !== "string" || obj.id === "") {
         throw new Error("activateExtension: id must be a non-empty string");
@@ -346,6 +367,11 @@ function parseActivateParams(raw: unknown): {
             // Отсутствие и `null` — одно и то же: папка не открыта.
             storagePath: typeof obj.storagePath === "string" && obj.storagePath !== "" ? obj.storagePath : null,
             logPath,
+        },
+        // Нет сохранённого memento (или хост старше) — расширение начинает с пустого.
+        memento: {
+            globalState: parseWireMementoValue(obj.globalState),
+            workspaceState: parseWireMementoValue(obj.workspaceState),
         },
     };
 }

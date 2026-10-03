@@ -7,12 +7,14 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
+import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { ICodeActionRequest } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
@@ -39,8 +41,12 @@ function stubConfigurationService(values: Record<string, unknown>): IConfigurati
     };
 }
 
+/** Реестры каждого созданного сервиса — тесты кладут в них провайдеров. */
+const registries = new WeakMap<EditorService, LanguageFeaturesService>();
+
 function createEditorService(configuration: Record<string, unknown> = {}): EditorService {
-    return new EditorService(
+    const languageFeatures = new LanguageFeaturesService();
+    const service = new EditorService(
         new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
@@ -50,7 +56,38 @@ function createEditorService(configuration: Record<string, unknown> = {}): Edito
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
+        undefined,
+        undefined,
+        [],
+        languageFeatures,
     );
+    registries.set(service, languageFeatures);
+    return service;
+}
+
+/** Code-action-провайдер теста под `*`: что вернуть на запрос и чем ответить на apply. */
+function useCodeActions(
+    ctrl: EditorService,
+    source: {
+        provide(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[] | null>;
+        apply(id: string): Promise<boolean>;
+    },
+): void {
+    registries.get(ctrl)?.codeActionProvider.register("*", {
+        providedCodeActionKinds: [],
+        provideCodeActions: async (request) => (await source.provide(request)) ?? [],
+        applyCodeAction: (id) => source.apply(id),
+    });
+}
+
+/** Документный форматтер теста под `*`. */
+function useFormatter(
+    ctrl: EditorService,
+    format: (request: IFormattingRequest) => Promise<readonly ITextEdit[] | null>,
+): void {
+    registries.get(ctrl)?.documentFormattingEditProvider.register("*", {
+        provideDocumentFormattingEdits: async (request) => (await format(request)) ?? [],
+    });
 }
 
 describe("EditorService — сохранение по настройкам onSave", () => {
@@ -71,6 +108,37 @@ describe("EditorService — сохранение по настройкам onSav
     }
 
     describe("editor.codeActionsOnSave", () => {
+        it("провайдеры чужого языка участника не включают: сохранение их не будит", async () => {
+            const ctrl = createEditorService({
+                "editor.codeActionsOnSave": { "source.fixAll": true },
+                "editor.formatOnSave": true,
+            });
+            const fp = writeFile("a.txt", "import sys\n");
+            ctrl.openFile(fp);
+            const pane = ctrl.getActiveEditor()!;
+            let asked = 0;
+            const registry = registries.get(ctrl)!;
+            registry.codeActionProvider.register("python", {
+                providedCodeActionKinds: [],
+                provideCodeActions: () => {
+                    asked++;
+                    return Promise.resolve([]);
+                },
+                applyCodeAction: () => Promise.resolve(true),
+            });
+            registry.documentFormattingEditProvider.register("python", {
+                provideDocumentFormattingEdits: () => {
+                    asked++;
+                    return Promise.resolve([]);
+                },
+            });
+
+            await pane.save();
+
+            expect(asked).toBe(0);
+            expect(fs.readFileSync(fp, "utf-8")).toBe("import sys\n");
+        });
+
         it("прогоняет включённый вид: provide с only и полным диапазоном, apply всех действий по порядку", async () => {
             const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
             const fp = writeFile("a.txt", "import sys\nimport os\n");
@@ -79,7 +147,7 @@ describe("EditorService — сохранение по настройкам onSav
 
             const provided: ICodeActionRequest[] = [];
             const applied: string[] = [];
-            ctrl.codeActionSource = {
+            useCodeActions(ctrl, {
                 provide: (req) => {
                     provided.push(req);
                     return Promise.resolve([
@@ -95,7 +163,7 @@ describe("EditorService — сохранение по настройкам onSav
                     }
                     return Promise.resolve(true);
                 },
-            };
+            });
 
             await pane.save();
 
@@ -118,13 +186,13 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(writeFile("b.txt", "x"));
 
             const onlySeen: (string | undefined)[] = [];
-            ctrl.codeActionSource = {
+            useCodeActions(ctrl, {
                 provide: (req) => {
                     onlySeen.push(req.only);
                     return Promise.resolve([]);
                 },
                 apply: () => Promise.resolve(true),
-            };
+            });
 
             await ctrl.getActiveEditor()!.save();
 
@@ -144,13 +212,13 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(writeFile("c.txt", "x"));
 
             const onlySeen: (string | undefined)[] = [];
-            ctrl.codeActionSource = {
+            useCodeActions(ctrl, {
                 provide: (req) => {
                     onlySeen.push(req.only);
                     return Promise.resolve(null);
                 },
                 apply: () => Promise.resolve(true),
-            };
+            });
 
             await ctrl.getActiveEditor()!.save();
 
@@ -163,13 +231,13 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(writeFile("d.txt", "x"));
 
             const onlySeen: (string | undefined)[] = [];
-            ctrl.codeActionSource = {
+            useCodeActions(ctrl, {
                 provide: (req) => {
                     onlySeen.push(req.only);
                     return Promise.resolve([]);
                 },
                 apply: () => Promise.resolve(true),
-            };
+            });
 
             await ctrl.getActiveEditor()!.save();
 
@@ -187,10 +255,10 @@ describe("EditorService — сохранение по настройкам onSav
             pane.viewState.selections = [createCursorSelection(1, 1), createCursorSelection(0, 2)];
 
             const requests: IFormattingRequest[] = [];
-            ctrl.formattingSource = (req) => {
+            useFormatter(ctrl, (req) => {
                 requests.push(req);
                 return Promise.resolve([createTextEdit(createRange(0, 0, 0, 7), "a = 1")]);
-            };
+            });
 
             await pane.save();
 
@@ -211,11 +279,11 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(fp);
             const pane = ctrl.getActiveEditor()!;
 
-            ctrl.formattingSource = () => {
+            useFormatter(ctrl, () => {
                 // Пока «форматтер думает», буфер меняется (гонка с пользователем).
                 pane.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "typed:")], "user");
                 return Promise.resolve([createTextEdit(createRange(0, 0, 0, 3), "NEW")]);
-            };
+            });
 
             await pane.save();
 
@@ -247,7 +315,7 @@ describe("EditorService — сохранение по настройкам onSav
             const pane = ctrl.getActiveEditor()!;
 
             const order: string[] = [];
-            ctrl.codeActionSource = {
+            useCodeActions(ctrl, {
                 provide: () => {
                     order.push("actions");
                     return Promise.resolve([{ id: "a", title: "fix" }]);
@@ -256,13 +324,13 @@ describe("EditorService — сохранение по настройкам onSav
                     pane.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "fixed:")], "fix");
                     return Promise.resolve(true);
                 },
-            };
-            ctrl.formattingSource = (req) => {
+            });
+            useFormatter(ctrl, (req) => {
                 order.push("format");
                 // Формат обязан видеть текст ПОСЛЕ code action.
                 expect(req.text).toBe("fixed:base\n");
                 return Promise.resolve([createTextEdit(createRange(0, 0, 0, 0), "fmt:")]);
-            };
+            });
             ctrl.saveParticipant = (snapshot) => {
                 order.push("willSave");
                 // Will-save расширений видит текст после формата.
@@ -283,7 +351,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(fp);
 
             let touched = 0;
-            ctrl.codeActionSource = {
+            useCodeActions(ctrl, {
                 provide: () => {
                     touched++;
                     return Promise.resolve([]);
@@ -292,11 +360,11 @@ describe("EditorService — сохранение по настройкам onSav
                     touched++;
                     return Promise.resolve(true);
                 },
-            };
-            ctrl.formattingSource = () => {
+            });
+            useFormatter(ctrl, () => {
                 touched++;
                 return Promise.resolve([]);
-            };
+            });
 
             fs.rmSync(fp);
             const pending = ctrl.getActiveEditor()!.save();
@@ -315,7 +383,7 @@ describe("EditorService — сохранение по настройкам onSav
             const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
             const fp = writeFile("halfoff.txt", "x\n");
             ctrl.openFile(fp);
-            ctrl.formattingSource = () => Promise.resolve([]);
+            useFormatter(ctrl, () => Promise.resolve([]));
 
             fs.rmSync(fp);
             const pending = ctrl.getActiveEditor()!.save();
@@ -332,15 +400,15 @@ describe("EditorService — сохранение по настройкам onSav
             });
             // Модель БЕЗ панели — как редактируемая сторона Compare Untitled.
             const model = ctrl.createUntitledModel();
-            ctrl.codeActionSource = {
+            useCodeActions(ctrl, {
                 provide: () => Promise.resolve([]),
                 apply: () => Promise.resolve(true),
-            };
+            });
             let formatCalled = 0;
-            ctrl.formattingSource = () => {
+            useFormatter(ctrl, () => {
                 formatCalled++;
                 return Promise.resolve([]);
-            };
+            });
 
             const dst = path.join(ws.dir, "untitled-dst.txt");
             await model.saveAs(dst);
@@ -375,10 +443,10 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(fp);
 
             const texts: string[] = [];
-            ctrl.formattingSource = (req) => {
+            useFormatter(ctrl, (req) => {
                 texts.push(req.text);
                 return Promise.resolve([]);
-            };
+            });
 
             await ctrl.getActiveEditor()!.save();
 

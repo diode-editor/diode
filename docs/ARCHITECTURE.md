@@ -47,6 +47,15 @@
    `base/common` значений из движка не берёт вовсе (исключение — `fileIcons.ts`,
    см. `EXCEPTIONS`).
 
+   Модули ОС — тоже на этой оси: `common`/`browser` не импортируют `node:*` и
+   голые имена встроенных модулей (кроме `node:path` — чистые строковые
+   функции), а также node-only npm-пакеты (`chokidar`, `node-pty`, `yauzl`);
+   здесь считается и `import type`. Сложившийся долг — храповик
+   `NODE_IMPORT_DEBT` (запись на файл и модуль, с тем, кто её снимает): новый
+   импорт вне списка и запись, которой больше нет в коде, — оба нарушение.
+   Доступ к диску из UI-слоёв идёт через файловый сервис
+   ([TODO/FileService.md](TODO/FileService.md)).
+
 Имена файлов — camelCase по vscode-конвенции (`tuiElement.ts`,
 `menuRegistry.ts`); тесты — колокацией рядом с кодом (наше отличие от
 upstream, где они в `test/`-деревьях; оси на тесты не проверяются).
@@ -79,6 +88,7 @@ upstream, где они в `test/`-деревьях; оси на тесты не
 напрямую, без RPC-мостов vscode — субпроцессы есть, но в них уезжает работа, а
 не UI, см. «Роли процессов»). Смысловые правила поверх осей:
 
+- **Ядро workbench не знает фич** (как `code-layering` у upstream): нетестовые value-импорты из `workbench/{browser,common,services,api}/` в `workbench/contrib/` запрещены — фича регистрирует себя сама, знать её всю разрешено только агрегатору и сборке приложения (`vs/diode`). Правило проверяет `valid-layers-check`; оставшиеся нарушители — храповик `DIRECTION_EXCEPTIONS` в `scripts/check-layers.mjs` (новые не добавляются, ставшая ненужной запись — тоже нарушение; цель — пустой список, план — E4/F2/F3 в [TODO/VscodeStructureFollowUps.md](TODO/VscodeStructureFollowUps.md)).
 - **`base/common` не импортирует ничего из проекта** (внешние leaf-зависимости — по политике из [GOAL.md](../GOAL.md); так здесь живёт `uri` на `vscode-uri`).
 - **Адресация ресурсов** — любой ресурс, который пользователь открывает как буфер или дифф, адресуется `vs/base/common/uri.ts`; путь — производное (`uri.fsPath` при `scheme === "file"`). Подъём строки в `Uri` — в одной точке на слой, с `path.resolve` вплотную перед `Uri.file`. Детали → [arch/Common.md](arch/Common.md#uri).
 - **Папки воркспейса** — единственный источник правды `IWorkspaceContextService` (`platform/workspace/common`): `IWorkspace { id, folders }`, `WorkbenchState` (`empty`/`folder`), `getWorkspaceFolder(uri)`, событие смены набора папок. Форма множественная, семантика пока **0-или-1 папка** — мульти-рута нет, и потребители сужаются видимым `folders.at(0)`. **Писатель ровно один** — `WorkbenchComponent.setWorkspaceFolder` (бутстрап `main.ts` и команда Open Folder); ему отдан отдельный DI-токен на класс, читатели получают интерфейс без писателя. Идентичность проекта — `WorkspaceId` (`computeWorkspaceId` = `sha256` абсолютного пути папки): ею, а не путём, адресуются per-workspace сторы (`workspaceStorage/<id>/state.json`, `storageUri` расширений). `ExplorerService` источником корня НЕ является — у него только корень собственного дерева. Цена и план мульти-рута → [TODO/MultiRoot.md](TODO/MultiRoot.md).
