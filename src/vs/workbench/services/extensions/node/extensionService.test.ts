@@ -81,20 +81,24 @@ afterEach(() => {
 describe("ExtensionService", () => {
     it("регистрирует набор по порядку, пропуская расширения без main, и стартует *, onStartupFinished, workspaceContains", async () => {
         const host = new FakeHost();
+        const logger = recordingLogger();
         const service = new ExtensionService(
             host,
             [ext("a", "a.js"), ext("decl", undefined), ext("git", "out/e.cjs", true)],
             ENV,
+            logger,
         );
 
         await service.start();
 
         expect(host.log).toEqual(["register:a", "register:git", "*", "onStartupFinished", "workspaceContains"]);
+        // Декларативное пропущено молча, а не «упало при регистрации».
+        expect(logger.errors).toEqual([]);
     });
 
     it("событие до регистрации не теряется: проигрывается сразу за *, а ждущий резолвится на барьере", async () => {
         const host = new FakeHost();
-        const service = new ExtensionService(host, [ext("a", "a.js")], ENV);
+        const service = new ExtensionService(host, [ext("a", "a.js")], ENV, recordingLogger());
         let resolved = false;
 
         const early = service.activateByEvent("onLanguage:python").then(() => {
@@ -124,7 +128,7 @@ describe("ExtensionService", () => {
         const host = new FakeHost();
         const startupFinished = deferred();
         host.held.set("onStartupFinished", startupFinished.promise);
-        const service = new ExtensionService(host, [], ENV);
+        const service = new ExtensionService(host, [], ENV, recordingLogger());
         let barrier = false;
         void service.whenInstalledExtensionsRegistered().then(() => {
             barrier = true;
@@ -145,7 +149,7 @@ describe("ExtensionService", () => {
 
     it("проход workspaceContains до барьера ждёт старт, а не идёт в host сам", async () => {
         const host = new FakeHost();
-        const service = new ExtensionService(host, [], ENV);
+        const service = new ExtensionService(host, [], ENV, recordingLogger());
 
         const early = service.activateByWorkspaceContains();
         await Promise.resolve();
@@ -204,7 +208,7 @@ describe("ExtensionService", () => {
 
     it("ставит вехи регистрации и активации, которые читает бенч", async () => {
         enablePerformanceMarks();
-        const service = new ExtensionService(new FakeHost(), [], ENV);
+        const service = new ExtensionService(new FakeHost(), [], ENV, recordingLogger());
 
         await service.start();
 
@@ -213,7 +217,7 @@ describe("ExtensionService", () => {
 
     it("отдаёт набор и расширение по id", () => {
         const a = ext("a", "a.js");
-        const service = new ExtensionService(new FakeHost(), [a], ENV);
+        const service = new ExtensionService(new FakeHost(), [a], ENV, recordingLogger());
 
         expect(service.extensions).toEqual([a]);
         expect(service.getExtension("a")).toBe(a);

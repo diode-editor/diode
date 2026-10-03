@@ -36,7 +36,7 @@ export class ExtensionService implements IExtensionService {
         private readonly host: IExtensionActivationHost,
         public readonly extensions: readonly IExtension[],
         private readonly registrationEnv: IExtensionRegistrationEnv,
-        private readonly logger?: ILogger,
+        private readonly logger: ILogger,
     ) {}
 
     public getExtension(id: string): IExtension | undefined {
@@ -75,7 +75,7 @@ export class ExtensionService implements IExtensionService {
                 const reg = await toExtensionRegistration(ext, this.registrationEnv);
                 if (reg !== null) this.host.registerExtension(reg);
             } catch (err) {
-                this.logger?.error(`${ext.id}: failed to register${ext.isBuiltin ? " (builtin)" : ""}`, err);
+                this.logger.error(`${ext.id}: failed to register${ext.isBuiltin ? " (builtin)" : ""}`, err);
             }
         }
         mark("main:extensions-registered");
@@ -88,7 +88,7 @@ export class ExtensionService implements IExtensionService {
             await this.host.activateByEvent("onStartupFinished");
             await this.host.activateByWorkspaceContains();
         } catch (err) {
-            this.logger?.error("extension host activation failed", err);
+            this.logger.error("extension host activation failed", err);
         }
         this.barrierOpen = true;
         this.openBarrier();
