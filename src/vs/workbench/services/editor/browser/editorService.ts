@@ -174,14 +174,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private readonly onActiveEditorChangedEmitter = new Emitter<TextEditorPane | null>();
     private readonly onEditorSavedEmitter = new Emitter<IEditorSavedMeta>();
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
-    private readonly onDidChangeActiveEditorSelectionEmitter = new Emitter<TextEditorPane>({
-        // Первый подписчик приходит уже после openFile — подцепляем текущий редактор.
-        onWillAddFirstListener: () => {
-            if (this.activeSelectionSubscription === undefined) {
-                this.rebindActiveSelectionForwarding(this.getActiveEditor());
-            }
-        },
-    });
+    // Форвардинг выделения перевешивается на каждой смене активного редактора
+    // ({@link fireActiveEditorChanged}), поэтому подписчику, пришедшему позже
+    // openFile, отдельно подцеплять текущий редактор не нужно.
+    private readonly onDidChangeActiveEditorSelectionEmitter = new Emitter<TextEditorPane>();
     /** Подписка на выделение активного редактора; перевешивается при его смене. */
     private activeSelectionSubscription?: IDisposable;
     private saveParticipantValue?: SaveParticipant;
