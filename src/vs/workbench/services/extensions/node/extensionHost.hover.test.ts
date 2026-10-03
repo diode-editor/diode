@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideHovers,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
@@ -19,7 +23,7 @@ function requestFor(uri: string, line: number): IHoverRequest {
 }
 
 describe("ExtensionHost — hover providers (subprocess)", () => {
-    it("два настоящих провайдера: hover'ы доезжают конкатенацией в порядке регистрации", async () => {
+    it("два настоящих провайдера: hover'ы доезжают конкатенацией, при равном score — новый первым", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const answer = compute();\nconst other = 1;\n" },
             extensions: [extensionFixture("test.providesHover", "providesHover.cjs")],
@@ -27,29 +31,35 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
         });
         try {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
-            const source = harness.group.hoverSource;
-            expect(source).toBeDefined();
+            // Оба провайдера объявлены реестру ядра под селектором typescript.
+            const target = { uri: Uri.parse(mainUri), languageId: "typescript" };
+            expect(harness.languageFeatures.hoverProvider.ordered(target)).toHaveLength(2);
+            expect(harness.languageFeatures.hoverProvider.has({ ...target, languageId: "markdown" })).toBe(false);
 
             // Строка 0 → оба провайдера отвечают; у второго MarkedString-codeblock
-            // сериализован в fenced-блок, range'а у него нет.
-            const hovers = await source!(requestFor(mainUri, 0));
+            // сериализован в fenced-блок, range'а у него нет. Score у обоих
+            // одинаковый, поэтому первым идёт зарегистрированный позже (как в vscode).
+            const hovers = await provideHovers(harness, requestFor(mainUri, 0));
             expect(hovers).toEqual([
-                { contents: ["```ts\nconst answer: number\n```"], range: createRange(0, 6, 0, 12) },
                 { contents: ["```ts\ncompute(): number\n```"] },
+                { contents: ["```ts\nconst answer: number\n```"], range: createRange(0, 6, 0, 12) },
             ]);
 
             // Строка 1 → оба молчат: пустой ответ, не мусор.
-            expect(await source!(requestFor(mainUri, 1))).toEqual([]);
+            expect(await provideHovers(harness, requestFor(mainUri, 1))).toEqual([]);
 
             // Слишком большой документ не гоняется через RPC.
-            const huge = await source!({ ...requestFor(mainUri, 0), text: "x".repeat(8 * 1024 * 1024 + 1) });
+            const huge = await provideHovers(harness, {
+                ...requestFor(mainUri, 0),
+                text: "x".repeat(8 * 1024 * 1024 + 1),
+            });
             expect(huge).toEqual([]);
         } finally {
             await harness.dispose();
         }
     });
 
-    it("без subprocess'а и без провайдеров источник отдаёт []", async () => {
+    it("без subprocess'а и без провайдеров реестр hover пуст", async () => {
         // Расширение зарегистрировано, но не активировано — subprocess не поднят.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesHover", "providesHover.cjs")],
@@ -57,7 +67,7 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await lazy.group.hoverSource!(requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideHovers(lazy, requestFor("file:///a.ts", 0))).toEqual([]);
         } finally {
             await lazy.dispose();
         }
@@ -68,7 +78,7 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await noProviders.group.hoverSource!(requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideHovers(noProviders, requestFor("file:///a.ts", 0))).toEqual([]);
         } finally {
             await noProviders.dispose();
         }

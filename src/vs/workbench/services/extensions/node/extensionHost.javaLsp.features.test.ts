@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { CLIENT_CRASH_PATTERNS, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideHovers,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     APP_JAVA,
     createMavenProject,
@@ -64,9 +68,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         await until(
             "hover отвечает (сервер готов)",
             async () => {
-                const source = harness?.group.hoverSource;
-                if (source === undefined) return null;
-                const found = await source({
+                if (harness === undefined) return null;
+                const found = await provideHovers(harness, {
                     uri: appUri,
                     languageId: "java",
                     text: APP_JAVA,
@@ -86,15 +89,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
     });
 
     it("hover над вызовом отдаёт сигнатуру из объявления", { timeout: 120_000 }, async () => {
-        const source = harness?.group.hoverSource;
-        expect(source).toBeDefined();
+        expect(harness).toBeDefined();
         // Каретка на `greet(` в строке `String message = greet("world");`.
         // Через `until`: пока сервер крутит фоновую работу, он отвечает пустым —
         // одиночный вызов тут флакует (проверено).
         const hovers: readonly ICoreHover[] = await until(
             "hover над `greet`",
             async () => {
-                const found = await source!({
+                const found = await provideHovers(harness!, {
                     uri: appUri,
                     languageId: "java",
                     text: APP_JAVA,

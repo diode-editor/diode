@@ -5,10 +5,13 @@ import { fileURLToPath } from "node:url";
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
+import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
+import type { ILanguageFeaturesService } from "../vs/editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesService } from "../vs/editor/common/services/languageFeaturesService.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
@@ -20,6 +23,7 @@ import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServic
 import { bindDocumentSync, openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
+import { LanguageFeaturesAdapter } from "../vs/workbench/api/browser/languageFeaturesAdapter.ts";
 import { ThemeColorResolverAdapter } from "../vs/workbench/api/browser/themeColorResolverAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
@@ -28,6 +32,7 @@ import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColor
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/node/workspaceEditService.ts";
+import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import {
     type DiagnosticsSink,
@@ -182,6 +187,11 @@ export interface IExtensionHarness {
     readonly app: TestApp;
     readonly host: ExtensionHost;
     readonly group: EditorService;
+    /**
+     * Реестры языковых провайдеров ядра: прокси провайдеров субпроцесса в них
+     * держит `LanguageFeaturesAdapter` — зеркально extensionHostModule.
+     */
+    readonly languageFeatures: ILanguageFeaturesService;
     /** ThemeService, за которым стоит харнесс (для тестов смены темы). */
     readonly themeService: ThemeService;
     /**
@@ -286,6 +296,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
     });
 
+    // Языковые провайдеры (languages.register) → прокси в реестрах ядра — как в extensionHostModule.
+    const languageFeatures = new LanguageFeaturesService();
+    new LanguageFeaturesAdapter(host, languageFeatures);
     // Save-pipeline (WP6): проброс will-save/did-save между группой и хостом.
     group.saveParticipant = (snapshot) => host.willSaveTextDocument(snapshot);
     group.onEditorSaved((meta) => {
@@ -305,8 +318,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
     // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
     group.definitionSource = (req) => host.provideDefinition(req);
-    // Hover (LSP): источник hover'ов — как в extensionHostModule.
-    group.hoverSource = (req) => host.provideHover(req);
     // Содержимое недисковых ресурсов (registerTextDocumentContentProvider) — как
     // в extensionHostModule: по нему открываются read-only вкладки `jdt:`/`class:`.
     group.virtualDocumentSource = {
@@ -385,5 +396,17 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         }
     };
 
-    return { app, host, group, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };
+    return { app, host, group, languageFeatures, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };
+}
+
+/**
+ * Hover'ы для запроса так, как их собирает `HoverService`: подошедшие документу
+ * провайдеры реестра харнесса, склейка в порядке `ordered`.
+ */
+export function provideHovers(harness: IExtensionHarness, request: IHoverRequest): Promise<ICoreHover[]> {
+    return getHovers(
+        harness.languageFeatures.hoverProvider,
+        { uri: Uri.parse(request.uri), languageId: request.languageId },
+        request,
+    );
 }

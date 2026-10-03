@@ -11,9 +11,9 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
 /**
- * Гейт hover-запроса: субпроцесса нет, канал сшит in-process — так проверяются
- * ветки, недостижимые через настоящий fork (подписки ещё не пришло, чужая форма
- * нотификации, отсечка по размеру документа, дефолтный таймаут). Образец —
+ * Регистрации языковых провайдеров и hover-запрос по handle: субпроцесса нет,
+ * канал сшит in-process — так проверяются ветки, недостижимые через настоящий
+ * fork (чужая форма нотификации, отсечка по размеру документа, дефолтный таймаут). Образец —
  * `extensionHost.completionInProcess.test.ts`.
  */
 
@@ -57,59 +57,105 @@ function makeHost(options: { warn?: ILogger["warn"]; hoverTimeoutMs?: number } =
     return { host, peer };
 }
 
-describe("ExtensionHost — гейт hover-запроса (in-process)", () => {
-    it("без подписки RPC не гоняется; после hasHoverProviders — гоняется", async () => {
+const HOVER_REGISTRATION = { handle: 7, kind: "hover", selector: [{ language: "typescript" }] };
+
+describe("ExtensionHost — регистрации языковых провайдеров (in-process)", () => {
+    it("languages.register/unregister ведут список провайдеров и будят слушателей", async () => {
         const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve([{ contents: ["const a: number"] }]));
-        peer.handleRequest("languages.provideHover", provide);
+        const changed = vi.fn();
+        host.onLanguageProvidersChanged(changed);
+        expect(host.getLanguageProviders()).toEqual([]);
 
-        // Субпроцесс ещё не сообщил о провайдерах: запрос не уходит вовсе.
-        expect(await host.provideHover(requestOf("const a = 1;\n"))).toEqual([]);
-        expect(provide).not.toHaveBeenCalled();
-
-        peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
+        peer.notify("languages.register", HOVER_REGISTRATION);
         await flushMicrotasks();
+        expect(host.getLanguageProviders()).toEqual([HOVER_REGISTRATION]);
+        expect(changed).toHaveBeenCalledTimes(1);
 
-        expect(await host.provideHover(requestOf("const a = 1;\n"))).toEqual([{ contents: ["const a: number"] }]);
-        expect(provide).toHaveBeenCalledTimes(1);
+        peer.notify("languages.unregister", { handle: 7 });
+        await flushMicrotasks();
+        expect(host.getLanguageProviders()).toEqual([]);
+        expect(changed).toHaveBeenCalledTimes(2);
     });
 
-    it("чужая форма подписки читается как «провайдеров нет»", async () => {
+    it("чужая форма регистрации и снятие неизвестного handle игнорируются без события", async () => {
         const { host, peer } = makeHost();
-        peer.handleRequest("languages.provideHover", () => Promise.resolve([{ contents: ["x"] }]));
+        const changed = vi.fn();
+        host.onLanguageProvidersChanged(changed);
 
-        peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
+        peer.notify("languages.register", { handle: 1, kind: "teleport", selector: [] });
+        peer.notify("languages.unregister", { handle: 99 });
+        peer.notify("languages.unregister", { handle: "1" });
         await flushMicrotasks();
-        expect(await host.provideHover(requestOf("x"))).toEqual([{ contents: ["x"] }]);
 
-        // Только строгое `true` включает подписку: строка "true" — не она.
-        peer.notify("languages.updateSubscriptions", { hasHoverProviders: "true" });
-        await flushMicrotasks();
-        expect(await host.provideHover(requestOf("x"))).toEqual([]);
+        expect(host.getLanguageProviders()).toEqual([]);
+        expect(changed).not.toHaveBeenCalled();
+    });
 
-        // Поле отсутствует вовсе — тоже выключено.
-        peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
+    it("отписка снимает только своего слушателя", async () => {
+        const { host, peer } = makeHost();
+        const kept = vi.fn();
+        const removed = vi.fn();
+        // Снимаемый — первым: его индекс 0 тоже должен вычищаться.
+        const sub = host.onLanguageProvidersChanged(removed);
+        host.onLanguageProvidersChanged(kept);
+        sub.dispose();
+        sub.dispose();
+
+        peer.notify("languages.register", HOVER_REGISTRATION);
         await flushMicrotasks();
-        peer.notify("languages.updateSubscriptions", {});
+
+        expect(kept).toHaveBeenCalledTimes(1);
+        expect(removed).not.toHaveBeenCalled();
+    });
+
+    it("остановка субпроцесса снимает все регистрации одним событием", async () => {
+        const { host, peer } = makeHost();
+        peer.notify("languages.register", HOVER_REGISTRATION);
+        peer.notify("languages.register", { ...HOVER_REGISTRATION, handle: 8 });
         await flushMicrotasks();
-        expect(await host.provideHover(requestOf("x"))).toEqual([]);
+        const changed = vi.fn();
+        host.onLanguageProvidersChanged(changed);
+
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(host.getLanguageProviders()).toEqual([]);
+        expect(changed).toHaveBeenCalledTimes(1);
+    });
+
+    it("остановка без регистраций событий не порождает", async () => {
+        const { host } = makeHost();
+        const changed = vi.fn();
+        host.onLanguageProvidersChanged(changed);
+
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(changed).not.toHaveBeenCalled();
+    });
+});
+
+describe("ExtensionHost — hover-запрос по handle (in-process)", () => {
+    it("запрос несёт handle провайдера и снапшот документа", async () => {
+        const { host, peer } = makeHost();
+        const provide = vi.fn((_params: unknown) => Promise.resolve({ contents: ["const a: number"] }));
+        peer.handleRequest("languages.provideHover", provide);
+
+        expect(await host.provideHover(7, requestOf("const a = 1;\n"))).toEqual({ contents: ["const a: number"] });
+        expect(provide.mock.calls[0]?.[0]).toEqual({ handle: 7, ...requestOf("const a = 1;\n") });
     });
 
     it("документ ровно в лимит проходит, больше лимита — отсекается с записью в лог", async () => {
         const warn = vi.fn();
         const { host, peer } = makeHost({ warn });
-        const provide = vi.fn(() => Promise.resolve([{ contents: ["ok"] }]));
+        const provide = vi.fn(() => Promise.resolve({ contents: ["ok"] }));
         peer.handleRequest("languages.provideHover", provide);
-        peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
-        await flushMicrotasks();
 
         // Граница включительная: 8 МБ ровно — ещё гоняем.
-        expect(await host.provideHover(requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual([{ contents: ["ok"] }]);
+        expect(await host.provideHover(1, requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual({ contents: ["ok"] });
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).not.toHaveBeenCalled();
 
         // На символ больше — не гоняем и пишем, что и почему пропустили.
-        expect(await host.provideHover(requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toEqual([]);
+        expect(await host.provideHover(1, requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toBeUndefined();
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith("skipping hover: document too large", {
             uri: "file:///a.ts",
@@ -117,19 +163,15 @@ describe("ExtensionHost — гейт hover-запроса (in-process)", () => {
         });
     });
 
-    it("после остановки субпроцесса подписка сброшена — hover не гоняется до новой", async () => {
+    it("после остановки субпроцесса запрос не уходит", async () => {
         const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve([{ contents: ["жив"] }]));
+        const provide = vi.fn(() => Promise.resolve({ contents: ["жив"] }));
         peer.handleRequest("languages.provideHover", provide);
-        peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
-        await flushMicrotasks();
-        expect(await host.provideHover(requestOf("x"))).toEqual([{ contents: ["жив"] }]);
+        expect(await host.provideHover(1, requestOf("x"))).toEqual({ contents: ["жив"] });
 
-        // Субпроцесс умер: провайдеры умерли вместе с ним, и до нового
-        // updateSubscriptions запрос уходить не должен.
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        expect(await host.provideHover(requestOf("x"))).toEqual([]);
+        expect(await host.provideHover(1, requestOf("x"))).toBeUndefined();
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
@@ -144,11 +186,9 @@ describe("ExtensionHost — гейт hover-запроса (in-process)", () => {
         const { host, peer } = makeHost({ hoverTimeoutMs: 5 });
         peer.handleRequest("languages.provideHover", async () => {
             await settle(200);
-            return [{ contents: ["опоздал"] }];
+            return { contents: ["опоздал"] };
         });
-        peer.notify("languages.updateSubscriptions", { hasHoverProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideHover(requestOf("x"))).toEqual([]);
+        expect(await host.provideHover(1, requestOf("x"))).toBeUndefined();
     });
 });

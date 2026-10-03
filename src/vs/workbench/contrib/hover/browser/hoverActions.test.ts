@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { HoverServiceDIToken } from "./hoverService.ts";
@@ -17,8 +18,9 @@ describe("hoverActions — команды и кейбинды", () => {
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(80, 24) });
         h.workbench.openFile(ws.path("main.ts"));
         h.workbench.focusEditor();
-        h.container.get(EditorServiceDIToken).hoverSource = () =>
-            Promise.resolve([{ contents: ["const answer: number"] }]);
+        h.container.get(LanguageFeaturesServiceDIToken).hoverProvider.register("*", {
+            provideHover: () => Promise.resolve({ contents: ["const answer: number"] }),
+        });
     });
 
     afterEach(() => {
