@@ -8,11 +8,14 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICompletionRequest,
     ICoreCompletionItem,
     ICoreCompletionResult,
+    ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -115,9 +118,40 @@ function completionResult(items: readonly ICoreCompletionItem[], isIncomplete = 
     return { items, isIncomplete };
 }
 
+type FakeCompletionSource = ((request: ICompletionRequest) => Promise<ICoreCompletionResult>) | undefined;
+type FakeCompletionResolver = ((id: string) => Promise<ICoreResolvedCompletion | null>) | undefined;
+
+/**
+ * Языковые «швы» фейковой группы: тесты задают источник, resolve и триггеры
+ * прямо на ней (и меняют по ходу), а {@link createService} превращает их в
+ * провайдера реестра под `*` — ровно то, что в проде делает прокси расширения.
+ */
+interface IFakeLanguageSeams {
+    completionSource?: FakeCompletionSource;
+    completionResolver?: FakeCompletionResolver;
+    completionTriggerCharacters?: readonly string[];
+}
+
+/** Реестр с одним провайдером, читающим швы группы на каждый вызов. */
+function languageFeaturesOf(group: EditorService): LanguageFeaturesService {
+    const seams = group as unknown as IFakeLanguageSeams;
+    const languageFeatures = new LanguageFeaturesService();
+    if (seams.completionSource === undefined && seams.completionResolver === undefined) return languageFeatures;
+    languageFeatures.completionProvider.register("*", {
+        get triggerCharacters() {
+            return seams.completionTriggerCharacters ?? [];
+        },
+        provideCompletionItems: (request) => seams.completionSource?.(request) ?? Promise.resolve(completionResult([])),
+        get resolveCompletionItem() {
+            return seams.completionResolver;
+        },
+    });
+    return languageFeatures;
+}
+
 function makeGroup(
     editor: TextEditorPane,
-    source: EditorService["completionSource"],
+    source: FakeCompletionSource,
     extraEditors: TextEditorPane[] = [],
 ): EditorService {
     const all = [editor, ...extraEditors];
@@ -162,7 +196,7 @@ function createService(
     const commands = { execute } as unknown as CommandRegistry;
     const component = new SuggestComponent();
     const focusTracker = new FocusTracker();
-    const service = new CompletionService(component, group, commands, state, focusTracker);
+    const service = new CompletionService(component, group, commands, state, focusTracker, languageFeaturesOf(group));
     return { service, component, execute, focusTracker };
 }
 
@@ -274,7 +308,7 @@ describe("CompletionService", () => {
         ];
 
         function setupWithResolver(
-            resolver: EditorService["completionResolver"],
+            resolver: FakeCompletionResolver,
             state = makeStateService(),
         ): ReturnType<typeof createService> & { fake: FakeEditor; body: BodyElement } {
             const fake = makeEditor("ind", 3, "ind");
@@ -282,7 +316,7 @@ describe("CompletionService", () => {
                 fake.editor,
                 vi.fn(() => Promise.resolve(completionResult(RESOLVABLE))),
             );
-            (group as { completionResolver: EditorService["completionResolver"] }).completionResolver = resolver;
+            (group as unknown as IFakeLanguageSeams).completionResolver = resolver;
             const created = createService(group, state);
             const body = new BodyElement();
             TestApp.create(body, new Size(120, 24));
@@ -352,7 +386,7 @@ describe("CompletionService", () => {
                 fake.editor,
                 vi.fn(() => Promise.resolve(completionResult(RESOLVABLE))),
             );
-            (group as { completionResolver: EditorService["completionResolver"] }).completionResolver = () =>
+            (group as unknown as IFakeLanguageSeams).completionResolver = () =>
                 Promise.resolve({ detail: "(property) indent_style" });
             const { service, component } = createService(group);
             const body = new BodyElement();
@@ -569,16 +603,19 @@ describe("CompletionService", () => {
             text: 'import { greet } from "./defs";\n',
         };
 
-        function setupImportable(resolver: EditorService["completionResolver"]): {
+        function setupImportable(
+            resolver: FakeCompletionResolver,
+            items: readonly ICoreCompletionItem[] = IMPORTABLE,
+        ): {
             service: CompletionService;
             fake: FakeEditor;
         } {
             const fake = makeEditor("gree", 4, "gree");
             const group = makeGroup(
                 fake.editor,
-                vi.fn(() => Promise.resolve(completionResult(IMPORTABLE))),
+                vi.fn(() => Promise.resolve(completionResult(items))),
             );
-            (group as { completionResolver: EditorService["completionResolver"] }).completionResolver = resolver;
+            (group as unknown as IFakeLanguageSeams).completionResolver = resolver;
             const { service, component } = createService(group);
             const body = new BodyElement();
             TestApp.create(body, new Size(120, 24));
@@ -604,6 +641,32 @@ describe("CompletionService", () => {
             expect(edits[1].text).toContain("import { greet }");
         });
 
+        it("провайдер без resolve — вставка сразу, без ожидания", async () => {
+            const { service, fake } = setupImportable(undefined);
+
+            await service.trigger();
+            service.acceptSelected();
+
+            const [edits] = fake.applyExternalEdits.mock.calls[0];
+            expect(edits).toHaveLength(1);
+            expect(edits[0].text).toBe("greet");
+        });
+
+        it("пункт без id resolve не зовёт ни на выборе, ни на вставке", async () => {
+            const resolver = vi.fn(() => Promise.resolve({ detail: "greet", additionalEdits: [IMPORT_EDIT] }));
+            const { service, fake } = setupImportable(resolver, [{ label: "greet", insertText: "greet", kind: 2 }]);
+
+            await service.trigger();
+            service.toggleDetails();
+            await flushTimers();
+            service.acceptSelected();
+            await flushTimers();
+
+            expect(resolver).not.toHaveBeenCalled();
+            const [edits] = fake.applyExternalEdits.mock.calls[0];
+            expect(edits).toHaveLength(1);
+        });
+
         it("молчащий resolve не блокирует вставку", async () => {
             const { service, fake } = setupImportable(() => new Promise(() => {}));
 
@@ -621,7 +684,7 @@ describe("CompletionService", () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
-        (group as { completionTriggerCharacters: readonly string[] }).completionTriggerCharacters = ["."];
+        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
         const { service, component } = createService(group);
         service.autoSuggestDelayMs = 0;
         const body = new BodyElement();
@@ -640,11 +703,42 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
     });
 
+    it("триггер-символ провайдера чужого языка попап не открывает и RPC не будит", async () => {
+        const fake = makeEditor("d", 1, "d"); // документ на editorconfig
+        const provide = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const languageFeatures = new LanguageFeaturesService();
+        languageFeatures.completionProvider.register("python", {
+            triggerCharacters: ["."],
+            provideCompletionItems: provide,
+        });
+        const group = makeGroup(fake.editor, undefined);
+        const component = new SuggestComponent();
+        const commands = { execute: vi.fn() } as unknown as CommandRegistry;
+        const service = new CompletionService(
+            component,
+            group,
+            commands,
+            makeStateService(),
+            new FocusTracker(),
+            languageFeatures,
+        );
+        service.autoSuggestDelayMs = 0;
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+
+        fake.type("d.", 2);
+        await flushTimers();
+
+        expect(provide).not.toHaveBeenCalled();
+        expect(service.isOpen()).toBe(false);
+    });
+
     it("триггер-символом считается только одиночная вставка нужного символа", async () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
-        (group as { completionTriggerCharacters: readonly string[] }).completionTriggerCharacters = ["."];
+        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
         const { service, component } = createService(group);
         service.autoSuggestDelayMs = 0;
         const body = new BodyElement();
@@ -724,7 +818,7 @@ describe("CompletionService", () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
-        (group as { completionTriggerCharacters: readonly string[] }).completionTriggerCharacters = ["."];
+        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
         const { service, component } = createService(group);
         service.autoSuggestDelayMs = 5;
         const body = new BodyElement();

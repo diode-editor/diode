@@ -132,6 +132,7 @@ import {
     readCommandActivationIds,
     readWorkspaceContainsPatterns,
 } from "../common/activationEvents.ts";
+import { ProviderRequestBatcher } from "../common/providerRequestBatcher.ts";
 
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 import {
@@ -597,10 +598,6 @@ export class ExtensionHost extends Disposable {
     /** Есть ли в субпроцессе активные подписки на will/did-save (см. `workspace.updateSubscriptions`). */
     private willSaveSubscribed = false;
     private didSaveSubscribed = false;
-    /** Есть ли в субпроцессе зарегистрированные completion-провайдеры (см. `languages.updateSubscriptions`). */
-    private completionSubscribed = false;
-    /** Триггер-символы completion-провайдеров субпроцесса (см. `languages.updateSubscriptions`). */
-    private completionTriggerCharactersValue: readonly string[] = [];
     /** Есть ли в субпроцессе зарегистрированные inline-completion-провайдеры (см. `languages.updateSubscriptions`). */
     private inlineCompletionSubscribed = false;
     /** Есть ли в субпроцессе зарегистрированные folding-провайдеры (см. `languages.updateSubscriptions`). */
@@ -673,9 +670,13 @@ export class ExtensionHost extends Disposable {
      */
     private readonly languageProviders = new Map<number, IWireLanguageProviderRegistration>();
     private readonly languageProvidersListeners: (() => void)[] = [];
+    /** Вызовы completion-прокси с одним запросом — одним RPC (см. `provideCompletionItems`). */
+    private readonly completionBatcher = new ProviderRequestBatcher<ICompletionRequest, ICoreCompletionResult>(
+        (handles, req) => this.requestCompletionBatch(handles, req),
+        EMPTY_COMPLETION_RESULT,
+    );
     /** Слушатели смены наличия folding-провайдеров (для пере-пересчёта фолдов открытых редакторов). */
     private readonly foldingProvidersChangedListeners: (() => void)[] = [];
-    private readonly completionTriggerCharactersListeners: ((characters: readonly string[]) => void)[] = [];
 
     public constructor(
         editorOptions: IEditorOptionsService,
@@ -1228,27 +1229,39 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса элементы автодополнения для позиции курсора
-     * (`languages.provideCompletionItems`). Возвращает `[]`, если субпроцесса нет,
-     * никто не зарегистрировал провайдеры, документ слишком большой или расширение
-     * не ответило за `completionTimeoutMs`. Подключается в
-     * `EditorService.completionSource` (wiring в module/харнессе).
+     * Запрашивает у completion-провайдера субпроцесса `handle` элементы
+     * автодополнения для позиции курсора (`languages.provideCompletionItems`).
+     * Пустой результат, если субпроцесса нет, документ слишком большой или
+     * расширение не ответило за `completionTimeoutMs`. Зовёт его прокси из
+     * реестра ядра (`LanguageFeaturesAdapter`); вызовы прокси с одним запросом
+     * уходят одним RPC (`ProviderRequestBatcher` — полный текст документа не
+     * множится на число провайдеров).
      */
-    public async provideCompletionItems(req: ICompletionRequest): Promise<ICoreCompletionResult> {
+    public provideCompletionItems(handle: number, req: ICompletionRequest): Promise<ICoreCompletionResult> {
+        return this.completionBatcher.call(handle, req);
+    }
+
+    private async requestCompletionBatch(
+        handles: readonly number[],
+        req: ICompletionRequest,
+    ): Promise<readonly ICoreCompletionResult[]> {
         const rpc = this.rpc;
-        if (rpc === null || !this.completionSubscribed) return EMPTY_COMPLETION_RESULT;
+        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
+        if (rpc === null) return [];
         /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
         if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
             this.logger?.warn("skipping completion: document too large", {
                 uri: req.uri,
                 length: req.text.length,
             });
-            return EMPTY_COMPLETION_RESULT;
+            // Stryker disable next-line ArrayDeclaration: см. v8 ignore выше — ветку юнит не достаёт
+            return [];
         }
         /* v8 ignore stop */
         return requestCompletionItems(
             (method, params) => rpc.request(method, params),
             {
+                handles,
                 uri: req.uri,
                 languageId: req.languageId,
                 text: req.text,
@@ -1266,11 +1279,13 @@ export class ExtensionHost extends Disposable {
      * (`languages.resolveCompletionItem`). У стокового LSP-стека это ЕДИНСТВЕННЫЙ
      * путь к описанию и авто-импорту: `typescript-language-server` присылает их
      * не в списке, а по запросу выбранного пункта. `null` — резолвить нечего или
-     * расширение не ответило за `completionTimeoutMs`.
+     * расширение не ответило за `completionTimeoutMs`. `id` уникален сквозь
+     * провайдеров: кэш субпроцесса сам знает, чей это пункт.
      */
     public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
         const rpc = this.rpc;
-        if (rpc === null || !this.completionSubscribed) return null;
+        // Stryker disable next-line ConditionalExpression: см. requestCompletionBatch — без канала прокси уже сняты из реестра
+        if (rpc === null) return null;
         return requestResolveCompletionItem(
             (method, params) => rpc.request(method, params),
             id,
@@ -1322,14 +1337,6 @@ export class ExtensionHost extends Disposable {
             req.timeoutMs ?? this.options.inlineCompletionTimeoutMs,
             token,
         );
-    }
-
-    /**
-     * Символы, после набора которых ядро обязано само открыть попап (`.` у
-     * tsserver) — объединение `triggerCharacters` всех регистраций субпроцесса.
-     */
-    public get completionTriggerCharacters(): readonly string[] {
-        return this.completionTriggerCharactersValue;
     }
 
     /**
@@ -1626,21 +1633,6 @@ export class ExtensionHost extends Disposable {
 
     private fireFoldingProvidersChanged(): void {
         for (const cb of [...this.foldingProvidersChangedListeners]) cb();
-    }
-
-    /**
-     * Триггер-символы completion сменились: language server объявляет их при
-     * регистрации провайдера, то есть уже ПОСЛЕ активации расширения — ядро
-     * обязано подхватить их на лету, иначе `.` не откроет попап до рестарта.
-     */
-    public onCompletionTriggerCharactersChanged(cb: (characters: readonly string[]) => void): { dispose(): void } {
-        this.completionTriggerCharactersListeners.push(cb);
-        return {
-            dispose: (): void => {
-                const idx = this.completionTriggerCharactersListeners.indexOf(cb);
-                if (idx >= 0) this.completionTriggerCharactersListeners.splice(idx, 1);
-            },
-        };
     }
 
     // ─── Языковые провайдеры (мост под ILanguageFeaturesService) ──────────────
@@ -2027,22 +2019,12 @@ export class ExtensionHost extends Disposable {
         // Без них хост не гоняет RPC на Ctrl+Space.
         rpc.handleNotification("languages.updateSubscriptions", (params) => {
             const p = params as {
-                hasCompletionProviders?: unknown;
                 hasFoldingProviders?: unknown;
-                completionTriggerCharacters?: unknown;
                 hasFormattingProviders?: unknown;
                 hasCodeActionsProviders?: unknown;
                 hasInlineCompletionProviders?: unknown;
             };
-            this.completionSubscribed = p.hasCompletionProviders === true;
             this.inlineCompletionSubscribed = p.hasInlineCompletionProviders === true;
-            const triggerBefore = this.completionTriggerCharactersValue;
-            this.completionTriggerCharactersValue = readStringArray(p.completionTriggerCharacters);
-            if (triggerBefore.join("") !== this.completionTriggerCharactersValue.join("")) {
-                for (const cb of [...this.completionTriggerCharactersListeners]) {
-                    cb(this.completionTriggerCharactersValue);
-                }
-            }
             this.formattingSubscribed = p.hasFormattingProviders === true;
             this.codeActionsSubscribed = p.hasCodeActionsProviders === true;
             const foldingBefore = this.foldingSubscribed;
@@ -2469,7 +2451,6 @@ export class ExtensionHost extends Disposable {
         this.readyPromise = null;
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
-        this.completionSubscribed = false;
         // Stryker disable next-line BooleanLiteral: ненаблюдаем по той же причине, что и formattingSubscribed ниже
         this.inlineCompletionSubscribed = false;
         this.foldingSubscribed = false;
@@ -2578,16 +2559,6 @@ export class ExtensionHost extends Disposable {
         rpc?.dispose();
         channel?.dispose();
     }
-}
-
-/**
- * Массив непустых строк из сырого RPC-поля. Пустая строка отбрасывается вместе
- * с нестроковым мусором: как «символ-триггер» она совпала бы с любым событием
- * каретки, где набора не было.
- */
-function readStringArray(raw: unknown): readonly string[] {
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((item): item is string => typeof item === "string" && item !== "");
 }
 
 /**

@@ -170,6 +170,8 @@ export interface IRangeFormattingRegistration {
 
 /** Wire-параметры запроса completion (host → subprocess). */
 interface IWireCompletionParams {
+    /** Провайдеры, выбранные ядром по селектору, в порядке реестра (пачка). */
+    readonly handles?: readonly unknown[];
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
@@ -704,7 +706,6 @@ export function createLanguagesNamespace(
     codeActionDeps: ICodeActionDeps = NULL_CODE_ACTION_DEPS,
 ): {
     languages: typeof vscode.languages;
-    registrations: readonly ICompletionRegistration[];
     inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
     foldingRegistrations: readonly IFoldingRegistration[];
     formattingRegistrations: readonly IFormattingRegistration[];
@@ -712,7 +713,6 @@ export function createLanguagesNamespace(
     codeActionRegistrations: readonly ICodeActionRegistration[];
 } {
     const { rpc, documentSync } = ctx;
-    const registrations: ICompletionRegistration[] = [];
     const inlineCompletionRegistrations: IInlineCompletionRegistration[] = [];
     const foldingRegistrations: IFoldingRegistration[] = [];
     // Провайдеры фич, переехавших в реестр ядра: по handle, который ядро
@@ -721,6 +721,7 @@ export function createLanguagesNamespace(
     const definitionProviders = new Map<number, IDefinitionRegistration>();
     const referenceProviders = new Map<number, IReferenceRegistration>();
     const signatureHelpProviders = new Map<number, ISignatureHelpRegistration>();
+    const completionProviders = new Map<number, ICompletionRegistration>();
     let nextProviderHandle = 0;
 
     /**
@@ -804,18 +805,8 @@ export function createLanguagesNamespace(
     }
 
     function pushSubscriptions(): void {
-        const triggerCharacters = new Set<string>();
-        for (const reg of registrations) {
-            for (const char of reg.triggerCharacters) triggerCharacters.add(char);
-        }
         rpc.notify("languages.updateSubscriptions", {
-            hasCompletionProviders: registrations.length > 0,
             hasFoldingProviders: foldingRegistrations.length > 0,
-            // Символы, после которых ядро обязано само открыть попап («.» у
-            // tsserver). Сервер объявляет их в completionProvider, стоковый
-            // клиент передаёт их в registerCompletionItemProvider — до этой
-            // задачи мы их хранили и не читали.
-            completionTriggerCharacters: [...triggerCharacters],
             // Один флаг на оба вида форматирования: какой именно провайдер
             // матчит документ, решает handler по запросу (`null` = «нет
             // форматтера» для этого документа/вида).
@@ -1185,7 +1176,7 @@ export function createLanguagesNamespace(
         return applied;
     });
 
-    rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult> => {
+    rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult[]> => {
         const p = params as IWireCompletionParams;
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
@@ -1199,12 +1190,21 @@ export function createLanguagesNamespace(
             triggerCharacter: p.triggerCharacter,
         } as unknown as vscode.CompletionContext;
 
+        // Одно ведро кэша на пачку: id пунктов уникальны сквозь всех провайдеров.
         const cacheId = nextCacheId++;
         const cached: ICachedCompletion[] = [];
-        const items: WireCompletionItem[] = [];
-        let isIncomplete = false;
-        for (const reg of registrations) {
-            if (!matchDocumentSelector(reg.selector, doc)) continue;
+        const results: WireCompletionResult[] = [];
+        // Провайдеров — в присланном ядром порядке; ответ выровнен по `handles`.
+        // Снятый, пока запрос летел, или чужой handle — пустой результат.
+        for (const handle of Array.isArray(p.handles) ? p.handles : []) {
+            // Handle чужого типа Map.get и так не найдёт — отдельная проверка не нужна.
+            const reg = completionProviders.get(handle as number);
+            // Stryker disable next-line ConditionalExpression,BlockStatement: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой результат
+            if (reg === undefined) {
+                results.push({ items: [], isIncomplete: false });
+                continue;
+            }
+            const items: WireCompletionItem[] = [];
             let result: unknown;
             try {
                 result = await Promise.resolve(
@@ -1216,10 +1216,10 @@ export function createLanguagesNamespace(
                     ),
                 );
             } catch {
-                continue; // сбойный провайдер не роняет остальные
+                // Сбойный провайдер = пустой результат: `result` остаётся
+                // неприсвоенным, и нормализация ниже даёт пустой список.
             }
             const normalized = normalizeResult(result);
-            if (normalized.isIncomplete) isIncomplete = true;
             for (const item of normalized.items) {
                 // id выдаём ДО сериализации: resolve обязан получить тот же самый
                 // объект, который вернул провайдер (у languageclient это
@@ -1230,9 +1230,10 @@ export function createLanguagesNamespace(
                 cached.push({ item, provider: reg.provider });
                 items.push(wire);
             }
+            results.push({ items, isIncomplete: normalized.isIncomplete });
         }
         rememberCompletions(cacheId, cached);
-        return { items, isIncomplete };
+        return results;
     });
 
     /**
@@ -1497,19 +1498,14 @@ export function createLanguagesNamespace(
             provider: vscode.CompletionItemProvider,
             ...triggerCharacters: string[]
         ): vscode.Disposable => {
+            // Символы, после которых ядро само открывает попап («.» у tsserver):
+            // сервер объявляет их в completionProvider, стоковый клиент — здесь.
+            // Едут метаданными регистрации: ядро берёт их только у провайдеров,
+            // подошедших документу.
             const registration: ICompletionRegistration = { selector, provider, triggerCharacters };
-            registrations.push(registration);
-            // Сигналим не только на переходе 0↔1: у второго провайдера могут
-            // быть СВОИ триггер-символы (второй language server), и без пуша
-            // ядро о них не узнало бы до перезапуска.
-            if (registrations.length === 1 || triggerCharacters.length > 0) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = registrations.indexOf(registration);
-                if (idx >= 0) {
-                    registrations.splice(idx, 1);
-                    if (registrations.length === 0 || triggerCharacters.length > 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
+            return registerByHandle(completionProviders, "completion", selector, registration, {
+                triggerCharacters: triggerCharacters.filter((char) => typeof char === "string" && char !== ""),
+            });
         },
         registerFoldingRangeProvider: (
             selector: vscode.DocumentSelector,
@@ -1646,7 +1642,6 @@ export function createLanguagesNamespace(
 
     return {
         languages: languagesNs as unknown as typeof vscode.languages,
-        registrations,
         inlineCompletionRegistrations,
         foldingRegistrations,
         formattingRegistrations,

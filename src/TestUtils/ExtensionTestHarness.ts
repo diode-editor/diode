@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
+import type { ICompletionRequest, ICoreCompletionResult } from "../vs/editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
@@ -40,6 +41,7 @@ import { getDefinitions } from "../vs/workbench/contrib/gotoDefinition/browser/g
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
 import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
+import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/contrib/suggest/browser/provideCompletions.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import {
     type DiagnosticsSink,
@@ -334,14 +336,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     });
     // Document sync (LSP): продюсер didOpen/didChange — как в extensionHostModule.
     bindDocumentSync(group, host);
-    // Completion (WP8): источник автодополнений — провайдеры расширений через host,
-    // resolve — догрузка описания/авто-импорта выбранного пункта.
-    group.completionSource = (req) => host.provideCompletionItems(req);
-    group.completionResolver = (id) => host.resolveCompletionItem(id);
-    group.completionTriggerCharacters = host.completionTriggerCharacters;
-    host.onCompletionTriggerCharactersChanged((characters) => {
-        group.completionTriggerCharacters = characters;
-    });
     // Inline completions (ghost text): источник призрачных подсказок — как в extensionHostModule.
     group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
     // Содержимое недисковых ресурсов (registerTextDocumentContentProvider) — как
@@ -458,6 +452,25 @@ export function signatureHelpCharacters(
         triggerCharacters: [...new Set(providers.flatMap((provider) => provider.triggerCharacters))],
         retriggerCharacters: [...new Set(providers.flatMap((provider) => provider.retriggerCharacters))],
     };
+}
+
+/** Автодополнения так, как их собирает `CompletionService` (без word-based пунктов). */
+export async function provideCompletions(
+    harness: IExtensionHarness,
+    request: ICompletionRequest,
+): Promise<ICoreCompletionResult> {
+    const providers = harness.languageFeatures.completionProvider.ordered(targetOf(request));
+    const { items, isIncomplete } = await provideCompletionsFrom(providers, request);
+    return { items, isIncomplete };
+}
+
+/** Триггер-символы completion для документа — объединение по подошедшим провайдерам. */
+export function completionTriggerCharacters(
+    harness: IExtensionHarness,
+    document: { readonly uri: string; readonly languageId: string },
+): string[] {
+    const providers = harness.languageFeatures.completionProvider.ordered(targetOf(document));
+    return [...new Set(providers.flatMap((provider) => provider.triggerCharacters))];
 }
 
 /** Документ запроса как цель скоринга реестра. */

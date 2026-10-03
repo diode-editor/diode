@@ -420,8 +420,13 @@ export interface WireResolvedCompletionItem {
     readonly additionalEdits?: readonly WireTextEdit[];
 }
 
-/** Параметры запроса completion (host → subprocess). */
+/**
+ * Параметры запроса completion (host → subprocess). Запрос пачечный: `handles`
+ * — провайдеры, которых ядро выбрало по селектору (в порядке реестра), ответ —
+ * массив результатов, выровненный по ним (`ProviderRequestBatcher`).
+ */
 export interface IWireCompletionParams {
+    readonly handles: readonly number[];
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
@@ -573,8 +578,9 @@ export function wireToCoreCompletionItems(wire: readonly WireCompletionItem[]): 
 }
 
 /**
- * Запрашивает у subprocess'а элементы автодополнения с таймаутом. Возвращает
- * пустой массив на таймаут, ошибку RPC или невалидный ответ (completion —
+ * Запрашивает у subprocess'а элементы автодополнения пачки провайдеров с
+ * таймаутом. Результаты выровнены по `params.handles`; на таймаут, ошибку RPC
+ * или невалидный ответ провайдер получает пустой результат (completion —
  * best-effort, не блокирует UI). `request` — голая функция для юнит-тестов через
  * {@link InProcessChannelPair} без форка subprocess'а (как {@link requestWillSaveEdits}).
  */
@@ -582,11 +588,15 @@ export async function requestCompletionItems(
     request: (method: string, params: unknown) => Promise<unknown>,
     params: IWireCompletionParams,
     timeoutMs: number,
-): Promise<ICoreCompletionResult> {
+): Promise<ICoreCompletionResult[]> {
     const outcome = await raceWithTimeout(request("languages.provideCompletionItems", params), timeoutMs);
-    if (outcome === TIMED_OUT) return { items: [], isIncomplete: false };
-    const parsed = parseWireCompletionResult(outcome);
-    return { items: wireToCoreCompletionItems(parsed.items), isIncomplete: parsed.isIncomplete };
+    // Не-массив (таймаут, сбой, чужая форма) — пусто у всех; недостающий
+    // элемент массива — пусто у своего провайдера.
+    const results = Array.isArray(outcome) ? outcome : undefined;
+    return params.handles.map((_handle, index): ICoreCompletionResult => {
+        const parsed = parseWireCompletionResult(results?.[index]);
+        return { items: wireToCoreCompletionItems(parsed.items), isIncomplete: parsed.isIncomplete };
+    });
 }
 
 /**
@@ -953,7 +963,13 @@ export async function requestHover(
  * `$registerHoverProvider(handle, selector)` + `$unregister(handle)`).
  * Список растёт по мере переезда фич с `languages.updateSubscriptions`.
  */
-export const WIRE_LANGUAGE_FEATURE_KINDS = ["hover", "definition", "references", "signatureHelp"] as const;
+export const WIRE_LANGUAGE_FEATURE_KINDS = [
+    "hover",
+    "definition",
+    "references",
+    "signatureHelp",
+    "completion",
+] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 
 /**

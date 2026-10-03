@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { createExtensionTestHarness, provideCompletions } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
@@ -49,7 +49,7 @@ describe("diode-settings — автодополнение ключей в settin
             await settle();
             expect(harness.host.hasExtension("diode.settings")).toBe(true);
 
-            const { items } = await harness.group.completionSource!(SETTINGS_REQ);
+            const { items } = await provideCompletions(harness, SETTINGS_REQ);
             const labels = items.map((i) => i.label);
             // Ключи из app-дефолтов и из contributes.configuration builtin'ов.
             expect(labels).toContain("editor.tabSize");
@@ -73,7 +73,7 @@ describe("diode-settings — автодополнение ключей в settin
         try {
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
-            const result = await harness.host.provideCompletionItems({
+            const result = await provideCompletions(harness, {
                 ...SETTINGS_REQ,
                 uri: Uri.file("/proj/other.json").toString(),
             });
@@ -108,7 +108,7 @@ describe("diode-settings — кавычки и значения (e2e через 
         try {
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
-            const result = await harness.host.provideCompletionItems({
+            const result = await provideCompletions(harness, {
                 uri: Uri.file("/proj/.diode/settings.json").toString(),
                 languageId: "json",
                 text,

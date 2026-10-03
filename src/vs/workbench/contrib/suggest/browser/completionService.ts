@@ -11,11 +11,13 @@ import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
+    CompletionItemProvider,
     ICoreCompletionItem,
-    ICoreCompletionResult,
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
@@ -31,6 +33,7 @@ import type { FocusTracker } from "../../../services/focus/browser/focusTracker.
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
 import { collectWordCompletions } from "./collectWordCompletions.ts";
+import { type ICompletionsFromProviders, provideCompletions } from "./provideCompletions.ts";
 import type { SuggestComponent } from "./suggestComponent.ts";
 import { SuggestComponentDIToken } from "./suggestComponent.ts";
 
@@ -45,13 +48,13 @@ const KIND_TEXT = 0;
 /** Сколько ждём resolve перед вставкой (правки авто-импорта). */
 const ACCEPT_RESOLVE_TIMEOUT_MS = 300;
 
-/** Ответ «источника нет» — форма {@link ICoreCompletionResult}. */
-const EMPTY_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
+/** Ответ «провайдеров для документа нет». */
+const EMPTY_RESULT: ICompletionsFromProviders = { items: [], isIncomplete: false, providerOf: new Map() };
 
 /**
  * Логика автодополнения ядра (WP8). По триггеру
  * (`editor.action.triggerSuggest` / Ctrl+Space) запрашивает элементы у
- * `EditorService.completionSource` (провайдеры расширений через host),
+ * подошедших документу провайдеров реестра `ILanguageFeaturesService.completionProvider`,
  * показывает попап {@link SuggestComponent} у каретки и вставляет выбранный
  * элемент. `item.command` исполняется напрямую через {@link CommandRegistry}
  * (как у QuickOpenService). Построен по образцу quick-open-оверлея.
@@ -63,6 +66,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         CommandRegistryDIToken,
         StateServiceDIToken,
         FocusTrackerDIToken,
+        LanguageFeaturesServiceDIToken,
     ] as const;
 
     /**
@@ -75,6 +79,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     private readonly group: EditorService;
     private readonly commands: CommandRegistry;
     private readonly state: IStateService;
+    private readonly languageFeatures: ILanguageFeaturesService;
     private activeEditor: TextEditorPane | null = null;
     private prefixRange: IRange | null = null;
     // Границу префикса задал провайдер (а не наш wordStart) — её нельзя
@@ -102,6 +107,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // Последний ответ был неполным (сервер отфильтровал список под префикс) —
     // добор символа обязан перезапросить источник, а не сужать локально.
     private isIncomplete = false;
+    // Владелец каждого пункта показанного списка — у него и спрашивается resolve.
+    private providerOf: ReadonlyMap<ICoreCompletionItem, CompletionItemProvider> = new Map();
     // Догруженные пункты и запросы «в полёте» (ключ — id пункта у источника).
     private readonly resolvedItems = new Map<string, ICoreResolvedCompletion>();
     private readonly pendingResolves = new Map<string, Promise<ICoreResolvedCompletion | null>>();
@@ -115,12 +122,14 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         commands: CommandRegistry,
         state: IStateService,
         focusTracker: FocusTracker,
+        languageFeatures: ILanguageFeaturesService,
     ) {
         super();
         this.component = component;
         this.group = group;
         this.commands = commands;
         this.state = state;
+        this.languageFeatures = languageFeatures;
         this.component.view.onAccept = (item) => {
             this.accept(item);
         };
@@ -171,24 +180,29 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const active = selections[0].active;
         const lineContent = editor.viewState.document.getLineContent(active.line);
 
-        // Провайдеры расширений (если подключён источник) + word-based fallback
-        // из всех открытых редакторов (как editor.wordBasedSuggestions в VS Code).
-        const source = this.group.completionSource;
+        // Провайдеры, подошедшие документу + word-based fallback из всех
+        // открытых редакторов (как editor.wordBasedSuggestions в VS Code).
+        const providers = this.languageFeatures.completionProvider.ordered(editor);
         const ticket = this.latest.start();
-        const result = source
-            ? await source({
-                  uri: editor.uri.toString(),
-                  languageId: editor.languageId,
-                  text: editor.getText(),
-                  line: active.line,
-                  character: active.character,
-                  triggerKind:
-                      triggerCharacter !== undefined
-                          ? CompletionTriggerKind.TriggerCharacter
-                          : CompletionTriggerKind.Invoke,
-                  ...(triggerCharacter !== undefined ? { triggerCharacter } : {}),
-              })
-            : EMPTY_RESULT;
+        // Без провайдеров — пустой ответ без снапшота: текст документа берём
+        // только тому, кто будет его читать.
+        const result =
+            // Stryker disable next-line ConditionalExpression: provideCompletions([]) даёт тот же пустой ответ — ветка лишь не снимает снапшот текста впустую
+            providers.length === 0
+                ? EMPTY_RESULT
+                : await provideCompletions(providers, {
+                      uri: editor.uri.toString(),
+                      languageId: editor.languageId,
+                      text: editor.getText(),
+                      line: active.line,
+                      character: active.character,
+                      triggerKind:
+                          triggerCharacter !== undefined
+                              ? CompletionTriggerKind.TriggerCharacter
+                              : CompletionTriggerKind.Invoke,
+                      // Stryker disable next-line ConditionalExpression: запрос уходит по RPC JSON'ом, а он выбрасывает undefined-поля — `{triggerCharacter: undefined}` у провайдера неотличим от отсутствия
+                      ...(triggerCharacter !== undefined ? { triggerCharacter } : {}),
+                  });
         // Пока ходили за ответом, пользователь мог набрать ещё символ — свежий
         // запрос уже в пути, и старый ответ не имеет права перекрыть его.
         if (ticket.isStale()) return;
@@ -218,6 +232,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.prefixFromProvider = providerStart !== null;
         this.triggerCaret = { line: active.line, character: active.character };
         this.isIncomplete = result.isIncomplete;
+        this.providerOf = result.providerOf;
 
         const view = this.component.view;
         view.setItems(items.map(toListItem));
@@ -456,7 +471,16 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * провайдера — ядро их только читает.
      */
     private insertedTriggerCharacter(line: string, active: IPosition): string | null {
-        const characters = this.group.completionTriggerCharacters;
+        const editor = this.group.getActiveEditor();
+        /* v8 ignore start -- defensive: события каретки приходят от привязанного редактора */
+        // Stryker disable next-line ConditionalExpression: ветка недостижима — см. v8 ignore выше
+        if (editor === null) return null;
+        /* v8 ignore stop */
+        // Символы — метаданные провайдеров, подошедших именно этому документу:
+        // «.» сервера TypeScript не открывает попап в markdown.
+        const characters = this.languageFeatures.completionProvider
+            .ordered(editor)
+            .flatMap((provider) => provider.triggerCharacters);
         if (characters.length === 0) return null;
         if (!isSingleCharInsert(line, active, this.lastCaretLine, this.lastCaretChar, this.lastLine)) return null;
         const inserted = line.at(active.character - 1);
@@ -564,7 +588,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.close();
 
         const id = core.id;
-        if (id === undefined || this.group.completionResolver === undefined) {
+        const resolve = this.resolverOf(core);
+        if (id === undefined || resolve === undefined) {
             this.applyAccept(editor, range, core, []);
             return;
         }
@@ -572,7 +597,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // мог ещё не случиться: панель описания по умолчанию скрыта. Ждём его
         // коротко — вставка не имеет права зависнуть на молчащем сервере
         // (уже догруженный пункт resolveItem отдаёт из кэша сразу).
-        void this.resolveItem(id, ACCEPT_RESOLVE_TIMEOUT_MS).then((resolved) => {
+        void this.resolveItem(id, resolve, ACCEPT_RESOLVE_TIMEOUT_MS).then((resolved) => {
             this.applyAccept(editor, range, core, resolved?.additionalEdits ?? []);
         });
     }
@@ -620,9 +645,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
 
         const id = core.id;
         if (id === undefined) return;
+        const resolve = this.resolverOf(core);
+        // Stryker disable next-line ConditionalExpression: без проверки `resolve(id)` кидает из промиса, который никто не ждёт, — раннер падает на unhandled error, а не тест (см. docs/TESTING.md, «Раннер упал на мутанте»); ветку «провайдер без resolve» держит тест «источник без резолвера панель не ломает»
+        if (resolve === undefined) return;
         // Кэш и склейка параллельных запросов — внутри resolveItem; здесь не
         // дублируем проверку, иначе её ветка становится мёртвой.
-        void this.resolveItem(id).then((resolved) => {
+        void this.resolveItem(id, resolve).then((resolved) => {
             if (resolved === null) return;
             // Пока ходили за описанием, пользователь мог уйти на другой пункт.
             const selected = this.component.view.getSelectedItem()?.data as ICoreCompletionItem | undefined;
@@ -631,20 +659,31 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         });
     }
 
+    /** Resolve провайдера, отдавшего пункт; `undefined` — провайдер его не умеет. */
+    private resolverOf(
+        core: ICoreCompletionItem,
+    ): ((id: string) => Promise<ICoreResolvedCompletion | null>) | undefined {
+        const provider = this.providerOf.get(core);
+        return provider?.resolveCompletionItem?.bind(provider);
+    }
+
     /**
-     * Догружает пункт по id (описание для панели, правки авто-импорта) через
-     * {@link EditorService.completionResolver}. Результат кэшируется, повторные
-     * и параллельные запросы одного id склеиваются в один RPC.
+     * Догружает пункт по id (описание для панели, правки авто-импорта) у
+     * провайдера, который его отдал. Результат кэшируется, повторные и
+     * параллельные запросы одного id склеиваются в один RPC.
      */
-    private async resolveItem(id: string, timeoutMs?: number): Promise<ICoreResolvedCompletion | null> {
+    private async resolveItem(
+        id: string,
+        resolve: (id: string) => Promise<ICoreResolvedCompletion | null>,
+        timeoutMs?: number,
+    ): Promise<ICoreResolvedCompletion | null> {
         const cached = this.resolvedItems.get(id);
         if (cached !== undefined) return cached;
-        const resolver = this.group.completionResolver;
-        if (resolver === undefined) return null;
 
         let pending = this.pendingResolves.get(id);
         if (pending === undefined) {
-            pending = resolver(id).catch(() => null);
+            // Stryker disable next-line ArrowFunction: `undefined` вместо `null` дальше неотличим — в кэш он не попадает (get вернёт тот же undefined), а потребители читают ответ через `?.`
+            pending = resolve(id).catch(() => null);
             this.pendingResolves.set(id, pending);
             void pending.then((resolved) => {
                 this.pendingResolves.delete(id);

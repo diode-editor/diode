@@ -4,6 +4,7 @@ import { CLIENT_CRASH_PATTERNS, until } from "../../../../../TestUtils/basedpyri
 import {
     createExtensionTestHarness,
     type IExtensionHarness,
+    provideCompletions,
     provideDefinitions,
     provideHovers,
     provideReferences,
@@ -116,8 +117,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
     });
 
     it("автодополнение отдаёт члены типа из JDK", { timeout: 120_000 }, async () => {
-        const source = harness?.group.completionSource;
-        expect(source).toBeDefined();
+        expect(harness).toBeDefined();
         // Каретка внутри `System.out.println(...)` сразу ПОСЛЕ `System.out.` —
         // позиция есть в самом буфере, подменять текст не нужно. Это важно: если
         // прислать в запрос текст, отличный от открытого буфера, ответ зависит от
@@ -126,7 +126,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         const items = await until(
             "completion после `System.out.`",
             async () => {
-                const found = await source!({
+                const found = await provideCompletions(harness!, {
                     uri: appUri,
                     languageId: "java",
                     text: APP_JAVA,

@@ -80,17 +80,6 @@ describe("EditorService", () => {
         return filePath;
     }
 
-    describe("шов языковых источников", () => {
-        it("по умолчанию источников и триггер-символов нет", () => {
-            const ctrl = createEditorService();
-
-            // Провайдеров подключает host/харнесс; до этого ядро не должно
-            // считать какой-либо символ триггером — иначе попапы полезли бы
-            // сами по себе в запуске без расширений.
-            expect(ctrl.completionTriggerCharacters).toEqual([]);
-        });
-    });
-
     describe("openFile", () => {
         it("opens a file and creates a tab", () => {
             const ctrl = createEditorService();

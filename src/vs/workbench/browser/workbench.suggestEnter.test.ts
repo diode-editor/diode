@@ -4,6 +4,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import type { ICoreCompletionItem } from "../../editor/common/languages/iCompletionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 
 /**
@@ -46,8 +47,10 @@ describe("Workbench — Enter после несловесного символа
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-suggest-enter-", files: { "a.ts": "\n" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: ws.path("a.ts") });
-        h.container.get(EditorServiceDIToken).completionSource = () =>
-            Promise.resolve({ items: ITEMS, isIncomplete: false });
+        h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
+            triggerCharacters: [],
+            provideCompletionItems: () => Promise.resolve({ items: ITEMS, isIncomplete: false }),
+        });
         h.workbench.focusEditor();
     });
 

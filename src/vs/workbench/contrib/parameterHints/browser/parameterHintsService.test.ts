@@ -758,8 +758,11 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     it("при открытом попапе автодополнения Escape и стрелки принадлежат ему", async () => {
         useSource(() => Promise.resolve(help({ signatures: [GREET, GREET_SHORT] })));
-        group().completionSource = () =>
-            Promise.resolve({ items: [{ label: "greet", insertText: "greet" }], isIncomplete: false });
+        h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
+            triggerCharacters: [],
+            provideCompletionItems: () =>
+                Promise.resolve({ items: [{ label: "greet", insertText: "greet" }], isIncomplete: false }),
+        });
         const completion = h.container.get(CompletionServiceDIToken);
 
         await service().trigger();

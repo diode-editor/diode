@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideCompletions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
@@ -102,9 +106,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             await harness.host.activateByEvent("onLanguage:typescript");
 
             const completionAt = async (line: number, character: number): Promise<readonly ICoreCompletionItem[]> => {
-                const source = harness.group.completionSource;
-                if (source === undefined) return [];
-                const result = await source({
+                const result = await provideCompletions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: harness.group.getActiveEditor()?.getText() ?? "",
@@ -151,7 +153,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             // есть контракт `resolveSupport` стокового клиента.
             expect(getTime?.detail).toBeUndefined();
             expect(getTime?.id).toBeDefined();
-            const resolved = await harness.group.completionResolver!(getTime!.id!);
+            const resolved = await harness.host.resolveCompletionItem(getTime!.id!);
             expect(resolved?.detail).toContain("getTime");
         } finally {
             await harness.dispose();
@@ -178,7 +180,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             await harness.host.activateByEvent("onLanguage:typescript");
 
             const greet = await until("пункт greet из соседнего модуля", async () => {
-                const result = await harness.group.completionSource!({
+                const result = await provideCompletions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
                     text: "gree\n",
@@ -189,7 +191,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             });
 
             const resolved = await until("resolve с правкой импорта", async () => {
-                const found = await harness.group.completionResolver!(greet.id!);
+                const found = await harness.host.resolveCompletionItem(greet.id!);
                 return found?.additionalEdits !== undefined ? found : null;
             });
             const importEdit = resolved.additionalEdits?.[0];

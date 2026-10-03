@@ -96,15 +96,18 @@ export interface ICoreResolvedCompletion {
 }
 
 /**
- * Completion-источник: по запросу возвращает элементы автодополнения от
- * провайдеров расширений. Инъектируется в ядро извне (host/харнесс) — ядро не
- * знает про extension-слой (зеркало {@link ./ISaveParticipant.ts:SaveParticipant}).
- * Пустой результат = автодополнений нет.
+ * Один completion-провайдер в реестре `ILanguageFeaturesService.completionProvider`
+ * (upstream `languages.CompletionItemProvider` + метаданные регистрации).
+ * Провайдеры расширений регистрирует туда `LanguageFeaturesAdapter`. Пустой
+ * результат = автодополнений нет.
  */
-export type CompletionSource = (request: ICompletionRequest) => Promise<ICoreCompletionResult>;
-
-/**
- * Ленивая догрузка одного пункта по его {@link ICoreCompletionItem.id}. `null` —
- * источник не ответил или резолв не поддержан; попап остаётся с тем, что есть.
- */
-export type CompletionResolver = (id: string) => Promise<ICoreResolvedCompletion | null>;
+export interface CompletionItemProvider {
+    /** Символы, набор которых сам открывает попап (`.` у tsserver). */
+    readonly triggerCharacters: readonly string[];
+    provideCompletionItems(request: ICompletionRequest): Promise<ICoreCompletionResult>;
+    /**
+     * Ленивая догрузка одного своего пункта по его {@link ICoreCompletionItem.id}.
+     * `null` — провайдер не ответил или резолва нет; попап остаётся с тем, что есть.
+     */
+    resolveCompletionItem?(id: string): Promise<ICoreResolvedCompletion | null>;
+}

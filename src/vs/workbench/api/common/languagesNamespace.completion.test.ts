@@ -20,6 +20,7 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
 }
 
 const REQ = {
+    handles: [0],
     uri: "file:///proj/main.ts",
     languageId: "typescript",
     text: "d.",
@@ -61,7 +62,7 @@ describe("LanguagesNamespace — completion: сериализация полей
             provideCompletionItems: () => [item],
         } as never);
 
-        const result = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult;
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
 
         expect(result.items[0]).toMatchObject({
             label: "getTime",
@@ -82,22 +83,22 @@ describe("LanguagesNamespace — completion: сериализация полей
             provideCompletionItems: () => new CompletionList([new CompletionItem("getTime")], true),
         } as never);
 
-        const result = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult;
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
         expect(result.isIncomplete).toBe(true);
     });
 
-    it("триггер-символы всех регистраций объединяются в подписке", () => {
+    it("триггер-символы едут с регистрацией своего провайдера, не объединяясь", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provider = { provideCompletionItems: () => [] } as never;
-        languages.registerCompletionItemProvider({ language: "typescript" }, provider, ".", '"');
+        // Мусор вместо символа (JS-расширение без типов) отбрасывается.
+        languages.registerCompletionItemProvider({ language: "typescript" }, provider, ".", 7 as never, '"');
         languages.registerCompletionItemProvider({ language: "json" }, provider, '"', "/");
 
-        const last = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions").at(-1);
-        expect((last?.params as { completionTriggerCharacters: string[] }).completionTriggerCharacters).toEqual([
-            ".",
-            '"',
-            "/",
+        const registered = stub.notifies.filter((n) => n.method === "languages.register").map((n) => n.params);
+        expect(registered).toMatchObject([
+            { handle: 0, triggerCharacters: [".", '"'] },
+            { handle: 1, triggerCharacters: ['"', "/"] },
         ]);
     });
 
@@ -121,7 +122,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerCompletionItemProvider({ language: "typescript" }, provider as never);
-        const result = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult;
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
         return { id: result.items[0].id!, stub };
     }
 
@@ -215,7 +216,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
             provideCompletionItems: () => [item],
         } as never);
 
-        const result = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult;
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
         expect(result.items[0].labelDetail).toBeUndefined();
         expect(result.items[0].labelDescription).toBeUndefined();
     });
@@ -248,7 +249,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
             },
         } as never);
 
-        const first = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult;
+        const [first] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
         await stub.callRequest("languages.provideCompletionItems", REQ);
         await stub.callRequest("languages.provideCompletionItems", REQ);
 

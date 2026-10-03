@@ -148,6 +148,7 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
 // ─── Completion ───────────────────────────────────────────────────────────────
 
 const COMPLETION_PARAMS = {
+    handles: [4],
     uri: Uri.file("/proj/.editorconfig").toString(),
     languageId: "editorconfig",
     text: "ind",
@@ -294,16 +295,46 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("languages.provideCompletionItems", () => [
-                { label: "indent_style", insertText: "indent_style", kind: 9 },
+                // Голый массив пунктов — форма ответа до появления isIncomplete;
+                // читаем её как полный список.
+                [{ label: "indent_style", insertText: "indent_style", kind: 9 }],
             ]);
-            // Голый массив — форма ответа до появления isIncomplete; читаем её
-            // как полный список (расширение из чужой поставки не обязано знать
-            // про новую форму).
             const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
-            expect(result).toEqual({
-                items: [{ label: "indent_style", insertText: "indent_style", kind: 9 }],
-                isIncomplete: false,
-            });
+            expect(result).toEqual([
+                { items: [{ label: "indent_style", insertText: "indent_style", kind: 9 }], isIncomplete: false },
+            ]);
+        } finally {
+            dispose();
+        }
+    });
+
+    it("ответ выровнен по handles: недостающие и мусорные результаты — пустые", async () => {
+        const { host, sub, dispose } = connectPair();
+        try {
+            sub.handleRequest("languages.provideCompletionItems", () => [
+                { items: [{ label: "a", insertText: "a" }], isIncomplete: true },
+                "мусор",
+            ]);
+            const params = { ...COMPLETION_PARAMS, handles: [1, 2, 3] };
+            const result = await requestCompletionItems((m, p) => host.request(m, p), params, 1000);
+            expect(result).toEqual([
+                { items: [{ label: "a", insertText: "a" }], isIncomplete: true },
+                { items: [], isIncomplete: false },
+                { items: [], isIncomplete: false },
+            ]);
+        } finally {
+            dispose();
+        }
+    });
+
+    it("ответ не массивом (даже с числовыми ключами) — пусто у всех", async () => {
+        const { host, sub, dispose } = connectPair();
+        try {
+            sub.handleRequest("languages.provideCompletionItems", () => ({
+                0: { items: [{ label: "a", insertText: "a" }], isIncomplete: true },
+            }));
+            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
+            expect(result).toEqual([{ items: [], isIncomplete: false }]);
         } finally {
             dispose();
         }
@@ -314,7 +345,7 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
         try {
             sub.handleRequest("languages.provideCompletionItems", () => new Promise(() => {}));
             const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 30);
-            expect(result).toEqual({ items: [], isIncomplete: false });
+            expect(result).toEqual([{ items: [], isIncomplete: false }]);
         } finally {
             dispose();
         }
@@ -327,7 +358,7 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
                 throw new Error("boom");
             });
             const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
-            expect(result).toEqual({ items: [], isIncomplete: false });
+            expect(result).toEqual([{ items: [], isIncomplete: false }]);
         } finally {
             dispose();
         }
