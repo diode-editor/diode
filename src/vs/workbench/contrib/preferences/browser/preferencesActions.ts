@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -13,7 +14,7 @@ import {
     parseChord,
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { ClipboardDIToken, KeybindingsResourceDIToken, SettingsResourceDIToken } from "../../../common/coreTokens.ts";
+import { KeybindingsResourceDIToken, SettingsResourceDIToken } from "../../../common/coreTokens.ts";
 import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 
 import { KeybindingRecorderComponentDIToken } from "./keybindingRecorderComponent.ts";

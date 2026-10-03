@@ -4,6 +4,7 @@ import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
+import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -12,7 +13,6 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
-import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
 import type { ExplorerService } from "./explorerService.ts";

@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Disposable } from "@tuidom/core/common/disposable";
 
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
+import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { describeFileWatchError } from "../../../../platform/files/common/fileWatchErrors.ts";
@@ -11,7 +12,6 @@ import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
 import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
-import { FileClipboardDIToken } from "../../../common/coreTokens.ts";
 
 import { FileTreeDataProvider, type FileTreeNode } from "./fileTreeDataProvider.ts";
 

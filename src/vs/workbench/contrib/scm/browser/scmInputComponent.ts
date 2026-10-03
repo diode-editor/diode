@@ -21,8 +21,8 @@ import {
 import type { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { Component } from "../../../browser/component.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 

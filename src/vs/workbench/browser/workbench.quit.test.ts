@@ -7,7 +7,7 @@ import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
-import { ServiceAccessorDIToken } from "../common/coreTokens.ts";
+import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import { type EditorService, EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";

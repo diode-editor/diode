@@ -5,6 +5,7 @@ import {
 import { MenuContributionsDIToken } from "../../platform/actions/common/iMenuContribution.ts";
 import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
 import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
+import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyContributorsDIToken } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import {
@@ -77,7 +78,6 @@ import { WORKBENCH_CONTEXT_KEY_CONTRIBUTORS } from "../../workbench/browser/work
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/browser/workbenchContributions.ts";
 import { WorkbenchStateService, WorkbenchStateServiceDIToken } from "../../workbench/browser/workbenchStateService.ts";
-import { ClipboardDIToken } from "../../workbench/common/coreTokens.ts";
 import {
     WorkbenchContributionsDIToken,
     WorkbenchContributionsRegistry,

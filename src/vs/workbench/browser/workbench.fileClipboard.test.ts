@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { IClipboard } from "../../platform/clipboard/common/iClipboard.ts";
-import { ClipboardDIToken } from "../common/coreTokens.ts";
+import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 
 // Workspace layout (dirs sort first): row 0 = "target/", row 1 = "a.txt".
 function createWorkspace(): ITempWorkspace {

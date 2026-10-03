@@ -81,8 +81,8 @@
 
 - **Слои:** движок key/value поверх plain-JSON файлов, зависит только от Common +
   fs. Живёт в `Configuration/` (сосед `ConfigurationService`);
-  `StateServiceDIToken` объявлен в `Workbench/Services/CoreTokens.ts` (потребители-
-  сервисы — в Workbench), биндинг — модуль `Workbench/Modules/StateModule.ts`.
+  `StateServiceDIToken` объявлен рядом с типом в `platform/state/common/iStateService.ts`
+  (потребители-сервисы — в Workbench), биндинг — модуль `Workbench/Modules/StateModule.ts`.
 - **Write-through + debounce + flushSync:** `store` обновляет in-memory стор
   синхронно, запись на диск — debounced (async). Durability гарантирует
   `flushSync()` на выходе процесса. Так `get` всегда видит последнее значение.

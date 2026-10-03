@@ -13,8 +13,9 @@ import { TokenizationRegistry } from "../../../../editor/common/languages/tokeni
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { FileSystemProviderRegistry } from "../../../../platform/files/common/fileSystemProviderRegistry.ts";
 import { NULL_FILE_SYSTEM_PROVIDER_REGISTRY } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { FileSystemProviderRegistryDIToken, StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";

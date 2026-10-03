@@ -1,5 +1,5 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
-import { ClipboardDIToken } from "../../../common/coreTokens.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { KeyboardDoctorComponentDIToken } from "./keyboardDoctorComponent.ts";

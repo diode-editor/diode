@@ -8,9 +8,10 @@ import { quickPickByTitle, tabLabels } from "../../../../../TestUtils/domQueries
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
-import { ClipboardDIToken, FileSystemProviderRegistryDIToken } from "../../../common/coreTokens.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../scm/browser/commandOriginalResourceProvider.ts";
 import { QUERY_COMMAND } from "../../scm/browser/syncActions.ts";

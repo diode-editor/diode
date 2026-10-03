@@ -8,7 +8,7 @@ import { settle } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../common/coreTokens.ts";
+import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
 import type { ChangesComponent } from "../contrib/scm/browser/changesComponent.ts";
 import { ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../contrib/scm/browser/changesService.ts";

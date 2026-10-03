@@ -11,11 +11,11 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
 import { SCM_VIEW_MODE_STATE, type ScmViewMode } from "../../../common/stateKeys.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";

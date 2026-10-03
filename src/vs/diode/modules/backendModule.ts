@@ -1,9 +1,10 @@
 import type { IClipboard } from "../../platform/clipboard/common/iClipboard.ts";
+import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import type { IFileClipboard } from "../../platform/clipboard/common/iFileClipboard.ts";
+import { FileClipboardDIToken } from "../../platform/clipboard/common/iFileClipboard.ts";
 import { InMemoryClipboard } from "../../platform/clipboard/common/inMemoryClipboard.ts";
 import { InMemoryFileClipboard } from "../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
-import { ClipboardDIToken, FileClipboardDIToken } from "../../workbench/common/coreTokens.ts";
 
 export interface BackendModuleContext {
     clipboard: IClipboard;

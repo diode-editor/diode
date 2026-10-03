@@ -16,8 +16,8 @@ import type { ContextKeyService } from "../../platform/contextkey/common/context
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
+import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { macKeysLevel } from "../../platform/keybinding/common/macKeys.ts";
-import { ServiceAccessorDIToken } from "../common/coreTokens.ts";
 import { EXTENSIONS_VIEWLET_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type { InputWidgetService } from "../contrib/files/browser/inputWidgetService.ts";
 import { InputWidgetServiceDIToken } from "../contrib/files/browser/inputWidgetService.ts";

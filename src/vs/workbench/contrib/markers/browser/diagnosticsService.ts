@@ -8,7 +8,8 @@ import { ConfigurationRegistryDIToken } from "../../../../platform/configuration
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
-import { MarkerServiceDIToken, SettingsResourceDIToken } from "../../../common/coreTokens.ts";
+import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
+import { SettingsResourceDIToken } from "../../../common/coreTokens.ts";
 import { collectKnownSettingKeys, validateSettingsJson } from "../../preferences/common/settingsDiagnostics.ts";
 
 /** Marker owner used by the built-in settings.json validator. */

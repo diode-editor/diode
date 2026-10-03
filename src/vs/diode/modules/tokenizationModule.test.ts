@@ -6,15 +6,13 @@ import {
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
+import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
+import { TokenStyleResolverDIToken } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
+import { TokenizationRegistryDIToken } from "../../editor/common/languages/tokenizationRegistry.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
-import {
-    LanguageServiceDIToken,
-    TokenizationRegistryDIToken,
-    TokenStyleResolverDIToken,
-} from "../../workbench/common/coreTokens.ts";
 
 import { createTestContainer } from "./testProfile.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";

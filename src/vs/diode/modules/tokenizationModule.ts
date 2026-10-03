@@ -1,16 +1,14 @@
 import type { ILanguageConfigurationService } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import { LanguageConfigurationServiceDIToken } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../editor/common/languages/iLanguageService.ts";
+import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../editor/common/languages/iTokenStyleResolver.ts";
+import { TokenStyleResolverDIToken } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
+import { TokenizationRegistryDIToken } from "../../editor/common/languages/tokenizationRegistry.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
-import {
-    LanguageServiceDIToken,
-    TokenizationRegistryDIToken,
-    TokenStyleResolverDIToken,
-} from "../../workbench/common/coreTokens.ts";
 
 export interface TokenizationModuleContext {
     tokenizationRegistry: TokenizationRegistry;

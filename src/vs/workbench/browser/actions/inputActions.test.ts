@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import type { IClipboard } from "../../../platform/clipboard/common/iClipboard.ts";
+import { ClipboardDIToken } from "../../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { ClipboardDIToken } from "../../common/coreTokens.ts";
 import { InputWidgetService } from "../../contrib/files/browser/inputWidgetService.ts";
 import { InputWidgetServiceDIToken } from "../../contrib/files/browser/inputWidgetService.ts";
 

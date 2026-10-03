@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import type { ScmGraphMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";

@@ -1,7 +1,7 @@
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";
+import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../platform/state/common/nullStateService.ts";
-import { StateServiceDIToken } from "../../workbench/common/coreTokens.ts";
 
 export interface StateModuleContext {
     stateService: IStateService;

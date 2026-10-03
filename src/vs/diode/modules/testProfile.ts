@@ -12,9 +12,9 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenS
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
 import { currentTargetPlatform } from "../../platform/extensionManagement/node/targetPlatform.ts";
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
+import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
-import { TuiApplicationDIToken } from "../../workbench/common/coreTokens.ts";
 import { TerminalSessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { terminalEnvironmentModule } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts";
 import { darkPlusTheme } from "../../workbench/services/themes/common/themes/darkPlus.ts";

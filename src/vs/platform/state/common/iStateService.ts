@@ -1,3 +1,4 @@
+import { token } from "../../instantiation/common/diContainer.ts";
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 
 /**
@@ -74,3 +75,7 @@ export interface IStateDescriptor<T> {
      */
     readonly migrate?: (raw: unknown, from: number) => T;
 }
+
+/** DI-токен машинного состояния UI/сессии ({@link IStateService}, см. docs/arch/State.md). */
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const StateServiceDIToken = token<IStateService>("StateService");

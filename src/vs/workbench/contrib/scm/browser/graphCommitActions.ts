@@ -1,9 +1,9 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { scmGraphShaArg, scmGraphSubjectArg } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import { ClipboardDIToken } from "../../../common/coreTokens.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 
 import { createBranch, inputRefName } from "./branchActions.ts";

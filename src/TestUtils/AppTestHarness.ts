@@ -7,15 +7,12 @@ import type { IConfigurationService } from "../vs/platform/configuration/common/
 import { IConfigurationServiceDIToken } from "../vs/platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { Container } from "../vs/platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../vs/platform/state/common/iStateService.ts";
+import { StateServiceDIToken } from "../vs/platform/state/common/iStateService.ts";
 import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts";
 import type { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEditorPane.ts";
 import type { WorkbenchComponent } from "../vs/workbench/browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../vs/workbench/browser/workbenchComponent.ts";
-import {
-    KeybindingsResourceDIToken,
-    SettingsResourceDIToken,
-    StateServiceDIToken,
-} from "../vs/workbench/common/coreTokens.ts";
+import { KeybindingsResourceDIToken, SettingsResourceDIToken } from "../vs/workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../vs/workbench/services/editor/browser/editorService.ts";
 import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/themeTokens.ts";
 

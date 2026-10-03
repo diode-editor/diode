@@ -71,7 +71,7 @@ Ctrl+D и родня — состояние плюс чистые функции
 ## Editor/Markers/ (диагностики)
 Провайдер-агностичный реестр диагностик (аналог VS Code `IMarkerService`). **Диагностики отвязаны от источников:** LSP / problem matchers / расширения — *поставщики* (пишут `MarkerService.changeOne(owner, resource, markers)`); squiggle в редакторе, панель Problems, счётчики — *потребители* (`read`/`onDidChangeMarkers`). Поэтому MVP собирается с одним поставщиком, без LSP.
 - **`IMarker`/`IMarkerData`/`MarkerSeverity`** (`Hint|Info|Warning|Error`) — модель; `IMarker` = `IMarkerData` + `owner` (неймспейс поставщика) + `resource` (путь файла).
-- **`MarkerService`** — чистый реестр `owner → resource → IMarker[]` без DI (зеркало `TokenizationRegistry`; DI-токен — в `Workbench/Services/CoreTokens.ts`, модуль — `Workbench/Modules/MarkersModule.ts`).
+- **`MarkerService`** — чистый реестр `owner → resource → IMarker[]` без DI (зеркало `TokenizationRegistry`; DI-токен — рядом с классом, `platform/markers/common/markerService.ts`, модуль — `Workbench/Modules/MarkersModule.ts`).
 - **`IMarkerDecoration`** — view-проекция маркера (`range` + `severity`), чтобы Editor не зависел от `owner`/`resource`/`message`. Рендер — `EditorElement` красит покрытые ячейки severity-цветом (`editorError/Warning/Info/Hint.foreground`) + `StyleFlags.Undercurl` (на legacy-терминалах — обычный цвет). Точка пересчёта — `onDidChangeContent`. Проводка «поставщик → реестр → потребитель» — в Workbench (`DiagnosticsService`, см. [Workbench.md](Workbench.md)).
 
 ## Editor/Decorations/ (view-проекции декораций)

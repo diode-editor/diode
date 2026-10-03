@@ -1,6 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import type { Uri } from "../../../base/common/uri.ts";
+import { token } from "../../instantiation/common/diContainer.ts";
 
 /**
  * Read-only поставщик содержимого для одной схемы URI (`git:`, в будущем
@@ -64,3 +65,11 @@ export const NULL_FILE_SYSTEM_PROVIDER_REGISTRY: IFileSystemProviderRegistry = {
     onDidChangeFile: () => ({ dispose: () => undefined }),
     onDidChangeProviders: () => ({ dispose: () => undefined }),
 };
+
+/**
+ * Реестр поставщиков содержимого по схеме URI ({@link IFileSystemProviderRegistry}).
+ * Наполняется адаптером extension host'а: расширения регистрируют провайдеров
+ * (встроенный git — схему `git:`), потребители читают недисковые ресурсы.
+ */
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const FileSystemProviderRegistryDIToken = token<IFileSystemProviderRegistry>("FileSystemProviderRegistry");

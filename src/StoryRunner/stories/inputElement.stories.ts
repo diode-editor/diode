@@ -3,6 +3,7 @@ import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 
 import { registerAction } from "../../vs/platform/actions/common/commandAction.ts";
+import { ClipboardDIToken } from "../../vs/platform/clipboard/common/iClipboard.ts";
 import { InMemoryClipboard } from "../../vs/platform/clipboard/common/inMemoryClipboard.ts";
 import { CommandRegistry } from "../../vs/platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../vs/platform/contextkey/common/contextKeyService.ts";
@@ -31,7 +32,6 @@ import {
     inputSelectWordLeftAction,
     inputSelectWordRightAction,
 } from "../../vs/workbench/browser/actions/inputActions.ts";
-import { ClipboardDIToken } from "../../vs/workbench/common/coreTokens.ts";
 import {
     InputWidgetService,
     InputWidgetServiceDIToken,

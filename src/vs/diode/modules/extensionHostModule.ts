@@ -1,11 +1,14 @@
 import { createRange } from "../../editor/common/core/iRange.ts";
+import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
+import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
 import type { IWorkspaceContextService } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
@@ -26,11 +29,6 @@ import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
 import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
-import {
-    ClipboardDIToken,
-    FileSystemProviderRegistryDIToken,
-    MarkerServiceDIToken,
-} from "../../workbench/common/coreTokens.ts";
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/node/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";

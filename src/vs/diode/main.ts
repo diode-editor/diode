@@ -50,6 +50,7 @@ import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.
 import { runTreeWatcherSubprocess } from "../platform/files/node/treeWatcherMain.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
+import { TuiApplicationDIToken } from "../platform/layout/browser/tuiApplicationDIToken.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
 import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
@@ -58,7 +59,6 @@ import { loadState } from "../platform/state/node/stateService.ts";
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
-import { TuiApplicationDIToken } from "../workbench/common/coreTokens.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
 import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
 import { ExtensionThemeContributor } from "../workbench/services/extensions/common/extensionThemeContributor.ts";

@@ -9,6 +9,7 @@ import { TokenizationRegistry } from "../../../editor/common/languages/tokenizat
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import type { IClipboard } from "../../../platform/clipboard/common/iClipboard.ts";
+import { ClipboardDIToken } from "../../../platform/clipboard/common/iClipboard.ts";
 import { OscClipboard } from "../../../platform/clipboard/common/oscClipboard.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -19,7 +20,6 @@ import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindi
 import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
-import { ClipboardDIToken } from "../../common/coreTokens.ts";
 import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";

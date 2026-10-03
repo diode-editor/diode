@@ -16,10 +16,13 @@ import {
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
+import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ReferenceSource } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { SignatureHelpSource } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
+import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import { TokenizationRegistryDIToken } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
@@ -37,11 +40,6 @@ import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.t
 import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import {
-    LanguageServiceDIToken,
-    TokenizationRegistryDIToken,
-    TokenStyleResolverDIToken,
-} from "../../../common/coreTokens.ts";
 import { DialogService, DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";

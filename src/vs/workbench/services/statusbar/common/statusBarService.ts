@@ -2,7 +2,7 @@ import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
-import { StateServiceDIToken } from "../../../common/coreTokens.ts";
+import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { STATUS_BAR_HIDDEN_STATE } from "../../../common/stateKeys.ts";
 
 /**

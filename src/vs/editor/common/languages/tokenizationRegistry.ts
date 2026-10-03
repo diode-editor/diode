@@ -1,5 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
+import { token } from "../../../platform/instantiation/common/diContainer.ts";
+
 import type { ITokenizationSupport } from "./iTokenizationSupport.ts";
 
 /** Ленивая регистрация: фабрика + кеш её запуска и итоговой регистрации. */
@@ -127,3 +129,6 @@ export class TokenizationRegistry {
         for (const listener of [...this.listeners]) listener(languageId);
     }
 }
+
+// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+export const TokenizationRegistryDIToken = token<TokenizationRegistry>("TokenizationRegistry");
