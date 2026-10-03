@@ -112,6 +112,16 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(service.activeGroup.editorCount).toBe(1);
     });
 
+    it("сплит вкладки, которую не повторить, — активного редактора больше нет, и это событие", () => {
+        service.newUntitled();
+        const events: unknown[] = [];
+        service.onActiveEditorChanged((editor) => events.push(editor));
+
+        service.splitActiveGroup();
+
+        expect(events.at(-1)).toBeNull();
+    });
+
     it("копия из пустой группы — no-op", () => {
         service.copyActiveEditorToGroup("next");
 
@@ -187,6 +197,9 @@ describe("EditorService — повтор вкладки без фокуса", ()
 
     it("сплит вкладки не текстового вида (Keyboard Shortcuts) — новая группа пустая", () => {
         const service = h.container.get(EditorServiceDIToken);
+        // Провайдер на любую схему: текстовая фабрика отказывается по виду
+        // вкладки, а не потому, что её схему никто не обслуживает.
+        service.virtualDocumentSource = { canProvide: () => true, provide: () => Promise.resolve("x\n") };
         h.commands.execute("workbench.action.openGlobalKeybindings");
 
         const group = service.splitActiveGroup();

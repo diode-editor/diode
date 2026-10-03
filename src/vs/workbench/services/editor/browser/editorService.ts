@@ -704,6 +704,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public copyActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
         const sourcePane = this.activeGroupValue.activePane;
+        // Мутант условия эквивалентен: у пустой группы рецепта нет и так —
+        // `describe` всех фабрик на не-панели отдаёт `undefined`.
+        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
         if (sourcePane === null) return;
         const recipe = this.describePane(sourcePane);
         if (recipe === undefined) return;
