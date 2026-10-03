@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { KeybindingsEditorPane } from "../contrib/preferences/browser/keybindingsEditorPane.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
@@ -31,8 +32,7 @@ describe("Workbench — Preferences commands", () => {
             // дефолтные 80 шапка колонок вкладки шорткатов уже не влезает
             // («Keybinding» обрезается до «Keybindi…»).
             h = createAppTestHarness({
-                settingsResource: settingsFile,
-                keybindingsResource: keybindingsFile,
+                environment: { settingsResource: settingsFile, keybindingsResource: keybindingsFile },
                 size: new Size(120, 24),
             });
         });
@@ -97,7 +97,7 @@ describe("Workbench — Preferences commands", () => {
         beforeEach(() => {
             ws = createTempWorkspace({ prefix: "diode-prefs-" });
             keybindingsFile = ws.path("user-data/User/keybindings.json");
-            h = createAppTestHarness({ keybindingsResource: keybindingsFile });
+            h = createAppTestHarness({ environment: { keybindingsResource: keybindingsFile } });
         });
 
         it("рекордер пишет комбинацию: файл на диске, строка обновилась, команда работает сразу", async () => {
@@ -158,15 +158,20 @@ describe("Workbench — Preferences commands", () => {
         });
     });
 
-    describe("without resolved paths (default harness)", () => {
+    describe("default harness — test environment", () => {
         beforeEach(() => {
             ws = createTempWorkspace({ prefix: "diode-prefs-" });
             h = createAppTestHarness();
         });
 
-        it("openSettings is a no-op when the settings path is unknown", () => {
-            expect(() => h.commands.execute("workbench.action.openSettings")).not.toThrow();
-            expect(h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
+        it("openSettings opens settings.json of the test environment (a fresh temp dir per container)", () => {
+            const { settingsResource, userDataRoot } = h.container.get(IEnvironmentServiceDIToken);
+            expect(settingsResource.startsWith(userDataRoot)).toBe(true);
+
+            h.commands.execute("workbench.action.openSettings");
+
+            expect(fs.readFileSync(settingsResource, "utf-8")).toBe("{}\n");
+            expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsResource));
         });
     });
 });

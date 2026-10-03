@@ -54,7 +54,9 @@ describe("extensionsModule", () => {
      * тестового профиля и ничего не проверяет.
      */
     function setup(options: { problems?: string[] } = {}): ReturnType<typeof createTestContainer>["container"] {
-        const { container } = createTestContainer();
+        const { container } = createTestContainer({
+            environment: { registry: ws!.path("registry"), extensionsDir: ws!.path("extensions") },
+        });
         const poison = (what: string) => (): never => {
             throw new Error(`${what} не перебит продовым модулем магазина`);
         };
@@ -63,8 +65,6 @@ describe("extensionsModule", () => {
         container.bind(ExtensionsEditorTargetDIToken, poison("шов открытия страницы"));
         container.bind(ExtensionPageActionsDIToken, poison("действия страницы"));
         container.use(extensionsModule, {
-            registry: ws!.path("registry"),
-            extensionsDir: ws!.path("extensions"),
             host: HOST,
             onProblem: (message) => options.problems?.push(message),
         });

@@ -2,6 +2,7 @@ import { createRange } from "../../editor/common/core/iRange.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { IExtension } from "../../platform/extensions/common/iExtension.ts";
 import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
@@ -96,20 +97,12 @@ export function workspaceFoldersProvider(
             .folders.map((folder) => ({ uri: folder.uri.toString(), name: folder.name, index: folder.index }));
 }
 
-/** Контекст модуля: набор расширений и корни их хранения из user-data (см. `main.ts`). */
+/** Контекст модуля: набор расширений и сборка их регистраций (см. `main.ts`); корни хранения — из окружения. */
 export interface IExtensionHostModuleContext {
     /** Просканированный набор: пользовательские, затем встроенные. */
     readonly extensions: readonly IExtension[];
     /** Откуда и с какими дефолтами собирать регистрации (`toExtensionRegistration`). */
     readonly registration: IExtensionRegistrationEnv;
-    /** `<profileDir>/globalStorage` — родитель `globalStorageUri` расширений. */
-    readonly globalStorageDir: string;
-    /** `<profileDir>/workspaceStorage` — из него резолвится `storageUri` по открытой папке. */
-    readonly workspaceStorageDir: string;
-    /** `<userDataDir>/logs` — родитель `logUri` расширений. */
-    readonly logsDir: string;
-    /** `<profileDir>/secrets.json` — хранилище `ExtensionContext.secrets`. */
-    readonly secretsFile: string;
 }
 
 /**
@@ -124,6 +117,8 @@ export interface IExtensionHostModuleContext {
  */
 export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> = (container, ctx) => {
     container.bind(ExtensionHostDIToken, () => {
+        // Корни хранения расширений (`globalStorageUri`/`storageUri`/`logUri`, секреты) — из окружения.
+        const environment = container.get(IEnvironmentServiceDIToken);
         const group = container.get(EditorServiceDIToken);
         const adapter = new EditorOptionsServiceAdapter(group, container.get(WorkspaceEditServiceDIToken));
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
@@ -194,13 +189,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // здесь только чтение id.
         // Stryker disable next-line ArrowFunction: production-проводка модуля; решение о корнях живёт в `extensionStorageHomes` и закрыто юнитами, сквозняк — e2e-сценарий extension-storage
         const storageHomes = (): IExtensionStorageHomes =>
-            extensionStorageHomes(ctx, workspaceContext.getWorkspace().id);
+            extensionStorageHomes(environment, workspaceContext.getWorkspace().id);
 
         // Секреты расширений — файл в user-data (в отличие от memento, они
         // обязаны пережить перезапуск). Беды хранилища уходят в лог хоста; сами
         // значения не логируются нигде и никогда.
         // Stryker disable BlockStatement,CallExpression: production-проводка модуля (как у `storageHomes` выше) — решение о хранилище живёт в `extensionSecretsStore` и закрыто юнитами, сквозняк — e2e-сценарий extension-secrets
-        const secrets = createFileExtensionSecretStore(ctx.secretsFile, (message, err) => {
+        const secrets = createFileExtensionSecretStore(environment.secretsFile, (message, err) => {
             logger.error(message, err);
         });
         // Stryker restore BlockStatement,CallExpression

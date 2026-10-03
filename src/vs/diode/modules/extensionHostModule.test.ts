@@ -19,6 +19,7 @@ import { createTestContainer } from "./testProfile.ts";
  */
 describe("extensionHostModule — прощание", () => {
     it("shutdown снимает extension host", async () => {
+        // Корни хранения расширений — из окружения тестового профиля (временный каталог).
         const { container } = createTestContainer();
         const dir = path.join(tmpdir(), "diode-exthost-module-test");
         container.use(extensionHostModule, {
@@ -29,10 +30,6 @@ describe("extensionHostModule — прощание", () => {
                 readBuiltinSource: () => Promise.resolve(""),
                 configInjection: () => ({}),
             },
-            globalStorageDir: dir,
-            workspaceStorageDir: dir,
-            logsDir: dir,
-            secretsFile: path.join(dir, "secrets.json"),
         });
         const host = container.get(ExtensionHostDIToken);
         const lifecycle = container.get(LifecycleServiceDIToken);

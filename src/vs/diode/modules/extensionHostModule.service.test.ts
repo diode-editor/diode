@@ -50,10 +50,6 @@ describe("extensionHostModule — сервис расширений", () => {
                         readBuiltinSource: () => Promise.reject(new Error("no such asset")),
                         configInjection: () => ({}),
                     },
-                    globalStorageDir: dir,
-                    workspaceStorageDir: dir,
-                    logsDir: dir,
-                    secretsFile: path.join(dir, "secrets.json"),
                 });
             },
         });

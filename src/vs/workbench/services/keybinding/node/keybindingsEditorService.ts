@@ -3,6 +3,10 @@ import * as path from "node:path";
 
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
+import {
+    type IEnvironmentService,
+    IEnvironmentServiceDIToken,
+} from "../../../../platform/environment/common/environment.ts";
 import type {
     IKeybindingEntrySnapshot,
     KeybindingChord,
@@ -18,7 +22,6 @@ import type { IUserKeybindingRule } from "../../../../platform/keybinding/common
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
-import { KeybindingsResourceDIToken } from "../../../common/coreTokens.ts";
 import type { IKeybindingMutationResult, IKeybindingsEditorService } from "../common/iKeybindingsEditorService.ts";
 
 import { appendKeybindingRule, removeKeybindingRules } from "./keybindingsFileEditor.ts";
@@ -38,18 +41,20 @@ interface ICommandLedger {
 
 /** См. контракт {@link IKeybindingsEditorService}. */
 export class KeybindingsEditorService extends Disposable implements IKeybindingsEditorService {
-    public static dependencies = [KeybindingRegistryDIToken, KeybindingsResourceDIToken, ILogServiceDIToken] as const;
+    public static dependencies = [KeybindingRegistryDIToken, IEnvironmentServiceDIToken, ILogServiceDIToken] as const;
 
     private readonly ledger = new Map<string, ICommandLedger>();
     private readonly listeners = new Set<() => void>();
     private readonly logger: ILogger;
+    private readonly resource: string;
 
     public constructor(
         private readonly keybindings: KeybindingRegistry,
-        private readonly resource: string | null,
+        environment: Pick<IEnvironmentService, "keybindingsResource">,
         logService: ILogService,
     ) {
         super();
+        this.resource = environment.keybindingsResource;
         // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала логгера и его метка в Output — диагностика, не поведение.
         this.logger = logService.createLogger("keybindings.editor", { label: "Keyboard Shortcuts Editor" });
     }
@@ -196,13 +201,9 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
 
     /**
      * Правка файла: чтение (отсутствующий файл — пустой массив) → мутация →
-     * запись с созданием каталога. Ошибка — результатом, не исключением;
-     * `null`-путь (тесты/демо без user-data) тоже честный отказ.
+     * запись с созданием каталога. Ошибка — результатом, не исключением.
      */
     private async mutateFile(mutate: (content: string) => string): Promise<IKeybindingMutationResult> {
-        if (this.resource === null) {
-            return { ok: false, error: "keybindings.json path is not resolved" };
-        }
         try {
             const next = mutate(await this.readContent(this.resource));
             await fs.promises.mkdir(path.dirname(this.resource), { recursive: true });

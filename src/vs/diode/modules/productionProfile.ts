@@ -8,6 +8,7 @@ import type { TokenizationRegistry } from "../../editor/common/languages/tokeniz
 import type { IClipboard } from "../../platform/clipboard/common/iClipboard.ts";
 import type { ConfigurationRegistry } from "../../platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
+import type { IEnvironmentService } from "../../platform/environment/common/environment.ts";
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import type { IUserKeybindingRule } from "../../platform/keybinding/common/userKeybindings.ts";
 import type { ILogService } from "../../platform/log/common/iLogService.ts";
@@ -22,8 +23,8 @@ import { backendModule } from "./backendModule.ts";
 import { commandsModule } from "./commandsModule.ts";
 import { configurationModule } from "./configurationModule.ts";
 import { coreModule } from "./coreModule.ts";
-import type { IExtensionHostModuleContext } from "./extensionHostModule.ts";
-import { extensionHostModule } from "./extensionHostModule.ts";
+import { environmentModule } from "./environmentModule.ts";
+import { extensionHostModule, type IExtensionHostModuleContext } from "./extensionHostModule.ts";
 import type { ExtensionsModuleContext } from "./extensionsModule.ts";
 import { extensionsModule } from "./extensionsModule.ts";
 import { fileWatcherModule } from "./fileWatcherModule.ts";
@@ -55,17 +56,11 @@ export interface ProductionProfileContext {
     logService: ILogService;
     /** Кольцевой буфер логов — источник содержимого Output-панели. */
     logHistory: ILogHistory;
-    /** Absolute path of the active-profile Diode settings.json (for diagnostics scoping). */
-    settingsResource: string;
-    /** Absolute path of the active-profile Diode keybindings.json (for the open-keybindings command). */
-    keybindingsResource: string;
-    /** Магазин расширений: источник реестра (`--registry`), каталог установки и версии сборки. */
+    /** Окружение процесса: пути user data активного профиля и флаги CLI. */
+    environment: IEnvironmentService;
+    /** Магазин расширений: версии сборки и сток диагностик реестра. */
     extensions: ExtensionsModuleContext;
-    /**
-     * Extension host и сервис расширений: просканированный набор, окружение сборки
-     * регистраций и корни приватных каталогов расширений
-     * (`ExtensionContext.globalStorageUri` / `storageUri` / `logUri`) из профиля user-data.
-     */
+    /** Extension host и сервис расширений: просканированный набор и окружение сборки регистраций. */
     extensionHost: IExtensionHostModuleContext;
     /** Чем заканчивается прощание: выход или замена процесса новым (`workbench.action.reloadWindow`). */
     hostProcess: IHostProcess;
@@ -78,6 +73,7 @@ export interface ProductionProfileContext {
 export function createProductionContainer(ctx: ProductionProfileContext): Container {
     return new Container()
         .use(coreModule, { app: ctx.app })
+        .use(environmentModule, ctx.environment)
         .use(loggingModule, { logService: ctx.logService, logHistory: ctx.logHistory })
         .use(commandsModule)
         .use(themeModule, { theme: ctx.theme, themeRegistry: ctx.themeRegistry })
@@ -97,7 +93,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(keybindingsModule, { rules: ctx.userKeybindings })
         .use(workspaceModule)
         .use(fileWatcherModule)
-        .use(markersModule, { settingsResource: ctx.settingsResource, keybindingsResource: ctx.keybindingsResource })
+        .use(markersModule)
         .use(workbenchModule)
         .use(lifecycleModule, ctx)
         .use(extensionsModule, ctx.extensions)

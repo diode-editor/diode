@@ -118,7 +118,7 @@ const container = new Container()
 
 Актуальный список — файлы `src/vs/diode/modules/` (по модулю на домен: core,
 commands, theme, tokenization, backend, configuration, state, logging, markers,
-keybindings, workspace, fileWatcher, extensionHost, workbench). У части модулей
+keybindings, workspace, fileWatcher, environment, extensionHost, workbench). У части модулей
 есть `*Default`-вариант с null-реализациями для тестов и demo. Крупнейший —
 `workbenchModule`: все пары Service ↔ Component слоя Workbench и швы между ними;
 состав смотреть в самом файле, а не здесь (список дрейфует).
@@ -131,6 +131,14 @@ keybindings, workspace, fileWatcher, extensionHost, workbench). У части м
   `darkPlusTheme`, `NULL_TOKEN_STYLE_RESOLVER`, `NULL_LANGUAGE_SERVICE` и пустой
   `TokenizationRegistry`. `bindApp(testApp.app)` вызывается после создания
   `TestApp` от view, чтобы поздно забиндить `TuiApplicationDIToken`.
+
+**Окружение** (`IEnvironmentService`, `environmentModule`) — пути user data
+активного профиля и флаги CLI одним объектом, а не россыпью строковых токенов
+и полей контекстов модулей. Новый путь — поле в интерфейсе и строка в
+`createEnvironmentService`; сервис берёт его через `IEnvironmentServiceDIToken`.
+Тестовый профиль подставляет полное окружение в своём временном каталоге
+(`createTestEnvironment()`), так что ветки «в тестах пути нет» потребителям не
+нужны; харнесс перебивает отдельные поля опцией `environment`.
 
 Шаблон тестовой обёртки:
 

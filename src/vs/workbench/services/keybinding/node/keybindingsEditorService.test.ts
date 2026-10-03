@@ -25,6 +25,13 @@ afterEach(() => {
     ws.dispose();
 });
 
+/** Путь «в файл внутри файла» — запись в него гарантированно падает. */
+function unwritableEnvironment(): { keybindingsResource: string } {
+    const blocker = ws.path("blocker");
+    fs.writeFileSync(blocker, "", "utf-8");
+    return { keybindingsResource: path.join(blocker, "keybindings.json") };
+}
+
 interface IHarness {
     registry: KeybindingRegistry;
     service: KeybindingsEditorService;
@@ -43,7 +50,7 @@ function makeHarness(fileContent?: string): IHarness {
         fs.writeFileSync(file, fileContent, "utf-8");
     }
     const registry = new KeybindingRegistry();
-    const service = new KeybindingsEditorService(registry, file, NULL_LOG_SERVICE);
+    const service = new KeybindingsEditorService(registry, { keybindingsResource: file }, NULL_LOG_SERVICE);
     return {
         registry,
         service,
@@ -318,21 +325,10 @@ describe("hasUserModifications", () => {
 });
 
 describe("исходы и события", () => {
-    it("null-путь (тесты/демо без user-data) — честный отказ, реестр не тронут", async () => {
+    it("removeKeybinding и resetKeybinding при ошибке записи — отказ без правок реестра", async () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+s"), "test.save");
-        const service = new KeybindingsEditorService(registry, null, NULL_LOG_SERVICE);
-
-        const result = await service.defineKeybinding("test.save", parseChord("f6"));
-
-        expect(result).toEqual({ ok: false, error: "keybindings.json path is not resolved" });
-        expect(registry.listBindings()).toHaveLength(1);
-    });
-
-    it("removeKeybinding и resetKeybinding при null-пути — отказ без правок реестра", async () => {
-        const registry = new KeybindingRegistry();
-        registry.register(parseChord("ctrl+s"), "test.save");
-        const service = new KeybindingsEditorService(registry, null, NULL_LOG_SERVICE);
+        const service = new KeybindingsEditorService(registry, unwritableEnvironment(), NULL_LOG_SERVICE);
         const entry = registry.listBindings()[0];
 
         expect((await service.removeKeybinding(entry)).ok).toBe(false);
@@ -348,7 +344,7 @@ describe("исходы и события", () => {
         fs.writeFileSync(blocker, "", "utf-8");
         const service = new KeybindingsEditorService(
             registry,
-            path.join(blocker, "keybindings.json"),
+            { keybindingsResource: path.join(blocker, "keybindings.json") },
             NULL_LOG_SERVICE,
         );
 
@@ -376,7 +372,7 @@ describe("исходы и события", () => {
 
     it("провальная мутация onDidChange не эмитит", async () => {
         const registry = new KeybindingRegistry();
-        const service = new KeybindingsEditorService(registry, null, NULL_LOG_SERVICE);
+        const service = new KeybindingsEditorService(registry, unwritableEnvironment(), NULL_LOG_SERVICE);
         let fired = 0;
         service.onDidChange(() => {
             fired++;
@@ -516,7 +512,7 @@ describe("выбор правила и запись файла — тонкос�
         fs.writeFileSync(blocker, "", "utf-8");
         const service = new KeybindingsEditorService(
             registry,
-            path.join(blocker, "keybindings.json"),
+            { keybindingsResource: path.join(blocker, "keybindings.json") },
             NULL_LOG_SERVICE,
         );
         // Bootstrap-снятие дефолта наполняет леджер (removedDefaults), файл не пишет.
