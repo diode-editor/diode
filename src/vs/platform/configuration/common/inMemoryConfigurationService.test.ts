@@ -32,11 +32,8 @@ describe("InMemoryConfigurationService", () => {
         expect(service.getValue("editor")).toEqual({ tabSize: 4 });
     });
 
-    it("без реестра дефолтов нет — работает defaultValue", () => {
-        const service = new InMemoryConfigurationService();
-
-        expect(service.get("editor.tabSize")).toBeUndefined();
-        expect(service.get("editor.tabSize", 8)).toBe(8);
+    it("без реестра дефолтов нет", () => {
+        expect(new InMemoryConfigurationService().get("editor.tabSize")).toBeUndefined();
     });
 
     it("начальные значения ложатся в user-слой поверх дефолтов", () => {

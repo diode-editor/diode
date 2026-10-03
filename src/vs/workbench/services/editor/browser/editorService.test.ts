@@ -474,6 +474,23 @@ describe("EditorService", () => {
     });
 
     describe("applies configuration to new editors", () => {
+        it("секция языка документа бьёт плоское значение и переприменяется при смене языка", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "editor.detectIndentation": false,
+                    "editor.insertSpaces": true,
+                    "[makefile]": { "editor.insertSpaces": false },
+                }),
+            });
+            ctrl.openFile(writeFile("rules", "all:\n"));
+            const editor = ctrl.getActiveEditor()!;
+            expect(editor.viewState.insertSpaces).toBe(true);
+
+            editor.setLanguage("makefile");
+
+            expect(editor.viewState.insertSpaces).toBe(false);
+        });
+
         it("seeds indent options from the configuration service", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({

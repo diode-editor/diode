@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { isOverrideKey } from "../../../../platform/configuration/common/configurationModel.ts";
 import type { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { ConfigurationRegistryDIToken } from "../../../../platform/configuration/common/configurationRegistryDIToken.ts";
 import {
@@ -132,7 +133,11 @@ export class DiagnosticsService extends Disposable {
         const resource = editor.uri;
         if (resource.toString() !== this.settingsResource.toString()) return;
 
-        const markers = validateSettingsJson(editor.getText(), (key) => this.knownSettingKeys.has(key));
+        // Секции языков (`"[python]": { … }`) — тоже известные ключи верхнего уровня.
+        const markers = validateSettingsJson(
+            editor.getText(),
+            (key) => this.knownSettingKeys.has(key) || isOverrideKey(key),
+        );
         this.markerService.changeOne(SETTINGS_OWNER, resource.toString(), markers);
     }
 

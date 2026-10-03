@@ -12,7 +12,10 @@ import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { isValidConfigurationValue } from "../../../../platform/configuration/common/configurationValidation.ts";
-import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type {
+    IConfigurationOverrides,
+    IConfigurationService,
+} from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKey } from "../../../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -177,6 +180,8 @@ interface ServiceOptions {
     requestTimeout?: unknown;
     /** Свой реестр вместо провайдера-источника группы. */
     languageFeatures?: LanguageFeaturesService;
+    /** Секции языков (`"[typescript]": { … }`): значения для чтения с `overrideIdentifier`. */
+    languages?: Readonly<Record<string, Omit<ServiceOptions, "popupOpen" | "languages" | "languageFeatures">>>;
 }
 
 /** Схемы ключей приложения — по ним заглушка конфига отбраковывает мусор, как настоящий сервис. */
@@ -199,14 +204,19 @@ function makeService(
     // Как настоящий сервис настроек: значение вне схемы ключа (и отсутствующее) —
     // дефолт схемы.
     const configuration = {
-        get: (key: string): unknown => {
+        get: (key: string, overrides?: IConfigurationOverrides): unknown => {
+            const language =
+                overrides?.overrideIdentifier === undefined
+                    ? undefined
+                    : options.languages?.[overrides.overrideIdentifier];
+            const layer = { ...options, ...language };
             const raw =
                 key === "editor.inlineSuggest.enabled"
-                    ? options.enabled
+                    ? layer.enabled
                     : key === "editor.inlineSuggest.delay"
-                      ? (options.delay ?? 0)
+                      ? (layer.delay ?? 0)
                       : key === "editor.inlineSuggest.requestTimeout"
-                        ? options.requestTimeout
+                        ? layer.requestTimeout
                         : undefined;
             const schema = APP_SCHEMAS.get(key);
             if (schema === undefined) return raw;
@@ -1347,6 +1357,38 @@ describe("InlineCompletionsService — настройки", () => {
         fake.type("ab x", 4);
         await tick(10);
         expect(source).toHaveBeenCalledTimes(2);
+    });
+
+    it("настройки читаются для языка документа: секция `[typescript]` бьёт плоские", async () => {
+        const fake = makeEditor("ab", 2); // документ — typescript
+        const requests: IInlineCompletionRequest[] = [];
+        const options: ServiceOptions = {
+            enabled: true,
+            delay: 0,
+            requestTimeout: 5000,
+            languages: { typescript: { enabled: false, delay: 40, requestTimeout: 777 }, go: { enabled: true } },
+        };
+        const service = makeService(
+            makeGroup(fake.editor, recordingItems(requests, { insertText: "abc" })).group,
+            options,
+        );
+
+        // Авто-запрос выключен секцией языка.
+        fake.type("ab ", 3);
+        await tick(60);
+        expect(requests).toHaveLength(0);
+
+        // Явный запрос — таймаут из секции языка.
+        await service.trigger();
+        expect(requests[0]).toMatchObject({ timeoutMs: 777 });
+
+        // Авто-запрос снова разрешён в секции — пауза тоже из неё (40 мс, а не 0).
+        options.languages = { typescript: { enabled: true, delay: 40 } };
+        fake.type("ab x", 4);
+        await tick(10);
+        expect(requests).toHaveLength(1);
+        await tick(60);
+        expect(requests).toHaveLength(2);
     });
 
     it("requestTimeout едет в источник с каждым запросом", async () => {

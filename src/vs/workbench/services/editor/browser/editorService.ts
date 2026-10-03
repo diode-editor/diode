@@ -21,7 +21,10 @@ import type { EditorViewState, WordWrapMode } from "../../../../editor/common/vi
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { hasDocumentFormatter } from "../../../../editor/contrib/format/format.ts";
-import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type {
+    IConfigurationOverrides,
+    IConfigurationService,
+} from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { IFileWatcherDIToken } from "../../../../platform/files/common/iFileWatcherDIToken.ts";
@@ -267,13 +270,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const participants: SaveParticipant[] = [];
         if (
             this.languageFeatures.codeActionProvider.has(model) &&
-            enabledCodeActionKindsOnSave(this.configurationService).length > 0
+            enabledCodeActionKindsOnSave(this.configurationService, model.languageId).length > 0
         ) {
             participants.push(this.codeActionsOnSaveParticipant);
         }
         if (
             hasDocumentFormatter(this.languageFeatures, model) &&
-            this.configurationService.get("editor.formatOnSave")
+            this.configurationService.get("editor.formatOnSave", { overrideIdentifier: model.languageId })
         ) {
             participants.push(this.formatOnSaveParticipant);
         }
@@ -1306,6 +1309,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             this.fireEditorsChanged();
             this.fireModelSaved(model);
         });
+        // Сменился язык документа — настройки редактора читаются для нового
+        // языка (`"[lang]"`-секции). Переприменяем ко всем, как при правке
+        // настроек: остальным это ничего не меняет. Подписка живёт, сколько модель.
+        model.onDidChangeLanguage(() => {
+            for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
+                this.applyConfigurationToEditor(editor);
+            }
+        });
     }
 
     /**
@@ -1436,12 +1447,15 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * Публичный: стороны дифф-вкладки создаёт `openDiffPair`, а конфиг — общий.
      */
     public applyConfigurationToEditor(editor: TextEditorPane): void {
+        // Значения — для языка документа: `"[makefile]": { "editor.insertSpaces": false }`
+        // из любого слоя (и из configurationDefaults расширения) бьёт плоское значение.
+        const overrides = { overrideIdentifier: editor.languageId };
         // `editor.occurrencesHighlight`: "off" disables; "singleFile"/"multiFile"
         // enable. We only support single-file scope.
-        const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight");
+        const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight", overrides);
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
 
-        editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines"));
+        editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
 
         // Отступ: конфиг — это БАЗА, а не приказ. При включённом
         // `editor.detectIndentation` (дефолт) содержимое файла главнее, как в
@@ -1450,22 +1464,22 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // автоопределение; поскольку `get()` отдаёт и дефолты реестра (4/true),
         // детекция глохла на каждом открытом файле.
         editor.applyIndentConfiguration({
-            tabSize: this.configurationService.get("editor.tabSize"),
-            insertSpaces: this.configurationService.get("editor.insertSpaces"),
-            detectIndentation: this.configurationService.get("editor.detectIndentation"),
+            tabSize: this.configurationService.get("editor.tabSize", overrides),
+            insertSpaces: this.configurationService.get("editor.insertSpaces", overrides),
+            detectIndentation: this.configurationService.get("editor.detectIndentation", overrides),
         });
 
         // Session-override от Alt+Z главнее конфига (transient, как в VS Code);
         // мусорное значение из settings.json деградирует к "off".
         editor.setWordWrap(
-            this.wordWrapSessionOverride ?? this.configuredWordWrap(),
-            this.configurationService.get("editor.wordWrapColumn"),
+            this.wordWrapSessionOverride ?? this.configuredWordWrap(overrides),
+            this.configurationService.get("editor.wordWrapColumn", overrides),
         );
     }
 
     /** `editor.wordWrap` из конфига (мусор из settings.json сервис уже заменил дефолтом схемы). */
-    private configuredWordWrap(): WordWrapMode {
-        return this.configurationService.get("editor.wordWrap");
+    private configuredWordWrap(overrides?: IConfigurationOverrides): WordWrapMode {
+        return this.configurationService.get("editor.wordWrap", overrides);
     }
 
     /**
