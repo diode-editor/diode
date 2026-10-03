@@ -32,6 +32,16 @@ describe("NULL_LOG_SERVICE", () => {
         }).not.toThrow();
     });
 
+    it("метки каналов не хранит", () => {
+        NULL_LOG_SERVICE.createLogger("x", { label: "X" });
+        const sub = NULL_LOG_SERVICE.onDidRegisterChannel(() => {});
+
+        expect(NULL_LOG_SERVICE.getRegisteredChannels()).toEqual([]);
+        expect(() => {
+            sub.dispose();
+        }).not.toThrow();
+    });
+
     it("onDidAppend returns a disposable no-op", () => {
         const sub = NULL_LOG_SERVICE.onDidAppend(() => {});
         expect(() => {

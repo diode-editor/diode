@@ -64,7 +64,8 @@ export class ExplorerService extends Disposable {
     ) {
         super();
         this.configurationService = configurationService;
-        this.watcherLogger = logService.createLogger("filetree.watcher");
+        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
+        this.watcherLogger = logService.createLogger("filetree.watcher", { label: "File Tree Watcher" });
         // Подсветка «вырезанных» файлов в дереве следует за состоянием буфера.
         this.register(
             fileClipboard.onDidChange((entry) => {

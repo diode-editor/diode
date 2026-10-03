@@ -1,7 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import type { ILogger } from "./iLogger.ts";
-import type { ILogService, ILogSink, LogEntry } from "./iLogService.ts";
+import type { ILogChannelDescriptor, ILoggerOptions, ILogService, ILogSink, LogEntry } from "./iLogService.ts";
 import { LogLevel } from "./logLevel.ts";
 
 const NOOP_DISPOSABLE: IDisposable = {
@@ -37,8 +37,14 @@ export const NULL_LOGGER: ILogger = {
  * аллокаций при логировании, `isEnabled` всегда возвращает false.
  */
 export const NULL_LOG_SERVICE: ILogService = {
-    createLogger(_channel: string): ILogger {
+    createLogger(_channel: string, _options?: ILoggerOptions): ILogger {
         return NULL_LOGGER;
+    },
+    getRegisteredChannels(): readonly ILogChannelDescriptor[] {
+        return [];
+    },
+    onDidRegisterChannel(_listener: (descriptor: ILogChannelDescriptor) => void): IDisposable {
+        return NOOP_DISPOSABLE;
     },
     /* v8 ignore start -- null-object stub: setLevel is a no-op and is never invoked in tests */
     setLevel(_channelOrWildcard: string, _level: LogLevel): void {

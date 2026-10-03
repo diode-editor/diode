@@ -248,3 +248,39 @@ describe("LogService — entry shape", () => {
         expect(sink.entries[0].timestamp).toBeLessThanOrEqual(after);
     });
 });
+
+describe("LogService — метки каналов", () => {
+    it("канал без метки не регистрируется", () => {
+        const service = new LogService();
+
+        service.createLogger("anonymous");
+
+        expect(service.getRegisteredChannels()).toEqual([]);
+    });
+
+    it("метку регистрирует первый создатель, повторный вызов её не меняет", () => {
+        const service = new LogService();
+        const seen: unknown[] = [];
+        service.onDidRegisterChannel((descriptor) => seen.push(descriptor));
+
+        service.createLogger("files.watcher", { label: "File Watcher" });
+        service.createLogger("files.watcher", { label: "Другое имя" });
+        service.createLogger("files.watcher");
+
+        expect(service.getRegisteredChannels()).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
+        expect(seen).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
+    });
+
+    it("порядок — порядок регистрации; отписка работает", () => {
+        const service = new LogService();
+        const seen: string[] = [];
+        const subscription = service.onDidRegisterChannel((descriptor) => seen.push(descriptor.id));
+
+        service.createLogger("b", { label: "B" });
+        subscription.dispose();
+        service.createLogger("a", { label: "A" });
+
+        expect(service.getRegisteredChannels().map((d) => d.id)).toEqual(["b", "a"]);
+        expect(seen).toEqual(["b"]);
+    });
+});

@@ -32,11 +32,14 @@ import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/brow
 export const fileWatcherModule: ContainerModule = (container) => {
     container.bind(
         IFileWatcherDIToken,
-        () => new ChokidarFileWatcher(container.get(ILogServiceDIToken).createLogger("files.watcher")),
+        () =>
+            new ChokidarFileWatcher(
+                container.get(ILogServiceDIToken).createLogger("files.watcher", { label: "File Watcher" }),
+            ),
     );
     container.bind(SubprocessTreeWatcherDIToken, () => {
         const watcher = new SubprocessTreeWatcher({
-            logger: container.get(ILogServiceDIToken).createLogger("files.watcher"),
+            logger: container.get(ILogServiceDIToken).createLogger("files.watcher", { label: "File Watcher" }),
         });
         container.get(LifecycleServiceDIToken).onShutdownSync(() => {
             watcher.dispose();

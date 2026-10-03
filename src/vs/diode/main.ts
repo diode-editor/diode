@@ -178,9 +178,9 @@ async function runEditor(): Promise<void> {
     if (!isPackagedRuntime()) {
         logService.addSink(new FileSink(path.resolve(process.cwd(), "diode.log")));
     }
-    const bootstrapLogger = logService.createLogger("bootstrap");
-    const extensionsLogger = logService.createLogger("extensions");
-    const configurationLogger = logService.createLogger("configuration");
+    const bootstrapLogger = logService.createLogger("bootstrap", { label: "Bootstrap" });
+    const extensionsLogger = logService.createLogger("extensions", { label: "Extensions" });
+    const configurationLogger = logService.createLogger("configuration", { label: "Configuration" });
     bootstrapLogger.info("diode starting", {
         cwd: process.cwd(),
         folder: targets.folder,

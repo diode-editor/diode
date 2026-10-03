@@ -1,7 +1,7 @@
 import type { IDisposable } from "@tuidom/core/common/disposable";
 
 import type { ILogger } from "./iLogger.ts";
-import type { ILogService, ILogSink, LogEntry } from "./iLogService.ts";
+import type { ILogChannelDescriptor, ILoggerOptions, ILogService, ILogSink, LogEntry } from "./iLogService.ts";
 import { LogLevel } from "./logLevel.ts";
 
 const WILDCARD = "*";
@@ -13,6 +13,7 @@ const DEFAULT_LEVEL: LogLevel = LogLevel.Trace;
  *   (`a.b.c` → `a.b` → `a` → `*`).
  * - sinks: `append(entry)` фан-аутится во все.
  * - listeners `onDidAppend`: вызываются после sinks.
+ * - метки каналов, заявленные создателями логгеров (`createLogger(…, { label })`).
  *
  * Логгеры — тонкие обёртки: проверяют `isEnabled(level)` через `getLevel(channel)`
  * и эмитят `LogEntry`. Уровень канала кешируется на стороне логгера до первого
@@ -22,10 +23,31 @@ export class LogService implements ILogService {
     private readonly sinks: ILogSink[] = [];
     private readonly levels = new Map<string, LogLevel>();
     private readonly listeners = new Set<(entry: LogEntry) => void>();
+    private readonly channels = new Map<string, ILogChannelDescriptor>();
+    private readonly channelListeners = new Set<(descriptor: ILogChannelDescriptor) => void>();
     private version = 0;
 
-    public createLogger(channel: string): ILogger {
+    public createLogger(channel: string, options?: ILoggerOptions): ILogger {
+        const label = options?.label;
+        if (label !== undefined && !this.channels.has(channel)) {
+            const descriptor = { id: channel, label };
+            this.channels.set(channel, descriptor);
+            for (const listener of [...this.channelListeners]) listener(descriptor);
+        }
         return new ChannelLogger(this, channel);
+    }
+
+    public getRegisteredChannels(): readonly ILogChannelDescriptor[] {
+        return [...this.channels.values()];
+    }
+
+    public onDidRegisterChannel(listener: (descriptor: ILogChannelDescriptor) => void): IDisposable {
+        this.channelListeners.add(listener);
+        return {
+            dispose: (): void => {
+                this.channelListeners.delete(listener);
+            },
+        };
     }
 
     public setLevel(channelOrWildcard: string, level: LogLevel): void {

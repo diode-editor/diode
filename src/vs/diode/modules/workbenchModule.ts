@@ -282,24 +282,6 @@ import {
  * `GotoLineEditorSourceDIToken` / `TerminalFocusFallbackDIToken`), смену папки воркспейса (Open Folder)
  * структурно выполняет `WorkbenchComponent` (`WorkspaceFolderOpenerDIToken`).
  */
-/**
- * Человекочитаемые имена каналов логов для селектора Output (аналог того, что в
- * VS Code даёт `ILoggerService.getRegisteredLoggers().name`). Канал, которого
- * здесь нет, всё равно появится в списке — но под своим сырым id.
- */
-const KNOWN_OUTPUT_CHANNELS: readonly (readonly [id: string, label: string])[] = [
-    ["bootstrap", "Bootstrap"],
-    ["configuration", "Configuration"],
-    ["extensions", "Extensions"],
-    ["extensions.host", "Extension Host"],
-    ["extensions.host.rpc", "Extension Host (RPC)"],
-    ["extensions.host.stdout", "Extension Host (stdout)"],
-    ["extensions.host.stderr", "Extension Host (stderr)"],
-    ["files.watcher", "File Watcher"],
-    ["filetree.watcher", "File Tree Watcher"],
-    ["input.keybindings", "Keybindings"],
-];
-
 export const workbenchModule: ContainerModule = (container) => {
     container.bind(StatusBarServiceDIToken, StatusBarService);
     // Прогресс длительных операций: модель + общий такт спиннеров (кадры
@@ -449,14 +431,10 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(PanelFocusContributionDIToken, PanelFocusContribution);
     container.bind(ProblemsComponentDIToken, ProblemsComponent);
     // Output-кластер: реестр каналов (аналог IOutputChannelRegistry), модель
-    // панели и её view-владелец. Каналы с человекочитаемыми именами объявляются
-    // здесь — `LogService.createLogger` заводит их ad hoc и имени не знает;
-    // незаявленные OutputService доберёт сам с `label = id`.
-    container.bind(OutputChannelRegistryDIToken, () => {
-        const registry = new OutputChannelRegistry();
-        for (const [id, label] of KNOWN_OUTPUT_CHANNELS) registry.registerChannel({ id, label });
-        return registry;
-    });
+    // панели и её view-владелец. Человекочитаемое имя канала объявляет его
+    // создатель (`createLogger(id, { label })`) — OutputService переносит его из
+    // лога; незаявленные доберёт сам с `label = id`.
+    container.bind(OutputChannelRegistryDIToken, () => new OutputChannelRegistry());
     container.bind(OutputServiceDIToken, OutputService);
     container.bind(OutputComponentDIToken, OutputComponent);
     container.bind(OutputChannelActionsDIToken, OutputChannelActions);

@@ -116,6 +116,34 @@ describe("OutputService: каналы", () => {
         service.dispose();
     });
 
+    it("метку канала даёт его создатель — каналы с метками видны до первой записи, в порядке создания", () => {
+        const stack = createStack();
+        stack.logService.createLogger("bootstrap", { label: "Bootstrap" });
+        stack.logService.createLogger("configuration", { label: "Configuration" });
+
+        const service = createService(stack);
+
+        expect(service.getChannels()).toEqual([
+            { id: "bootstrap", label: "Bootstrap" },
+            { id: "configuration", label: "Configuration" },
+        ]);
+        expect(service.getActiveChannelId()).toBe("bootstrap");
+        service.dispose();
+    });
+
+    it("канал с меткой, заведённый после подъёма сервиса, попадает в реестр с меткой", () => {
+        const stack = createStack();
+        const service = createService(stack);
+
+        stack.logService.createLogger("extensions.host", { label: "Extension Host" }).info("started");
+
+        expect(service.getChannels()).toEqual([{ id: "extensions.host", label: "Extension Host" }]);
+        service.dispose();
+        // После dispose сервис больше не переносит метки в реестр.
+        stack.logService.createLogger("late", { label: "Late" });
+        expect(stack.registry.getChannel("late")).toBeUndefined();
+    });
+
     it("канал, объявленный позже, становится активным, если активного не было", () => {
         const stack = createStack();
         const service = createService(stack);

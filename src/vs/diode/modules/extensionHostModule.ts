@@ -122,10 +122,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const adapter = new EditorOptionsServiceAdapter(group, container.get(WorkspaceEditServiceDIToken));
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
         const logService = container.get(ILogServiceDIToken);
-        const logger = logService.createLogger("extensions.host");
-        const rpcLogger = logService.createLogger("extensions.host.rpc");
-        const stdoutLogger = logService.createLogger("extensions.host.stdout");
-        const stderrLogger = logService.createLogger("extensions.host.stderr");
+        // Stryker disable StringLiteral,ObjectLiteral: имена каналов и их метки — подписи в селекторе Output, поведения логирования не задают
+        const logger = logService.createLogger("extensions.host", { label: "Extension Host" });
+        const rpcLogger = logService.createLogger("extensions.host.rpc", { label: "Extension Host (RPC)" });
+        const stdoutLogger = logService.createLogger("extensions.host.stdout", { label: "Extension Host (stdout)" });
+        const stderrLogger = logService.createLogger("extensions.host.stderr", { label: "Extension Host (stderr)" });
+        // Stryker restore StringLiteral,ObjectLiteral
         // \u0414\u043b\u044f NULL_LOG_SERVICE \u0432\u0441\u0435 \u0443\u0440\u043e\u0432\u043d\u0438 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u2014 \u043d\u0435 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0430\u0435\u043c stdio \u0432 \"pipe\".
         const wantStdio = (lg: typeof stdoutLogger): typeof stdoutLogger | undefined =>
             lg.isEnabled(LogLevel.Info) ? lg : undefined;

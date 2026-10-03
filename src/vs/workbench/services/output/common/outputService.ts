@@ -50,9 +50,11 @@ export function formatOutputLine(entry: LogEntry): string {
  * лежит и что в него прилетает live. Про UI не знает — вкладку и редактор
  * держит `OutputComponent`.
  *
- * Каналы берутся из {@link IOutputChannelRegistry}, но сервис ещё и **добирает**
- * их: канал, о котором никто не объявил, а записи от него идут, регистрируется с
- * `label = id`. Иначе подсистема просто не появилась бы в селекторе — а
+ * Каналы берутся из {@link IOutputChannelRegistry}; каналы, которым создатель
+ * логгера дал метку (`createLogger(id, { label })`), сервис переносит в реестр из
+ * `ILogService` (как `logs.contribution` vscode — из `getRegisteredLoggers`). А
+ * ещё сервис **добирает** каналы: канал, о котором никто не объявил, а записи от
+ * него идут, регистрируется с `label = id`. Иначе подсистема просто не появилась бы в селекторе — а
  * незаявленные каналы у нас норма, `LogService.createLogger` заводится ad hoc.
  */
 export class OutputService extends Disposable {
@@ -74,7 +76,14 @@ export class OutputService extends Disposable {
         private readonly contextKeys: ContextKeyService,
     ) {
         super();
-        // Каналы, уже успевшие написать до подъёма UI (bootstrap, configuration).
+        // Каналы с метками от их создателей — заведённые до подъёма UI и позже.
+        for (const descriptor of logService.getRegisteredChannels()) this.registry.registerChannel(descriptor);
+        this.register(
+            logService.onDidRegisterChannel((descriptor) => {
+                this.registry.registerChannel(descriptor);
+            }),
+        );
+        // Каналы, уже успевшие написать до подъёма UI, но без метки.
         for (const channel of this.history.getChannels()) this.ensureChannel(channel);
         this.setActiveChannel(this.registry.getChannels()[0]?.id ?? null);
         this.register(
