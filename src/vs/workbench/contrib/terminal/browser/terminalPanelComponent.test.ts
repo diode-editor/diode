@@ -29,6 +29,8 @@ function buildHarness() {
         return surface;
     };
     const service = new TerminalService(panelService, views.service, factory);
+    // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
+    views.service.attachRegisteredContainers();
     const focusFallback = { focusEditor: vi.fn() };
     const component = new TerminalPanelComponent(service, views.service, focusFallback);
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
@@ -205,6 +207,7 @@ describe("TerminalPanelComponent", () => {
         const views = makeViewsHarness();
         const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
         const service = new TerminalService(views.panelService, views.service, () => new FakeTerminalSurface());
+        views.service.attachRegisteredContainers();
         service.openTerminal(); // инстанс существует ДО компонента
 
         const component = new TerminalPanelComponent(service, views.service, { focusEditor: vi.fn() });

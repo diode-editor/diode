@@ -171,7 +171,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 | Контекст-ключи: значение | сервис или компонент — владелец состояния | `implements IContextKeyContributor` (pull) либо `set` в точке перехода (push) | там же |
 | Ключи состояния | `common/<f>StateKeys.ts` или локальная константа у владельца | `XXX_STATE: IStateDescriptor<T>` | фича сохраняет UI-состояние между сессиями ([State.md](State.md)) |
 | Contribution | `browser/<x>Contribution.ts` | `implements IWorkbenchContribution`, запись `{ ctor, phase }` | фоновый работник без view и API: подписки, сегмент статус-бара, мост между сервисами |
-| Контейнер вью | регистрирует компонент-владелец | `IViewContainerDescriptor` с `order` | у фичи есть вьюлет или вкладка панели |
+| Контейнер вью | регистрирует компонент-владелец | `IViewContainerDescriptor` с `order` (и `isDefault` у дефолтного вьюлета); строит `ViewsService.attachRegisteredContainers()` из `mount()` | у фичи есть вьюлет или вкладка панели |
 | Конфигурация | `common/<f>Configuration.ts` | `xxxConfiguration: IConfigurationNode`, чистые данные | у фичи свои ключи настроек. Секции `editor.*` и `workbench.*` — центральные, как `editorOptions.ts` в VS Code |
 | DI-биндинги | сейчас — блок фичи в `src/vs/diode/modules/workbenchModule.ts` | — | у фичи есть классы под DI |
 | Цвета | центрально, `src/vs/platform/theme/common/colors/` | — | всегда центрально: из общего массива `COLOR_CONTRIBUTIONS` выводится тип `WorkbenchColorKey` ([Theme.md](Theme.md)) |
@@ -1032,8 +1032,8 @@ hide-toggle (`isHiddenByDefault`). См.
     (финал этапа 12; бывший `AppController`): владеет корневой view
     (`BodyElement`, `view.id = "workbench"`, + `WorkbenchLayoutElement` с сэшами),
     вставляет в неё view компонентов (`EditorGroupComponent` в центр,
-    `PanelComponent` вниз, контейнеры сайдбара — в `mount()` через
-    `registerViewContainers()`, `StatusBarComponent`, `MenuBarComponent` — ПОСЛЕ
+    `PanelComponent` вниз, контейнеры view — в `mount()` через
+    `ViewsService.attachRegisteredContainers()`, `StatusBarComponent`, `MenuBarComponent` — ПОСЛЕ
     применения user keybindings), прикрепляет late-init швы
     (`DialogService`/`ExplorerComponent`/`QuickInputComponent`/`SuggestComponent`
     `attachHost(BodyElement)`, `FindComponent.attachHost(OverlayHostElement)`,
@@ -1051,7 +1051,7 @@ hide-toggle (`isHiddenByDefault`). См.
     последовательность ведёт `src/vs/diode/workbenchStartup.ts` (`startWorkbench`,
     юнит-тесты порядка и вех — рядом): keybindings расширений (после builtin) →
     `setWorkspaceFolder` (**только если папку назвали** — без неё поднимается пустое
-    окно) → `mount()` (`registerViewContainers()` + фаза `ready` с её
+    окно) → `mount()` (`attachRegisteredContainers()` + фаза `ready` с её
     contribution'ами + листенеры + restore layout до первого кадра) → `run()` →
     `activate()` (контекст-ключи, probe терминала, активация редакторов/Explorer'а) →
     прогрев грамматик стартовых файлов → `vscode.diff`/`openFile`(+`--goto`)/
@@ -1061,9 +1061,10 @@ hide-toggle (`isHiddenByDefault`). См.
     процесса (корень рендера, инспектор, прогрев, extension host), `main.ts` отдаёт
     хуками `IWorkbenchStartupHost`; вехи трассы старта — те же имена, что читает бенч.
 
-    **Сайдбар не зависит от воркспейса.** `registerViewContainers()` (из `mount()`)
-    собирает ВСЕ контейнеры сайдбара — Explorer, Search, Source Control,
-    Extensions, References — и показывает Explorer. `setWorkspaceFolder` отвечает
+    **Сайдбар не зависит от воркспейса.** `attachRegisteredContainers()` (из
+    `mount()`) собирает ВСЕ зарегистрированные контейнеры — Explorer, Search,
+    Source Control, Extensions, References в сайдбаре, Problems, Output, Terminal
+    в панели — и показывает дефолтный (`isDefault`, Explorer). `setWorkspaceFolder` отвечает
     ровно за то, что зависит от папки: корень Explorer'а, cwd терминалов,
     per-project стор состояния, restore-вызовы view и индекс файлов. Поэтому окно
     без папки не слепое: Explorer рисует интерактивное пустое состояние
@@ -1104,7 +1105,14 @@ hide-toggle (`isHiddenByDefault`). См.
     Terminal в нижней панели.
 
     **Дескрипторы (`viewsService.ts`).** Контейнер — «активити»:
-    `{id, title, location: "sidebar" | "panel", order?}`. View — секция внутри
+    `{id, title, location: "sidebar" | "panel", order?, isDefault?}`. Контейнер
+    регистрирует фича-владелец в своём конструкторе (как `registerViewContainer`
+    VS Code), строит их все `attachRegisteredContainers()` из `mount()` — по
+    `order`, а не по порядку резолва компонентов: Explorer 0 (`isDefault`),
+    Search 1, Source Control 2 (регистрирует `ChangesComponent`), Extensions 3,
+    References 4; в панели PROBLEMS 0, OUTPUT 1, TERMINAL 2 — это порядок вкладок,
+    первая активна. Поздний `attachContainer` вставляет вкладку в позицию по
+    `order`; контейнер без `order` встаёт после упорядоченных. View — секция внутри
     него: `{id, containerId, title, order, body, placeholder?, focus,
     minBodyHeight?, canToggleVisibility?, collapsed?,
     requiresWorkspaceFolder?}`. `containerId` —
@@ -1162,7 +1170,7 @@ hide-toggle (`isHiddenByDefault`). См.
 
     `restoreViewsState()` применим только когда есть ЧЕМУ применять: он
     пропускает контейнер без собранного `PaneViewElement`. Поэтому его зовут
-    дважды — из `mount()` сразу после `registerViewContainers()` (бутстрап:
+    дважды — из `mount()` сразу после `attachRegisteredContainers()` (бутстрап:
     `setWorkspaceFolder` там идёт ДО `mount`) и из самого `setWorkspaceFolder`
     (Open Folder на живом приложении, где сайдбар уже собран). Оба раза — строго
     после `openWorkspace`, иначе прочитается global-стор; write-through'а у

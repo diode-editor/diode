@@ -141,6 +141,16 @@ export class ChangesComponent extends Component {
         this.view.addChild(scmInput.view, { height: vflexFit(), width: "fill" });
         this.view.addChild(this.listView, { height: vflexFill(), width: "fill" });
 
+        // Контейнер Source Control (секции CHANGES и GRAPH) регистрирует его
+        // первая секция; GRAPH записывается в него из своего компонента.
+        viewsService.registerContainer({
+            id: SCM_VIEWLET_ID,
+            title: "SOURCE CONTROL",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            location: "sidebar",
+            order: 2,
+            visibleContextKey: "scmViewletVisible",
+        });
         viewsService.registerView({
             id: SCM_CHANGES_VIEW_ID,
             containerId: SCM_VIEWLET_ID,

@@ -13,6 +13,8 @@ export interface IPanelViewDescriptor {
     readonly content?: TUIElement | null;
     /** Empty-state сообщение, пока `content` = null (à la VS Code view welcome). */
     readonly placeholder?: string;
+    /** Позиция вкладки в таб-строке; по умолчанию — в конец. */
+    readonly index?: number;
 }
 
 /** Зарегистрированная вкладка нижней панели (снимок для компонента). */
@@ -71,7 +73,7 @@ export class PanelService {
 
     /** Регистрирует вкладку. Первая зарегистрированная становится активной. */
     public addView(view: IPanelViewDescriptor): void {
-        this.viewList.push({
+        this.viewList.splice(view.index ?? this.viewList.length, 0, {
             id: view.id,
             title: view.title,
             content: view.content ?? null,

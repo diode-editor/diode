@@ -38,6 +38,10 @@ export interface IViewsHarness {
     /** Делегаты, с которыми открывали контекст-меню (последний — самый свежий). */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
+    /** Id вьюлетов сайдбара в порядке регистрации. */
+    readonly viewlets: string[];
+    /** Вызовы `showViewlet` сайдбара: id и флаг reveal. */
+    readonly shownViewlets: { id: string; reveal: boolean | undefined }[];
     /** Корневой контрол контейнера, отданный месту (сайдбару или панели). */
     root(containerId: string): TUIElement;
     /** Полоса контролов в таб-строке панели (`null` — контейнеру нечего показывать). */
@@ -54,9 +58,13 @@ export interface IViewsHarness {
 
 export function makeViewsHarness(contributions: readonly MenuContribution[] = []): IViewsHarness {
     const registered = new Map<string, { view: TUIElement; focus: () => void }>();
+    const shownViewlets: { id: string; reveal: boolean | undefined }[] = [];
     const sidebar = {
         registerViewlet: (id: string, view: TUIElement, focus: () => void) => {
             registered.set(id, { view, focus });
+        },
+        showViewlet: (id: string, reveal?: boolean) => {
+            shownViewlets.push({ id, reveal });
         },
     } as unknown as SidebarService;
 
@@ -113,6 +121,10 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         workspace,
         shown,
         stored,
+        get viewlets() {
+            return [...registered.keys()];
+        },
+        shownViewlets,
         root,
         focus: (containerId) => {
             // Как и root(): неизвестный контейнер — внятная ошибка, а не падение

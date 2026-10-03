@@ -74,7 +74,7 @@ export class OutputComponent extends Disposable {
         // Вкладка панели — контейнер с единственной секцией: заголовка у неё
         // нет (его роль играет таб), а переключатель каналов уезжает в
         // таб-строку через `setViewTitleWidget`.
-        this.viewsService.registerContainer({ id: OUTPUT_VIEW_ID, title: "OUTPUT", location: "panel" });
+        this.viewsService.registerContainer({ id: OUTPUT_VIEW_ID, title: "OUTPUT", location: "panel", order: 1 });
         this.viewsService.registerView({
             id: OUTPUT_VIEW_ID,
             containerId: OUTPUT_VIEW_ID,
@@ -86,7 +86,6 @@ export class OutputComponent extends Disposable {
                 this.focus();
             },
         });
-        this.viewsService.attachContainer(OUTPUT_VIEW_ID);
 
         this.register(
             this.outputService.onDidChangeActiveChannel(() => {

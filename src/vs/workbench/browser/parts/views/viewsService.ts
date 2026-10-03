@@ -61,8 +61,16 @@ export interface IViewContainerDescriptor {
      */
     readonly title: string;
     readonly location: ViewContainerLocation;
-    /** Порядок среди контейнеров одного места (меньше — раньше). */
+    /**
+     * Порядок среди контейнеров одного места (меньше — раньше); без него —
+     * после всех упорядоченных. В панели это порядок вкладок.
+     */
     readonly order?: number;
+    /**
+     * Контейнер сайдбара, который показывается по умолчанию (аналог `isDefault`
+     * у `registerViewContainer` VS Code) — см. {@link ViewsService.attachRegisteredContainers}.
+     */
+    readonly isDefault?: boolean;
     /**
      * Контекст-ключ «вьюлет показан» (`searchViewletVisible`) — только для
      * `location: "sidebar"`; выставляет {@link SidebarService}.
@@ -191,6 +199,11 @@ type AttachedEntry = ContainerEntry & {
 /** Читает контейнер как приаттаченный (см. {@link AttachedEntry}). */
 function attached(entry: ContainerEntry): AttachedEntry {
     return entry as AttachedEntry;
+}
+
+/** Ключ сортировки контейнеров: без `order` — после всех упорядоченных. */
+function orderOf(descriptor: IViewContainerDescriptor): number {
+    return descriptor.order ?? Number.POSITIVE_INFINITY;
 }
 
 /**
@@ -419,8 +432,30 @@ export class ViewsService {
     }
 
     /**
-     * Строит контрол контейнера и регистрирует его в его месте.
-     * Зовётся из `WorkbenchComponent.setWorkspaceFolder`.
+     * Строит все зарегистрированные, но ещё не построенные контейнеры — по
+     * {@link IViewContainerDescriptor.order} — и показывает дефолтный контейнер
+     * сайдбара, не трогая видимость самого сайдбара (её восстанавливает персист
+     * layout'а). Единственная точка сборки: фичи регистрируют контейнеры в
+     * своих конструкторах, корень зовёт это из `mount()`.
+     */
+    public attachRegisteredContainers(): void {
+        const registered = [...this.containers.values()]
+            .filter((entry) => entry.descriptor !== null)
+            .map((entry) => attached(entry).descriptor)
+            .sort((a, b) => orderOf(a) - orderOf(b));
+        for (const descriptor of registered) {
+            this.attachContainer(descriptor.id);
+        }
+        const fallback = registered.find((descriptor) => descriptor.isDefault === true);
+        if (fallback !== undefined) {
+            this.sidebarService.showViewlet(fallback.id, false);
+        }
+    }
+
+    /**
+     * Строит контрол контейнера и регистрирует его в его месте; вкладка панели
+     * встаёт в позицию по {@link IViewContainerDescriptor.order}. Обычно зовётся
+     * из {@link attachRegisteredContainers}.
      */
     public attachContainer(containerId: string): void {
         const entry = this.containerOrThrow(containerId);
@@ -467,10 +502,13 @@ export class ViewsService {
         };
         entry.header = header;
         if (panel) {
+            // Позиция считается ДО того, как контейнер станет приаттаченным:
+            // сам себя он не считает.
+            const index = this.panelIndexOf(entry.descriptor);
             entry.view = paneView;
             // Вкладку заводим ДО сборки секций: полоса контролов таб-строки
             // ставится через реестр панели, а он игнорирует незнакомый id.
-            this.panelService.addView({ id: containerId, title: entry.descriptor.title, content: paneView });
+            this.panelService.addView({ id: containerId, title: entry.descriptor.title, content: paneView, index });
             this.rebuildPanes(entry);
             return;
         }
@@ -490,6 +528,19 @@ export class ViewsService {
             },
             entry.descriptor.visibleContextKey,
         );
+    }
+
+    /**
+     * Позиция новой вкладки панели: после всех уже построенных панельных
+     * контейнеров с тем же или меньшим `order`.
+     */
+    private panelIndexOf(descriptor: IViewContainerDescriptor): number {
+        let index = 0;
+        for (const entry of this.containers.values()) {
+            if (entry.view === null || !this.isPanel(entry)) continue;
+            if (orderOf(attached(entry).descriptor) <= orderOf(descriptor)) index++;
+        }
+        return index;
     }
 
     /**

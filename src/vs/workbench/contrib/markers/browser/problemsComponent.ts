@@ -87,7 +87,7 @@ export class ProblemsComponent extends Component {
 
         // Вкладка панели — такой же контейнер view, как вьюлет сайдбара:
         // одна секция без своего заголовка (его роль играет таб).
-        this.viewsService.registerContainer({ id: PROBLEMS_VIEW_ID, title: "PROBLEMS", location: "panel" });
+        this.viewsService.registerContainer({ id: PROBLEMS_VIEW_ID, title: "PROBLEMS", location: "panel", order: 0 });
         this.viewsService.registerView({
             id: PROBLEMS_VIEW_ID,
             containerId: PROBLEMS_VIEW_ID,
@@ -99,7 +99,6 @@ export class ProblemsComponent extends Component {
                 this.focus();
             },
         });
-        this.viewsService.attachContainer(PROBLEMS_VIEW_ID);
 
         this.tree.onActivate = (node) => {
             void this.revealMarker(node);

@@ -75,7 +75,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         super();
         // Вкладка TERMINAL присутствует всегда; шелл спавнится лениво при её
         // активации, поэтому по умолчанию у view нет тела и она рисует подсказку.
-        viewsService.registerContainer({ id: TERMINAL_VIEW_ID, title: "TERMINAL", location: "panel" });
+        viewsService.registerContainer({ id: TERMINAL_VIEW_ID, title: "TERMINAL", location: "panel", order: 2 });
         viewsService.registerView({
             id: TERMINAL_VIEW_ID,
             containerId: TERMINAL_VIEW_ID,
@@ -87,7 +87,6 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 this.ensureAndFocus();
             },
         });
-        viewsService.attachContainer(TERMINAL_VIEW_ID);
         // Клик по вкладке TERMINAL лениво спавнит шелл и фокусирует его; чужие
         // вкладки игнорируем.
         this.register(

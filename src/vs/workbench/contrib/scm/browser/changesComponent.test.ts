@@ -83,7 +83,7 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     const { service: menuService, menu } = fakeMenu(opts.menuEntries);
     const themeService = new ThemeService(theme);
     // Реестр view здесь не участвует — компонент тестируется standalone.
-    const viewsService = { registerView: () => {} } as unknown as ViewsService;
+    const viewsService = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
     const state = opts.state ?? NULL_STATE_SERVICE;
     const scmInput = new ScmInputComponent(
         state,

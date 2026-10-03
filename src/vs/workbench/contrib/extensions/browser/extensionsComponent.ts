@@ -106,6 +106,16 @@ export class ExtensionsComponent extends Component {
         );
         this.rebuildRows();
 
+        // Порядок среди вьюлетов тот же, что в activity bar VS Code: магазин
+        // после Source Control.
+        viewsService.registerContainer({
+            id: EXTENSIONS_VIEWLET_ID,
+            title: "EXTENSIONS",
+            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            location: "sidebar",
+            order: 3,
+            visibleContextKey: "extensionsViewletVisible",
+        });
         viewsService.registerView({
             id: EXTENSIONS_VIEW_ID,
             containerId: EXTENSIONS_VIEWLET_ID,
