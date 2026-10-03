@@ -1,3 +1,4 @@
+import { renderCodicons } from "../../../base/common/codicons.ts";
 import { SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
 import type { IProgressSink } from "../../services/extensions/node/extensionHost.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
@@ -32,6 +33,11 @@ class ProgressEntry {
  * спиннером, `report` обновляет сообщение/процент, `end` снимает запись.
  * Несколько одновременных прогрессов — независимые записи. Проводка —
  * `extensionHostModule` (сток `ExtensionHost.progressSink`).
+ *
+ * Заголовок и сообщение проходят через {@link renderCodicons}: у эталона это
+ * `ProgressLocation.Window`, и его подпись значки разворачивает
+ * (`vscode.d.ts`, `ProgressLocation.Window`). Перечень раковин —
+ * `extensionTextSinks.test.ts`.
  */
 export class ProgressStatusBarAdapter implements IProgressSink {
     private readonly entries = new Map<number, ProgressEntry>();
@@ -44,7 +50,7 @@ export class ProgressStatusBarAdapter implements IProgressSink {
     public start(handle: number, title: string): void {
         // Повторный start того же handle — защитно гасим прежнюю запись.
         if (this.entries.has(handle)) this.end(handle);
-        const entry = new ProgressEntry(title);
+        const entry = new ProgressEntry(renderCodicons(title));
         entry.bar = this.statusBar.addEntry({
             id: `status.extensionProgress.${String(handle)}`,
             text: entry.render(),
@@ -61,7 +67,7 @@ export class ProgressStatusBarAdapter implements IProgressSink {
     public report(handle: number, message?: string, increment?: number): void {
         const entry = this.entries.get(handle);
         if (entry === undefined) return;
-        if (message !== undefined) entry.message = message;
+        if (message !== undefined) entry.message = renderCodicons(message);
         if (increment !== undefined) {
             entry.percent = Math.min(100, Math.max(0, (entry.percent ?? 0) + increment));
         }

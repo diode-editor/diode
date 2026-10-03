@@ -1,3 +1,4 @@
+import { renderCodicons } from "../../../base/common/codicons.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../platform/log/common/iLogService.ts";
 import type { IOutputSink } from "../../services/extensions/node/extensionHost.ts";
@@ -14,7 +15,12 @@ import type { WireOutputLevel } from "../common/wireTypes.ts";
  * хвост). `show` — семантика VS Code `OutputChannel.show()`: открыть панель
  * Output (порт `revealPanel`, в module — `PanelService.setActiveView` +
  * `LayoutService.setPanelVisible`) и переключить селектор на канал.
- * Проводка — `extensionHostModule`.
+ * Имя канала — ярлык: оно приезжает заголовком команды
+ * `Output: Show <имя>` (палитра) и подписью пункта селектора, то есть в те же
+ * раковины, что метки quick pick'а, — поэтому разметка `$(name)` в нём
+ * подменяется ({@link renderCodicons}). СОДЕРЖИМОЕ канала не трогаем никогда:
+ * это лог, и `$(…)` в нём бывает настоящей шелл-подстановкой. Перечень раковин
+ * — `extensionTextSinks.test.ts`. Проводка — `extensionHostModule`.
  */
 export class ExtensionOutputAdapter implements IOutputSink {
     private readonly loggers = new Map<string, ILogger>();
@@ -40,7 +46,7 @@ export class ExtensionOutputAdapter implements IOutputSink {
     private loggerFor(channel: string, label: string): ILogger {
         let logger = this.loggers.get(channel);
         if (logger === undefined) {
-            this.registry.registerChannel({ id: channel, label });
+            this.registry.registerChannel({ id: channel, label: renderCodicons(label) });
             logger = this.logService.createLogger(channel);
             this.loggers.set(channel, logger);
         }

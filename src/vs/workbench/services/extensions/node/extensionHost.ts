@@ -8,6 +8,7 @@ import {
     CancellationTokenSource,
     type ICancellationToken,
 } from "../../../../base/common/cancellation.ts";
+import { renderCodicons } from "../../../../base/common/codicons.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
@@ -758,12 +759,17 @@ export class ExtensionHost extends Disposable {
         });
         // Заголовки команд из contributes.commands — нужны прокси-регистрации,
         // чтобы команда расширения показалась в палитре (см. commands.registerCommand).
+        // Здесь же разворачиваем разметку значков: это точка, где текст
+        // манифеста становится подписью НАШЕГО пункта палитры, а у эталона
+        // подпись команды — метка quick pick'а, то есть значки в ней живые.
         if (reg.commandTitles !== undefined) {
-            for (const [id, title] of Object.entries(reg.commandTitles)) this.commandTitles.set(id, title);
+            for (const [id, title] of Object.entries(reg.commandTitles)) {
+                this.commandTitles.set(id, renderCodicons(title));
+            }
         }
         if (reg.commandCategories !== undefined) {
             for (const [id, category] of Object.entries(reg.commandCategories)) {
-                this.commandCategories.set(id, category);
+                this.commandCategories.set(id, renderCodicons(category));
             }
         }
         this.pending.set(reg.id, reg);
