@@ -105,7 +105,7 @@ export class DefinitionService {
         await this.group.openUri(uri, toSide ? { group: "beside" } : {});
         const editor = this.group.getActiveEditor();
         // Ресурс мог не открыться: недисковую цель отдаёт провайдер схемы, а его
-        // может не быть (человек уже увидел сообщение — см. `onOpenFailed`).
+        // может не быть (человек уже увидел сообщение — см. `onDidFailOpen`).
         // Stryker disable next-line OptionalChaining: без активного редактора сюда не попасть — `revealDefinition` выходит раньше, чем спросит провайдеров; `?.` держим страховкой для будущих вызывающих
         if (editor?.uri.toString() !== key) return;
         editor.goToPosition(location.range.start.line, location.range.start.character);

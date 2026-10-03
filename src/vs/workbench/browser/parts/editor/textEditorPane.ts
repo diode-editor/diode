@@ -3,7 +3,7 @@ import * as path from "node:path";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
-import { Emitter } from "../../../../base/common/event.ts";
+import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
@@ -144,8 +144,9 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         return this.model.undoContext;
     }
 
-    public set onDidSave(callback: (() => void) | undefined) {
-        this.model.onDidSave = callback;
+    /** Документ записан на диск (save/saveAs) — событие модели. */
+    public get onDidSave(): Event<void> {
+        return this.model.onDidSaveDocument;
     }
 
     public set fileWatcher(watcher: IFileWatcher | null) {

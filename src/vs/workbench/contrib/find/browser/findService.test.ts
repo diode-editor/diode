@@ -173,6 +173,16 @@ describe("FindService", () => {
 
     // F3 в VS Code живёт от фокуса в редакторе (`EditorContextKeys.focus`), а не от
     // видимости виджета: закрыли поиск — навигация по последнему запросу продолжается.
+    it("close() без открытого поиска — no-op", () => {
+        // Escape/крестик, когда find в группе ни разу не открывали: сессии нет.
+        const { find, editor } = setup("foo bar foo");
+        expect(() => {
+            find.close();
+        }).not.toThrow();
+        expect(find.isVisible()).toBe(false);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(-1);
+    });
+
     describe("навигация с закрытым виджетом", () => {
         it("next() ищет по последнему запросу и не показывает виджет", () => {
             const { find, widget, editor } = setup("foo bar foo baz foo");
