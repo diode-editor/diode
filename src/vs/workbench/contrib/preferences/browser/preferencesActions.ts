@@ -15,6 +15,7 @@ import {
     parseChord,
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 
 import { KeybindingRecorderComponentDIToken } from "./keybindingRecorderComponent.ts";
@@ -62,18 +63,29 @@ export const openKeybindingsAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 20 }],
     keybinding: parseChord("mod+k mod+s"),
     run(accessor) {
-        const pane = new KeybindingsEditorPane(
-            accessor.get(KeybindingRegistryDIToken),
-            accessor.get(CommandRegistryDIToken),
-            accessor.get(KeybindingsEditorServiceDIToken),
-            accessor.get(KeybindingRecorderComponentDIToken),
-            accessor.get(ContextMenuServiceDIToken),
-            accessor.get(ClipboardDIToken),
-            () => keybindingLabelStyle(accessor.get(ContextKeyServiceDIToken)),
-        );
-        accessor.get(KeybindingsEditorTargetDIToken).openPane(pane);
+        openKeybindingsEditor(accessor);
     },
 };
+
+/**
+ * Вкладка Keyboard Shortcuts — в активную группу либо в указанную (рестор
+ * сессии через фабрику вкладки). Уже открыта в группе — активируется.
+ */
+export function openKeybindingsEditor(
+    accessor: ServiceAccessor,
+    options: { focus?: boolean; group?: EditorGroup } = {},
+): void {
+    const pane = new KeybindingsEditorPane(
+        accessor.get(KeybindingRegistryDIToken),
+        accessor.get(CommandRegistryDIToken),
+        accessor.get(KeybindingsEditorServiceDIToken),
+        accessor.get(KeybindingRecorderComponentDIToken),
+        accessor.get(ContextMenuServiceDIToken),
+        accessor.get(ClipboardDIToken),
+        () => keybindingLabelStyle(accessor.get(ContextKeyServiceDIToken)),
+    );
+    accessor.get(KeybindingsEditorTargetDIToken).openPane(pane, options);
+}
 
 /**
  * Open the user keybindings.json (VS Code `workbench.action.openGlobalKeybindingsFile`).

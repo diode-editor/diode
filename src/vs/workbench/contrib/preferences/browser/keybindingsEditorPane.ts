@@ -21,6 +21,7 @@ import type {
 import { serializeChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { FilteredListControl } from "../../../browser/parts/views/filteredListControl.ts";
+import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { IKeybindingsEditorService } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 import type { IFilteredKeybindingItem, IKeybindingItem } from "../common/keybindingsEditorModel.ts";
 import { buildKeybindingItems, filterKeybindingItems } from "../common/keybindingsEditorModel.ts";
@@ -46,7 +47,7 @@ export function keybindingsEditorUri(): Uri {
  * (как `ExtensionsEditorTargetDIToken` у магазина).
  */
 export interface IKeybindingsEditorTarget {
-    openPane(pane: IEditorPane): void;
+    openPane(pane: IEditorPane, options?: { focus?: boolean; group?: EditorGroup }): void;
 }
 
 export const KeybindingsEditorTargetDIToken = token<IKeybindingsEditorTarget>("KeybindingsEditorTarget");

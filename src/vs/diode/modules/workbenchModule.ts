@@ -146,6 +146,7 @@ import {
     ParameterHintsService,
     ParameterHintsServiceDIToken,
 } from "../../workbench/contrib/parameterHints/browser/parameterHintsService.ts";
+import { createKeybindingsEditorPaneFactory } from "../../workbench/contrib/preferences/browser/keybindingsEditorPaneFactory.ts";
 import {
     CommandsQuickAccessProvider,
     CommandsQuickAccessProviderDIToken,
@@ -233,6 +234,10 @@ import {
     ThemeConfigContributionDIToken,
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
+import {
+    EditorPaneFactoriesDIToken,
+    type EditorPaneFactoryCtor,
+} from "../../workbench/services/editor/browser/editorPaneFactory.ts";
 import { EditorService, EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import {
@@ -277,6 +282,9 @@ import {
     TerminalEnvStatusContribution,
     TerminalEnvStatusContributionDIToken,
 } from "../../workbench/services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
+
+/** Фабрики вкладок из contrib — по одной на вид вкладки (см. `IEditorPaneFactory`). */
+const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [createKeybindingsEditorPaneFactory];
 
 /**
  * Пары Service ↔ Component слоя Workbench (пилот — статус-бар, этап 4
@@ -362,6 +370,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // TextEditorPane-пары, активная вкладка, MRU) + часть «область редактора»
     // (по групповому контролу tab strip + контент на группу).
     container.bind(EditorServiceDIToken, EditorService);
+    // Фабрики вкладок из contrib (рецепт вкладки для сплита и рестора сессии) —
+    // явный список; фабрика ходит в контейнер лениво, в момент открытия.
+    container.bind(EditorPaneFactoriesDIToken, () => EDITOR_PANE_FACTORIES.map((create) => create(container)));
     // `workspace.applyEdit` правит ОТКРЫТЫЙ ресурс через его буфер, а не через
     // диск (иначе буфер и файл разъехались бы), и кладёт свой единственный шаг
     // отмены в бакет тронутой вкладки. И то и другое знает только полоса групп

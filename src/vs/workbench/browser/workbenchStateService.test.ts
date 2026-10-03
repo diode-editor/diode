@@ -3,219 +3,221 @@ import * as fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createTestEditorContextMenuController } from "../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../base/common/uri.ts";
+import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
+import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
+import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
+import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
 import { resolveUserDataPaths, resolveWorkspaceStatePath } from "../../platform/environment/node/userDataPaths.ts";
-import { loadState, StateService } from "../../platform/state/node/stateService.ts";
+import { NULL_FILE_WATCHER } from "../../platform/files/common/iFileWatcher.ts";
+import { NULL_LOG_SERVICE } from "../../platform/log/common/nullLogService.ts";
+import { loadState, type StateService } from "../../platform/state/node/stateService.ts";
+import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
+import { UndoRedoService } from "../../platform/undoRedo/common/undoRedoService.ts";
 import { computeWorkspaceId } from "../../platform/workspace/common/workspaceId.ts";
-import { OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
+import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
+import { TEXT_EDITOR_PANE_TYPE_ID } from "../services/editor/browser/editorPaneFactory.ts";
+import { EditorService } from "../services/editor/browser/editorService.ts";
+import { darkPlusTheme } from "../services/themes/common/themes/darkPlus.ts";
+import { ThemeService } from "../services/themes/common/themeService.ts";
 
 import { WorkbenchStateService } from "./workbenchStateService.ts";
 
-/** Фейковая вкладка: сервису от неё нужны только путь и ресурс. */
-class FakePane {
-    public constructor(public readonly absoluteFilePath: string | null) {}
-
-    public get uri(): Uri {
-        return Uri.file(this.absoluteFilePath ?? "/untitled");
-    }
-}
-
-/** Фейковая группа: панели + активная + журнал activateTab. */
-class FakeEditorGroup {
-    public panes: FakePane[] = [];
-    public activeIndexValue = -1;
-    public activated: { index: number; focus: boolean }[] = [];
-
-    public getPanes(): readonly FakePane[] {
-        return this.panes;
-    }
-
-    public get activePane(): FakePane | null {
-        return this.panes[this.activeIndexValue] ?? null;
-    }
-
-    public get editorCount(): number {
-        return this.panes.length;
-    }
-
-    public findPaneIndex(uri: Uri): number {
-        return this.panes.findIndex((pane) => pane.uri.toString() === uri.toString());
-    }
-
-    public activateTab(index: number, { focus = true }: { focus?: boolean } = {}): void {
-        this.activated.push({ index, focus });
-        this.activeIndexValue = index;
-    }
-}
-
-/** Минимальный дублёр EditorService: полоса фейковых групп + журналы вызовов. */
-class FakeGroup {
-    public opened: { path: string; focus: boolean }[] = [];
-    public groupsList: FakeEditorGroup[] = [new FakeEditorGroup()];
-    public activeGroupValue = this.groupsList[0];
-    private listeners: (() => void)[] = [];
-
-    public get groups(): readonly FakeEditorGroup[] {
-        return this.groupsList;
-    }
-
-    public get activeGroup(): FakeEditorGroup {
-        return this.activeGroupValue;
-    }
-
-    /** Готовит одногрупповое состояние (паритет со старым плоским фейком). */
-    public setState(paths: string[], active: number): void {
-        const group = this.groupsList[0];
-        group.panes = paths.map((p) => new FakePane(p));
-        group.activeIndexValue = active;
-    }
-
-    public openFile(path: string, { focus = true }: { focus?: boolean } = {}): void {
-        this.opened.push({ path, focus });
-        this.activeGroupValue.panes.push(new FakePane(path));
-        this.activeGroupValue.activeIndexValue = this.activeGroupValue.panes.length - 1;
-    }
-
-    public newGroup(_position: "before" | "after", _opts: { focus?: boolean } = {}): FakeEditorGroup {
-        const group = new FakeEditorGroup();
-        this.groupsList.push(group);
-        this.activeGroupValue = group;
-        return group;
-    }
-
-    public focusGroup(target: { index: number }, _opts: { focus?: boolean } = {}): void {
-        const group = this.groupsList.at(target.index);
-        if (group !== undefined) this.activeGroupValue = group;
-    }
-
-    public onActiveEditorChanged(listener: () => void): { dispose(): void } {
-        this.listeners.push(listener);
-        return {
-            dispose: () => {
-                this.listeners = this.listeners.filter((l) => l !== listener);
-            },
-        };
-    }
-
-    public onDidGroupsChange(_listener: () => void): { dispose(): void } {
-        return { dispose: () => undefined };
-    }
-
-    /** Эмулирует смену активного редактора (write-through подписка сервиса). */
-    public fireActiveEditorChanged(): void {
-        for (const listener of [...this.listeners]) listener();
-    }
-}
-
+/**
+ * Снимок и рестор открытых редакторов поверх настоящего `EditorService`:
+ * смотрим, что легло в стор и что открылось, а не какие методы позвали.
+ */
 describe("WorkbenchStateService", () => {
     let ws: ITempWorkspace;
     let state: StateService;
-    let group: FakeGroup;
+    let editors: EditorService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "diode-wbstate-" });
-        state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: ws.dir }));
-        group = new FakeGroup();
+        ws = createTempWorkspace({ prefix: "diode-wbstate-", files: { "a.ts": "A", "b.ts": "B", "c.ts": "C" } });
+        state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: ws.path(".user") }));
+        editors = new EditorService(
+            new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
+            new TokenizationRegistry(),
+            NULL_TOKEN_STYLE_RESOLVER,
+            NULL_LANGUAGE_SERVICE,
+            NULL_CONFIGURATION_SERVICE,
+            new UndoRedoService(),
+            NULL_FILE_WATCHER,
+            createTestEditorContextMenuController(),
+            NULL_LOG_SERVICE,
+        );
     });
 
     afterEach(() => {
+        editors.dispose();
         ws.dispose();
     });
 
     function make(): WorkbenchStateService {
-        return new WorkbenchStateService(state, group as unknown as EditorService);
+        return new WorkbenchStateService(state, editors);
     }
 
-    describe("open editors", () => {
-        it("captures open files with the active index relative to the file list", () => {
-            group.setState(["/a.ts", "/b.ts", "/c.ts"], 2);
-            make().captureOpenEditors();
-            expect(state.get(OPEN_EDITORS_STATE)).toEqual({ files: ["/a.ts", "/b.ts", "/c.ts"], activeIndex: 2 });
+    const fileEditor = (name: string) => ({
+        typeId: TEXT_EDITOR_PANE_TYPE_ID,
+        value: Uri.file(ws.path(name)).toString(),
+    });
+    const openPaths = () => editors.activeGroup.getPanes().map((pane) => pane.uri.fsPath);
+
+    describe("снимок", () => {
+        it("пишет вкладки рецептами и файлами; активная — индексом в каждом списке", () => {
+            make();
+            editors.newUntitled();
+            editors.openFile(ws.path("a.ts"));
+            editors.openFile(ws.path("b.ts"));
+
+            expect(state.get(EDITOR_GROUPS_STATE)?.groups).toEqual([
+                {
+                    files: [ws.path("a.ts"), ws.path("b.ts")],
+                    activeIndex: 1,
+                    // Безымянный буфер рестарт не переживает — его нет ни в одном списке.
+                    editors: [fileEditor("a.ts"), fileEditor("b.ts")],
+                    activeEditor: 1,
+                },
+            ]);
+            expect(state.get(OPEN_EDITORS_STATE)).toEqual({
+                files: [ws.path("a.ts"), ws.path("b.ts")],
+                activeIndex: 1,
+            });
         });
 
-        it("stores activeIndex -1 when the group is empty", () => {
-            group.setState([], -1);
+        it("пустая группа — активной вкладки нет", () => {
             make().captureOpenEditors();
-            expect(state.get(OPEN_EDITORS_STATE)).toEqual({ files: [], activeIndex: -1 });
+
+            expect(state.get(EDITOR_GROUPS_STATE)?.groups).toEqual([
+                { files: [], activeIndex: -1, editors: [], activeEditor: -1 },
+            ]);
         });
 
-        it("auto-captures on the group's active-editor change (write-through)", () => {
+        it("активная вкладка, которую не сохранить, — активной в снимке нет", () => {
+            make();
+            editors.openFile(ws.path("a.ts"));
+            editors.newUntitled();
+
+            expect(state.get(EDITOR_GROUPS_STATE)?.groups[0]).toMatchObject({ activeIndex: -1, activeEditor: -1 });
+        });
+
+        it("write-through по смене активного редактора; подписка снимается с сервисом", () => {
             const service = make();
-            group.setState(["/a.ts", "/b.ts"], 0);
-            group.fireActiveEditorChanged();
-            expect(state.get(OPEN_EDITORS_STATE)).toEqual({ files: ["/a.ts", "/b.ts"], activeIndex: 0 });
+            editors.openFile(ws.path("a.ts"));
+            expect(state.get(OPEN_EDITORS_STATE).files).toEqual([ws.path("a.ts")]);
 
-            // Подписка снимается вместе с сервисом.
             service.dispose();
-            group.setState(["/c.ts"], 0);
-            group.fireActiveEditorChanged();
-            expect(state.get(OPEN_EDITORS_STATE)).toEqual({ files: ["/a.ts", "/b.ts"], activeIndex: 0 });
-        });
-
-        it("restores existing files and re-activates the saved active file", () => {
-            ws.writeFile("a.ts", "A");
-            ws.writeFile("b.ts", "B");
-            const a = ws.path("a.ts");
-            const b = ws.path("b.ts");
-            state.store(OPEN_EDITORS_STATE, { files: [a, b, "/gone/missing.ts"], activeIndex: 1 });
-
-            make().restoreOpenEditors();
-
-            expect(group.opened.map((o) => o.path)).toEqual([a, b]); // missing filtered out
-            expect(group.opened.every((o) => !o.focus)).toBe(true);
-            // b пережил фильтрацию на позиции 1 — активирован он.
-            expect(group.groups[0].activated).toEqual([{ index: 1, focus: false }]);
-        });
-
-        it("falls back to the first tab when the saved active file is gone", () => {
-            ws.writeFile("a.ts", "A");
-            const a = ws.path("a.ts");
-            state.store(OPEN_EDITORS_STATE, { files: [a, "/gone/x.ts"], activeIndex: 1 });
-
-            make().restoreOpenEditors();
-
-            expect(group.opened.map((o) => o.path)).toEqual([a]);
-            expect(group.groups[0].activated).toEqual([{ index: 0, focus: false }]);
-        });
-
-        it("activates the first tab when the snapshot has no valid active index", () => {
-            ws.writeFile("a.ts", "A");
-            const a = ws.path("a.ts");
-            state.store(OPEN_EDITORS_STATE, { files: [a], activeIndex: -1 });
-
-            make().restoreOpenEditors();
-
-            expect(group.opened.map((o) => o.path)).toEqual([a]);
-            expect(group.groups[0].activated).toEqual([{ index: 0, focus: false }]);
-        });
-
-        it("opens nothing and activates nothing when no saved file exists", () => {
-            state.store(OPEN_EDITORS_STATE, { files: ["/gone/x.ts"], activeIndex: 0 });
-            make().restoreOpenEditors();
-            expect(group.opened).toEqual([]);
-            expect(group.groups[0].activated).toEqual([]);
-        });
-
-        it("does nothing on an empty snapshot", () => {
-            make().restoreOpenEditors();
-            expect(group.opened).toEqual([]);
-            expect(group.groups[0].activated).toEqual([]);
+            editors.openFile(ws.path("b.ts"));
+            expect(state.get(OPEN_EDITORS_STATE).files).toEqual([ws.path("a.ts")]);
         });
     });
 
-    it("routes workspace-scoped state to the opened project's store", () => {
-        const paths = resolveUserDataPaths({ homedir: "/never", userDataDir: ws.dir });
+    describe("рестор", () => {
+        it("по записям: открывает уцелевшие вкладки и активирует сохранённую", () => {
+            state.store(EDITOR_GROUPS_STATE, {
+                orientation: "columns",
+                groups: [
+                    {
+                        files: [],
+                        activeIndex: -1,
+                        editors: [fileEditor("a.ts"), fileEditor("gone.ts"), fileEditor("b.ts")],
+                        activeEditor: 2,
+                    },
+                ],
+                weights: [1],
+                activeGroup: 0,
+            });
+
+            make().restoreOpenEditors();
+
+            expect(openPaths()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
+            expect(editors.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
+        });
+
+        it("по записям без activeEditor — первая вкладка", () => {
+            state.store(EDITOR_GROUPS_STATE, {
+                orientation: "columns",
+                groups: [{ files: [], activeIndex: -1, editors: [fileEditor("a.ts"), fileEditor("b.ts")] }],
+                weights: [1],
+                activeGroup: 0,
+            });
+
+            make().restoreOpenEditors();
+
+            expect(editors.activeGroup.activeIndex).toBe(0);
+        });
+
+        it("старый снимок без editors поднимается по files", () => {
+            state.store(EDITOR_GROUPS_STATE, {
+                orientation: "columns",
+                groups: [{ files: [ws.path("a.ts"), ws.path("b.ts")], activeIndex: 1 }],
+                weights: [1],
+                activeGroup: 0,
+            });
+
+            make().restoreOpenEditors();
+
+            expect(openPaths()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
+            expect(editors.activeGroup.activeIndex).toBe(1);
+        });
+
+        it("плоский legacy-ключ: пропавший файл пропущен, активный переиндексирован", () => {
+            state.store(OPEN_EDITORS_STATE, {
+                files: [ws.path("a.ts"), "/gone/missing.ts", ws.path("b.ts")],
+                activeIndex: 2,
+            });
+
+            make().restoreOpenEditors();
+
+            expect(openPaths()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
+            expect(editors.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
+        });
+
+        it("сохранённая активная вкладка пропала — активна первая", () => {
+            state.store(OPEN_EDITORS_STATE, { files: [ws.path("a.ts"), "/gone/x.ts"], activeIndex: 1 });
+
+            make().restoreOpenEditors();
+
+            expect(openPaths()).toEqual([ws.path("a.ts")]);
+            expect(editors.activeGroup.activeIndex).toBe(0);
+        });
+
+        it("ни одной уцелевшей вкладки — ничего не открывает", () => {
+            state.store(OPEN_EDITORS_STATE, { files: ["/gone/x.ts"], activeIndex: 0 });
+
+            make().restoreOpenEditors();
+
+            expect(editors.editorCount).toBe(0);
+            expect(editors.groups.length).toBe(1);
+        });
+
+        it("пустой снимок — ничего не делает", () => {
+            make().restoreOpenEditors();
+
+            expect(editors.editorCount).toBe(0);
+        });
+
+        it("рестор открывает без фокуса и кончается снимком фактической полосы", () => {
+            state.store(OPEN_EDITORS_STATE, { files: [ws.path("a.ts"), "/gone/x.ts"], activeIndex: 0 });
+
+            make().restoreOpenEditors();
+
+            expect(state.get(EDITOR_GROUPS_STATE)?.groups[0].editors).toEqual([fileEditor("a.ts")]);
+        });
+    });
+
+    it("пишет workspace-состояние в стор открытого проекта", () => {
+        const paths = resolveUserDataPaths({ homedir: "/never", userDataDir: ws.path(".user") });
         const service = make();
         // Стор адресуется идентичностью воркспейса, а не путём папки.
         const workspaceId = computeWorkspaceId("/projects/gamma");
         service.openWorkspace(workspaceId);
-        group.setState(["/projects/gamma/x.ts"], 0);
-        service.captureOpenEditors();
+        editors.openFile(ws.path("c.ts"));
         state.flushSync();
 
         const stateFile = resolveWorkspaceStatePath(paths.workspaceStorageDir, workspaceId);
         const onDisk = JSON.parse(fs.readFileSync(stateFile, "utf-8")) as Record<string, unknown>;
-        expect(onDisk["workbench.editors.openEditors"]).toEqual({ files: ["/projects/gamma/x.ts"], activeIndex: 0 });
+        expect(onDisk["workbench.editors.openEditors"]).toEqual({ files: [ws.path("c.ts")], activeIndex: 0 });
     });
 });

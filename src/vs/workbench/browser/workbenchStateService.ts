@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { Disposable } from "../../base/common/lifecycle.ts";
@@ -7,15 +6,30 @@ import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import type { WorkspaceId } from "../../platform/workspace/common/iWorkspaceContextService.ts";
-import type { IEditorGroupSnapshot, IEditorGroupsState } from "../common/stateKeys.ts";
+import type { IEditorGroupSnapshot, IEditorGroupsState, ISerializedEditor } from "../common/stateKeys.ts";
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
 import type { EditorGroup } from "../services/editor/browser/editorGroupModel.ts";
+import { TEXT_EDITOR_PANE_TYPE_ID } from "../services/editor/browser/editorPaneFactory.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
 import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 
 export const WorkbenchStateServiceDIToken = token<WorkbenchStateService>("WorkbenchStateService");
+
+/** Группа к рестору: вкладки, которые ещё можно открыть, и активная из них. */
+interface IRestoreGroup {
+    readonly editors: readonly ISerializedEditor[];
+    readonly active: ISerializedEditor | undefined;
+}
+
+/** Полоса к рестору (см. {@link WorkbenchStateService.restoreOpenEditors}). */
+interface IRestoreState {
+    readonly orientation: "columns" | "rows";
+    readonly groups: readonly IRestoreGroup[];
+    readonly weights: readonly number[];
+    readonly activeGroup: number;
+}
 
 /**
  * Срез view-раскладки полосы групп для персиста — ставит владелец view
@@ -90,7 +104,9 @@ export class WorkbenchStateService extends Disposable {
         const snapshot = this.groupsSnapshotToRestore();
         const flat: string[] = [];
         for (const group of snapshot.groups) {
-            for (const file of group.files) {
+            for (const editor of group.editors) {
+                if (editor.typeId !== TEXT_EDITOR_PANE_TYPE_ID) continue;
+                const file = Uri.parse(editor.value).fsPath;
                 if (!flat.includes(file)) flat.push(file);
             }
         }
@@ -98,11 +114,13 @@ export class WorkbenchStateService extends Disposable {
     }
 
     /**
-     * Восстанавливает полосу групп: реплеит файлы каждой группы через
-     * `openFile`, активирует сохранённые вкладки и группу, применяет ось и доли.
-     * Отсутствующие на диске файлы пропущены, опустевшие группы схлопнуты, а
-     * группы сверх вместимости терминала слиты в последнюю влезающую — всё в
-     * {@link groupsSnapshotToRestore} (US-42/43).
+     * Восстанавливает полосу групп: реплеит вкладки каждой группы по их
+     * записям через фабрики вкладок (`EditorService.openSerializedEditor`),
+     * активирует сохранённые вкладки и группу, применяет ось и доли. Вкладки,
+     * которые повторить уже нельзя (файл удалён, вида нет в этой сборке),
+     * пропущены, опустевшие группы схлопнуты, а группы сверх вместимости
+     * терминала слиты в последнюю влезающую — всё в {@link groupsSnapshotToRestore}
+     * (US-42/43).
      */
     public restoreOpenEditors(): void {
         const snapshot = this.groupsSnapshotToRestore();
@@ -111,17 +129,14 @@ export class WorkbenchStateService extends Disposable {
         this.restoring = true;
         try {
             for (const [index, group] of snapshot.groups.entries()) {
-                // Отказ по месту при рассинхроне с canFit даёт null — файлы
+                // Отказ по месту при рассинхроне с canFit даёт null — вкладки
                 // группы дольются в текущую (деградация того же смысла).
                 if (index > 0) this.editorGroup.newGroup("after", { focus: false });
-                for (const file of group.files) {
-                    this.editorGroup.openFile(file, { focus: false });
-                }
-                const active = this.editorGroup.activeGroup;
-                const target = this.mapActiveIndex(active, group);
-                /* v8 ignore start -- файлы группы прошли fs-фильтр и открыты этим же рестором: активная вкладка находится всегда */
-                if (target >= 0) active.activateTab(target, { focus: false });
-                /* v8 ignore stop */
+                const target = { group: this.editorGroup.activeGroup, focus: false };
+                for (const editor of group.editors) this.editorGroup.openSerializedEditor(editor, target);
+                // Повторное открытие уже открытой вкладки её активирует. Без
+                // сохранённой активной — первая, как у свежей группы.
+                this.editorGroup.openSerializedEditor(group.active ?? group.editors[0], target);
             }
             const groups = this.editorGroup.groups;
             const activeIndex = Math.min(Math.max(0, snapshot.activeGroup), groups.length - 1);
@@ -155,52 +170,54 @@ export class WorkbenchStateService extends Disposable {
         });
     }
 
-    /** Файлы вкладок группы + активная вкладка, переиндексированная в `files`. */
+    /**
+     * Вкладки группы по рецептам фабрик (`editors`) + файлы для сборок, которые
+     * `editors` не знают; активная вкладка — индексом в каждом списке.
+     */
     private snapshotGroup(group: EditorGroup): IEditorGroupSnapshot {
         const files: string[] = [];
         let activeIndex = -1;
+        const editors: ISerializedEditor[] = [];
+        let activeEditor = -1;
         for (const pane of group.getPanes()) {
-            // Дак-тайп вместо instanceof: путь есть только у текстовой вкладки
-            // файла; дифф и безымянные буферы не восстановить по пути — пропуск.
-            const filePath = (pane as Partial<TextEditorPane>).absoluteFilePath ?? null;
-            if (filePath === null) continue;
-            if (pane === group.activePane) activeIndex = files.length;
-            files.push(filePath);
+            const isActive = pane === group.activePane;
+            const editor = this.editorGroup.serializeEditor(pane);
+            if (editor === undefined) continue;
+            if (isActive) activeEditor = editors.length;
+            editors.push(editor);
+            if (editor.typeId !== TEXT_EDITOR_PANE_TYPE_ID) continue;
+            if (isActive) activeIndex = files.length;
+            files.push(pane.uri.fsPath);
         }
-        return { files, activeIndex };
+        return { files, activeIndex, editors, activeEditor };
     }
 
     /**
-     * Снимок к рестору: новый ключ либо конверсия плоского legacy; файлы
-     * фильтруются существованием на диске, пустые группы выпадают (US-42),
-     * группы сверх вместимости терминала сливаются в последнюю влезшую (US-43).
+     * Снимок к рестору: новый ключ либо конверсия плоского legacy; группа без
+     * `editors` (сборка до фабрик вкладок) читается по `files`. Записи, которые
+     * повторить уже нельзя, выпадают, пустые группы — тоже (US-42), группы сверх
+     * вместимости терминала сливаются в последнюю влезшую (US-43).
      */
-    private groupsSnapshotToRestore(): IEditorGroupsState {
+    private groupsSnapshotToRestore(): IRestoreState {
         const stored = this.state.get(EDITOR_GROUPS_STATE) ?? this.legacySnapshot();
 
-        const groups: IEditorGroupSnapshot[] = [];
+        const groups: IRestoreGroup[] = [];
         const weights: number[] = [];
         for (const [index, group] of stored.groups.entries()) {
-            const activePath =
-                group.activeIndex >= 0 && group.activeIndex < group.files.length
-                    ? group.files[group.activeIndex]
-                    : undefined;
-            const files = group.files.filter((file) => fs.existsSync(file));
-            if (files.length === 0) continue;
+            const { editors: all, active } = this.storedEditors(group);
+            const editors = all.filter((editor) => this.editorGroup.deserializeEditor(editor) !== undefined);
+            if (editors.length === 0) continue;
             const canFitMore = this.layoutView?.canFitGroups(groups.length + 1) ?? true;
             if (groups.length > 0 && !canFitMore) {
-                // Терминал уже полосы: доливаем файлы в последнюю влезшую группу.
+                // Терминал уже полосы: доливаем вкладки в последнюю влезшую группу.
                 const last = groups[groups.length - 1];
                 groups[groups.length - 1] = {
-                    files: [...last.files, ...files.filter((file) => !last.files.includes(file))],
-                    activeIndex: last.activeIndex,
+                    editors: [...last.editors, ...editors.filter((editor) => !includesEditor(last.editors, editor))],
+                    active: last.active,
                 };
                 continue;
             }
-            groups.push({
-                files,
-                activeIndex: activePath !== undefined ? files.indexOf(activePath) : -1,
-            });
+            groups.push({ editors, active: active !== undefined && editors.includes(active) ? active : undefined });
             weights.push(stored.weights[index] ?? 1);
         }
         return {
@@ -209,6 +226,18 @@ export class WorkbenchStateService extends Disposable {
             weights,
             activeGroup: stored.activeGroup,
         };
+    }
+
+    /** Записи группы и активная из них: по `editors`, а у старого снимка — по `files`. */
+    private storedEditors(group: IEditorGroupSnapshot): IRestoreGroup {
+        const editors =
+            group.editors ??
+            group.files.map((file) => ({
+                typeId: TEXT_EDITOR_PANE_TYPE_ID,
+                value: Uri.file(path.resolve(file)).toString(),
+            }));
+        const activeAt = group.editors !== undefined ? (group.activeEditor ?? -1) : group.activeIndex;
+        return { editors, active: activeAt >= 0 ? editors.at(activeAt) : undefined };
     }
 
     /** Конверсия плоского legacy-ключа в одногрупповой снимок. */
@@ -221,15 +250,9 @@ export class WorkbenchStateService extends Disposable {
             activeGroup: 0,
         };
     }
+}
 
-    /** Активная вкладка снапшота → позиция в фактически открытой группе. */
-    private mapActiveIndex(group: EditorGroup, snapshot: IEditorGroupSnapshot): number {
-        if (snapshot.activeIndex < 0 || snapshot.activeIndex >= snapshot.files.length) {
-            // files группы непусты (фильтр groupsSnapshotToRestore) и уже открыты —
-            // пустой группы тут не бывает, -1 чисто защитный.
-            return group.editorCount > 0 ? 0 : /* v8 ignore next -- группа рестора не бывает пустой */ -1;
-        }
-        // openFile резолвит путь тем же path.resolve — ресурс совпадёт с вкладкой.
-        return group.findPaneIndex(Uri.file(path.resolve(snapshot.files[snapshot.activeIndex])));
-    }
+/** Есть ли такая же запись (вид и строка) в списке. */
+function includesEditor(editors: readonly ISerializedEditor[], editor: ISerializedEditor): boolean {
+    return editors.some((candidate) => candidate.typeId === editor.typeId && candidate.value === editor.value);
 }
