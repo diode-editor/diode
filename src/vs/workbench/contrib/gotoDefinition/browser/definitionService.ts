@@ -1,6 +1,11 @@
+import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreDefinitionLocation } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    EditorStateCancellationTokenSource,
+    EditorStateFlag,
+} from "../../../browser/parts/editor/editorStateCancellation.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
@@ -18,6 +23,9 @@ export const DefinitionServiceDIToken = token<DefinitionService>("DefinitionServ
 export class DefinitionService {
     public static dependencies = [EditorServiceDIToken, JumpRecorderDIToken] as const;
 
+    /** Повторный F12 перебивает прежний запрос: прыгает только последний. */
+    private readonly latest = new LatestRequest();
+
     public constructor(
         private readonly group: EditorService,
         private readonly jumps: IJumpRecorder,
@@ -26,6 +34,11 @@ export class DefinitionService {
     /**
      * Раскрывает определение символа под кареткой активного редактора. No-op,
      * если нет активного редактора, источника или провайдеры ничего не вернули.
+     *
+     * Ответ, пришедший после правки документа или ухода каретки, не применяется
+     * (upstream `goToCommands.ts` — `EditorStateCancellationTokenSource(Value |
+     * Position)`): медленный провайдер (jdtls на холодном старте) иначе уносит
+     * человека в другой файл задним числом.
      */
     public async revealDefinition({ toSide = false }: { toSide?: boolean } = {}): Promise<void> {
         const editor = this.group.getActiveEditor();
@@ -33,14 +46,25 @@ export class DefinitionService {
         const source = this.group.definitionSource;
         if (source === undefined) return;
 
+        const state = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value | EditorStateFlag.Position);
+        const ticket = this.latest.start(state.token);
         const caret = editor.viewState.selections[0].active;
-        const locations = await source({
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            text: editor.getText(),
-            line: caret.line,
-            character: caret.character,
-        });
+        let locations: readonly ICoreDefinitionLocation[];
+        try {
+            locations = await source({
+                uri: editor.uri.toString(),
+                languageId: editor.languageId,
+                text: editor.getText(),
+                line: caret.line,
+                character: caret.character,
+            });
+        } finally {
+            // Сам переход двигает каретку — следить за состоянием дальше незачем.
+            // Снятие подписок заодно отцепляет и билет (он слушает токен состояния).
+            // Stryker disable next-line CallExpression: уборка подписок отработавшего запроса — забытая подписка лишь отменила бы уже никому не нужный токен
+            state.dispose();
+        }
+        if (ticket.isStale()) return;
         const target = locations.at(0);
         if (target === undefined) return;
         await this.revealLocation(target, toSide);
