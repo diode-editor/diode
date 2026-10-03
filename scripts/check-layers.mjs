@@ -19,6 +19,12 @@
  *     берёт вовсе. `@tuidom/core/common/disposable` запрещён во всём `src/`
  *     (и `import type` тоже): примитив жизненного цикла — наш
  *     `vs/base/common/lifecycle.ts` (docs/TODO/Lifecycle.md).
+ *  4. common/browser не импортируют модули ОС — `node:*` и голые имена
+ *     встроенных модулей (кроме `node:path`: чистые строковые функции), а также
+ *     node-only npm-пакеты (NODE_ONLY_PACKAGES); `import type` тоже считается —
+ *     тип `fs.Dirent` в сигнатуре так же привязывает к Node. Сложившийся долг —
+ *     храповик NODE_IMPORT_DEBT: новый импорт вне списка и запись списка, которой
+ *     больше нет в коде, — оба нарушение (docs/TODO/FileService.md, §9).
  *
  * Не считаются зависимостями: jsdoc-ссылки в комментариях и `import type`
  * (типы стираются при компиляции — как в upstream layersChecker).
@@ -32,6 +38,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { builtinModules } from "node:module";
 import * as path from "node:path";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -120,6 +127,74 @@ const TUIDOM_ENVS = [
     // гейтом не проверяются) и сборке приложения `vs/diode` (тестовый профиль).
     [/^@tuidom\/testing\//, "test"],
 ];
+
+/** npm-пакеты, которые работают только под Node (нативные модули, ФС/процессы). */
+const NODE_ONLY_PACKAGES = new Set(["chokidar", "node-pty", "yauzl"]);
+
+/** Встроенные модули Node, разрешённые в common/browser: чистые функции без ОС. */
+const ALLOWED_NODE_BUILTINS = new Set(["node:path"]);
+
+/**
+ * Храповик: сложившиеся импорты ОС-модулей из common/browser — [файл, модуль,
+ * кто снимает]. Цель — пустой список; записи убираются вместе с импортом
+ * (гейт падает и на устаревшую запись). Номера PR — по плану
+ * docs/TODO/FileService.md, §8.
+ */
+const NODE_IMPORT_DEBT = [
+    // Чтение бандла ассетов; оба импортёра — из base/node/assets → переезд туда (PR 6).
+    ["src/vs/base/common/assets/bundleFile.ts", "node:fs"],
+    // Идентичность воркспейса — sha256 пути; вне файлового сервиса.
+    ["src/vs/platform/workspace/common/workspaceId.ts", "node:crypto"],
+    // Extension host: vscode.workspace.fs / findFiles / openTextDocument прямо на диск
+    // из субпроцесса (как у эталона), раскладка → api/node (PR 6).
+    ["src/vs/workbench/api/common/fileSystemNamespace.ts", "node:fs/promises"],
+    ["src/vs/workbench/api/common/findFiles.ts", "node:fs/promises"],
+    ["src/vs/workbench/api/common/workspaceNamespace.ts", "node:fs/promises"],
+    // Extension host: env.machineId и т.п.; вне файлового сервиса.
+    ["src/vs/workbench/api/common/vscodeNamespace.ts", "node:crypto"],
+    // Холодные потребители — на IFileService (PR 2).
+    ["src/vs/workbench/browser/actions/encodingActions.ts", "node:fs"],
+    ["src/vs/workbench/contrib/files/browser/fileActions.ts", "node:fs"],
+    ["src/vs/workbench/contrib/preferences/browser/preferencesActions.ts", "node:fs"],
+    ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
+    ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
+    // Explorer: операции, чтение каталогов и слежение — на IFileService/ITreeFileWatcher (PR 3).
+    ["src/vs/workbench/contrib/files/browser/fileOperationsService.ts", "node:fs"],
+    ["src/vs/workbench/contrib/files/browser/fileOperationsService.ts", "node:os"],
+    ["src/vs/workbench/contrib/files/browser/fileTreeDataProvider.ts", "node:fs"],
+    ["src/vs/workbench/contrib/files/browser/fileTreeDataProvider.ts", "chokidar"],
+    // Загрузка и запись модели — последним (PR 4 — запись, PR 5 — загрузка).
+    ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
+];
+
+/** ОС-модуль спецификатора (`fs` → `node:fs`) либо null, если он не ОС-модуль. */
+function osModuleOf(specifier) {
+    if (specifier.startsWith(".")) return null;
+    const name = specifier.startsWith("node:") ? specifier : `node:${specifier}`;
+    const root = name.slice("node:".length).split("/")[0];
+    if (specifier.startsWith("node:") || builtinModules.includes(root)) {
+        return ALLOWED_NODE_BUILTINS.has(name) ? null : name;
+    }
+    const pkg = specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
+    return NODE_ONLY_PACKAGES.has(pkg) ? pkg : null;
+}
+
+/** Импорты ОС-модулей из common/browser (`import type` включительно), сверка с храповиком. */
+function checkNodeImports(rel, env, content, seenDebt, violations) {
+    if (env !== "common" && env !== "browser") return;
+    for (const m of content.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*(["'])([^"']+)\1/g)) {
+        const module = osModuleOf(m[2]);
+        if (module === null) continue;
+        const key = `${rel}|${module}`;
+        if (NODE_IMPORT_DEBT.some(([f, mod]) => `${f}|${mod}` === key)) {
+            seenDebt.add(key);
+            continue;
+        }
+        violations.push(
+            `${rel} → ${m[2]}  (окружение ${env} не берёт модулей ОС — заведи шов в common или перенеси в node)`,
+        );
+    }
+}
 
 /** Импорт, запрещённый во всём `src/`: примитив живёт в vs/base/common/lifecycle.ts. */
 const TUIDOM_DISPOSABLE = "@tuidom/core/common/disposable";
@@ -248,6 +323,7 @@ function main() {
 
     const violations = [];
     const usedDirectionExceptions = new Set();
+    const seenDebt = new Set();
     checkDisposableImports(violations);
     for (const abs of listFiles(vsRoot)) {
         const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
@@ -258,6 +334,7 @@ function main() {
         const zoneIdx = ZONES.indexOf(zone);
         const raw = readFileSync(abs, "utf8");
         checkTokenDeclarations(rel, raw, zoneIdx, violations);
+        checkNodeImports(rel, env, stripComments(raw), seenDebt, violations);
         // Комментарии (jsdoc {@link import(...)}) и type-only импорты — не
         // зависимости времени исполнения. Форма спецификатора перечислена явно:
         // ленивое `type\s[\s\S]*?from` начиналось и на `export type X = …` и
@@ -296,6 +373,11 @@ function main() {
     for (const rel of DIRECTION_EXCEPTIONS) {
         if (!usedDirectionExceptions.has(rel)) {
             violations.push(`${rel}  (DIRECTION_EXCEPTIONS: contrib он больше не импортирует — удали запись)`);
+        }
+    }
+    for (const [file, module] of NODE_IMPORT_DEBT) {
+        if (!seenDebt.has(`${file}|${module}`)) {
+            violations.push(`${file} → ${module}  (импорта больше нет — убери запись из NODE_IMPORT_DEBT)`);
         }
     }
 
