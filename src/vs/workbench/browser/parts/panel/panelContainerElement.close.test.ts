@@ -1,6 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
-import { Point } from "@tuidom/core/common/geometryPromitives";
+import { BoxConstraints, Offset, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it, vi } from "vitest";
 
@@ -193,6 +194,76 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         mouse(element, "mousemove", { x: 10 });
         expect(markDirty).toHaveBeenCalledTimes(2);
         markDirty.mockRestore();
+    });
+
+    /**
+     * Панель в приложении стоит не в начале координат: её смещают сайдбар и
+     * область редактора. Экранные координаты события обязаны приводиться к
+     * локальным ВЫЧИТАНИЕМ позиции, иначе и кнопка, и вкладки кликаются мимо —
+     * а в нуле координат ошибка знака не видна.
+     */
+    describe("панель смещена от начала координат", () => {
+        const ORIGIN = new Offset(7, 4);
+
+        function shifted(width = 40): PanelContainerElement {
+            const element = panel();
+            element.localPosition = ORIGIN;
+            element.layout(BoxConstraints.tight(new Size(width, 8)));
+            element.setStyleVars(VARS);
+            element.performStyleResolution(ROOT_STYLE_CONTEXT);
+            return element;
+        }
+
+        /** Клик/движение в ЭКРАННЫХ координатах — как их отдаёт терминал. */
+        function screenMouse(element: PanelContainerElement, type: "mousedown" | "mousemove", x: number, y: number) {
+            element.dispatchEvent(
+                new TUIMouseEvent(type, { button: "left", screenX: x, screenY: y, localX: 0, localY: 0 }),
+            );
+        }
+
+        it("кнопка закрытия срабатывает по своим экранным координатам", () => {
+            const element = shifted();
+            const onClose = vi.fn();
+            element.onClose = onClose;
+            const close = element.inspectState().close as { centerX: number };
+            const tabRow = element.inspectState().tabRow as number;
+            expect(close.centerX).toBe(ORIGIN.dx + 38);
+            expect(tabRow).toBe(ORIGIN.dy + 1);
+
+            screenMouse(element, "mousedown", close.centerX, tabRow);
+            expect(onClose).toHaveBeenCalledTimes(1);
+
+            // Та же колонка, но без поправки на смещение — мимо кнопки.
+            screenMouse(element, "mousedown", 38, 1);
+            expect(onClose).toHaveBeenCalledTimes(1);
+        });
+
+        it("клик по вкладке срабатывает по её экранным координатам", () => {
+            const element = shifted();
+            const onActivate = vi.fn();
+            element.onActivateView = onActivate;
+            const state = element.inspectState();
+            const tabs = state.tabs as { id: string; centerX: number }[];
+            const output = tabs[1];
+
+            screenMouse(element, "mousedown", output.centerX, state.tabRow as number);
+            expect(onActivate).toHaveBeenCalledWith("output");
+            expect(element.getActiveViewId()).toBe("output");
+        });
+
+        it("подсветка кнопки считается от смещения, а не от нуля", () => {
+            const element = shifted();
+            const close = element.inspectState().close as { centerX: number };
+            const tabRow = element.inspectState().tabRow as number;
+            const markDirty = vi.spyOn(element, "markDirty");
+
+            screenMouse(element, "mousemove", 38, 1); // без поправки — не кнопка
+            expect(markDirty).not.toHaveBeenCalled();
+
+            screenMouse(element, "mousemove", close.centerX, tabRow);
+            expect(markDirty).toHaveBeenCalledTimes(1);
+            markDirty.mockRestore();
+        });
     });
 
     it("курсор на той же колонке вне строки вкладок кнопку не подсвечивает", () => {

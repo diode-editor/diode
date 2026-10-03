@@ -110,7 +110,6 @@ export class PanelContainerElement extends TUIElement {
         this.views.push(view);
         this.activeId ??= view.id;
         this.syncChildren();
-        this.markDirty();
     }
 
     /** Подменяет контролы вкладки в таб-строке (null — убрать). */
@@ -119,7 +118,6 @@ export class PanelContainerElement extends TUIElement {
         if (view === undefined) return;
         view.actions = actions;
         this.syncChildren();
-        this.markDirty();
     }
 
     /** Подменяет контент вкладки (например, placeholder на настоящую view). */
@@ -128,14 +126,12 @@ export class PanelContainerElement extends TUIElement {
         if (view === undefined) return;
         view.content = content;
         this.syncChildren();
-        this.markDirty();
     }
 
     public setActiveView(id: string): void {
         if (this.views.every((v) => v.id !== id) || this.activeId === id) return;
         this.activeId = id;
         this.syncChildren();
-        this.markDirty();
     }
 
     /**
@@ -144,6 +140,9 @@ export class PanelContainerElement extends TUIElement {
      * контент/actions, прицепленные до укоренения панели, оставались с
      * протухшим root — модель бага #204 (селектор каналов Output молча не
      * открывал выпадашку после restore сессии).
+     *
+     * Перерисовку будит он же: `setChildren` зовёт `markDirty` безусловно, и
+     * своего вызова после `syncChildren()` сеттерам не нужно.
      */
     private syncChildren(): void {
         const children: TUIElement[] = [];

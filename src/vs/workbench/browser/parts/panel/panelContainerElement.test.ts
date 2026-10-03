@@ -6,7 +6,7 @@ import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { TerminalScreen } from "@tuidom/core/rendering/terminalScreen";
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 
@@ -95,13 +95,46 @@ describe("PanelContainerElement", () => {
         const panel = themed();
         panel.addView({ id: "a", title: "PROBLEMS", content: null });
         panel.addView({ id: "b", title: "OUTPUT", content: null });
+        const markDirty = vi.spyOn(panel, "markDirty");
 
         panel.setActiveView("nope");
         expect(panel.getActiveViewId()).toBe("a");
         panel.setActiveView("a"); // already active — no-op
         expect(panel.getActiveViewId()).toBe("a");
+        // Ни один из двух отказов не дошёл до перерисовки: ранний выход — не
+        // только про activeId, он ещё и не будит кадр зря.
+        expect(markDirty).not.toHaveBeenCalled();
+
         panel.setActiveView("b");
         expect(panel.getActiveViewId()).toBe("b");
+        expect(markDirty).toHaveBeenCalledTimes(1);
+        markDirty.mockRestore();
+    });
+
+    /**
+     * Контрол рисует себя сам в ручном `render`, поэтому каждое изменение
+     * состава/контента обязано будить кадр: без `markDirty` вкладка меняется в
+     * модели и не меняется на экране (ровно тот класс бага, где тест зелёный, а
+     * пользователь не видит разницы).
+     */
+    it("wakes a repaint on every change of the registry", () => {
+        const panel = themed();
+        const markDirty = vi.spyOn(panel, "markDirty");
+
+        panel.addView({ id: "a", title: "P", content: null });
+        expect(markDirty).toHaveBeenCalledTimes(1);
+
+        panel.setViewActions("a", new TUIElement());
+        expect(markDirty).toHaveBeenCalledTimes(2);
+
+        panel.setViewContent("a", new MarkerContent("Z"));
+        expect(markDirty).toHaveBeenCalledTimes(3);
+
+        // Неизвестный id до перерисовки не доходит ни в одном из двух сеттеров.
+        panel.setViewActions("nope", new TUIElement());
+        panel.setViewContent("nope", new MarkerContent("Q"));
+        expect(markDirty).toHaveBeenCalledTimes(3);
+        markDirty.mockRestore();
     });
 
     it("draws a flat top border strip in the border colour, with no left border", () => {

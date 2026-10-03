@@ -1,5 +1,4 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import type { PanelContainerElement } from "./parts/panel/panelContainerElement.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -11,6 +10,8 @@ import {
     TerminalService,
     TerminalServiceDIToken,
 } from "../contrib/terminal/browser/terminalService.ts";
+
+import type { PanelContainerElement } from "./parts/panel/panelContainerElement.ts";
 
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 const NEW_TERMINAL = "workbench.action.terminal.new";
