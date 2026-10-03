@@ -1,6 +1,8 @@
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -11,6 +13,7 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
+import { getReferences } from "./getReferences.ts";
 import { buildReferenceGroups, type IReferenceTextSource } from "./referencePreview.ts";
 import type { ReferencesComponent } from "./referencesComponent.ts";
 import { REFERENCES_VIEWLET_ID, ReferencesComponentDIToken } from "./referencesComponent.ts";
@@ -18,8 +21,8 @@ import { REFERENCES_VIEWLET_ID, ReferencesComponentDIToken } from "./referencesC
 export const ReferencesServiceDIToken = token<ReferencesService>("ReferencesService");
 
 /**
- * Find All References: спрашивает у провайдеров расширений
- * (`EditorService.referenceSource`) ссылки на символ под кареткой, добирает к
+ * Find All References: спрашивает у подошедших документу провайдеров реестра
+ * (`ILanguageFeaturesService.referenceProvider`) ссылки на символ под кареткой, добирает к
  * ним текст строк ({@link buildReferenceGroups}) и показывает вьюлет
  * REFERENCES.
  *
@@ -34,6 +37,7 @@ export class ReferencesService {
         IWorkspaceContextServiceDIToken,
         FileSystemProviderRegistryDIToken,
         SidebarServiceDIToken,
+        LanguageFeaturesServiceDIToken,
     ] as const;
 
     /** Guard от устаревших ответов: пока ходили за ссылками, запрос мог смениться. */
@@ -47,6 +51,7 @@ export class ReferencesService {
         private readonly workspaceContext: IWorkspaceContextService,
         providers: IFileSystemProviderRegistry,
         private readonly sidebarService: SidebarService,
+        private readonly languageFeatures: ILanguageFeaturesService,
     ) {
         this.textSource = {
             // Открытая модель — источник правды для открытых файлов: в ней видны
@@ -64,8 +69,10 @@ export class ReferencesService {
     public async findReferences(): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
-        const source = this.group.referenceSource;
-        if (source === undefined) return;
+        // Провайдеров для документа нет — панель «No results» соврала бы:
+        // ссылки никто и не искал (у vscode команду гасит `editorHasReferenceProvider`).
+        const registry = this.languageFeatures.referenceProvider;
+        if (!registry.has(editor)) return;
 
         const caret = editor.viewState.selections[0].active;
         const text = editor.getText();
@@ -74,7 +81,7 @@ export class ReferencesService {
         if (!isOnWord(text, caret.line, caret.character)) return;
 
         const ticket = this.latest.start();
-        const references = await source({
+        const references = await getReferences(registry, editor, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             text,

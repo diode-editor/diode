@@ -64,8 +64,6 @@ describe("LanguagesNamespace", () => {
         expect(subs[0].params).toEqual({
             hasCompletionProviders: true,
             hasFoldingProviders: false,
-            hasDefinitionProviders: false,
-            hasReferenceProviders: false,
             hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
@@ -83,8 +81,6 @@ describe("LanguagesNamespace", () => {
         expect(after[1].params).toEqual({
             hasCompletionProviders: false,
             hasFoldingProviders: false,
-            hasDefinitionProviders: false,
-            hasReferenceProviders: false,
             hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
@@ -266,8 +262,6 @@ describe("LanguagesNamespace", () => {
         expect(subs[0].params).toEqual({
             hasCompletionProviders: false,
             hasFoldingProviders: true,
-            hasDefinitionProviders: false,
-            hasReferenceProviders: false,
             hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,
@@ -286,8 +280,6 @@ describe("LanguagesNamespace", () => {
         expect(after[1].params).toEqual({
             hasCompletionProviders: false,
             hasFoldingProviders: false,
-            hasDefinitionProviders: false,
-            hasReferenceProviders: false,
             hasSignatureHelpProviders: false,
             hasFormattingProviders: false,
             hasCodeActionsProviders: false,

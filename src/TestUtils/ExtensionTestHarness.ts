@@ -5,9 +5,12 @@ import { fileURLToPath } from "node:url";
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
+import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
+import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
+import type { ICoreReference, IReferenceRequest } from "../vs/editor/common/languages/iReferenceSource.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
 import type { ILanguageFeaturesService } from "../vs/editor/common/services/languageFeatures.ts";
@@ -32,7 +35,9 @@ import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColor
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/node/workspaceEditService.ts";
+import { getDefinitions } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
+import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import {
     type DiagnosticsSink,
@@ -337,8 +342,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     });
     // Inline completions (ghost text): источник призрачных подсказок — как в extensionHostModule.
     group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
-    // Definition (LSP): источник целей Go to Definition — как в extensionHostModule.
-    group.definitionSource = (req) => host.provideDefinition(req);
     // Содержимое недисковых ресурсов (registerTextDocumentContentProvider) — как
     // в extensionHostModule: по нему открываются read-only вкладки `jdt:`/`class:`.
     group.virtualDocumentSource = {
@@ -348,8 +351,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     host.onDidChangeTextContent((uri) => {
         group.refreshVirtualDocument(uri);
     });
-    // References (LSP): источник ссылок на символ — как в extensionHostModule.
-    group.referenceSource = (req) => host.provideReferences(req);
     // Signature help (LSP): источник подсказки параметров — как в extensionHostModule.
     group.signatureHelpSource = (req) => host.provideSignatureHelp(req);
     // Formatting (LSP): источник правок форматирования — как в extensionHostModule.
@@ -425,9 +426,23 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
  * провайдеры реестра харнесса, склейка в порядке `ordered`.
  */
 export function provideHovers(harness: IExtensionHarness, request: IHoverRequest): Promise<ICoreHover[]> {
-    return getHovers(
-        harness.languageFeatures.hoverProvider,
-        { uri: Uri.parse(request.uri), languageId: request.languageId },
-        request,
-    );
+    return getHovers(harness.languageFeatures.hoverProvider, targetOf(request), request);
+}
+
+/** Цели definition так, как их собирает `DefinitionService` (реестр харнесса). */
+export function provideDefinitions(
+    harness: IExtensionHarness,
+    request: IDefinitionRequest,
+): Promise<ICoreDefinitionLocation[]> {
+    return getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request);
+}
+
+/** Ссылки так, как их собирает `ReferencesService` (реестр харнесса). */
+export function provideReferences(harness: IExtensionHarness, request: IReferenceRequest): Promise<ICoreReference[]> {
+    return getReferences(harness.languageFeatures.referenceProvider, targetOf(request), request);
+}
+
+/** Документ запроса как цель скоринга реестра. */
+function targetOf(request: { readonly uri: string; readonly languageId: string }): ILanguageFeatureTarget {
+    return { uri: Uri.parse(request.uri), languageId: request.languageId };
 }

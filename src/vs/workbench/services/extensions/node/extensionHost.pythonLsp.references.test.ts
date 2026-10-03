@@ -9,7 +9,11 @@ import {
     PY_LANGUAGE_SERVICE,
     until,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    type IExtensionHarness,
+    provideReferences,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
@@ -51,9 +55,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от сток
 
             // Каретка на вызове `greet` → ссылки с includeDeclaration (как VS Code).
             const references = await until("references вызова greet", async () => {
-                const source = harness.group.referenceSource;
-                if (source === undefined) return null;
-                const found = await source({
+                const found = await provideReferences(harness, {
                     uri: mainUri,
                     languageId: "python",
                     text: MAIN_PY,

@@ -1,3 +1,4 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -7,9 +8,11 @@ import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type {
+    DefinitionProvider,
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
@@ -37,16 +40,24 @@ describe("DefinitionService — Go to Definition", () => {
     });
 
     const group = () => h.container.get(EditorServiceDIToken);
+    let definitions: IDisposable | undefined;
+    /** Единственный definition-провайдер для любого документа (снимает прежнего). */
+    const useDefinitions = (provideDefinition: DefinitionProvider["provideDefinition"]): void => {
+        definitions?.dispose();
+        definitions = h.container
+            .get(LanguageFeaturesServiceDIToken)
+            .definitionProvider.register("*", { provideDefinition });
+    };
     const service = () => h.container.get(DefinitionServiceDIToken);
     const caret = () => group().getActiveEditor()?.viewState.selections[0].active;
 
     it("прыжок в том же файле: каретка встаёт на начало цели", async () => {
         const mainUri = Uri.file(ws.path("main.ts")).toString();
         const seen: { request?: IDefinitionRequest } = {};
-        group().definitionSource = (request) => {
+        useDefinitions((request) => {
             seen.request = request;
             return Promise.resolve([{ uri: mainUri, range: createRange(1, 6, 1, 11) }]);
-        };
+        });
 
         await service().revealDefinition();
 
@@ -58,7 +69,7 @@ describe("DefinitionService — Go to Definition", () => {
 
     it("кросс-файловый прыжок: открывает другой файл и доводит каретку", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
-        group().definitionSource = () => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]);
+        useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]));
 
         await service().revealDefinition();
 
@@ -68,10 +79,11 @@ describe("DefinitionService — Go to Definition", () => {
 
     it("F12 из пользовательского состояния запускает прыжок", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
-        group().definitionSource = () => Promise.resolve([{ uri: defsUri, range: createRange(1, 4, 1, 10) }]);
+        useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(1, 4, 1, 10) }]));
 
         h.testApp.sendKey("F12");
-        await flushMicrotasks();
+        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        await flushMicrotasks(10);
 
         expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);
         expect(caret()).toMatchObject({ line: 1, character: 4 });
@@ -80,10 +92,11 @@ describe("DefinitionService — Go to Definition", () => {
     it("Ctrl+K F12 (revealDefinitionAside): цель открывается в соседней группе", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
         const mainUri = Uri.file(ws.path("main.ts")).toString();
-        group().definitionSource = () => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]);
+        useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]));
 
         h.commands.execute("editor.action.revealDefinitionAside");
-        await flushMicrotasks();
+        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        await flushMicrotasks(10);
 
         // Цель — в группе справа; исходная группа не тронута.
         const groups = group().groups;
@@ -93,13 +106,15 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 0, character: 16 });
     });
 
-    /** Источник с ручным ответом: каждый вызов кладёт свой resolver в очередь. */
+    /** Провайдер с ручным ответом: каждый вызов кладёт свой resolver в очередь. */
     function deferredSource(): ((locations: readonly ICoreDefinitionLocation[]) => void)[] {
         const pending: ((locations: readonly ICoreDefinitionLocation[]) => void)[] = [];
-        group().definitionSource = () =>
-            new Promise((resolve) => {
-                pending.push(resolve);
-            });
+        useDefinitions(
+            () =>
+                new Promise((resolve) => {
+                    pending.push(resolve);
+                }),
+        );
         return pending;
     }
 
@@ -152,16 +167,16 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 0, character: 0 });
 
         // Пустой результат.
-        group().definitionSource = () => Promise.resolve([]);
+        useDefinitions(() => Promise.resolve([]));
         await service().revealDefinition();
         expect(caret()).toMatchObject({ line: 0, character: 0 });
 
         // Нет активного редактора: источник не должен вызываться вовсе.
         let called = false;
-        group().definitionSource = () => {
+        useDefinitions(() => {
             called = true;
             return Promise.resolve([]);
-        };
+        });
         h.commands.execute("workbench.action.closeActiveEditor");
         h.commands.execute("workbench.action.closeActiveEditor");
         expect(group().getActiveEditor()).toBeNull();

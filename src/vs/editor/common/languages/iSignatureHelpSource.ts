@@ -73,6 +73,6 @@ export interface ICoreSignatureHelp {
  * провайдера, который его дал (в отличие от hover/references, где ответы
  * склеиваются — так предписывает vscode API). Инъектируется в ядро извне
  * (host/харнесс) — ядро не знает про extension-слой (зеркало
- * {@link ./iReferenceSource.ts:ReferenceSource}). `null` = подсказки нет.
+ * {@link ./iFormattingSource.ts}). `null` = подсказки нет.
  */
 export type SignatureHelpSource = (request: ISignatureHelpRequest) => Promise<ICoreSignatureHelp | null>;

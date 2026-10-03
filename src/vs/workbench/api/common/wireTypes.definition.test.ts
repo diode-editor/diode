@@ -5,7 +5,14 @@ import { createRange } from "../../../editor/common/core/iRange.ts";
 import { parseWireDefinitionLocations, requestDefinition, wireToCoreDefinitionLocations } from "./wireTypes.ts";
 
 const RANGE = { startLine: 2, startCharacter: 4, endLine: 2, endCharacter: 9 };
-const PARAMS = { uri: "file:///a.ts", languageId: "typescript", text: "const a = 1;\n", line: 0, character: 6 };
+const PARAMS = {
+    handle: 0,
+    uri: "file:///a.ts",
+    languageId: "typescript",
+    text: "const a = 1;\n",
+    line: 0,
+    character: 6,
+};
 
 describe("wireTypes — parseWireDefinitionLocations", () => {
     it("не-массив и невалидные элементы отбрасываются, валидные остаются", () => {

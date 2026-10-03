@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { flushMicrotasks, settle } from "../../../../../TestUtils/timing.ts";
+import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -11,9 +11,9 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
 /**
- * Гейт references-запроса: субпроцесса нет, канал сшит in-process — так
- * проверяются ветки, недостижимые через настоящий fork (подписка ещё не пришла,
- * чужая форма нотификации, отсечка по размеру документа, дефолтный таймаут).
+ * References-запрос по handle: субпроцесса нет, канал сшит in-process — так
+ * проверяются ветки, недостижимые через настоящий fork (отсечка по размеру
+ * документа, дефолтный таймаут).
  * Образец — `extensionHost.hoverInProcess.test.ts`.
  */
 
@@ -60,21 +60,14 @@ function makeHost(options: { warn?: ILogger["warn"]; referencesTimeoutMs?: numbe
     return { host, peer };
 }
 
-describe("ExtensionHost — гейт references-запроса (in-process)", () => {
-    it("без подписки RPC не гоняется; после hasReferenceProviders — гоняется", async () => {
+describe("ExtensionHost — references-запрос по handle (in-process)", () => {
+    it("запрос несёт handle провайдера", async () => {
         const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve([REF]));
+        const provide = vi.fn((_params: unknown) => Promise.resolve([REF]));
         peer.handleRequest("languages.provideReferences", provide);
 
-        // Субпроцесс ещё не сообщил о провайдерах: запрос не уходит вовсе.
-        expect(await host.provideReferences(requestOf("const a = 1;\n"))).toEqual([]);
-        expect(provide).not.toHaveBeenCalled();
-
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: true });
-        await flushMicrotasks();
-
-        expect(await host.provideReferences(requestOf("const a = 1;\n"))).toEqual([CORE_REF]);
-        expect(provide).toHaveBeenCalledTimes(1);
+        expect(await host.provideReferences(3, requestOf("const a = 1;\n"))).toEqual([CORE_REF]);
+        expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 3 });
     });
 
     it("контекст includeDeclaration уходит в субпроцесс как есть", async () => {
@@ -84,13 +77,12 @@ describe("ExtensionHost — гейт references-запроса (in-process)", ()
             seen.push(params);
             return Promise.resolve([]);
         });
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: true });
-        await flushMicrotasks();
 
-        await host.provideReferences({ ...requestOf("x"), includeDeclaration: false });
+        await host.provideReferences(0, { ...requestOf("x"), includeDeclaration: false });
 
         expect(seen).toEqual([
             {
+                handle: 0,
                 uri: "file:///a.ts",
                 languageId: "typescript",
                 text: "x",
@@ -101,42 +93,19 @@ describe("ExtensionHost — гейт references-запроса (in-process)", ()
         ]);
     });
 
-    it("чужая форма подписки читается как «провайдеров нет»", async () => {
-        const { host, peer } = makeHost();
-        peer.handleRequest("languages.provideReferences", () => Promise.resolve([REF]));
-
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: true });
-        await flushMicrotasks();
-        expect(await host.provideReferences(requestOf("x"))).toEqual([CORE_REF]);
-
-        // Только строгое `true` включает подписку: строка "true" — не она.
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: "true" });
-        await flushMicrotasks();
-        expect(await host.provideReferences(requestOf("x"))).toEqual([]);
-
-        // Поле отсутствует вовсе — тоже выключено.
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: true });
-        await flushMicrotasks();
-        peer.notify("languages.updateSubscriptions", {});
-        await flushMicrotasks();
-        expect(await host.provideReferences(requestOf("x"))).toEqual([]);
-    });
-
     it("документ ровно в лимит проходит, больше лимита — отсекается с записью в лог", async () => {
         const warn = vi.fn();
         const { host, peer } = makeHost({ warn });
         const provide = vi.fn(() => Promise.resolve([REF]));
         peer.handleRequest("languages.provideReferences", provide);
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: true });
-        await flushMicrotasks();
 
         // Граница включительная: 8 МБ ровно — ещё гоняем.
-        expect(await host.provideReferences(requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual([CORE_REF]);
+        expect(await host.provideReferences(0, requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual([CORE_REF]);
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).not.toHaveBeenCalled();
 
         // На символ больше — не гоняем и пишем, что и почему пропустили.
-        expect(await host.provideReferences(requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toEqual([]);
+        expect(await host.provideReferences(0, requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toEqual([]);
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith("skipping references: document too large", {
             uri: "file:///a.ts",
@@ -144,17 +113,27 @@ describe("ExtensionHost — гейт references-запроса (in-process)", ()
         });
     });
 
-    it("после остановки субпроцесса подписка сброшена — запрос не уходит до новой", async () => {
+    it("после остановки субпроцесса запрос не уходит", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve([REF]));
         peer.handleRequest("languages.provideReferences", provide);
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: true });
-        await flushMicrotasks();
-        expect(await host.provideReferences(requestOf("x"))).toEqual([CORE_REF]);
+        expect(await host.provideReferences(0, requestOf("x"))).toEqual([CORE_REF]);
 
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        expect(await host.provideReferences(requestOf("x"))).toEqual([]);
+        expect(await host.provideReferences(0, requestOf("x"))).toEqual([]);
+        expect(provide).toHaveBeenCalledTimes(1);
+    });
+
+    it("definition по handle: после остановки субпроцесса запрос не уходит", async () => {
+        const { host, peer } = makeHost();
+        const provide = vi.fn(() => Promise.resolve([REF]));
+        peer.handleRequest("languages.provideDefinition", provide);
+        expect(await host.provideDefinition(0, requestOf("x"))).toEqual([CORE_REF]);
+
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(await host.provideDefinition(0, requestOf("x"))).toEqual([]);
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
@@ -173,9 +152,7 @@ describe("ExtensionHost — гейт references-запроса (in-process)", ()
             await settle(200);
             return [REF];
         });
-        peer.notify("languages.updateSubscriptions", { hasReferenceProviders: true });
-        await flushMicrotasks();
 
-        expect(await host.provideReferences(requestOf("x"))).toEqual([]);
+        expect(await host.provideReferences(0, requestOf("x"))).toEqual([]);
     });
 });

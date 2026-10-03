@@ -6,6 +6,7 @@ import { parseWireReferences, requestReferences, wireToCoreReferences } from "./
 
 const RANGE = { startLine: 7, startCharacter: 4, endLine: 7, endCharacter: 9 };
 const PARAMS = {
+    handle: 0,
     uri: "file:///a.ts",
     languageId: "typescript",
     text: "const a = 1;\n",

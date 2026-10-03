@@ -1,3 +1,4 @@
+import type { IDisposable } from "@tuidom/core/common/disposable";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import type { MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import type { PopupMenuElement } from "@tuidom/elements/menu/popupMenuElement";
@@ -7,6 +8,8 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
+import type { DefinitionProvider } from "../../editor/common/languages/iDefinitionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 
 /** Файл из 40 строк — чтобы порог значимости (10 строк) было чем перешагнуть. */
@@ -32,6 +35,14 @@ describe("Workbench — навигационная история (Go Back / Go 
     });
 
     const editors = () => h.container.get(EditorServiceDIToken);
+    let definitions: IDisposable | undefined;
+    /** Единственный definition-провайдер для любого документа (снимает прежнего). */
+    const useDefinitions = (provideDefinition: DefinitionProvider["provideDefinition"]): void => {
+        definitions?.dispose();
+        definitions = h.container
+            .get(LanguageFeaturesServiceDIToken)
+            .definitionProvider.register("*", { provideDefinition });
+    };
     const caret = () => {
         const editor = h.activeEditor();
         return { uri: editor.uri.toString(), ...editor.viewState.selections[0].active };
@@ -52,7 +63,7 @@ describe("Workbench — навигационная история (Go Back / Go 
 
     it("Go to Definition + Back возвращает ровно в точку вызова", async () => {
         h.activeEditor().goToPosition(12, 3);
-        editors().definitionSource = () => Promise.resolve([{ uri: uri("beta.ts"), range: createRange(20, 5, 20, 9) }]);
+        useDefinitions(() => Promise.resolve([{ uri: uri("beta.ts"), range: createRange(20, 5, 20, 9) }]));
 
         await h.commands.execute("editor.action.revealDefinition");
         expect(caret()).toMatchObject({ uri: uri("beta.ts"), line: 20, character: 5 });
@@ -66,8 +77,7 @@ describe("Workbench — навигационная история (Go Back / Go 
 
     it("Go to Definition в двух строках ниже — Back всё равно возвращает к вызову", async () => {
         h.activeEditor().goToPosition(12, 3);
-        editors().definitionSource = () =>
-            Promise.resolve([{ uri: uri("alpha.ts"), range: createRange(14, 2, 14, 6) }]);
+        useDefinitions(() => Promise.resolve([{ uri: uri("alpha.ts"), range: createRange(14, 2, 14, 6) }]));
 
         await h.commands.execute("editor.action.revealDefinition");
         expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 14, character: 2 });

@@ -294,10 +294,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
         group.inlineCompletionSource = (req, token) => host.provideInlineCompletions(req, token);
 
-        // Definition: провайдеры расширений (languages.provideDefinition)
-        // подключаются как источник целей Go to Definition (читает DefinitionService).
-        group.definitionSource = (req) => host.provideDefinition(req);
-
         // Содержимое недисковых ресурсов: провайдеры расширений
         // (workspace.registerTextDocumentContentProvider) — источник текста для
         // read-only вкладок `jdt:`/`class:`. Читает сам EditorService в openUri,
@@ -317,12 +313,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             group.refreshVirtualDocument(uri);
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
-
-        // References: провайдеры расширений (languages.provideReferences)
-        // подключаются как источник ссылок группы (читает ReferencesService по
-        // Find All References).
-        // Stryker disable next-line ArrowFunction: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, и поведение источника закрыто тестами хоста
-        group.referenceSource = (req) => host.provideReferences(req);
 
         // Signature help: провайдеры расширений (languages.provideSignatureHelp)
         // подключаются как источник подсказки параметров (читает

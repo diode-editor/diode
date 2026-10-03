@@ -69,6 +69,14 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.hoverProvider.register(selector, {
                 provideHover: (request) => this.bridge.provideHover(handle, request),
             }),
+        definition: (handle, selector) =>
+            this.languageFeatures.definitionProvider.register(selector, {
+                provideDefinition: (request) => this.bridge.provideDefinition(handle, request),
+            }),
+        references: (handle, selector) =>
+            this.languageFeatures.referenceProvider.register(selector, {
+                provideReferences: (request) => this.bridge.provideReferences(handle, request),
+            }),
     };
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {

@@ -4,6 +4,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
@@ -55,14 +56,35 @@ function fakeGroup(opts: IFakeEditorOptions = {}): EditorService {
         getText: () => opts.text ?? MAIN_TEXT,
         viewState: { selections: [{ active: { line, character } }] },
     };
-    return {
+    const group = {
         getActiveEditor: () => (opts.noEditor === true ? null : editor),
-        referenceSource: opts.source,
         openFileModel: (uri: Uri) => {
             const text = opts.openModels?.[uri.fsPath];
             return text === undefined ? null : { getText: () => text };
         },
     } as unknown as EditorService;
+    sources.set(group, opts.source);
+    return group;
+}
+
+/** Провайдер ссылок фейковой группы — в реестр сервиса его кладёт {@link createService}. */
+const sources = new WeakMap<EditorService, IFakeEditorOptions["source"]>();
+
+/**
+ * Сервис над фейками; провайдер из `fakeGroup({ source })` регистрируется в
+ * реестре под `*` — как прокси провайдера расширения в проде.
+ */
+function createService(
+    component: ReferencesComponent,
+    group: EditorService,
+    workspace: IWorkspaceContextService,
+    providers: IFileSystemProviderRegistry,
+    sidebar: SidebarService,
+): ReferencesService {
+    const languageFeatures = new LanguageFeaturesService();
+    const source = sources.get(group);
+    if (source !== undefined) languageFeatures.referenceProvider.register("*", { provideReferences: source });
+    return new ReferencesService(component, group, workspace, providers, sidebar, languageFeatures);
 }
 
 /** Папки воркспейса глазами сервиса: ему нужен только путь первой папки. */
@@ -98,7 +120,7 @@ describe("ReferencesService — findReferences", () => {
         const panel = fakeComponent();
         const sidebar = fakeSidebar();
         const requests: IReferenceRequest[] = [];
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({
                 source: (req) => {
@@ -139,7 +161,7 @@ describe("ReferencesService — findReferences", () => {
 
     it("несохранённая правка видна: текст берётся из открытой модели, а не с диска", async () => {
         const panel = fakeComponent();
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({
                 source: () => Promise.resolve([reference(MAIN, 0, 0, 5)]),
@@ -158,7 +180,7 @@ describe("ReferencesService — findReferences", () => {
     it("пустой результат всё равно показывает панель — «No results» объясняет себя сам", async () => {
         const panel = fakeComponent();
         const sidebar = fakeSidebar();
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({ source: () => Promise.resolve([]) }),
             fakeWorkspace(),
@@ -183,7 +205,7 @@ describe("ReferencesService — findReferences", () => {
                 return Promise.resolve(new TextEncoder().encode(MAIN_TEXT));
             },
         } as unknown as IFileSystemProviderRegistry;
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({
                 source: () =>
@@ -225,7 +247,7 @@ describe("ReferencesService — findReferences", () => {
                 });
             },
         } as unknown as IFileSystemProviderRegistry;
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({ source: () => Promise.resolve([reference(MAIN, 2, 14, 19)]) }),
             fakeWorkspace(),
@@ -249,7 +271,7 @@ describe("ReferencesService — findReferences", () => {
         const panel = fakeComponent();
         let release: ((refs: readonly ICoreReference[]) => void) | null = null;
         let calls = 0;
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({
                 source: () =>
@@ -281,7 +303,7 @@ describe("ReferencesService — findReferences", () => {
         const sidebar = fakeSidebar();
         const providers = fakeProviders({});
 
-        const noEditor = new ReferencesService(
+        const noEditor = createService(
             panel.component,
             fakeGroup({ noEditor: true, source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),
             fakeWorkspace(),
@@ -290,17 +312,11 @@ describe("ReferencesService — findReferences", () => {
         );
         await noEditor.findReferences();
 
-        const noSource = new ReferencesService(
-            panel.component,
-            fakeGroup({}),
-            fakeWorkspace(),
-            providers,
-            sidebar.service,
-        );
+        const noSource = createService(panel.component, fakeGroup({}), fakeWorkspace(), providers, sidebar.service);
         await noSource.findReferences();
 
         // Каретка на пробеле — искать нечего.
-        const notOnWord = new ReferencesService(
+        const notOnWord = createService(
             panel.component,
             fakeGroup({ caret: [1, 0], source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),
             fakeWorkspace(),
@@ -310,7 +326,7 @@ describe("ReferencesService — findReferences", () => {
         await notOnWord.findReferences();
 
         // Каретка за пределами текста — тоже.
-        const pastEnd = new ReferencesService(
+        const pastEnd = createService(
             panel.component,
             fakeGroup({ caret: [99, 0], source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),
             fakeWorkspace(),
@@ -325,7 +341,7 @@ describe("ReferencesService — findReferences", () => {
 
     it("без открытой папки пути показываются как есть", async () => {
         const panel = fakeComponent();
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({ source: () => Promise.resolve([reference(MAIN, 2, 14, 19)]) }),
             fakeWorkspace(null),
@@ -343,7 +359,7 @@ describe("ReferencesService — clear", () => {
     it("чистит панель и обесценивает ответ уже отправленного запроса", async () => {
         const panel = fakeComponent();
         let release: ((refs: readonly ICoreReference[]) => void) | null = null;
-        const service = new ReferencesService(
+        const service = createService(
             panel.component,
             fakeGroup({
                 source: () =>

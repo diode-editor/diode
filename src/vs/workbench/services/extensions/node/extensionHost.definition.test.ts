@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    provideDefinitions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
@@ -28,26 +32,27 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
         try {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
             const defsUri = Uri.file(`${harness.tmpDir}/defs.ts`).toString();
-            const source = harness.group.definitionSource;
-            expect(source).toBeDefined();
 
             // Строка 0 → фикстура возвращает одиночный vscode.Location.
-            const fromLocation = await source!(requestFor(mainUri, 0));
+            const fromLocation = await provideDefinitions(harness, requestFor(mainUri, 0));
             expect(fromLocation).toEqual([{ uri: defsUri, range: createRange(2, 4, 2, 9) }]);
 
             // Строка 1 → массив LocationLink; прицельный диапазон — targetSelectionRange.
-            const fromLink = await source!(requestFor(mainUri, 1));
+            const fromLink = await provideDefinitions(harness, requestFor(mainUri, 1));
             expect(fromLink).toEqual([{ uri: defsUri, range: createRange(5, 9, 5, 14) }]);
 
             // Слишком большой документ не гоняется через RPC.
-            const huge = await source!({ ...requestFor(mainUri, 0), text: "x".repeat(8 * 1024 * 1024 + 1) });
+            const huge = await provideDefinitions(harness, {
+                ...requestFor(mainUri, 0),
+                text: "x".repeat(8 * 1024 * 1024 + 1),
+            });
             expect(huge).toEqual([]);
         } finally {
             await harness.dispose();
         }
     });
 
-    it("без subprocess'а и без провайдеров источник отдаёт []", async () => {
+    it("без subprocess'а и без провайдеров реестр definition пуст", async () => {
         // Расширение зарегистрировано, но не активировано — subprocess не поднят.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesDefinition", "providesDefinition.cjs")],
@@ -55,7 +60,7 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await lazy.group.definitionSource!(requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideDefinitions(lazy, requestFor("file:///a.ts", 0))).toEqual([]);
         } finally {
             await lazy.dispose();
         }
@@ -66,7 +71,7 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await noProviders.group.definitionSource!(requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideDefinitions(noProviders, requestFor("file:///a.ts", 0))).toEqual([]);
         } finally {
             await noProviders.dispose();
         }

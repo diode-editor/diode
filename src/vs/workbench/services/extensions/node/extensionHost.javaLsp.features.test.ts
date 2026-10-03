@@ -4,7 +4,9 @@ import { CLIENT_CRASH_PATTERNS, until } from "../../../../../TestUtils/basedpyri
 import {
     createExtensionTestHarness,
     type IExtensionHarness,
+    provideDefinitions,
     provideHovers,
+    provideReferences,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     APP_JAVA,
@@ -142,13 +144,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
     });
 
     it("definition внутри проекта ведёт на объявление метода", { timeout: 120_000 }, async () => {
-        const source = harness?.group.definitionSource;
-        expect(source).toBeDefined();
+        expect(harness).toBeDefined();
         // Через `until` по той же причине, что у hover.
         const targets: readonly ICoreDefinitionLocation[] = await until(
             "definition для `greet`",
             async () => {
-                const found = await source!({
+                const found = await provideDefinitions(harness!, {
                     uri: appUri,
                     languageId: "java",
                     text: APP_JAVA,
@@ -166,12 +167,11 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
     });
 
     it("references находит объявление и вызов", { timeout: 120_000 }, async () => {
-        const source = harness?.group.referenceSource;
-        expect(source).toBeDefined();
+        expect(harness).toBeDefined();
         const found = await until(
             "references для greet",
             async () => {
-                const refs = await source!({
+                const refs = await provideReferences(harness!, {
                     uri: appUri,
                     languageId: "java",
                     text: APP_JAVA,
