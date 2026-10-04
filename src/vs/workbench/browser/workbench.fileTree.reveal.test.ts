@@ -95,10 +95,10 @@ describe("reveal active file in explorer", () => {
         ctx.testApp.render();
 
         ctx.workbench.openFile(nestedFile);
-        await flush();
-        ctx.testApp.render();
-
-        expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        await vi.waitFor(() => {
+            ctx.testApp.render();
+            expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        });
         ctx.workbench.dispose();
     });
 
@@ -131,12 +131,13 @@ describe("reveal active file in explorer", () => {
         expect(ctx.workbench.workbenchLayout.getLeftPanelVisible()).toBe(false);
 
         ctx.commands.execute("workbench.files.action.showActiveFileInExplorer");
-        await flush();
-        ctx.testApp.render();
+        await vi.waitFor(() => {
+            ctx.testApp.render();
+            expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        });
 
         expect(ctx.workbench.workbenchLayout.getLeftPanelVisible()).toBe(true);
         expect(ctx.testApp.focusedElement?.constructor.name).toBe("TreeViewElement");
-        expect(ctx.testApp.backend.screenToString()).toContain("deep");
         ctx.workbench.dispose();
     });
 
