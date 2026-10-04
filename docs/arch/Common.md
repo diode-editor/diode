@@ -65,6 +65,16 @@ win32 — `%COMSPEC%` → `cmd.exe` (обнаружения PowerShell нет). 
 `EmbeddedTerminalSession` и отдаёт полем `shell` сессии — по нему вкладка получает заголовок; browser-слой
 `process.env.SHELL` не читает.
 
+## Дочерние процессы: `base/node/childProcessGuard.ts`, `selfSpawnArgs.ts`
+
+`GuardedChildProcess(child, { label, logger?, logStderr?, waitForStdio? })` — принадлежащий нам дочерний
+процесс под правилами «Ролей процессов» (ARCHITECTURE.md): `error` через `on`, `error` без `exit` — тоже конец,
+слушатель `error` на каждом stdio-потоке, `onDidEnd` ровно один раз (`exit`, или `close` при `waitForStdio`, или
+`error`), `dispose` — синхронный SIGKILL. Политику (рестарт, сброс состояния) решает владелец в слушателе
+`onDidEnd`. `splitLines(stream, onLine)` — общий построчный разбор потока. `spawnSelfAsRole(role, { stdout?,
+stderr })` — запуск себя в роли (`DIODE_FILE_WATCHER`, `DIODE_EXTENSION_HOST`): флаг роли в env, IPC-канал,
+stdio без `inherit` (типом). Пользователи — watcher-процесс (`SubprocessTreeWatcher`) и разовый спавн rg в поиске по файлам (`services/search/node`).
+
 ## Вехи старта: `performance.ts`
 
 `mark(name, detail?)` — тонкая обёртка над стандартным `performance.mark` (аналог

@@ -1,6 +1,7 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { GuardedChildProcess, splitLines } from "../../../../base/node/childProcessGuard.ts";
 import {
     buildRgArgs,
     type IFileMatch,
@@ -26,7 +27,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
     public static dependencies = [] as const;
 
     /** Live child processes, killed on dispose so a search never outlives the app. */
-    private readonly children = new Set<ChildProcessWithoutNullStreams>();
+    private readonly children = new Set<GuardedChildProcess>();
     private resolvedRgPath: string | null;
 
     /**
@@ -55,13 +56,16 @@ export class TextSearchService extends Disposable implements ITextSearchService 
         }
 
         const child = spawn(this.rgPath(), args, { cwd: folder });
-        this.children.add(child);
+        // Конец — по `close`: результаты разбираются из stdout, и после `exit` в
+        // нём ещё могут оставаться строки.
+        // Stryker disable next-line StringLiteral: логгера у сервиса нет — метка в лог не попадает
+        const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
+        this.children.add(guard);
 
         let matchCount = 0;
         const files = new Set<string>();
         let limitHit = false;
         let cancelled = false;
-        let stdoutBuf = "";
         let stderr = "";
 
         const cancel = (): void => {
@@ -70,47 +74,38 @@ export class TextSearchService extends Disposable implements ITextSearchService 
             child.kill();
         };
 
+        splitLines(child.stdout, (line) => {
+            if (cancelled) return;
+            const fileMatch = parseRgMatchLine(line);
+            if (fileMatch === null) return;
+            files.add(fileMatch.absolutePath);
+            matchCount += fileMatch.matches.length;
+            onResult(fileMatch);
+            if (matchCount >= MAX_RESULTS) {
+                limitHit = true;
+                cancel();
+            }
+        });
+
+        // Stryker disable next-line StringLiteral,CallExpression: пустая кодировка у Node — тот же utf8, а без неё `+=` и так переводит Buffer в utf8-строку
+        child.stderr.setEncoding("utf8");
+        child.stderr.on("data", (chunk: string) => {
+            stderr += chunk;
+        });
+
         const complete = new Promise<ITextSearchComplete>((resolve) => {
-            const finish = (error?: string): void => {
-                this.children.delete(child);
+            guard.onDidEnd((end) => {
+                // Stryker disable next-line CallExpression: без удаления dispose лишь «убил» бы уже вышедший rg — kill мёртвому безвреден
+                this.children.delete(guard);
+                // Spawn-level failure (e.g. rg binary missing) — no stdout/close.
+                // rg exit codes: 0 = matches, 1 = no matches, 2 = error (writes stderr).
+                const error =
+                    end.error !== undefined
+                        ? (end.error as Error).message
+                        : !cancelled && end.code === 2
+                          ? stderr.trim()
+                          : undefined;
                 resolve({ matchCount, fileCount: files.size, limitHit, error });
-            };
-
-            child.stdout.setEncoding("utf8");
-            child.stdout.on("data", (chunk: string) => {
-                if (cancelled) return;
-                stdoutBuf += chunk;
-                let nl = stdoutBuf.indexOf("\n");
-                while (nl !== -1) {
-                    const line = stdoutBuf.slice(0, nl);
-                    stdoutBuf = stdoutBuf.slice(nl + 1);
-                    const fileMatch = parseRgMatchLine(line);
-                    if (fileMatch !== null) {
-                        files.add(fileMatch.absolutePath);
-                        matchCount += fileMatch.matches.length;
-                        onResult(fileMatch);
-                        if (matchCount >= MAX_RESULTS) {
-                            limitHit = true;
-                            cancel();
-                            return;
-                        }
-                    }
-                    nl = stdoutBuf.indexOf("\n");
-                }
-            });
-
-            child.stderr.setEncoding("utf8");
-            child.stderr.on("data", (chunk: string) => {
-                stderr += chunk;
-            });
-
-            // Spawn-level failure (e.g. rg binary missing) — no stdout/close.
-            child.on("error", (err) => {
-                finish(err.message);
-            });
-            // rg exit codes: 0 = matches, 1 = no matches, 2 = error (writes stderr).
-            child.on("close", (code) => {
-                finish(!cancelled && code === 2 ? stderr.trim() : undefined);
             });
         });
 
@@ -118,7 +113,8 @@ export class TextSearchService extends Disposable implements ITextSearchService 
     }
 
     public override dispose(): void {
-        for (const child of this.children) child.kill();
+        // kill, а не dispose guard'а: `complete` поиска должен дорешиться и после снятия.
+        for (const guard of this.children) guard.child.kill();
         this.children.clear();
         super.dispose();
     }
