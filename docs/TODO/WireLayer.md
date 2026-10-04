@@ -1,6 +1,6 @@
 # Wire-слой языковых запросов extension host'а (G5)
 
-Статус: `[~]` в работе — сделан A.
+Статус: `[~]` в работе — сделаны A, B.
 
 Языковые запросы хоста к субпроцессу (`languages.provide*`, rename, code
 actions) описаны на проводе несколько раз: параметры — копиями в `wireTypes.ts`
@@ -23,11 +23,18 @@ actions) описаны на проводе несколько раз: пара�
   типы через `Received<T>`; у formatting/code actions `handle`/`languageId`/
   `version` обязательны; `IWireCompletionParams` получил `triggerKind`/
   `triggerCharacter`; хост собирает параметры позиции одним `positionParams`.
-- [ ] B. Типизированный ответ: `RequestFn` отдаёт результат по карте протокола,
-  разборщики `parseWire*` языковых ответов на хосте удаляются, `request*` —
-  один хелпер customer'а с гардами `rpc === null` / `isSynced`. Проверки,
-  которые сейчас делает только хост (кламп `activeSignature`, конечность
-  чисел в диапазонах, `kind` completion), — сперва в сериализаторы субпроцесса.
+- [x] B. Типизированный ответ: `RequestFn` отдаёт результат по карте протокола,
+  разборщики `parseWire*` языковых ответов (и will-save) на хосте удалены,
+  13 `request*` — один `LanguageFeaturesCustomer.request(method, params, empty)`
+  с гардами «спавна нет» / `isSynced` и исходом сбоя. Проверки, которые делал
+  только хост (кламп `activeSignature`, конечность чисел в диапазонах и
+  индексах, конечный `kind` completion/folding, пустые строки документации и
+  uri, строковый `kind` code action, `command: null` completion), — в
+  сериализаторах субпроцесса (`languagesNamespace.serializers.test.ts`).
+  Ответ форматирования и правки-спутники resolve типизированы
+  `IWireEditorEdit` (EOL-ветки `WireTextEdit` в них не бывает). Folding:
+  floor/кламп/вырожденные остались в `wireToCoreFoldingRegions` — инвариант
+  модели ядра, не проверка объекта расширения.
 - [ ] C1. Core-`IRange` на проводе для языковых ответов: `IWireRange` уходит
   из completion, inline, definition, hover, references, formatting, code
   actions; `wireToCore*` удаляются.

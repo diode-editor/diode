@@ -31,32 +31,48 @@ import type {
 } from "../../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IFoldingRegion } from "../../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
-import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
+import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
+import type { RequestParams, RequestResult } from "../../../../api/common/rpcEndpoint.ts";
 import {
+    type IWireDocumentParams,
     type IWireLanguageProviderRegistration,
     type IWirePositionParams,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
-    requestApplyCodeAction,
-    requestCodeActions,
-    requestCompletionItems,
-    requestDefinition,
-    requestFoldingRanges,
-    requestFormattingEdits,
-    requestHover,
-    requestInlineCompletions,
-    requestPrepareRename,
-    requestReferences,
-    requestRename,
-    requestResolveCompletionItem,
-    requestSignatureHelp,
+    wireToCoreCompletionItems,
+    wireToCoreDefinitionLocations,
+    wireToCoreFoldingRegions,
+    wireToCoreHover,
+    wireToCoreInlineCompletionItems,
+    wireToCoreReferences,
+    wireToCoreRenameLocation,
+    wireToCoreResolvedCompletion,
+    wireToCoreTextEdits,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
-import { loggingRequest, type RequestTimeouts } from "../requestPolicy.ts";
+import { loggingRequest, type RequestTimeouts, type TimedRequestMethod } from "../requestPolicy.ts";
 
 /** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
 const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
+
+/** Языковой запрос хоста к субпроцессу (со сроком ответа из {@link RequestTimeouts}). */
+type LanguageRequestMethod = Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">;
+
+/** Ответ языкового запроса — форма из карты протокола. */
+type LanguageResult<K extends LanguageRequestMethod> = RequestResult<IHostToSubprocess, K>;
+
+/** Необязательное в {@link LanguageFeaturesCustomer.request}. */
+interface ILanguageRequestOptions<K extends LanguageRequestMethod> {
+    /** Ответ без спавна (субпроцесс остановлен), если он не `empty` (rename объясняет отказ). */
+    readonly noHost?: LanguageResult<K>;
+    /** Ответ по несинхронизированному документу, если он не `empty`. */
+    readonly notSynced?: LanguageResult<K>;
+    /** Срок ответа вместо табличного (inline completions берут его из запроса). */
+    readonly timeoutMs?: number | undefined;
+    /** Отмена «сверху» (inline completions). */
+    readonly token?: ICancellationToken | undefined;
+}
 
 /**
  * Языковые провайдеры расширений (мост под `ILanguageFeaturesService`):
@@ -125,13 +141,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         handles: readonly number[],
         req: ICompletionRequest,
     ): Promise<readonly ICoreCompletionResult[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return [];
-        return requestCompletionItems(
-            loggingRequest(rpc, this.logger),
+        const results = await this.request(
+            "languages.provideCompletionItems",
             {
                 handles,
                 ...positionParams(req),
@@ -142,8 +153,15 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.triggerCharacter !== undefined ? { triggerCharacter: req.triggerCharacter } : {}),
             },
-            this.timeouts["languages.provideCompletionItems"],
+            [],
         );
+        // Ответ выровнен по `handles`; недостающий элемент (пустой ответ,
+        // обход пачки прерван отменой) — пусто у своего провайдера.
+        return handles.map((_handle, index): ICoreCompletionResult => {
+            const result = results.at(index);
+            if (result === undefined) return EMPTY_COMPLETION_RESULT;
+            return { items: wireToCoreCompletionItems(result.items), isIncomplete: result.isIncomplete };
+        });
     }
 
     /**
@@ -155,14 +173,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * провайдеров: кэш субпроцесса сам знает, чей это пункт.
      */
     public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. requestCompletionBatch — без канала прокси уже сняты из реестра
-        if (rpc === null) return null;
-        return requestResolveCompletionItem(
-            loggingRequest(rpc, this.logger),
-            id,
-            this.timeouts["languages.resolveCompletionItem"],
-        );
+        const resolved = await this.request("languages.resolveCompletionItem", { id }, null);
+        return resolved === null ? null : wireToCoreResolvedCompletion(resolved);
     }
 
     /**
@@ -192,21 +204,21 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         req: IInlineCompletionRequest,
         token: ICancellationToken | undefined,
     ): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return [];
-        return requestInlineCompletions(
-            loggingRequest(rpc, this.logger),
+        // Отмена «сверху» и истёкший срок доходят до провайдера одинаково —
+        // транспорт отменяет запрос (иначе зависший LLM-вызов считал бы в
+        // пустоту до конца жизни субпроцесса).
+        const results = await this.request(
+            "languages.provideInlineCompletions",
             {
                 handles,
                 ...positionParams(req),
                 triggerKind: req.triggerKind,
             },
-            req.timeoutMs ?? this.timeouts["languages.provideInlineCompletions"],
-            token,
+            [],
+            { timeoutMs: req.timeoutMs, token },
         );
+        // Недостающий элемент ответа — пусто у своего провайдера.
+        return handles.map((_handle, index) => wireToCoreInlineCompletionItems(results.at(index) ?? []));
     }
 
     /**
@@ -225,21 +237,18 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         handles: readonly number[],
         req: IFoldingRequest,
     ): Promise<readonly (readonly IFoldingRegion[])[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return [];
-        return requestFoldingRanges(
-            loggingRequest(rpc, this.logger),
+        const results = await this.request(
+            "languages.provideFoldingRanges",
             {
                 handles,
                 uri: req.uri,
                 languageId: req.languageId,
                 version: req.versionId,
             },
-            this.timeouts["languages.provideFoldingRanges"],
+            [],
         );
+        // Недостающий элемент ответа (обход пачки прерван отменой) — пусто у своего провайдера.
+        return handles.map((_handle, index) => wireToCoreFoldingRegions(results.at(index) ?? []));
     }
 
     /**
@@ -253,19 +262,15 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         handle: number,
         req: IDefinitionRequest,
     ): Promise<readonly ICoreDefinitionLocation[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return [];
-        return requestDefinition(
-            loggingRequest(rpc, this.logger),
+        const locations = await this.request(
+            "languages.provideDefinition",
             {
                 handle,
                 ...positionParams(req),
             },
-            this.timeouts["languages.provideDefinition"],
+            [],
         );
+        return wireToCoreDefinitionLocations(locations);
     }
 
     /**
@@ -276,19 +281,15 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * держит в реестре ядра.
      */
     public async provideHover(handle: number, req: IHoverRequest): Promise<ICoreHover | undefined> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return undefined;
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return undefined;
-        return requestHover(
-            loggingRequest(rpc, this.logger),
+        const hover = await this.request(
+            "languages.provideHover",
             {
                 handle,
                 ...positionParams(req),
             },
-            this.timeouts["languages.provideHover"],
+            null,
         );
+        return hover === null ? undefined : wireToCoreHover(hover);
     }
 
     /**
@@ -299,20 +300,16 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * (`LanguageFeaturesAdapter`).
      */
     public async provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return [];
-        return requestReferences(
-            loggingRequest(rpc, this.logger),
+        const references = await this.request(
+            "languages.provideReferences",
             {
                 handle,
                 ...positionParams(req),
                 includeDeclaration: req.includeDeclaration,
             },
-            this.timeouts["languages.provideReferences"],
+            [],
         );
+        return wireToCoreReferences(references);
     }
 
     /**
@@ -323,13 +320,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * (`LanguageFeaturesAdapter`).
      */
     public async provideSignatureHelp(handle: number, req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return null;
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return null;
-        return requestSignatureHelp(
-            loggingRequest(rpc, this.logger),
+        return this.request(
+            "languages.provideSignatureHelp",
             {
                 handle,
                 ...positionParams(req),
@@ -343,7 +335,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.activeSignatureHelp === undefined ? {} : { activeSignatureHelp: req.activeSignatureHelp }),
             },
-            this.timeouts["languages.provideSignatureHelp"],
+            null,
         );
     }
 
@@ -356,13 +348,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * прокси из реестра ядра (`LanguageFeaturesAdapter`).
      */
     public async provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return [];
-        return requestFormattingEdits(
-            loggingRequest(rpc, this.logger),
+        const edits = await this.request(
+            "languages.provideFormattingEdits",
             {
                 handle,
                 uri: req.uri,
@@ -385,8 +372,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                           },
                       }),
             },
-            this.timeouts["languages.provideFormattingEdits"],
+            [],
         );
+        return wireToCoreTextEdits(edits);
     }
 
     /**
@@ -396,13 +384,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * реестра ядра (`LanguageFeaturesAdapter`).
      */
     public async provideCodeActions(handle: number, req: ICodeActionRequest): Promise<readonly ICoreCodeAction[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только на уходе спавна, тем же dispose, что снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return [];
-        return requestCodeActions(
-            loggingRequest(rpc, this.logger),
+        return this.request(
+            "languages.provideCodeActions",
             {
                 handle,
                 uri: req.uri,
@@ -419,7 +402,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.only === undefined ? {} : { only: req.only }),
             },
-            this.timeouts["languages.provideCodeActions"],
+            [],
         );
     }
 
@@ -432,10 +415,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * субпроцесса сам знает, чьё это действие.
      */
     public async applyCodeAction(id: string): Promise<boolean> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
-        if (rpc === null) return false;
-        return requestApplyCodeAction(loggingRequest(rpc, this.logger), id, this.timeouts["languages.applyCodeAction"]);
+        return this.request("languages.applyCodeAction", { id }, false);
     }
 
     /**
@@ -446,16 +426,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * провайдера, а в конце добирает слово под кареткой само.
      */
     public async prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
-        if (rpc === null) return null;
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) return null;
-        return requestPrepareRename(
-            loggingRequest(rpc, this.logger),
-            { handle, ...positionParams(req) },
-            this.timeouts["languages.prepareRename"],
-        );
+        const prepared = await this.request("languages.prepareRename", { handle, ...positionParams(req) }, null);
+        return prepared === null ? null : wireToCoreRenameLocation(prepared);
     }
 
     /**
@@ -467,18 +439,51 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * ничего не произошло.
      */
     public async provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
-        if (rpc === null) return { applied: false, error: "Rename failed" };
-        // Документ, которого субпроцесс не держит, — пусто без RPC.
-        if (!this.isSynced(req.uri)) {
-            return { applied: false, error: "The document is not available to language extensions" };
-        }
-        return requestRename(
-            loggingRequest(rpc, this.logger),
+        // В отличие от форматирования, молчаливый no-op здесь неприемлем:
+        // и неответ, и несинхронизированный документ — отказ с сообщением.
+        return this.request(
+            "languages.provideRenameEdits",
             { handle, ...positionParams(req), newName },
-            this.timeouts["languages.provideRenameEdits"],
+            { applied: false, error: "Rename timed out" },
+            {
+                noHost: { applied: false, error: "Rename failed" },
+                notSynced: { applied: false, error: "The document is not available to language extensions" },
+            },
         );
+    }
+
+    /**
+     * Языковой запрос субпроцессу — общий путь всех `provide*`. Ответ —
+     * форма из карты протокола: её гарантирует сериализатор субпроцесса, и
+     * хост ответ своей второй половины не перепроверяет. `empty` — ответ,
+     * когда спрашивать некого (спавна нет, документ субпроцессу не
+     * синхронизирован — текста запросы не везут, отвечать не по чему) или
+     * расширение не ответило: истёк срок или отказ RPC (его пишет в лог
+     * `loggingRequest`). UI никогда не ждёт вечно. Rename различает причины
+     * отказа сообщением (`noHost`/`notSynced` в `options`).
+     */
+    private async request<K extends LanguageRequestMethod>(
+        method: K,
+        params: RequestParams<IHostToSubprocess, K>,
+        empty: LanguageResult<K>,
+        options: ILanguageRequestOptions<K> = {},
+    ): Promise<LanguageResult<K>> {
+        const rpc = this.rpc;
+        // Спавн ушёл (остановлен или умер): спрашивать некого.
+        if (rpc === null) return options.noHost ?? empty;
+        // Запросы по документу (все, кроме resolve/apply по id из кэша
+        // субпроцесса): документ, которого субпроцесс не держит, — без RPC.
+        const { uri } = params as Partial<IWireDocumentParams>;
+        if (uri !== undefined && !this.isSynced(uri)) return options.notSynced ?? empty;
+        const { timeoutMs = this.timeouts[method], token } = options;
+        try {
+            return await loggingRequest(rpc, this.logger)(method, params, {
+                timeoutMs,
+                ...(token === undefined ? {} : { token }),
+            });
+        } catch {
+            return empty;
+        }
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
