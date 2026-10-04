@@ -7,6 +7,7 @@ import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
@@ -90,6 +91,26 @@ describe("TextEditorConfiguration", () => {
             editor.setLanguage("makefile");
 
             expect(editor.viewState.insertSpaces).toBe(false);
+        });
+
+        it("detached-панель (Output) настраивается при создании, как вкладка", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "editor.wordWrap": "on" }),
+            });
+
+            const pane = ctrl.openDetached(Uri.from({ scheme: "output", path: "extensions" }), "log");
+
+            expect(pane.viewState.wordWrap).toBe("on");
+        });
+
+        it("безымянный буфер настраивается при создании, как вкладка файла", () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "editor.wordWrap": "on" }),
+            });
+
+            ctrl.newUntitled();
+
+            expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
         });
 
         it("seeds indent options from the configuration service", () => {
