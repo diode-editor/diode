@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { INotificationRequest } from "../../services/extensions/node/extensionHost.ts";
 import { NotificationService } from "../../services/notification/browser/notificationService.ts";
+import type { INotificationRequest } from "../common/iExtensionWindowSinks.ts";
 
 import { findCloseAffordance, NotificationExtensionAdapter } from "./notificationExtensionAdapter.ts";
 

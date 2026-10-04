@@ -36,7 +36,8 @@
 7. [x] commands (#499) (прокси на спавн, заглушки-активаторы долгоживущие).
 8. [x] editor + configuration (#500).
 9. [x] documents (#501) (save, sync, семя didOpen).
-10. [~] language features (#502 — реестр провайдеров); удалить опустевший `resetSubprocessState`, доки.
+10. [x] language features (#502 — реестр провайдеров, #504 — запросы и батчеры).
+11. [~] стоки окна в `api/common`; опустевший `resetSubprocessState` → `endSpawn`, доки.
 
 ## Не делаем
 

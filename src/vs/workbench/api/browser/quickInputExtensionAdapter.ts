@@ -1,7 +1,7 @@
 import { renderCodicons } from "../../../base/common/codicons.ts";
 import type { InputValidation, QuickInputService } from "../../browser/parts/quickinput/quickInputService.ts";
 import type { QuickPickItem } from "../../common/quickPickItem.ts";
-import type { IQuickInputBoxRequest, IQuickInputSink } from "../../services/extensions/node/extensionHost.ts";
+import type { IQuickInputBoxRequest, IQuickInputSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireQuickPickRequest, IWireValidationMessage } from "../common/wireTypes.ts";
 
 /**

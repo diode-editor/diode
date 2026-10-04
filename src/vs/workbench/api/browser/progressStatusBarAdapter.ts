@@ -1,7 +1,7 @@
 import { renderCodicons } from "../../../base/common/codicons.ts";
 import { SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
-import type { IProgressSink } from "../../services/extensions/node/extensionHost.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
+import type { IProgressSink } from "../common/iExtensionWindowSinks.ts";
 
 /** Период смены кадра спиннера, мс. */
 const SPINNER_INTERVAL_MS = 100;

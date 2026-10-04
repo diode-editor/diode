@@ -1,8 +1,8 @@
 import { renderCodicons } from "../../../base/common/codicons.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
-import type { IStatusBarItemSink } from "../../services/extensions/node/extensionHost.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
 import type { ICommandService } from "../common/iCommandService.ts";
+import type { IStatusBarItemSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireStatusBarItem } from "../common/wireTypes.ts";
 
 /**

@@ -4,11 +4,12 @@ import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import type { IStatusBarItemSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireStatusBarItem } from "../../../api/common/wireTypes.ts";
 
-import { ExtensionHost, type IStatusBarItemSink } from "./extensionHost.ts";
+import { ExtensionHost } from "./extensionHost.ts";
 
 // Детерминированный in-process тест стока пунктов статус-бара
 // (`window.statusBarItem.*`): вместо форка subprocess'а гоняем

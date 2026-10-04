@@ -1,5 +1,5 @@
-import type { INotificationRequest, INotificationSink } from "../../services/extensions/node/extensionHost.ts";
 import type { NotificationService } from "../../services/notification/browser/notificationService.ts";
+import type { INotificationRequest, INotificationSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireMessageItem } from "../common/wireTypes.ts";
 
 /**

@@ -49,6 +49,13 @@ import { LanguageFeaturesAdapter } from "../vs/workbench/api/browser/languageFea
 import { ThemeColorResolverAdapter } from "../vs/workbench/api/browser/themeColorResolverAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
+import type {
+    DiagnosticsSink,
+    IOutputSink,
+    IProgressSink,
+    IQuickInputSink,
+    IStatusBarItemSink,
+} from "../vs/workbench/api/common/iExtensionWindowSinks.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColorResolver.ts";
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
@@ -65,13 +72,8 @@ import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/co
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import {
-    type DiagnosticsSink,
     ExtensionHost,
     type IExtensionHostConfigProvider,
-    type IOutputSink,
-    type IProgressSink,
-    type IQuickInputSink,
-    type IStatusBarItemSink,
     type IWorkspaceFolderInfo,
 } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
