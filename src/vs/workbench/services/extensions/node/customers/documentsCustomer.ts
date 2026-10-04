@@ -1,7 +1,7 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IDocumentSyncTarget } from "../../../../api/common/iDocumentSyncTarget.ts";
-import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import {
     type IWireDocumentChangedEvent,
     type IWireDocumentSyncSnapshot,
@@ -31,7 +31,7 @@ export interface IDocumentsCustomerOptions {
 
 /** Состояние одного спавна: канал, подписки субпроцесса и синхронизированные документы. */
 interface ISpawnDocuments {
-    readonly rpc: RpcEndpoint;
+    readonly rpc: HostRpc;
     /** Есть ли в субпроцессе активные подписки на will/did-save (см. `workspace.updateSubscriptions`). */
     willSaveSubscribed: boolean;
     didSaveSubscribed: boolean;
@@ -184,7 +184,7 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
                 // Флаг `documentSync` хосту больше не нужен: правки — дельтой и
                 // всем синхронизированным документам (пропуск любой испортил бы
                 // зеркало), а не только при подписчиках onDidChangeTextDocument.
-                const p = params as { willSave?: unknown; didSave?: unknown };
+                const p: { willSave?: unknown; didSave?: unknown } = params;
                 live.willSaveSubscribed = p.willSave === true;
                 live.didSaveSubscribed = p.didSave === true;
             }),

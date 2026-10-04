@@ -2,10 +2,10 @@ import { Disposable, DisposableStore, type IDisposable } from "../../../../../ba
 import { Uri } from "../../../../../base/common/uri.ts";
 import type { IRange } from "../../../../../editor/common/core/iRange.ts";
 import type { IGutterChangeDecoration } from "../../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorDecorationsService } from "../../../../api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../../api/common/iThemeColorResolver.ts";
-import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import {
     type IWireColorTheme,
     parseDecorationRanges,
@@ -23,7 +23,7 @@ import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common
  * но пере-резолв декораций и новая тема уходят только живому спавну.
  */
 export class DecorationsCustomer extends Disposable implements IExtensionHostCustomer {
-    private live: { readonly rpc: RpcEndpoint; readonly decorations: SpawnDecorations } | null = null;
+    private live: { readonly rpc: HostRpc; readonly decorations: SpawnDecorations } | null = null;
 
     public constructor(
         private readonly editorDecorations: IEditorDecorationsService,
@@ -80,7 +80,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         // gutter-декорации в редактор(ы) этого ресурса.
         store.add(
             rpc.handleNotification("editor.setDecorations", (params) => {
-                const p = params as { key?: unknown; uri?: unknown; ranges?: unknown };
+                const p: { key?: unknown; uri?: unknown; ranges?: unknown } = params;
                 if (typeof p.key !== "number" || typeof p.uri !== "string") return;
                 decorations.setRanges(p.key, p.uri, parseDecorationRanges(p.ranges));
             }),
