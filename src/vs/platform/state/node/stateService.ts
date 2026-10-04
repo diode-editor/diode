@@ -41,6 +41,7 @@ export class StateService implements IStateService {
     private readonly onDidOpenWorkspaceEmitter = new Emitter<WorkspaceId>();
     public readonly onDidOpenWorkspace = this.onDidOpenWorkspaceEmitter.event;
     private writeTimer: ReturnType<typeof setTimeout> | undefined;
+    private disposed = false;
 
     public constructor(input: {
         readonly globalStateFile: string;
@@ -121,13 +122,33 @@ export class StateService implements IStateService {
         this.writeStoreSync(this.workspace);
     }
 
+    /**
+     * Глушит писателя: снимает запланированную debounced-запись, и после
+     * `dispose` её не взводит заново ни один `store`/`remove`.
+     *
+     * Durability — НЕ задача `dispose`: грязные сторы остаются несохранёнными,
+     * на диск их отправляет {@link flushSync} (участник прощания,
+     * см. docs/arch/State.md). Разделение намеренное: владельцу временного
+     * каталога нужно уметь остановить писателя, ничего не записав, — иначе
+     * отложенная запись пересоздаёт уже удалённый каталог (`mkdir` с
+     * `recursive` в `writeStoreAsync`) и каталог «воскресает» после сноса.
+     */
+    public dispose(): void {
+        this.disposed = true;
+        if (this.writeTimer !== undefined) {
+            clearTimeout(this.writeTimer);
+            this.writeTimer = undefined;
+        }
+        this.onDidOpenWorkspaceEmitter.dispose();
+    }
+
     /** `global` → global-стор, `workspace` → стор открытого проекта (или пустого окна). */
     private resolveStore(scope: StateScope): ScopeStore {
         return scope === "workspace" ? this.workspace : this.global;
     }
 
     private scheduleWrite(): void {
-        if (this.writeTimer !== undefined) return;
+        if (this.disposed || this.writeTimer !== undefined) return;
         this.writeTimer = setTimeout(() => {
             this.writeTimer = undefined;
             void this.writeStoreAsync(this.global);

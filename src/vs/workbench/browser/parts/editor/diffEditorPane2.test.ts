@@ -529,6 +529,7 @@ describe("Workbench — дифф v2", () => {
             remove: () => undefined,
             openWorkspace: () => undefined,
             flushSync: () => undefined,
+            dispose: () => undefined,
             onDidOpenWorkspace: Event.None,
         }));
         workbench = container.get(WorkbenchComponentDIToken);

@@ -334,9 +334,13 @@ describe("Workbench — Output: регрессии", () => {
     let h: IAppHarness;
     let logService: LogService;
     let history: RingBufferSink;
+    /** Все `StateService` кейса: гасим их до сноса каталогов (см. afterEach). */
+    let writers: StateService[];
 
     function newState(): StateService {
-        return loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        const state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        writers.push(state);
+        return state;
     }
 
     function boot(stateService: StateService): IAppHarness {
@@ -356,6 +360,7 @@ describe("Workbench — Output: регрессии", () => {
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-output-reg-", files: { "alpha.txt": "Alpha" } });
         userData = createTempWorkspace({ prefix: "diode-output-reg-ud-" });
+        writers = [];
         logService = new LogService();
         history = new RingBufferSink();
         logService.addSink(history);
@@ -366,6 +371,9 @@ describe("Workbench — Output: регрессии", () => {
 
     afterEach(() => {
         h.dispose();
+        // Писателей глушим ДО сноса каталогов: debounced-запись, сработавшая
+        // после `rmSync`, пересоздаёт каталог (`mkdir` с `recursive`).
+        for (const writer of writers) writer.dispose();
         ws.dispose();
         userData.dispose();
     });

@@ -15,6 +15,7 @@ function memoryState(): IStateService {
         remove: () => undefined,
         openWorkspace: () => undefined,
         flushSync: () => undefined,
+        dispose: () => undefined,
         onDidOpenWorkspace: Event.None,
     };
 }

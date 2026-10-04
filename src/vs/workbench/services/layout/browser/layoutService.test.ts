@@ -31,6 +31,9 @@ describe("LayoutService", () => {
     });
 
     afterEach(() => {
+        // Писателя глушим ДО сноса каталога: debounced-запись,
+        // сработавшая после `rmSync`, пересоздаёт его.
+        state.dispose();
         ws.dispose();
     });
 

@@ -19,16 +19,25 @@ const ID = "test.memento";
 describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () => {
     let userData: ITempWorkspace;
 
+    /** Созданные кейсом `StateService` — гасим их в `afterEach`. */
+    let writers: StateService[];
+
     beforeEach(() => {
+        writers = [];
         userData = createTempWorkspace({ prefix: "diode-ext-memento-" });
     });
 
     afterEach(() => {
+        // Писателей глушим ДО сноса каталогов: debounced-запись,
+        // сработавшая после `rmSync`, пересоздаёт каталог.
+        for (const writer of writers) writer.dispose();
         userData.dispose();
     });
 
     function newState(): StateService {
-        return loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        const state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        writers.push(state);
+        return state;
     }
 
     async function withHarness(

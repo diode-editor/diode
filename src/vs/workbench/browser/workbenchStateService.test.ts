@@ -50,6 +50,9 @@ describe("WorkbenchStateService", () => {
     });
 
     afterEach(() => {
+        // Писателя глушим ДО сноса каталога: debounced-запись,
+        // сработавшая после `rmSync`, пересоздаёт его.
+        state.dispose();
         editors.dispose();
         ws.dispose();
     });
