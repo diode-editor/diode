@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
@@ -80,10 +80,11 @@ describe("reveal active file in explorer", () => {
 
         // Open it via a non-tree path (e.g. Quick Open). autoReveal defaults to true.
         ctx.workbench.openFile(nestedFile);
-        await flush();
-        ctx.testApp.render();
-
-        expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        // Раскрытие до файла читает каталоги файловым сервисом асинхронно.
+        await vi.waitFor(() => {
+            ctx.testApp.render();
+            expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        });
         ctx.workbench.dispose();
     });
 
@@ -94,10 +95,10 @@ describe("reveal active file in explorer", () => {
         ctx.testApp.render();
 
         ctx.workbench.openFile(nestedFile);
-        await flush();
-        ctx.testApp.render();
-
-        expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        await vi.waitFor(() => {
+            ctx.testApp.render();
+            expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        });
         ctx.workbench.dispose();
     });
 
@@ -130,12 +131,13 @@ describe("reveal active file in explorer", () => {
         expect(ctx.workbench.workbenchLayout.getLeftPanelVisible()).toBe(false);
 
         ctx.commands.execute("workbench.files.action.showActiveFileInExplorer");
-        await flush();
-        ctx.testApp.render();
+        await vi.waitFor(() => {
+            ctx.testApp.render();
+            expect(ctx.testApp.backend.screenToString()).toContain("deep");
+        });
 
         expect(ctx.workbench.workbenchLayout.getLeftPanelVisible()).toBe(true);
         expect(ctx.testApp.focusedElement?.constructor.name).toBe("TreeViewElement");
-        expect(ctx.testApp.backend.screenToString()).toContain("deep");
         ctx.workbench.dispose();
     });
 

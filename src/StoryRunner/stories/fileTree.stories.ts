@@ -2,6 +2,8 @@ import * as path from "node:path";
 
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
+import { diskFileService } from "../../TestUtils/diskFileService.ts";
+import { NULL_TREE_FILE_WATCHER } from "../../vs/platform/files/common/iTreeFileWatcher.ts";
 import {
     FileTreeDataProvider,
     type FileTreeNode,
@@ -15,7 +17,8 @@ export const meta: StoryMeta = {
 export function fileTree(ctx: StoryContext): void {
     const rootPath = ctx.args[0] ?? path.resolve(".");
 
-    const provider = new FileTreeDataProvider(rootPath, () => []);
+    // Живого слежения у истории нет: каталоги читаются при раскрытии.
+    const provider = new FileTreeDataProvider(rootPath, () => [], diskFileService(), NULL_TREE_FILE_WATCHER);
     const tree = new TreeViewElement<FileTreeNode>(provider);
     tree.onExpandedChanged = (node, expanded) => {
         if (expanded) {

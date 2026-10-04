@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
@@ -13,8 +14,8 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -37,7 +38,7 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
         });
 
         const clipboard = new InMemoryFileClipboard();
-        service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
+        service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, diskFileService(), NULL_TREE_FILE_WATCHER);
         const contextMenuService = new ContextMenuService(
             new MenuService(
                 new MenuRegistry(
@@ -104,7 +105,12 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
     });
 
     it("returns false before a root is assigned (no view)", async () => {
-        const bare = new ExplorerService(new InMemoryFileClipboard(), NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
+        const bare = new ExplorerService(
+            new InMemoryFileClipboard(),
+            NULL_CONFIGURATION_SERVICE,
+            diskFileService(),
+            NULL_TREE_FILE_WATCHER,
+        );
         expect(await bare.revealPath("/anything.ts")).toBe(false);
         bare.dispose();
     });
