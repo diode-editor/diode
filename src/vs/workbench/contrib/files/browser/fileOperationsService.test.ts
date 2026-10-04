@@ -1,7 +1,12 @@
+import * as os from "node:os";
+import * as path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { createTestEnvironment } from "../../../../diode/modules/testProfile.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -41,9 +46,20 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
         new KeybindingRegistry(),
         new ContextKeyService(),
         new WorkspaceContextService(),
+        diskFileService(),
+        createTestEnvironment(),
     );
     return { service, edits };
 }
+
+describe("FileOperationsService.resolveInputPath", () => {
+    it("`~` и `~/…` разворачиваются в домашний каталог окружения", () => {
+        const { service } = makeService({});
+        expect(service.resolveInputPath("~")).toBe(os.homedir());
+        expect(service.resolveInputPath(" ~/notes.md ")).toBe(path.join(os.homedir(), "notes.md"));
+        expect(service.resolveInputPath("   ")).toBeNull();
+    });
+});
 
 describe("FileOperationsService — отменённый промпт", () => {
     it("runCreate is a no-op when the prompt is cancelled", async () => {
@@ -83,6 +99,8 @@ describe("FileOperationsService — подсказка отмены в диал�
             keybindings,
             contextKeys,
             new WorkspaceContextService(),
+            diskFileService(),
+            createTestEnvironment(),
         );
         service.requestDeleteFile("/ws/a.txt");
         return shown[0].message;

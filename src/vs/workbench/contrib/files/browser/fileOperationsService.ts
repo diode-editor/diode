@@ -1,7 +1,6 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 
+import { Uri } from "../../../../base/common/uri.ts";
 import type { FileClipboardEntry, IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -10,6 +9,9 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import type { IEnvironmentService } from "../../../../platform/environment/common/environment.ts";
+import { IEnvironmentServiceDIToken } from "../../../../platform/environment/common/environment.ts";
+import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
@@ -45,7 +47,7 @@ export interface IExplorerInputPrompt {
         title?: string;
         placeholder?: string;
         value?: string;
-        validateInput?: (value: string) => string | null;
+        validateInput?: (value: string) => string | null | Promise<string | null>;
     }): Promise<string | undefined>;
 }
 
@@ -80,6 +82,8 @@ export class FileOperationsService {
         KeybindingRegistryDIToken,
         ContextKeyServiceDIToken,
         IWorkspaceContextServiceDIToken,
+        IFileServiceDIToken,
+        IEnvironmentServiceDIToken,
     ] as const;
 
     public constructor(
@@ -94,6 +98,8 @@ export class FileOperationsService {
         private readonly keybindings: KeybindingRegistry,
         private readonly contextKeys: ContextKeyService,
         private readonly workspaceContext: IWorkspaceContextService,
+        private readonly files: IFileService,
+        private readonly environment: IEnvironmentService,
     ) {}
 
     /**
@@ -220,7 +226,7 @@ export class FileOperationsService {
      */
     public async runCreate(kind: "file" | "folder", explorerPath?: string): Promise<void> {
         const targetDir = explorerPath
-            ? fs.statSync(explorerPath).isDirectory()
+            ? (await this.files.stat(Uri.file(explorerPath))).isDirectory
                 ? explorerPath
                 : path.dirname(explorerPath)
             : this.explorer.getPasteTargetDir();
@@ -230,7 +236,7 @@ export class FileOperationsService {
             title: kind === "file" ? "New File" : "New Folder",
             placeholder: kind === "file" ? "Enter file name" : "Enter folder name",
             value: "",
-            validateInput: (value) => {
+            validateInput: async (value) => {
                 const trimmed = value.trim();
                 if (trimmed === "") return "Please enter a name";
                 if (path.isAbsolute(trimmed)) return "Please enter a relative name";
@@ -239,7 +245,8 @@ export class FileOperationsService {
                 // Сегменты без `.`/`..`/пустых и не абсолютный путь → результат всегда
                 // строго внутри targetDir, отдельная проверка на выход не нужна.
                 const resolved = path.resolve(targetDir, trimmed);
-                if (fs.existsSync(resolved)) return "A file or folder with that name already exists";
+                if (await this.files.exists(Uri.file(resolved)))
+                    return "A file or folder with that name already exists";
                 return null;
             },
         });
@@ -270,7 +277,7 @@ export class FileOperationsService {
             title: "Rename",
             placeholder: "Enter new name",
             value: oldName,
-            validateInput: (value) => {
+            validateInput: async (value) => {
                 const trimmed = value.trim();
                 if (trimmed === "") return "Please enter a name";
                 if (path.isAbsolute(trimmed)) return "Please enter a relative name";
@@ -278,7 +285,8 @@ export class FileOperationsService {
                 if (segments.some((s) => s === "" || s === "." || s === "..")) return "Invalid name";
                 if (trimmed === oldName) return null; // без изменений — валидно, но ниже это no-op
                 const resolved = path.resolve(parentDir, trimmed);
-                if (fs.existsSync(resolved)) return "A file or folder with that name already exists";
+                if (await this.files.exists(Uri.file(resolved)))
+                    return "A file or folder with that name already exists";
                 return null;
             },
         });
@@ -301,7 +309,9 @@ export class FileOperationsService {
         const trimmed = value.trim();
         if (trimmed === "") return null;
         const expanded =
-            trimmed === "~" || trimmed.startsWith("~/") ? path.join(os.homedir(), trimmed.slice(1)) : trimmed;
+            trimmed === "~" || trimmed.startsWith("~/")
+                ? path.join(this.environment.userHome, trimmed.slice(1))
+                : trimmed;
         return path.resolve(this.workspaceRoot(), expanded);
     }
 
