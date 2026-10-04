@@ -84,13 +84,16 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             );
 
             // Escape закрывает попап, буфер остаётся с набранным текстом —
-            // значит Escape не просочился в редактор и не отменил правку.
-            await session.key("Escape");
-            const frame = await waitUntil(
-                () => session.captureFrame(),
-                (f) => !frameToText(f).includes(SIGNATURE),
-                { describe: "попап закрыт по Escape", timeoutMs: 30_000, intervalMs: 250 },
-            );
+            // значит Escape не просочился в редактор и не отменил правку. Набор
+            // слова `world` клавишами мог открыть и автодополнение, а Escape
+            // принадлежит ему, пока оно показано (как в VS Code), — тогда
+            // подсказку закрывает следующий Escape.
+            let frame = await session.captureFrame();
+            for (let attempt = 0; attempt < 3 && frameToText(frame).includes(SIGNATURE); attempt++) {
+                await session.key("Escape");
+                frame = await session.captureFrame();
+            }
+            expect(frameToText(frame)).not.toContain(SIGNATURE);
             expect(frameToText(frame)).toContain('greet("world",');
         });
     },
