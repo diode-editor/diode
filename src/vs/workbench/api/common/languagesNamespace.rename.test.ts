@@ -167,6 +167,26 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(seen.pos?.character).toBe(7);
     });
 
+    it("позиция без line/character в параметрах — начало документа", async () => {
+        const { stub, languages } = makeCtx();
+        const seen: { pos?: vscode.Position } = {};
+        languages.registerRenameProvider(
+            { language: "typescript" },
+            {
+                provideRenameEdits: () => null,
+                prepareRename: (_document, position) => {
+                    seen.pos = position;
+                    return null;
+                },
+            },
+        );
+
+        await stub.callRequest("languages.prepareRename", prepareParams({ line: undefined, character: undefined }));
+
+        expect(seen.pos?.line).toBe(0);
+        expect(seen.pos?.character).toBe(0);
+    });
+
     it("отказ провайдера — причина человеку («здесь переименовать нельзя»)", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
