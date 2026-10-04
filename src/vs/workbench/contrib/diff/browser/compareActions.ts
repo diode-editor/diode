@@ -478,7 +478,7 @@ export function registerVscodeDiffCommand(
     return commands.register("vscode.diff", (...args) => vscodeDiff(accessor, ...args));
 }
 
-/** Экшены сравнения файлов (семейство diff). Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены сравнения файлов (семейство diff). Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const COMPARE_ACTIONS: readonly CommandAction[] = [
     compareWithSavedAction,
     compareWithClipboardAction,

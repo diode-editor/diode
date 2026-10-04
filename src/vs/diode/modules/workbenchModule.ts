@@ -2,6 +2,7 @@ import {
     ContextMenuController as EditorContextMenuController,
     ContextMenuControllerDIToken as EditorContextMenuControllerDIToken,
 } from "../../editor/contrib/contextmenu/browser/contextMenuController.ts";
+import { CommandActionsDIToken } from "../../platform/actions/common/commandAction.ts";
 import { MenuContributionsDIToken } from "../../platform/actions/common/iMenuContribution.ts";
 import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
 import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
@@ -14,7 +15,6 @@ import {
 } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
-import { MENU_CONTRIBUTIONS } from "../../workbench/browser/actions/menuContributions.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
 import {
     OpenFailureNotificationContribution,
@@ -74,7 +74,6 @@ import {
     SetContextCommandContributionDIToken,
 } from "../../workbench/browser/setContextCommandContribution.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
-import { WORKBENCH_CONTEXT_KEY_CONTRIBUTORS } from "../../workbench/browser/workbenchContextKeyContributors.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WorkbenchStateService, WorkbenchStateServiceDIToken } from "../../workbench/browser/workbenchStateService.ts";
 import {
@@ -287,7 +286,12 @@ import {
     TerminalEnvStatusContribution,
     TerminalEnvStatusContributionDIToken,
 } from "../../workbench/services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
-import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/workbench.common.main.ts";
+import {
+    MENU_CONTRIBUTIONS,
+    WORKBENCH_ACTIONS,
+    WORKBENCH_CONTEXT_KEY_CONTRIBUTORS,
+    WORKBENCH_CONTRIBUTIONS,
+} from "../../workbench/workbench.common.main.ts";
 
 /** Фабрики вкладок из contrib — по одной на вид вкладки (см. `IEditorPaneFactory`). */
 const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
@@ -439,6 +443,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // реестр (данные) + MenuService (живые IMenu), из которых собираются
     // контекст-меню (редактор, Explorer) и меню-бар.
     container.bind(MenuContributionsDIToken, () => MENU_CONTRIBUTIONS);
+    // Встроенные экшены (WORKBENCH_ACTIONS агрегатора) — их регистрирует WorkbenchComponent.
+    container.bind(CommandActionsDIToken, () => WORKBENCH_ACTIONS);
     container.bind(MenuRegistryDIToken, MenuRegistry);
     container.bind(MenuServiceDIToken, MenuService);
     container.bind(ContextMenuServiceDIToken, ContextMenuService);

@@ -135,7 +135,7 @@ export const gitShowOutputAction: CommandAction = {
 };
 
 /**
- * Мутирующая часть: `builtinActions` вешает на неё `enablement` занятости.
+ * Мутирующая часть: `WORKBENCH_ACTIONS` вешает на неё `enablement` занятости.
  * `git.showOutput` сюда не входит — он ничего не запускает, и гасить его на
  * время операции значило бы прятать её же лог.
  */

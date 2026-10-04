@@ -43,7 +43,7 @@ function esmFixture(): IExtensionRegistration {
     };
 }
 
-/** Регистрирует настоящую команду формата (как builtinActions в проде). */
+/** Регистрирует настоящую команду формата (как WORKBENCH_ACTIONS в проде). */
 function registerFormatAction(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;

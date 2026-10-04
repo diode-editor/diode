@@ -166,5 +166,5 @@ export const fixAllAction: CommandAction = {
     },
 };
 
-/** Экшены code actions (organize imports, fix all, quick fix). Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены code actions (organize imports, fix all, quick fix). Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const CODE_ACTION_ACTIONS: readonly CommandAction[] = [organizeImportsAction, fixAllAction, quickFixAction];

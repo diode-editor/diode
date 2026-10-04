@@ -29,5 +29,5 @@ export const revealDefinitionAsideAction: CommandAction = {
     },
 };
 
-/** Экшены перехода к определению. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены перехода к определению. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const GOTO_DEFINITION_ACTIONS: readonly CommandAction[] = [revealDefinitionAction, revealDefinitionAsideAction];

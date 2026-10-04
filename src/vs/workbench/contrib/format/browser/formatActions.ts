@@ -126,5 +126,5 @@ export const formatSelectionAction: CommandAction = {
     },
 };
 
-/** Экшены форматирования. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены форматирования. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const FORMAT_ACTIONS: readonly CommandAction[] = [formatDocumentAction, formatSelectionAction];

@@ -4,7 +4,7 @@ import type { MenuId } from "./menuId.ts";
 
 /**
  * Декларативная запись пункта меню (аналог вклада в `MenuRegistry` VS Code).
- * Пункты собираются в явный массив `MENU_CONTRIBUTIONS` (зеркало `builtinActions`)
+ * Пункты собираются в явный массив `MENU_CONTRIBUTIONS` (зеркало `WORKBENCH_ACTIONS`)
  * и резолвятся `MenuRegistry.getMenuItems` в конкретный `MenuEntry`.
  */
 export interface IMenuContribution {

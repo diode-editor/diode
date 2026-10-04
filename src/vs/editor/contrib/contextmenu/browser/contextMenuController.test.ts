@@ -14,7 +14,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { MENU_CONTRIBUTIONS } from "../../../../workbench/browser/actions/menuContributions.ts";
+import { MENU_CONTRIBUTIONS } from "../../../../workbench/workbench.common.main.ts";
 import { EditorElement } from "../../../browser/editorElement.ts";
 import { createSelection } from "../../../common/core/iSelection.ts";
 import { TextDocument } from "../../../common/model/textDocument.ts";

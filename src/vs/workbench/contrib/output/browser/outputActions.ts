@@ -36,5 +36,5 @@ export const toggleOutputAction: CommandAction = {
     },
 };
 
-/** Экшены панели Output. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены панели Output. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const OUTPUT_ACTIONS: readonly CommandAction[] = [toggleOutputAction];

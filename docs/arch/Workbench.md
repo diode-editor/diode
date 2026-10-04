@@ -189,7 +189,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 - фича не импортирует внутренности соседней фичи — только её сервис, DI-токен и
   экспорты из `common/`. Циклов между фичами нет;
 - фича не добавляет свои команды, ключи и состояние в центральные реестры
-  (`builtinActions.ts`, `contextKeys.ts`, `stateKeys.ts`).
+  (`contextKeys.ts`, `stateKeys.ts`); экшены фичи разворачивает агрегатор.
 
 **Агрегатор** `workbench.common.main.ts` — единственный файл workbench, которому
 разрешено импортировать `contrib/`. Он разворачивает массивы фич в
@@ -208,7 +208,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 
 | Сегодня в центре | Что там | Куда уходит | Задача |
 |---|---|---|---|
-| `workbench/browser/actions/builtinActions.ts`, `menuContributions.ts` | список массивов `<FEATURE>_ACTIONS` и деривация меню (сами команды фич уже в фичах) | агрегатор `workbench.common.main.ts` | F2 (после агрегатора E4) |
+| `workbench/browser/actions/{layout,editorGroup,input}Actions.ts` | экшены ядра зовут сервисы explorer, markers и поле ввода explorer напрямую | токены сервисов в `common/` фич или экшены — в фичи | E4 |
 | `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
 | `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
 | `workbench/browser/workbenchComponent.ts` | корень дерева Explorer и cwd терминала в `setWorkspaceFolder` | подписки explorer и терминала на смену папки, explorer как `IActivatable` — после того как путь папки перестанет терять регистр буквы диска (см. TODO); храповик направления, контейнеры у владельцев, хост оверлеев через `LayoutService`, фаза `blockStartup` и агрегатор `workbench.common.main.ts` уже сделаны | E4 |
@@ -256,7 +256,7 @@ dispose реестра сматывает все contribution'ы. Три фаз�
   стартует фоновый прогрев грамматик (`main.ts`, по `onDidChangePhase`).
 
 **Регистрация — явный массив** `WORKBENCH_CONTRIBUTIONS` в агрегаторе
-`src/vs/workbench/workbench.common.main.ts` (зеркало `builtinActions`, без
+`src/vs/workbench/workbench.common.main.ts` (зеркало `WORKBENCH_ACTIONS`, без
 import-side-effect саморегистрации): пара `{ token, phase }`. Новую фичу или
 проводку добавляем сюда + биндим класс в `src/vs/diode/modules/workbenchModule.ts`,
 а не строкой в конструктор корня.
@@ -317,7 +317,7 @@ VS Code), а не хардкодятся списками в местах отк
 label для меню: «File: Copy» → «Copy»; label-цепочка «title размещения →
 shortTitle → title» фиксируется при деривации). Явный полный массив
 `MENU_CONTRIBUTIONS` = структура меню-бара (`MENUBAR_SUBMENUS`) + деривация
-`menuItemsOfAction(action)` по `builtinActions` — конвенция явных массивов
+`menuItemsOfAction(action)` по `WORKBENCH_ACTIONS` (оба массива — в агрегаторе) — конвенция явных массивов
 сохраняется, но источник каждого placement'а — файл его экшена.
 
 **Реестр (данные).** `MenuRegistry.getMenuItems(menuId, context?)`: фильтр по
@@ -572,7 +572,7 @@ hide-toggle (`isHiddenByDefault`). См.
   пути + `FileOperationsService.resolveInputPath`; открытие — команда
   `workbench.openFile`, смена воркспейса — шов `IWorkspaceFolderOpener` →
   `WorkbenchComponent` структурно, биндинг в `Modules/WorkbenchModule.ts`).
-  Регистрирует их `WorkbenchComponent` в общем цикле `builtinActions`.
+  Регистрирует их `WorkbenchComponent` в общем цикле по `WORKBENCH_ACTIONS`.
   С этапа 9b здесь же экшены активного редактора поверх `EditorService`:
   `EncodingActions.ts` (двухуровневый пикер Reopen/Save with Encoding),
   `EolActions.ts` (convert/toggle/пикер EOL), `ContextMenuActions.ts`
@@ -585,8 +585,8 @@ hide-toggle (`isHiddenByDefault`). См.
   Preferences*-экшены (Preferences и save/saveAs/newUntitled — с реальными
   `run(accessor)`, About — экшен поверх DialogService; у quit `run` перекрывает
   `WorkbenchComponent` confirm-save-флоу), добавились `LayoutActions.ts`/
-  `TerminalActions.ts`, а сам упорядоченный список — `builtinActions.ts`
-  (регистрирует владелец приложения одним циклом).
+  `TerminalActions.ts`, а сам список — `WORKBENCH_ACTIONS` в агрегаторе
+  `workbench.common.main.ts` (регистрирует владелец приложения одним циклом).
 - **Сообщения человеку** — `services/notification/browser/notificationService.ts`
   (аналог `INotificationService`) плюс `browser/parts/notifications/`. Сервис —
   модель показов и НИЧЕГО про контролы: он делит сообщения на два рода, и это
@@ -1075,7 +1075,7 @@ hide-toggle (`isHiddenByDefault`). См.
     (`DialogService`/`QuickInputComponent`/`TabSwitcherComponent`/`NotificationsComponent`
     `attachHost(BodyElement)`, `LayoutService.attachLayout`, `WorkbenchContextKeys.attachView`), вешает
     листенеры `KeybindingDispatcher` и фокус-хуки, регистрирует список
-    `builtinActions` одним циклом. Фич-компоненты и их сервисы он не резолвит —
+    `WORKBENCH_ACTIONS` одним циклом (получает его токеном `CommandActionsDIToken`). Фич-компоненты и их сервисы он не резолвит —
     их инстанцирует реестр contribution'ов в фазе `blockStartup` (в конструкторе
     корня); фич-проводка (autoReveal, live-reload темы, контекст-меню редактора,
     команда `workbench.openFile`, статус-бар) — те же contribution'ы по фазам
@@ -1302,8 +1302,8 @@ hide-toggle (`isHiddenByDefault`). См.
     состояния, реализует `IContextKeyContributor`
     (`platform/contextkey/common/contextKeyContributor.ts`,
     `updateContextKeys(contextKeys, active)`) и встаёт строкой в явный список
-    `WORKBENCH_CONTEXT_KEY_CONTRIBUTORS` (`workbench/browser/
-    workbenchContextKeyContributors.ts`, токен `ContextKeyContributorsDIToken`).
+    `WORKBENCH_CONTEXT_KEY_CONTRIBUTORS` (агрегатор `workbench.common.main.ts`,
+    токен `ContextKeyContributorsDIToken`).
     Центр опрашивает контрибьюторов в том же `update()` — тайминг pull общий,
     ключ самоисцеляется на следующем нажатии. Ключ с одним переходом состояния
     фича пушит сама (`searchViewMode`, `hasSearchResult`, scm busy).
@@ -1435,12 +1435,13 @@ hide-toggle (`isHiddenByDefault`). См.
 - **Регистрация команд — два рода, как у upstream.** Статическая команда —
   `CommandAction` в массиве своей фичи: фича отдаёт один
   `<FEATURE>_ACTIONS` (`contrib/scm/browser/scmActions.ts`, `contrib/find/browser/findActions.ts`, …),
-  `builtinActions.ts` разворачивает массивы фич, `WorkbenchComponent`
-  регистрирует их одним циклом `registerAction`. Команда, которая держит
+  агрегатор `workbench.common.main.ts` разворачивает массивы фич в
+  `WORKBENCH_ACTIONS`, `WorkbenchComponent` регистрирует их одним циклом
+  `registerAction` (список приходит токеном `CommandActionsDIToken`). Команда, которая держит
   состояние сервиса или появляется динамически, — `commands.register` в
   сервисе или contribution (аналог `CommandsRegistry.registerCommand`).
   Политика фичи над её командами живёт в фиче (`gitMutating` — в
-  `scmActions.ts`). Порядок в `builtinActions.ts` не держит ни кейбинды
+  `scmActions.ts`). Порядок в `WORKBENCH_ACTIONS` не держит ни кейбинды
   (веса, см. ниже), ни меню: пункты групп меню сверяются срезом
   `menuContributions.slice.test.ts`.
 - **`setContext`** — встроенная команда VS Code, которой РАСШИРЕНИЯ публикуют свои

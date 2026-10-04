@@ -67,7 +67,7 @@ export const closeFindWidgetAction: CommandAction = {
     },
 };
 
-/** Экшены find-виджета. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены find-виджета. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const FIND_ACTIONS: readonly CommandAction[] = [
     findAction,
     nextMatchAction,

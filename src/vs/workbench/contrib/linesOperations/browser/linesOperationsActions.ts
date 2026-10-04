@@ -13,7 +13,7 @@ import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whites
 /**
  * Экшены фичи linesOperations одним массивом (как `editor/contrib/linesOperations`
  * upstream): дубль, перенос и удаление строк, обрезка хвостовых пробелов и
- * финальный перевод строки. Регистрирует агрегатор (`builtinActions`).
+ * финальный перевод строки. Регистрирует агрегатор (`WORKBENCH_ACTIONS`).
  */
 export const LINES_OPERATIONS_ACTIONS: readonly CommandAction[] = [
     copyLinesUpAction,

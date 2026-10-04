@@ -46,5 +46,5 @@ export const hideHoverAction: CommandAction = {
     },
 };
 
-/** Экшены hover-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены hover-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const HOVER_ACTIONS: readonly CommandAction[] = [showHoverAction, hideHoverAction];

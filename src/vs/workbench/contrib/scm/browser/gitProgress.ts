@@ -10,7 +10,7 @@ const NOT_BUSY = "!gitOperationInProgress";
  * пока идёт другая операция, она гаснет во всех точках сразу (кнопка заголовка,
  * пункт меню, кейбинд, палитра). Аналог `"enablement": "!operationInProgress"`
  * у команд git-расширения VS Code — только объявлен одним списком в
- * `builtinActions`, а не полем у каждой команды.
+ * `WORKBENCH_ACTIONS`, а не полем у каждой команды.
  */
 export function gitMutating(action: CommandAction): CommandAction {
     return { ...action, enablement: combineWhen(action.enablement, NOT_BUSY) };

@@ -19,7 +19,7 @@ import { type StatusBarService, StatusBarServiceDIToken } from "../../../service
 // RPC → провайдер фикстуры → правки в буфере (#196, DoD-гейт «тест гоняет
 // настоящую команду и сверяет текст документа»).
 
-/** Регистрирует НАСТОЯЩИЕ формат-команды в реестре харнесса (как builtinActions в проде). */
+/** Регистрирует НАСТОЯЩИЕ формат-команды в реестре харнесса (как WORKBENCH_ACTIONS в проде). */
 function registerFormatActions(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;

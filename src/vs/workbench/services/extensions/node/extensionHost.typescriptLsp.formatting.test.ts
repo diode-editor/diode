@@ -114,7 +114,7 @@ describe("ExtensionHost — форматирование от стокового
             });
             expect(edits.length).toBeGreaterThan(0);
 
-            // Настоящая команда (как builtinActions в проде) — и текст в буфере.
+            // Настоящая команда (как WORKBENCH_ACTIONS в проде) — и текст в буфере.
             const statusBar = {
                 addEntry: () => ({ dispose: () => undefined }),
             } as unknown as StatusBarService;

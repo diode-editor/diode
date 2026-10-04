@@ -15,8 +15,7 @@ import {
     serializeChord,
 } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { macKeysLevel, type MacKeysRung } from "../../../platform/keybinding/common/macKeys.ts";
-
-import { builtinActions } from "./builtinActions.ts";
+import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
  * Гейт достижимости дефолтных биндов.

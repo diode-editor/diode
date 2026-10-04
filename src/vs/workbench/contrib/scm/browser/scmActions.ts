@@ -33,7 +33,7 @@ import { SYNC_ACTIONS } from "./syncActions.ts";
  * `enablement: !gitOperationInProgress` ({@link gitMutating}). В VS Code это
  * поле у каждой команды манифеста; у нас — один список здесь, чтобы не
  * расходился с тем, что реально ходит через транспортные швы. Регистрирует
- * агрегатор (`builtinActions`).
+ * агрегатор (`WORKBENCH_ACTIONS`).
  */
 export const SCM_ACTIONS: readonly CommandAction[] = [
     compareWithHeadAction,

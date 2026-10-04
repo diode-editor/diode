@@ -2,6 +2,7 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../instantiation/common/diContainer.ts";
+import { token } from "../../instantiation/common/diContainer.ts";
 import type { Keybinding, KeybindingChord, KeybindingRegistry } from "../../keybinding/common/keybindingRegistry.ts";
 
 import type { MenuId } from "./menuId.ts";
@@ -81,6 +82,13 @@ export interface CommandAction {
     readonly menus?: readonly CommandMenuPlacement[];
     run(accessor: ServiceAccessor, ...args: unknown[]): unknown;
 }
+
+/**
+ * Явный список встроенных экшенов приложения (как `MenuContributionsDIToken`):
+ * значение собирает агрегатор (`WORKBENCH_ACTIONS` в `workbench.common.main.ts`),
+ * регистрирует его владелец приложения единым циклом `registerAction`.
+ */
+export const CommandActionsDIToken = token<readonly CommandAction[]>("CommandActions");
 
 function isConditionalKeybinding(entry: KeybindingEntry): entry is ConditionalKeybinding {
     return !Array.isArray(entry) && "keys" in entry;

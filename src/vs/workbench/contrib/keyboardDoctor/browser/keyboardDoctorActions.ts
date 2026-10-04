@@ -27,5 +27,5 @@ export const keyboardDoctorAction: CommandAction = {
     },
 };
 
-/** Экшены Keyboard Doctor. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены Keyboard Doctor. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const KEYBOARD_DOCTOR_ACTIONS: readonly CommandAction[] = [keyboardDoctorAction];

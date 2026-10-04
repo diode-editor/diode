@@ -182,7 +182,7 @@ export const searchViewAsListAction: CommandAction = {
     },
 };
 
-/** Экшены вьюлета поиска. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены вьюлета поиска. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const SEARCH_ACTIONS: readonly CommandAction[] = [
     showSearchAction,
     searchViewAsTreeAction,

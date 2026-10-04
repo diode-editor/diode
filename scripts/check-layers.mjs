@@ -99,14 +99,10 @@ const WORKBENCH_CONTRIB_DIR = "src/vs/workbench/contrib/";
 const DIRECTION_EXCEPTIONS = [
     // Корень: ссылки на фичи в setWorkspaceFolder/activate/restore (E4 PR5).
     "src/vs/workbench/browser/workbenchComponent.ts",
-    // Контекст-ключи фич в ядре (F3).
-    "src/vs/workbench/browser/workbenchContextKeyContributors.ts",
-    // Экшены фич в общем списке и в мелких action-файлах (F2).
-    "src/vs/workbench/browser/actions/builtinActions.ts",
+    // Мелкие action-файлы ядра зовут сервисы фич (explorer, markers) — зона E4.
     "src/vs/workbench/browser/actions/editorGroupActions.ts",
     "src/vs/workbench/browser/actions/inputActions.ts",
     "src/vs/workbench/browser/actions/layoutActions.ts",
-    "src/vs/workbench/browser/actions/menuContributions.ts",
 ];
 
 /**

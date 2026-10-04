@@ -20,8 +20,7 @@ import type {
     KeybindingRegistry,
 } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { serializeChord } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-
-import { builtinActions } from "./builtinActions.ts";
+import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
  * Срез приоритета дефолтных биндов (F1, предохранитель переноса «порядок
@@ -238,7 +237,7 @@ describe("срез приоритета дефолтных биндов", () => 
     // Замер для F1: сколько пар держится только на порядке регистрации. После
     // весов у семейств (F1, PR3) тест включается и обязан совпасть с эталоном.
     it("порядок регистрации не влияет на старшинство", () => {
-        const reversed = registerBuiltins([...builtinActions].reverse());
+        const reversed = registerBuiltins([...WORKBENCH_ACTIONS].reverse());
         expect(pairwiseSlice(reversed)).toEqual(reference.pairs);
     });
 });
