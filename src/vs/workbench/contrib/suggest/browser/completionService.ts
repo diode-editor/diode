@@ -338,9 +338,13 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     private onCaretChanged(editor: TextEditorPane): void {
         if (!this.isOpen()) return;
         const selections = editor.viewState.selections;
-        const active = selections.length === 1 && isSelectionCollapsed(selections[0]) ? selections[0].active : null;
-        const line = active !== null ? editor.viewState.document.getLineContent(active.line) : "";
-        this.refilterOpen(editor, active, line);
+        // Выделение или мультикурсор — сужать нечего: попап привязан к одной каретке.
+        if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) {
+            this.close();
+            return;
+        }
+        const active = selections[0].active;
+        this.refilterOpen(editor, active, editor.viewState.document.getLineContent(active.line));
     }
 
     /**
@@ -368,12 +372,17 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     }
 
     /** Re-filter при открытом попапе (закрывает при уходе каретки из слова). */
-    private refilterOpen(editor: TextEditorPane, active: IPosition | null, line: string): void {
+    private refilterOpen(editor: TextEditorPane, active: IPosition, line: string): void {
         const prefixRange = this.prefixRange;
-        if (active === null || prefixRange === null) {
+        // При открытом попапе prefixRange недостижимо пуст: его ставит trigger()
+        // вместе с открытием, а снимает только close() — проверка ради сужения типа.
+        /* v8 ignore start -- defensive: см. выше */
+        // Stryker disable next-line ConditionalExpression,BlockStatement: недостижимая ветка, см. выше
+        if (prefixRange === null) {
             this.close();
             return;
         }
+        /* v8 ignore stop */
         // Другая строка или каретка левее начала префикса — вышли из слова.
         if (active.line !== prefixRange.start.line || active.character < prefixRange.start.character) {
             this.close();

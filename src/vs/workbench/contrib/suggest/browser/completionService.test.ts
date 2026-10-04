@@ -859,7 +859,8 @@ describe("CompletionService", () => {
 
         fake.type("inde", 4); // запланировали авто-suggest
         await service.trigger(); // ручной триггер отменяет отложенный
-        await flushTimers();
+        // Ждём заведомо дольше задержки: без отмены отложенный успел бы выстрелить.
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         expect(source).toHaveBeenCalledTimes(1); // отложенный не выстрелил вторым
     });
