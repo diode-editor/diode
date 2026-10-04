@@ -1,6 +1,6 @@
 # Нарезка ExtensionHost: состояние спавна и customers (G1)
 
-Статус: `[~]` в работе.
+Статус: `[x]` сделано.
 
 `ExtensionHost` (`services/extensions/node/extensionHost.ts`, ~2800 строк)
 держит в одном классе три вещи с разным временем жизни: процесс и канал
@@ -35,10 +35,16 @@
    коммитом — сброс объявленных схем на смерти с событием.
 7. [x] commands (#499) (прокси на спавн, заглушки-активаторы долгоживущие).
 8. [x] editor + configuration (#500).
-9. [x] documents (#501) (save, sync, семя didOpen).
-10. [x] language features (#502 — реестр провайдеров, #504 — запросы и батчеры).
-11. [x] стоки окна в `api/common`; опустевший `resetSubprocessState` → `endSpawn` (#505).
-12. [~] `ExtensionPhases` — таблица фаз расширений; доки.
+9. [x] documents (#501) (save, sync, семя didOpen) + порт `IDocumentSyncTarget` для
+   `bindDocumentSync`.
+10. [x] language features: реестр провайдеров спавна (#502), затем запросы к ним и
+    батчеры (#504).
+11. [x] стоки окна в `api/common` (адаптеры `api/browser` без импортов слоя
+    node); опустевший `resetSubprocessState` → `endSpawn` (#505).
+12. [x] `ExtensionPhases` (#506) — таблица фаз расширений с юнит-тестами (G8 заберёт её
+    в сервис расширений).
+13. [x] Доки: `docs/arch/Extensions.md` (фасад и customers, смерть субпроцесса),
+    `docs/ARCHITECTURE.md`.
 
 ## Не делаем
 
