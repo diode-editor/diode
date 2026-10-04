@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
@@ -13,7 +14,6 @@ import type {
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { LogEntry } from "../../../../platform/log/common/iLogService.ts";
-import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 
 import { ExplorerService, type IExplorerView } from "./explorerService.ts";
 import type { FileTreeNode } from "./fileTreeDataProvider.ts";
