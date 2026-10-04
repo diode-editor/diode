@@ -1213,7 +1213,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private replaceVirtualContent(group: EditorGroup, index: number, content: string): TextEditorPane | null {
         const pane = group.getPane(index);
         /* v8 ignore start -- defensive: вкладку по этому ресурсу заводит только createVirtualPane */
-        // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: недостижимая ветвь по той же причине, что и для покрытия
         if (!(pane instanceof TextEditorPane) || !(pane.model instanceof SyntheticTextModel)) return null;
         /* v8 ignore stop */
         pane.model.replaceContent(content);
