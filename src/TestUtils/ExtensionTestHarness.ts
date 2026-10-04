@@ -83,6 +83,7 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 import type { IWorkspaceScanner } from "../vs/workbench/services/extensions/node/workspaceContainsActivation.ts";
 
 import { diskFileService } from "./diskFileService.ts";
+import { removeDirLoud } from "./removeDirLoud.ts";
 import { createTestContextMenuService } from "./testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 
@@ -482,13 +483,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         await host.shutdown();
         groupComponent.dispose();
         group.dispose();
-        try {
-            fs.rmSync(tmpDir, { recursive: true, force: true });
-        } catch (err) {
-            // Не роняем тест (каталог временный, прогон уже прошёл), но и не
-            // молчим: проглоченная ошибка здесь годами копила мусор незаметно.
-            console.warn(`[ExtensionTestHarness] не удалось снести ${tmpDir}:`, err);
-        }
+        removeDirLoud(tmpDir, "ExtensionTestHarness");
     };
 
     return { app, host, group, languageFeatures, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };

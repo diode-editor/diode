@@ -11,9 +11,9 @@ import * as path from "node:path";
  * падении по таймауту. На этой машине так накопилось 34 121 каталога `diode-*`
  * на 11 ГБ.
  *
- * Поэтому у прогона есть СВОЙ корень, и `TMPDIR` указывает в него: тестам
- * ничего менять не надо (`os.tmpdir()` читает переменную при каждом вызове),
- * а teardown сносит корень целиком — вместе со всем, что в нём забыли.
+ * Поэтому у прогона есть СВОЙ корень, и переменные temp указывают в него:
+ * тестам ничего менять не надо (`os.tmpdir()` читает их при каждом вызове), а
+ * teardown сносит корень целиком — вместе со всем, что в нём забыли.
  *
  * Корень, оставшийся от аварийно убитого прогона, подбирает следующий: владелец
  * опознаётся по {@link OWNER_FILE}, и корень с мёртвым владельцем сносится.
@@ -103,11 +103,18 @@ export function setup(): () => void {
 
     const root = createRunTmpRoot(parent);
     process.env.DIODE_TEST_TMP = root;
-    process.env.TMPDIR = root;
+    // Все переменные, которые читает `os.tmpdir()`: на posix — `TMPDIR`, на
+    // Windows — `TEMP`/`TMP`. Ставим весь набор, иначе на одной из платформ
+    // корень оставался бы пустым, а каталоги уходили в системный tmp мимо
+    // уборки (проверено: Node читает именно эти три).
+    for (const name of TEMP_ENV_VARS) process.env[name] = root;
 
     return () => {
         fs.rmSync(root, { recursive: true, force: true });
     };
 }
+
+/** Переменные окружения, из которых `os.tmpdir()` берёт путь. */
+export const TEMP_ENV_VARS = ["TMPDIR", "TEMP", "TMP"] as const;
 
 export default setup;

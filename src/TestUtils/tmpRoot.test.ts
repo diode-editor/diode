@@ -4,7 +4,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createRunTmpRoot, pruneStaleRoots, setup } from "./tmpRoot.ts";
+import { createRunTmpRoot, pruneStaleRoots, setup, TEMP_ENV_VARS } from "./tmpRoot.ts";
 
 describe("tmpRoot — корень временных каталогов прогона", () => {
     let parent: string;
@@ -125,11 +125,15 @@ describe("tmpRoot — корень временных каталогов про�
     });
 
     describe("setup (globalSetup vitest)", () => {
-        const saved = { tmp: process.env.TMPDIR, own: process.env.DIODE_TEST_TMP };
+        // `setup` пишет в окружение прогона — возвращаем его штатной идиомой
+        // vitest: `stubEnv` запоминает оригинал (даже если дальше переменную
+        // перезапишут напрямую), `unstubAllEnvs` его восстанавливает.
+        beforeEach(() => {
+            for (const name of [...TEMP_ENV_VARS, "DIODE_TEST_TMP"]) vi.stubEnv(name, process.env[name]);
+        });
 
         afterEach(() => {
-            process.env.TMPDIR = saved.tmp;
-            process.env.DIODE_TEST_TMP = saved.own;
+            vi.unstubAllEnvs();
             delete process.env.DIODE_TEST_TMP_PARENT;
         });
 
@@ -140,7 +144,9 @@ describe("tmpRoot — корень временных каталогов про�
 
             const root = process.env.DIODE_TEST_TMP;
             expect(root).toBeDefined();
-            expect(process.env.TMPDIR).toBe(root);
+            // Весь набор, а не только posix-переменная: на Windows `os.tmpdir()`
+            // читает TEMP/TMP, и без них корень остался бы пустым.
+            expect(TEMP_ENV_VARS.map((name) => process.env[name])).toEqual([root, root, root]);
             // Главное свойство: тест, не менявший ни строки, пишет уже внутрь корня.
             expect(path.dirname(fs.mkdtempSync(path.join(os.tmpdir(), "inside-")))).toBe(root);
             // Забытое в корне уходит вместе с ним — это и есть страховка от OOM.
