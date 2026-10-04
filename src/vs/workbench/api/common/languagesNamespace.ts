@@ -148,8 +148,23 @@ export interface IRangeFormattingRegistration {
     readonly provider: vscode.DocumentRangeFormattingEditProvider;
 }
 
-/** Элемент кэша ответов completion — оригинальный объект провайдера + его владелец. */
-interface ICachedCompletion {
+/**
+ * Владелец регистрации провайдера — id расширения, зарегистрировавшего его
+ * (окружающий владелец {@link IVscodeHostContext.owner} в момент `register*`).
+ * `undefined` — регистрация вне оверлея расширения (общий namespace).
+ */
+interface IRegistrationOwner {
+    readonly owner: string | undefined;
+}
+
+/** Регистрация провайдера вместе с её владельцем. */
+type Owned<T> = T & IRegistrationOwner;
+
+/**
+ * Элемент кэша ответов completion — оригинальный объект провайдера, сам
+ * провайдер (у него спрашивают resolve) и id расширения-владельца регистрации.
+ */
+interface ICachedCompletion extends IRegistrationOwner {
     readonly item: vscode.CompletionItem;
     readonly provider: vscode.CompletionItemProvider;
 }
@@ -164,7 +179,7 @@ const COMPLETION_CACHE_DEPTH = 2;
  */
 interface ICachedCodeAction {
     readonly item: vscode.CodeAction | vscode.Command;
-    readonly registration: ICodeActionRegistration;
+    readonly registration: Owned<ICodeActionRegistration>;
 }
 
 /** Пересечение диапазонов, границы включительно (как `vscode.Range.intersection`). */
@@ -236,11 +251,13 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
  * отсутствующем `TextDocument.positionAt`, снаружи это выглядело как «форматтер
  * ответил: менять нечего», и ни в одном логе следа не было (#381).
  */
-function reportProviderFailure(method: string, err: unknown): void {
+function reportProviderFailure(method: string, err: unknown, owner: string | undefined): void {
     // Отмена — штатный исход отменённого запроса (провайдер честно бросил
     // CancellationError по токену), а не сбой.
     if (isCancellationError(err)) return;
-    console.error(`[ext-host] ${method} failed: ${describeRejection(err)}`);
+    // id расширения-владельца: без него строка не говорит, ЧЕЙ провайдер упал.
+    const tag = owner === undefined ? "" : `[${owner}] `;
+    console.error(`[ext-host] ${tag}${method} failed: ${describeRejection(err)}`);
 }
 
 /**
@@ -267,7 +284,7 @@ export interface ICodeActionDeps {
 const NULL_CODE_ACTION_DEPS: ICodeActionDeps = {
     // Stryker disable next-line ArrowFunction: `undefined` и `Promise<false>` для applyCodeAction неотличимы — оба читаются как «не применилось»
     applyEdit: () => Promise.resolve(false),
-    // Stryker disable next-line StringLiteral: текст диагностического reject'а глотает catch applyCodeAction — ненаблюдаем
+    // Текст отказа виден: applyCodeAction пишет сбой команды в stderr.
     executeCommand: () => Promise.reject(new Error("commands bridge is not wired")),
 };
 
@@ -280,17 +297,17 @@ export function createLanguagesNamespace(
     const { rpc, documentSync } = ctx;
     // Провайдеры фич, переехавших в реестр ядра: по handle, который ядро
     // присылает в запросе (upstream ExtHostLanguageFeatures._adapter).
-    const hoverProviders = new Map<number, IHoverRegistration>();
-    const definitionProviders = new Map<number, IDefinitionRegistration>();
-    const referenceProviders = new Map<number, IReferenceRegistration>();
-    const signatureHelpProviders = new Map<number, ISignatureHelpRegistration>();
-    const completionProviders = new Map<number, ICompletionRegistration>();
-    const formattingProviders = new Map<number, IFormattingRegistration>();
-    const rangeFormattingProviders = new Map<number, IRangeFormattingRegistration>();
-    const codeActionProviders = new Map<number, ICodeActionRegistration>();
-    const foldingProviders = new Map<number, IFoldingRegistration>();
-    const inlineCompletionProviders = new Map<number, IInlineCompletionRegistration>();
-    const renameProviders = new Map<number, IRenameRegistration>();
+    const hoverProviders = new Map<number, Owned<IHoverRegistration>>();
+    const definitionProviders = new Map<number, Owned<IDefinitionRegistration>>();
+    const referenceProviders = new Map<number, Owned<IReferenceRegistration>>();
+    const signatureHelpProviders = new Map<number, Owned<ISignatureHelpRegistration>>();
+    const completionProviders = new Map<number, Owned<ICompletionRegistration>>();
+    const formattingProviders = new Map<number, Owned<IFormattingRegistration>>();
+    const rangeFormattingProviders = new Map<number, Owned<IRangeFormattingRegistration>>();
+    const codeActionProviders = new Map<number, Owned<ICodeActionRegistration>>();
+    const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
+    const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
+    const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     let nextProviderHandle = 0;
 
     /**
@@ -300,14 +317,16 @@ export function createLanguagesNamespace(
      * (`languages.unregister`).
      */
     function registerByHandle<T>(
-        providers: Map<number, T>,
+        providers: Map<number, Owned<T>>,
         kind: WireLanguageFeatureKind,
         selector: vscode.DocumentSelector,
         registration: T,
         metadata: IWireLanguageProviderMetadata = {},
     ): vscode.Disposable {
         const handle = nextProviderHandle++;
-        providers.set(handle, registration);
+        // Владелец запоминается сейчас: оверлей выставляет его только на время
+        // синхронного `register*`, а сбой провайдера случится много позже.
+        providers.set(handle, { ...registration, owner: ctx.owner.current });
         rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector), ...metadata });
         return new DisposableImpl(() => {
             if (providers.delete(handle)) rpc.notify("languages.unregister", { handle });
@@ -354,7 +373,11 @@ export function createLanguagesNamespace(
 
     // Хранилища ВСЕХ DiagnosticCollection расширений: из них собирается
     // контекст code actions (те же объекты Diagnostic, что публиковал клиент).
-    const diagnosticStores: Map<string, readonly vscode.Diagnostic[]>[] = [];
+    // Снятая коллекция (`dispose`) отсюда уходит — её диагностики больше не контекст.
+    const diagnosticStores = new Set<Map<string, readonly vscode.Diagnostic[]>>();
+    // Сколько коллекций уже заведено под каждой базой ключа MarkerService
+    // (см. createDiagnosticCollection): ключи не переиспользуются.
+    const diagnosticOwnerCounts = new Map<string, number>();
 
     /** Диагностики ресурса, пересекающиеся с диапазоном (по всем коллекциям). */
     function diagnosticsIntersecting(resource: string, range: Range): vscode.Diagnostic[] {
@@ -386,7 +409,7 @@ export function createLanguagesNamespace(
                     reg.provider.provideDefinition(doc, position, token),
                 );
             } catch (err) {
-                reportProviderFailure("provideDefinition", err);
+                reportProviderFailure("provideDefinition", err, reg.owner);
                 // Сбойный провайдер = «целей нет»: `result` остаётся неприсвоенным,
                 // и сериализация ниже его отбрасывает.
             }
@@ -413,7 +436,7 @@ export function createLanguagesNamespace(
                 reg.provider.provideHover(doc, position, token),
             );
         } catch (err) {
-            reportProviderFailure("provideHover", err);
+            reportProviderFailure("provideHover", err, reg.owner);
             // Сбойный провайдер = «hover'а нет»: `result` остаётся неприсвоенным,
             // и его отсеивает общая проверка ниже.
         }
@@ -449,7 +472,7 @@ export function createLanguagesNamespace(
                     reg.provider.provideSignatureHelp(doc, position, token, context),
                 );
             } catch (err) {
-                reportProviderFailure("provideSignatureHelp", err);
+                reportProviderFailure("provideSignatureHelp", err, reg.owner);
                 // Сбойный провайдер = «подсказки нет»: `result` остаётся
                 // неприсвоенным, и его отсеивает сериализация ниже.
             }
@@ -472,7 +495,7 @@ export function createLanguagesNamespace(
                 reg.provider.provideReferences(doc, position, context, token),
             );
         } catch (err) {
-            reportProviderFailure("provideReferences", err);
+            reportProviderFailure("provideReferences", err, reg.owner);
             // Сбойный провайдер = «ссылок нет»: `result` остаётся неприсвоенным,
             // и его отсеивает общая проверка ниже.
         }
@@ -573,14 +596,18 @@ export function createLanguagesNamespace(
                   token: vscode.CancellationToken,
               ) => vscode.ProviderResult<vscode.TextEdit[]>)
             | undefined;
+        // Владелец выбранной регистрации — для строки сбоя в stderr.
+        let owner: string | undefined;
         if (range === undefined) {
             const reg = formattingProviders.get(handle);
             if (reg !== undefined) {
+                owner = reg.owner;
                 format = (doc, options, token) => reg.provider.provideDocumentFormattingEdits(doc, options, token);
             }
         } else {
             const reg = rangeFormattingProviders.get(handle);
             if (reg !== undefined) {
+                owner = reg.owner;
                 const selection = toVscodeRange(range);
                 format = (doc, options, token) =>
                     reg.provider.provideDocumentRangeFormattingEdits(doc, selection, options, token);
@@ -604,6 +631,7 @@ export function createLanguagesNamespace(
             reportProviderFailure(
                 range === undefined ? "provideDocumentFormattingEdits" : "provideDocumentRangeFormattingEdits",
                 err,
+                owner,
             );
         }
         if (!Array.isArray(result)) return [];
@@ -644,7 +672,7 @@ export function createLanguagesNamespace(
                 reg.provider.provideCodeActions(doc, range, context, token),
             );
         } catch (err) {
-            reportProviderFailure("provideCodeActions", err);
+            reportProviderFailure("provideCodeActions", err, reg.owner);
             // Сбойный провайдер = «действий нет»: `result` остаётся
             // неприсвоенным, и его отсеивает проверка ниже.
         }
@@ -682,13 +710,15 @@ export function createLanguagesNamespace(
         if (typeof id !== "string") return false;
         const found = findCachedCodeAction(id);
         if (found === null) return false;
+        const owner = found.registration.owner;
 
-        /** Исполняет команду действия; `false` — команда упала. */
+        /** Исполняет команду действия; `false` — команда упала (сбой — в stderr). */
         async function runActionCommand(command: vscode.Command): Promise<boolean> {
             try {
                 await codeActionDeps.executeCommand(command.command, ...((command.arguments ?? []) as unknown[]));
                 return true;
-            } catch {
+            } catch (err) {
+                reportProviderFailure(`applyCodeAction command "${command.command}"`, err, owner);
                 return false;
             }
         }
@@ -707,7 +737,7 @@ export function createLanguagesNamespace(
                 const resolved = await callWithVscodeToken(cancellation, (token) => resolve(action as never, token));
                 if (resolved != null) action = resolved as CodeAction;
             } catch (err) {
-                reportProviderFailure("resolveCodeAction", err);
+                reportProviderFailure("resolveCodeAction", err, owner);
                 // Сбойный resolve — применяем то, что есть (обычно command).
             }
         }
@@ -765,7 +795,7 @@ export function createLanguagesNamespace(
                         reg.provider.provideCompletionItems(doc, position, token, context),
                     );
                 } catch (err) {
-                    reportProviderFailure("provideCompletionItems", err);
+                    reportProviderFailure("provideCompletionItems", err, reg.owner);
                     // Сбойный провайдер = пустой результат: `result` остаётся
                     // неприсвоенным, и нормализация ниже даёт пустой список.
                 }
@@ -777,7 +807,7 @@ export function createLanguagesNamespace(
                     const id = `${String(cacheId)}.${String(cached.length)}`;
                     const wire = serializeCompletionItem(item, id);
                     if (wire === null) continue;
-                    cached.push({ item, provider: reg.provider });
+                    cached.push({ item, provider: reg.provider, owner: reg.owner });
                     items.push(wire);
                 }
                 results.push({ items, isIncomplete: normalized.isIncomplete });
@@ -807,7 +837,7 @@ export function createLanguagesNamespace(
             try {
                 resolved = await callWithVscodeToken(cancellation, (token) => resolve(entry.item, token));
             } catch (err) {
-                reportProviderFailure("resolveCompletionItem", err);
+                reportProviderFailure("resolveCompletionItem", err, entry.owner);
                 return null; // сбойный resolve не должен ронять попап
             }
             const item = (resolved ?? entry.item) as vscode.CompletionItem;
@@ -869,7 +899,7 @@ export function createLanguagesNamespace(
                             reg.provider.provideInlineCompletionItems(doc, position, context, cancel.token),
                         );
                     } catch (err) {
-                        reportProviderFailure("provideInlineCompletionItems", err);
+                        reportProviderFailure("provideInlineCompletionItems", err, reg.owner);
                         // Сбойный провайдер не роняет остальные: `result` остаётся
                         // неприсвоенным, и его отсеивает общая проверка ниже — своего
                         // `continue` тут нет намеренно, иначе ветка неотличима от неё
@@ -916,7 +946,7 @@ export function createLanguagesNamespace(
                     reg.provider.provideFoldingRanges(doc, context, token),
                 );
             } catch (err) {
-                reportProviderFailure("provideFoldingRanges", err);
+                reportProviderFailure("provideFoldingRanges", err, reg.owner);
                 // Сбойный провайдер = пустой список: `result` остаётся
                 // неприсвоенным, и его отсеивает проверка ниже.
             }
@@ -941,13 +971,21 @@ export function createLanguagesNamespace(
      * нормализуется в `uri.toString()` (ключ MarkerService).
      */
     const createDiagnosticCollection = (name?: string): vscode.DiagnosticCollection => {
-        const owner = "ext:" + (name ?? "diagnostics");
+        // Ключ MarkerService уникален на коллекцию: одноимённые (и безымянные)
+        // коллекции — того же или разных расширений — иначе затирали бы маркеры
+        // друг друга. База — id расширения-владельца и имя; повтор базы
+        // получает счётчик (как `_idPool` у ExtHostDiagnostics эталона).
+        const extensionId = ctx.owner.current;
+        const base = `ext:${extensionId === undefined ? "" : `${extensionId}:`}${name ?? "diagnostics"}`;
+        const taken = diagnosticOwnerCounts.get(base) ?? 0;
+        diagnosticOwnerCounts.set(base, taken + 1);
+        const owner = taken === 0 ? base : `${base}#${String(taken)}`;
         // Оригинальные Diagnostic'и расширения (контракт get/forEach); wire-форма
         // считается на публикации.
         const store = new Map<string, readonly vscode.Diagnostic[]>();
         // Регистрируем хранилище для сборки контекста code actions: провайдер
         // должен видеть ТЕ ЖЕ объекты диагностик, что публиковал клиент.
-        diagnosticStores.push(store);
+        diagnosticStores.add(store);
 
         const resourceOf = (uri: unknown): string => {
             if (typeof uri === "string") return Uri.parse(uri).toString();
@@ -1000,6 +1038,7 @@ export function createLanguagesNamespace(
             has: (uri: unknown): boolean => store.has(resourceOf(uri)),
             dispose: (): void => {
                 collection.clear();
+                diagnosticStores.delete(store);
             },
             *[Symbol.iterator](): IterableIterator<[vscode.Uri, readonly vscode.Diagnostic[]]> {
                 for (const [resource, diags] of store) yield [Uri.parse(resource), diags];

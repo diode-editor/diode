@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type * as vscode from "vscode";
 
 import { Uri } from "../../../base/common/uri.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
@@ -84,5 +85,46 @@ describe("оверлей поверх настоящего namespace", () => {
         expect(a.Position).toBe(b.Position);
         expect(new a.Range(0, 0, 0, 1)).toBeInstanceOf(b.Range);
         expect(a.workspace).toBe(b.workspace);
+    });
+});
+
+describe("владелец оверлея в логах сбоев", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("сбой провайдера, зарегистрированного через оверлей, — строка stderr с id; напрямую — без", async () => {
+        const errors = vi.spyOn(console, "error").mockImplementation(() => undefined).mock.calls;
+        const { namespace, owner, stub } = build();
+        const api = createExtensionApi(namespace, owner, "pub.a");
+        stub.fire("editor.didOpen", { uri: "file:///proj/a.py", languageId: "python", version: 1, text: "x\n" });
+        const boom = new Error("hover boom");
+        const failing: vscode.HoverProvider = {
+            provideHover: () => {
+                throw boom;
+            },
+        };
+        api.languages.registerHoverProvider("python", failing);
+        namespace.languages.registerHoverProvider("python", failing);
+
+        const params = { uri: "file:///proj/a.py", languageId: "python", version: 1, line: 0, character: 0 };
+        await stub.callRequest("languages.provideHover", { ...params, handle: 0 });
+        await stub.callRequest("languages.provideHover", { ...params, handle: 1 });
+
+        expect(errors).toEqual([
+            [`[ext-host] [pub.a] provideHover failed: ${String(boom.stack)}`],
+            [`[ext-host] provideHover failed: ${String(boom.stack)}`],
+        ]);
+    });
+
+    it("предупреждение текстовой команды без редактора несёт id владельца оверлея", async () => {
+        const warns = vi.spyOn(console, "warn").mockImplementation(() => undefined).mock.calls;
+        const { namespace, owner } = build();
+        const api = createExtensionApi(namespace, owner, "pub.a");
+        api.commands.registerTextEditorCommand("pub.a.edit", () => undefined);
+
+        await namespace.commands.executeCommand("pub.a.edit");
+
+        expect(warns).toEqual([['[pub.a] Cannot execute text editor command "pub.a.edit": no active text editor']]);
     });
 });

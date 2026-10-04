@@ -243,10 +243,11 @@ describe("LanguagesNamespace — срок ответа хоста отменяе
     });
 });
 
-function makeStubCtx(): { stub: IStubRpc; languages: Languages } {
+function makeStubCtx(): { stub: IStubRpc; languages: Languages; owner: ExtensionOwner } {
     const stub = makeStubRpc();
-    const { languages } = createLanguagesNamespace(makeCtx(stub.rpc));
-    return { stub, languages };
+    const ctx = makeCtx(stub.rpc);
+    const { languages } = createLanguagesNamespace(ctx);
+    return { stub, languages, owner: ctx.owner };
 }
 
 describe("LanguagesNamespace — сбой провайдера в stderr", () => {
@@ -273,6 +274,26 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
             await stub.callRequest(c.method, c.params(prepared));
             expect(errors, c.name).toEqual(
                 c.failure === "" ? [] : [[`[ext-host] ${c.failure} failed: ${String(failure.stack)}`]],
+            );
+        }
+    });
+
+    it("регистрация от имени расширения — строка сбоя несёт его id", async () => {
+        for (const c of CASES) {
+            errors = [];
+            const { stub, languages, owner } = makeStubCtx();
+            const failure = new Error(`boom in ${c.name}`);
+            // Владелец выставлен только на время регистрации (как делает оверлей);
+            // сбой случается позже, вне runAs, — id берётся из записи регистрации.
+            owner.runAs("pub.owned", () => {
+                c.register(languages, () => {
+                    throw failure;
+                });
+            });
+            const prepared = await c.prepare?.((m, p) => stub.callRequest(m, p));
+            await stub.callRequest(c.method, c.params(prepared));
+            expect(errors, c.name).toEqual(
+                c.failure === "" ? [] : [[`[ext-host] [pub.owned] ${c.failure} failed: ${String(failure.stack)}`]],
             );
         }
     });

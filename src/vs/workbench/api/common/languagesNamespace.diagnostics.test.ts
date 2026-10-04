@@ -20,7 +20,7 @@ function makeLanguages(stub: IStubRpc = makeStubRpc()) {
         disk: createNodeExtHostDisk(),
         owner: new ExtensionOwner(),
     };
-    return { stub, languages: createLanguagesNamespace(ctx).languages };
+    return { stub, owner: ctx.owner, languages: createLanguagesNamespace(ctx).languages };
 }
 
 function published(stub: IStubRpc): { owner: string; resource: string; markers: unknown[] }[] {
@@ -208,6 +208,52 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         collection.dispose(); // dispose → clear → пустая публикация по каждому ресурсу
         expect(published(stub).at(-1)).toMatchObject({ resource: FILE.toString(), markers: [] });
         expect(collection.get(FILE as unknown as vscode.Uri)).toBeUndefined();
+    });
+
+    it("owner уникален на коллекцию: id расширения + имя, повтор базы — со счётчиком", () => {
+        const { stub, owner, languages } = makeLanguages();
+        const create = (extensionId: string | undefined, name?: string): vscode.DiagnosticCollection =>
+            extensionId === undefined
+                ? languages.createDiagnosticCollection(name)
+                : owner.runAs(extensionId, () => languages.createDiagnosticCollection(name));
+        const collections = [
+            create("pub.a", "ts"),
+            create("pub.a", "ts"),
+            create("pub.b", "ts"),
+            create("pub.a"),
+            create("pub.a"),
+            create(undefined, "ts"),
+            create(undefined),
+            create(undefined),
+            create("pub.a", "ts"),
+        ];
+        for (const collection of collections) collection.set(FILE as unknown as vscode.Uri, []);
+
+        // Одноимённые/безымянные коллекции — в т. ч. разных расширений — больше
+        // не делят ключ MarkerService и не затирают маркеры друг друга.
+        expect(published(stub).map((p) => p.owner)).toEqual([
+            "ext:pub.a:ts",
+            "ext:pub.a:ts#1",
+            "ext:pub.b:ts",
+            "ext:pub.a:diagnostics",
+            "ext:pub.a:diagnostics#1",
+            "ext:ts",
+            "ext:diagnostics",
+            "ext:diagnostics#1",
+            "ext:pub.a:ts#2",
+        ]);
+        // Публичное имя коллекции — то, что дало расширение.
+        expect(collections.map((c) => c.name)).toEqual([
+            "ts",
+            "ts",
+            "ts",
+            "diagnostics",
+            "diagnostics",
+            "ts",
+            "diagnostics",
+            "diagnostics",
+            "ts",
+        ]);
     });
 
     it("set(uri, undefined) эквивалентен пустому набору", () => {

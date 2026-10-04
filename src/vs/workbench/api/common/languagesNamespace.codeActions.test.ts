@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
@@ -7,7 +7,16 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace, type ICodeActionDeps } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
-import { CodeAction, CodeActionKind, Diagnostic, Range, TextEdit, Uri, WorkspaceEdit } from "./vscodeTypes.ts";
+import {
+    CancellationError,
+    CodeAction,
+    CodeActionKind,
+    Diagnostic,
+    Range,
+    TextEdit,
+    Uri,
+    WorkspaceEdit,
+} from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 // Субпроцессная сторона code actions (#196): контекст собирается из локальных
@@ -178,6 +187,31 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(contexts[0].diagnostics).toEqual([touching]);
     });
 
+    it("снятая коллекция (dispose) больше не источник контекста code actions", async () => {
+        const { stub, languages } = makeCtx();
+        const kept = languages.createDiagnosticCollection("kept");
+        const disposed = languages.createDiagnosticCollection("disposed");
+        const keptDiag = new Diagnostic(new Range(2, 0, 2, 6), "kept");
+        kept.set(Uri.parse(URI) as unknown as vscode.Uri, [keptDiag] as unknown as vscode.Diagnostic[]);
+        disposed.dispose();
+        // Запоздалый set от снятой коллекции (расширение держит ссылку) в
+        // контекст уже не попадает: её хранилище снято с учёта.
+        disposed.set(Uri.parse(URI) as unknown as vscode.Uri, [
+            new Diagnostic(new Range(2, 0, 2, 6), "stale") as unknown as vscode.Diagnostic,
+        ]);
+
+        const contexts: vscode.CodeActionContext[] = [];
+        languages.registerCodeActionsProvider("python", {
+            provideCodeActions: (d: unknown, r: unknown, context: vscode.CodeActionContext) => {
+                contexts.push(context);
+                return [];
+            },
+        } as unknown as vscode.CodeActionProvider);
+
+        await stub.callRequest("languages.provideCodeActions", requestParams());
+        expect(contexts[0].diagnostics).toEqual([keptDiag]);
+    });
+
     it("only: фильтрует по виду иерархически, голые команды отбрасывает, в контекст едет CodeActionKind", async () => {
         const { stub, languages } = makeCtx();
         const contexts: vscode.CodeActionContext[] = [];
@@ -275,6 +309,15 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         return result[index].id;
     }
 
+    /** Строки console.error (сбои — в stderr субпроцесса). */
+    function spyErrors(): unknown[][] {
+        return vi.spyOn(console, "error").mockImplementation(() => undefined).mock.calls;
+    }
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it("edit-действие: правки уходят в deps.applyEdit тем же объектом, ответ честный", async () => {
         const { stub, languages, appliedEdits, executed } = makeCtx();
         const action = editAction("Fix", "quickfix");
@@ -316,6 +359,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
     });
 
     it("правки легли, но команда действия упала — false (действие не завершилось)", async () => {
+        const errors = spyErrors();
         const { stub, languages, appliedEdits } = makeCtx({
             executeCommand: () => Promise.reject(new Error("late boom")),
         });
@@ -328,6 +372,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         const id = await provideAndPick(stub);
         expect(await stub.callRequest("languages.applyCodeAction", { id })).toBe(false);
         expect(appliedEdits).toHaveLength(1); // правки успели лечь до сбоя команды
+        expect(errors).toHaveLength(1);
     });
 
     it("resolve, вернувший НОВЫЙ объект, подменяет действие (исходное не мутируется)", async () => {
@@ -404,20 +449,39 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await noArgs.stub.callRequest("languages.applyCodeAction", { id: noArgsId })).toBe(true);
         expect(noArgs.executed).toEqual([{ command: "test.noargs", args: [] }]);
 
-        const failing = makeCtx({ executeCommand: () => Promise.reject(new Error("cmd boom")) });
+        const errors = spyErrors();
+        const boom = new Error("cmd boom");
+        const failing = makeCtx({ executeCommand: () => Promise.reject(boom) });
         const failingAction = new CodeAction("Broken cmd", new CodeActionKind("quickfix"));
         failingAction.command = { title: "run", command: "test.broken" } as never;
-        failing.languages.registerCodeActionsProvider("python", {
-            provideCodeActions: () => [
-                failingAction,
-                { title: "Bare", command: "test.bare" } as unknown as vscode.CodeAction,
-            ],
-        } as unknown as vscode.CodeActionProvider);
-        // Сбой команды — false и у CodeAction-команды, и у голой vscode.Command.
+        failing.ctx.owner.runAs("pub.fixer", () =>
+            failing.languages.registerCodeActionsProvider("python", {
+                provideCodeActions: () => [
+                    failingAction,
+                    { title: "Bare", command: "test.bare" } as unknown as vscode.CodeAction,
+                ],
+            } as unknown as vscode.CodeActionProvider),
+        );
+        // Сбой команды — false и у CodeAction-команды, и у голой vscode.Command;
+        // не молча: строка в stderr с id расширения-владельца провайдера.
         const brokenAction = await provideAndPick(failing.stub, 0);
         expect(await failing.stub.callRequest("languages.applyCodeAction", { id: brokenAction })).toBe(false);
         const brokenBare = await provideAndPick(failing.stub, 1);
         expect(await failing.stub.callRequest("languages.applyCodeAction", { id: brokenBare })).toBe(false);
+        expect(errors).toEqual([
+            [`[ext-host] [pub.fixer] applyCodeAction command "test.broken" failed: ${String(boom.stack)}`],
+            [`[ext-host] [pub.fixer] applyCodeAction command "test.bare" failed: ${String(boom.stack)}`],
+        ]);
+        errors.length = 0;
+
+        // Отменённая команда — штатный исход, не сбой: false, но stderr молчит.
+        const cancelled = makeCtx({ executeCommand: () => Promise.reject(new CancellationError()) });
+        cancelled.languages.registerCodeActionsProvider("python", {
+            provideCodeActions: () => [{ title: "Bare", command: "test.cancel" } as unknown as vscode.CodeAction],
+        } as unknown as vscode.CodeActionProvider);
+        const cancelledId = await provideAndPick(cancelled.stub);
+        expect(await cancelled.stub.callRequest("languages.applyCodeAction", { id: cancelledId })).toBe(false);
+        expect(errors).toEqual([]);
 
         // Command-объект без строкового command — применять нечего: false.
         const malformed = makeCtx();
@@ -453,6 +517,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
     });
 
     it("дефолтные deps (namespace без проводки) честно отказывают: правки false, команда reject", async () => {
+        const errors = spyErrors();
         const stub = makeStubRpc();
         const registry = new DocumentRegistry();
         const documentSync = new DocumentSyncTracker(registry);
@@ -474,6 +539,13 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         const result = (await stub.callRequest("languages.provideCodeActions", requestParams())) as { id: string }[];
         expect(await stub.callRequest("languages.applyCodeAction", { id: result[0].id })).toBe(false);
         expect(await stub.callRequest("languages.applyCodeAction", { id: result[1].id })).toBe(false);
+        // Регистрация вне оверлея — строка без id; причина отказа видна в stderr.
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toEqual([
+            expect.stringMatching(
+                /^\[ext-host\] applyCodeAction command "test\.bare" failed: Error: commands bridge is not wired\n/,
+            ) as unknown,
+        ]);
     });
 
     it("голые параметры (без languageId) — документ из зеркала, язык не затирается", async () => {

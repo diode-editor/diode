@@ -108,7 +108,7 @@ describe("ExtensionHost — сток диагностик сквозняком (
             await harness.flushRpc();
             expect(published).toEqual([
                 {
-                    owner: "ext:fixture",
+                    owner: "ext:test.publishesDiagnostics:fixture",
                     resource: uri,
                     markers: [
                         {
@@ -123,7 +123,11 @@ describe("ExtensionHost — сток диагностик сквозняком (
 
             await harness.commandRegistry.execute("test.diag.clear");
             await harness.flushRpc();
-            expect(published.at(-1)).toEqual({ owner: "ext:fixture", resource: uri, markers: [] });
+            expect(published.at(-1)).toEqual({
+                owner: "ext:test.publishesDiagnostics:fixture",
+                resource: uri,
+                markers: [],
+            });
         } finally {
             await harness.dispose();
         }

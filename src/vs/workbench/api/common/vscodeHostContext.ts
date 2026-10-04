@@ -54,7 +54,8 @@ export interface IVscodeHostContext {
     /**
      * Владелец текущего создающего вызова (см. {@link ExtensionOwner}): общие
      * фабрики читают его в момент создания (id output-каналов и пунктов
-     * статус-бара).
+     * статус-бара), его запоминают регистрации провайдеров и команд (id
+     * расширения в строках сбоев stderr) и коллекции диагностик (ключ MarkerService).
      */
     readonly owner: ExtensionOwner;
 }

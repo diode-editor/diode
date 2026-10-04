@@ -149,7 +149,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     // прокси в host CommandRegistry). Геттер активного редактора нужен
     // registerTextEditorCommand — команда исполняется только при активном редакторе.
     // Собирается ДО languages: applyCodeAction исполняет команды действий.
-    const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor);
+    const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor, ctx.owner);
     const { languages } = createLanguagesNamespace(ctx, {
         // Правки code action ложатся тем же путём, что workspace.applyEdit;
         // команды действия — локальный реестр с прокси-мостом до хоста.

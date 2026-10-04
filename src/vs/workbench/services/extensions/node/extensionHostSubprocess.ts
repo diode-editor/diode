@@ -20,6 +20,7 @@ import { parseWireMementoValue } from "../../../api/common/wireTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
 import { createNodeExtHostDisk } from "../../../api/node/extHostDisk.ts";
 
+import { deactivateExtension } from "./extensionDeactivation.ts";
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
 import { extensionRootPath } from "./iExtensionEntry.ts";
 import { createStderrLogger } from "./stderrLogger.ts";
@@ -34,7 +35,8 @@ import { createStderrLogger } from "./stderrLogger.ts";
  *   Бросает на ошибках загрузки/активации. Каталоги хранения приходят ОТ ХОСТА
  *   (он владеет раскладкой user-data) — субпроцесс их не выдумывает и не создаёт.
  * - `host.deactivateExtension({ id })` -> `null`. Вызывает `deactivate()` +
- *   disposes `context.subscriptions`. Idempotent.
+ *   disposes `context.subscriptions`. Idempotent. Сбой уборки не бросается —
+ *   warn с id расширения в stderr (`extensionDeactivation.ts`).
  * - `host.shutdown()` -> `null`. Снимает все расширения (`deactivate()`); выход
  *   доводит родитель сигналом сразу по ответу.
  * - `extensions.catalog` / `extensions.activated` (уведомления) — состав
@@ -204,7 +206,7 @@ export function runExtensionHostSubprocess(): void {
         extensions.delete(id);
         // Снятое расширение больше не активно — его `exports` невалидны.
         extensionExports.delete(id);
-        await deactivate(active);
+        await deactivateExtension(active, logger);
         return null;
     });
 
@@ -231,31 +233,13 @@ export function runExtensionHostSubprocess(): void {
         const all = [...extensions.values()];
         extensions.clear();
         extensionExports.clear();
-        for (const active of all) {
-            try {
-                await deactivate(active);
-            } catch {
-                // глотаем — мы уже завершаемся
-            }
-        }
+        // Сбои уборки (с id расширения) пишет в stderr сам deactivateExtension
+        // и наружу не бросает — одно упавшее расширение не мешает остальным.
+        for (const active of all) await deactivateExtension(active, logger);
     }
 
     // Сигнал готовности parent'у: можно слать activateExtension.
     rpc.notify("host.ready", null);
-}
-
-async function deactivate(active: ActivatedExtension): Promise<void> {
-    try {
-        await active.mod.deactivate?.();
-    } finally {
-        for (const sub of active.context.subscriptions.splice(0).reverse()) {
-            try {
-                sub.dispose();
-            } catch {
-                // глотаем
-            }
-        }
-    }
 }
 
 /**

@@ -5,6 +5,7 @@ import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import type { HostRpc, SubprocessRpc } from "./extHostProtocol.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
 import { RpcEndpoint } from "./rpcEndpoint.ts";
+import { ExtensionOwner } from "./vscodeHostContext.ts";
 
 const microtasks = async (turns = 4): Promise<void> => {
     for (let i = 0; i < turns; i++) await Promise.resolve();
@@ -14,7 +15,10 @@ const microtasks = async (turns = 4): Promise<void> => {
  * Поднимает пару endpoint'ов: `sub` — «subprocess» с commands namespace,
  * `host` — «хост», на котором тест регистрирует хендлеры/наблюдает уведомления.
  */
-function createBridge(getActiveTextEditor?: () => vscode.TextEditor | undefined): {
+function createBridge(
+    getActiveTextEditor?: () => vscode.TextEditor | undefined,
+    owner?: ExtensionOwner,
+): {
     commands: ReturnType<typeof buildCommandsNamespace>;
     host: HostRpc;
     dispose: () => void;
@@ -22,7 +26,7 @@ function createBridge(getActiveTextEditor?: () => vscode.TextEditor | undefined)
     const [chSub, chHost] = createInProcessChannelPair();
     const sub: SubprocessRpc = new RpcEndpoint(chSub);
     const host: HostRpc = new RpcEndpoint(chHost);
-    const commands = buildCommandsNamespace(sub, getActiveTextEditor);
+    const commands = buildCommandsNamespace(sub, getActiveTextEditor, owner);
     return {
         commands,
         host,
@@ -213,7 +217,32 @@ describe("CommandsNamespace (subprocess)", () => {
 
             expect(ran).toBe(false);
             expect(result).toBeUndefined();
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining("ext.te.noeditor"));
+            expect(warn.mock.calls).toEqual([
+                ['Cannot execute text editor command "ext.te.noeditor": no active text editor'],
+            ]);
+        } finally {
+            warn.mockRestore();
+        }
+        dispose();
+    });
+
+    it("registerTextEditorCommand: предупреждение несёт id расширения, владевшего регистрацией", async () => {
+        const owner = new ExtensionOwner();
+        const { commands, dispose } = createBridge(() => undefined, owner);
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            owner.runAs("pub.editor-ext", () => commands.registerTextEditorCommand("ext.te.owned", () => undefined));
+            // Регистрация вне оверлея (владельца нет) — строка без id.
+            commands.registerTextEditorCommand("ext.te.shared", () => undefined);
+
+            // Исполнение — уже вне runAs: владелец запомнен при регистрации.
+            await commands.executeCommand("ext.te.owned");
+            await commands.executeCommand("ext.te.shared");
+
+            expect(warn.mock.calls).toEqual([
+                ['[pub.editor-ext] Cannot execute text editor command "ext.te.owned": no active text editor'],
+                ['Cannot execute text editor command "ext.te.shared": no active text editor'],
+            ]);
         } finally {
             warn.mockRestore();
         }
