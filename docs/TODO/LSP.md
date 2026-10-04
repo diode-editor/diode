@@ -241,3 +241,16 @@ diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSa
 - **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`,
   `locations[0]`), а VS Code показывает список. После итерации references панель
   для этого уже есть — осталось развернуть в неё multi-target ответ.
+- **Гонка didClose/didOpen и folding при быстром переоткрытии файла.** Закрыть
+  вкладку и тут же открыть тот же файл снова — и в лицо прилетает тост
+  «Request textDocument/foldingRange failed … The document should be opened for
+  foldingRanges». Воспроизводится на живом бинаре подряд идущими активациями
+  (без пауз), `e2e/fixtures/previewTabs` + стоковый typescript-language-server.
+  **Баг пре-существующий**: снят A/B — одинаково лезет и с
+  `workbench.editor.enablePreview: false` (закрытие Ctrl+W плюс открытие
+  заново), и с включённым предпросмотром, где то же самое делает замещение
+  вкладки. То есть превью не причина, а частый повод: оно превращает
+  «закрыть и открыть» в одно действие пользователя. Чинить там, где
+  `languages.provide*` проводит документ через documentSync (регрессия того же
+  рода уже ловилась в `languagesNamespace.test.ts`): запрос фолдинга не должен
+  уходить серверу, пока didOpen переоткрытого документа его не догнал.

@@ -96,6 +96,7 @@ import { navigateBackAction, navigateForwardAction } from "./browser/actions/nav
 import { clearNotificationsAction, focusNotificationAction } from "./browser/actions/notificationActions.ts";
 import {
     closeActiveEditorAction,
+    keepEditorAction,
     nextEditorAction,
     nextEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
@@ -385,6 +386,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     previousEditorInGroupAction,
     openPreviousRecentlyUsedEditorInGroupAction,
     closeActiveEditorAction,
+    keepEditorAction,
     ...TAB_CLOSE_ACTIONS,
     ...EDITOR_GROUP_ACTIONS,
     inputCursorLeftAction,

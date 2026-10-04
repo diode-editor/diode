@@ -8,8 +8,10 @@ import { OpenFileCommandContribution } from "./openFileCommandContribution.ts";
 
 class FakeEditorService {
     public opened: string[] = [];
-    public openFile(path: string): void {
+    public options: unknown[] = [];
+    public openFile(path: string, options: unknown): void {
         this.opened.push(path);
+        this.options.push(options);
     }
 }
 
@@ -35,6 +37,35 @@ describe("OpenFileCommandContribution", () => {
 
         expect(editorService.opened).toEqual(["/ws/alpha.txt"]);
         expect(contextKeys.updates).toBe(1);
+    });
+
+    it("второй аргумент — опции открытия: дерево просит предпросмотр", () => {
+        const commands = new CommandRegistry();
+        const editorService = new FakeEditorService();
+        new OpenFileCommandContribution(
+            commands,
+            editorService as unknown as EditorService,
+            new FakeContextKeys() as unknown as WorkbenchContextKeys,
+        );
+
+        commands.execute("workbench.openFile", "/ws/alpha.txt", { preview: true });
+
+        expect(editorService.options).toEqual([{ preview: true }]);
+    });
+
+    it("без второго аргумента (CLI, Quick Open) опций нет — постоянная вкладка", () => {
+        const commands = new CommandRegistry();
+        const editorService = new FakeEditorService();
+        new OpenFileCommandContribution(
+            commands,
+            editorService as unknown as EditorService,
+            new FakeContextKeys() as unknown as WorkbenchContextKeys,
+        );
+
+        commands.execute("workbench.openFile", "/ws/alpha.txt");
+
+        // Пустой объект, а не `undefined`: `preview` остаётся выключенным.
+        expect(editorService.options).toEqual([{}]);
     });
 
     it("команда без title — не попадает в палитру команд", () => {

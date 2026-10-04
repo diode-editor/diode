@@ -287,4 +287,11 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Specifies the color theme used in the workbench.",
         enum: ["Dark 2026", "Dark Modern", "Dark+", "Monokai", "Light Modern", "Light+"],
     },
+    {
+        key: "workbench.editor.enablePreview",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether preview mode is used when editors open. There is a maximum of one preview mode editor per editor group. Its contents will be replaced by the next editor opened in preview mode. Making a change in a preview mode editor will persist it, as will the 'Keep Open' option in its tab context menu.",
+    },
 ];

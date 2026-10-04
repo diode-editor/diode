@@ -121,6 +121,7 @@ export class EditorGroupComponent extends Component {
             tabCount: panes.length,
             hasTabsToTheRight: index < panes.length - 1,
             hasSavedTabs: panes.some((candidate) => !candidate.isModified),
+            isPreview: !this.group.isPinned(pane),
         };
         this.contextMenuService.showContextMenu({
             getOwner: () => this.view,

@@ -697,6 +697,7 @@
             "mac-cmd (kitty) #3": "meta+3"
         },
         "workbench.action.gotoLine": "ctrl+g",
+        "workbench.action.keepEditor": "ctrl+k enter",
         "workbench.action.moveEditorToNextGroup": {
             "*": "ctrl+alt+right",
             "pc legacy #1": "ctrl+k alt+right",

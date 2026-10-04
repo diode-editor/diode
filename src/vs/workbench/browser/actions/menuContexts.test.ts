@@ -14,6 +14,7 @@ const context: EditorTitleMenuContext = {
     tabCount: 4,
     hasTabsToTheRight: true,
     hasSavedTabs: true,
+    isPreview: false,
 };
 
 describe("аргументы пунктов контекст-меню вкладки", () => {

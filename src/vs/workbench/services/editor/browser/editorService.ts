@@ -68,6 +68,9 @@ import { TextEditorPaneBuilder, TextEditorPaneBuilderDIToken } from "./textEdito
 
 export const EditorServiceDIToken = token<EditorService>("EditorService");
 
+/** Настройка режима предпросмотра вкладок (`workbenchConfiguration`). */
+const PREVIEW_SETTING_KEY = "workbench.editor.enablePreview";
+
 /** Параметры {@link EditorService.openUri}. */
 export interface IOpenUriOptions {
     readonly focus?: boolean;
@@ -78,6 +81,13 @@ export interface IOpenUriOptions {
     readonly group?: "beside" | EditorGroup;
     /** Каретка и скролл новой вкладки (у уже открытой вкладки не трогаются). */
     readonly viewState?: ITextEditorViewState;
+    /**
+     * Открыть вкладкой-ПРЕДПРОСМОТРА: такая вкладка в группе одна, и следующее
+     * превью занимает её слот. Просят только те двери, где эталон тоже превьюит
+     * (дерево Explorer); остальные открывают постоянную вкладку. Гасится
+     * настройкой `workbench.editor.enablePreview`.
+     */
+    readonly preview?: boolean;
 }
 
 /** Событие изменения полосы групп (для view-слоя и host-адаптеров). */
@@ -395,6 +405,18 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 this.editorConfiguration.reapply();
             }),
         );
+        // Выключили предпросмотр — висящие превью прикалываем, иначе следующее
+        // открытие заместило бы вкладку при выключенной настройке (эталон
+        // делает то же в onDidChangeEditorPartOptions).
+        this.register(
+            this.configurationService.onDidChangeConfiguration((event) => {
+                if (!event.affectsConfiguration(PREVIEW_SETTING_KEY) || this.isPreviewEnabled()) return;
+                for (const group of this.groupsList) {
+                    const preview = group.previewPane;
+                    if (preview !== null) group.pinPane(preview);
+                }
+            }),
+        );
     }
 
     // ─── Группы: полоса и активная группа ─────────────────────────────────────
@@ -459,6 +481,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const index = position === "before" ? anchor : anchor + 1;
         const group = this.createGroup(index);
         this.fireGroupsChanged({ kind: "added", group, index, source });
+
+        // Сплит — заявка «этот файл мне нужен»: вкладку-источник прикалываем,
+        // чтобы следующее превью не заместило половину сплита (эталон так же).
+        source.pinPane(sourcePane);
 
         // Дубль активной вкладки — по её рецепту (каретка и скролл — как в
         // источнике, US-1). Вкладку, которую повторить нельзя (untitled), новая
@@ -574,7 +600,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * просто активируется там.
      */
     public copyActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
-        const sourcePane = this.activeGroupValue.activePane;
+        const source = this.activeGroupValue;
+        const sourcePane = source.activePane;
         // Мутант условия эквивалентен: у пустой группы рецепта нет и так —
         // `describe` всех фабрик на не-панели отдаёт `undefined`.
         // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
@@ -584,6 +611,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const target = this.neighborOrNewGroup(direction);
         if (target === null) return;
 
+        // Как и у сплита: копия вкладки в соседнюю группу прикалывает источник.
+        source.pinPane(sourcePane);
         this.activeGroupValue = target;
         void recipe.factory.open(recipe.descriptor, { group: target, focus });
         this.fireActiveGroupChanged(target);
@@ -1033,7 +1062,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private openResolvedUri(
         uri: Uri,
         content: string | null,
-        { focus = true, group: where, viewState }: IOpenUriOptions,
+        { focus = true, group: where, viewState, preview = false }: IOpenUriOptions,
     ): void {
         // Идентичность вкладки — по ресурсу целиком В ПРЕДЕЛАХ группы, а не по
         // имени файла: два разных файла с одинаковым basename должны открываться
@@ -1042,8 +1071,19 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const group = where === "beside" ? this.resolveBesideGroup() : (where ?? this.activeGroupValue);
         const wasActive = group === this.activeGroupValue;
         this.activeGroupValue = group;
+        // Превью включает только вызывающий (сейчас — дерево Explorer) и только
+        // при включённой настройке: все прочие двери (CLI, Quick Open, навигация
+        // по коду, восстановление сессии) открывают постоянную вкладку, как в
+        // эталоне с его выключенными enablePreviewFrom*.
+        const asPreview = preview && this.isPreviewEnabled();
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
+            // Повторное открытие уже открытого ресурса НЕ превью прикалывает его
+            // вкладку: Ctrl+P по файлу, висящему предпросмотром, обязан оставить
+            // его открытым (эталон делает то же в doOpenEditor).
+            // Индекс пришёл из `findPaneIndex` — он в границах по построению,
+            // поэтому берём панель прямо, без защиты от `null`.
+            if (!asPreview) group.pinPane(group.getPanes()[existingIndex]);
             group.activateTab(existingIndex, { focus });
         } else {
             // Модель файла приходит из реестра уже загруженной (фабрика ставит
@@ -1063,10 +1103,42 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 editor.viewState.scrollTop = viewState.scrollTop;
                 editor.viewState.scrollLeft = viewState.scrollLeft;
             }
-            group.insertPane(editor);
-            group.activateTab(group.editorCount - 1, { focus });
+            // Следующее превью занимает СЛОТ предыдущего: та же позиция в полосе
+            // вместо «закрыли → открыли в конце» — иначе поехали бы порядок
+            // вкладок и фокус.
+            const replacedIndex = asPreview ? this.previewIndexToReplace(group) : -1;
+            if (replacedIndex >= 0) {
+                group.replacePane(replacedIndex, editor, { preview: true });
+                group.activateTab(replacedIndex, { focus });
+            } else {
+                group.insertPane(editor, { preview: asPreview });
+                group.activateTab(group.editorCount - 1, { focus });
+            }
         }
         if (!wasActive) this.fireActiveGroupChanged(group);
+    }
+
+    /** Включён ли режим предпросмотра (`workbench.editor.enablePreview`). */
+    private isPreviewEnabled(): boolean {
+        // Ключ из схемы приложения: дефолт (`true`) гарантирует реестр, своего
+        // фолбэка тут быть не должно — он разъехался бы со схемой.
+        return this.configurationService.get(PREVIEW_SETTING_KEY);
+    }
+
+    /**
+     * Позиция вкладки-предпросмотра, которую можно заместить, либо -1.
+     * Грязную вкладку замещать нельзя — её вместо этого прикалываем: правка
+     * (в т.ч. приехавшая извне) делает вкладку постоянной, и потерять её при
+     * открытии следующего превью было бы потерей несохранённых правок.
+     */
+    private previewIndexToReplace(group: EditorGroup): number {
+        const preview = group.previewPane;
+        if (preview === null) return -1;
+        if (preview.isModified) {
+            group.pinPane(preview);
+            return -1;
+        }
+        return group.getPanes().indexOf(preview);
     }
 
     /**
