@@ -12,4 +12,11 @@ export interface IDocumentContentChange {
     readonly startLine: number;
     readonly oldEndLine: number;
     readonly newEndLine: number;
+    /**
+     * Содержимое заменено целиком ({@link ITextDocument.setText}: перечитка с
+     * диска, смена содержимого владельцем) — upstream `isFlush`. Документ тот
+     * же, но всё, что выводилось из прежнего текста (детект отступа, фолды),
+     * пора вывести заново.
+     */
+    readonly isFlush?: boolean;
 }

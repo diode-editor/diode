@@ -36,9 +36,6 @@ import type { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
  */
 export type SaveOutcome = "saved" | "conflict" | "no-file";
 
-/** Причина пересоздания документа — см. {@link TextFileModel.onDidReloadDocument}. */
-export type DocumentReloadReason = "disk" | "owned";
-
 /** Снимок метаданных файла на диске для детекта внешних изменений (mtime + размер). */
 interface IDiskStat {
     mtimeMs: number;
@@ -78,10 +75,20 @@ export interface ITextFileEditTarget {
  * `EditorComponent`.
  */
 export class TextFileModel extends Disposable {
-    private doc: TextDocument;
-    private languageSubscription: IDisposable | null = null;
+    /**
+     * Документ модели — один на всю её жизнь: перечитка с диска и смена
+     * содержимого владельцем меняют текст в нём ({@link replaceText}), а не
+     * подменяют объект. Поэтому view, токены и синхронизация с расширениями
+     * видят перечитку обычной правкой.
+     */
+    private readonly doc: TextDocument;
+    /**
+     * Идёт замена содержимого целиком ({@link replaceText}): ретрансляция
+     * событий документа ждёт, пока модель согласует «сохранённую» версию, —
+     * иначе подписчик увидел бы свежий текст с признаком несохранённых правок.
+     */
+    private replacingText = false;
     private readonly onDidChangeLanguageEmitter = this.register(new Emitter<IDocumentLanguageChange>());
-    private eolSubscription: IDisposable | null = null;
     private readonly onDidChangeEolEmitter = this.register(new Emitter<void>());
     /**
      * Кодировка байтового представления на диске (id из SUPPORTED_ENCODINGS).
@@ -92,9 +99,7 @@ export class TextFileModel extends Disposable {
      */
     private encodingValue: string = DEFAULT_ENCODING;
     private readonly onDidChangeEncodingEmitter = this.register(new Emitter<void>());
-    private contentSubscription: IDisposable | null = null;
     private readonly onDidChangeContentEmitter = this.register(new Emitter<void>());
-    private readonly onDidReloadDocumentEmitter = this.register(new Emitter<DocumentReloadReason>());
     /**
      * Идентичность ресурса этой модели — первичное состояние, из которого выводится
      * всё остальное (путь, имя, признак безымянности). Не `null`: у свежей модели
@@ -122,12 +127,12 @@ export class TextFileModel extends Disposable {
      */
     private editTargets: ITextFileEditTarget[] = [];
     /**
-     * Движок undo текущего документа — история одна на документ, сколько бы вью
-     * его ни показывало. Пересоздаётся вместе с документом (перечитка с диска
-     * сбрасывает историю); роутинг шагов в {@link UndoRedoService} модель ставит
-     * сама в {@link createUndoManager}.
+     * Движок undo документа — история одна на документ, сколько бы вью его ни
+     * показывало. Перечитка содержимого целиком историю забывает
+     * ({@link resetUndoHistory}); роутинг шагов в {@link UndoRedoService} модель
+     * ставит сама в {@link createUndoManager}.
      */
-    private undoManagerValue!: UndoManager;
+    private readonly undoManagerValue: UndoManager;
     /**
      * Вью, инициировавшая текущий undo/redo (ей восстанавливается снимок
      * выделений). Живёт только на время синхронного окна вызова: обёртка-элемент
@@ -154,7 +159,7 @@ export class TextFileModel extends Disposable {
         return this.encodingValue;
     }
 
-    /** Открытый документ. Пересоздаётся при перечитке с диска (см. {@link onDidReloadDocument}). */
+    /** Открытый документ — один на всю жизнь модели (см. {@link doc}). */
     public get document(): TextDocument {
         return this.doc;
     }
@@ -223,20 +228,6 @@ export class TextFileModel extends Disposable {
 
     public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;
 
-    /**
-     * Событие «документ пересоздан» (openFile / revertToDisk / reopenWithEncoding /
-     * смена Output-канала). Парный `EditorComponent` пересобирает по нему view-state,
-     * токен-кеш и `EditorElement` — undo и курсор сбрасываются, как при открытии
-     * файла заново. `reason` различает перечитку того же файла с диска (`"disk"` —
-     * вью сохраняет скролл: содержимое то же по смыслу) от смены содержимого
-     * владельцем (`"owned"` — скролл сбрасывается: содержимое другое).
-     */
-    public readonly onDidReloadDocument = this.onDidReloadDocumentEmitter.event;
-
-    private fireDocumentReloaded(reason: DocumentReloadReason): void {
-        this.onDidReloadDocumentEmitter.fire(reason);
-    }
-
     /** Language id открытого документа (`plaintext`, если язык не определён). */
     public get languageId(): string {
         return this.doc.languageId;
@@ -304,13 +295,10 @@ export class TextFileModel extends Disposable {
         this.doc = new TextDocument("");
         this.savedEol = this.doc.eol;
         this.bindDocumentListeners();
-        this.createUndoManager();
+        this.undoManagerValue = this.createUndoManager();
 
         this.register({
             dispose: () => {
-                this.languageSubscription?.dispose();
-                this.eolSubscription?.dispose();
-                this.contentSubscription?.dispose();
                 this.fileWatch?.dispose();
             },
         });
@@ -354,14 +342,10 @@ export class TextFileModel extends Disposable {
      * (LIFO 1:1, поэтому стеки идут в ногу) и передают действующую вью
      * ({@link actingView}), взведённую публичными {@link undo}/{@link redo}.
      *
-     * Пересоздание документа (перечитка с диска, смена Output-канала) очищает
-     * бакет: накопленные шаги адресуют умерший документ, их version-гейт всё
-     * равно отбросил бы каждый молча.
      */
-    private createUndoManager(): void {
-        this.undoRedoService.clear(this.undoContext);
-        this.undoManagerValue = new UndoManager(this.doc);
-        this.undoManagerValue.onDidPush = (element) => {
+    private createUndoManager(): UndoManager {
+        const undoManager = new UndoManager(this.doc);
+        undoManager.onDidPush = (element) => {
             const wrapper = this.wrapUndoStep(element.label);
             // Шаг забирает вызывающий (bulk edit) — в общий бакет он НЕ идёт:
             // иначе на один workspace edit пришлось бы столько же Ctrl+Z,
@@ -372,6 +356,38 @@ export class TextFileModel extends Disposable {
             }
             this.undoRedoService.pushElement(wrapper, this.undoContext);
         };
+        return undoManager;
+    }
+
+    /**
+     * Забывает историю отмены: содержимое заменено целиком, и накопленные шаги
+     * адресуют текст, которого больше нет (их version-гейт всё равно отбросил
+     * бы каждый молча).
+     */
+    private resetUndoHistory(): void {
+        this.undoRedoService.clear(this.undoContext);
+        this.undoManagerValue.clear();
+    }
+
+    /**
+     * Заменяет содержимое целиком в том же документе (перечитка с диска, смена
+     * содержимого владельцем). Буфер после этого чистый и без истории; события
+     * контента и EOL доходят до подписчиков модели уже после того, как она
+     * согласовала «сохранённую» версию.
+     */
+    private replaceText(text: string): void {
+        const eolBefore = this.doc.eol;
+        this.replacingText = true;
+        try {
+            this.doc.setText(text);
+        } finally {
+            this.replacingText = false;
+        }
+        this.savedVersionId = this.doc.versionId;
+        this.savedEol = this.doc.eol;
+        this.resetUndoHistory();
+        this.onDidChangeContentEmitter.fire();
+        if (this.doc.eol !== eolBefore) this.onDidChangeEolEmitter.fire();
     }
 
     /**
@@ -442,13 +458,7 @@ export class TextFileModel extends Disposable {
      */
     public openSynthetic(uri: Uri, languageId: string): void {
         this.uriValue = uri;
-        this.doc = new TextDocument("", languageId);
-        this.savedVersionId = this.doc.versionId;
-        this.savedEol = this.doc.eol;
-        this.diskConflictValue = false;
-        this.bindDocumentListeners();
-        this.createUndoManager();
-        this.fireDocumentReloaded("owned");
+        this.doc.setLanguage(languageId);
     }
 
     /**
@@ -477,17 +487,13 @@ export class TextFileModel extends Disposable {
 
     /** Заменяет содержимое буфера целиком (смена активного Output-канала). */
     public replaceOwnedContent(text: string): void {
-        this.doc = new TextDocument(text, this.doc.languageId);
-        this.savedVersionId = this.doc.versionId;
-        this.savedEol = this.doc.eol;
-        this.bindDocumentListeners();
-        this.createUndoManager();
-        this.fireDocumentReloaded("owned");
+        this.replaceText(text);
     }
 
     /**
-     * Читает файл с диска в свежий документ (сбрасывает undo, курсор, токен-кеш —
-     * view пересобирается по {@link onDidReloadDocument}). Общий путь для
+     * Читает файл с диска в документ модели ({@link replaceText}: история
+     * отмены сбрасывается, view ремапит каретку и скролл как при любой правке).
+     * Общий путь для
      * {@link openFile}, {@link revertToDisk} и {@link reopenWithEncoding}. Обновляет
      * снимок `diskStat` и снимает флаг конфликта. Кодировка: `explicitEncoding`
      * побеждает BOM-сниф; без него — сниф BOM, иначе utf-8 (revert пере-детектит,
@@ -501,14 +507,13 @@ export class TextFileModel extends Disposable {
         mark("textfile:decoded", { chars: content.length });
         this.applyEncoding(encoding);
         this.diskStat = this.readDiskStat(filePath);
-        this.doc = new TextDocument(content, this.resolveLanguageId(filePath));
-        mark("textfile:document-built", { lines: this.doc.lineCount });
-        this.savedVersionId = this.doc.versionId;
-        this.savedEol = this.doc.eol;
         this.diskConflictValue = false;
-        this.bindDocumentListeners();
-        this.createUndoManager();
-        this.fireDocumentReloaded("disk");
+        this.replaceText(content);
+        mark("textfile:document-built", { lines: this.doc.lineCount });
+        // Язык — после текста: у перечитки того же файла он прежний (no-op), а
+        // у первого открытия смена языка пересаживает токенизатор уже готовым
+        // вью — на документ с текстом, а не на пустой.
+        this.doc.setLanguage(this.resolveLanguageId(filePath));
     }
 
     public async save(options?: { overwrite?: boolean }): Promise<SaveOutcome> {
@@ -777,10 +782,10 @@ export class TextFileModel extends Disposable {
     }
 
     /**
-     * Переподписывается на события текущего документа (документ пересоздаётся
-     * в openFile): смена языка, смена EOL и правки контента ретранслируются
-     * подписчикам модели — прямые подписки на старый doc иначе бы протухли
-     * (revertToDisk перечитывает диск в новый TextDocument).
+     * Подписывается на события документа (один раз — документ живёт с моделью):
+     * смена языка, смена EOL и правки контента ретранслируются подписчикам
+     * модели; замену содержимого целиком модель объявляет сама
+     * ({@link replaceText}).
      *
      * Язык документа — повод поднять его фичи (`requestLanguageFeatures`, у
      * vscode — `requestRichLanguageFeatures`): и у нового документа, и при
@@ -790,18 +795,21 @@ export class TextFileModel extends Disposable {
      */
     private bindDocumentListeners(): void {
         this.languageService.requestLanguageFeatures(this.doc.languageId);
-        this.languageSubscription?.dispose();
-        this.languageSubscription = this.doc.onDidChangeLanguage((change) => {
-            this.languageService.requestLanguageFeatures(change.newLanguageId);
-            this.onDidChangeLanguageEmitter.fire(change);
-        });
-        this.eolSubscription?.dispose();
-        this.eolSubscription = this.doc.onDidChangeEol(() => {
-            this.onDidChangeEolEmitter.fire();
-        });
-        this.contentSubscription?.dispose();
-        this.contentSubscription = this.doc.onDidChangeContent(() => {
-            this.onDidChangeContentEmitter.fire();
-        });
+        this.register(
+            this.doc.onDidChangeLanguage((change) => {
+                this.languageService.requestLanguageFeatures(change.newLanguageId);
+                this.onDidChangeLanguageEmitter.fire(change);
+            }),
+        );
+        this.register(
+            this.doc.onDidChangeEol(() => {
+                if (!this.replacingText) this.onDidChangeEolEmitter.fire();
+            }),
+        );
+        this.register(
+            this.doc.onDidChangeContent(() => {
+                if (!this.replacingText) this.onDidChangeContentEmitter.fire();
+            }),
+        );
     }
 }

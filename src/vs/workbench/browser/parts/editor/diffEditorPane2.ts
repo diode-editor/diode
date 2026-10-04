@@ -319,9 +319,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     /**
      * Подписки живости — на **модели** сторон (переживают Save As со сменой uri):
      * правка любой стороны — из диффа, из обычной вкладки того же файла, undo —
-     * планирует пересчёт с паузой; пересоздание документа (revert, внешняя
-     * перечитка с диска, замена снимка) пересобирает view-state стороны — синк
-     * перевешивается и раскладка перезаливается сразу.
+     * планирует пересчёт с паузой; замена содержимого целиком (перечитка с
+     * диска, замена снимка) пересчитывает раскладку сразу.
      */
     private wireLiveness(): void {
         for (const side of ["original", "modified"] as const) {
@@ -330,10 +329,12 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
                     this.scheduleRecompute();
                 }),
             );
+            // Замена содержимого целиком (перечитка с диска, свежий снимок) —
+            // раскладка перезаливается сразу, а не с паузой набора: прежняя
+            // ничего не говорит о новом тексте.
             this.register(
-                this.sides[side].model.onDidReloadDocument(() => {
-                    this.wireViewSync(side);
-                    this.recomputeLayout({ preserveView: true });
+                this.sides[side].model.document.onDidChangeContent((change) => {
+                    if (change.isFlush === true) this.recomputeLayout({ preserveView: true });
                 }),
             );
         }

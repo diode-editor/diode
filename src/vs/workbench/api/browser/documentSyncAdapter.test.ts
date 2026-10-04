@@ -99,6 +99,28 @@ describe("documentSyncAdapter", () => {
         expect(opened).toEqual([uri]); // повторных didOpen не было
     });
 
+    it("bindDocumentSync: перечитка с диска — didChange с новым текстом и растущей версией", () => {
+        const snapshots: IWireDocumentSyncSnapshot[] = [];
+        const host = {
+            didOpenTextDocument: () => undefined,
+            didChangeTextDocument: (snapshot: IWireDocumentSyncSnapshot) => snapshots.push(snapshot),
+            didCloseTextDocument: () => undefined,
+        } as unknown as ExtensionHost;
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        editor.viewState.type("x");
+        bindDocumentSync(service, host);
+        editor.viewState.type("y");
+        const versionBefore = snapshots.at(-1)!.version;
+
+        ws.writeFile("a.ts", "from disk");
+        editor.revertToDisk();
+
+        // Хост узнаёт о перечитке как о правке: текст с диска, версия не откатилась.
+        expect(snapshots.at(-1)?.text).toBe("from disk");
+        expect(snapshots.at(-1)!.version).toBeGreaterThan(versionBefore);
+    });
+
     it("bindDocumentSync: открытие нового файла после привязки даёт didOpen", () => {
         const { host, opened } = recordingHost();
         service.openFile(ws.path("a.ts"));

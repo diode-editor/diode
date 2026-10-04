@@ -35,6 +35,18 @@ describe("UndoManager", () => {
         expect(undoManager.canRedo).toBe(false);
     });
 
+    it("clear забывает оба стека — и откат, и повтор", () => {
+        const { viewState, undoManager } = setup("hello");
+        undoManager.pushUndoElement(viewState.type("1")!);
+        undoManager.pushUndoElement(viewState.type("2")!);
+        undoManager.undo();
+        expect([undoManager.canUndo, undoManager.canRedo]).toEqual([true, true]);
+
+        undoManager.clear();
+
+        expect([undoManager.canUndo, undoManager.canRedo]).toEqual([false, false]);
+    });
+
     it("undoes a single type operation", () => {
         const { doc, viewState, undoManager } = setup("hello");
         const original = doc.getText();
