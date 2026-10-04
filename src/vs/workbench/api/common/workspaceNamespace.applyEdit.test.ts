@@ -57,11 +57,11 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                     resource: URI_A.toString(),
                     edits: [
                         {
-                            range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 },
+                            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } },
                             text: "hi",
                         },
                         {
-                            range: { startLine: 1, startCharacter: 3, endLine: 1, endCharacter: 3 },
+                            range: { start: { line: 1, character: 3 }, end: { line: 1, character: 3 } },
                             text: "x",
                         },
                     ],
@@ -71,7 +71,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                     resource: URI_B.toString(),
                     edits: [
                         {
-                            range: { startLine: 2, startCharacter: 0, endLine: 2, endCharacter: 5 },
+                            range: { start: { line: 2, character: 0 }, end: { line: 2, character: 5 } },
                             text: "",
                         },
                     ],
@@ -95,7 +95,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                 {
                     kind: "text",
                     resource: URI_A.toString(),
-                    edits: [{ range: { startLine: 0, startCharacter: 1, endLine: 0, endCharacter: 4 }, text: "y" }],
+                    edits: [{ range: { start: { line: 0, character: 1 }, end: { line: 0, character: 4 } }, text: "y" }],
                 },
             ],
         });
@@ -115,7 +115,10 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                     kind: "text",
                     resource: URI_A.toString(),
                     edits: [
-                        { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "foo(bar)" },
+                        {
+                            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                            text: "foo(bar)",
+                        },
                     ],
                 },
             ],
@@ -155,12 +158,12 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                 {
                     kind: "text",
                     resource: URI_A.toString(),
-                    edits: [{ range: { startLine: 1, startCharacter: 1, endLine: 1, endCharacter: 1 }, text: "" }],
+                    edits: [{ range: { start: { line: 1, character: 1 }, end: { line: 1, character: 1 } }, text: "" }],
                 },
                 {
                     kind: "text",
                     resource: URI_B.toString(),
-                    edits: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+                    edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
                 },
             ],
         });
@@ -184,7 +187,9 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                 {
                     kind: "text",
                     resource: URI_B.toString(),
-                    edits: [{ range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 0 }, text: "moved" }],
+                    edits: [
+                        { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } }, text: "moved" },
+                    ],
                 },
                 { kind: "delete", resource: URI_A.toString(), ignoreIfNotExists: true },
             ],

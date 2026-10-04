@@ -1,4 +1,8 @@
-import type { ICoreCompletionResult } from "../../../editor/common/languages/iCompletionSource.ts";
+import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type {
+    ICoreCompletionResult,
+    ICoreResolvedCompletion,
+} from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
@@ -27,7 +31,6 @@ import type {
     IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
     IWireDocumentSyncSnapshot,
-    IWireEditorEdit,
     IWireEditorLayout,
     IWireExecuteCommandParams,
     IWireExtensionCatalog,
@@ -85,7 +88,6 @@ import type {
     WireFoldingRange,
     WireRenamePrepare,
     WireRenameResult,
-    WireResolvedCompletionItem,
     WireTextEdit,
 } from "./wireTypes.ts";
 
@@ -113,10 +115,7 @@ import type {
 export interface IHostToSubprocess {
     readonly requests: {
         readonly "languages.provideCompletionItems": readonly [IWireCompletionParams, ICoreCompletionResult[]];
-        readonly "languages.resolveCompletionItem": readonly [
-            { readonly id: string },
-            WireResolvedCompletionItem | null,
-        ];
+        readonly "languages.resolveCompletionItem": readonly [{ readonly id: string }, ICoreResolvedCompletion | null];
         readonly "languages.provideInlineCompletions": readonly [
             IWireInlineCompletionParams,
             ICoreInlineCompletionItem[][],
@@ -126,7 +125,7 @@ export interface IHostToSubprocess {
         readonly "languages.provideHover": readonly [IWireHoverParams, ICoreHover | null];
         readonly "languages.provideReferences": readonly [IWireReferenceParams, ICoreReference[]];
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];
-        readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, IWireEditorEdit[]];
+        readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, ITextEdit[]];
         readonly "languages.provideCodeActions": readonly [IWireCodeActionParams, WireCodeAction[]];
         readonly "languages.applyCodeAction": readonly [{ readonly id: string }, boolean];
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];

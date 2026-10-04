@@ -289,8 +289,7 @@ describe("LanguageFeaturesCustomer — запросы только по синх
     });
 });
 
-/** Плоский диапазон правок (`IWireEditorEdit`, G5 C2); языковые ответы едут `CORE_RANGE`. */
-const RANGE = { startLine: 2, startCharacter: 4, endLine: 2, endCharacter: 9 };
+/** Диапазон ответов и правок на проводе — core `IRange`. */
 const CORE_RANGE = { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } };
 
 type Answer = (params: unknown) => unknown;
@@ -353,7 +352,7 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
         const h = setupAnswering({
             "languages.resolveCompletionItem": () => ({
                 detail: "d",
-                additionalEdits: [{ range: RANGE, text: "import x\n" }],
+                additionalEdits: [{ range: CORE_RANGE, text: "import x\n" }],
             }),
             "languages.provideDefinition": () => [{ uri: "file:///b.ts", range: CORE_RANGE }],
             "languages.provideHover": () => ({ contents: ["**x**"], range: CORE_RANGE }),
@@ -363,7 +362,7 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
                 activeSignature: 0,
                 activeParameter: -1,
             }),
-            "languages.provideFormattingEdits": () => [{ range: RANGE, text: "  " }],
+            "languages.provideFormattingEdits": () => [{ range: CORE_RANGE, text: "  " }],
             "languages.provideCodeActions": () => [{ id: "1.0", title: "Fix", kind: "quickfix", isPreferred: true }],
             "languages.applyCodeAction": () => true,
             "languages.prepareRename": () => ({ placeholder: "value" }),

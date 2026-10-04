@@ -13,19 +13,11 @@ const URI = Uri.file("/a.ts").toString();
 
 /** Батч модели ядра в проводной форме — как его шлёт адаптер document sync. */
 function toWire(event: IModelContentChangedEvent): IWireDocumentContentChange[] {
-    return event.changes.map(({ range, text }) => ({
-        range: {
-            startLine: range.start.line,
-            startCharacter: range.start.character,
-            endLine: range.end.line,
-            endCharacter: range.end.character,
-        },
-        text,
-    }));
+    return event.changes.map(({ range, text }) => ({ range, text }));
 }
 
 function wireChange(startLine: number, startCharacter: number, endLine: number, endCharacter: number, text: string) {
-    return { range: { startLine, startCharacter, endLine, endCharacter }, text };
+    return { range: createRange(startLine, startCharacter, endLine, endCharacter), text };
 }
 
 function setup(text: string) {

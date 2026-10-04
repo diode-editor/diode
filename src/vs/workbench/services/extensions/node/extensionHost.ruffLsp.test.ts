@@ -59,7 +59,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vs
                 return Promise.resolve(hit ?? null);
             });
             // `import sys` — первая строка файла.
-            expect(f401.startLine).toBe(0);
+            expect(f401.range.start.line).toBe(0);
 
             // ИЗМЕНЯЕМЫЙ КОД: удаляем неиспользуемый импорт БЕЗ сохранения на
             // диск — клиент обязан пере-запросить pull-диагностику живого буфера.

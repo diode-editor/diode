@@ -1,5 +1,7 @@
 import type * as vscode from "vscode";
 
+import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
+
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createMessageApi } from "./messageNamespace.ts";
@@ -51,23 +53,15 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
     };
 }
 
-/** Wire-форма диапазона декорации (nested `start`/`end`, совпадает с `IRange`). */
-interface IWireRange {
-    readonly start: { readonly line: number; readonly character: number };
-    readonly end: { readonly line: number; readonly character: number };
-}
-
-function toWireRange(range: vscode.Range): IWireRange {
-    return {
-        start: { line: range.start.line, character: range.start.character },
-        end: { line: range.end.line, character: range.end.character },
-    };
+/** `vscode.Range` → core-диапазон провода ({@link IRange}) декорации. */
+function toWireRange(range: vscode.Range): IRange {
+    return createRange(range.start.line, range.start.character, range.end.line, range.end.character);
 }
 
 /** Диапазоны из `setDecorations` — либо голые Range, либо DecorationOptions с `.range`. */
 function normalizeDecorationRanges(
     rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
-): IWireRange[] {
+): IRange[] {
     return rangesOrOptions.map((item) => {
         const range = "range" in item ? item.range : item;
         return toWireRange(range);
@@ -1110,18 +1104,13 @@ function toWireSelection(selection: vscode.Selection): IWireSelection {
  * Диапазон правки из `Range`/`Selection` (есть `start`/`end`) либо `Position`
  * (вставка в точку → пустой диапазон `pos..pos`).
  */
-function toWireEditRange(location: vscode.Range | vscode.Position): IWireEditorEdit["range"] {
+function toWireEditRange(location: vscode.Range | vscode.Position): IRange {
     const asRange = location as { start?: vscode.Position; end?: vscode.Position };
     if (asRange.start !== undefined && asRange.end !== undefined) {
-        return {
-            startLine: asRange.start.line,
-            startCharacter: asRange.start.character,
-            endLine: asRange.end.line,
-            endCharacter: asRange.end.character,
-        };
+        return createRange(asRange.start.line, asRange.start.character, asRange.end.line, asRange.end.character);
     }
     const pos = location as vscode.Position;
-    return { startLine: pos.line, startCharacter: pos.character, endLine: pos.line, endCharacter: pos.character };
+    return createRange(pos.line, pos.character, pos.line, pos.character);
 }
 
 function normalizeTabSize(value: number | string): number {

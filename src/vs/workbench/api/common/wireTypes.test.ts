@@ -59,7 +59,7 @@ async function expectCancelledOnPeer(hang: ReturnType<typeof hangingHandler>): P
 describe("WireTypes — wireToSaveEdits", () => {
     it("текстовая правка → core ISaveEdit с 0-based диапазоном", () => {
         const wire: WireTextEdit[] = [
-            { range: { startLine: 2, startCharacter: 4, endLine: 2, endCharacter: 9 }, text: "abc" },
+            { range: { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } }, text: "abc" },
         ];
         expect(wireToSaveEdits(wire)).toEqual([
             {
@@ -95,7 +95,7 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("workspace.willSaveTextDocument", () => [
-                { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "" },
+                { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "" },
                 { setEndOfLine: 2 },
             ]);
             const edits = await requestWillSaveEdits((m, p, o) => host.request(m, p, o), PARAMS, 1000);
@@ -175,18 +175,18 @@ describe("WireTypes — parseWireEditorEdits", () => {
         const raw = [
             null,
             42,
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" },
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" },
             { text: "no range" },
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 } }, // нет text
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: 5 }, // text не строка
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } } }, // нет text
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: 5 }, // text не строка
         ];
         expect(parseWireEditorEdits(raw)).toEqual([
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" },
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" },
         ]);
     });
 
     it("пустой text (delete) валиден", () => {
-        const raw = [{ range: { startLine: 1, startCharacter: 0, endLine: 2, endCharacter: 0 }, text: "" }];
+        const raw = [{ range: { start: { line: 1, character: 0 }, end: { line: 2, character: 0 } }, text: "" }];
         expect(parseWireEditorEdits(raw)).toHaveLength(1);
     });
 

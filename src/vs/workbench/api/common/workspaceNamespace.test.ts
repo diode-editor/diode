@@ -383,7 +383,9 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         });
         openDoc(stub, "abc   \n");
         const result = await stub.callRequest(REQUEST, PARAMS);
-        expect(result).toEqual([{ range: { startLine: 0, startCharacter: 3, endLine: 0, endCharacter: 6 }, text: "" }]);
+        expect(result).toEqual([
+            { range: { start: { line: 0, character: 3 }, end: { line: 0, character: 6 } }, text: "" },
+        ]);
         expect(ctx.registry.get(Uri.file("/f.txt"))?.getText()).toBe("abc   \n");
     });
 
@@ -417,7 +419,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         });
         openDoc(stub, "a\n");
         expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "ok" },
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "ok" },
         ]);
     });
 
@@ -475,7 +477,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         stub.fire("editor.didChange", {
             uri: F_URI,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "b" }],
+            changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "b" }],
         });
         // Устарел: модель уже на v2; мета запроса (isDirty) не применяется.
         expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
@@ -513,7 +515,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         });
         openDoc(stub, "a\n");
         expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" },
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" },
         ]);
     });
 

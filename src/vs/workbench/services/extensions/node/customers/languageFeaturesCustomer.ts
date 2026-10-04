@@ -41,8 +41,6 @@ import {
     parseWireLanguageProviderUnregistration,
     wireToCoreFoldingRegions,
     wireToCoreRenameLocation,
-    wireToCoreResolvedCompletion,
-    wireToCoreTextEdits,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
@@ -164,8 +162,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * провайдеров: кэш субпроцесса сам знает, чей это пункт.
      */
     public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
-        const resolved = await this.request("languages.resolveCompletionItem", { id }, null);
-        return resolved === null ? null : wireToCoreResolvedCompletion(resolved);
+        return this.request("languages.resolveCompletionItem", { id }, null);
     }
 
     /**
@@ -337,7 +334,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * прокси из реестра ядра (`LanguageFeaturesAdapter`).
      */
     public async provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {
-        const edits = await this.request(
+        return this.request(
             "languages.provideFormattingEdits",
             {
                 handle,
@@ -354,7 +351,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             },
             [],
         );
-        return wireToCoreTextEdits(edits);
     }
 
     /**

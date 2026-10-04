@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseWireDocumentChangedEvent, parseWireDocumentSyncSnapshot } from "./wireTypes.ts";
 
-const RANGE = { startLine: 0, startCharacter: 1, endLine: 2, endCharacter: 3 };
+const RANGE = { start: { line: 0, character: 1 }, end: { line: 2, character: 3 } };
 
 describe("wireTypes — document sync", () => {
     it("правки: валидный батч разбирается, dirty — только булев", () => {
@@ -34,7 +34,7 @@ describe("wireTypes — document sync", () => {
             { ...valid, changes: [undefined] },
             { ...valid, changes: ["x"] },
             { ...valid, changes: [{ range: RANGE }] },
-            { ...valid, changes: [{ range: { ...RANGE, endLine: "2" }, text: "x" }] },
+            { ...valid, changes: [{ range: { ...RANGE, end: { line: "2", character: 3 } }, text: "x" }] },
             { ...valid, changes: [{ text: "x" }] },
         ]) {
             expect(parseWireDocumentChangedEvent(raw), JSON.stringify(raw)).toBeNull();

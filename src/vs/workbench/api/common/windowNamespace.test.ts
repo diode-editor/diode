@@ -523,9 +523,9 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(req?.params).toEqual({
             uri: URI,
             edits: [
-                { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "X" },
-                { range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 2 }, text: "Y" },
-                { range: { startLine: 2, startCharacter: 0, endLine: 3, endCharacter: 0 }, text: "" },
+                { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "X" },
+                { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 2 } }, text: "Y" },
+                { range: { start: { line: 2, character: 0 }, end: { line: 3, character: 0 } }, text: "" },
             ],
         });
     });

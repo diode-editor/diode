@@ -7,7 +7,7 @@ import { parseWireApplyWorkspaceEditParams } from "./wireTypes.ts";
 // применяется all-or-nothing, поэтому мусорная операция отбивает ВЕСЬ набор
 // (`null`), а не выпадает из него молча.
 
-const EDIT = { range: { startLine: 0, startCharacter: 1, endLine: 2, endCharacter: 3 }, text: "x" };
+const EDIT = { range: { start: { line: 0, character: 1 }, end: { line: 2, character: 3 } }, text: "x" };
 
 describe("parseWireApplyWorkspaceEditParams", () => {
     it("валидные операции проходят как есть, в исходном порядке", () => {

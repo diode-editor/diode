@@ -102,7 +102,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         const background = service.getActiveEditor()!;
         service.splitActiveGroup();
         service.openFile(ws.path("b.ts")); // активная вкладка второй группы — b.ts
-        const edit = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" };
+        const edit = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" };
 
         expect(adapter.applyActiveEditorEdits(background.uri.toString(), [edit])).toBe(true);
         expect(background.model.getText()).toBe("xalpha\nbeta");

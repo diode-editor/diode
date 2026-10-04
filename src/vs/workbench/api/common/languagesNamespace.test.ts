@@ -357,7 +357,7 @@ describe("LanguagesNamespace", () => {
         ctx.documentSync.change({
             uri: PROGRAM_CS,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 }, text: "ab\ncdd" }],
+            changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, text: "ab\ncdd" }],
         });
         expect(await request(1)).toEqual([]);
         await request(2);
@@ -431,7 +431,7 @@ describe("LanguagesNamespace", () => {
         ctx.documentSync.change({
             uri: PROGRAM_CS,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+            changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
         });
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {

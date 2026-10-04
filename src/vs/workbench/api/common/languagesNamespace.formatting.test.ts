@@ -39,7 +39,7 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
     };
 }
 
-const WIRE_EDIT = { range: { startLine: 0, startCharacter: 5, endLine: 0, endCharacter: 7 }, text: " " };
+const WIRE_EDIT = { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " };
 
 /** Провайдер, отдающий один TextEdit (схлопнуть двойной пробел). */
 function oneEditProvider(): vscode.DocumentFormattingEditProvider {
@@ -156,7 +156,7 @@ describe("LanguagesNamespace — провайдеры форматировани
             requestParams({ range: { start: { line: 1, character: 2 }, end: { line: 2, character: 4 } } }),
         );
         expect(result).toEqual([
-            { range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 5 }, text: "x" },
+            { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } }, text: "x" },
         ]);
         expect(ranges).toEqual([new Range(1, 2, 2, 4)]);
     });
@@ -298,7 +298,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         ctx.documentSync.change({
             uri: URI,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "//\n" }],
+            changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "//\n" }],
         });
         const selection = { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } };
         const unknown = "file:///proj/unknown.ts";

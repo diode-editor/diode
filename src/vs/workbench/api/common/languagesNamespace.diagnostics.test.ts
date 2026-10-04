@@ -47,10 +47,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
                 markers: [
                     {
                         severity: DiagnosticSeverity.Warning,
-                        startLine: 1,
-                        startCharacter: 2,
-                        endLine: 1,
-                        endCharacter: 9,
+                        range: { start: { line: 1, character: 2 }, end: { line: 1, character: 9 } },
                         message: "Type error",
                         code: "2322",
                         source: "ts",
@@ -102,10 +99,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         const markers = published(stub)[0]?.markers ?? [];
         expect(markers).toHaveLength(1);
         expect(markers[0]).toMatchObject({
-            startLine: 5,
-            startCharacter: 4,
-            endLine: 5,
-            endCharacter: 10,
+            range: { start: { line: 5, character: 4 }, end: { line: 5, character: 10 } },
             message: "Property 'retries' is missing",
         });
         // Наивность wire-формы (docs/TODO/LSP.md): related information до маркеров
@@ -122,7 +116,13 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
 
         expect(published(stub)[0]).toMatchObject({
             owner: "ext:diagnostics",
-            markers: [{ severity: 0, startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0, message: "" }],
+            markers: [
+                {
+                    severity: 0,
+                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                    message: "",
+                },
+            ],
         });
     });
 

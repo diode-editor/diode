@@ -118,7 +118,7 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         stub.fire("editor.didChange", {
             uri: URI,
             version: 5,
-            changes: [{ range: { startLine: 0, startCharacter: 6, endLine: 0, endCharacter: 7 }, text: "b" }],
+            changes: [{ range: { start: { line: 0, character: 6 }, end: { line: 0, character: 7 } }, text: "b" }],
             isDirty: true,
         });
 

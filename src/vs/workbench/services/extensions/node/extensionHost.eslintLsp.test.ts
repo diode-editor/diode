@@ -75,7 +75,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-
                     const hit = markersFor(lintUri).find((m) => (m.code ?? "") === "no-extra-semi");
                     return Promise.resolve(hit ?? null);
                 });
-                expect(extraSemi.startLine).toBe(0);
+                expect(extraSemi.range.start.line).toBe(0);
                 expect(markersFor(lintUri).some((m) => (m.code ?? "") === "no-unused-vars")).toBe(true);
 
                 // ИЗМЕНЯЕМЫЙ КОД: убираем лишнюю `;` БЕЗ сохранения на диск —

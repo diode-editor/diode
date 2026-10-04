@@ -49,7 +49,9 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
                 {
                     kind: "text",
                     resource: "file:///proj/a.py",
-                    edits: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 4 }, text: "LINE" }],
+                    edits: [
+                        { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, text: "LINE" },
+                    ],
                 },
             ],
         });

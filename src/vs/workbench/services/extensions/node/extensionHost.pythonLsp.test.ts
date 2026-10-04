@@ -74,7 +74,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                     const hit = markersFor(mainUri).find((m) => m.message.includes("is not assignable"));
                     return Promise.resolve(hit ?? null);
                 });
-                expect(marker.startLine).toBe(2);
+                expect(marker.range.start.line).toBe(2);
 
                 // ИЗМЕНЯЕМЫЙ КОД: чиним аннотацию без сохранения на диск — сервер
                 // обязан видеть живой буфер (didOpen/didChange + цикл диагностик).

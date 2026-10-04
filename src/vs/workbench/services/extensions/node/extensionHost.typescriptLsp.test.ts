@@ -218,7 +218,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 const hit = markersFor(mainUri).find((m) => m.message.includes("not assignable to type 'number'"));
                 return Promise.resolve(hit ?? null);
             });
-            expect(marker.startLine).toBe(2);
+            expect(marker.range.start.line).toBe(2);
             expect(marker.source).toBe("typescript");
 
             // Go to Definition: каретка на вызове greet → объявление в defs.ts.
@@ -304,7 +304,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 const hit = markersFor(mainUri).find((m) => m.message.includes("not assignable to type 'number'"));
                 return Promise.resolve(hit ?? null);
             });
-            expect(reMarker.startLine).toBe(2);
+            expect(reMarker.range.start.line).toBe(2);
             // Канал чист от крэшей tsserver и отказов по неизвестным документам.
             const serverErrors = outputLines.filter((l) =>
                 /charCount|TypeScript Server Error|Unexpected resource|should be opened/i.test(l.value),

@@ -210,7 +210,7 @@ describe("EditorOptionsServiceAdapter", () => {
         const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
 
-        const edit = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" };
+        const edit = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" };
         expect(adapter.applyActiveEditorEdits(Uri.file("/other.ts").toString(), [edit])).toBe(false);
         expect(applyExternalEdits).not.toHaveBeenCalled();
 
@@ -234,8 +234,8 @@ describe("EditorOptionsServiceAdapter", () => {
         // Перекрытые правки документ применил бы по уже съеденному тексту —
         // порча содержимого и сломанный undo; vscode такой edit отбивает.
         const overlapping = [
-            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 }, text: "x" },
-            { range: { startLine: 0, startCharacter: 3, endLine: 0, endCharacter: 8 }, text: "y" },
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } }, text: "x" },
+            { range: { start: { line: 0, character: 3 }, end: { line: 0, character: 8 } }, text: "y" },
         ];
         expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), overlapping)).toBe(false);
         expect(applyExternalEdits).not.toHaveBeenCalled();
@@ -288,7 +288,7 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
 
         adapter.applyActiveEditorEdits(uri, [
-            { range: { startLine: -1, startCharacter: -1, endLine: 50, endCharacter: 50 }, text: "z" },
+            { range: { start: { line: -1, character: -1 }, end: { line: 50, character: 50 } }, text: "z" },
         ]);
         const applied: unknown = applyExternalEdits.mock.calls[0][0];
         expect(applied).toEqual([

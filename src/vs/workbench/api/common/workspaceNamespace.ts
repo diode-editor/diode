@@ -3,6 +3,7 @@ import * as nodePath from "node:path";
 import type * as vscode from "vscode";
 
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
+import { createRange } from "../../../editor/common/core/iRange.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
 
@@ -11,7 +12,7 @@ import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { findFiles as walkForFiles } from "./findFiles.ts";
-import { serializeDefinitionRange, stripSnippetPlaceholders } from "./languagesNamespace.ts";
+import { serializeRange, stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -112,7 +113,7 @@ function serializeTextEdit(edit: TextEdit): WireTextEdit | null {
     if (edit.newEol !== undefined) {
         return { setEndOfLine: edit.newEol === EndOfLine.CRLF ? 2 : 1 };
     }
-    const range = serializeDefinitionRange(edit.range);
+    const range = serializeRange(edit.range);
     if (range === null || typeof edit.newText !== "string") return null;
     return { range, text: edit.newText };
 }
@@ -124,12 +125,12 @@ function serializeTextEdit(edit: TextEdit): WireTextEdit | null {
  * (`TextEdit.setEndOfLine`) текстом не является — пропускается (`null`).
  */
 function serializeWorkspaceTextEdit(edit: TextEdit | SnippetTextEdit): IWireEditorEdit | null {
-    const range = {
-        startLine: edit.range.start.line,
-        startCharacter: edit.range.start.character,
-        endLine: edit.range.end.line,
-        endCharacter: edit.range.end.character,
-    };
+    const range = createRange(
+        edit.range.start.line,
+        edit.range.start.character,
+        edit.range.end.line,
+        edit.range.end.character,
+    );
     if (edit instanceof SnippetTextEdit) {
         return { range, text: stripSnippetPlaceholders(edit.snippet.value) };
     }
