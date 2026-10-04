@@ -8,7 +8,7 @@ import type { ITerminalSessionOptions, TerminalSessionFactory } from "../common/
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-function buildHarness() {
+function buildHarness(shell?: string) {
     const views = makeViewsHarness();
     const panelService = views.panelService;
     const sessions: FakeTerminalSurface[] = [];
@@ -16,7 +16,7 @@ function buildHarness() {
     // Локальная фабрика, записывающая созданные сессии — так тест видит инстансы.
     const factory: TerminalSessionFactory = (options) => {
         factoryOptions.push(options);
-        const surface = new FakeTerminalSurface();
+        const surface = new FakeTerminalSurface(shell);
         sessions.push(surface);
         return surface;
     };
@@ -232,13 +232,8 @@ describe("TerminalService — working directory", () => {
 });
 
 describe("TerminalService — instance title", () => {
-    afterEach(() => {
-        vi.unstubAllEnvs();
-    });
-
-    it("names instances after $SHELL, falling back to bash", () => {
-        vi.stubEnv("SHELL", undefined);
-        const h = buildHarness();
+    it("names instances after the shell the session launched", () => {
+        const h = buildHarness("/bin/bash");
         h.service.openTerminal();
         expect(h.service.getInstances()[0].title).toBe("bash (1)");
         h.service.dispose();
@@ -252,11 +247,12 @@ describe("TerminalService — instance title", () => {
         h.service.dispose();
     });
 
-    it("uses the basename of $SHELL", () => {
-        vi.stubEnv("SHELL", "/usr/bin/zsh");
-        const h = buildHarness();
+    it("uses the basename of the session's shell, not the editor's own $SHELL", () => {
+        vi.stubEnv("SHELL", "/bin/bash");
+        const h = buildHarness("/usr/bin/zsh");
         h.service.openTerminal();
         expect(h.service.getInstances()[0].title).toBe("zsh (1)");
+        vi.unstubAllEnvs();
         h.service.dispose();
     });
 });

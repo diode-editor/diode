@@ -28,6 +28,7 @@ import type { IPty } from "node-pty";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { getSystemShell } from "../../../../base/node/shell.ts";
 import { xtermPaletteToRgb } from "../common/xtermPalette.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";
@@ -85,6 +86,8 @@ function currentEnv(): Record<string, string> {
 }
 
 export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
+    /** Запущенный шелл — по нему вкладка терминала получает заголовок. */
+    public readonly shell: string;
     private readonly pty: IPty;
     private readonly term: Terminal;
     private readonly onUpdateEmitter = new Emitter<void>();
@@ -101,7 +104,8 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
         this.cols = options.cols;
         this.rows = options.rows;
 
-        const shell = options.shell ?? process.env.SHELL ?? "bash";
+        const shell = options.shell ?? getSystemShell();
+        this.shell = shell;
         const env: Record<string, string> = {
             ...currentEnv(),
             ...(options.env ?? {}),
@@ -109,7 +113,6 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
             // Внутри собственного tmux-хоста $TMUX сбивает детект — убираем для чистоты.
         };
         delete env.TMUX;
-        // win32 использовал бы COMSPEC вместо $SHELL — вне scope пока (только *nix).
 
         this.term = new xtermHeadless.Terminal({
             cols: this.cols,

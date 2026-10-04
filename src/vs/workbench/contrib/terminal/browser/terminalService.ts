@@ -139,10 +139,9 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     public createInstance(): void {
         const id = this.nextId++;
         const session = this.factory({ cols: INITIAL_COLS, rows: INITIAL_ROWS, cwd: this.cwd ?? process.cwd() });
-        const shell = process.env.SHELL ?? "bash";
         const instance: TerminalInstanceRecord = {
             id,
-            title: `${basename(shell)} (${id})`,
+            title: `${basename(session.shell)} (${id})`,
             session,
             subscriptions: [
                 session.onExit(() => {

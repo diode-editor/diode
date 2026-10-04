@@ -16,6 +16,13 @@ export interface ITerminalSessionOptions {
     env?: Record<string, string>;
 }
 
-export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSurface & IDisposable;
+/**
+ * Сессия встроенного терминала: поверхность для отрисовки плюс запущенный шелл
+ * (`shell` — по нему вкладка получает заголовок; какой шелл запускать, решает
+ * node-слой, `getSystemShell`).
+ */
+export type ITerminalSession = ITerminalSurface & IDisposable & { readonly shell: string };
+
+export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSession;
 
 export const TerminalSessionFactoryDIToken = token<TerminalSessionFactory>("TerminalSessionFactory");

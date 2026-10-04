@@ -120,8 +120,8 @@ mouse-энкодер), наш рендер/цвета/стили/wide-chars/ку
   Итог: сборка на всех трёх ОС проходит, но **живой шелл на macOS/Windows не проверялся**
   (e2e-сценарий там пропускается) — нужен прогон харнесса на `macos-latest`/`windows-latest`.
 - **Рантайм node-pty отличается:**
-  - **дефолтный шелл**: сейчас `SHELL ?? "bash"` — на Windows `SHELL` пуст → упадёт; нужно
-    `win32 → COMSPEC/powershell`.
+  - **дефолтный шелл**: единая точка — `base/node/shell.ts` `getSystemShell` (unix: `$SHELL` →
+    шелл учётки → `sh`; win32: `%COMSPEC%` → `cmd.exe`). Осталось обнаружение PowerShell, как у upstream.
   - **ConPTY-причуды** (уже задокументированы в `e2e/helpers/runDiode.ts`): инъекции очищающих
     последовательностей при resize, `onExit` может не срабатывать, иной kill — проверить resize-путь на Win.
   - мелочи: Backspace `\x7f` vs `\b` на cmd.
