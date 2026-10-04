@@ -42,6 +42,8 @@ interface ExplorerHarness {
     clipboard: InMemoryFileClipboard;
     /** Пути, открытые через команду `workbench.openFile` (регистрирует харнесс). */
     opened: string[];
+    /** Опции, с которыми дерево позвало `workbench.openFile`. */
+    openOptions: unknown[];
     dispose(): void;
 }
 
@@ -49,8 +51,10 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
     const clipboard = new InMemoryFileClipboard();
     const commands = new CommandRegistry();
     const opened: string[] = [];
-    commands.register("workbench.openFile", (filePath) => {
+    const openOptions: unknown[] = [];
+    commands.register("workbench.openFile", (filePath, options) => {
         opened.push(filePath as string);
+        openOptions.push(options);
     });
     const service = new ExplorerService(
         clipboard,
@@ -71,6 +75,7 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         commands,
         clipboard,
         opened,
+        openOptions,
         dispose: () => {
             component.dispose();
             service.dispose();
@@ -178,6 +183,17 @@ describe("ExplorerComponent", () => {
         app.sendKey("Enter");
         app.render();
         expect(h.opened).toEqual([ws.path("README.md")]);
+    });
+
+    it("дерево открывает файл ПРЕДПРОСМОТРОМ — единственная такая дверь", () => {
+        app.sendKey("ArrowDown"); // README.md
+        app.render();
+        app.sendKey("Enter");
+        app.render();
+
+        // Эталон превьюит из дерева, но не из Quick Open и навигации по коду
+        // (`enablePreviewFrom*` там выключены), поэтому флаг ставит дерево.
+        expect(h.openOptions).toEqual([{ preview: true }]);
     });
 
     it("Shift+F10 opens the popup menu anchored at the selected row", () => {

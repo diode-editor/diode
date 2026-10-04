@@ -129,6 +129,8 @@ export interface EditorTitleMenuContext {
     readonly hasTabsToTheRight: boolean;
     /** Есть ли в группе вкладки без несохранённых правок — видимость Close Saved. */
     readonly hasSavedTabs: boolean;
+    /** Вкладка под курсором — предпросмотр: видимость Keep Open. */
+    readonly isPreview: boolean;
 }
 
 /** Аргументы команд вкладки — адрес вкладки под курсором. */
@@ -152,3 +154,6 @@ export const editorTabHasTabsToTheRight = (context: unknown): boolean =>
 
 /** Видимость Close Saved: в группе есть вкладки без несохранённых правок. */
 export const editorTabHasSavedTabs = (context: unknown): boolean => (context as EditorTitleMenuContext).hasSavedTabs;
+
+/** Видимость Keep Open: целевая вкладка сейчас предпросмотр (приколотой прикалывать нечего). */
+export const editorTabIsPreview = (context: unknown): boolean => (context as EditorTitleMenuContext).isPreview;

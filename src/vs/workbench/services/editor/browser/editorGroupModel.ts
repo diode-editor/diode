@@ -53,6 +53,13 @@ export class EditorGroup extends Disposable {
     private cyclingActive = false;
     private mruCycleList: IEditorPane[] = [];
     private mruCyclePointer = 0;
+    /**
+     * Единственная вкладка-предпросмотр группы либо `null`. Хранится ссылкой на
+     * панель, а не индексом: индексы ездят при вставке/закрытии соседей, а
+     * «приколота ли вкладка» — свойство самой вкладки (так же устроен `preview`
+     * в `editorGroupModel` эталона).
+     */
+    private previewPaneValue: IEditorPane | null = null;
 
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
     private readonly onDidChangeActivePaneEmitter = new Emitter<IEditorPane | null>();
@@ -66,6 +73,7 @@ export class EditorGroup extends Disposable {
                 this.paneSubscriptions.clear();
                 for (const pane of this.panes) pane.dispose();
                 this.panes = [];
+                this.previewPaneValue = null;
             },
         });
     }
@@ -104,6 +112,27 @@ export class EditorGroup extends Disposable {
         return this.panes[this.activeIndexValue];
     }
 
+    /** Вкладка-предпросмотр группы либо `null`. */
+    public get previewPane(): IEditorPane | null {
+        return this.previewPaneValue;
+    }
+
+    /** Приколота ли вкладка (всё, что не предпросмотр, приколото — как в эталоне). */
+    public isPinned(pane: IEditorPane): boolean {
+        return this.previewPaneValue !== pane;
+    }
+
+    /**
+     * Прикалывает вкладку: она перестаёт быть предпросмотром и её больше не
+     * замещают. No-op для уже приколотой — поэтому зовётся из всех триггеров
+     * прикалывания без оглядки на состояние.
+     */
+    public pinPane(pane: IEditorPane): void {
+        if (this.previewPaneValue !== pane) return;
+        this.previewPaneValue = null;
+        this.fireEditorsChanged();
+    }
+
     public getPane(index: number): IEditorPane | null {
         if (index < 0 || index >= this.panes.length) return null;
         return this.panes[index];
@@ -124,17 +153,74 @@ export class EditorGroup extends Disposable {
      * изменения. Не активирует — активацию решает вызывающий
      * ({@link activateTab}); группа лишь владеет самой вкладкой с этого момента.
      */
-    public insertPane(pane: IEditorPane, options: { index?: number } = {}): void {
+    public insertPane(pane: IEditorPane, options: { index?: number; preview?: boolean } = {}): void {
         const index = options.index ?? this.panes.length;
         this.panes.splice(index, 0, pane);
+        this.trackPane(pane, options);
+        // Вставка до или на позицию активной сдвигает её вправо.
+        if (index <= this.activeIndexValue) this.activeIndexValue++;
+    }
+
+    /**
+     * Замещает вкладку на позиции `index` новой, НЕ трогая порядок полосы и
+     * индекс активной вкладки: так открытие следующего предпросмотра занимает
+     * слот предыдущего, вместо «закрыли → открыли в конце». Старая вкладка
+     * диспозится. События не шлёт — их пошлёт {@link activateTab}, которым
+     * вызывающий активирует новую вкладку (одна перерисовка на замещение).
+     */
+    public replacePane(index: number, pane: IEditorPane, options: { preview?: boolean } = {}): void {
+        /* v8 ignore start -- defensive: индекс приходит из getPanes().indexOf собственной панели */
+        if (index < 0 || index >= this.panes.length) return;
+        /* v8 ignore stop */
+        const replaced = this.panes[index];
+        // Структурное изменение делает замороженный список серии Ctrl+Tab невалидным.
+        this.stopMruCycle();
+        this.forgetPane(replaced);
+        const mruIndex = this.mruOrder.indexOf(replaced);
+        if (mruIndex >= 0) this.mruOrder.splice(mruIndex, 1);
+        this.panes[index] = pane;
+        this.trackPane(pane, options);
+        replaced.dispose();
+    }
+
+    /**
+     * Берёт вкладку под присмотр группы: подписка на её видимые изменения плюс
+     * признак предпросмотра. Защёлка «первая правка прикалывает» живёт здесь,
+     * а не у триггера ввода: правка приезжает и извне — `applyEdit` расширения,
+     * bulk edit по закрытому файлу, участник сохранения, — и в любом случае
+     * обязана приколоть вкладку, а не дать её заместить.
+     */
+    private trackPane(pane: IEditorPane, { preview = false }: { preview?: boolean }): void {
         this.paneSubscriptions.set(
             pane,
             pane.onDidChangeState(() => {
+                this.pinOnFirstEdit(pane);
                 this.fireEditorsChanged();
             }),
         );
-        // Вставка до или на позицию активной сдвигает её вправо.
-        if (index <= this.activeIndexValue) this.activeIndexValue++;
+        // Вкладка может приехать уже грязной (дубль документа при сплите, общая
+        // с другой группой модель) — предпросмотром такая не становится: её
+        // несохранённые правки замещение потеряло бы.
+        if (preview && !pane.isModified) this.previewPaneValue = pane;
+    }
+
+    /** Снимает вкладку с присмотра группы: подписка плюс признак предпросмотра. */
+    private forgetPane(pane: IEditorPane): void {
+        this.paneSubscriptions.get(pane)?.dispose();
+        // Stryker disable next-line CallExpression: эквивалентен — удаление чистит только запись Map, сама подписка погашена строкой выше, и поведения за ней больше нет
+        this.paneSubscriptions.delete(pane);
+        if (this.previewPaneValue === pane) this.previewPaneValue = null;
+    }
+
+    /**
+     * Прикалывание по правке: грязная вкладка перестаёт быть предпросмотром.
+     * Это ЗАЩЁЛКА — undo до сохранённой версии снова делает буфер чистым, но
+     * вкладку в предпросмотр не возвращает: обратно `previewPaneValue` не
+     * ставит никто, а {@link trackPane} зовётся один раз на вкладку.
+     */
+    private pinOnFirstEdit(pane: IEditorPane): void {
+        if (!pane.isModified) return;
+        if (this.previewPaneValue === pane) this.previewPaneValue = null;
     }
 
     /**
@@ -145,8 +231,7 @@ export class EditorGroup extends Disposable {
     public detachPane(index: number): IEditorPane | null {
         if (index < 0 || index >= this.panes.length) return null;
         const pane = this.panes[index];
-        this.paneSubscriptions.get(pane)?.dispose();
-        this.paneSubscriptions.delete(pane);
+        this.forgetPane(pane);
         this.removePaneAt(index, pane, { dispose: false });
         return pane;
     }
@@ -251,8 +336,7 @@ export class EditorGroup extends Disposable {
         if (index < 0 || index >= this.panes.length) return;
 
         const pane = this.panes[index];
-        this.paneSubscriptions.get(pane)?.dispose();
-        this.paneSubscriptions.delete(pane);
+        this.forgetPane(pane);
         this.removePaneAt(index, pane, { dispose: true });
     }
 

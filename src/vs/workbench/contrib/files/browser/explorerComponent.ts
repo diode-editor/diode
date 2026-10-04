@@ -155,7 +155,10 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         };
         tree.onActivate = (node) => {
             if (!node.isDirectory) {
-                this.commands.execute("workbench.openFile", node.path);
+                // Второй аргумент — режим предпросмотра: дерево единственная
+                // дверь, которая его просит (у эталона Quick Open и навигация по
+                // коду превью не делают — `enablePreviewFrom*` выключены).
+                this.commands.execute("workbench.openFile", node.path, { preview: true });
             }
         };
         tree.onContextMenu = (node, screenX, screenY) => {

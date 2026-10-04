@@ -25,6 +25,9 @@
             "fileOperations.copyPath",
             "fileOperations.copyRelativePath"
         ],
+        "3_preview": [
+            "workbench.action.keepEditor"
+        ],
         "4_reveal": [
             "workbench.files.action.showActiveFileInExplorer"
         ]

@@ -53,7 +53,7 @@ describe("FileTree opens file in editor", () => {
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("hello.txt");
     });
 
-    it("activating a second file opens another tab", () => {
+    it("activating a second file REPLACES the first — the tree opens previews", () => {
         const tree = testApp.querySelector("TreeViewElement");
         tree!.focus();
         testApp.render();
@@ -68,8 +68,11 @@ describe("FileTree opens file in editor", () => {
         testApp.sendKey("Enter");
         testApp.render();
 
+        // Обход дерева не копит таб-строку: вкладка-предпросмотр в группе одна,
+        // и следующее превью занимает её слот (`workbench.editor.enablePreview`).
         const editorGroupCtrl = (workbench as unknown as { editorService: EditorService }).editorService;
-        expect(editorGroupCtrl.activeGroup.editorCount).toBe(2);
+        expect(editorGroupCtrl.activeGroup.editorCount).toBe(1);
+        expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("notes.md");
     });
 
     it("focus moves to editor after activating a file from the tree", () => {

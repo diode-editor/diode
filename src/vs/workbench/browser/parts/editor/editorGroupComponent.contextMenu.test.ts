@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -35,7 +36,7 @@ import {
 } from "../../actions/editorGroupActions.ts";
 import { revealActiveFileInExplorerAction } from "../../actions/layoutActions.ts";
 import { menuItemsOfAction } from "../../actions/menuContributions.ts";
-import { closeActiveEditorAction } from "../../actions/tabActions.ts";
+import { closeActiveEditorAction, keepEditorAction } from "../../actions/tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "../../actions/tabCloseActions.ts";
 
 import { DiffEditorPane2 } from "./diffEditorPane2.ts";
@@ -51,6 +52,7 @@ const TAB_ROW = 0;
  * увидит пользователь, а не выдуманный.
  */
 const TAB_MENU_ACTIONS = [
+    keepEditorAction,
     closeActiveEditorAction,
     ...TAB_CLOSE_ACTIONS,
     closeAllEditorsAction,
@@ -111,7 +113,9 @@ function createHarness(): Harness {
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         NULL_LANGUAGE_SERVICE,
-        NULL_CONFIGURATION_SERVICE,
+        // Дефолты реестра, а не NULL-сервис: `workbench.editor.enablePreview`
+        // читается типизированной перегрузкой, и дефолт ей даёт реестр.
+        createTestConfigurationService(),
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
@@ -186,6 +190,12 @@ describe("EditorGroupComponent — контекстное меню вкладк�
 
     function openFiles(harness: Harness, ...names: string[]): void {
         for (const name of names) harness.service.openFile(writeFile(name));
+        harness.app.render();
+    }
+
+    /** Открывает файл вкладкой-предпросмотра — как это делает дерево Explorer. */
+    function openPreview(harness: Harness, name: string): void {
+        harness.service.openFile(writeFile(name), { preview: true });
         harness.app.render();
     }
 
@@ -334,5 +344,40 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         harness.openMenuOnTab(0);
 
         expect(menuItems(harness.app)).not.toContain("Close Saved");
+    });
+
+    it("«Keep Open» виден у вкладки-предпросмотра", () => {
+        const harness = createHarness();
+        openPreview(harness, "a.ts");
+
+        harness.openMenuOnTab(0);
+
+        expect(menuItems(harness.app)).toContain("Keep Open");
+    });
+
+    it("«Keep Open» прячется у приколотой вкладки — прикалывать нечего", () => {
+        const harness = createHarness();
+        openFiles(harness, "a.ts");
+
+        harness.openMenuOnTab(0);
+
+        expect(menuItems(harness.app)).not.toContain("Keep Open");
+    });
+
+    it("«Keep Open» решается по вкладке под курсором, а не по активной", () => {
+        const harness = createHarness();
+        // Приколотая слева, превью справа и активно.
+        openFiles(harness, "a.ts");
+        openPreview(harness, "b.ts");
+
+        // Меню по приколотой вкладке — пункта нет, хотя активна превью…
+        harness.openMenuOnTab(0);
+        expect(menuItems(harness.app)).not.toContain("Keep Open");
+        harness.app.sendKey("Escape");
+        harness.app.render();
+
+        // …а меню по самой превью его показывает.
+        harness.openMenuOnTab(1);
+        expect(menuItems(harness.app)).toContain("Keep Open");
     });
 });

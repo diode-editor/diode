@@ -147,6 +147,7 @@
     "workbench.action.previousEditorInGroup",
     "workbench.action.openPreviousRecentlyUsedEditorInGroup",
     "workbench.action.closeActiveEditor",
+    "workbench.action.keepEditor",
     "workbench.action.closeOtherEditors",
     "workbench.action.closeEditorsToTheRight",
     "workbench.action.closeUnmodifiedEditors",

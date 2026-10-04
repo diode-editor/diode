@@ -4,13 +4,15 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
+import type { IOpenUriOptions } from "../../../services/editor/browser/editorService.ts";
 import { EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 export const OpenFileCommandContributionDIToken = token<OpenFileCommandContribution>("OpenFileCommandContribution");
 
 /**
  * Регистрирует программную команду `workbench.openFile` (открыть файл по
- * абсолютному пути) — её дёргают Explorer (активация файла) и Quick Open.
+ * абсолютному пути, вторым аргументом — {@link IOpenUriOptions}) — её
+ * дёргают Explorer (активация файла, с `preview: true`) и Quick Open.
  * Команда без title: в палитру команд не попадает (как и раньше).
  */
 export class OpenFileCommandContribution extends Disposable implements IWorkbenchContribution {
@@ -23,8 +25,11 @@ export class OpenFileCommandContribution extends Disposable implements IWorkbenc
     ) {
         super();
         this.register(
-            commands.register("workbench.openFile", (absolutePath: unknown) => {
-                this.editorService.openFile(absolutePath as string);
+            commands.register("workbench.openFile", (absolutePath: unknown, options?: unknown) => {
+                // Вторым аргументом приходят опции открытия — сейчас это только
+                // `preview` от дерева Explorer. Аргументов нет (CLI, Quick Open,
+                // палитра) — открываем постоянной вкладкой, как было.
+                this.editorService.openFile(absolutePath as string, (options as IOpenUriOptions | undefined) ?? {});
                 this.contextKeys.update();
             }),
         );

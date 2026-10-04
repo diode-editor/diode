@@ -1,13 +1,13 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../platform/keybinding/common/keybindingResolver.ts";
 import { ModifierReleaseArmoryDIToken } from "../../../platform/keybinding/common/modifierReleaseArmory.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 import { resolveTabTarget } from "./editorTabTarget.ts";
-import { editorTabTargetArg } from "./menuContexts.ts";
+import { editorTabIsPreview, editorTabTargetArg } from "./menuContexts.ts";
 
 /** Стрелки по видимому списку tab-switcher сильнее прокрутки строк редактора (upstream: навигация пикера — WorkbenchContrib + 50; ступени хватает). */
 const TAB_SWITCHER_WEIGHT = KeybindingWeight.WorkbenchContrib;
@@ -127,6 +127,41 @@ export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
         const group = accessor.get(EditorServiceDIToken).activeGroup;
         group.cycleMru(1);
         group.endMruCycle();
+    },
+};
+
+/**
+ * Прикалывает вкладку: она перестаёт быть предпросмотром и её больше не
+ * замещает следующее превью (VS Code `workbench.action.keepEditor`, Ctrl+K Enter
+ * и пункт «Keep Open» в меню вкладки). Для уже приколотой — no-op, поэтому
+ * команда не гейтится «вкладка сейчас превью»: иначе Ctrl+K Enter на обычной
+ * вкладке проглатывался бы диспетчером впустую.
+ */
+export const keepEditorAction: CommandAction = {
+    id: "workbench.action.keepEditor",
+    title: "Keep Editor",
+    shortTitle: "Keep Open",
+    menus: [
+        {
+            menuId: MenuId.EditorTitleContext,
+            group: "3_preview",
+            order: 10,
+            args: editorTabTargetArg,
+            visible: editorTabIsPreview,
+        },
+    ],
+    keybinding: parseChord("ctrl+k enter"),
+    // Без гейта по фокусу: превью открывает дерево Explorer, и приколоть
+    // вкладку должно быть можно не уходя из него.
+    when: "editorGroupHasEditors",
+    run(accessor, ...args) {
+        const service = accessor.get(EditorServiceDIToken);
+        const target = resolveTabTarget(service, args);
+        // Цели нет — вызов из палитры при пустой группе либо протухший адрес из
+        // меню; делать нечего. У живой цели индекс уже проверен резолвером,
+        // поэтому панель берём прямо, без защиты от `null`.
+        if (target === null) return;
+        target.group.pinPane(target.group.getPanes()[target.index]);
     },
 };
 
