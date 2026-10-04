@@ -36,7 +36,7 @@ import type { IActivatable } from "../../../browser/iActivatable.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { isTextEditorPane, TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
 import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 import type { ISerializedEditor } from "../../../common/stateKeys.ts";
@@ -1165,13 +1165,18 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * поверх работы (вкладка просто остаётся с прежним текстом).
      */
     public refreshVirtualDocument(uri: Uri): void {
-        const targets = this.allPanes().flatMap((pane) =>
-            pane instanceof TextEditorPane &&
-            pane.model instanceof SyntheticTextModel &&
-            pane.uri.toString() === uri.toString()
-                ? [pane.model]
-                : [],
-        );
+        const key = uri.toString();
+        const targets = this.allPanes()
+            .filter(isTextEditorPane)
+            .flatMap((pane) =>
+                pane.uri.toString() === key &&
+                // Вкладка недискового ресурса синтетическая по построению; проверка
+                // сужает тип модели, отличить её поведением нечем.
+                // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+                pane.model instanceof SyntheticTextModel
+                    ? [pane.model]
+                    : [],
+            );
         if (targets.length === 0) return;
         // `.catch` ХВОСТОМ, а не вторым аргументом `then`: так он накрывает и
         // отказ провайдера, и поломку самой заливки текста. Иначе исключение из

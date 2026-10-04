@@ -98,6 +98,8 @@ export abstract class BaseTextEditorModel extends Disposable {
      * Ключ бакета и `resources` обёртки-элемента — разные вещи: первый адресует
      * историю, второй перечисляет затронутые пути и у безымянного буфера пуст.
      */
+    // Уникальность держится и при счёте вниз (0, -1, …) — мутант ненаблюдаем.
+    // Stryker disable next-line UpdateOperator: эквивалентен — см. выше
     public readonly undoContext = `editor-${nextUndoContextId++}`;
 
     public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;

@@ -84,6 +84,38 @@ describe("BaseTextEditorModel", () => {
         expect([a.dirtied, b.dirtied]).toEqual([3, 3]);
     });
 
+    it("у каждой модели свой контекст отмены", () => {
+        const { model } = setup();
+        const other = setup().model;
+
+        expect(other.undoContext).not.toBe(model.undoContext);
+    });
+
+    it("смена EOL без прикреплённой вью снимает пустые выделения", () => {
+        const { model } = setup();
+        model.setEol(EndOfLine.CRLF);
+
+        const view = recordingView();
+        model.undo(view);
+
+        expect(view.restored).toEqual([[]]);
+    });
+
+    it("действующая вью живёт один вызов: шаг, откаченный мимо модели, её не трогает", () => {
+        const { undoRedo, model } = setup();
+        model.setEol(EndOfLine.CRLF);
+        model.setEol(EndOfLine.LF);
+        const view = recordingView();
+
+        model.undo(view);
+        void undoRedo.undo(model.undoContext);
+        model.redo(view);
+        void undoRedo.redo(model.undoContext);
+
+        expect(model.eol).toBe(EndOfLine.LF);
+        expect(view.restored).toHaveLength(2);
+    });
+
     it("закрытие модели очищает её историю отмены", () => {
         const { undoRedo, model } = setup();
         model.setEol(EndOfLine.CRLF);
