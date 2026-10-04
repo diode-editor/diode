@@ -7,7 +7,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import { BASENAME_BONUS } from "../../../services/search/node/fileSearchService.ts";
+import { BASENAME_BONUS } from "../../../services/search/common/fileSearch.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
 import { splitPathMatchRanges } from "./pathMatchRanges.ts";

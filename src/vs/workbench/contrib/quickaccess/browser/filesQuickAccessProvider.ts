@@ -8,8 +8,8 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
-import type { FileSearchResult, FileSearchService } from "../../../services/search/node/fileSearchService.ts";
-import { FileSearchServiceDIToken } from "../../../services/search/node/fileSearchService.ts";
+import type { FileSearchResult, IFileSearchService } from "../../../services/search/common/fileSearch.ts";
+import { FileSearchServiceDIToken } from "../../../services/search/common/fileSearch.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
 import type { IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
@@ -20,7 +20,7 @@ export const FilesQuickAccessProviderDIToken = token<FilesQuickAccessProvider>("
 
 /**
  * Дефолтный (файловый) провайдер Quick Open: fuzzy-поиск поверх
- * {@link FileSearchService} с поддержкой суффикса `file:line[:col]`. Индекс
+ * {@link IFileSearchService} с поддержкой суффикса `file:line[:col]`. Индекс
  * строится в фоне — пока показ открыт, провайдер живо обновляет список по мере
  * роста индекса; ввод дорогой, поэтому запросы дебаунсятся (`debounceQuery`).
  */
@@ -40,7 +40,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     private readonly indexSubscription = new MutableDisposable();
 
     public constructor(
-        private readonly fileSearch: FileSearchService,
+        private readonly fileSearch: IFileSearchService,
         private readonly commands: CommandRegistry,
         private readonly editorSource: IGotoLineEditorSource,
         private readonly jumps: IJumpRecorder,
