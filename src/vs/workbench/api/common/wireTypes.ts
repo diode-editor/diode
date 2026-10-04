@@ -13,6 +13,7 @@ import type { ICoreDefinitionLocation } from "../../../editor/common/languages/i
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
+import type { ICoreRenameLocation, ICoreRenameResult } from "../../../editor/common/languages/iRenameSource.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,
@@ -991,6 +992,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "codeActions",
     "folding",
     "inlineCompletions",
+    "rename",
 ] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 
@@ -1468,6 +1470,101 @@ export async function requestApplyCodeAction(
 ): Promise<boolean> {
     const outcome = await raceWithTimeout(request("languages.applyCodeAction", { id }), timeoutMs);
     return outcome === true;
+}
+
+// ─── Rename (languages.registerRenameProvider) ───────────────────────────────
+
+/** Параметры `languages.prepareRename` (host → subprocess) — форма definition-запроса. */
+export interface IWirePrepareRenameParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle: number;
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+    readonly text: string;
+    readonly line: number;
+    readonly character: number;
+}
+
+/** Параметры `languages.provideRenameEdits` — то же плюс новое имя. */
+export interface IWireRenameParams extends IWirePrepareRenameParams {
+    readonly newName: string;
+}
+
+/**
+ * Wire-форма ответа `prepareRename` (subprocess → host): имя символа либо
+ * отказ с причиной. Пусто (оба поля отсутствуют) — провайдеру сказать нечего.
+ */
+export interface WireRenamePrepare {
+    /** Текущее имя символа — placeholder поля ввода. */
+    readonly placeholder?: string;
+    /** «Здесь переименовать нельзя»: сообщение провайдера. */
+    readonly rejectReason?: string;
+}
+
+/** Wire-форма исхода применения rename (subprocess → host). */
+export interface WireRenameResult {
+    readonly applied: boolean;
+    readonly error?: string;
+}
+
+/**
+ * Разбирает ответ `prepareRename` в форму ядра. Отказ бьёт имя: провайдер,
+ * сказавший «здесь нельзя», не должен открыть поле ввода из-за того, что
+ * прислал заодно и placeholder. `null` — ни имени, ни причины (в том числе у
+ * мусорного ответа): ядро спросит следующего провайдера.
+ */
+export function parseWireRenamePrepare(raw: unknown): ICoreRenameLocation | null {
+    // Stryker disable next-line ConditionalExpression: не-объект всё равно отсеет чтение полей ниже; проверка стоит ради `null`, на котором чтение кинуло бы
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.rejectReason === "string" && obj.rejectReason !== "") {
+        return { kind: "reject", reason: obj.rejectReason };
+    }
+    if (typeof obj.placeholder === "string" && obj.placeholder !== "") {
+        return { kind: "name", name: obj.placeholder };
+    }
+    return null;
+}
+
+/**
+ * Спрашивает у rename-провайдера субпроцесса текущее имя символа в позиции
+ * каретки (`languages.prepareRename`). Таймаут и битый ответ — `null`
+ * («провайдеру сказать нечего»): врать «переименовать нельзя» из-за медленного
+ * сервера не за что, а слово под кареткой ядро доберёт само.
+ */
+export async function requestPrepareRename(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWirePrepareRenameParams,
+    timeoutMs: number,
+): Promise<ICoreRenameLocation | null> {
+    const outcome = await raceWithTimeout(request("languages.prepareRename", params), timeoutMs);
+    // Stryker disable next-line ConditionalExpression: маркер таймаута — не объект с полями ответа, поэтому разбор ниже вернул бы тот же `null`; ранний выход только называет причину
+    if (outcome === TIMED_OUT) return null;
+    return parseWireRenamePrepare(outcome);
+}
+
+/**
+ * Просит субпроцесс переименовать символ (`languages.provideRenameEdits`):
+ * вызов провайдера и правки существующим `workspace.applyEdit` — всё на его
+ * стороне. Таймаут и битый ответ — отказ С СООБЩЕНИЕМ: в отличие от
+ * форматирования, молчаливый no-op здесь неприемлем (человек ввёл имя и ждёт
+ * результата).
+ */
+export async function requestRename(
+    request: (method: string, params: unknown) => Promise<unknown>,
+    params: IWireRenameParams,
+    timeoutMs: number,
+): Promise<ICoreRenameResult> {
+    const outcome = await raceWithTimeout(request("languages.provideRenameEdits", params), timeoutMs);
+    if (outcome === TIMED_OUT) return { applied: false, error: "Rename timed out" };
+    if (typeof outcome !== "object" || outcome === null) return { applied: false, error: "Rename failed" };
+    const obj = outcome as Record<string, unknown>;
+    if (obj.applied === true) return { applied: true };
+    return {
+        applied: false,
+        ...(typeof obj.error === "string" && obj.error !== "" ? { error: obj.error } : {}),
+    };
 }
 
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────

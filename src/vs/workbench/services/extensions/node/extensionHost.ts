@@ -32,6 +32,11 @@ import type {
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
+    ICoreRenameLocation,
+    ICoreRenameResult,
+    IRenameRequest,
+} from "../../../../editor/common/languages/iRenameSource.ts";
+import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -93,7 +98,9 @@ import {
     requestFormattingEdits,
     requestHover,
     requestInlineCompletions,
+    requestPrepareRename,
     requestReferences,
+    requestRename,
     requestResolveCompletionItem,
     requestSignatureHelp,
     requestWillSaveEdits,
@@ -343,6 +350,18 @@ export interface IExtensionHostOptions {
      */
     readonly codeActionsTimeoutMs?: number;
     /**
+     * Тайм-аут на ответ `languages.prepareRename`, мс. По истечении ядро
+     * считает, что провайдеру сказать нечего, и добирает имя словом под
+     * кареткой. Default: 5000 — тот же холодный language server.
+     */
+    readonly prepareRenameTimeoutMs?: number;
+    /**
+     * Тайм-аут применения переименования (`languages.provideRenameEdits`), мс.
+     * Default: 10000 — как у applyCodeAction: внутри ЕЩЁ два круга RPC (rename
+     * до сервера и `workspace.applyEdit` обратно до хоста).
+     */
+    readonly renameTimeoutMs?: number;
+    /**
      * Тайм-аут применения code action (`languages.applyCodeAction`), мс.
      * Default: 10000 — внутри живут ЕЩЁ два круга RPC: ленивый
      * codeAction/resolve до сервера и `workspace.applyEdit` обратно до хоста.
@@ -545,6 +564,8 @@ export class ExtensionHost extends Disposable {
             | "signatureHelpTimeoutMs"
             | "formattingTimeoutMs"
             | "codeActionsTimeoutMs"
+            | "prepareRenameTimeoutMs"
+            | "renameTimeoutMs"
             | "applyCodeActionTimeoutMs"
             | "workspaceContainsTimeoutMs"
         >
@@ -698,6 +719,8 @@ export class ExtensionHost extends Disposable {
             signatureHelpTimeoutMs: options.signatureHelpTimeoutMs ?? 5000,
             formattingTimeoutMs: options.formattingTimeoutMs ?? 5000,
             codeActionsTimeoutMs: options.codeActionsTimeoutMs ?? 5000,
+            prepareRenameTimeoutMs: options.prepareRenameTimeoutMs ?? 5000,
+            renameTimeoutMs: options.renameTimeoutMs ?? 10000,
             applyCodeActionTimeoutMs: options.applyCodeActionTimeoutMs ?? 10000,
             workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs ?? 7000,
         };
@@ -1688,6 +1711,57 @@ export class ExtensionHost extends Disposable {
         );
     }
 
+    /**
+     * Спрашивает у rename-провайдера `handle` текущее имя символа в позиции
+     * каретки (`languages.prepareRename`). `null` — субпроцесса нет, документ
+     * слишком большой, провайдеру сказать нечего или он не ответил за
+     * `prepareRenameTimeoutMs`; ядро в этом случае спрашивает следующего
+     * провайдера, а в конце добирает слово под кареткой само.
+     */
+    public async prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
+        if (rpc === null) return null;
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping prepare rename: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return null;
+        }
+        return requestPrepareRename(
+            (method, params) => rpc.request(method, params),
+            { handle, ...renameTarget(req) },
+            this.options.prepareRenameTimeoutMs,
+        );
+    }
+
+    /**
+     * Просит rename-провайдера `handle` переименовать символ под кареткой
+     * (`languages.provideRenameEdits`): вызов провайдера и правки существующим
+     * `workspace.applyEdit` — всё на стороне субпроцесса. Отказ С СООБЩЕНИЕМ,
+     * если субпроцесса нет, документ слишком большой или расширение не
+     * ответило за `renameTimeoutMs`: человек ввёл имя и обязан узнать, что
+     * ничего не произошло.
+     */
+    public async provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
+        const rpc = this.rpc;
+        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
+        if (rpc === null) return { applied: false, error: "Rename failed" };
+        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
+            this.logger?.warn("skipping rename: document too large", {
+                uri: req.uri,
+                length: req.text.length,
+            });
+            return { applied: false, error: "Document too large to rename" };
+        }
+        return requestRename(
+            (method, params) => rpc.request(method, params),
+            { handle, ...renameTarget(req), newName },
+            this.options.renameTimeoutMs,
+        );
+    }
+
     // ─── Языковые провайдеры (мост под ILanguageFeaturesService) ──────────────
 
     /**
@@ -2335,6 +2409,27 @@ export class ExtensionHost extends Disposable {
         await subprocess.shutdown(this.options.shutdownTimeoutMs);
         this.exitingProcess = null;
     }
+}
+
+/**
+ * Общая часть параметров обеих rename-ручек: документ и позиция каретки.
+ * `prepareRename` и `provideRenameEdits` спрашивают об одном и том же месте,
+ * и расходятся только новым именем.
+ */
+function renameTarget(req: IRenameRequest): {
+    uri: string;
+    languageId: string;
+    text: string;
+    line: number;
+    character: number;
+} {
+    return {
+        uri: req.uri,
+        languageId: req.languageId,
+        text: req.text,
+        line: req.line,
+        character: req.character,
+    };
 }
 
 function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {

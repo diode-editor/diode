@@ -11,6 +11,7 @@ import type {
 import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
+import type { RenameProvider } from "../languages/iRenameSource.ts";
 import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts";
 
 /**
@@ -26,6 +27,7 @@ export interface ILanguageFeaturesService {
     readonly hoverProvider: LanguageFeatureRegistry<HoverProvider>;
     readonly definitionProvider: LanguageFeatureRegistry<DefinitionProvider>;
     readonly referenceProvider: LanguageFeatureRegistry<ReferenceProvider>;
+    readonly renameProvider: LanguageFeatureRegistry<RenameProvider>;
     readonly signatureHelpProvider: LanguageFeatureRegistry<SignatureHelpProvider>;
     readonly completionProvider: LanguageFeatureRegistry<CompletionItemProvider>;
     readonly documentFormattingEditProvider: LanguageFeatureRegistry<DocumentFormattingEditProvider>;

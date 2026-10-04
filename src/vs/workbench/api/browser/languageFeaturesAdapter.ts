@@ -110,6 +110,11 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideInlineCompletions: (request, token) =>
                     this.bridge.provideInlineCompletions(handle, request, token),
             }),
+        rename: ({ handle, selector }) =>
+            this.languageFeatures.renameProvider.register(selector, {
+                prepareRename: (request) => this.bridge.prepareRename(handle, request),
+                provideRenameEdits: (request, newName) => this.bridge.provideRenameEdits(handle, request, newName),
+            }),
     };
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {

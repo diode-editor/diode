@@ -255,6 +255,7 @@
             "*": "ctrl+k ctrl+u",
             "mac-cmd (kitty) #1": "meta+k meta+u"
         },
+        "editor.action.rename": "f2",
         "editor.action.revealDefinition": "f12",
         "editor.action.revealDefinitionAside": {
             "*": "ctrl+k f12",

@@ -22,6 +22,7 @@ import type {
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import type { ICoreReference, IReferenceRequest } from "../vs/editor/common/languages/iReferenceSource.ts";
+import type { ICoreRenameResult, IRenameRequest } from "../vs/editor/common/languages/iRenameSource.ts";
 import type { ICoreSignatureHelp, ISignatureHelpRequest } from "../vs/editor/common/languages/iSignatureHelpSource.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
@@ -58,6 +59,8 @@ import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { provideInlineCompletions as provideInlineCompletionsFrom } from "../vs/workbench/contrib/inlineCompletions/browser/provideInlineCompletions.ts";
 import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
 import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
+import type { IPreparedRename } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
+import { prepareRename, renameSymbol } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
 import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/contrib/suggest/browser/provideCompletions.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
@@ -581,6 +584,20 @@ export function provideInlineCompletions(
 ): Promise<ICoreInlineCompletionItem[]> {
     const providers = harness.languageFeatures.inlineCompletionsProvider.ordered(targetOf(request));
     return provideInlineCompletionsFrom(providers, request, token);
+}
+
+/** Текущее имя символа так, как его спрашивает `RenameService` (реестр харнесса). */
+export function prepareRenameAt(harness: IExtensionHarness, request: IRenameRequest): Promise<IPreparedRename> {
+    return prepareRename(harness.languageFeatures.renameProvider, targetOf(request), request);
+}
+
+/** Переименование так, как его запускает `RenameService` (реестр харнесса). */
+export function provideRename(
+    harness: IExtensionHarness,
+    request: IRenameRequest,
+    newName: string,
+): Promise<ICoreRenameResult> {
+    return renameSymbol(harness.languageFeatures.renameProvider, targetOf(request), request, newName);
 }
 
 /** Документ запроса как цель скоринга реестра. */
