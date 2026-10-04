@@ -6,6 +6,9 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
+
+import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 // Shift+F10 opens the context menu on whichever component is focused — the same menu
 // that a right-click produces. `when` (textInputFocus / listFocus) routes the shared
@@ -53,6 +56,21 @@ describe("Workbench — Shift+F10 context menu", () => {
         expect(h.testApp.querySelector("PopupMenuElement")).not.toBeNull();
         // Editor menu carries clipboard entries.
         expect(h.testApp.backend.screenToString()).toContain("Copy");
+    });
+
+    it("editorTextFocus и editorLangId описывают сфокусированный редактор (их читают `when` расширений)", () => {
+        const contextKeys = h.container.get(ContextKeyServiceDIToken);
+        h.container.get(WorkbenchContextKeysDIToken).update();
+        expect(contextKeys.get("editorTextFocus")).toBe(false);
+        expect(contextKeys.get("editorLangId")).toBe("");
+
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.workbench.focusEditor();
+        h.testApp.render();
+        h.container.get(WorkbenchContextKeysDIToken).update();
+
+        expect(contextKeys.get("editorTextFocus")).toBe(true);
+        expect(contextKeys.get("editorLangId")).toBe("plaintext");
     });
 
     it("пункты языковых фич появляются только при живом провайдере", () => {

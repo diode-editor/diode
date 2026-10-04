@@ -142,13 +142,24 @@ export interface IExtensionContributions {
      */
     readonly themes?: readonly IThemeContribution[];
 
+    /**
+     * Пункты меню расширения: `"editor/context"` → список пунктов. Строковые id
+     * VS Code переводит в наши `MenuId` мост
+     * `registerExtensionMenus` (`services/extensions/common/extensionMenuContributor.ts`);
+     * неизвестная точка — строка в лог, а не падение расширения.
+     */
+    readonly menus?: Readonly<Record<string, readonly IExtensionMenuItemContribution[]>>;
+
+    /**
+     * Объявления собственных подменю расширения (`contributes.submenus`): на
+     * них ссылаются пункты `menus` полем `submenu`.
+     */
+    readonly submenus?: readonly IExtensionSubmenuContribution[];
+
     // ── TODO(extensions phase 2+): раскомментировать по мере реализации ──
     //
     // readonly iconThemes?: readonly IIconThemeContribution[];
     // readonly productIconThemes?: readonly IProductIconThemeContribution[];
-    //
-    // readonly menus?: Readonly<Record<string, readonly IMenuItemContribution[]>>;
-    // readonly submenus?: readonly ISubmenuContribution[];
     //
     // readonly snippets?: readonly ISnippetContribution[];
     //
@@ -193,6 +204,33 @@ export interface IExtensionContributions {
  *
  * `title`/`category` приезжают уже локализованными (см. шапку файла).
  */
+/**
+ * Пункт меню из манифеста (VS Code `contributes.menus[<menuId>][]`). Либо
+ * команда (`command`), либо ссылка на собственное подменю (`submenu`).
+ */
+export interface IExtensionMenuItemContribution {
+    readonly command?: string;
+    /** Свой label пункта в этой точке; без него — титул команды из реестра. */
+    readonly title?: string;
+    /** Id подменю из `contributes.submenus` — вместо команды. */
+    readonly submenu?: string;
+    /** Условие видимости через контекст-ключи. */
+    readonly when?: string;
+    /** `"группа@порядок"` (`"navigation@2"`); без `@` — порядок по месту в манифесте. */
+    readonly group?: string;
+    /** Альтернативная команда (Alt у пункта); у нас пока не рисуется. */
+    readonly alt?: string;
+    readonly [key: string]: unknown;
+}
+
+/** Объявление подменю расширения (VS Code `contributes.submenus[]`). */
+export interface IExtensionSubmenuContribution {
+    readonly id: string;
+    readonly label: string;
+    readonly icon?: unknown;
+    readonly [key: string]: unknown;
+}
+
 export interface ICommandContribution {
     readonly command: string;
     readonly title: string;

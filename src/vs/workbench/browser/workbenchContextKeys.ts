@@ -102,6 +102,10 @@ export class WorkbenchContextKeys extends Disposable {
         // нужна каретка» против «команде нужен ввод» (мутирующие дополнительно
         // гейтятся `!editorReadonly`).
         this.contextKeys.set("textViewFocus", isTextViewElement(active));
+        // Upstream-имена для `when` расширений: их манифесты пишут
+        // `editorTextFocus` и `editorLangId`, а не наши ключи.
+        this.contextKeys.set("editorTextFocus", active instanceof EditorElement);
+        this.contextKeys.set("editorLangId", isTextViewElement(active) ? active.viewState.document.languageId : "");
         // Парный к textViewFocus: мутирующие команды висят на
         // `textInputFocus && !editorReadonly` — наш аналог `EditorContextKeys.writable`
         // (в VS Code это `readOnly.toNegated()`). Без фокуса в тексте ключ

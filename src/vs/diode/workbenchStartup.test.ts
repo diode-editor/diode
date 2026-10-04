@@ -6,6 +6,8 @@ import type { ITempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { createTempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../TestUtils/TestApp.ts";
 import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../base/common/performance.ts";
+import { MenuId } from "../platform/actions/common/menuId.ts";
+import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
 import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
@@ -27,6 +29,23 @@ import type { IWorkbenchStartupHost } from "./workbenchStartup.ts";
 import { startWorkbench } from "./workbenchStartup.ts";
 
 const NO_TARGETS: IStartupTargets = { folder: undefined, files: [], diff: undefined };
+
+/** Расширение с пунктом контекст-меню редактора (`contributes.menus`). */
+const MENU_EXTENSION: IExtension = {
+    id: "test.menus",
+    location: "user:test.menus/",
+    isBuiltin: false,
+    manifest: {
+        name: "menus",
+        publisher: "test",
+        version: "1.0.0",
+        engines: { vscode: "*" },
+        contributes: {
+            commands: [{ command: "test.menus.doThing", title: "Do Thing" }],
+            menus: { "editor/context": [{ command: "test.menus.doThing", group: "navigation" }] },
+        },
+    },
+};
 
 /** Расширение, перебивающее builtin-аккорд Ctrl+P своей командой. */
 const KEYBINDING_EXTENSION: IExtension = {
@@ -170,6 +189,21 @@ describe("startWorkbench", () => {
             metaKey: false,
         });
         expect(resolution).toMatchObject({ kind: "command", commandId: "test.keys.open" });
+    });
+
+    it("пункты меню расширений заводятся на старте — попап их уже видит", async () => {
+        const startup = setup();
+
+        await startup.run(NO_TARGETS, [MENU_EXTENSION]);
+
+        // Label резолвит реестр команд, а титулы команд расширения заводит
+        // host при активации — здесь его нет, и пункт честно подписан id.
+        // Нам важно другое: пункт из манифеста в точке меню ЕСТЬ.
+        const labels = startup.container
+            .get(MenuRegistryDIToken)
+            .getMenuItems(MenuId.EditorContext)
+            .map((entry) => (entry.type === "separator" ? "─" : entry.label));
+        expect(labels).toContain("test.menus.doThing");
     });
 
     it("папка воркспейса назначается до mount (к фазе ready она уже есть)", async () => {

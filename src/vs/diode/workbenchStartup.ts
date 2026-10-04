@@ -2,6 +2,7 @@ import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 
 import { mark } from "../base/common/performance.ts";
 import { Uri } from "../base/common/uri.ts";
+import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
 import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
 import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
@@ -11,6 +12,7 @@ import type { ILogger } from "../platform/log/common/iLogger.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
 import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
+import { registerExtensionMenus } from "../workbench/services/extensions/common/extensionMenuContributor.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 
 /**
@@ -75,6 +77,9 @@ export async function startWorkbench(
     const lifecycle = accessor.get(LifecycleServiceDIToken);
 
     registerExtensionKeybindings(options.extensions, accessor.get(KeybindingRegistryDIToken), options.extensionsLogger);
+    // Пункты меню расширений — до первого открытия меню: состав точек реестр
+    // отдаёт по запросу, а регистрация стоит рядом с биндами того же манифеста.
+    registerExtensionMenus(options.extensions, accessor.get(MenuRegistryDIToken), options.extensionsLogger);
 
     // Папка воркспейса — только если её назвали явно. Без неё окно поднимается
     // пустым: ни Explorer-корня, ни индекса файлов, ни workspaceFolders у
