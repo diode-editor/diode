@@ -37,7 +37,8 @@
 8. [x] editor + configuration (#500).
 9. [x] documents (#501) (save, sync, семя didOpen).
 10. [x] language features (#502 — реестр провайдеров, #504 — запросы и батчеры).
-11. [~] стоки окна в `api/common`; опустевший `resetSubprocessState` → `endSpawn`, доки.
+11. [x] стоки окна в `api/common`; опустевший `resetSubprocessState` → `endSpawn` (#505).
+12. [~] `ExtensionPhases` — таблица фаз расширений; доки.
 
 ## Не делаем
 

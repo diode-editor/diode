@@ -91,6 +91,7 @@ import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.t
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
+import { ExtensionPhases } from "./extensionPhases.ts";
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 import { createTransientExtensionStateStore, type IExtensionStateStore } from "./extensionStateStore.ts";
 import {
@@ -427,9 +428,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly configuration: IExtensionHostConfigProvider | undefined;
     /** Декорации и тема — customer, которому хост ещё отдаёт семя темы на handshake. */
     private readonly decorations: DecorationsCustomer;
-    private readonly extensions = new Set<string>();
-    /** Регистрации уже активированных расширений (нужны для оживления после смерти субпроцесса). */
-    private readonly activatedRegistrations = new Map<string, IExtensionRegistration>();
+    /** Фазы расширений: все регистрации, ожидающие активации и активные. */
+    private readonly phases = new ExtensionPhases();
     /**
      * Журнал запрошенных событий активации (как `_allRequestedActivateEvents`
      * эталона): {@link activateByEvent} пишет в него всегда, даже когда
@@ -448,13 +448,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private replayPending = false;
     /** Активации в полёте (id → регистрация и промис): их ждут и соседние вызовы. */
     private readonly activating = new Map<string, { reg: IExtensionRegistration; done: Promise<void> }>();
-    /**
-     * Зарегистрированные, но ещё не активированные расширения (id → reg).
-     * Заполняется `registerExtension`, опустошается `activateByEvent` по мере
-     * наступления событий активации. Ленивость: пока reg здесь, subprocess под
-     * него не поднимается.
-     */
-    private readonly pending = new Map<string, IExtensionRegistration>();
     /** Текущий субпроцесс: spawn, канал, выключение (см. {@link ExtensionHostProcess}). */
     private process: ExtensionHostProcess | null = null;
     private rpc: RpcEndpoint | null = null;
@@ -496,13 +489,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly activationWorkspaces = new Map<string, string | null>();
     /** Доступ к дереву воркспейса для `workspaceContains:` (по умолчанию — настоящая ФС). */
     private readonly workspaceScanner: IWorkspaceScanner;
-    /**
-     * ВСЕ известные хосту регистрации в порядке появления — источник каталога
-     * `vscode.extensions`. Отдельно от `pending`/`activatedRegistrations`: те
-     * описывают фазу жизненного цикла и по ходу дела перекладывают записи
-     * между собой, а состав каталога от фазы не зависит.
-     */
-    private readonly registrations = new Map<string, IExtensionRegistration>();
     /** Реестр языковых провайдеров субпроцесса (мост под `ILanguageFeaturesService`). */
     private readonly languageFeatures: LanguageFeaturesCustomer;
     public constructor(
@@ -546,7 +532,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.documents = new DocumentsCustomer({
             willSaveTimeoutMs: this.options.willSaveTimeoutMs,
             openDocumentsProvider: options.openDocumentsProvider,
-            hasExtensions: () => this.extensions.size > 0,
+            hasExtensions: () => this.phases.activeCount > 0,
             logger: this.logger,
         });
         this.editor = new EditorCustomer(editorOptions, options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE);
@@ -588,7 +574,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      */
     public registerExtension(reg: IExtensionRegistration): IDisposable {
         if (this.hostDisposed) throw new Error("ExtensionHost disposed");
-        if (this.extensions.has(reg.id) || this.pending.has(reg.id)) {
+        if (this.phases.isRegistered(reg.id)) {
             throw new Error(`Extension "${reg.id}" already registered`);
         }
         // Инвариант загрузки: ровно один способ (source XOR mainPath). Проверяем
@@ -607,8 +593,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // манифеста становится подписью НАШЕГО пункта палитры, а у эталона
         // подпись команды — метка quick pick'а, то есть значки в ней живые.
         this.commands.addPaletteMetadata(reg);
-        this.pending.set(reg.id, reg);
-        this.registrations.set(reg.id, reg);
+        this.phases.register(reg);
         // ПОСЛЕ pending: заглушка исполняется асинхронно и обязана найти
         // расширение в очереди, когда до неё дойдёт активация.
         for (const id of readCommandActivationIds(reg)) this.commands.arm(id);
@@ -627,7 +612,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             dispose: (): void => {
                 // Уже снято (например, через unregisterExtension) — полный
                 // no-op: ни каталога, ни повторного deactivate.
-                if (!this.registrations.delete(reg.id)) return;
+                if (!this.phases.forget(reg.id)) return;
                 this.pushExtensionCatalog();
                 // Заглушки-активаторы снятого расширения: команды больше некому
                 // поднимать, и в палитре им висеть не за что. Кроме тех, что
@@ -636,7 +621,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 for (const id of readCommandActivationIds(reg)) {
                     if (!this.isCommandActivationClaimed(id)) this.commands.disarm(id);
                 }
-                if (this.pending.delete(reg.id)) return; // ещё не активировано (или ждёт оживления)
+                if (this.phases.dropPending(reg.id)) return; // ещё не активировано (или ждёт оживления)
                 // Осталась одна фаза — активное расширение; собственный гард
                 // на это держит сам unregisterExtension, второго не надо.
                 void this.unregisterExtension(reg.id);
@@ -653,12 +638,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      */
     private extensionCatalog(): IWireExtensionCatalog {
         const extensions: IWireExtensionDescription[] = [];
-        for (const reg of this.registrations.values()) {
+        for (const reg of this.phases.all()) {
             extensions.push({
                 id: reg.id,
                 extensionPath: extensionRootPath(reg),
                 packageJSON: reg.manifest,
-                isActive: this.extensions.has(reg.id),
+                isActive: this.phases.isActive(reg.id),
             });
         }
         return { extensions };
@@ -701,9 +686,9 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     /** Ожидающие активации расширения, чьи события есть среди `events`. */
     private pendingMatching(events: readonly string[]): IExtensionRegistration[] {
-        return [...this.pending.values()].filter((reg) =>
-            readActivationEvents(reg).some((event) => events.includes(event)),
-        );
+        return this.phases
+            .pendingRegistrations()
+            .filter((reg) => readActivationEvents(reg).some((event) => events.includes(event)));
     }
 
     /**
@@ -735,7 +720,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             return;
         }
         const candidates: { reg: IExtensionRegistration; patterns: IWorkspaceContainsPatterns }[] = [];
-        for (const reg of this.pending.values()) {
+        for (const reg of this.phases.pendingRegistrations()) {
             const patterns = readWorkspaceContainsPatterns(reg);
             // Расширение без паттернов отсеиваем здесь, а не в обходе: обход и так
             // ответил бы «не совпало», но завёл бы на это таймер, а метод зовётся
@@ -844,7 +829,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private activateRegistration(rpc: RpcEndpoint, reg: IExtensionRegistration, reason: string): Promise<void> {
         // Guard на случай, если параллельная активация уже занялась им: тот
         // вызов и дождётся (см. `activating`).
-        if (!this.pending.delete(reg.id)) return this.activating.get(reg.id)?.done ?? Promise.resolve();
+        if (!this.phases.takePending(reg.id)) return this.activating.get(reg.id)?.done ?? Promise.resolve();
         // Stryker disable next-line BlockStatement: гигиена — ждать завершённую (уже резолвленную) активацию мгновенно, а заново она встаёт в карту поверх старой записи; наблюдаемой разницы нет
         const done = this.requestActivation(rpc, reg, reason).finally(() => {
             // Stryker disable next-line CallExpression: см. выше
@@ -879,8 +864,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 globalState: this.extensionState.get(reg.id, true),
                 workspaceState: this.extensionState.get(reg.id, false),
             });
-            this.extensions.add(reg.id);
-            this.activatedRegistrations.set(reg.id, reg);
+            this.phases.markActive(reg);
             // Точечно, а не целым каталогом: манифесты тяжёлые (у языковых
             // серверов package.json со схемой настроек — сотни килобайт), а
             // меняется здесь ровно один флаг.
@@ -889,8 +873,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             // Субпроцесс умер, пока шла активация: запрос оборван вместе с его
             // каналом. Расширение тут ни при чём — возвращаем его к оживлению
             // вместе с остальными активными (если его за это время не сняли).
-            if (rpc !== this.rpc && this.registrations.get(reg.id) === reg) {
-                this.pending.set(reg.id, reg);
+            if (rpc !== this.rpc && this.phases.returnInterrupted(reg)) {
                 this.logger?.warn(`activation of "${reg.id}" interrupted by extension host death — will retry`);
                 return;
             }
@@ -904,7 +887,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     /** Объявляет ли команду `id` хоть одна из оставшихся регистраций. */
     private isCommandActivationClaimed(id: string): boolean {
-        for (const reg of this.registrations.values()) {
+        for (const reg of this.phases.all()) {
             if (readCommandActivationIds(reg).includes(id)) return true;
         }
         return false;
@@ -929,13 +912,11 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     public async unregisterExtension(id: string): Promise<void> {
-        if (!this.extensions.has(id)) return;
-        this.extensions.delete(id);
-        this.activatedRegistrations.delete(id);
+        if (!this.phases.deactivate(id)) return;
         // Каталог трогаем только если запись и правда ушла: снятие может
         // прийти вторым заходом (сначала disposable регистрации), и лишнего
         // `extensions.catalog` субпроцессу слать не за что.
-        if (this.registrations.delete(id)) this.pushExtensionCatalog();
+        if (this.phases.forget(id)) this.pushExtensionCatalog();
         const rpc = this.rpc;
         /* v8 ignore start -- defensive: an extension can only be in `extensions` after ensureSubprocess set `rpc`; dispose() clears `extensions` before nulling `rpc`, so rpc is never null while the id is still registered */
         if (rpc === null) return;
@@ -1088,22 +1069,17 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     public hasExtension(id: string): boolean {
-        return this.extensions.has(id);
+        return this.phases.isActive(id);
     }
 
     public get extensionCount(): number {
-        return this.extensions.size;
+        return this.phases.activeCount;
     }
 
     public override dispose(): void {
         if (this.hostDisposed) return;
         this.hostDisposed = true;
-        this.pending.clear();
-        this.extensions.clear();
-        // Stryker disable next-line CallExpression: гигиена — после dispose карту уже никто не читает (ожившим некуда вернуться: `pending` пуст и регистраций больше не принимает), наблюдаемой разницы нет
-        this.activatedRegistrations.clear();
-        // Stryker disable next-line CallExpression: гигиена — каталог после dispose никто не запрашивает (субпроцесса уже нет), наблюдаемой разницы нет
-        this.registrations.clear();
+        this.phases.clear();
         // Заглушки-активаторы живут в ОБЩЕМ реестре команд ядра (как и
         // прокси, см. CommandsCustomer) — после dispose там висели бы записи,
         // которые уже некого поднимать.
@@ -1251,17 +1227,15 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         subprocess.dispose();
         // Активные возвращаются в `pending` и оживут на ЛЮБОМ следующем событии
         // активации — оно проиграет журнал (см. `requestedEvents`).
-        for (const [id, reg] of this.activatedRegistrations) this.pending.set(id, reg);
+        const revived = this.phases.reviveAll();
         this.replayPending = true;
         // Прокси-команды мертвеца сняты вместе с его спавном (`CommandsCustomer`) —
         // возвращаем на их место заглушки-активаторы. Иначе команда исчезла бы и
         // из палитры, и вместе с ней единственный способ оживить расширение
         // руками: оживление ждёт события активации, а команда им и была.
-        for (const reg of this.activatedRegistrations.values()) {
+        for (const reg of revived) {
             for (const id of readCommandActivationIds(reg)) this.commands.arm(id);
         }
-        this.activatedRegistrations.clear();
-        this.extensions.clear();
     }
 
     private async shutdownSubprocess(): Promise<void> {
