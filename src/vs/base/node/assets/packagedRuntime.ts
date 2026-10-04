@@ -1,8 +1,9 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { bundleFileExists } from "../../common/assets/bundleFile.ts";
 import { isSeaBinary } from "../isSea.ts";
+
+import { bundleFileExists } from "./bundleFile.ts";
 
 /**
  * Различение «упакованная сборка» vs «dev» — шире, чем `isSeaBinary()`.

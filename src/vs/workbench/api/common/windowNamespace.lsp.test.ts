@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -31,6 +33,7 @@ function makeWindow() {
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk: createNodeExtHostDisk(),
     };
     const window = createWindowNamespace(ctx);
     return { stub, window, naive: window as unknown as INaiveWindowSurface };

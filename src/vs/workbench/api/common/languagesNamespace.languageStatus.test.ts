@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
@@ -17,6 +19,7 @@ function makeLanguages(): ReturnType<typeof createLanguagesNamespace>["languages
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk: createNodeExtHostDisk(),
     };
     return createLanguagesNamespace(ctx, {
         applyEdit: () => Promise.resolve(false),

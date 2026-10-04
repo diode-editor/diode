@@ -4,6 +4,8 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { createFileSystemNamespace } from "./fileSystemNamespace.ts";
 import { FileType, Uri } from "./vscodeTypes.ts";
 
@@ -27,7 +29,7 @@ let tmpDir: string;
 let wfs: ReturnType<typeof createFileSystemNamespace>;
 
 beforeEach(() => {
-    wfs = createFileSystemNamespace();
+    wfs = createFileSystemNamespace(createNodeExtHostDisk().fs);
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-wfs-mut-"));
 });
 

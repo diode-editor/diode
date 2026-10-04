@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
@@ -20,7 +22,7 @@ const PARAMS = {
 describe("VscodeNamespace — сборка code-action-deps", () => {
     it("edit-действие уходит настоящим RPC workspace.applyEdit", async () => {
         const stub = makeStubRpc();
-        const ns = buildVscodeNamespace(stub.rpc).namespace;
+        const ns = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
 
         ns.languages.registerCodeActionsProvider("python", {
             provideCodeActions: (doc: vscode.TextDocument) => {
@@ -50,7 +52,7 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
 
     it("командное действие исполняется настоящим commands-мостом (локальная команда)", async () => {
         const stub = makeStubRpc();
-        const ns = buildVscodeNamespace(stub.rpc).namespace;
+        const ns = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
         const ran = vi.fn();
         ns.commands.registerCommand("test.assembled", ran);
 

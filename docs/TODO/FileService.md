@@ -1,7 +1,7 @@
 # Файловый сервис (`IFileService`) вместо прямого `node:fs` в UI-слоях — исследование
 
-Статус: **в работе** — план из раздела 8, PR 0–4 и 6 (PR 5 — асинхронная
-загрузка модели — отложен до этапа 4 [OpenPerformance](OpenPerformance.md)).
+Статус: **выполнено, кроме PR 5** — план из раздела 8, PR 0–4 и 6 влиты (PR 5 —
+асинхронная загрузка модели — отложен до этапа 4 [OpenPerformance](OpenPerformance.md)).
 PR 0 (храповик на модули ОС в `common`/`browser`, `NODE_IMPORT_DEBT` в
 `scripts/check-layers.mjs`) — #459; PR 1 (сервис, реестр поглощён) — #462;
 PR 2 (холодные потребители: Encoding, Open File/Folder/Save As,
@@ -14,7 +14,10 @@ Preferences) — #467; PR 3 разрезан на три: дерево Explorer
 `ITrashService` (`platform/files/common`), запись `EXCEPTIONS`
 `contrib/files/browser → contrib/bulkEdit/node` снята — #480. PR 4 (запись
 модели: `save`/`saveAs` через `IFileService.writeFile` — атомарно с
-сохранением прав, гард по etag в момент записи, очередь записи сервиса) — #482. Фильтр рестора вкладок и проверка истории навигации из
+сохранением прав, гард по etag в момент записи, очередь записи сервиса) — #482. PR 6 (хвосты раскладки: `bundleFile.ts` → `base/node/assets`, привязка
+extension host'а к диску — `api/node/extHostDisk.ts`; `node:fs` в
+`common`/`browser` остался только у загрузки модели, рестора и истории —
+PR 5) — #483. Фильтр рестора вкладок и проверка истории навигации из
 PR 2 перенесены в PR 5: рестор синхронен по устройству (§7.2), история —
 открытый вопрос §12.3. Документ отвечает на вопрос «нужен ли нам
 аналог `IFileService` / `IFileSystemProvider`, какой минимальной формы, во что
@@ -115,7 +118,7 @@ PR 2 перенесены в PR 5: рестор синхронен по устр
 | `contrib/files/browser/fileOperationsService.ts` | `statSync` `:223`, `existsSync` `:242` `:281` | 3 | тёплый | New File/Folder, Rename: цель + валидаторы на каждое нажатие |
 | `contrib/preferences/browser/preferencesActions.ts` | `existsSync`, `mkdirSync`, `writeFileSync` `:35-38` | 3 | холодный | посев `settings.json`/`keybindings.json` |
 | `browser/actions/encodingActions.ts` | `existsSync` `:29` | 1 | холодный | доступен ли Reopen with Encoding |
-| `base/common/assets/bundleFile.ts` | `existsSync` `:23`, `readFileSync` `:44` | 2 | bootstrap | чтение бандла ассетов; оба импортёра — из `base/node/assets` |
+| `base/common/assets/bundleFile.ts` *(→ `base/node/assets`, PR 6)* | `existsSync` `:23`, `readFileSync` `:44` | 2 | bootstrap | чтение бандла ассетов; оба импортёра — из `base/node/assets` |
 
 Итого: **9 файлов, 26 sync-вызовов.**
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 import { UIKind } from "./vscodeTypes.ts";
@@ -13,7 +15,7 @@ import { UIKind } from "./vscodeTypes.ts";
  */
 
 function makeEnv(): typeof vscode.env {
-    return buildVscodeNamespace(makeStubRpc().rpc).namespace.env;
+    return buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk()).namespace.env;
 }
 
 describe("vscode.env — окружение и телеметрия", () => {
@@ -22,7 +24,7 @@ describe("vscode.env — окружение и телеметрия", () => {
     });
 
     it("UIKind — настоящий runtime-enum в namespace, а не только тип", () => {
-        const { namespace } = buildVscodeNamespace(makeStubRpc().rpc);
+        const { namespace } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk());
         expect(namespace.UIKind.Desktop).toBe(1);
         expect(namespace.UIKind.Web).toBe(2);
         // Ровно это сравнение и делает расширение.

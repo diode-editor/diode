@@ -13,6 +13,7 @@ import { buildVscodeNamespace } from "../../../api/common/vscodeNamespace.ts";
 import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
 import { parseWireMementoValue } from "../../../api/common/wireTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
+import { createNodeExtHostDisk } from "../../../api/node/extHostDisk.ts";
 
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
 import { extensionRootPath } from "./iExtensionEntry.ts";
@@ -427,7 +428,7 @@ function installVscodeStub(rpc: RpcEndpoint): IDisposable & {
     extensionExports: Map<string, unknown>;
     secrets: IExtensionSecretsFactory;
 } {
-    const { namespace, configStore, extensionExports, secrets } = buildVscodeNamespace(rpc);
+    const { namespace, configStore, extensionExports, secrets } = buildVscodeNamespace(rpc, createNodeExtHostDisk());
     const moduleAny = Module as unknown as {
         _cache: Record<string, { exports: unknown; loaded: boolean; id: string; filename: string }>;
         _resolveFilename: (request: string, parent: unknown, ...rest: unknown[]) => string;

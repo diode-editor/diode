@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
 import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
@@ -58,6 +59,7 @@ function makeWorkspace(
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk: createNodeExtHostDisk(),
     };
     const workspace = createWorkspaceNamespace(ctx);
     stub.fire("workspace.initialize", {
