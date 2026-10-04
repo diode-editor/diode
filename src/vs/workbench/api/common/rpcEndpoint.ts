@@ -1,4 +1,9 @@
 import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
+import {
+    type SerializedError,
+    transformErrorForSerialization,
+    transformErrorFromSerialization,
+} from "../../../base/common/errorSerialization.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
@@ -19,7 +24,12 @@ export interface IResponseMessage {
     readonly kind: "res";
     readonly id: number;
     readonly result?: unknown;
-    readonly error?: { readonly message: string };
+    /**
+     * Ошибка обработчика: `name`/`message`/`stack`/`code`/`cause` доезжают
+     * целиком (`FileSystemError`, `CancellationError` и стек расширения не
+     * теряются по дороге) — как `ReplyErrError` эталона.
+     */
+    readonly error?: SerializedError;
 }
 
 export interface INotificationMessage {
@@ -243,7 +253,7 @@ export class RpcEndpoint implements IDisposable {
             const response: IResponseMessage = {
                 kind: "res",
                 id: message.id,
-                error: { message: `No handler for method "${message.method}"` },
+                error: serializeRejection(new Error(`No handler for method "${message.method}"`)),
             };
             this.logger?.warn(`no handler for req#${String(message.id)} ${message.method}`);
             this.channel.postMessage(response);
@@ -270,13 +280,9 @@ export class RpcEndpoint implements IDisposable {
                     // Stryker disable next-line CallExpression: уборка токена, см. finishIncoming
                     this.finishIncoming(message.id, source);
                     if (this.disposed) return;
-                    const errMessage = reason instanceof Error ? reason.message : String(reason);
-                    const response: IResponseMessage = {
-                        kind: "res",
-                        id: message.id,
-                        error: { message: errMessage },
-                    };
-                    this.logger?.warn(`-> res#${String(message.id)} ${message.method} ERROR: ${errMessage}`);
+                    const error = serializeRejection(reason);
+                    const response: IResponseMessage = { kind: "res", id: message.id, error };
+                    this.logger?.warn(`-> res#${String(message.id)} ${message.method} ERROR: ${error.message}`);
                     this.channel.postMessage(response);
                 },
             );
@@ -301,7 +307,7 @@ export class RpcEndpoint implements IDisposable {
         this.pendingRequests.delete(message.id);
         pending.cancelSubscription?.dispose();
         if (message.error !== undefined) {
-            pending.reject(new Error(message.error.message));
+            pending.reject(transformErrorFromSerialization(message.error));
         } else {
             pending.resolve(message.result);
         }
@@ -349,4 +355,13 @@ export class RpcEndpoint implements IDisposable {
                 return;
         }
     }
+}
+
+/**
+ * Отказ обработчика в форме провода. `Error` сериализуется целиком; бросили
+ * не `Error` (строку, число) — значение едет текстом сообщения обычной ошибки.
+ */
+function serializeRejection(reason: unknown): SerializedError {
+    if (reason instanceof Error) return transformErrorForSerialization(reason);
+    return { $isError: true, name: "Error", message: String(reason), stack: "" };
 }

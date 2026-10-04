@@ -51,6 +51,26 @@ describe("RpcEndpoint", () => {
         dispose();
     });
 
+    it("ошибка обработчика доезжает с именем, кодом, стеком и причиной", async () => {
+        const { a, b, dispose } = createEndpointPair();
+        const thrown = Object.assign(new TypeError("нет файла", { cause: new Error("ENOENT") }), {
+            code: "FileNotFound",
+        });
+        b.handleRequest("fs", () => {
+            throw thrown;
+        });
+        const error = await a.request("fs").catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(Error);
+        expect(error).toMatchObject({
+            name: "TypeError",
+            message: "нет файла",
+            code: "FileNotFound",
+            stack: thrown.stack,
+        });
+        expect((error as Error).cause).toMatchObject({ name: "Error", message: "ENOENT" });
+        dispose();
+    });
+
     it("propagates handler errors via rejected promise", async () => {
         const { a, b, dispose } = createEndpointPair();
         b.handleRequest("boom", () => {
@@ -205,12 +225,39 @@ describe("RpcEndpoint", () => {
     });
 
     it("stringifies a non-Error throw from a handler into the response (line 157 false branch)", async () => {
-        const { a, b, dispose } = createEndpointPair();
+        const [chA, chB] = createInProcessChannelPair();
+        const a = new RpcEndpoint(chA);
+        const b = new RpcEndpoint(chB);
+        // Сырой ответ на проводе — форма SerializedError и для не-Error отказа.
+        const wire: unknown[] = [];
+        chA.onMessage((message) => wire.push(message));
         b.handleRequest("strthrow", () => {
             throw "plain string failure"; // eslint-disable-line @typescript-eslint/only-throw-error
         });
-        await expect(a.request("strthrow")).rejects.toThrow("plain string failure");
-        dispose();
+        const error = await a.request("strthrow").catch((e: unknown) => e);
+        expect(error).toMatchObject({ name: "Error", message: "plain string failure", stack: "" });
+        expect(wire).toContainEqual(
+            expect.objectContaining({
+                kind: "res",
+                error: { $isError: true, name: "Error", message: "plain string failure", stack: "" },
+            }),
+        );
+        a.dispose();
+        b.dispose();
+    });
+
+    it("отказ обработчика пишется в warn отвечающей стороны с методом и сообщением", async () => {
+        const [chA, chB] = createInProcessChannelPair();
+        const logger = makeSpyLogger();
+        const a = new RpcEndpoint(chA);
+        const b = new RpcEndpoint(chB, logger);
+        b.handleRequest("boom", () => {
+            throw new Error("kaboom");
+        });
+        await expect(a.request("boom")).rejects.toThrow("kaboom");
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/^-> res#\d+ boom ERROR: kaboom$/));
+        a.dispose();
+        b.dispose();
     });
 
     it("sends no response when a resolving request's endpoint was disposed mid-flight (line 150)", async () => {

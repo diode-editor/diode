@@ -462,7 +462,7 @@ describe("ExtensionHost — registration lifecycle", () => {
             const id = (req.params as { id: string }).id;
             child.receiveFromHostPeer(
                 id === "ext.bad"
-                    ? { kind: "res", id: req.id, error: { message: "boom" } }
+                    ? { kind: "res", id: req.id, error: { $isError: true, name: "Error", message: "boom", stack: "" } }
                     : { kind: "res", id: req.id, result: null },
             );
         }
@@ -516,7 +516,11 @@ describe("ExtensionHost — registration lifecycle", () => {
         const req = child.sent.find(
             (m): m is IRequestMessage => m.kind === "req" && m.method === "host.deactivateExtension",
         )!;
-        child.receiveFromHostPeer({ kind: "res", id: req.id, error: { message: "boom" } });
+        child.receiveFromHostPeer({
+            kind: "res",
+            id: req.id,
+            error: { $isError: true, name: "Error", message: "boom", stack: "" },
+        });
 
         await expect(promise).resolves.toBeUndefined();
         expect(host.hasExtension("ext.a")).toBe(false);
@@ -1972,7 +1976,9 @@ describe("ExtensionHost — memento.update на проводе", () => {
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 300));
         const res = child.sent.find((m) => m.kind === "res" && m.id === 300);
-        expect(res).toMatchObject({ error: { message: "memento.update: malformed params" } });
+        expect(res).toMatchObject({
+            error: { $isError: true, name: "Error", message: "memento.update: malformed params" },
+        });
         host.dispose();
     });
 });
