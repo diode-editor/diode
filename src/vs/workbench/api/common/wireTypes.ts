@@ -2168,6 +2168,16 @@ export interface IWireFileDecoration {
     readonly propagate?: boolean;
 }
 
+/** Параметры нотификации `window.disposeTextEditorDecorationType`. */
+export interface IWireDisposeDecorationType {
+    readonly key: number;
+}
+
+/** Параметры нотификации `window.fileDecorationsChanged`. */
+export interface IWireFileDecorationsChanged {
+    readonly decorations: readonly IWireFileDecoration[];
+}
+
 /**
  * Сериализует значение цвета опций декорации. `ThemeColor` (утиный тип — объект
  * со строковым `id`) → `{ $themeColor: id }`; CSS-строка остаётся как есть;
@@ -2490,6 +2500,17 @@ export interface IWireValidationMessage {
     readonly severity: WireValidationSeverity;
 }
 
+/** Запрос валидации значения поля ввода (`window.inputBox.validate`, host → subprocess). */
+export interface IWireInputBoxValidate {
+    readonly handle: number;
+    readonly value: string;
+}
+
+/** Снятие показа quick input'а токеном расширения (`window.quickInput.cancel`). */
+export interface IWireQuickInputCancel {
+    readonly handle: number;
+}
+
 function optionalWireString(value: unknown): string | undefined {
     return typeof value === "string" ? value : undefined;
 }
@@ -2707,6 +2728,11 @@ export function parseWireClipboardText(raw: unknown): IWireClipboardText {
     return { text: typeof text === "string" ? text : "" };
 }
 
+/** Ответ хоста на `env.openExternal` (запрос — {@link IWireUriParams}). */
+export interface IWireOpenExternalResult {
+    readonly opened: boolean;
+}
+
 /** Ответ хоста на `env.openExternal`: удалось ли отдать ссылку пользователю. */
 export function parseWireOpenExternalResult(raw: unknown): boolean {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
@@ -2750,6 +2776,21 @@ export function parseWireSecretWrite(raw: unknown): IWireSecretWrite | null {
     const { value } = raw as { value?: unknown };
     if (typeof value !== "string") return null;
     return { ...ref, value };
+}
+
+/** Запрос `secrets.keys`: ключи какого расширения. */
+export interface IWireSecretKeysRequest {
+    readonly extensionId: string;
+}
+
+/** Ответ хоста на `secrets.keys`. */
+export interface IWireSecretKeys {
+    readonly keys: readonly string[];
+}
+
+/** Ответ хоста на `secrets.get`: `null` — секрета нет (JSON не возит `undefined`). */
+export interface IWireSecretValue {
+    readonly value: string | null;
 }
 
 /** Разбирает `secrets.keys` (только id расширения); `null` — форма чужая. */
@@ -2864,4 +2905,55 @@ export function parseWireExtensionActivated(raw: unknown): string | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { id } = raw as { id?: unknown };
     return typeof id === "string" && id !== "" ? id : null;
+}
+
+/**
+ * Id расширения в проводе: `extensions.activated` (host → subprocess, расширение
+ * только что ожило) и `host.deactivateExtension` (снять его).
+ */
+export interface IWireExtensionId {
+    readonly id: string;
+}
+
+// ─── Жизненный цикл расширения (host.*) ──────────────────────────────────────
+
+/**
+ * Запрос `host.activateExtension` (host → subprocess): что грузить и куда
+ * класть состояние. Ровно одно из `mainPath`/`source` (у `source` — ещё и
+ * `filename`); проверяет это получатель.
+ */
+export interface IWireActivateExtensionParams {
+    readonly id: string;
+    readonly mainPath?: string;
+    readonly source?: string;
+    readonly filename?: string;
+    /**
+     * `"type"` из package.json как есть — хост его не нормализует, это делает
+     * одна сторона, разбирающая параметры.
+     */
+    readonly moduleType: unknown;
+    readonly extensionPath?: string;
+    readonly globalStoragePath: string;
+    /** `null` — папка не открыта (`storageUri` у расширения отсутствует). */
+    readonly storagePath: string | null;
+    readonly logPath: string;
+    /** Memento с прошлых запусков: `get` у расширения синхронный. */
+    readonly globalState: Readonly<Record<string, unknown>>;
+    readonly workspaceState: Readonly<Record<string, unknown>>;
+}
+
+// ─── Команды (vscode.commands) ───────────────────────────────────────────────
+
+/**
+ * Запрос `commands.executeCommand` — в обе стороны: субпроцесс просит хост
+ * исполнить команду ядра, хост — исполнить команду, заведённую расширением.
+ */
+export interface IWireExecuteCommandParams {
+    readonly id: string;
+    readonly args: readonly unknown[];
+}
+
+/** Нотификации `commands.registerCommand` / `commands.unregisterCommand`. */
+export interface IWireCommandId {
+    readonly id: string;
 }

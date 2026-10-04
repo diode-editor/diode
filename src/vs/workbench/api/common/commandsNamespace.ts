@@ -1,13 +1,13 @@
 import type * as vscode from "vscode";
 
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl } from "./vscodeTypes.ts";
 
 type CommandHandler = (...args: unknown[]) => unknown;
 
 /**
  * Реализация `vscode.commands` внутри subprocess'а — мост команд поверх
- * симметричного {@link RpcEndpoint}.
+ * симметричного {@link SubprocessRpc}.
  *
  * Две стороны моста:
  * - **subprocess → host**: `registerCommand` кладёт колбэк в локальную Map и
@@ -19,7 +19,7 @@ type CommandHandler = (...args: unknown[]) => unknown;
  *   который мы обрабатываем ниже, гоняя локальный колбэк.
  */
 export function buildCommandsNamespace(
-    rpc: RpcEndpoint,
+    rpc: SubprocessRpc,
     getActiveTextEditor?: () => vscode.TextEditor | undefined,
 ): typeof vscode.commands {
     const localCommands = new Map<string, CommandHandler>();

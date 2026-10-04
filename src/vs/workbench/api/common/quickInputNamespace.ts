@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { InputBoxValidationSeverity } from "./vscodeTypes.ts";
 import {
     type IWireQuickPickItem,
@@ -84,7 +84,7 @@ function makeValidator(options: vscode.InputBoxOptions | undefined): ((value: st
     return (value: string): unknown => options.validateInput?.(value);
 }
 
-export function createQuickInputApi(rpc: RpcEndpoint): IQuickInputApi {
+export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
     let nextHandle = 1;
     /**
      * Валидаторы живых показов по handle. Map, а не один слот: ничто не мешает
@@ -94,7 +94,7 @@ export function createQuickInputApi(rpc: RpcEndpoint): IQuickInputApi {
     const validators = new Map<number, ((value: string) => unknown) | undefined>();
 
     rpc.handleRequest("window.inputBox.validate", async (params): Promise<IWireValidationMessage | null> => {
-        const p = params as { handle?: unknown; value?: unknown };
+        const p: { handle?: unknown; value?: unknown } = params;
         // Stryker disable next-line ConditionalExpression: проверка handle — быстрый выход; мусорный handle всё равно не найдётся в карте валидаторов, и ответом будет тот же null
         if (typeof p.handle !== "number" || typeof p.value !== "string") return null;
         const validate = validators.get(p.handle);

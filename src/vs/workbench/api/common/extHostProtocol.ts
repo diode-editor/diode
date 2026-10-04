@@ -3,40 +3,73 @@ import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSigna
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
 import type { IRpcProtocol, IUntypedProtocol, RpcEndpoint } from "./rpcEndpoint.ts";
 import type {
+    IWireActivateExtensionParams,
     IWireApplyEditParams,
     IWireApplyWorkspaceEditParams,
     IWireChangedFiles,
+    IWireClipboardText,
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
     IWireCodeActionParams,
+    IWireColorTheme,
+    IWireCommandId,
     IWireCompletionParams,
     IWireConfigurationChanged,
+    IWireCreateDecorationType,
     IWireDefinitionParams,
     IWireDiagnosticsPublish,
     IWireDidSaveParams,
+    IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
+    IWireExecuteCommandParams,
+    IWireExtensionCatalog,
+    IWireExtensionId,
+    IWireFileDecorationsChanged,
     IWireFoldingParams,
     IWireFormattingParams,
     IWireHoverParams,
     IWireInlineCompletionParams,
+    IWireInputBoxRequest,
+    IWireInputBoxResult,
+    IWireInputBoxValidate,
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
+    IWireMementoUpdate,
+    IWireOpenExternalResult,
+    IWireOutputAppend,
+    IWireOutputShow,
     IWirePrepareRenameParams,
+    IWireProgressEnd,
+    IWireProgressReport,
+    IWireProgressStart,
+    IWireQuickInputCancel,
+    IWireQuickPickRequest,
+    IWireQuickPickResult,
     IWireReadFileResult,
     IWireReferenceParams,
     IWireRenameParams,
     IWireSchemes,
+    IWireSecretKeys,
+    IWireSecretKeysRequest,
+    IWireSecretRef,
+    IWireSecretValue,
+    IWireSecretWrite,
     IWireSetDecorations,
     IWireSetEditorOptionsParams,
     IWireSetSelectionParams,
+    IWireShowMessageRequest,
+    IWireShowMessageResult,
     IWireShowTextDocumentParams,
     IWireShowTextDocumentResult,
     IWireSignatureHelpParams,
+    IWireStatusBarItem,
+    IWireStatusBarItemDispose,
     IWireSubscriptions,
     IWireTextContentResult,
     IWireUriParams,
+    IWireValidationMessage,
     IWireWatcherCreate,
     IWireWatcherDispose,
     IWireWatcherEvents,
@@ -67,8 +100,9 @@ import type {
  * её локальное сужение доверия, а не контракт. Результат на хосте по-прежнему
  * проходит `parseWire*`.
  *
- * Карта заполняется по группам методов; пока она неполна, у endpoint'ов
- * остальные методы нетипизированы ({@link WithUntyped}).
+ * Карта описывает все методы провода, кроме служебного `$/cancelRequest`
+ * (его ведёт сам `RpcEndpoint`). Нетипизированный остаток ({@link WithUntyped})
+ * пока оставлен у endpoint'ов и уходит следующим шагом.
  */
 
 /** Запросы и нотификации хоста к субпроцессу. */
@@ -97,6 +131,15 @@ export interface IHostToSubprocess {
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.provideTextDocumentContent": readonly [IWireUriParams, IWireTextContentResult];
         readonly "workspace.willSaveTextDocument": readonly [IWireWillSaveParams, WireTextEdit[]];
+
+        /** Команда, заведённая расширением: результат — что вернул его колбэк. */
+        readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
+
+        readonly "window.inputBox.validate": readonly [IWireInputBoxValidate, IWireValidationMessage | null];
+
+        readonly "host.activateExtension": readonly [IWireActivateExtensionParams, null];
+        readonly "host.deactivateExtension": readonly [IWireExtensionId, null];
+        readonly "host.shutdown": readonly [undefined, null];
     };
     readonly notifications: {
         readonly "workspace.initialize": IWireWorkspaceInitialize;
@@ -111,6 +154,13 @@ export interface IHostToSubprocess {
         readonly "editor.activeEditorChanged": IActiveEditorMeta;
         readonly "editor.selectionChanged": IActiveEditorSelections;
         readonly "editor.layoutChanged": IWireEditorLayout;
+
+        readonly "window.themeChanged": IWireColorTheme;
+
+        readonly "secrets.changed": IWireSecretRef;
+
+        readonly "extensions.catalog": IWireExtensionCatalog;
+        readonly "extensions.activated": IWireExtensionId;
     };
 }
 
@@ -126,6 +176,24 @@ export interface ISubprocessToHost {
         readonly "editor.showTextDocument": readonly [IWireShowTextDocumentParams, IWireShowTextDocumentResult];
         readonly "editor.closeTabs": readonly [IWireCloseTabsParams, boolean];
         readonly "editor.closeGroups": readonly [IWireCloseGroupsParams, boolean];
+
+        /** Команда ядра: результат — что вернул её обработчик. */
+        readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
+
+        readonly "window.showInputBox": readonly [IWireInputBoxRequest, IWireInputBoxResult];
+        readonly "window.showQuickPick": readonly [IWireQuickPickRequest, IWireQuickPickResult];
+        readonly "window.showMessage": readonly [IWireShowMessageRequest, IWireShowMessageResult];
+
+        readonly "env.clipboard.readText": readonly [undefined, IWireClipboardText];
+        readonly "env.clipboard.writeText": readonly [IWireClipboardText, null];
+        readonly "env.openExternal": readonly [IWireUriParams, IWireOpenExternalResult];
+
+        readonly "secrets.keys": readonly [IWireSecretKeysRequest, IWireSecretKeys];
+        readonly "secrets.get": readonly [IWireSecretRef, IWireSecretValue];
+        readonly "secrets.store": readonly [IWireSecretWrite, null];
+        readonly "secrets.delete": readonly [IWireSecretRef, null];
+
+        readonly "memento.update": readonly [IWireMementoUpdate, null];
     };
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;
@@ -143,6 +211,25 @@ export interface ISubprocessToHost {
         readonly "editor.setDecorations": IWireSetDecorations;
 
         readonly "diagnostics.publish": IWireDiagnosticsPublish;
+
+        readonly "commands.registerCommand": IWireCommandId;
+        readonly "commands.unregisterCommand": IWireCommandId;
+
+        readonly "window.progress.start": IWireProgressStart;
+        readonly "window.progress.report": IWireProgressReport;
+        readonly "window.progress.end": IWireProgressEnd;
+        readonly "window.statusBarItem.update": IWireStatusBarItem;
+        readonly "window.statusBarItem.dispose": IWireStatusBarItemDispose;
+        readonly "window.createTextEditorDecorationType": IWireCreateDecorationType;
+        readonly "window.disposeTextEditorDecorationType": IWireDisposeDecorationType;
+        readonly "window.fileDecorationsChanged": IWireFileDecorationsChanged;
+        readonly "window.quickInput.cancel": IWireQuickInputCancel;
+
+        readonly "output.append": IWireOutputAppend;
+        readonly "output.show": IWireOutputShow;
+
+        /** Сигнал готовности: можно слать `host.activateExtension`. */
+        readonly "host.ready": null;
     };
 }
 

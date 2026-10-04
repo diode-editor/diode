@@ -1,6 +1,8 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import {
+    type IWireSecretKeys,
     type IWireSecretRef,
+    type IWireSecretValue,
     parseWireSecretKeysRequest,
     parseWireSecretRef,
     parseWireSecretWrite,
@@ -24,21 +26,21 @@ export class SecretsCustomer implements IExtensionHostCustomer {
     public attach({ rpc }: IExtensionHostContext): IDisposable {
         const store = new DisposableStore();
         store.add(
-            rpc.handleRequest("secrets.keys", (params): unknown => {
+            rpc.handleRequest("secrets.keys", (params): IWireSecretKeys => {
                 const extensionId = parseWireSecretKeysRequest(params);
                 if (extensionId === null) throw new Error("secrets.keys: extensionId must be a non-empty string");
                 return { keys: [...this.secrets.keys(extensionId)] };
             }),
         );
         store.add(
-            rpc.handleRequest("secrets.get", (params): unknown => {
+            rpc.handleRequest("secrets.get", (params): IWireSecretValue => {
                 const ref = requireSecretRef(params, "secrets.get");
                 // `null`, а не отсутствие поля: `undefined` через JSON не ездит.
                 return { value: this.secrets.get(ref.extensionId, ref.key) ?? null };
             }),
         );
         store.add(
-            rpc.handleRequest("secrets.store", (params): unknown => {
+            rpc.handleRequest("secrets.store", (params): null => {
                 const write = parseWireSecretWrite(params);
                 if (write === null) throw new Error("secrets.store: expected { extensionId, key, value } of strings");
                 this.secrets.store(write.extensionId, write.key, write.value);
@@ -47,7 +49,7 @@ export class SecretsCustomer implements IExtensionHostCustomer {
             }),
         );
         store.add(
-            rpc.handleRequest("secrets.delete", (params): unknown => {
+            rpc.handleRequest("secrets.delete", (params): null => {
                 const ref = requireSecretRef(params, "secrets.delete");
                 this.secrets.delete(ref.extensionId, ref.key);
                 // Событие — и на удаление: в эталоне `onDidChange` описывает факт
