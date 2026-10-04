@@ -1,5 +1,4 @@
-import { Point } from "@tuidom/core/common/geometryPromitives";
-import type { OverlayAnchorPosition, OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
+import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type {
     CompletionDetailsContent,
@@ -10,6 +9,7 @@ import { CompletionWidgetElement } from "@tuidom/elements/completionlist/complet
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
+import { CaretAnchoredOverlay } from "../../../browser/parts/editor/caretAnchoredOverlay.ts";
 import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
@@ -35,7 +35,7 @@ export class SuggestComponent extends Component {
     /** Виджет целиком: список + панель описания (она же — элемент оверлея). */
     public readonly widget: CompletionWidgetElement;
 
-    private readonly session: OverlaySessionHandle;
+    private readonly overlay: CaretAnchoredOverlay;
     /** Корневая view — по её ширине выбирается сторона панели описания. */
     private readonly hostView: BodyElement;
     /** Последний якорь у каретки (для пересчёта стороны панели). */
@@ -48,21 +48,7 @@ export class SuggestComponent extends Component {
         this.view.id = "suggestList";
         this.widget.details.id = "suggestDetails";
         this.hostView = layoutService.mainContainer;
-        this.session = this.hostView.overlayLayer.createSession(this.widget, new Point(0, 0), {
-            visible: false,
-            // Stryker disable next-line BooleanLiteral: попап фокус не забирает (редактор остаётся активным), поэтому возвращать его слою некому — флаг стоит ради контракта сессии, как у hover и parameterHints
-            restoreFocus: true,
-            // Редактор сохраняет фокус и обрабатывает набор/движение каретки; наши
-            // команды (`when: suggestWidgetVisible`) НЕ focus-scoped, поэтому
-            // capturesKeyboard должен быть false — иначе диспатчер заглушил бы их.
-            capturesKeyboard: false,
-            pointerPolicy: "close-on-outside",
-        });
-        this.register({
-            dispose: () => {
-                this.session.dispose();
-            },
-        });
+        this.overlay = this.register(new CaretAnchoredOverlay(this.hostView, this.widget));
     }
 
     /** Список пунктов — сам виджет остаётся владельцем и оверлей-элементом. */
@@ -95,7 +81,7 @@ export class SuggestComponent extends Component {
 
     /** Открыт ли попап (для `suggestWidgetVisible` и делегаторов команд). */
     public isOpen(): boolean {
-        return this.session.isOpen();
+        return this.overlay.isOpen();
     }
 
     /**
@@ -105,8 +91,7 @@ export class SuggestComponent extends Component {
     public openAt(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
         this.chooseDetailsSide(anchor);
-        this.session.setAnchor(anchor);
-        this.session.open();
+        this.overlay.openAt(anchor);
     }
 
     /**
@@ -123,7 +108,7 @@ export class SuggestComponent extends Component {
         const anchor = this.lastAnchor;
         if (anchor === null) return;
         this.chooseDetailsSide(anchor);
-        this.session.setAnchor(anchor);
+        this.overlay.setAnchor(anchor);
     }
 
     /**
@@ -141,11 +126,11 @@ export class SuggestComponent extends Component {
     /** Двигает открытый попап вслед за кареткой (re-filter при наборе). */
     public setAnchor(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
-        this.session.setAnchor(anchor);
+        this.overlay.setAnchor(anchor);
     }
 
     /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
     public close(): void {
-        this.session.close();
+        this.overlay.close();
     }
 }

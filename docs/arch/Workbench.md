@@ -984,6 +984,12 @@ hide-toggle (`isHiddenByDefault`). См.
     оверлея** (`TabSwitcherComponent.isOpen()`). Он же разводит их с
     `scrollLineUp`/`scrollLineDown`, сидящими на тех же аккордах: список погас —
     прокрутка редактора вернулась.
+  - `parts/editor/caretAnchoredOverlay.ts` — `CaretAnchoredOverlay`: попап у
+    каретки редактора (аналог upstream `IContentWidget`) — overlay-сессия с
+    опциями, общими для suggest/hover/parameter hints (фокус не забирает,
+    `capturesKeyboard: false`, клик мимо закрывает), и размещение `"below"` /
+    `"aboveElseBelow"` (`ContentWidgetPositionPreference`). Компоненты попапов
+    содержат его полем, хост — `LayoutService.mainContainer`.
   - `services/editor/browser/activeEditorBinding.ts` — `bindActiveEditor(source,
     (editor, store) => …)`: привязка фичи к активному редактору, наш аналог
     времени жизни upstream `IEditorContribution`. Тело вызывается для текущего

@@ -1,8 +1,8 @@
-import { Point } from "@tuidom/core/common/geometryPromitives";
-import type { OverlayAnchorPosition, OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
+import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
+import { CaretAnchoredOverlay } from "../../../browser/parts/editor/caretAnchoredOverlay.ts";
 import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
@@ -25,34 +25,18 @@ export class HoverComponent extends Component {
 
     public readonly view: HoverElement;
 
-    private readonly session: OverlaySessionHandle;
+    private readonly overlay: CaretAnchoredOverlay;
 
     public constructor(layoutService: LayoutService) {
         super();
         this.view = new HoverElement();
         this.view.id = "hoverWidget";
-        this.session = layoutService.mainContainer.overlayLayer.createSession(this.view, new Point(0, 0), {
-            visible: false,
-            // Stryker disable next-line BooleanLiteral: попап фокус не забирает (focusable=false у элемента), поэтому возвращать его слою некому — флаг стоит ради контракта сессии
-            restoreFocus: true,
-            // Редактор сохраняет фокус и обрабатывает набор/движение каретки; наши
-            // команды (`when: editorHoverVisible`) НЕ focus-scoped, поэтому
-            // capturesKeyboard должен быть false — иначе диспатчер заглушил бы их
-            // (та же причина, что у suggest).
-            capturesKeyboard: false,
-            // Stryker disable next-line StringLiteral: клик мимо попапа и так закрывает его раньше — переносом каретки или сменой фокуса; политика стоит ради обратного контракта (клик ПО попапу его не закрывает)
-            pointerPolicy: "close-on-outside",
-        });
-        this.register({
-            dispose: () => {
-                this.session.dispose();
-            },
-        });
+        this.overlay = this.register(new CaretAnchoredOverlay(layoutService.mainContainer, this.view));
     }
 
     /** Открыт ли попап (для `editorHoverVisible` и делегаторов команд). */
     public isOpen(): boolean {
-        return this.session.isOpen();
+        return this.overlay.isOpen();
     }
 
     /** Наполняет попап блоками (по одному на провайдера). */
@@ -70,12 +54,11 @@ export class HoverComponent extends Component {
      * suggest-панели, см. `SuggestComponent.refreshDetailsLayout`.
      */
     public openAt(anchor: OverlayAnchorPosition): void {
-        this.session.setAnchor(anchor);
-        this.session.open();
+        this.overlay.openAt(anchor);
     }
 
     /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
     public close(): void {
-        this.session.close();
+        this.overlay.close();
     }
 }
