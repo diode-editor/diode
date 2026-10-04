@@ -1,3 +1,4 @@
+import type { Event } from "../../../base/common/event.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 
@@ -43,6 +44,14 @@ export interface IStateService {
      * `resolveWorkspaceStorageDir`.
      */
     openWorkspace(workspaceId: WorkspaceId): void;
+
+    /**
+     * Стор `workspace`-scope переключён на проект ({@link openWorkspace}) —
+     * аналог `IStorageService.onDidChangeTarget` VS Code. Синхронно, уже после
+     * загрузки нового стора: подписчик читает состояние проекта, а не пустого
+     * окна. Стор пустого окна, открытый на старте, события не даёт.
+     */
+    readonly onDidOpenWorkspace: Event<WorkspaceId>;
 
     /**
      * Синхронно записывает все «грязные» сторы на диск. Безопасно вызывать в

@@ -130,6 +130,25 @@ describe("StateService", () => {
             });
         });
 
+        it("onDidOpenWorkspace срабатывает после загрузки стора проекта", () => {
+            const p = paths();
+            const folder = computeWorkspaceId("/projects/alpha");
+            const seed = loadState(p);
+            seed.openWorkspace(folder);
+            seed.store(wsWidth, 55);
+            seed.flushSync();
+
+            const svc = loadState(p);
+            const seen: { id: string; width: number }[] = [];
+            svc.onDidOpenWorkspace((id) => {
+                // Подписчик уже читает стор проекта, а не пустого окна.
+                seen.push({ id, width: svc.get(wsWidth) });
+            });
+            svc.openWorkspace(folder);
+
+            expect(seen).toEqual([{ id: folder, width: 55 }]);
+        });
+
         it("persists per-project state under workspaceStorage/<workspaceId>/state.json", () => {
             const p = paths();
             // Аргумент — идентичность воркспейса, не путь папки (см. computeWorkspaceId).

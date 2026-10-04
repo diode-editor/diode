@@ -262,6 +262,12 @@ export class ViewsService {
         workspaceContext.onDidChangeWorkspaceFolders(() => {
             this.refreshWorkspaceGatedViews();
         });
+        // Стор проекта открыт — свёрнутость/веса/скрытость читаются из него.
+        // На бутстрапе контейнеров ещё нет (их строит mount(), он и применяет
+        // состояние сам); здесь — Open Folder на уже собранном сайдбаре.
+        stateService.onDidOpenWorkspace(() => {
+            this.restoreViewsState();
+        });
     }
 
     /** Регистрирует контейнер (повторная регистрация заменяет описание). */

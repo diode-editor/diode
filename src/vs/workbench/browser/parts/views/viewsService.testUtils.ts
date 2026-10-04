@@ -1,6 +1,7 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
@@ -11,6 +12,7 @@ import type { IContextMenuDelegate } from "../../../../platform/contextview/comm
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IPanelView } from "../panel/panelService.ts";
 import { PanelService } from "../panel/panelService.ts";
@@ -38,6 +40,8 @@ export interface IViewsHarness {
     /** Делегаты, с которыми открывали контекст-меню (последний — самый свежий). */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
+    /** Открыть стор проекта — как `IStateService.openWorkspace`, с событием. */
+    openWorkspace(): void;
     /** Id вьюлетов сайдбара в порядке регистрации. */
     readonly viewlets: string[];
     /** Вызовы `showViewlet` сайдбара: id и флаг reveal. */
@@ -83,6 +87,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     );
 
     const stored = new Map<string, unknown>();
+    const openWorkspaceEmitter = new Emitter<WorkspaceId>();
     // Стор в памяти поверх null-сервиса: свои только get/store, остальное —
     // общие no-op'ы, чтобы не плодить их копии.
     const state: IStateService = {
@@ -93,6 +98,10 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         store<T>(descriptor: IStateDescriptor<T>, value: T): void {
             stored.set(descriptor.key, value);
         },
+        openWorkspace(workspaceId: WorkspaceId): void {
+            openWorkspaceEmitter.fire(workspaceId);
+        },
+        onDidOpenWorkspace: openWorkspaceEmitter.event,
     };
 
     const panelView = (containerId: string): IPanelView | undefined =>
@@ -121,6 +130,9 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         workspace,
         shown,
         stored,
+        openWorkspace: () => {
+            state.openWorkspace("project" as WorkspaceId);
+        },
         get viewlets() {
             return [...registered.keys()];
         },

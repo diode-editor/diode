@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMenu, MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -15,6 +16,7 @@ import { ProgressService } from "../../../../platform/progress/common/progressSe
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { SCM_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
@@ -54,6 +56,8 @@ function fakeMenu(entries: FakeMenuEntry[] = []): { service: MenuService; menu: 
 /** In-memory стейт: get отдаёт сохранённое или дефолт, store записывает. */
 function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     const stored = new Map<string, unknown>();
+    // Как настоящий сервис: openWorkspace сообщает об открытии стора проекта.
+    const openWorkspaceEmitter = new Emitter<WorkspaceId>();
     const service: IStateService = {
         get<T>(descriptor: IStateDescriptor<T>): T {
             return stored.has(descriptor.key) ? (stored.get(descriptor.key) as T) : descriptor.default;
@@ -62,8 +66,11 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
             stored.set(descriptor.key, value);
         },
         remove: () => undefined,
-        openWorkspace: () => {},
+        openWorkspace: (workspaceId) => {
+            openWorkspaceEmitter.fire(workspaceId);
+        },
         flushSync: () => {},
+        onDidOpenWorkspace: openWorkspaceEmitter.event,
     };
     return { service, stored };
 }
@@ -361,6 +368,17 @@ describe("ChangesComponent — tree-режим", () => {
         expect(h.executed).toEqual([]); // папка не открывает дифф
 
         expect(h.component.getCursorChange()).toBeNull(); // курсор на папке — не файл
+    });
+
+    it("открытие стора проекта восстанавливает режим без вызова извне", () => {
+        const { service, stored } = fakeState();
+        const h = make({ state: service });
+        expect(h.component.getViewMode()).toBe("flat");
+        stored.set(SCM_VIEW_MODE_STATE.key, "tree");
+
+        service.openWorkspace("project" as WorkspaceId);
+
+        expect(h.component.getViewMode()).toBe("tree");
     });
 
     it("setViewMode пишет в стор, restoreViewMode читает без записи", () => {

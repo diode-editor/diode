@@ -210,6 +210,13 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
         this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
         this.detailsExpanded = this.stateService.get(SEARCH_QUERY_DETAILS_STATE);
+        // Workspace-стор проекта открыт (Open Folder или бутстрап) — состояние
+        // view теперь читается из него, а не из стора пустого окна.
+        this.register(
+            this.stateService.onDidOpenWorkspace(() => {
+                this.restoreViewState();
+            }),
+        );
         // Data-ключ для toggled в меню «⋯»: ContextMenuService не дёргает
         // updateContextKeys, поэтому ключ сетится в момент изменения (прецедент
         // activeOutputChannel).

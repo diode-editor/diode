@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
+import { Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -181,6 +182,7 @@ function makeStateService(): IStateService {
         remove: () => undefined,
         openWorkspace: () => undefined,
         flushSync: () => undefined,
+        onDidOpenWorkspace: Event.None,
     };
 }
 

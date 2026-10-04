@@ -124,6 +124,13 @@ export class ChangesComponent extends Component {
     ) {
         super();
         this.viewMode = this.stateService.get(SCM_VIEW_MODE_STATE);
+        // Workspace-стор проекта открыт (Open Folder или бутстрап) — состояние
+        // view теперь читается из него, а не из стора пустого окна.
+        this.register(
+            this.stateService.onDidOpenWorkspace(() => {
+                this.restoreViewMode();
+            }),
+        );
 
         this.list.id = "changesList";
         this.scrollBars = new ScrollBarDecorator(this.list);

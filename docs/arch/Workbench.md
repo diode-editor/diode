@@ -211,7 +211,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 | `workbench/browser/actions/builtinActions.ts`, `searchActions.ts`, `menuContributions.ts` | команды и меню фич | `<FEATURE>_ACTIONS` у фич + агрегатор | F2 |
 | `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
 | `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
-| `workbench/browser/workbenchComponent.ts` | ссылки на фичи в `setWorkspaceFolder`/`activate`/restore | подписки фич на смену папки и открытие стора воркспейса, explorer как `IActivatable` (PR5); храповик направления, контейнеры у владельцев, хост оверлеев через `LayoutService`, фаза `blockStartup` и агрегатор `workbench.common.main.ts` уже сделаны | E4 |
+| `workbench/browser/workbenchComponent.ts` | корень дерева Explorer и cwd терминала в `setWorkspaceFolder` | подписки explorer и терминала на смену папки, explorer как `IActivatable` — после того как путь папки перестанет терять регистр буквы диска (см. TODO); храповик направления, контейнеры у владельцев, хост оверлеев через `LayoutService`, фаза `blockStartup` и агрегатор `workbench.common.main.ts` уже сделаны | E4 |
 | `workbench/common/configuration/{scm,terminal,explorer,files,search}Configuration.ts` | узлы настроек фич | `contrib/<f>/common/` вместе с переездом `CONFIGURATION_CONTRIBUTIONS` в агрегатор | H6, необязательно |
 | `src/vs/diode/modules/workbenchModule.ts` | DI-биндинги фич | дескриптор фичи `contrib/<f>/browser/<f>.contribution.ts` | H6/C5, необязательно, после F2, E4 и F3 |
 | `contrib/diff/browser/compareActions.ts` | команды ревизий scm; из-за них цикл diff ↔ scm | `contrib/scm` | H6, необязательно |
@@ -1191,12 +1191,15 @@ hide-toggle (`isHiddenByDefault`). См.
     на каждом старте.
 
     `restoreViewsState()` применим только когда есть ЧЕМУ применять: он
-    пропускает контейнер без собранного `PaneViewElement`. Поэтому его зовут
+    пропускает контейнер без собранного `PaneViewElement`. Поэтому он срабатывает
     дважды — из `mount()` сразу после `attachRegisteredContainers()` (бутстрап:
-    `setWorkspaceFolder` там идёт ДО `mount`) и из самого `setWorkspaceFolder`
-    (Open Folder на живом приложении, где сайдбар уже собран). Оба раза — строго
-    после `openWorkspace`, иначе прочитается global-стор; write-through'а у
-    restore нет, так что лишний вызов безвреден.
+    `setWorkspaceFolder` там идёт ДО `mount`) и по `IStateService.onDidOpenWorkspace`
+    (Open Folder на живом приложении, где сайдбар уже собран; подписка в
+    конструкторе сервиса). Оба раза — строго после открытия стора проекта, иначе
+    прочитается стор пустого окна; write-through'а у restore нет, так что лишний
+    вызов безвреден. Так же устроены и остальные restore'ы view-состояния: режим
+    поиска (`SearchComponent`), режим SCM (`ChangesComponent`) и черновик коммита
+    (`ScmInputComponent`) — фича подписана на событие сама, корень их не зовёт.
 
     **Раскрытость — опора ленивых view.** `isViewExpanded(viewId)` отвечает,
     видит ли пользователь тело секции (контейнер собран, секция не скрыта и не
