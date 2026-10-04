@@ -96,7 +96,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         expect(seen.pos?.character).toBe(10);
         expect(ctx.registry.get(Uri.parse(URI))?.getText()).toBe("const a = b;\n");
         expect(result).toEqual([
-            { uri: DEFS.toString(), range: { startLine: 2, startCharacter: 4, endLine: 2, endCharacter: 9 } },
+            { uri: DEFS.toString(), range: { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } } },
         ]);
     });
 
@@ -126,8 +126,8 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("markdown");
         // Position в конструкторе Location свёрнут в пустой Range.
         expect(result).toEqual([
-            { uri: DEFS.toString(), range: { startLine: 1, startCharacter: 2, endLine: 1, endCharacter: 2 } },
-            { uri: DEFS.toString(), range: { startLine: 3, startCharacter: 0, endLine: 3, endCharacter: 5 } },
+            { uri: DEFS.toString(), range: { start: { line: 1, character: 2 }, end: { line: 1, character: 2 } } },
+            { uri: DEFS.toString(), range: { start: { line: 3, character: 0 }, end: { line: 3, character: 5 } } },
         ]);
     });
 
@@ -156,8 +156,8 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         const result = await fresh.stub.callRequest("languages.provideDefinition", requestParams());
 
         expect(result).toEqual([
-            { uri: DEFS.toString(), range: { startLine: 5, startCharacter: 9, endLine: 5, endCharacter: 14 } },
-            { uri: DEFS.toString(), range: { startLine: 10, startCharacter: 0, endLine: 12, endCharacter: 1 } },
+            { uri: DEFS.toString(), range: { start: { line: 5, character: 9 }, end: { line: 5, character: 14 } } },
+            { uri: DEFS.toString(), range: { start: { line: 10, character: 0 }, end: { line: 12, character: 1 } } },
         ]);
     });
 
@@ -185,7 +185,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         const result = await stub.callRequest("languages.provideDefinition", requestParams());
 
         expect(result).toEqual([
-            { uri: DEFS.toString(), range: { startLine: 1, startCharacter: 1, endLine: 1, endCharacter: 4 } },
+            { uri: DEFS.toString(), range: { start: { line: 1, character: 1 }, end: { line: 1, character: 4 } } },
         ]);
     });
 
@@ -228,7 +228,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         const result = await stub.callRequest("languages.provideDefinition", requestParams({ handle: 2 }));
         expect(calls).toEqual(["ok"]);
         expect(result).toEqual([
-            { uri: DEFS.toString(), range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 } },
+            { uri: DEFS.toString(), range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } },
         ]);
 
         expect(await stub.callRequest("languages.provideDefinition", requestParams({ handle: 0 }))).toEqual([]);

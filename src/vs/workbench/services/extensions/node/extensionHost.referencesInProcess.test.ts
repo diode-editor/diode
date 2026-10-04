@@ -35,7 +35,7 @@ const NOOP_COMMANDS = {
 /** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
-const REF = { uri: "file:///a.ts", range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 3 } };
+const REF = { uri: "file:///a.ts", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } } };
 const CORE_REF = { uri: "file:///a.ts", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } } };
 
 function requestOf(): IReferenceRequest {

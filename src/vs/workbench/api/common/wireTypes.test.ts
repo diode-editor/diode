@@ -7,7 +7,7 @@ import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import type { HostRpc } from "./extHostProtocol.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
 import { RpcEndpoint } from "./rpcEndpoint.ts";
-import type { WireCompletionItem, WireTextEdit } from "./wireTypes.ts";
+import type { WireTextEdit } from "./wireTypes.ts";
 import {
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
@@ -18,7 +18,6 @@ import {
     parseWireShowTextDocumentParams,
     requestWillSaveEdits,
     reviveWireUri,
-    wireToCoreCompletionItems,
     wireToCoreFoldingRegions,
     wireToSaveEdits,
 } from "./wireTypes.ts";
@@ -133,61 +132,6 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
         } finally {
             dispose();
         }
-    });
-});
-
-// ─── Completion ───────────────────────────────────────────────────────────────
-
-describe("WireTypes — wireToCoreCompletionItems", () => {
-    it("маппит range в core IRange и сохраняет command", () => {
-        const wire: WireCompletionItem[] = [
-            {
-                label: "root",
-                insertText: "root",
-                kind: 9,
-                range: { startLine: 1, startCharacter: 2, endLine: 1, endCharacter: 6 },
-                command: { command: "c", arguments: [true] },
-            },
-        ];
-        expect(wireToCoreCompletionItems(wire)).toEqual([
-            {
-                label: "root",
-                insertText: "root",
-                kind: 9,
-                range: { start: { line: 1, character: 2 }, end: { line: 1, character: 6 } },
-                command: { command: "c", arguments: [true] },
-            },
-        ]);
-    });
-
-    it("маппит documentation/sortText/filterText и элемент без kind/команды", () => {
-        const wire: WireCompletionItem[] = [
-            {
-                label: "word",
-                insertText: "word",
-                documentation: "d",
-                sortText: "s",
-                filterText: "f",
-                command: { command: "c" }, // без arguments
-            },
-        ];
-        expect(wireToCoreCompletionItems(wire)).toEqual([
-            {
-                label: "word",
-                insertText: "word",
-                documentation: "d",
-                sortText: "s",
-                filterText: "f",
-                command: { command: "c" },
-            },
-        ]);
-    });
-
-    it("labelDetails доезжают до core-элемента", () => {
-        const [core] = wireToCoreCompletionItems([
-            { label: "getTime", insertText: ".getTime", id: "1.0", labelDetail: "(): number", labelDescription: "lib" },
-        ]);
-        expect(core).toMatchObject({ id: "1.0", labelDetail: "(): number", labelDescription: "lib" });
     });
 });
 

@@ -58,7 +58,7 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
         uri: URI,
         languageId: "python",
         version: 1,
-        range: { startLine: 0, startCharacter: 0, endLine: 2, endCharacter: 8 },
+        range: { start: { line: 0, character: 0 }, end: { line: 2, character: 8 } },
         ...overrides,
     };
 }
@@ -488,7 +488,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
                 handle: 0,
                 uri: URI,
                 version: 1,
-                range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
             }),
         ).toEqual([]);
         expect(seen).toEqual([{ text: TEXT, languageId: "python" }]);

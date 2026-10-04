@@ -105,7 +105,11 @@ const CASES: readonly ICase[] = [
             l.registerDocumentRangeFormattingEditProvider(SELECTOR, {
                 provideDocumentRangeFormattingEdits: (_d, _r, _o, t) => call(t) as never,
             }),
-        params: () => ({ ...DOC, handle: 0, range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 } }),
+        params: () => ({
+            ...DOC,
+            handle: 0,
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+        }),
         failure: "provideDocumentRangeFormattingEdits",
     },
     {
@@ -113,7 +117,11 @@ const CASES: readonly ICase[] = [
         method: "languages.provideCodeActions",
         register: (l, call) =>
             l.registerCodeActionsProvider(SELECTOR, { provideCodeActions: (_d, _r, _c, t) => call(t) as never }),
-        params: () => ({ ...DOC, handle: 0, range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 } }),
+        params: () => ({
+            ...DOC,
+            handle: 0,
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+        }),
         failure: "provideCodeActions",
     },
     {
@@ -128,7 +136,7 @@ const CASES: readonly ICase[] = [
             request("languages.provideCodeActions", {
                 ...DOC,
                 handle: 0,
-                range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 },
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
             }),
         params: (prepared) => ({ id: (prepared as { id: string }[])[0]?.id }),
         failure: "resolveCodeAction",

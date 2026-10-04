@@ -467,7 +467,7 @@ export enum CompletionTriggerKind {
     TriggerForIncompleteCompletions = 2,
 }
 
-/** Элемент автодополнения. Сериализуется хостом в `WireCompletionItem` (WP8). */
+/** Элемент автодополнения. Сериализуется хостом в `ICoreCompletionItem` (WP8). */
 export class CompletionItem implements vscode.CompletionItem {
     public label: string;
     public kind?: CompletionItemKind;

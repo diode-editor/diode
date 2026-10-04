@@ -116,14 +116,14 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
                 uri: "file:///a.py",
                 languageId: "python",
                 version: 3,
-                range: { startLine: 1, startCharacter: 2, endLine: 3, endCharacter: 4 },
+                range: { start: { line: 1, character: 2 }, end: { line: 3, character: 4 } },
             },
             {
                 handle: 0,
                 uri: "file:///a.py",
                 languageId: "python",
                 version: 3,
-                range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 },
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
                 only: "source.organizeImports",
             },
         ]);

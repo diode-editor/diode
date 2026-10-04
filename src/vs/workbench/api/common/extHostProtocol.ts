@@ -1,3 +1,8 @@
+import type { ICoreCompletionResult } from "../../../editor/common/languages/iCompletionSource.ts";
+import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
+import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
@@ -77,12 +82,7 @@ import type {
     IWireWillSaveParams,
     IWireWorkspaceInitialize,
     WireCodeAction,
-    WireCompletionResult,
-    WireDefinitionLocation,
     WireFoldingRange,
-    WireHover,
-    WireInlineCompletionItem,
-    WireReference,
     WireRenamePrepare,
     WireRenameResult,
     WireResolvedCompletionItem,
@@ -112,19 +112,19 @@ import type {
 /** Запросы и нотификации хоста к субпроцессу. */
 export interface IHostToSubprocess {
     readonly requests: {
-        readonly "languages.provideCompletionItems": readonly [IWireCompletionParams, WireCompletionResult[]];
+        readonly "languages.provideCompletionItems": readonly [IWireCompletionParams, ICoreCompletionResult[]];
         readonly "languages.resolveCompletionItem": readonly [
             { readonly id: string },
             WireResolvedCompletionItem | null,
         ];
         readonly "languages.provideInlineCompletions": readonly [
             IWireInlineCompletionParams,
-            WireInlineCompletionItem[][],
+            ICoreInlineCompletionItem[][],
         ];
         readonly "languages.provideFoldingRanges": readonly [IWireFoldingParams, WireFoldingRange[][]];
-        readonly "languages.provideDefinition": readonly [IWireDefinitionParams, WireDefinitionLocation[]];
-        readonly "languages.provideHover": readonly [IWireHoverParams, WireHover | null];
-        readonly "languages.provideReferences": readonly [IWireReferenceParams, WireReference[]];
+        readonly "languages.provideDefinition": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
+        readonly "languages.provideHover": readonly [IWireHoverParams, ICoreHover | null];
+        readonly "languages.provideReferences": readonly [IWireReferenceParams, ICoreReference[]];
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];
         readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, IWireEditorEdit[]];
         readonly "languages.provideCodeActions": readonly [IWireCodeActionParams, WireCodeAction[]];

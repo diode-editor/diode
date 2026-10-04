@@ -75,7 +75,7 @@ function makeHost(
 }
 
 describe("ExtensionHost — форматирование по handle (in-process)", () => {
-    it("запрос несёт handle; range сериализуется в wire-форму и не выдумывается без него", async () => {
+    it("запрос несёт handle; range едет core-диапазоном и не выдумывается без него", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideFormattingEdits", (params) => {
@@ -97,7 +97,7 @@ describe("ExtensionHost — форматирование по handle (in-process
                 version: 3,
                 tabSize: 2,
                 insertSpaces: true,
-                range: { startLine: 1, startCharacter: 2, endLine: 3, endCharacter: 4 },
+                range: { start: { line: 1, character: 2 }, end: { line: 3, character: 4 } },
             },
         ]);
     });

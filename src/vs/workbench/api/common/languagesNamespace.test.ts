@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
+import type { ICoreCompletionResult } from "../../../editor/common/languages/iCompletionSource.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -8,7 +9,6 @@ import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CompletionItem, CompletionItemKind, Range } from "./vscodeTypes.ts";
-import type { WireCompletionItem, WireCompletionResult } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const COMPLETION_PARAMS = {
@@ -95,7 +95,7 @@ describe("LanguagesNamespace", () => {
         const [result] = (await stub.callRequest(
             "languages.provideCompletionItems",
             COMPLETION_PARAMS,
-        )) as WireCompletionResult[];
+        )) as ICoreCompletionResult[];
 
         // Провайдер ini (handle 1) не прислан — его не спрашивают.
         expect(result.items).toHaveLength(1);
@@ -126,12 +126,12 @@ describe("LanguagesNamespace", () => {
         const results = (await stub.callRequest("languages.provideCompletionItems", {
             ...COMPLETION_PARAMS,
             handles: [1, 0, 7, "x"],
-        })) as WireCompletionResult[];
+        })) as ICoreCompletionResult[];
 
         expect(results).toHaveLength(4);
         expect(results[0].items).toHaveLength(1);
         expect(results[0].items[0].insertText).toBe("root = true");
-        expect(results[0].items[0].range).toEqual({ startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 3 });
+        expect(results[0].items[0].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 3 } });
         // Сбойный (0), неизвестный (7) и чужой формы handle — пустые результаты.
         expect(results.slice(1)).toEqual([
             { items: [], isIncomplete: false },
@@ -186,7 +186,7 @@ describe("LanguagesNamespace", () => {
         const [result] = (await stub.callRequest(
             "languages.provideCompletionItems",
             COMPLETION_PARAMS,
-        )) as WireCompletionResult[];
+        )) as ICoreCompletionResult[];
 
         expect(result.items.map((r) => r.label)).toEqual(["objlabel", "d", "e"]);
         const a = result.items[0];
@@ -194,7 +194,7 @@ describe("LanguagesNamespace", () => {
         expect(a.documentation).toBe("md");
         expect(a.sortText).toBe("0");
         expect(a.filterText).toBe("f");
-        expect(a.range).toEqual({ startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 });
+        expect(a.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 1 } });
         expect(a.command).toEqual({ command: "c", arguments: [1] });
         const d = result.items[1];
         expect(d.insertText).toBe("d"); // fallback на label
@@ -217,7 +217,7 @@ describe("LanguagesNamespace", () => {
             handles: [0],
             uri: Uri.file("/proj/.editorconfig").toString(),
             version: 1,
-        })) as WireCompletionResult[];
+        })) as ICoreCompletionResult[];
         expect(result.items).toHaveLength(1);
         expect(result.items[0].documentation).toBe("root docs");
         // languageId не пришёл — язык зеркала не затирается.

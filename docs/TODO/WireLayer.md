@@ -1,6 +1,6 @@
 # Wire-слой языковых запросов extension host'а (G5)
 
-Статус: `[~]` в работе — сделаны A, B.
+Статус: `[~]` в работе — сделаны A, B, C1.
 
 Языковые запросы хоста к субпроцессу (`languages.provide*`, rename, code
 actions) описаны на проводе несколько раз: параметры — копиями в `wireTypes.ts`
@@ -35,11 +35,18 @@ actions) описаны на проводе несколько раз: пара�
   `IWireEditorEdit` (EOL-ветки `WireTextEdit` в них не бывает). Folding:
   floor/кламп/вырожденные остались в `wireToCoreFoldingRegions` — инвариант
   модели ядра, не проверка объекта расширения.
-- [ ] C1. Core-`IRange` на проводе для языковых ответов: `IWireRange` уходит
-  из completion, inline, definition, hover, references, formatting, code
-  actions; `wireToCore*` удаляются.
+- [x] C1. Core-`IRange` на проводе для языковых запросов и ответов: ответы
+  completion, inline, definition, hover, references в карте протокола —
+  `ICore*` (wire-копии форм и пять `wireToCore*` удалены, хост отдаёт ответ
+  ядру как есть); параметры formatting и code actions несут `range: IRange`.
+  Субпроцесс собирает диапазон одним `serializeRange` (утиный, `Number.isFinite`,
+  нормализует `start <= end`); плоский `serializeDefinitionRange` остался
+  обёрткой над ним для правок (C2). Folding не тронут: floor/кламп — инвариант
+  модели ядра, `IFoldingRegion` — не диапазон.
 - [ ] C2. Core-`IRange` в остальном проводе: `WireTextEdit`, `IWireEditorEdit`,
-  изменения документа, `WireMarker`, диапазоны `window`; один `parseRange`.
+  изменения документа, `WireMarker`, диапазоны `window`; один `parseRange`;
+  `serializeDefinitionRange` и `wireToCoreTextEdits` уходят вместе с плоской
+  формой правок.
 - [ ] D1. `api/common/extHostTypeConverters.ts`: сериализаторы из
   `languagesNamespace.ts`, `windowNamespace.ts`, `workspaceNamespace.ts` и
   `serialize*` из `wireTypes.ts`; один `rangeFrom` (утиный, `Number.isFinite`,
