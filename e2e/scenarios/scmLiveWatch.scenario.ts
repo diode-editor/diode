@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { defineScenario } from "./framework.ts";
+import { defineScenario, type ScenarioDriver } from "./framework.ts";
 
 // Живое слежение за репозиторием: правки, сделанные МИМО редактора (терминал
 // рядом, чужой инструмент, скрипт), приезжают во вкладку Source Control и в
@@ -30,6 +30,39 @@ function makeRepo(): string {
 
 const repoDir = makeRepo();
 
+/**
+ * Повторяет правку мимо редактора, пока вкладка на неё не отреагирует.
+ *
+ * Watcher рабочего дерева взводится асинхронно и МИМО того, что видно на
+ * экране: расширение шлёт `createFileSystemWatcher` нотификацией, ядро заводит
+ * обход в своём процессе, и chokidar ещё сканирует дерево. Первый кадр
+ * («SOURCE CONTROL» и ветка) закрывает параллельный `git status` — про
+ * слежение он не говорит ничего. Всё, что записано до конца начального скана,
+ * гасит `ignoreInitial`, и событие теряется НАСОВСЕМ, а не опаздывает:
+ * в прогоне 37195942480 список CHANGES так и остался пустым все 10 секунд.
+ *
+ * Это настоящий пробел слежения, а не только тестовый
+ * (см. docs/TODO/FileTreePerformance.md, «Потерянные события в окне взвода»);
+ * до его закрытия сценарий моделирует соседний терминал, который продолжает
+ * писать, а не замирает после первой команды.
+ */
+async function writeUntilSeen(
+    editor: ScenarioDriver,
+    write: () => void,
+    predicate: (text: string) => boolean,
+): Promise<void> {
+    const attempts = 5;
+    for (let attempt = 1; ; attempt++) {
+        write();
+        try {
+            await editor.waitForText(predicate, { timeoutMs: 3000 });
+            return;
+        } catch (err) {
+            if (attempt === attempts) throw err;
+        }
+    }
+}
+
 export default defineScenario({
     name: "scm-live-watch",
     title: "Source Control оживает от правок мимо редактора (внешний git и запись на диск)",
@@ -46,9 +79,15 @@ export default defineScenario({
         await editor.capture("clean");
 
         // Правка и новый файл мимо редактора — как из соседнего терминала.
-        writeFileSync(join(repoDir, "app.ts"), "export const version = 2;\n");
-        writeFileSync(join(repoDir, "notes.md"), "# заметки\n");
-        await editor.waitForText((t) => t.includes("app.ts") && t.includes("notes.md"));
+        // Про повтор записи — см. {@link writeUntilSeen}.
+        await writeUntilSeen(
+            editor,
+            () => {
+                writeFileSync(join(repoDir, "app.ts"), "export const version = 2;\n");
+                writeFileSync(join(repoDir, "notes.md"), "# заметки\n");
+            },
+            (t) => t.includes("app.ts") && t.includes("notes.md"),
+        );
         await editor.capture("worktree-changes");
 
         // `git add` из терминала — файл переезжает в Staged Changes.
