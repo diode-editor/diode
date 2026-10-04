@@ -87,6 +87,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
             }
         });
 
+        // Stryker disable next-line StringLiteral: пустая кодировка у Node — тот же utf8
         child.stderr.setEncoding("utf8");
         child.stderr.on("data", (chunk: string) => {
             stderr += chunk;
@@ -94,6 +95,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
 
         const complete = new Promise<ITextSearchComplete>((resolve) => {
             guard.onDidEnd((end) => {
+                // Stryker disable next-line CallExpression: без удаления dispose лишь «убил» бы уже вышедший rg — kill мёртвому безвреден
                 this.children.delete(guard);
                 // Spawn-level failure (e.g. rg binary missing) — no stdout/close.
                 // rg exit codes: 0 = matches, 1 = no matches, 2 = error (writes stderr).
