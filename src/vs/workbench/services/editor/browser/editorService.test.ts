@@ -588,6 +588,18 @@ describe("EditorService", () => {
             expect(saved[1]).toBe(Uri.file(bPath).toString());
         });
 
+        it("сохранение модели без вкладки (сторона диффа) тоже перерисовывает полосу", async () => {
+            const ctrl = createEditorService();
+            const ref = ctrl.textFileModels.acquire(Uri.file(writeFile("side.txt", "x")));
+            let changes = 0;
+            ctrl.onDidChangeEditors(() => changes++);
+
+            await ref.model.save();
+
+            expect(changes).toBe(1);
+            ref.dispose();
+        });
+
         it("onEditorSaved стреляет при сохранении и отписывается через dispose", async () => {
             const ctrl = createEditorService({
                 languageService: {

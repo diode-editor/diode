@@ -22,7 +22,7 @@ interface IModelEntry {
 /**
  * Реестр моделей открытых файлов: один {@link TextFileModel} на ресурс, сколько
  * бы вкладок (в т.ч. в разных группах) его ни показывало — аналог
- * `ITextModelService`/reference-counting у VS Code. Владелец — `EditorService`;
+ * `ITextModelService`/reference-counting у VS Code. Владелец — `TextFileModelService`;
  * он же поставляет фабрику (создание + обвязка + `openFile`). Безымянные и
  * синтетические буферы в реестр не попадают — они уникальны по построению.
  */

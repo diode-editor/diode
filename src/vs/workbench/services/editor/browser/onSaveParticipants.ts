@@ -15,7 +15,7 @@ import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts"
 // формат — правки ложатся в буфер ДО записи, на диск уходит уже поправленный
 // текст. Оба участника читают настройку в момент сохранения (live) и при
 // выключенной (дефолт) не делают ничего. Составляет пайплайн и втыкает его в
-// модели `EditorService` (см. `collectSaveParticipants`).
+// модели `EditorService` (через `TextFileModelService.addSaveParticipant`).
 
 /**
  * Зависимости участников. Провайдеры берутся из реестров по документу снапшота

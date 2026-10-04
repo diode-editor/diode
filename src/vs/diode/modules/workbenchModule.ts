@@ -243,6 +243,10 @@ import {
     type EditorPaneFactoryCtor,
 } from "../../workbench/services/editor/browser/editorPaneFactory.ts";
 import { EditorService, EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import {
+    TextEditorPaneBuilder,
+    TextEditorPaneBuilderDIToken,
+} from "../../workbench/services/editor/browser/textEditorPaneBuilder.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import {
     ExternalOpenerService,
@@ -287,6 +291,10 @@ import {
     TerminalEnvStatusContribution,
     TerminalEnvStatusContributionDIToken,
 } from "../../workbench/services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
+import {
+    TextFileModelService,
+    TextFileModelServiceDIToken,
+} from "../../workbench/services/textfile/common/textFileModelService.ts";
 import {
     MENU_CONTRIBUTIONS,
     WORKBENCH_ACTIONS,
@@ -383,6 +391,10 @@ export const workbenchModule: ContainerModule = (container) => {
     // Editor-кластер (этап 9b): логика полосы групп редакторов (открытые
     // TextEditorPane-пары, активная вкладка, MRU) + часть «область редактора»
     // (по групповому контролу tab strip + контент на группу).
+    // Модели файлов и сборка вью вкладок — отдельно от EditorService (E1):
+    // группам и диффу они нужны без полосы вкладок.
+    container.bind(TextFileModelServiceDIToken, TextFileModelService);
+    container.bind(TextEditorPaneBuilderDIToken, TextEditorPaneBuilder);
     container.bind(EditorServiceDIToken, EditorService);
     // Фабрики вкладок из contrib (рецепт вкладки для сплита и рестора сессии) —
     // явный список; фабрика ходит в контейнер лениво, в момент открытия.
@@ -392,7 +404,10 @@ export const workbenchModule: ContainerModule = (container) => {
     // отмены в бакет тронутой вкладки. И то и другое знает только полоса групп
     // редакторов, а исполнитель правок живёт в node-слое — доступ он получает
     // отсюда.
-    container.bind(IBulkEditBuffersDIToken, () => new BulkEditBuffers(container.get(EditorServiceDIToken)));
+    container.bind(
+        IBulkEditBuffersDIToken,
+        () => new BulkEditBuffers(container.get(EditorServiceDIToken), container.get(TextFileModelServiceDIToken)),
+    );
     container.bind(EditorPartComponentDIToken, EditorPartComponent);
     // Оверлей серии Ctrl+Tab: видимый MRU-список вкладок текущей группы.
     container.bind(TabSwitcherComponentDIToken, TabSwitcherComponent);

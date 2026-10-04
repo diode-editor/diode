@@ -9,6 +9,7 @@ import { type IFileService } from "../../../../platform/files/common/files.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
 
 import type { IReferenceGroup } from "./referencePreview.ts";
 import { REFERENCES_VIEWLET_ID, type ReferencesComponent } from "./referencesComponent.ts";
@@ -58,7 +59,8 @@ function fakeGroup(opts: IFakeEditorOptions = {}): EditorService {
     };
     const group = {
         getActiveEditor: () => (opts.noEditor === true ? null : editor),
-        openFileModel: (uri: Uri) => {
+        // Роль TextFileModelService: открытая модель ресурса.
+        get: (uri: Uri) => {
             const text = opts.openModels?.[uri.fsPath];
             return text === undefined ? null : { getText: () => text };
         },
@@ -84,7 +86,8 @@ function createService(
     const languageFeatures = new LanguageFeaturesService();
     const source = sources.get(group);
     if (source !== undefined) languageFeatures.referenceProvider.register("*", { provideReferences: source });
-    return new ReferencesService(component, group, workspace, providers, sidebar, languageFeatures);
+    const models = group as unknown as TextFileModelService;
+    return new ReferencesService(component, group, models, workspace, providers, sidebar, languageFeatures);
 }
 
 /** Папки воркспейса глазами сервиса: ему нужен только путь первой папки. */
