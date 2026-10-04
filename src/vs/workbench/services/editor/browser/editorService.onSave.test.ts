@@ -268,6 +268,22 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
+        it("включён только секцией языка документа — участник в списке для этого языка", async () => {
+            const ctrl = createEditorService({ "[plaintext]": { "editor.formatOnSave": true } });
+            const fp = writeFile("lang.txt", "x\n");
+            ctrl.openFile(fp);
+            let calls = 0;
+            useFormatter(ctrl, () => {
+                calls++;
+                return Promise.resolve([]);
+            });
+
+            await ctrl.getActiveEditor()!.save();
+
+            expect(calls).toBe(1);
+            ctrl.dispose();
+        });
+
         it("устаревший ответ форматтера (текст изменился за время RPC) отбрасывается", async () => {
             const ctrl = createEditorService({ "editor.formatOnSave": true });
             const fp = writeFile("stale.txt", "old\n");

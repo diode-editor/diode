@@ -117,6 +117,8 @@ describe("enabledCodeActionKindsOnSave", () => {
 
     it("не задано / null / не-объект → пусто", () => {
         expect(enabledCodeActionKindsOnSave(config({}))).toEqual([]);
+        // Сервис без дефолтов (null-заглушка) — ключа нет вовсе.
+        expect(enabledCodeActionKindsOnSave(NULL_CONFIGURATION_SERVICE)).toEqual([]);
         expect(enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": null }))).toEqual([]);
         expect(enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": "source.fixAll" }))).toEqual([]);
     });

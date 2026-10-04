@@ -74,6 +74,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(workspace.getConfiguration("editor", { languageId: "" } as never).get("formatOnSave")).toBe(false);
         expect(workspace.getConfiguration("editor", { languageId: 1 } as never).get("formatOnSave")).toBe(false);
         expect(workspace.getConfiguration("editor", "python" as never).get("formatOnSave")).toBe(false);
+        expect(workspace.getConfiguration("editor", null as never).get("formatOnSave")).toBe(false);
     });
 
     it("get с defaultValue для отсутствующего ключа", () => {

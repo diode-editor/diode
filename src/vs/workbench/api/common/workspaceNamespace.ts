@@ -240,11 +240,14 @@ interface IWireWorkspaceFolder {
  * снапшота. Регистрация save-слушателей шлёт `workspace.updateSubscriptions`
  * на переходах 0↔1 (исполнение will-save — WP6).
  */
-/** `languageId` из scope `getConfiguration`: у `TextDocument` и у `{ uri, languageId }` он полем. */
+/**
+ * `languageId` из scope `getConfiguration`: у `TextDocument` и у `{ uri, languageId }`
+ * он полем. Значение не проверяем: секции под непонятный идентификатор нет, и
+ * чтение просто вернёт значения без неё.
+ */
 function languageIdOfScope(scope: unknown): string | undefined {
     if (typeof scope !== "object" || scope === null || !("languageId" in scope)) return undefined;
-    const { languageId } = scope;
-    return typeof languageId === "string" && languageId !== "" ? languageId : undefined;
+    return String(scope.languageId);
 }
 
 export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode.workspace {

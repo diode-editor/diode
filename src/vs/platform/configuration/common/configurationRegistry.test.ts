@@ -161,6 +161,24 @@ describe("ConfigurationRegistry — секции языков в переопр�
         });
     });
 
+    it("обычный ключ с объектом — заменяется целиком, не сливается", () => {
+        const registry = new ConfigurationRegistry();
+        registry.registerDefaultConfigurations({ "files.exclude": { "**/a": true } });
+
+        registry.registerDefaultConfigurations({ "files.exclude": { "**/b": true } });
+
+        expect(registry.getDefaultConfiguration()).toEqual({ files: { exclude: { "**/b": true } } });
+    });
+
+    it("null в секции языка — заменяет", () => {
+        const registry = new ConfigurationRegistry();
+        registry.registerDefaultConfigurations({ "[go]": { "editor.tabSize": 8 } });
+
+        registry.registerDefaultConfigurations({ "[go]": null });
+
+        expect(registry.getDefaultConfiguration()).toEqual({ "[go]": null });
+    });
+
     it("не-объект в секции языка — заменяет, а не сливается", () => {
         const registry = new ConfigurationRegistry();
         registry.registerDefaultConfigurations({ "[go]": { "editor.tabSize": 8 } });

@@ -74,6 +74,7 @@ export class WorkspaceConfigStore {
     }
 
     private model(languageId: string | undefined): ConfigurationModel {
+        // Stryker disable next-line ConditionalExpression: override() без секции и так отдаёт ту же модель — ветка нужна только типу
         return languageId === undefined ? this.merged : this.merged.override(languageId);
     }
 }
