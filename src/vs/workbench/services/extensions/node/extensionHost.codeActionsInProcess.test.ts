@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICodeActionRequest } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -152,5 +154,25 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         expect(await over.host.provideCodeActions(0, requestOf())).toEqual([]);
         expect(provide).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith("skipping document sync: document too large", { uri: DOCUMENT.uri, length });
+    });
+
+    it("отмена ядра доезжает до токена субпроцесса (provideCodeActions)", async () => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest("languages.provideCodeActions", (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host.provideCodeActions(0, requestOf(), source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
     });
 });

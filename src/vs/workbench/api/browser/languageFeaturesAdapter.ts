@@ -89,16 +89,18 @@ export class LanguageFeaturesAdapter extends Disposable {
             }),
         formatting: ({ handle, selector }) =>
             this.languageFeatures.documentFormattingEditProvider.register(selector, {
-                provideDocumentFormattingEdits: (request) => this.bridge.provideFormattingEdits(handle, request),
+                provideDocumentFormattingEdits: (request, token) =>
+                    this.bridge.provideFormattingEdits(handle, request, token),
             }),
         rangeFormatting: ({ handle, selector }) =>
             this.languageFeatures.documentRangeFormattingEditProvider.register(selector, {
-                provideDocumentRangeFormattingEdits: (request) => this.bridge.provideFormattingEdits(handle, request),
+                provideDocumentRangeFormattingEdits: (request, token) =>
+                    this.bridge.provideFormattingEdits(handle, request, token),
             }),
         codeActions: ({ handle, selector, providedCodeActionKinds = [] }) =>
             this.languageFeatures.codeActionProvider.register(selector, {
                 providedCodeActionKinds,
-                provideCodeActions: (request) => this.bridge.provideCodeActions(handle, request),
+                provideCodeActions: (request, token) => this.bridge.provideCodeActions(handle, request, token),
                 applyCodeAction: (id) => this.bridge.applyCodeAction(id),
             }),
         folding: ({ handle, selector }) =>

@@ -927,12 +927,20 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideSignatureHelp(handle, req, token);
     }
 
-    public provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {
-        return this.languageFeatures.provideFormattingEdits(handle, req);
+    public provideFormattingEdits(
+        handle: number,
+        req: IFormattingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ITextEdit[]> {
+        return this.languageFeatures.provideFormattingEdits(handle, req, token);
     }
 
-    public provideCodeActions(handle: number, req: ICodeActionRequest): Promise<readonly ICoreCodeAction[]> {
-        return this.languageFeatures.provideCodeActions(handle, req);
+    public provideCodeActions(
+        handle: number,
+        req: ICodeActionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreCodeAction[]> {
+        return this.languageFeatures.provideCodeActions(handle, req, token);
     }
 
     public applyCodeAction(id: string): Promise<boolean> {

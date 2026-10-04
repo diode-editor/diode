@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 
@@ -31,7 +32,14 @@ export interface IFormattingRequest {
  * (или провайдер не ответил вовремя). Выбор провайдера — `editor/contrib/format`.
  */
 export interface DocumentFormattingEditProvider {
-    provideDocumentFormattingEdits(request: IFormattingRequest): Promise<readonly ITextEdit[]>;
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (правка
+     * документа за время запроса) — отмена доезжает до провайдера расширения.
+     */
+    provideDocumentFormattingEdits(
+        request: IFormattingRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ITextEdit[]>;
 }
 
 /**
@@ -41,7 +49,12 @@ export interface DocumentFormattingEditProvider {
  * форматтер документа: на полный диапазон, когда документного нет.
  */
 export interface DocumentRangeFormattingEditProvider {
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (правка
+     * документа за время запроса) — отмена доезжает до провайдера расширения.
+     */
     provideDocumentRangeFormattingEdits(
         request: IFormattingRequest & { readonly range: IRange },
+        token: ICancellationToken,
     ): Promise<readonly ITextEdit[]>;
 }

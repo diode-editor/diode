@@ -585,6 +585,7 @@ export function completionTriggerCharacters(
 export function formatDocumentFor(
     harness: IExtensionHarness,
     request: IFormattingRequest,
+    token: ICancellationToken = CancellationTokenNone,
 ): Promise<readonly ITextEdit[] | null> {
     const { range } = request;
     // Запрос текста не везёт — диапазон всего документа (для range-форматтера
@@ -595,16 +596,17 @@ export function formatDocumentFor(
             .find((editor) => editor.uri.toString() === request.uri)
             ?.getText() ?? "";
     return range === undefined
-        ? formatDocument(harness.languageFeatures, targetOf(request), request, documentRange(text))
-        : formatRange(harness.languageFeatures, targetOf(request), { ...request, range });
+        ? formatDocument(harness.languageFeatures, targetOf(request), request, documentRange(text), token)
+        : formatRange(harness.languageFeatures, targetOf(request), { ...request, range }, token);
 }
 
 /** Code actions так, как их собирают команды (`editor/contrib/codeAction`). */
 export async function provideCodeActions(
     harness: IExtensionHarness,
     request: ICodeActionRequest,
+    token: ICancellationToken = CancellationTokenNone,
 ): Promise<readonly ICoreCodeAction[]> {
-    const items = await getCodeActions(harness.languageFeatures.codeActionProvider, targetOf(request), request);
+    const items = await getCodeActions(harness.languageFeatures.codeActionProvider, targetOf(request), request, token);
     return items.map((item) => item.action);
 }
 

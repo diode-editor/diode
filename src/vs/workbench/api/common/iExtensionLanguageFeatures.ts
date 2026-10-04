@@ -67,8 +67,16 @@ export interface IExtensionLanguageFeaturesBridge {
     ): Promise<ICoreCompletionResult>;
     resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null>;
     /** С `request.range` — range-провайдер `handle`, без — документный. */
-    provideFormattingEdits(handle: number, request: IFormattingRequest): Promise<readonly ITextEdit[]>;
-    provideCodeActions(handle: number, request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
+    provideFormattingEdits(
+        handle: number,
+        request: IFormattingRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ITextEdit[]>;
+    provideCodeActions(
+        handle: number,
+        request: ICodeActionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreCodeAction[]>;
     applyCodeAction(id: string): Promise<boolean>;
     provideFoldingRanges(
         handle: number,
