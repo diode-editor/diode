@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
@@ -175,5 +176,23 @@ describe("EditorComponent – extension folding provider merge", () => {
         await flush();
 
         expect(starts(ctrl)).toEqual([]);
+    });
+
+    it("закрытие редактора отменяет запрос и у провайдера", async () => {
+        const ctrl = open("a\nb\nc\nd\ne");
+        const tokens: ICancellationToken[] = [];
+        providers.register("*", {
+            provideFoldingRanges: (_request, token) => {
+                tokens.push(token);
+                return new Promise(() => undefined);
+            },
+        });
+        await flush();
+        // Ранние пересчёты уже отменены поздними — живой только последний.
+        expect(tokens.at(-1)?.isCancellationRequested).toBe(false);
+
+        ctrl.component.dispose();
+
+        expect(tokens.every((token) => token.isCancellationRequested)).toBe(true);
     });
 });

@@ -867,8 +867,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     // ─── Языковые фичи (см. LanguageFeaturesCustomer) ──────────────────────────
 
-    public provideCompletionItems(handle: number, req: ICompletionRequest): Promise<ICoreCompletionResult> {
-        return this.languageFeatures.provideCompletionItems(handle, req);
+    public provideCompletionItems(
+        handle: number,
+        req: ICompletionRequest,
+        token?: ICancellationToken,
+    ): Promise<ICoreCompletionResult> {
+        return this.languageFeatures.provideCompletionItems(handle, req, token);
     }
 
     public resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
@@ -883,8 +887,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideInlineCompletions(handle, req, token);
     }
 
-    public provideFoldingRanges(handle: number, req: IFoldingRequest): Promise<readonly IFoldingRegion[]> {
-        return this.languageFeatures.provideFoldingRanges(handle, req);
+    public provideFoldingRanges(
+        handle: number,
+        req: IFoldingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IFoldingRegion[]> {
+        return this.languageFeatures.provideFoldingRanges(handle, req, token);
     }
 
     public provideDefinition(

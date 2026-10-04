@@ -5,11 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
+    CompletionItemProvider,
     ICompletionRequest,
     ICoreCompletionItem,
     ICoreCompletionResult,
@@ -146,7 +148,7 @@ function completionResult(items: readonly ICoreCompletionItem[], isIncomplete = 
     return { items, isIncomplete };
 }
 
-type FakeCompletionSource = ((request: ICompletionRequest) => Promise<ICoreCompletionResult>) | undefined;
+type FakeCompletionSource = CompletionItemProvider["provideCompletionItems"] | undefined;
 type FakeCompletionResolver = ((id: string) => Promise<ICoreResolvedCompletion | null>) | undefined;
 
 /**
@@ -169,7 +171,8 @@ function languageFeaturesOf(group: IEditorService): LanguageFeaturesService {
         get triggerCharacters() {
             return seams.completionTriggerCharacters ?? [];
         },
-        provideCompletionItems: (request) => seams.completionSource?.(request) ?? Promise.resolve(completionResult([])),
+        provideCompletionItems: (request, token) =>
+            seams.completionSource?.(request, token) ?? Promise.resolve(completionResult([])),
         get resolveCompletionItem() {
             return seams.completionResolver;
         },
@@ -323,14 +326,17 @@ describe("CompletionService", () => {
         service.close();
         source.mockClear();
         await service.trigger();
-        expect(source).toHaveBeenCalledWith({
-            uri: Uri.file("/proj/.editorconfig").toString(),
-            languageId: "editorconfig",
-            versionId: 2,
-            line: 0,
-            character: 3,
-            triggerKind: CompletionTriggerKind.Invoke,
-        });
+        expect(source).toHaveBeenCalledWith(
+            {
+                uri: Uri.file("/proj/.editorconfig").toString(),
+                languageId: "editorconfig",
+                versionId: 2,
+                line: 0,
+                character: 3,
+                triggerKind: CompletionTriggerKind.Invoke,
+            },
+            expect.anything(),
+        );
     });
 
     describe("панель описания", () => {
@@ -721,6 +727,7 @@ describe("CompletionService", () => {
                 triggerKind: CompletionTriggerKind.TriggerCharacter,
                 triggerCharacter: ".",
             }),
+            expect.anything(),
         );
         expect(service.isOpen()).toBe(true);
     });
@@ -851,6 +858,7 @@ describe("CompletionService", () => {
 
         expect(source).toHaveBeenLastCalledWith(
             expect.objectContaining({ triggerKind: CompletionTriggerKind.TriggerCharacter, triggerCharacter: "." }),
+            expect.anything(),
         );
     });
 
@@ -946,6 +954,23 @@ describe("CompletionService", () => {
         await pending;
 
         expect(service.isOpen()).toBe(false);
+    });
+
+    it("закрытие попапа отменяет запрос и у провайдера", () => {
+        const fake = makeEditor("ind", 3, "ind");
+        const tokens: ICancellationToken[] = [];
+        const source = vi.fn((_request: ICompletionRequest, token: ICancellationToken) => {
+            tokens.push(token);
+            return new Promise<ICoreCompletionResult>(() => undefined);
+        });
+        const { service, body } = createService(makeGroup(fake.editor, source));
+        TestApp.create(body, new Size(80, 24));
+
+        void service.trigger();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([false]);
+
+        service.close();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
     it("accept вставляет элемент, заменяя префикс, и исполняет item.command через CommandRegistry", async () => {
@@ -1172,7 +1197,7 @@ describe("CompletionService", () => {
         const { service, component, body } = createService(makeGroup(fake.editor, source));
         TestApp.create(body, new Size(80, 24));
         await service.trigger();
-        expect(source).toHaveBeenCalledWith(expect.objectContaining({ uri: "untitled:Untitled-1" }));
+        expect(source).toHaveBeenCalledWith(expect.objectContaining({ uri: "untitled:Untitled-1" }), expect.anything());
     });
 
     it("accept без активного редактора (после close) — no-op", async () => {

@@ -91,12 +91,12 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     >((handles, req, token) => this.requestInlineCompletionsBatch(handles, req, token), []);
     /** Вызовы folding-прокси с одним запросом — одним RPC (см. `provideFoldingRanges`). */
     private readonly foldingBatcher = new ProviderRequestBatcher<IFoldingRequest, readonly IFoldingRegion[]>(
-        (handles, req) => this.requestFoldingBatch(handles, req),
+        (handles, req, token) => this.requestFoldingBatch(handles, req, token),
         [],
     );
     /** Вызовы completion-прокси с одним запросом — одним RPC (см. `provideCompletionItems`). */
     private readonly completionBatcher = new ProviderRequestBatcher<ICompletionRequest, ICoreCompletionResult>(
-        (handles, req) => this.requestCompletionBatch(handles, req),
+        (handles, req, token) => this.requestCompletionBatch(handles, req, token),
         EMPTY_COMPLETION_RESULT,
     );
 
@@ -126,15 +126,20 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Пустой результат, если субпроцесса нет, документ субпроцессу не синхронизирован или
      * расширение не ответило за отведённый срок. Зовёт его прокси из
      * реестра ядра (`LanguageFeaturesAdapter`); вызовы прокси с одним запросом
-     * уходят одним RPC (`ProviderRequestBatcher`).
+     * уходят одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
      */
-    public provideCompletionItems(handle: number, req: ICompletionRequest): Promise<ICoreCompletionResult> {
-        return this.completionBatcher.call(handle, req);
+    public provideCompletionItems(
+        handle: number,
+        req: ICompletionRequest,
+        token?: ICancellationToken,
+    ): Promise<ICoreCompletionResult> {
+        return this.completionBatcher.call(handle, req, token);
     }
 
     private async requestCompletionBatch(
         handles: readonly number[],
         req: ICompletionRequest,
+        token: ICancellationToken | undefined,
     ): Promise<readonly ICoreCompletionResult[]> {
         const results = await this.request(
             "languages.provideCompletionItems",
@@ -149,6 +154,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 ...(req.triggerCharacter !== undefined ? { triggerCharacter: req.triggerCharacter } : {}),
             },
             [],
+            { token },
         );
         // Ответ выровнен по `handles`; недостающий элемент (пустой ответ,
         // обход пачки прерван отменой) — пусто у своего провайдера.
@@ -217,15 +223,20 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
      * отведённый срок — ядро в этом случае остаётся на indentation-фолдах.
      * Зовёт его прокси из реестра ядра (`LanguageFeaturesAdapter`); вызовы с
-     * одним запросом уходят одним RPC (`ProviderRequestBatcher`).
+     * одним запросом уходят одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
      */
-    public provideFoldingRanges(handle: number, req: IFoldingRequest): Promise<readonly IFoldingRegion[]> {
-        return this.foldingBatcher.call(handle, req);
+    public provideFoldingRanges(
+        handle: number,
+        req: IFoldingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IFoldingRegion[]> {
+        return this.foldingBatcher.call(handle, req, token);
     }
 
     private async requestFoldingBatch(
         handles: readonly number[],
         req: IFoldingRequest,
+        token: ICancellationToken | undefined,
     ): Promise<readonly (readonly IFoldingRegion[])[]> {
         const results = await this.request(
             "languages.provideFoldingRanges",
@@ -236,6 +247,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 version: req.versionId,
             },
             [],
+            { token },
         );
         // Недостающий элемент ответа (обход пачки прерван отменой) — пусто у своего провайдера.
         return handles.map((_handle, index) => wireToCoreFoldingRegions(results.at(index) ?? []));

@@ -60,13 +60,21 @@ export interface IExtensionLanguageFeaturesBridge {
         request: ISignatureHelpRequest,
         token: ICancellationToken,
     ): Promise<ICoreSignatureHelp | null>;
-    provideCompletionItems(handle: number, request: ICompletionRequest): Promise<ICoreCompletionResult>;
+    provideCompletionItems(
+        handle: number,
+        request: ICompletionRequest,
+        token: ICancellationToken,
+    ): Promise<ICoreCompletionResult>;
     resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null>;
     /** С `request.range` — range-провайдер `handle`, без — документный. */
     provideFormattingEdits(handle: number, request: IFormattingRequest): Promise<readonly ITextEdit[]>;
     provideCodeActions(handle: number, request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
     applyCodeAction(id: string): Promise<boolean>;
-    provideFoldingRanges(handle: number, request: IFoldingRequest): Promise<readonly IFoldingRegion[]>;
+    provideFoldingRanges(
+        handle: number,
+        request: IFoldingRequest,
+        token: ICancellationToken,
+    ): Promise<readonly IFoldingRegion[]>;
     provideInlineCompletions(
         handle: number,
         request: IInlineCompletionRequest,

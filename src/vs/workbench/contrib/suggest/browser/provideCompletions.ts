@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type {
     CompletionItemProvider,
     ICompletionRequest,
@@ -23,9 +24,10 @@ export interface ICompletionsFromProviders {
 export async function provideCompletions(
     providers: readonly CompletionItemProvider[],
     request: ICompletionRequest,
+    token: ICancellationToken,
 ): Promise<ICompletionsFromProviders> {
     const results = await Promise.all(
-        providers.map((provider) => provider.provideCompletionItems(request).catch(() => null)),
+        providers.map((provider) => provider.provideCompletionItems(request, token).catch(() => null)),
     );
     const items: ICoreCompletionItem[] = [];
     const providerOf = new Map<ICoreCompletionItem, CompletionItemProvider>();

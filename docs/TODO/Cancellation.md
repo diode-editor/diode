@@ -1,6 +1,6 @@
 # Отмена и устаревание асинхронных запросов (H2)
 
-Статус: `[~]`: общий latest-wins сделан, токен до провайдера проведён у hover/definition/references/signature help.
+Статус: `[~]`: общий latest-wins сделан, токен до провайдера проведён у hover/definition/references/signature help/completion/folding.
 
 ## Сделано
 
@@ -19,9 +19,11 @@
 
 - [~] **Токен до провайдера.** Транспорт готов (G4): токен вызывающего уходит `$/cancelRequest`, субпроцесс
   отдаёт провайдеру настоящий `vscode.CancellationToken`. Проведён токен ядра у hover, definition, references,
-  signature help: `*Source.provide*(request, token)` → `ExtensionHost.provide*` → опция `token` у
-  `LanguageFeaturesCustomer.request`; сервисы отдают `ticket.token` своего `LatestRequest`. Осталось то же у
-  completion (+ resolve), folding, formatting / range formatting, code actions (`provide`; `apply` без токена).
+  signature help, completion, folding: `*Source.provide*(request, token)` → `ExtensionHost.provide*` → опция `token` у
+  `LanguageFeaturesCustomer.request`; сервисы отдают `ticket.token` своего `LatestRequest` (у completion и folding
+  токен общий у пачки `ProviderRequestBatcher`). Осталось то же у formatting / range formatting, code actions
+  (`provide`; `apply` без токена). Resolve пункта автодополнения — без токена намеренно: его ответ кэшируется и
+  общий у панели описания и accept (правки авто-импорта), отменять его новым запросом нельзя; держит срок ответа.
   Обязательно проверить стоковый Java-сценарий (#367): `$/cancelRequest` у jdtls не должен ронять ответ на текущий
   запрос. Затем обновить люфты в [Suggest.md](Suggest.md), [LSP.md](LSP.md).
 - Не переводим, и это намеренно:

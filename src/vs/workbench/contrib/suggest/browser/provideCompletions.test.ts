@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import type {
     CompletionItemProvider,
     ICompletionRequest,
@@ -7,6 +8,8 @@ import type {
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 
 import { provideCompletions } from "./provideCompletions.ts";
+
+const TOKEN = new CancellationTokenSource().token;
 
 const REQUEST: ICompletionRequest = {
     uri: "file:///a.ts",
@@ -33,7 +36,7 @@ describe("provideCompletions", () => {
             }),
         );
 
-        const result = await provideCompletions([first, second], REQUEST);
+        const result = await provideCompletions([first, second], REQUEST, TOKEN);
 
         expect(result.items.map((item) => item.label)).toEqual(["a", "b", "c"]);
         expect(result.isIncomplete).toBe(false);
@@ -41,14 +44,16 @@ describe("provideCompletions", () => {
         expect(result.providerOf.get(result.items[2])).toBe(second);
     });
 
-    it("всем провайдерам уходит ОДИН объект запроса — по нему хост склеит вызовы в один RPC", async () => {
+    it("всем провайдерам уходит ОДИН объект запроса и токен запроса — по ним хост склеит вызовы в один RPC", async () => {
         const first = provider(Promise.resolve({ items: [], isIncomplete: false }));
         const second = provider(Promise.resolve({ items: [], isIncomplete: false }));
 
-        await provideCompletions([first, second], REQUEST);
+        await provideCompletions([first, second], REQUEST, TOKEN);
 
         expect(vi.mocked(first.provideCompletionItems).mock.calls[0][0]).toBe(REQUEST);
         expect(vi.mocked(second.provideCompletionItems).mock.calls[0][0]).toBe(REQUEST);
+        expect(vi.mocked(first.provideCompletionItems)).toHaveBeenCalledWith(REQUEST, TOKEN);
+        expect(vi.mocked(second.provideCompletionItems)).toHaveBeenCalledWith(REQUEST, TOKEN);
     });
 
     it("неполный список хотя бы одного — неполный весь ответ", async () => {
@@ -58,6 +63,7 @@ describe("provideCompletions", () => {
                 provider(Promise.resolve({ items: [], isIncomplete: true })),
             ],
             REQUEST,
+            TOKEN,
         );
         expect(result.isIncomplete).toBe(true);
     });
@@ -69,6 +75,7 @@ describe("provideCompletions", () => {
                 provider(Promise.resolve({ items: [{ label: "ok", insertText: "ok" }], isIncomplete: true })),
             ],
             REQUEST,
+            TOKEN,
         );
         expect(result.items.map((item) => item.label)).toEqual(["ok"]);
         expect(result.isIncomplete).toBe(true);

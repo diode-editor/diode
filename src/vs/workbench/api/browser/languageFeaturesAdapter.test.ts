@@ -185,11 +185,12 @@ describe("LanguageFeaturesAdapter", () => {
 
         const [ts] = features.completionProvider.ordered(TS);
         expect(ts.triggerCharacters).toEqual(["."]);
-        expect(await ts.provideCompletionItems(REQUEST)).toEqual({
+        const token = new CancellationTokenSource().token;
+        expect(await ts.provideCompletionItems(REQUEST, token)).toEqual({
             items: [{ label: "c8", insertText: "c" }],
             isIncomplete: false,
         });
-        expect(bridge.provideCompletionItems).toHaveBeenCalledWith(8, REQUEST);
+        expect(bridge.provideCompletionItems).toHaveBeenCalledWith(8, REQUEST, token);
         expect(await ts.resolveCompletionItem?.("1.0")).toEqual({ detail: "resolved 1.0" });
 
         const [md] = features.completionProvider.ordered(MD);
@@ -239,8 +240,11 @@ describe("LanguageFeaturesAdapter", () => {
         const request = { uri: REQUEST.uri, languageId: "typescript", versionId: 1 };
 
         const [folding] = features.foldingRangeProvider.ordered(TS);
-        expect(await folding.provideFoldingRanges(request)).toEqual([{ startLine: 5, endLine: 7, isCollapsed: false }]);
-        expect(bridge.provideFoldingRanges).toHaveBeenCalledWith(5, request);
+        const token = new CancellationTokenSource().token;
+        expect(await folding.provideFoldingRanges(request, token)).toEqual([
+            { startLine: 5, endLine: 7, isCollapsed: false },
+        ]);
+        expect(bridge.provideFoldingRanges).toHaveBeenCalledWith(5, request, token);
     });
 
     it("inlineCompletions — прокси в своём реестре, токен отмены доезжает до хоста", async () => {
