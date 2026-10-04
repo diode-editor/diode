@@ -27,15 +27,7 @@ export function documentChangedEventOfModel(
     return {
         uri: model.uri.toString(),
         version: event.versionId,
-        changes: event.changes.map(({ range, text }) => ({
-            range: {
-                startLine: range.start.line,
-                startCharacter: range.start.character,
-                endLine: range.end.line,
-                endCharacter: range.end.character,
-            },
-            text,
-        })),
+        changes: event.changes.map(({ range, text }) => ({ range, text })),
         isDirty: model.isModified,
     };
 }

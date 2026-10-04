@@ -34,7 +34,7 @@ const NOOP_COMMANDS = {
 /** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
-const WIRE_EDIT = { range: { startLine: 0, startCharacter: 5, endLine: 0, endCharacter: 7 }, text: " " };
+const WIRE_EDIT = { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " };
 
 function requestOf(patch: Partial<IFormattingRequest> = {}): IFormattingRequest {
     return {

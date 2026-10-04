@@ -1,6 +1,6 @@
 # Wire-слой языковых запросов extension host'а (G5)
 
-Статус: `[~]` в работе — сделаны A, B, C1.
+Статус: `[~]` в работе — сделаны A, B, C1, C2.
 
 Языковые запросы хоста к субпроцессу (`languages.provide*`, rename, code
 actions) описаны на проводе несколько раз: параметры — копиями в `wireTypes.ts`
@@ -43,10 +43,15 @@ actions) описаны на проводе несколько раз: пара�
   нормализует `start <= end`); плоский `serializeDefinitionRange` остался
   обёрткой над ним для правок (C2). Folding не тронут: floor/кламп — инвариант
   модели ядра, `IFoldingRegion` — не диапазон.
-- [ ] C2. Core-`IRange` в остальном проводе: `WireTextEdit`, `IWireEditorEdit`,
-  изменения документа, `WireMarker`, диапазоны `window`; один `parseRange`;
-  `serializeDefinitionRange` и `wireToCoreTextEdits` уходят вместе с плоской
-  формой правок.
+- [x] C2. Core-`IRange` в остальном проводе: `IWireEditorEdit` — алиас core
+  `ITextEdit` (`TextEditor.edit`, workspace edit, formatting, resolve
+  `additionalEdits`), `WireTextEdit` — `ITextEdit` | смена EOL, дельты
+  document sync (`IWireDocumentContentChange.range`), `WireMarker.range`,
+  диапазоны декораций `window`. `IWireRange` удалён; на хосте один `parseRange`
+  (бывший разбор декораций) вместо `parseWireRange` и плоского разбора маркера.
+  `serializeDefinitionRange`, `wireToCoreTextEdits`,
+  `wireToCoreResolvedCompletion` (+ `WireResolvedCompletionItem` — в карте
+  `ICoreResolvedCompletion`) и `toTextEdit` адаптера workspace edit удалены.
 - [ ] D1. `api/common/extHostTypeConverters.ts`: сериализаторы из
   `languagesNamespace.ts`, `windowNamespace.ts`, `workspaceNamespace.ts` и
   `serialize*` из `wireTypes.ts`; один `rangeFrom` (утиный, `Number.isFinite`,

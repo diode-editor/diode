@@ -90,7 +90,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                     280_000,
                 );
                 // `int broken = message;` — десятая строка фикстуры (0-based 9).
-                expect(mismatch.startLine).toBe(9);
+                expect(mismatch.range.start.line).toBe(9);
 
                 // ИЗМЕНЯЕМЫЙ КОД: чиним тип БЕЗ сохранения на диск — сервер обязан
                 // пере-проверить живой буфер, а не файл с диска.

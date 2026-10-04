@@ -184,11 +184,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private toTextEdits(editor: TextEditorPane, edits: readonly IWireEditorEdit[]): ITextEdit[] | null {
         const doc = editor.model.document;
         const textEdits: ITextEdit[] = edits.map((edit) => {
-            const start = clampPositionToDocument(doc, {
-                line: edit.range.startLine,
-                character: edit.range.startCharacter,
-            });
-            const end = clampPositionToDocument(doc, { line: edit.range.endLine, character: edit.range.endCharacter });
+            const start = clampPositionToDocument(doc, edit.range.start);
+            const end = clampPositionToDocument(doc, edit.range.end);
             return createTextEdit(createRange(start.line, start.character, end.line, end.character), edit.text);
         });
         return hasOverlappingEdits(textEdits) ? null : textEdits;
@@ -229,7 +226,7 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
     const result: BulkEditOperation[] = [];
     for (const op of ops) {
         if (op.kind === "text") {
-            result.push({ resource: op.resource, edits: op.edits.map(toTextEdit) });
+            result.push({ resource: op.resource, edits: op.edits });
             continue;
         }
         if (op.kind === "rename") {
@@ -270,14 +267,6 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
 function filePathOf(resource: string): string | null {
     const uri = Uri.parse(resource);
     return uri.scheme === "file" ? uri.fsPath : null;
-}
-
-/** Wire-правка в правку ядра БЕЗ клампа (клампит исполнитель по содержимому ресурса). */
-function toTextEdit(edit: IWireEditorEdit): ITextEdit {
-    return createTextEdit(
-        createRange(edit.range.startLine, edit.range.startCharacter, edit.range.endLine, edit.range.endCharacter),
-        edit.text,
-    );
 }
 
 /** Все выделения редактора в wire-форме (первое — первичное). */

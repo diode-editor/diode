@@ -24,7 +24,7 @@ const META: IActiveEditorMeta = {
 };
 const LAYOUT: IWireEditorLayout = { groups: [] };
 const SELECTION = { anchorLine: 1, anchorCharacter: 2, activeLine: 3, activeCharacter: 4 };
-const RANGE = { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 };
+const RANGE = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
 
 /** Журнал: и вызовы ядра, и нотификации, дошедшие до субпроцесса, — в одном порядке. */
 function setup() {

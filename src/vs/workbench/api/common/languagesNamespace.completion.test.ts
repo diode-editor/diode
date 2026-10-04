@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ICoreCompletionResult } from "../../../editor/common/languages/iCompletionSource.ts";
+import type {
+    ICoreCompletionResult,
+    ICoreResolvedCompletion,
+} from "../../../editor/common/languages/iCompletionSource.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -8,7 +11,6 @@ import { createLanguagesNamespace, stripSnippetPlaceholders } from "./languagesN
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CompletionItem, CompletionList, MarkdownString, Range, SnippetString, TextEdit } from "./vscodeTypes.ts";
-import type { WireResolvedCompletionItem } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const REQ = {
@@ -162,7 +164,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         ctx.documentSync.change({
             uri: REQ.uri,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 2 }, text: "g" }],
+            changes: [{ range: { start: { line: 0, character: 2 }, end: { line: 0, character: 2 } }, text: "g" }],
         });
         await stub.callRequest("languages.provideCompletionItems", { ...REQ, version: 2, character: 3 });
 
@@ -177,7 +179,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         ctx.documentSync.change({
             uri: REQ.uri,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 2 }, text: "g" }],
+            changes: [{ range: { start: { line: 0, character: 2 }, end: { line: 0, character: 2 } }, text: "g" }],
         });
 
         // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
@@ -232,12 +234,12 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
 
         const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
             id,
-        })) as WireResolvedCompletionItem;
+        })) as ICoreResolvedCompletion;
         expect(resolved.detail).toContain("greet");
         expect(resolved.documentation).toBe("Greets someone.");
         expect(resolved.additionalEdits).toEqual([
             {
-                range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
                 text: 'import { greet } from "./defs";\n',
             },
         ]);
@@ -254,7 +256,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         });
         const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
             id,
-        })) as WireResolvedCompletionItem;
+        })) as ICoreResolvedCompletion;
         expect(resolved.detail).toBe("fresh detail");
     });
 
@@ -273,7 +275,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         });
         const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
             id,
-        })) as WireResolvedCompletionItem;
+        })) as ICoreResolvedCompletion;
         expect(resolved.additionalEdits).toHaveLength(1);
         const [edit] = resolved.additionalEdits ?? [];
         expect(edit).toMatchObject({ text: "ok" });
@@ -290,7 +292,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         });
         const resolved = (await stub.callRequest("languages.resolveCompletionItem", {
             id,
-        })) as WireResolvedCompletionItem;
+        })) as ICoreResolvedCompletion;
         expect(resolved.detail).toBe("original detail");
     });
 

@@ -1,4 +1,3 @@
-import { createRange } from "../../editor/common/core/iRange.ts";
 import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
@@ -166,7 +165,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const diagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]): void => {
             const data: IMarkerData[] = markers.map((m) => ({
                 severity: toMarkerSeverity(m.severity),
-                range: createRange(m.startLine, m.startCharacter, m.endLine, m.endCharacter),
+                range: m.range,
                 message: m.message,
                 ...(m.code !== undefined ? { code: m.code } : {}),
                 ...(m.source !== undefined ? { source: m.source } : {}),

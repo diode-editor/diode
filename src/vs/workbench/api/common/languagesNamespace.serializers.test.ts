@@ -17,10 +17,8 @@ import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const URI = "file:///proj/main.ts";
 const TARGET = "file:///proj/target.ts";
-/** Диапазон языкового ответа на проводе — core `IRange`. */
+/** Диапазон на проводе — core `IRange`. */
 const RANGE = { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } };
-/** Диапазон правки — пока плоский `IWireEditorEdit` (G5, C2). */
-const WIRE_RANGE = { startLine: 0, startCharacter: 1, endLine: 0, endCharacter: 2 };
 
 function setup(): { languages: typeof vscode.languages; stub: IStubRpc } {
     const stub = makeStubRpc();
@@ -89,7 +87,7 @@ describe("languagesNamespace — serializeRange", () => {
         expect(serializeRange(5)).toBeNull();
         expect(serializeRange({ end: { line: 0, character: 0 } })).toBeNull();
         expect(serializeRange({ start: { line: 0, character: 0 } })).toBeNull();
-        expect(serializeRange(WIRE_RANGE)).toBeNull();
+        expect(serializeRange({ startLine: 0, startCharacter: 1, endLine: 0, endCharacter: 2 })).toBeNull();
         expect(serializeRange({ start: { line: "0", character: 0 }, end: { line: 0, character: 0 } })).toBeNull();
     });
 });
@@ -178,10 +176,10 @@ describe("languagesNamespace — диапазоны: координаты тол
             handles: [0],
         })) as { items: { id: string }[] }[];
         expect(await stub.callRequest("languages.resolveCompletionItem", { id: list.items[0].id })).toEqual({
-            additionalEdits: [{ range: WIRE_RANGE, text: "ok" }],
+            additionalEdits: [{ range: RANGE, text: "ok" }],
         });
         expect(await stub.callRequest("languages.provideFormattingEdits", { ...DOC, handle: 1 })).toEqual([
-            { range: WIRE_RANGE, text: "ok" },
+            { range: RANGE, text: "ok" },
         ]);
     });
 

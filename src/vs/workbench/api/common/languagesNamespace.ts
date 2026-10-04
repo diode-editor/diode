@@ -3,8 +3,12 @@ import type * as vscode from "vscode";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { isCancellationError } from "../../../base/common/errorSerialization.ts";
 import { comparePositions, createPosition } from "../../../editor/common/core/iPosition.ts";
-import type { IRange } from "../../../editor/common/core/iRange.ts";
-import type { ICoreCompletionItem, ICoreCompletionResult } from "../../../editor/common/languages/iCompletionSource.ts";
+import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
+import type {
+    ICoreCompletionItem,
+    ICoreCompletionResult,
+    ICoreResolvedCompletion,
+} from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
@@ -55,7 +59,6 @@ import type {
     WireMarker,
     WireRenamePrepare,
     WireRenameResult,
-    WireResolvedCompletionItem,
 } from "./wireTypes.ts";
 
 /** `vscode.Diagnostic` (утиный тип) → {@link WireMarker}; кривые поля — к дефолтам. */
@@ -96,10 +99,7 @@ function toWireMarker(diag: unknown): WireMarker {
     const code = typeof rawCode === "string" || typeof rawCode === "number" ? String(rawCode) : undefined;
     return {
         severity: typeof d.severity === "number" ? d.severity : 0,
-        startLine: r.start.line,
-        startCharacter: r.start.character,
-        endLine: r.end.line,
-        endCharacter: r.end.character,
+        range: createRange(r.start.line, r.start.character, r.end.line, r.end.character),
         message: messageText(d.message),
         ...(code !== undefined ? { code } : {}),
         ...(typeof d.source === "string" ? { source: d.source } : {}),
@@ -248,21 +248,6 @@ export function serializeRange(raw: unknown): IRange | null {
 /** Диапазон провода (параметры запроса хоста, свой сериализованный) → `vscode.Range` для провайдера. */
 function toVscodeRange(range: IRange): Range {
     return new Range(range.start.line, range.start.character, range.end.line, range.end.character);
-}
-
-/**
- * Плоская форма {@link serializeRange} для правок текста (`IWireEditorEdit`,
- * `WireTextEdit`), которые ещё ездят с `startLine/…` (G5, C2).
- */
-export function serializeDefinitionRange(raw: unknown): IWireEditorEdit["range"] | null {
-    const range = serializeRange(raw);
-    if (range === null) return null;
-    return {
-        startLine: range.start.line,
-        startCharacter: range.start.character,
-        endLine: range.end.line,
-        endCharacter: range.end.character,
-    };
 }
 
 /**
@@ -627,7 +612,7 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
 function serializeTextEdit(edit: unknown): IWireEditorEdit | null {
     if (typeof edit !== "object" || edit === null) return null;
     const e = edit as { range?: unknown; newText?: unknown };
-    const range = serializeDefinitionRange(e.range);
+    const range = serializeRange(e.range);
     if (range === null || typeof e.newText !== "string") return null;
     return { range, text: e.newText };
 }
@@ -1217,7 +1202,7 @@ export function createLanguagesNamespace(
      */
     rpc.handleRequest(
         "languages.resolveCompletionItem",
-        async (params, cancellation): Promise<WireResolvedCompletionItem | null> => {
+        async (params, cancellation): Promise<ICoreResolvedCompletion | null> => {
             const id: unknown = params.id;
             if (typeof id !== "string") return null;
             const entry = findCachedCompletion(id);

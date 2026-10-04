@@ -44,10 +44,7 @@ function makeHost(withSink: boolean) {
 
 const MARKER: WireMarker = {
     severity: 1,
-    startLine: 2,
-    startCharacter: 4,
-    endLine: 2,
-    endCharacter: 9,
+    range: { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } },
     message: "Type error",
     code: "2322",
     source: "ts",
@@ -56,11 +53,23 @@ const MARKER: WireMarker = {
 describe("ExtensionHost — сток диагностик (diagnostics.publish, in-process)", () => {
     it("валидная публикация доезжает до sink'а; невалидные маркеры отбрасываются", async () => {
         const h = makeHost(true);
-        const bare = { severity: 0, startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1, message: "no code" };
+        const bare = {
+            severity: 0,
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+            message: "no code",
+        };
         h.peer.notify("diagnostics.publish", {
             owner: "ext:ts",
             resource: "file:///proj/main.ts",
-            markers: [MARKER, bare, { junk: true }, "nope"],
+            markers: [
+                MARKER,
+                bare,
+                { junk: true },
+                "nope",
+                { ...MARKER, severity: "1" },
+                { ...MARKER, range: { start: { line: 0, character: 0 } } },
+                { ...MARKER, message: 5 },
+            ],
         });
         await flushMicrotasks();
 
@@ -104,10 +113,7 @@ describe("ExtensionHost — сток диагностик сквозняком (
                     markers: [
                         {
                             severity: 1,
-                            startLine: 0,
-                            startCharacter: 1,
-                            endLine: 0,
-                            endCharacter: 5,
+                            range: { start: { line: 0, character: 1 }, end: { line: 0, character: 5 } },
                             message: "Broken type",
                             source: "fixture",
                         },

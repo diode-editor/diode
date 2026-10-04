@@ -41,7 +41,7 @@ function emptyGroup(): IEditorService {
 
 const A = Uri.file("/proj/a.ts");
 const B = Uri.file("/proj/b.ts");
-const EDIT_A = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" };
+const EDIT_A = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" };
 
 /** Фейк сервиса редакторов отвечает и за полосу групп (groupOf/activeGroup/viewColumnOf). */
 function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
@@ -60,7 +60,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
                 resource: B.toString(),
                 // Координаты за концом документа едут как есть: клампит их
                 // исполнитель, у которого есть содержимое ресурса.
-                edits: [{ range: { startLine: 99, startCharacter: 99, endLine: 99, endCharacter: 99 }, text: "z" }],
+                edits: [{ range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } }, text: "z" }],
             },
         ]);
 

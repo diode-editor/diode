@@ -3,11 +3,8 @@ import { Uri } from "../../../base/common/uri.ts";
 import type { CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
-import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
-import type {
-    CompletionTriggerKind,
-    ICoreResolvedCompletion,
-} from "../../../editor/common/languages/iCompletionSource.ts";
+import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type { CompletionTriggerKind } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreRenameLocation, ICoreRenameResult } from "../../../editor/common/languages/iRenameSource.ts";
 import type {
     ICoreParameterInfo,
@@ -24,20 +21,10 @@ import type { IRequestOptions, RequestMethod, RequestParams, RequestResult } fro
 
 /**
  * Wire-форма правки save-участника (subprocess → host). Либо замена текста в
- * диапазоне (позиции 0-based, как в ядре — прямой маппинг на `IRange`), либо
- * смена EOL всего документа. Общий формат для обеих сторон RPC.
+ * диапазоне (core `ITextEdit`, позиции 0-based), либо смена EOL всего
+ * документа. Общий формат для обеих сторон RPC.
  */
-export type WireTextEdit =
-    | {
-          readonly range: {
-              readonly startLine: number;
-              readonly startCharacter: number;
-              readonly endLine: number;
-              readonly endCharacter: number;
-          };
-          readonly text: string;
-      }
-    | { readonly setEndOfLine: 1 | 2 };
+export type WireTextEdit = ITextEdit | { readonly setEndOfLine: 1 | 2 };
 
 /** Параметры запроса will-save (host → subprocess). */
 export interface IWireWillSaveParams {
@@ -100,16 +87,7 @@ export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
     return wire.map((edit) =>
         "setEndOfLine" in edit
             ? { kind: "eol", eol: edit.setEndOfLine === 2 ? EndOfLine.CRLF : EndOfLine.LF }
-            : {
-                  kind: "text",
-                  range: createRange(
-                      edit.range.startLine,
-                      edit.range.startCharacter,
-                      edit.range.endLine,
-                      edit.range.endCharacter,
-                  ),
-                  text: edit.text,
-              },
+            : { kind: "text", range: edit.range, text: edit.text },
     );
 }
 
@@ -182,7 +160,7 @@ export interface IWireDocumentSyncSnapshot {
  * вставленный текст (см. `IModelContentChange` ядра).
  */
 export interface IWireDocumentContentChange {
-    readonly range: IWireRange;
+    readonly range: IRange;
     readonly text: string;
 }
 
@@ -214,8 +192,8 @@ export function parseWireDocumentChangedEvent(raw: unknown): IWireDocumentChange
     for (const item of obj.changes as unknown[]) {
         if (typeof item !== "object" || item === null) return null;
         const change = item as Record<string, unknown>;
-        const range = parseWireRange(change.range);
-        if (range === undefined || typeof change.text !== "string") return null;
+        const range = parseRange(change.range);
+        if (range === null || typeof change.text !== "string") return null;
         changes.push({ range, text: change.text });
     }
     return {
@@ -409,26 +387,6 @@ export function reviveWireUri(raw: unknown): Uri | null {
 // ─── Completion (WP8) ────────────────────────────────────────────────────────
 
 /**
- * Плоская wire-форма диапазона (0-based, прямой маппинг на `IRange`) — у правок
- * (`IWireEditorEdit`) и изменений документа. Языковые запросы и ответы несут
- * core `IRange`; остаток переедет на него в G5 C2.
- */
-export interface IWireRange {
-    readonly startLine: number;
-    readonly startCharacter: number;
-    readonly endLine: number;
-    readonly endCharacter: number;
-}
-
-/** Ответ на `languages.resolveCompletionItem` — догруженные поля пункта. */
-export interface WireResolvedCompletionItem {
-    readonly detail?: string;
-    readonly documentation?: string;
-    /** Правки-спутники (авто-импорт): применяются вместе со вставкой. */
-    readonly additionalEdits?: readonly IWireEditorEdit[];
-}
-
-/**
  * Документ запроса языковой фичи (host → subprocess) — общая база параметров
  * всех `languages.provide*`. Текст не едет: субпроцесс берёт его из своего
  * зеркала документов той версии, что указана в запросе.
@@ -477,34 +435,6 @@ export interface IWireCompletionParams extends IWirePositionParams, IWireProvide
     readonly triggerKind?: CompletionTriggerKind;
     /** Символ-триггер, если запрос спровоцирован набором (`.`). */
     readonly triggerCharacter?: string;
-}
-
-function parseWireRange(raw: unknown): IWireRange | undefined {
-    if (typeof raw !== "object" || raw === null) return undefined;
-    const r = raw as Record<string, unknown>;
-    if (
-        !isFiniteNumber(r.startLine) ||
-        !isFiniteNumber(r.startCharacter) ||
-        !isFiniteNumber(r.endLine) ||
-        !isFiniteNumber(r.endCharacter)
-    ) {
-        return undefined;
-    }
-    return {
-        startLine: r.startLine,
-        startCharacter: r.startCharacter,
-        endLine: r.endLine,
-        endCharacter: r.endCharacter,
-    };
-}
-
-/** Переводит догруженные поля пункта в форму ядра ({@link ICoreResolvedCompletion}). */
-export function wireToCoreResolvedCompletion(wire: WireResolvedCompletionItem): ICoreResolvedCompletion {
-    return {
-        ...(wire.detail === undefined ? {} : { detail: wire.detail }),
-        ...(wire.documentation === undefined ? {} : { documentation: wire.documentation }),
-        ...(wire.additionalEdits === undefined ? {} : { additionalEdits: wireToCoreTextEdits(wire.additionalEdits) }),
-    };
 }
 
 // ─── Inline completions (ghost text) ─────────────────────────────────────────
@@ -739,19 +669,6 @@ export interface IWireFormattingParams extends IWireDocumentParams {
     readonly range?: IRange;
 }
 
-/**
- * Переводит wire-правки текста в core-правки ({@link ITextEdit}): ответ
- * форматирования и правки-спутники автодополнения.
- */
-export function wireToCoreTextEdits(wire: readonly IWireEditorEdit[]): ITextEdit[] {
-    return wire.map((edit) =>
-        createTextEdit(
-            createRange(edit.range.startLine, edit.range.startCharacter, edit.range.endLine, edit.range.endCharacter),
-            edit.text,
-        ),
-    );
-}
-
 // ─── Code actions (LSP, #196) ────────────────────────────────────────────────
 
 /**
@@ -977,16 +894,13 @@ export function parseWireOutputShow(raw: unknown): IWireOutputShow | null {
 
 /**
  * Wire-форма одной диагностики (subprocess → host, notify `diagnostics.publish`).
- * Range — плоские 0-based поля (как в остальных wire-типах); `severity` —
+ * `range` — core `IRange` (0-based); `severity` —
  * `vscode.DiagnosticSeverity` (0=Error…3=Hint), маппинг в `MarkerSeverity`
  * делает потребитель sink'а.
  */
 export interface WireMarker {
     readonly severity: number;
-    readonly startLine: number;
-    readonly startCharacter: number;
-    readonly endLine: number;
-    readonly endCharacter: number;
+    readonly range: IRange;
     readonly message: string;
     readonly code?: string;
     readonly source?: string;
@@ -1004,22 +918,13 @@ export interface IWireDiagnosticsPublish {
 function parseWireMarker(raw: unknown): WireMarker | null {
     if (typeof raw !== "object" || raw === null) return null;
     const m = raw as Record<string, unknown>;
-    if (
-        !isFiniteNumber(m.severity) ||
-        !isFiniteNumber(m.startLine) ||
-        !isFiniteNumber(m.startCharacter) ||
-        !isFiniteNumber(m.endLine) ||
-        !isFiniteNumber(m.endCharacter) ||
-        typeof m.message !== "string"
-    ) {
+    const range = parseRange(m.range);
+    if (!isFiniteNumber(m.severity) || range === null || typeof m.message !== "string") {
         return null;
     }
     return {
         severity: m.severity,
-        startLine: m.startLine,
-        startCharacter: m.startCharacter,
-        endLine: m.endLine,
-        endCharacter: m.endCharacter,
+        range,
         message: m.message,
         ...(typeof m.code === "string" ? { code: m.code } : {}),
         ...(typeof m.source === "string" ? { source: m.source } : {}),
@@ -1054,11 +959,11 @@ export interface IWireSelection {
     readonly activeCharacter: number;
 }
 
-/** Wire-форма одной правки `TextEditor.edit` (замена текста в диапазоне). */
-export interface IWireEditorEdit {
-    readonly range: IWireRange;
-    readonly text: string;
-}
+/**
+ * Wire-форма одной правки текста — `TextEditor.edit`, workspace edit, ответ
+ * форматирования, правки-спутники автодополнения: core `ITextEdit` как есть.
+ */
+export type IWireEditorEdit = ITextEdit;
 
 /** Параметры `editor.applyEdit` (subprocess → host): правки активного редактора. */
 export interface IWireApplyEditParams {
@@ -1148,8 +1053,8 @@ export function parseWireSelections(raw: unknown): IWireSelection[] {
 function parseWireEditorEdit(raw: unknown): IWireEditorEdit | null {
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
-    const range = parseWireRange(obj.range);
-    if (range === undefined) return null;
+    const range = parseRange(obj.range);
+    if (range === null) return null;
     if (typeof obj.text !== "string") return null;
     return { range, text: obj.text };
 }
@@ -1386,9 +1291,10 @@ export function serializeDecorationRenderOptions(options: unknown): SerializedDe
 
 /**
  * Валидирует один сырой диапазон в {@link IRange} (nested `start`/`end`). `null`,
- * если форма не распознана (drop+skip, как остальные wire-парсеры).
+ * если форма не распознана (drop+skip, как остальные wire-парсеры). Единственный
+ * разбор диапазона провода: декорации, правки, дельты документа, маркеры.
  */
-function parseDecorationRange(raw: unknown): IRange | null {
+function parseRange(raw: unknown): IRange | null {
     if (typeof raw !== "object" || raw === null) return null;
     const r = raw as { start?: unknown; end?: unknown };
     const start = r.start as { line?: unknown; character?: unknown } | undefined;
@@ -1411,7 +1317,7 @@ export function parseDecorationRanges(raw: unknown): IRange[] {
     if (!Array.isArray(raw)) return [];
     const result: IRange[] = [];
     for (const item of raw) {
-        const parsed = parseDecorationRange(item);
+        const parsed = parseRange(item);
         if (parsed !== null) result.push(parsed);
     }
     return result;

@@ -503,7 +503,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         ctx.documentSync.change({
             uri: URI,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "#\n" }],
+            changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "#\n" }],
         });
         const unknown = "file:///proj/unknown.py";
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);

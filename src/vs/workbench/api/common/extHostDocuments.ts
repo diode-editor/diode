@@ -135,7 +135,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
         const result: IDocumentContentChange[] = [];
         for (const { range: wire, text } of changes) {
             const range = this.validateRange(
-                new Range(wire.startLine, wire.startCharacter, wire.endLine, wire.endCharacter),
+                new Range(wire.start.line, wire.start.character, wire.end.line, wire.end.character),
             );
             const rangeOffset = this.offsetAt(range.start);
             const rangeLength = this.offsetAt(range.end) - rangeOffset;

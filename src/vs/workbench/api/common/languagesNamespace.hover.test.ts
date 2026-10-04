@@ -265,7 +265,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         ctx.documentSync.change({
             uri: URI,
             version: 2,
-            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+            changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
         });
         // Устарел: ядро уже ушло на v2.
         expect(await stub.callRequest("languages.provideHover", requestParams({ version: 1 }))).toBeNull();

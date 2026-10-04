@@ -123,7 +123,7 @@ describe("documentSyncAdapter", () => {
             {
                 uri: editor.uri.toString(),
                 version: editor.model.document.versionId,
-                changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+                changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
                 isDirty: true,
             },
         ]);

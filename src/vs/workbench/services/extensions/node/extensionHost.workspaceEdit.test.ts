@@ -52,7 +52,7 @@ function makeHost(applyResult: boolean) {
     return { peer, applied };
 }
 
-const WIRE_EDIT = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" };
+const WIRE_EDIT = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" };
 
 describe("ExtensionHost — workspace.applyEdit", () => {
     it("парсит операции, отдаёт их в порт в исходном порядке и возвращает его вердикт", async () => {
