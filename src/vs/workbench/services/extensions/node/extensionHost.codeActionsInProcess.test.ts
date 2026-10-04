@@ -12,8 +12,8 @@ import { ExtensionHost } from "./extensionHost.ts";
 
 /**
  * Запросы code actions по handle: субпроцесса нет, канал сшит in-process — так
- * проверяются ветки, недостижимые через настоящий fork (отсечка по размеру,
- * форма параметров, остановка субпроцесса). Образец —
+ * проверяются ветки, недостижимые через настоящий fork (документ без
+ * синхронизации, форма параметров, остановка субпроцесса). Образец —
  * `extensionHost.formattingInProcess.test.ts`.
  */
 
@@ -31,33 +31,45 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-const MAX_TEXT_BYTES = 8 * 1024 * 1024;
+/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+const DOCUMENT = { uri: "file:///a.py", languageId: "python", version: 3, text: "import os\n" };
 
 const WIRE_ACTION = { id: "1.0", title: "Fix", kind: "quickfix" };
 
-function requestOf(text: string, patch: Partial<ICodeActionRequest> = {}): ICodeActionRequest {
+function requestOf(patch: Partial<ICodeActionRequest> = {}): ICodeActionRequest {
     return {
-        uri: "file:///a.py",
+        uri: DOCUMENT.uri,
         languageId: "python",
-        text,
+        versionId: 3,
         range: createRange(0, 0, 0, 1),
         ...patch,
     };
 }
 
-function makeHost(options: { warn?: ILogger["warn"] } = {}): { host: ExtensionHost; peer: RpcEndpoint } {
+function makeHost(
+    options: {
+        warn?: ILogger["warn"];
+        maxSyncedDocumentChars?: number;
+        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
+        open?: boolean;
+    } = {},
+): { host: ExtensionHost; peer: RpcEndpoint } {
     const logger =
         options.warn === undefined
             ? undefined
             : ({ warn: options.warn, info: () => undefined, error: () => undefined } as unknown as ILogger);
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         ...(logger === undefined ? {} : { logger }),
+        ...(options.maxSyncedDocumentChars === undefined
+            ? {}
+            : { maxSyncedDocumentChars: options.maxSyncedDocumentChars }),
     });
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+    if (options.open !== false) host.didOpenTextDocument(DOCUMENT);
     return { host, peer };
 }
 
@@ -69,7 +81,7 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         peer.handleRequest("languages.provideCodeActions", provide);
         peer.handleRequest("languages.applyCodeAction", apply);
 
-        expect(await host.provideCodeActions(3, requestOf("x"))).toEqual([WIRE_ACTION]);
+        expect(await host.provideCodeActions(3, requestOf())).toEqual([WIRE_ACTION]);
         expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 3 });
         expect(await host.applyCodeAction("1.0")).toBe(true);
         // Второй аргумент любого хендлера — токен отмены запроса (RpcEndpoint
@@ -81,7 +93,7 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
 
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        expect(await host.provideCodeActions(3, requestOf("x"))).toEqual([]);
+        expect(await host.provideCodeActions(3, requestOf())).toEqual([]);
         expect(await host.applyCodeAction("1.0")).toBe(false);
         expect(provide).toHaveBeenCalledTimes(1);
         expect(apply).toHaveBeenCalledTimes(1);
@@ -96,48 +108,50 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         });
 
         // `null` от субпроцесса (старая форма «провайдера нет») читается как «действий нет».
-        expect(await host.provideCodeActions(0, requestOf("x", { range: createRange(1, 2, 3, 4) }))).toEqual([]);
-        await host.provideCodeActions(0, requestOf("x", { only: "source.organizeImports" }));
+        expect(await host.provideCodeActions(0, requestOf({ range: createRange(1, 2, 3, 4) }))).toEqual([]);
+        await host.provideCodeActions(0, requestOf({ only: "source.organizeImports" }));
 
         expect(seen).toEqual([
             {
                 handle: 0,
                 uri: "file:///a.py",
                 languageId: "python",
-                text: "x",
+                version: 3,
                 range: { startLine: 1, startCharacter: 2, endLine: 3, endCharacter: 4 },
             },
             {
                 handle: 0,
                 uri: "file:///a.py",
                 languageId: "python",
-                text: "x",
+                version: 3,
                 range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 },
                 only: "source.organizeImports",
             },
         ]);
     });
 
-    it("слишком большой документ — [] без RPC + warn; без логгера не падает", async () => {
-        const warn = vi.fn();
-        const { host, peer } = makeHost({ warn });
+    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+        const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve([WIRE_ACTION]));
         peer.handleRequest("languages.provideCodeActions", provide);
 
-        const huge = "x".repeat(MAX_TEXT_BYTES + 1);
-        expect(await host.provideCodeActions(0, requestOf(huge))).toEqual([]);
+        expect(await host.provideCodeActions(0, requestOf())).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
-        expect(warn).toHaveBeenCalledExactlyOnceWith("skipping code actions: document too large", {
-            uri: "file:///a.py",
-            length: MAX_TEXT_BYTES + 1,
-        });
+    });
 
-        // Ровно на границе — запрос уходит.
-        await host.provideCodeActions(0, requestOf("x".repeat(MAX_TEXT_BYTES)));
+    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+        const length = DOCUMENT.text.length;
+        const atLimit = makeHost({ maxSyncedDocumentChars: length });
+        const provide = vi.fn(() => Promise.resolve([WIRE_ACTION]));
+        atLimit.peer.handleRequest("languages.provideCodeActions", provide);
+        expect(await atLimit.host.provideCodeActions(0, requestOf())).toEqual([WIRE_ACTION]);
         expect(provide).toHaveBeenCalledTimes(1);
 
-        const silent = makeHost();
-        silent.peer.handleRequest("languages.provideCodeActions", provide);
-        expect(await silent.host.provideCodeActions(0, requestOf(huge))).toEqual([]);
+        const warn = vi.fn();
+        const over = makeHost({ warn, maxSyncedDocumentChars: length - 1 });
+        over.peer.handleRequest("languages.provideCodeActions", provide);
+        expect(await over.host.provideCodeActions(0, requestOf())).toEqual([]);
+        expect(provide).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith("skipping document sync: document too large", { uri: DOCUMENT.uri, length });
     });
 });

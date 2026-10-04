@@ -16,21 +16,25 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
         registry,
-        documentSync: new DocumentSyncTracker(registry),
+        documentSync: new DocumentSyncTracker(registry, () => undefined),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
     };
+    // Документ открыт document sync'ом (как `editor.didOpen`): запросы текста
+    // не везут, провайдер читает зеркало версии 1.
+    ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { ctx, stub };
 }
 
 const URI = "file:///proj/main.ts";
+const TEXT = "greet(\n";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         handle: 0,
         uri: URI,
         languageId: "typescript",
-        text: "greet(\n",
+        version: 1,
         line: 0,
         character: 6,
         triggerKind: CoreTriggerKind.TriggerCharacter,
@@ -120,7 +124,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
-    it("кладёт снапшот в реестр и зовёт провайдер с позицией и LSP-контекстом", async () => {
+    it("зовёт провайдер с документом из зеркала, позицией и LSP-контекстом", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; ctx?: vscode.SignatureHelpContext } = {};
@@ -138,6 +142,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
 
         const result = await stub.callRequest("languages.provideSignatureHelp", requestParams());
 
+        expect(seen.doc).toBe(ctx.registry.get(Uri.parse(URI)));
         expect(seen.doc?.getText()).toBe("greet(\n");
         expect(seen.doc?.languageId).toBe("typescript");
         expect(seen.pos?.line).toBe(0);
@@ -148,7 +153,6 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             isRetrigger: false,
             activeSignatureHelp: undefined,
         });
-        expect(ctx.registry.get(Uri.parse(URI))?.getText()).toBe("greet(\n");
         // MarkdownString провайдера уезжает сырым markdown — стрипает его UI.
         expect(result).toEqual({
             signatures: [
@@ -492,11 +496,10 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(result.activeParameter).toBe(-1);
     });
 
-    it("параметры без полей: документ пустой, позиция — начало файла", async () => {
+    it("параметры без полей (кроме версии): документ из зеркала, язык не затирается, позиция — начало файла", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position } = {};
-        // Селектор «любой язык»: без `languageId` документ заводится на дефолтном.
         languages.registerSignatureHelpProvider("*", {
             provideSignatureHelp: (document, position) => {
                 seen.doc = document;
@@ -508,11 +511,14 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         await stub.callRequest("languages.provideSignatureHelp", {
             handle: 0,
             uri: URI,
+            version: 1,
             triggerKind: CoreTriggerKind.Invoke,
             isRetrigger: false,
         });
 
-        expect(seen.doc?.getText()).toBe("");
+        expect(seen.doc?.getText()).toBe(TEXT);
+        // languageId в запросе не пришёл — язык документа из didOpen остаётся.
+        expect(seen.doc?.languageId).toBe("typescript");
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
     });
@@ -539,5 +545,29 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             await stub.callRequest("languages.provideSignatureHelp", requestParams({ handle: undefined })),
         ).toBeNull();
         expect(asked).toBe(false);
+    });
+
+    it("не открытый документ, устаревшая и забежавшая вперёд версия — null, провайдер не зовётся", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        let asked = 0;
+        languages.registerSignatureHelpProvider(
+            { language: "typescript" },
+            {
+                provideSignatureHelp: () => {
+                    asked++;
+                    return help("greet(name: string): void");
+                },
+            },
+        );
+        ctx.documentSync.change({ uri: URI, version: 2, changes: [] });
+
+        const stale = [{ uri: "file:///proj/unknown.ts" }, { version: 1 }, { version: 3 }, { version: undefined }];
+        for (const overrides of stale) {
+            expect(await stub.callRequest("languages.provideSignatureHelp", requestParams(overrides))).toBeNull();
+        }
+        expect(asked).toBe(0);
+        expect(await stub.callRequest("languages.provideSignatureHelp", requestParams({ version: 2 }))).not.toBeNull();
+        expect(asked).toBe(1);
     });
 });

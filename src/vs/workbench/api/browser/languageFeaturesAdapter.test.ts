@@ -12,7 +12,13 @@ import { LanguageFeaturesAdapter } from "./languageFeaturesAdapter.ts";
 
 const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
 const MD = { uri: Uri.file("/w/b.md"), languageId: "markdown" };
-const REQUEST: IHoverRequest = { uri: TS.uri.toString(), languageId: "typescript", text: "x", line: 0, character: 0 };
+const REQUEST: IHoverRequest = {
+    uri: TS.uri.toString(),
+    languageId: "typescript",
+    versionId: 1,
+    line: 0,
+    character: 0,
+};
 
 /** Мост-заглушка: регистрации задаёт тест, событие — `fire()`. */
 function makeBridge(): IExtensionLanguageFeaturesBridge & {
@@ -225,7 +231,7 @@ describe("LanguageFeaturesAdapter", () => {
         bridge.providers = [{ handle: 5, kind: "folding", selector: [{ language: "typescript" }] }];
         const features = new LanguageFeaturesService();
         new LanguageFeaturesAdapter(bridge, features);
-        const request = { uri: REQUEST.uri, languageId: "typescript", text: "x" };
+        const request = { uri: REQUEST.uri, languageId: "typescript", versionId: 1 };
 
         const [folding] = features.foldingRangeProvider.ordered(TS);
         expect(await folding.provideFoldingRanges(request)).toEqual([{ startLine: 5, endLine: 7, isCollapsed: false }]);

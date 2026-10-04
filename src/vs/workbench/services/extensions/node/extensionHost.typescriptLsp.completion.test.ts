@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideCompletions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -112,7 +113,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
                 const result = await provideCompletions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: harness.group.getActiveEditor()?.getText() ?? "",
+                    versionId: documentVersion(harness, mainUri),
                     line,
                     character,
                     triggerKind: CompletionTriggerKind.TriggerCharacter,
@@ -186,7 +187,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
                 const result = await provideCompletions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: "gree\n",
+                    versionId: documentVersion(harness, mainUri),
                     line: 0,
                     character: 4,
                 });

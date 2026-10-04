@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
     type IExtensionHarness,
     provideDefinitions,
@@ -225,7 +226,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 provideDefinitions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: harness.group.getActiveEditor()?.getText() ?? "",
+                    versionId: documentVersion(harness, mainUri),
                     line,
                     character,
                 });
@@ -260,37 +261,40 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 Promise.resolve(markersFor(mainUri).length === 0 ? true : null),
             );
 
-            // Регрессия «Unexpected resource»: фолдинг для файла, который ядро
-            // НИКОГДА не анонсировало didOpen'ом (не открывался в редакторе).
-            // languages.provide* обязан сам провести didOpen через documentSync
-            // ДО вызова провайдера — иначе клиент шлёт серверу foldingRange по
-            // неизвестному документу и получает отказ (фолдов нет).
+            // Регрессия «Unexpected resource»: фолдинг для файла, открытого
+            // посреди сессии. Запрос по документу, которого субпроцесс не видел
+            // открытым, хост не шлёт вовсе, поэтому файл открывается в редакторе:
+            // didOpen обязан дойти до сервера раньше foldingRange — иначе клиент
+            // спросит про неизвестный документ и получит отказ (фолдов нет).
             const extraPath = harness.writeFile(
                 "extra.ts",
                 "export function block(): void {\n    void 0;\n    void 0;\n}\n",
             );
-            const folds = await until("фолды неанонсированного extra.ts", async () => {
+            const extraUri = Uri.file(extraPath).toString();
+            harness.group.openFile(extraPath);
+            const folds = await until("фолды только что открытого extra.ts", async () => {
                 const found = await provideFoldingRegions(harness, {
-                    uri: Uri.file(extraPath).toString(),
+                    uri: extraUri,
                     languageId: "typescript",
-                    text: "export function block(): void {\n    void 0;\n    void 0;\n}\n",
+                    versionId: documentVersion(harness, extraUri),
                 });
                 return found.length > 0 ? found : null;
             });
             expect(folds[0]).toMatchObject({ startLine: 0 });
 
-            // Регрессия крэша tsserver «reading 'charCount'»: запрос с НОВЫМ
-            // текстом уходит в ТОМ ЖЕ тике, что и правка, — обгоняя
-            // коалесированный (microtask) didChange. Раньше он писал текст в
-            // реестр мимо событий, следующий didChange нёс диапазон от уже
-            // нового текста, и tsserver получал правку за пределами своей копии.
+            // Регрессия крэша tsserver «reading 'charCount'»: запрос с НОВОЙ
+            // версией уходит в ТОМ ЖЕ тике, что и правка, — обгоняя
+            // коалесированный (microtask) didChange. Когда-то запрос нёс текст и
+            // писал его в реестр мимо событий, следующий didChange нёс диапазон
+            // от уже нового текста, и tsserver получал правку за пределами своей
+            // копии. Теперь зеркало правит только didChange.
             harness.group.openFile(mainPath);
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits([createTextEdit(createRange(4, 0, 4, 0), "\nconst tail = 1;\n")], "grow");
             const racing = provideFoldingRegions(harness, {
                 uri: mainUri,
                 languageId: "typescript",
-                text: editor?.getText() ?? "",
+                versionId: documentVersion(harness, mainUri),
             });
             await racing;
             // Сервер жив и видит согласованный буфер: ломаем типы ещё раз и

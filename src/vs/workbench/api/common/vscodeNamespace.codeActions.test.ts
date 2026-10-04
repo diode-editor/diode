@@ -11,11 +11,15 @@ import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 // юнит-тесты languagesNamespace дают фейковые deps и эту сборку не видят
 // (субпроцессные интеграции не инструментируются per-test покрытием Stryker).
 
+// Документ открыт document sync'ом (`editor.didOpen`): запрос текста не везёт,
+// только версию зеркала.
+const SNAPSHOT = { uri: "file:///proj/a.py", languageId: "python", version: 1, text: "line one\n" };
+
 const PARAMS = {
     handle: 0,
-    uri: "file:///proj/a.py",
+    uri: SNAPSHOT.uri,
     languageId: "python",
-    text: "line one\n",
+    version: 1,
     range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 8 },
 };
 
@@ -23,6 +27,7 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
     it("edit-действие уходит настоящим RPC workspace.applyEdit", async () => {
         const stub = makeStubRpc();
         const ns = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
+        stub.fire("editor.didOpen", SNAPSHOT);
 
         ns.languages.registerCodeActionsProvider("python", {
             provideCodeActions: (doc: vscode.TextDocument) => {
@@ -53,6 +58,7 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
     it("командное действие исполняется настоящим commands-мостом (локальная команда)", async () => {
         const stub = makeStubRpc();
         const ns = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
+        stub.fire("editor.didOpen", SNAPSHOT);
         const ran = vi.fn();
         ns.commands.registerCommand("test.assembled", ran);
 

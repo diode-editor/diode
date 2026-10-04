@@ -32,6 +32,9 @@ function makeLogger(): { logger: ILogger; lines: string[] } {
     return { logger, lines };
 }
 
+/** Порог синхронизации тестов: маленький, чтобы не гонять мегабайтные строки. */
+const LIMIT = 10;
+
 function makeCustomer(
     options: {
         attached?: boolean;
@@ -42,6 +45,7 @@ function makeCustomer(
     const customer = new DocumentsCustomer({
         willSaveTimeoutMs: 1000,
         openDocumentsProvider: options.openDocuments,
+        maxSyncedDocumentChars: LIMIT,
         logger,
     });
     const [a, b] = createInProcessChannelPair();
@@ -164,7 +168,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
 
     it("слишком большой документ не открывается — и логируется; его правки не шлются", async () => {
         const h = makeCustomer();
-        const huge = "x".repeat(8 * 1024 * 1024 + 1);
+        const huge = "x".repeat(LIMIT + 1);
         h.customer.didOpenTextDocument(snap(huge));
         h.customer.didChangeTextDocument(snap(huge, 2));
         h.customer.didChangeTextDocumentContent(delta());
@@ -178,7 +182,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
     it("flush, переросший лимит, закрывает документ субпроцессу", async () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap());
-        h.customer.didChangeTextDocument(snap("x".repeat(8 * 1024 * 1024 + 1), 2));
+        h.customer.didChangeTextDocument(snap("x".repeat(LIMIT + 1), 2));
         h.customer.didChangeTextDocumentContent(delta());
         await flushMicrotasks();
         expect(h.received).toEqual([
@@ -191,24 +195,79 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         const customer = new DocumentsCustomer({
             willSaveTimeoutMs: 1000,
             openDocumentsProvider: undefined,
+            maxSyncedDocumentChars: LIMIT,
             logger: undefined,
         });
         const [a, b] = createInProcessChannelPair();
         customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
         new RpcEndpoint(b).notify("workspace.updateSubscriptions", { willSave: true });
         await flushMicrotasks();
-        const huge = "x".repeat(8 * 1024 * 1024 + 1);
+        const huge = "x".repeat(LIMIT + 1);
         expect(() => {
             customer.didOpenTextDocument(snap(huge));
         }).not.toThrow();
+        expect(customer.isSynced("file:///a.ts")).toBe(false);
         await expect(customer.willSaveTextDocument({ ...SAVE_SNAPSHOT, text: huge })).resolves.toEqual([]);
     });
 
     it("документ ровно на лимите ещё открывается", async () => {
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap("x".repeat(8 * 1024 * 1024)));
+        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT)));
         await flushMicrotasks();
         expect(h.received).toHaveLength(1);
+        expect(h.customer.isSynced("file:///a.ts")).toBe(true);
+    });
+});
+
+describe("DocumentsCustomer — isSynced", () => {
+    it("открытие — синхронизирован; закрытие — нет; чужой uri — нет", () => {
+        const h = makeCustomer();
+        expect(h.customer.isSynced("file:///a.ts")).toBe(false);
+        h.customer.didOpenTextDocument(snap());
+        expect(h.customer.isSynced("file:///a.ts")).toBe(true);
+        expect(h.customer.isSynced("file:///b.ts")).toBe(false);
+        h.customer.didCloseTextDocument("file:///a.ts");
+        expect(h.customer.isSynced("file:///a.ts")).toBe(false);
+    });
+
+    it("без спавна не синхронизирован ничто; уход спавна забывает открытые", () => {
+        const detached = makeCustomer({ attached: false });
+        detached.customer.didOpenTextDocument(snap());
+        expect(detached.customer.isSynced("file:///a.ts")).toBe(false);
+
+        const h = makeCustomer();
+        h.customer.didOpenTextDocument(snap());
+        h.attached?.dispose();
+        expect(h.customer.isSynced("file:///a.ts")).toBe(false);
+        // Новый спавн документа не знает, пока его не откроют заново.
+        h.customer.attach({ rpc: new RpcEndpoint(createInProcessChannelPair()[0]), logger: undefined });
+        expect(h.customer.isSynced("file:///a.ts")).toBe(false);
+    });
+
+    it("сверх порога — не синхронизирован: ни на открытии, ни после flush; flush в порог — синхронизирован", () => {
+        const h = makeCustomer();
+        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT + 1)));
+        expect(h.customer.isSynced("file:///a.ts")).toBe(false);
+        h.customer.didChangeTextDocument(snap("small", 2));
+        expect(h.customer.isSynced("file:///a.ts")).toBe(true);
+        h.customer.didChangeTextDocument(snap("x".repeat(LIMIT + 1), 3));
+        expect(h.customer.isSynced("file:///a.ts")).toBe(false);
+    });
+
+    it("семя handshake синхронизирует открытые документы", () => {
+        const h = makeCustomer({ openDocuments: () => [snap("a"), { ...snap("b"), uri: "file:///b.ts" }] });
+        h.customer.pushInitialState();
+        expect(h.customer.isSynced("file:///a.ts")).toBe(true);
+        expect(h.customer.isSynced("file:///b.ts")).toBe(true);
+    });
+
+    it("семя соблюдает порог: документ сверх него не открывается, даже если открыт до спавна", async () => {
+        const huge = { ...snap("x".repeat(LIMIT + 1)), uri: "file:///huge.ts" };
+        const h = makeCustomer({ openDocuments: () => [snap("a"), huge] });
+        h.customer.pushInitialState();
+        await flushMicrotasks();
+        expect(h.received).toEqual([{ method: "editor.didOpen", params: snap("a") }]);
+        expect(h.customer.isSynced("file:///huge.ts")).toBe(false);
     });
 });
 
@@ -233,11 +292,12 @@ describe("DocumentsCustomer — семя и сохранение", () => {
         expect(noProvider.received).toHaveLength(0);
     });
 
-    it("will-save: без спавна или подписки — пусто; с подпиской — запрос с полями снапшота", async () => {
+    it("will-save: без спавна или подписки — пусто; с подпиской — запрос с полями снапшота без текста", async () => {
         const detached = makeCustomer({ attached: false });
         await expect(detached.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
 
         const h = makeCustomer();
+        h.customer.didOpenTextDocument(snap());
         const requests: unknown[] = [];
         h.peer.handleRequest("workspace.willSaveTextDocument", (params) => {
             requests.push(params);
@@ -257,7 +317,6 @@ describe("DocumentsCustomer — семя и сохранение", () => {
                 languageId: "typescript",
                 version: 7,
                 isDirty: true,
-                text: "text",
                 reason: 1,
                 eol: "\n",
                 encoding: "utf8",
@@ -265,27 +324,31 @@ describe("DocumentsCustomer — семя и сохранение", () => {
         ]);
     });
 
-    it("will-save: слишком большой документ — пусто и предупреждение, ровно на лимите — запрос уходит", async () => {
+    it("will-save: только синхронизированному документу — неоткрытый, сверх порога и закрытый без запроса", async () => {
         const h = makeCustomer();
-        const lengths: number[] = [];
+        const uris: string[] = [];
         h.peer.handleRequest("workspace.willSaveTextDocument", (params) => {
-            lengths.push((params as { text: string }).text.length);
+            uris.push((params as { uri: string }).uri);
             return [];
         });
         await subscribe(h, { willSave: true });
-        const limit = 8 * 1024 * 1024;
 
-        await expect(
-            h.customer.willSaveTextDocument({ ...SAVE_SNAPSHOT, text: "x".repeat(limit + 1) }),
-        ).resolves.toEqual([]);
-        await expect(h.customer.willSaveTextDocument({ ...SAVE_SNAPSHOT, text: "x".repeat(limit) })).resolves.toEqual(
-            [],
-        );
+        // Не открыт субпроцессу.
+        await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
+        // Сверх порога — не синхронизирован.
+        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT + 1)));
+        await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
+        expect(uris).toEqual([]);
 
-        expect(lengths).toEqual([limit]);
-        expect(h.logLines).toEqual([
-            `warn:skipping will-save participant: document too large ${JSON.stringify([{ uri: "file:///a.ts", length: limit + 1 }])}`,
-        ]);
+        // Ровно на пороге — синхронизирован, запрос уходит.
+        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT)));
+        await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
+        expect(uris).toEqual(["file:///a.ts"]);
+
+        // Закрыт — снова без запроса.
+        h.customer.didCloseTextDocument("file:///a.ts");
+        await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
+        expect(uris).toEqual(["file:///a.ts"]);
     });
 
     it("did-save уходит только подписанному живому спавну", async () => {

@@ -146,16 +146,16 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
             triggerKind: SignatureHelpTriggerKind.Invoke,
             isRetrigger: false,
         });
-        expect(seen[0].text).toContain("const other");
+        expect(seen[0].versionId).toBe(group().getActiveEditor()?.model.document.versionId);
         // Пустых ключей в запросе нет вовсе: он уходит по RPC на каждое нажатие.
         expect(Object.keys(seen[0]).sort()).toEqual([
             "character",
             "isRetrigger",
             "languageId",
             "line",
-            "text",
             "triggerKind",
             "uri",
+            "versionId",
         ]);
     });
 

@@ -1,8 +1,15 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness, provideCompletions } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    documentVersion,
+    type IExtensionHarness,
+    provideCompletions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
@@ -24,16 +31,26 @@ function settingsExtension(): IExtensionRegistration {
 }
 
 /**
- * Подсказки позиционно-зависимы, поэтому запрос несёт реальный settings.json.
- * `{\n    |\n}` — каретка в теле объекта, то есть в позиции ключа.
+ * Подсказки позиционно-зависимы, а текста в запросе нет — его субпроцесс берёт
+ * из зеркала открытого документа. Поэтому файл пишется в каталог харнесса и
+ * открывается в редакторе; отдаём uri с текущей версией модели.
  */
-const SETTINGS_REQ = {
-    uri: Uri.file("/proj/.diode/settings.json").toString(),
-    languageId: "json",
-    text: "{\n    \n}",
-    line: 1,
-    character: 4,
-};
+async function openDocument(
+    harness: IExtensionHarness,
+    name: string,
+    content: string,
+): Promise<{ uri: string; versionId: number }> {
+    fs.mkdirSync(path.dirname(path.join(harness.tmpDir, name)), { recursive: true });
+    const filePath = harness.writeFile(name, content);
+    harness.group.openFile(filePath);
+    await settle();
+    const uri = Uri.file(filePath).toString();
+    return { uri, versionId: documentVersion(harness, uri) };
+}
+
+/** `{\n    |\n}` — каретка в теле объекта, то есть в позиции ключа. */
+const SETTINGS_TEXT = "{\n    \n}";
+const SETTINGS_POSITION = { languageId: "json", line: 1, character: 4 };
 
 describe("diode-settings — автодополнение ключей в settings.json", () => {
     it("активируется onLanguage:json и предлагает известные ключи настроек", async () => {
@@ -49,7 +66,8 @@ describe("diode-settings — автодополнение ключей в settin
             await settle();
             expect(harness.host.hasExtension("diode.settings")).toBe(true);
 
-            const { items } = await provideCompletions(harness, SETTINGS_REQ);
+            const settings = await openDocument(harness, ".diode/settings.json", SETTINGS_TEXT);
+            const { items } = await provideCompletions(harness, { ...settings, ...SETTINGS_POSITION });
             const labels = items.map((i) => i.label);
             // Ключи из app-дефолтов и из contributes.configuration builtin'ов.
             expect(labels).toContain("editor.tabSize");
@@ -73,10 +91,8 @@ describe("diode-settings — автодополнение ключей в settin
         try {
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
-            const result = await provideCompletions(harness, {
-                ...SETTINGS_REQ,
-                uri: Uri.file("/proj/other.json").toString(),
-            });
+            const other = await openDocument(harness, "other.json", SETTINGS_TEXT);
+            const result = await provideCompletions(harness, { ...other, ...SETTINGS_POSITION });
             expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             await harness.dispose();
@@ -108,13 +124,8 @@ describe("diode-settings — кавычки и значения (e2e через 
         try {
             await harness.host.activateByEvent("onLanguage:json");
             await settle();
-            const result = await provideCompletions(harness, {
-                uri: Uri.file("/proj/.diode/settings.json").toString(),
-                languageId: "json",
-                text,
-                line,
-                character,
-            });
+            const settings = await openDocument(harness, ".diode/settings.json", text);
+            const result = await provideCompletions(harness, { ...settings, languageId: "json", line, character });
             return result.items;
         } finally {
             await harness.dispose();

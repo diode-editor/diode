@@ -11,7 +11,7 @@ import { provideCompletions } from "./provideCompletions.ts";
 const REQUEST: ICompletionRequest = {
     uri: "file:///a.ts",
     languageId: "typescript",
-    text: "a.",
+    versionId: 1,
     line: 0,
     character: 2,
 };

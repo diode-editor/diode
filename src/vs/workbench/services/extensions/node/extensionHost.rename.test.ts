@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
     prepareRenameAt,
     provideRename,
@@ -20,8 +21,8 @@ import type { IRenameRequest } from "../../../../editor/common/languages/iRename
 const FIXTURE = extensionFixture("test.providesRename", "providesRename.cjs");
 const CONTENT = "const value = 1;\nconst other = value;\nkeyword\n";
 
-function requestFor(uri: string, line: number): IRenameRequest {
-    return { uri, languageId: "plaintext", text: CONTENT, line, character: 8 };
+function requestFor(uri: string, line: number, versionId: number): IRenameRequest {
+    return { uri, languageId: "plaintext", versionId, line, character: 8 };
 }
 
 describe("ExtensionHost — rename providers (subprocess)", () => {
@@ -37,16 +38,24 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
             const neighbour = harness.writeFile("other.txt", "value here\n");
 
             // `{range, placeholder}` провайдера доезжает именем символа…
-            expect(await prepareRenameAt(harness, requestFor(mainUri, 0))).toEqual({ name: "value" });
+            expect(await prepareRenameAt(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual({
+                name: "value",
+            });
             // …голый Range — именем из текста того же диапазона…
-            expect(await prepareRenameAt(harness, requestFor(mainUri, 1))).toEqual({ name: "value" });
+            expect(await prepareRenameAt(harness, requestFor(mainUri, 1, documentVersion(harness, mainUri)))).toEqual({
+                name: "value",
+            });
             // …а отказ провайдера — причиной для человека.
-            expect(await prepareRenameAt(harness, requestFor(mainUri, 2))).toEqual({
+            expect(await prepareRenameAt(harness, requestFor(mainUri, 2, documentVersion(harness, mainUri)))).toEqual({
                 name: null,
                 rejectReason: "You cannot rename this element.",
             });
 
-            const result = await provideRename(harness, requestFor(mainUri, 0), "renamed");
+            const result = await provideRename(
+                harness,
+                requestFor(mainUri, 0, documentVersion(harness, mainUri)),
+                "renamed",
+            );
             await settle();
             expect(result).toEqual({ applied: true });
             // Открытый документ правится через свой буфер…
@@ -69,12 +78,16 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
             await settle();
             const mainUri = Uri.file(`${harness.tmpDir}/main.txt`).toString();
 
-            expect(await provideRename(harness, requestFor(mainUri, 0), "class")).toEqual({
+            expect(
+                await provideRename(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)), "class"),
+            ).toEqual({
                 applied: false,
                 error: "'class' is not a valid identifier",
             });
             // Провайдер без правок — отказ БЕЗ сообщения (переименовывать нечего).
-            expect(await provideRename(harness, requestFor(mainUri, 0), "nothing")).toEqual({ applied: false });
+            expect(
+                await provideRename(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)), "nothing"),
+            ).toEqual({ applied: false });
             await settle();
             expect(harness.group.getActiveEditor()?.getText()).toBe(CONTENT);
         } finally {
@@ -91,8 +104,12 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
             await settle();
             const mainUri = Uri.file(`${harness.tmpDir}/main.txt`).toString();
 
-            expect(await prepareRenameAt(harness, requestFor(mainUri, 0))).toEqual({ name: null });
-            expect(await provideRename(harness, requestFor(mainUri, 0), "renamed")).toEqual({ applied: false });
+            expect(await prepareRenameAt(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual({
+                name: null,
+            });
+            expect(
+                await provideRename(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)), "renamed"),
+            ).toEqual({ applied: false });
         } finally {
             await harness.dispose();
         }

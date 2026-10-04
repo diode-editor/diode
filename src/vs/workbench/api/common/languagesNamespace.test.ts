@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
@@ -11,6 +11,26 @@ import { CompletionItem, CompletionItemKind, Range } from "./vscodeTypes.ts";
 import type { WireCompletionItem, WireCompletionResult } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
+const COMPLETION_PARAMS = {
+    handles: [0],
+    uri: Uri.file("/proj/.editorconfig").toString(),
+    languageId: "editorconfig",
+    version: 1,
+    line: 0,
+    character: 3,
+};
+
+const PROGRAM_CS = Uri.file("/proj/Program.cs").toString();
+
+/** Открывает документ в зеркале субпроцесса — как `editor.didOpen` хоста. */
+function openDoc(ctx: IVscodeHostContext, uri: string, languageId: string, text: string): void {
+    ctx.documentSync.open({ uri, languageId, version: 1, text });
+}
+
+/**
+ * Контекст субпроцесса с открытым документом completion-запроса
+ * ({@link COMPLETION_PARAMS}): текст провайдер читает из зеркала.
+ */
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -20,17 +40,9 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
     };
+    openDoc(ctx, COMPLETION_PARAMS.uri, COMPLETION_PARAMS.languageId, "ind");
     return { ctx, stub };
 }
-
-const COMPLETION_PARAMS = {
-    handles: [0],
-    uri: Uri.file("/proj/.editorconfig").toString(),
-    languageId: "editorconfig",
-    text: "ind",
-    line: 0,
-    character: 3,
-};
 
 describe("LanguagesNamespace", () => {
     it("registerCompletionItemProvider объявляет провайдера ядру с триггерами, dispose — снимает один раз", () => {
@@ -191,7 +203,7 @@ describe("LanguagesNamespace", () => {
         expect(d.command).toBeUndefined();
     });
 
-    it("provideCompletionItems: пропущенные languageId/text/line/character + строковая documentation", async () => {
+    it("provideCompletionItems: пропущенные languageId/line/character + строковая documentation", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const item = new CompletionItem("root");
@@ -200,13 +212,16 @@ describe("LanguagesNamespace", () => {
             { pattern: "**/.editorconfig" }, // матч по пути, без language
             { provideCompletionItems: () => [item] } as never,
         );
-        // Параметры только с fileName — остальные поля резолвятся дефолтами.
+        // Параметры только с ресурсом и версией — остальные поля резолвятся дефолтами.
         const [result] = (await stub.callRequest("languages.provideCompletionItems", {
             handles: [0],
             uri: Uri.file("/proj/.editorconfig").toString(),
+            version: 1,
         })) as WireCompletionResult[];
         expect(result.items).toHaveLength(1);
         expect(result.items[0].documentation).toBe("root docs");
+        // languageId не пришёл — язык зеркала не затирается.
+        expect(ctx.registry.get(Uri.parse(COMPLETION_PARAMS.uri))?.languageId).toBe("editorconfig");
     });
 
     it("normalizeResult: undefined и {items: не-массив} → пусто", async () => {
@@ -264,14 +279,14 @@ describe("LanguagesNamespace", () => {
                 { start: 3, end: "x" },
             ],
         } as never);
-        // Запрос без languageId/text — ветки дефолтов (languageId скипается, text → "").
-        // ExtHostTextDocument без languageId остаётся csharp по предыдущему upsert? Нет —
-        // тут первый upsert, поэтому явно даём languageId для матча селектора.
+        // Запрос без languageId — ветка дефолта: язык остаётся от didOpen.
+        openDoc(ctx, PROGRAM_CS, "csharp", "");
         const result = await stub.callRequest("languages.provideFoldingRanges", {
             handles: [0, 1],
-            uri: Uri.file("/proj/Program.cs").toString(),
-            languageId: "csharp",
+            uri: PROGRAM_CS,
+            version: 1,
         });
+        expect(ctx.registry.get(Uri.parse(PROGRAM_CS))?.languageId).toBe("csharp");
         expect(result).toEqual([[], [{ start: 1, end: 2 }]]);
     });
 
@@ -286,20 +301,24 @@ describe("LanguagesNamespace", () => {
             },
         } as never);
         const uri = Uri.file("/proj/Program.txt").toString();
+        openDoc(ctx, uri, "plaintext", "");
 
-        expect(await stub.callRequest("languages.provideFoldingRanges", { handles: [7, "0"], uri })).toEqual([[], []]);
-        expect(await stub.callRequest("languages.provideFoldingRanges", { uri })).toEqual([]);
+        expect(
+            await stub.callRequest("languages.provideFoldingRanges", { handles: [7, "0"], uri, version: 1 }),
+        ).toEqual([[], []]);
+        expect(await stub.callRequest("languages.provideFoldingRanges", { uri, version: 1 })).toEqual([]);
         expect(asked).toBe(0);
     });
 
-    it("provide*-запрос идёт через documentSync: didOpen ДО вызова провайдера, обгон текста — didChange от старого", async () => {
+    it("provide*-запрос не пишет в зеркало: провайдер — только после didOpen и по версии запроса, без событий", async () => {
         // Регрессия двух реальных отказов LSP-клиента (vscode-languageclient
-        // транслирует эти события в didOpen/didChange серверу):
+        // транслирует события документа в didOpen/didChange серверу):
         // 1) провайдер звался до didOpen → сервер получал foldingRange по
         //    неизвестному документу («Unexpected resource»);
         // 2) запрос с обогнавшим текстом писал в реестр мимо событий → следующий
         //    didChange считал диапазон от УЖЕ нового текста → правка за пределами
         //    серверной копии (крэш tsserver «reading 'charCount'»).
+        // Теперь запрос текста не везёт вовсе: документ — только из зеркала.
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const log: string[] = [];
@@ -309,41 +328,40 @@ describe("LanguagesNamespace", () => {
             log.push(`change:${change.rangeLength}:${change.range.end.line}.${change.range.end.character}`);
         });
         languages.registerFoldingRangeProvider(["csharp"], {
-            provideFoldingRanges: () => {
-                log.push("provider");
+            provideFoldingRanges: (doc: { getText(): string }) => {
+                log.push(`provider:${doc.getText()}`);
                 return [];
             },
         } as never);
+        const request = (version: number) =>
+            stub.callRequest("languages.provideFoldingRanges", {
+                handles: [0],
+                uri: PROGRAM_CS,
+                languageId: "csharp",
+                version,
+            });
 
-        const uri = Uri.file("/proj/Program.cs").toString();
-        await stub.callRequest("languages.provideFoldingRanges", {
-            handles: [0],
-            uri,
-            languageId: "csharp",
-            text: "a",
-        });
-        expect(log).toEqual(["open:a", "provider"]);
+        // До didOpen провайдер не зовётся и документ не заводится.
+        expect(await request(1)).toEqual([]);
+        expect(log).toEqual([]);
+        expect(ctx.registry.get(Uri.parse(PROGRAM_CS))).toBeUndefined();
 
-        // Тот же текст — тихо, без события.
+        openDoc(ctx, PROGRAM_CS, "csharp", "a");
+        await request(1);
+        expect(log).toEqual(["open:a", "provider:a"]);
+
+        // Правка хоста — событие с диапазоном по старому тексту ("a" → длина 1,
+        // конец 0:1); запрос, отставший от неё, провайдера не будит и событий
+        // не порождает.
         log.length = 0;
-        await stub.callRequest("languages.provideFoldingRanges", {
-            handles: [0],
-            uri,
-            languageId: "csharp",
-            text: "a",
+        ctx.documentSync.change({
+            uri: PROGRAM_CS,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 }, text: "ab\ncdd" }],
         });
-        expect(log).toEqual(["provider"]);
-
-        // Запрос обогнал didChange: полноправная правка с диапазоном по СТАРОМУ
-        // тексту ("a" → длина 1, конец 0:1), провайдер — после события.
-        log.length = 0;
-        await stub.callRequest("languages.provideFoldingRanges", {
-            handles: [0],
-            uri,
-            languageId: "csharp",
-            text: "ab\ncdd",
-        });
-        expect(log).toEqual(["change:1:0.1", "provider"]);
+        expect(await request(1)).toEqual([]);
+        await request(2);
+        expect(log).toEqual(["change:1:0.1", "provider:ab\ncdd"]);
     });
 
     it("provideFoldingRanges зовёт провайдеров присланных handle и сериализует области", async () => {
@@ -360,11 +378,12 @@ describe("LanguagesNamespace", () => {
             provideFoldingRanges: () => [{ start: 100, end: 200 }],
         } as never);
 
+        openDoc(ctx, PROGRAM_CS, "csharp", "/* #region */\n\n\n/* #endregion */\n\n\n\n\n\n\n");
         const result = await stub.callRequest("languages.provideFoldingRanges", {
             handles: [0],
-            uri: Uri.file("/proj/Program.cs").toString(),
+            uri: PROGRAM_CS,
             languageId: "csharp",
-            text: "/* #region */\n\n\n/* #endregion */\n\n\n\n\n\n\n",
+            version: 1,
         });
         expect(result).toEqual([
             [
@@ -385,12 +404,71 @@ describe("LanguagesNamespace", () => {
         languages.registerFoldingRangeProvider(["csharp"], {
             provideFoldingRanges: () => [{ start: 1, end: 2 }],
         } as never);
+        openDoc(ctx, PROGRAM_CS, "csharp", "a\nb\nc\n");
         const result = await stub.callRequest("languages.provideFoldingRanges", {
             handles: [0, 1],
-            uri: Uri.file("/proj/Program.cs").toString(),
+            uri: PROGRAM_CS,
             languageId: "csharp",
-            text: "a\nb\nc\n",
+            version: 1,
         });
         expect(result).toEqual([[], [{ start: 1, end: 2 }]]);
+    });
+
+    it("provideFoldingRanges: не открытый, устаревший и обогнавший зеркало документ — [] без провайдера", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        let asked = 0;
+        languages.registerFoldingRangeProvider(["csharp"], {
+            provideFoldingRanges: () => {
+                asked++;
+                return [{ start: 0, end: 1 }];
+            },
+        } as never);
+        const request = (uri: string, version: number) =>
+            stub.callRequest("languages.provideFoldingRanges", { handles: [0], uri, languageId: "csharp", version });
+
+        openDoc(ctx, PROGRAM_CS, "csharp", "a\nb");
+        ctx.documentSync.change({
+            uri: PROGRAM_CS,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+        });
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            expect(await request(Uri.file("/proj/Other.cs").toString(), 1)).toEqual([]);
+            expect(await request(PROGRAM_CS, 1)).toEqual([]);
+            expect(await request(PROGRAM_CS, 3)).toEqual([]);
+            // Обогнавший зеркало — нарушение порядка, в stderr.
+            expect(warn).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+        }
+        expect(asked).toBe(0);
+
+        expect(await request(PROGRAM_CS, 2)).toEqual([[{ start: 0, end: 1 }]]);
+        expect(asked).toBe(1);
+    });
+
+    it("provideCompletionItems: не открытый и устаревший документ — [] без провайдера", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        let asked = 0;
+        languages.registerCompletionItemProvider({ language: "editorconfig" }, {
+            provideCompletionItems: () => {
+                asked++;
+                return [new CompletionItem("x")];
+            },
+        } as never);
+
+        expect(
+            await stub.callRequest("languages.provideCompletionItems", {
+                ...COMPLETION_PARAMS,
+                uri: Uri.file("/proj/other/.editorconfig").toString(),
+            }),
+        ).toEqual([]);
+        expect(
+            await stub.callRequest("languages.provideCompletionItems", { ...COMPLETION_PARAMS, version: 0 }),
+        ).toEqual([]);
+        expect(asked).toBe(0);
     });
 });

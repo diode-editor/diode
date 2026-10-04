@@ -9,6 +9,7 @@ import {
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideCompletions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -58,7 +59,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
                 const result = await provideCompletions(harness, {
                     uri: mainUri,
                     languageId: "python",
-                    text: MAIN_PY,
+                    versionId: documentVersion(harness, mainUri),
                     line,
                     character,
                     triggerKind: CompletionTriggerKind.TriggerCharacter,

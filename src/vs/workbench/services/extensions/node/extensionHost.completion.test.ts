@@ -2,19 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
+    type IExtensionHarness,
     provideCompletions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { ICompletionRequest } from "../../../../editor/common/languages/iCompletionSource.ts";
 
-const REQ = {
-    uri: Uri.file("/proj/.editorconfig").toString(),
-    languageId: "editorconfig",
-    text: "ind",
-    line: 0,
-    character: 3,
-};
+/** Запрос по открытому в харнессе `.editorconfig` (`ind|`) — с его текущей версией. */
+function requestIn(harness: IExtensionHarness): ICompletionRequest {
+    const uri = Uri.file(`${harness.tmpDir}/.editorconfig`).toString();
+    return { uri, languageId: "editorconfig", versionId: documentVersion(harness, uri), line: 0, character: 3 };
+}
 
 describe("ExtensionHost — completion bridge (subprocess)", () => {
     it("provideCompletionItems возвращает элементы провайдера, item.command исполняется через bridge", async () => {
@@ -26,7 +27,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
             await settle();
 
             // Через group.completionSource (wiring харнесса) — как это делает ядро.
-            const { items } = await provideCompletions(harness, REQ);
+            const { items } = await provideCompletions(harness, requestIn(harness));
             expect(items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
 
             const style = items.find((i) => i.label === "indent_style");
@@ -51,7 +52,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
         });
         try {
             await settle();
-            const result = await provideCompletions(harness, { ...REQ, languageId: "typescript" });
+            const result = await provideCompletions(harness, { ...requestIn(harness), languageId: "typescript" });
             expect(result).toEqual({ items: [], isIncomplete: false });
         } finally {
             await harness.dispose();
@@ -63,10 +64,11 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
             initialFile: { name: "main.ts", content: "x\n" },
         });
         try {
+            const uri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
             const result = await provideCompletions(harness, {
-                uri: Uri.file("/proj/main.ts").toString(),
+                uri,
                 languageId: "typescript",
-                text: "x",
+                versionId: documentVersion(harness, uri),
                 line: 0,
                 character: 1,
             });

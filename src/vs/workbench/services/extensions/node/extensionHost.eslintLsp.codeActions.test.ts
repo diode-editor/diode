@@ -12,6 +12,7 @@ import {
 } from "../../../../../TestUtils/eslintFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideCodeActions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -75,7 +76,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "javascript",
-                        text: LINT_JS,
+                        versionId: documentVersion(harness, lintUri),
                         range: createRange(0, 0, 0, 18),
                         only: "source.fixAll",
                     });
@@ -111,7 +112,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "javascript",
-                        text: LINT_JS,
+                        versionId: documentVersion(harness, lintUri),
                         range: createRange(0, 17, 0, 18),
                     });
                     const found = actions.filter((a) => a.kind?.startsWith("quickfix") ?? false);

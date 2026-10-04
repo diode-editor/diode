@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
+    type IExtensionHarness,
     provideFoldingRegions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 
 /** Язык-сервис, размечающий всё как csharp (селектор maptz/фикстуры совпадёт). */
@@ -20,21 +23,23 @@ const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
 
 const CSHARP_TEXT = ["/* #region A */", "int a;", "int b;", "/* #endregion */", "int c;"].join("\n");
 
-const REQ = {
-    uri: Uri.file("/proj/Program.cs").toString(),
-    languageId: "csharp",
-    text: CSHARP_TEXT,
-};
+/** Запрос по открытому в харнессе `Program.cs` — с его текущей версией. */
+function requestIn(harness: IExtensionHarness): IFoldingRequest {
+    const uri = Uri.file(`${harness.tmpDir}/Program.cs`).toString();
+    return { uri, languageId: "csharp", versionId: documentVersion(harness, uri) };
+}
 
 describe("ExtensionHost — folding bridge (subprocess)", () => {
     it("provideFoldingRanges возвращает регионы провайдера", async () => {
         const harness = await createExtensionTestHarness({
+            initialFile: { name: "Program.cs", content: CSHARP_TEXT },
+            languageService: CSHARP_LANGUAGE_SERVICE,
             extensions: [extensionFixture("test.providesFolding", "providesFolding.cjs")],
         });
         try {
             await settle();
             // Через реестр харнесса — как это делает EditorComponent.
-            const regions = await provideFoldingRegions(harness, REQ);
+            const regions = await provideFoldingRegions(harness, requestIn(harness));
             expect(regions).toEqual([{ startLine: 0, endLine: 3, isCollapsed: false }]);
         } finally {
             await harness.dispose();
@@ -43,12 +48,14 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
 
     it("селектор другого языка → пустой результат", async () => {
         const harness = await createExtensionTestHarness({
+            initialFile: { name: "Program.cs", content: CSHARP_TEXT },
+            languageService: CSHARP_LANGUAGE_SERVICE,
             extensions: [extensionFixture("test.providesFolding", "providesFolding.cjs")],
         });
         try {
             await settle();
             // Провайдер под селектор не подходит — реестр его не отдаёт, RPC нет.
-            const regions = await provideFoldingRegions(harness, { ...REQ, languageId: "typescript" });
+            const regions = await provideFoldingRegions(harness, { ...requestIn(harness), languageId: "typescript" });
             expect(regions).toEqual([]);
         } finally {
             await harness.dispose();
@@ -58,7 +65,12 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
     it("без folding-провайдеров (нет расширений) → [] без RPC", async () => {
         const harness = await createExtensionTestHarness({});
         try {
-            const regions = await provideFoldingRegions(harness, REQ);
+            // Редактора нет — версия любая: реестр пуст, до хоста запрос не доходит.
+            const regions = await provideFoldingRegions(harness, {
+                uri: Uri.file("/proj/Program.cs").toString(),
+                languageId: "csharp",
+                versionId: 1,
+            });
             expect(regions).toEqual([]);
         } finally {
             await harness.dispose();

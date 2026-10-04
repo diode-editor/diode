@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideHovers,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -105,7 +106,7 @@ describe("ExtensionHost — hover от стокового typescript-language-se
                 const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: MAIN_TS,
+                    versionId: documentVersion(harness, mainUri),
                     line: 0,
                     character: 6,
                 });

@@ -2,7 +2,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { getCodeActions } from "../../../../editor/contrib/codeAction/codeAction.ts";
-import { formatDocument } from "../../../../editor/contrib/format/format.ts";
+import { documentRange, formatDocument } from "../../../../editor/contrib/format/format.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormattingEdits.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
@@ -61,12 +61,15 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
         // Провайдеров для документа нет — и настройку читать незачем.
         if (!host.languageFeatures.codeActionProvider.has(target)) return [];
         for (const kind of enabledCodeActionKindsOnSave(host.configuration, snapshot.languageId)) {
-            const text = host.paneForUri(snapshot.uri)?.getText() ?? snapshot.text;
+            // Свежие текст и версия — из панели: действия прошлого вида могли
+            // уже править буфер.
+            const pane = host.paneForUri(snapshot.uri);
+            const text = pane?.getText() ?? snapshot.text;
             const lines = text.split("\n");
             const items = await getCodeActions(host.languageFeatures.codeActionProvider, target, {
                 uri: snapshot.uri,
                 languageId: snapshot.languageId,
-                text,
+                versionId: pane?.model.document.versionId ?? snapshot.versionId,
                 // Source-действия применяются к целому файлу — диапазон всегда
                 // полный, как у команд organizeImports/fixAll.
                 range: createRange(0, 0, lines.length - 1, lines[lines.length - 1].length),
@@ -93,17 +96,22 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
         if (!host.configuration.get("editor.formatOnSave", { overrideIdentifier: snapshot.languageId })) return [];
         const pane = host.paneForUri(snapshot.uri);
         if (pane === null) return [];
-        const text = pane.getText();
+        const versionId = pane.model.document.versionId;
         const target = { uri: Uri.parse(snapshot.uri), languageId: snapshot.languageId };
-        const edits = await formatDocument(host.languageFeatures, target, {
-            uri: snapshot.uri,
-            languageId: snapshot.languageId,
-            text,
-            tabSize: pane.viewState.tabSize,
-            insertSpaces: pane.viewState.insertSpaces,
-        });
+        const edits = await formatDocument(
+            host.languageFeatures,
+            target,
+            {
+                uri: snapshot.uri,
+                languageId: snapshot.languageId,
+                versionId,
+                tabSize: pane.viewState.tabSize,
+                insertSpaces: pane.viewState.insertSpaces,
+            },
+            documentRange(pane.getText()),
+        );
         if (edits === null || edits.length === 0) return [];
-        if (pane.getText() !== text) return [];
+        if (pane.model.document.versionId !== versionId) return [];
         applyFormattingEdits(pane, edits, "Format on Save");
         return [];
     };

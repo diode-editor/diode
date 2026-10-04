@@ -11,6 +11,7 @@ import {
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideDefinitions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -115,7 +116,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                 const found = await provideDefinitions(harness, {
                     uri: mainUri,
                     languageId: "python",
-                    text: MAIN_PY,
+                    versionId: documentVersion(harness, mainUri),
                     line: 2,
                     character: 15,
                 });

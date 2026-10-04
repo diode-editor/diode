@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     manifestWithDefaults,
     provideCodeActions,
@@ -119,7 +120,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
                 const actions = await provideCodeActions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: MAIN_TS,
+                    versionId: documentVersion(harness, mainUri),
                     range: createRange(0, 0, 4, 7),
                     only: "source.organizeImports",
                 });
@@ -185,7 +186,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
                     const actions = await provideCodeActions(harness, {
                         uri: mainUri,
                         languageId: "typescript",
-                        text: harness.group.getActiveEditor()?.getText() ?? "",
+                        versionId: documentVersion(harness, mainUri),
                         range: createRange(0, 16, 0, 20), // идентификатор `zeta`
                     });
                     return actions.find((a) => /unused declaration/i.test(a.title)) ?? null;

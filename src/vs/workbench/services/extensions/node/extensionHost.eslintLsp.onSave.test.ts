@@ -12,7 +12,11 @@ import {
     linkEslintLibrary,
     LINT_JS,
 } from "../../../../../TestUtils/eslintFixture.ts";
-import { createExtensionTestHarness, provideCodeActions } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    createExtensionTestHarness,
+    documentVersion,
+    provideCodeActions,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -65,7 +69,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
                 const actions = await provideCodeActions(harness, {
                     uri: lintUri,
                     languageId: "javascript",
-                    text: LINT_JS,
+                    versionId: documentVersion(harness, lintUri),
                     range: createRange(0, 0, 0, 18),
                     only: "source.fixAll",
                 });

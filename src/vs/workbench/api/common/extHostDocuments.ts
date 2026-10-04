@@ -311,9 +311,9 @@ function endOfText(text: string): Position {
 /**
  * ЕДИНСТВЕННАЯ точка входа текста в реестр: document sync (`editor.didOpen` —
  * {@link DocumentSyncTracker.open}, `editor.didChange` — правками
- * {@link DocumentSyncTracker.change}), а запросы с текстом (will-save,
- * `languages.provide*`) только сверяют его с зеркалом
- * ({@link DocumentSyncTracker.verify}).
+ * {@link DocumentSyncTracker.change}). Запросы (will-save,
+ * `languages.provide*`) текста не везут — документ им даёт
+ * {@link DocumentSyncTracker.resolve}.
  *
  * Инвариант: любой потребитель onDidOpen/onDidChange (стоковый
  * vscode-languageclient, который транслирует их в LSP didOpen/didChange) видит
@@ -330,13 +330,6 @@ function endOfText(text: string): Position {
 export class DocumentSyncTracker {
     /** Ресурсы, о которых уже фаерился didOpen (один раз на ресурс — как в VS Code). */
     private readonly opened = new Set<string>();
-    /**
-     * Открытые, чьё зеркало ведёт хост (снапшот didOpen, дальше правки
-     * didChange). Документ вне набора, но открытый, открыл запрос: хост его не
-     * синхронизирует (сторона диффа, панель Output — модели не во вкладках), и
-     * свежий текст ему приходит только запросами.
-     */
-    private readonly mirrored = new Set<string>();
     public readonly onDidOpenEmitter = new EventEmitter<ExtHostTextDocument>();
     public readonly onDidChangeEmitter = new EventEmitter<IDocumentChangeEvent>();
     public readonly onDidCloseEmitter = new EventEmitter<ExtHostTextDocument>();
@@ -358,11 +351,6 @@ export class DocumentSyncTracker {
      * sync сервера); тот же текст → тихое обновление меты (без churn версии).
      */
     public open(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
-        this.mirrored.add(snapshot.uri);
-        return this.sync(snapshot);
-    }
-
-    private sync(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
         const prev = this.registry.get(Uri.parse(snapshot.uri));
         if (prev === undefined || !this.opened.has(snapshot.uri)) {
             const doc = this.registry.upsertFull(snapshot);
@@ -410,22 +398,28 @@ export class DocumentSyncTracker {
     }
 
     /**
-     * Текст, приехавший в запросе (will-save, `languages.provide*`). Для
-     * документа, чьё зеркало ведёт хост, — не источник, а сверка: расхождение —
-     * нарушенный инвариант порядка, пишем предупреждение и пересинхронизируем
-     * документ полной правкой, посчитанной от зеркала (её и увидят расширения,
-     * так что их копии сойдутся). Документ, которого хост не синхронизирует
-     * (запрос раньше didOpen, модель не во вкладке), открывается и обновляется
-     * из запроса молча — других источников текста у него нет.
+     * Документ запроса провайдера или will-save: запросы текста не везут —
+     * провайдер читает зеркало. `null` (ответить пусто), если документ не
+     * открыт или запрос устарел (ядро уже ушло дальше — его ответ оно всё равно
+     * отбросит). Версия запроса впереди зеркала — нарушенный инвариант порядка
+     * (правки и запросы едут одним каналом): предупреждение и тоже `null`.
+     * `languageId` запроса доводит язык документа (смену языка модели).
      */
-    public verify(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
-        if (
-            this.mirrored.has(snapshot.uri) &&
-            this.registry.getOrCreate(Uri.parse(snapshot.uri)).getText() !== snapshot.text
-        ) {
-            this.warn(`document sync: request text differs from the mirror of ${snapshot.uri} — resyncing`);
+    public resolve(uri: string, version: number | undefined, languageId?: unknown): ExtHostTextDocument | null {
+        if (!this.opened.has(uri)) return null;
+        // Открытый документ всегда есть в реестре — `getOrCreate` его только находит.
+        const doc = this.registry.getOrCreate(Uri.parse(uri));
+        if (doc.version !== version) {
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентны — сравнение с `undefined` всегда ложно, а равные версии отсеяны условием выше
+            if (version !== undefined && version > doc.version) {
+                this.warn(
+                    `document sync: request for ${uri} v${String(version)} is ahead of the mirror v${String(doc.version)}`,
+                );
+            }
+            return null;
         }
-        return this.sync(snapshot);
+        if (typeof languageId === "string") doc.applyMeta({ uri, languageId });
+        return doc;
     }
 
     /**
@@ -438,7 +432,6 @@ export class DocumentSyncTracker {
         const doc = this.registry.get(uri);
         if (doc === undefined || !this.opened.has(uri.toString())) return null;
         this.opened.delete(uri.toString());
-        this.mirrored.delete(uri.toString());
         doc.isClosed = true;
         this.onDidCloseEmitter.fire(doc);
         return doc;

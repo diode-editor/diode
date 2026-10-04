@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
     provideSignatureHelp,
     signatureHelpCharacters,
@@ -21,11 +22,19 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 
 const TEXT = "greet(\nfirst(\n";
 
-function requestFor(uri: string, line: number, patch: Partial<ISignatureHelpRequest> = {}): ISignatureHelpRequest {
+/** Версия для запросов по документу без открытого редактора: ответ пустой при любой. */
+const UNOPENED_VERSION = 1;
+
+function requestFor(
+    uri: string,
+    line: number,
+    versionId: number,
+    patch: Partial<ISignatureHelpRequest> = {},
+): ISignatureHelpRequest {
     return {
         uri,
         languageId: "typescript",
-        text: TEXT,
+        versionId,
         line,
         character: 6,
         triggerKind: SignatureHelpTriggerKind.TriggerCharacter,
@@ -46,10 +55,12 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
             // Символы обеих регистраций доехали метаданными и видны ядру для
             // документа (порядок — по реестру: новая регистрация первой).
-            expect(signatureHelpCharacters(harness, requestFor(mainUri, 0))).toEqual({
-                triggerCharacters: [",", "<", "("],
-                retriggerCharacters: [")"],
-            });
+            expect(signatureHelpCharacters(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual(
+                {
+                    triggerCharacters: [",", "<", "("],
+                    retriggerCharacters: [")"],
+                },
+            );
             // Документу на другом языке символы typescript-провайдеров не видны.
             expect(signatureHelpCharacters(harness, { uri: mainUri, languageId: "markdown" })).toEqual({
                 triggerCharacters: [],
@@ -59,7 +70,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
             // Строка 0: первый провайдер молчит, отвечает второй.
             const help = await provideSignatureHelp(
                 harness,
-                requestFor(mainUri, 0, {
+                requestFor(mainUri, 0, documentVersion(harness, mainUri), {
                     triggerCharacter: ",",
                     isRetrigger: true,
                     activeSignatureHelp: {
@@ -87,15 +98,15 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
             });
 
             // Строка 1: второй молчит — очередь доходит до первого.
-            const first = await provideSignatureHelp(harness, requestFor(mainUri, 1));
+            const first = await provideSignatureHelp(
+                harness,
+                requestFor(mainUri, 1, documentVersion(harness, mainUri)),
+            );
             expect(first?.signatures[0].label).toBe("first(): void");
 
             // Строка 2: молчат оба — подсказки нет, а не мусор.
-            expect(await provideSignatureHelp(harness, requestFor(mainUri, 2))).toBeNull();
-
-            // Слишком большой документ не гоняется через RPC.
             expect(
-                await provideSignatureHelp(harness, requestFor(mainUri, 0, { text: "x".repeat(8 * 1024 * 1024 + 1) })),
+                await provideSignatureHelp(harness, requestFor(mainUri, 2, documentVersion(harness, mainUri))),
             ).toBeNull();
         } finally {
             await harness.dispose();
@@ -110,9 +121,9 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await provideSignatureHelp(lazy, requestFor("file:///a.ts", 0))).toBeNull();
+            expect(await provideSignatureHelp(lazy, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toBeNull();
             // Пока провайдеров нет, ядро не должно считать «(» триггером.
-            expect(signatureHelpCharacters(lazy, requestFor("file:///a.ts", 0))).toEqual({
+            expect(signatureHelpCharacters(lazy, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toEqual({
                 triggerCharacters: [],
                 retriggerCharacters: [],
             });
@@ -126,7 +137,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await provideSignatureHelp(noProviders, requestFor("file:///a.ts", 0))).toBeNull();
+            expect(await provideSignatureHelp(noProviders, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toBeNull();
         } finally {
             await noProviders.dispose();
         }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
     provideCodeActions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -128,10 +129,11 @@ describe("ExtensionHost — code actions (subprocess)", () => {
         });
         try {
             await settle();
+            const uri = harness.group.getActiveEditor()!.uri.toString();
             const actions = await provideCodeActions(harness, {
-                uri: harness.group.getActiveEditor()!.uri.toString(),
+                uri,
                 languageId: "plaintext",
-                text: "note",
+                versionId: documentVersion(harness, uri),
                 range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } },
                 only: "quickfix",
             });

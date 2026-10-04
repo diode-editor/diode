@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     formatDocumentFor,
     type IExtensionHarness,
     provideCodeActions,
@@ -71,7 +72,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "python",
-                        text: LINT_PY,
+                        versionId: documentVersion(harness, lintUri),
                         range: createRange(0, 0, 4, 17),
                         only: "source.fixAll",
                     });
@@ -100,7 +101,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: lintUri,
                     languageId: "python",
-                    text: LINT_PY,
+                    versionId: documentVersion(harness, lintUri),
                     tabSize: 4,
                     insertSpaces: true,
                 });

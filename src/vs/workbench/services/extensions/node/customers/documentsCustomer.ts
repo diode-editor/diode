@@ -10,14 +10,21 @@ import {
 import type { ISaveEdit, ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 
-/** Порог, выше которого снапшот документа не гоняется через RPC (8 MB). */
-export const MAX_WILL_SAVE_TEXT_BYTES = 8 * 1024 * 1024;
+/**
+ * Порог синхронизации документа с субпроцессом, в символах (как
+ * `_MODEL_SYNC_LIMIT` эталона — 50 Mi). Решается один раз, на открытии
+ * документа (и на замене содержимого целиком): документ сверх порога для
+ * расширений не существует — ни зеркала, ни провайдеров, ни will-save.
+ */
+export const MAX_SYNCED_DOCUMENT_CHARS = 50 * 1024 * 1024;
 
 export interface IDocumentsCustomerOptions {
     /** Тайм-аут на ответ участника will-save, мс. */
     readonly willSaveTimeoutMs: number;
     /** Снапшоты открытых документов для семени `editor.didOpen` на handshake. */
     readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
+    /** Порог синхронизации документа в символах (см. {@link MAX_SYNCED_DOCUMENT_CHARS}). */
+    readonly maxSyncedDocumentChars: number;
     readonly logger: ILogger | undefined;
 }
 
@@ -52,34 +59,34 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
     /**
      * Семя handshake: наполняем `workspace.textDocuments` открытыми документами
      * ДО первой активации — стоковый vscode-languageclient читает его на start().
-     * Мимо защитного лимита: семя — снимок того, что уже открыто.
+     * Порог синхронизации тот же, что у открытия: документ сверх него для
+     * расширений не существует, даже если был открыт до спавна.
      */
     public pushInitialState(): void {
         const live = this.live;
         if (live === null) return;
         const openDocuments = this.options.openDocumentsProvider?.() ?? [];
-        for (const snapshot of openDocuments) {
-            live.rpc.notify("editor.didOpen", snapshot);
-            live.synced.add(snapshot.uri);
-        }
+        for (const snapshot of openDocuments) this.didOpenTextDocument(snapshot);
+    }
+
+    /**
+     * Синхронизирован ли документ с субпроцессом (открыт ему, держит зеркало).
+     * Запросы по несинхронизированному — пустой ответ без RPC: текста запросы
+     * не везут, отвечать субпроцессу не по чему.
+     */
+    public isSynced(uri: string): boolean {
+        return this.live?.synced.has(uri) === true;
     }
 
     /**
      * Запрашивает у субпроцесса правки will-save (`onWillSaveTextDocument`).
-     * Возвращает `[]`, если субпроцесса нет, никто не подписан, документ слишком
-     * большой или расширение не ответило за `willSaveTimeoutMs`.
+     * Возвращает `[]`, если субпроцесса нет, никто не подписан, документ не
+     * синхронизирован или расширение не ответило за `willSaveTimeoutMs`. Текст
+     * документа запрос не везёт — участник читает зеркало.
      */
     public async willSaveTextDocument(snapshot: ISaveSnapshot): Promise<readonly ISaveEdit[]> {
         const live = this.live;
-        if (!live?.willSaveSubscribed) return [];
-        // Guard: очень большой документ не гоняем через RPC (арх-решение плана).
-        if (snapshot.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.options.logger?.warn("skipping will-save participant: document too large", {
-                uri: snapshot.uri,
-                length: snapshot.text.length,
-            });
-            return [];
-        }
+        if (!live?.willSaveSubscribed || !live.synced.has(snapshot.uri)) return [];
         const rpc = live.rpc;
         return requestWillSaveEdits(
             (method, params) => rpc.request(method, params),
@@ -88,7 +95,6 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
                 languageId: snapshot.languageId,
                 version: snapshot.versionId,
                 isDirty: snapshot.isDirty,
-                text: snapshot.text,
                 reason: 1, // TextDocumentSaveReason.Manual
                 eol: snapshot.eol,
                 encoding: snapshot.encoding,
@@ -190,9 +196,9 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         return store;
     }
 
-    /** Защитный лимит на снапшот document sync (8 МБ). */
+    /** Порог синхронизации документа (см. {@link MAX_SYNCED_DOCUMENT_CHARS}). */
     private fitsDocumentSyncLimit(snapshot: IWireDocumentSyncSnapshot): boolean {
-        if (snapshot.text.length <= MAX_WILL_SAVE_TEXT_BYTES) return true;
+        if (snapshot.text.length <= this.options.maxSyncedDocumentChars) return true;
         this.options.logger?.warn("skipping document sync: document too large", {
             uri: snapshot.uri,
             length: snapshot.text.length,

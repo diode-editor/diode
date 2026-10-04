@@ -2,22 +2,31 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
+    type IExtensionHarness,
     provideInlineCompletions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
+import {
+    type IInlineCompletionRequest,
+    InlineCompletionTriggerKind,
+} from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
-const REQ = {
-    uri: Uri.file("/proj/main.ts").toString(),
-    languageId: "typescript",
-    text: "function fib",
-    line: 0,
-    character: 12,
-    triggerKind: InlineCompletionTriggerKind.Automatic,
-};
+/** Запрос в конец строки 0 открытого в харнессе `main.ts` — с его текущей версией. */
+function requestIn(harness: IExtensionHarness): IInlineCompletionRequest {
+    const uri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
+    return {
+        uri,
+        languageId: "typescript",
+        versionId: documentVersion(harness, uri),
+        line: 0,
+        character: 12,
+        triggerKind: InlineCompletionTriggerKind.Automatic,
+    };
+}
 
 describe("ExtensionHost — inline completion bridge (subprocess)", () => {
     it("provideInlineCompletions возвращает пункты провайдера: plain-текст и сниппет со стрипом", async () => {
@@ -29,7 +38,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
             await settle();
 
             // Через реестр харнесса — как это делает InlineCompletionsService.
-            const items = await provideInlineCompletions(harness, REQ, CancellationTokenNone);
+            const items = await provideInlineCompletions(harness, requestIn(harness), CancellationTokenNone);
             expect(items).toEqual([
                 { insertText: "(n) {\n    return n;\n}" },
                 {
@@ -50,7 +59,9 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         });
         try {
             await settle();
-            expect(await provideInlineCompletions(harness, { ...REQ, languageId: "markdown" })).toEqual([]);
+            expect(await provideInlineCompletions(harness, { ...requestIn(harness), languageId: "markdown" })).toEqual(
+                [],
+            );
         } finally {
             await harness.dispose();
         }
@@ -61,7 +72,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
             initialFile: { name: "main.ts", content: "x\n" },
         });
         try {
-            expect(await provideInlineCompletions(harness, REQ)).toEqual([]);
+            expect(await provideInlineCompletions(harness, requestIn(harness))).toEqual([]);
         } finally {
             await harness.dispose();
         }
@@ -80,13 +91,15 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
             await settle();
 
             // 50 мс — провайдер не успевает, подсказки просто нет (редактор жив).
-            expect(await provideInlineCompletions(harness, { ...REQ, timeoutMs: 50 })).toEqual([]);
+            expect(await provideInlineCompletions(harness, { ...requestIn(harness), timeoutMs: 50 })).toEqual([]);
 
             // Срока в запросе нет → работает хостовой дефолт, ответ дожидается.
-            expect(await provideInlineCompletions(harness, REQ)).toEqual([{ insertText: "onacci(n) {}" }]);
+            expect(await provideInlineCompletions(harness, requestIn(harness))).toEqual([
+                { insertText: "onacci(n) {}" },
+            ]);
 
             // Щедрый срок из настройки — тот же дождавшийся ответ.
-            expect(await provideInlineCompletions(harness, { ...REQ, timeoutMs: 20000 })).toEqual([
+            expect(await provideInlineCompletions(harness, { ...requestIn(harness), timeoutMs: 20000 })).toEqual([
                 { insertText: "onacci(n) {}" },
             ]);
         } finally {

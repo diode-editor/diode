@@ -45,6 +45,8 @@ interface FakeEditor {
 
 function makeEditor(lineContent: string, character: number, docText = lineContent, anchorChar = character): FakeEditor {
     const state = { line: lineContent, lineNo: 0, anchorChar, activeChar: character };
+    // Версия модели: запрос к провайдеру несёт её вместо текста; печать её поднимает.
+    const document = { versionId: 1 };
     let anchorNull = false;
     let cursorCount = 1;
     const contentListeners: (() => void)[] = [];
@@ -62,6 +64,7 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
             };
         },
         getText: () => docText,
+        model: { document },
         uri: Uri.file("/proj/.editorconfig"),
         languageId: "editorconfig",
         getCaretAnchor: () => (anchorNull ? null : { screenX: 5, screenY: 5, preferBelow: true }),
@@ -91,6 +94,7 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
             state.lineNo = lineNo;
             state.anchorChar = ch;
             state.activeChar = ch;
+            document.versionId++;
             fireContent();
             fireCursor();
         },
@@ -290,13 +294,16 @@ describe("CompletionService", () => {
         expect(other).toHaveBeenCalledTimes(1);
     });
 
-    it("передаёт корректный запрос источнику", async () => {
-        const { service, source } = setup(ITEMS);
+    it("передаёт корректный запрос источнику: версия документа вместо текста", async () => {
+        const { service, source, fake } = setup(ITEMS);
+        fake.type("ind", 3); // версия 2: запрос берёт текущую, а не начальную
+        service.close();
+        source.mockClear();
         await service.trigger();
         expect(source).toHaveBeenCalledWith({
             uri: Uri.file("/proj/.editorconfig").toString(),
             languageId: "editorconfig",
-            text: "ind",
+            versionId: 2,
             line: 0,
             character: 3,
             triggerKind: CompletionTriggerKind.Invoke,

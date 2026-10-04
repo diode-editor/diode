@@ -21,7 +21,7 @@ const PARAMS = {
     handles: [0],
     uri: "file:///a.ts",
     languageId: "typescript",
-    text: "con\n",
+    version: 1,
     line: 0,
     character: 3,
     triggerKind: 1,

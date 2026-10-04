@@ -28,19 +28,22 @@ export function hasDocumentFormatter(
     );
 }
 
-/** Format Document: правки лучшего форматтера документа; `null` — форматтера нет. */
+/**
+ * Format Document: правки лучшего форматтера документа; `null` — форматтера нет.
+ * `range` — диапазон всего документа ({@link documentRange}): без форматтера
+ * документа его отдают range-форматтеру (текста в запросе нет).
+ */
 export async function formatDocument(
     languageFeatures: ILanguageFeaturesService,
     target: ILanguageFeatureTarget,
     request: IFormattingRequest,
+    range: IRange,
 ): Promise<readonly ITextEdit[] | null> {
     const real = languageFeatures.documentFormattingEditProvider.ordered(target).at(0);
     if (real !== undefined) return real.provideDocumentFormattingEdits(request).catch(() => []);
     const synthetic = languageFeatures.documentRangeFormattingEditProvider.ordered(target).at(0);
     if (synthetic === undefined) return null;
-    return synthetic
-        .provideDocumentRangeFormattingEdits({ ...request, range: fullRange(request.text) })
-        .catch(() => []);
+    return synthetic.provideDocumentRangeFormattingEdits({ ...request, range }).catch(() => []);
 }
 
 /** Format Selection: правки лучшего range-форматтера; `null` — форматтера нет. */
@@ -55,7 +58,7 @@ export async function formatRange(
 }
 
 /** Диапазон всего документа (LF-канонический текст). */
-function fullRange(text: string): IRange {
+export function documentRange(text: string): IRange {
     const lines = text.split("\n");
     const lastLine = lines.length - 1;
     return createRange(0, 0, lastLine, lines[lastLine].length);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
@@ -25,12 +25,19 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
 const URI = "file:///proj/main.ts";
 const DEFS = Uri.file("/proj/defs.ts");
 
+const TEXT = "const a = b;\n";
+
+/** Открывает документ в зеркале субпроцесса — как `editor.didOpen` хоста. */
+function openDoc(ctx: IVscodeHostContext, text = TEXT, languageId = "typescript"): void {
+    ctx.documentSync.open({ uri: URI, languageId, version: 1, text });
+}
+
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         handle: 0,
         uri: URI,
         languageId: "typescript",
-        text: "const a = b;\n",
+        version: 1,
         line: 0,
         character: 10,
         ...overrides,
@@ -61,7 +68,7 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideDefinition", () => {
-    it("кладёт снапшот документа в реестр и зовёт провайдер с позицией каретки", async () => {
+    it("документ — из зеркала по версии запроса, провайдер зовётся с позицией каретки", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position } = {};
@@ -79,8 +86,10 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
+        openDoc(ctx);
         const result = await stub.callRequest("languages.provideDefinition", requestParams());
 
+        expect(seen.doc).toBe(ctx.registry.get(Uri.parse(URI)));
         expect(seen.doc?.getText()).toBe("const a = b;\n");
         expect(seen.doc?.languageId).toBe("typescript");
         expect(seen.pos?.line).toBe(0);
@@ -91,7 +100,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         ]);
     });
 
-    it("Location[] сериализуется целиком; позиция без line/character — (0,0), текст — пустой", async () => {
+    it("Location[] сериализуется целиком; позиция без line/character — (0,0), язык зеркала не затирается", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { pos?: vscode.Position } = {};
@@ -108,11 +117,13 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
-        const result = await stub.callRequest("languages.provideDefinition", { handle: 0, uri: URI });
+        openDoc(ctx, "", "markdown");
+        const result = await stub.callRequest("languages.provideDefinition", { handle: 0, uri: URI, version: 1 });
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
-        expect(ctx.registry.get(Uri.parse(URI))?.getText()).toBe("");
+        // languageId в запросе не пришёл — язык документа остаётся от didOpen.
+        expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("markdown");
         // Position в конструкторе Location свёрнут в пустой Range.
         expect(result).toEqual([
             { uri: DEFS.toString(), range: { startLine: 1, startCharacter: 2, endLine: 1, endCharacter: 2 } },
@@ -141,6 +152,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
+        openDoc(fresh.ctx);
         const result = await fresh.stub.callRequest("languages.provideDefinition", requestParams());
 
         expect(result).toEqual([
@@ -169,6 +181,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
+        openDoc(ctx);
         const result = await stub.callRequest("languages.provideDefinition", requestParams());
 
         expect(result).toEqual([
@@ -211,6 +224,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
+        openDoc(ctx);
         const result = await stub.callRequest("languages.provideDefinition", requestParams({ handle: 2 }));
         expect(calls).toEqual(["ok"]);
         expect(result).toEqual([
@@ -229,5 +243,47 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
         expect(await stub.callRequest("languages.provideDefinition", requestParams({ handle: undefined }))).toEqual([]);
         expect(calls).toHaveLength(3);
+    });
+
+    it("документ не открыт, запрос устарел или впереди зеркала — [], провайдер не зовётся", async () => {
+        const { stub, ctx } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        let calls = 0;
+        languages.registerDefinitionProvider(
+            { language: "typescript" },
+            {
+                provideDefinition: () => {
+                    calls++;
+                    return new Location(
+                        DEFS as unknown as vscode.Uri,
+                        new Range(0, 0, 0, 1),
+                    ) as unknown as vscode.Location;
+                },
+            },
+        );
+
+        // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
+        expect(await stub.callRequest("languages.provideDefinition", requestParams())).toEqual([]);
+
+        openDoc(ctx);
+        ctx.documentSync.change({
+            uri: URI,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+        });
+        // Устарел: ядро уже ушло на v2.
+        expect(await stub.callRequest("languages.provideDefinition", requestParams({ version: 1 }))).toEqual([]);
+        // Впереди зеркала: правки v3 ещё не доехали — нарушение порядка, в stderr.
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            expect(await stub.callRequest("languages.provideDefinition", requestParams({ version: 3 }))).toEqual([]);
+            expect(warn).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+        }
+        expect(calls).toBe(0);
+
+        expect(await stub.callRequest("languages.provideDefinition", requestParams({ version: 2 }))).toHaveLength(1);
+        expect(calls).toBe(1);
     });
 });

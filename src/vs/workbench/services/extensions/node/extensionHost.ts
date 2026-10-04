@@ -84,7 +84,7 @@ import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts"
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
-import { DocumentsCustomer } from "./customers/documentsCustomer.ts";
+import { DocumentsCustomer, MAX_SYNCED_DOCUMENT_CHARS } from "./customers/documentsCustomer.ts";
 import { EditorCustomer } from "./customers/editorCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
@@ -374,6 +374,12 @@ export interface IExtensionHostOptions {
      * (`WORKSPACE_CONTAINS_TIMEOUT`). Default: 7000.
      */
     readonly workspaceContainsTimeoutMs?: number;
+    /**
+     * Порог синхронизации документа с субпроцессом, в символах: документ
+     * больше — для расширений не существует (ни зеркала, ни провайдеров, ни
+     * will-save). Default: {@link MAX_SYNCED_DOCUMENT_CHARS} (50 Mi, как у VS Code).
+     */
+    readonly maxSyncedDocumentChars?: number;
 }
 
 /**
@@ -529,10 +535,13 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
             ),
         );
-        this.languageFeatures = this.register(new LanguageFeaturesCustomer(this.options, this.logger));
+        this.languageFeatures = this.register(
+            new LanguageFeaturesCustomer(this.options, (uri) => this.documents.isSynced(uri)),
+        );
         this.documents = new DocumentsCustomer({
             willSaveTimeoutMs: this.options.willSaveTimeoutMs,
             openDocumentsProvider: options.openDocumentsProvider,
+            maxSyncedDocumentChars: options.maxSyncedDocumentChars ?? MAX_SYNCED_DOCUMENT_CHARS,
             logger: this.logger,
         });
         this.editor = new EditorCustomer(editorOptions, options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE);

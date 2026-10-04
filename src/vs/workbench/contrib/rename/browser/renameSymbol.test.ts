@@ -15,7 +15,7 @@ const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
 const REQUEST: IRenameRequest = {
     uri: TS.uri.toString(),
     languageId: "typescript",
-    text: "const value = 1;\n",
+    versionId: 1,
     line: 0,
     character: 8,
 };

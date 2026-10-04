@@ -78,6 +78,10 @@ function makeEditor(lineContent: string, character: number): FakeEditor {
             return readOnly;
         },
         getText: () => state.line,
+        get model() {
+            // Версия модели — та же, что у viewState: запрос несёт её вместо текста.
+            return { document: { versionId: state.versionId } };
+        },
         uri: Uri.file("/proj/sample.ts"),
         languageId: "typescript",
         applyExternalEdits,
@@ -305,6 +309,9 @@ describe("InlineCompletionsService — показ", () => {
             character: 8,
             triggerKind: InlineCompletionTriggerKind.Automatic,
         });
+        // Версия модели после правки вместо текста документа.
+        expect(requests[0].versionId).toBe(2);
+        expect(requests[0]).not.toHaveProperty("text");
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 8, lines: [" = 42;"] });
         expect(service.isOpen()).toBe(true);
         expect(contextKey(service, "inlineSuggestionVisible")).toBe(true);

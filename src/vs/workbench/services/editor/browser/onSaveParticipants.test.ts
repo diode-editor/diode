@@ -162,11 +162,15 @@ describe("createCodeActionsOnSaveParticipant", () => {
         expect(applied).toBe(0);
     });
 
-    it("без панели диапазон и текст берутся из снапшота", async () => {
-        const provided: { text: string; endLine: number; endCharacter: number }[] = [];
+    it("без панели диапазон и версия берутся из снапшота", async () => {
+        const provided: { versionId: number; endLine: number; endCharacter: number }[] = [];
         const source: IFakeCodeActions = {
             provide: (req) => {
-                provided.push({ text: req.text, endLine: req.range.end.line, endCharacter: req.range.end.character });
+                provided.push({
+                    versionId: req.versionId,
+                    endLine: req.range.end.line,
+                    endCharacter: req.range.end.character,
+                });
                 return Promise.resolve([]);
             },
             apply: () => Promise.resolve(true),
@@ -178,20 +182,57 @@ describe("createCodeActionsOnSaveParticipant", () => {
             }),
         );
 
-        expect(await participant(SNAPSHOT)).toEqual([]);
+        expect(await participant({ ...SNAPSHOT, versionId: 7 })).toEqual([]);
         // «one\ntwo»: конец диапазона — строка 1, длина «two».
-        expect(provided).toEqual([{ text: "one\ntwo", endLine: 1, endCharacter: 3 }]);
+        expect(provided).toEqual([{ versionId: 7, endLine: 1, endCharacter: 3 }]);
+    });
+
+    it("с панелью диапазон и версия берутся из панели, а не из снапшота", async () => {
+        const provided: { versionId: number; endLine: number; endCharacter: number }[] = [];
+        const source: IFakeCodeActions = {
+            provide: (req) => {
+                provided.push({
+                    versionId: req.versionId,
+                    endLine: req.range.end.line,
+                    endCharacter: req.range.end.character,
+                });
+                return Promise.resolve([]);
+            },
+            apply: () => Promise.resolve(true),
+        };
+        const { pane } = fakePane(
+            () => "a\nbc\ndef!",
+            () => 42,
+        );
+        const participant = createCodeActionsOnSaveParticipant(
+            host({
+                configuration: config({ "editor.codeActionsOnSave": { "source.fixAll": true } }),
+                codeActions: source,
+                paneForUri: () => pane,
+            }),
+        );
+
+        expect(await participant({ ...SNAPSHOT, versionId: 7 })).toEqual([]);
+        expect(provided).toEqual([{ versionId: 42, endLine: 2, endCharacter: 4 }]);
     });
 });
 
-/** Фейковая панель для формат-участника: текст, viewState и журнал правок. */
-function fakePane(getText: () => string): {
+/** Фейковая панель участников: текст, версия модели, viewState и журнал правок. */
+function fakePane(
+    getText: () => string,
+    versionId: () => number = () => 1,
+): {
     pane: TextEditorPane;
     applied: { edits: number; label: string }[];
 } {
     const applied: { edits: number; label: string }[] = [];
     const pane = {
         getText,
+        model: {
+            get document() {
+                return { versionId: versionId() };
+            },
+        },
         viewState: { tabSize: 4, insertSpaces: true, selections: [] as ISelection[] },
         applyExternalEdits: (edits: readonly unknown[], label: string) => {
             applied.push({ edits: edits.length, label });
@@ -267,9 +308,12 @@ describe("createFormatOnSaveParticipant", () => {
         expect(applied).toEqual([{ edits: 1, label: "Format on Save" }]);
     });
 
-    it("устаревший ответ (текст сменился за время RPC) — правки не применяются", async () => {
+    it("устаревший ответ (версия сменилась за время RPC) — правки не применяются", async () => {
         let reads = 0;
-        const { pane, applied } = fakePane(() => (reads++ === 0 ? "old" : "new"));
+        const { pane, applied } = fakePane(
+            () => "x",
+            () => (reads++ === 0 ? 1 : 2),
+        );
         const participant = createFormatOnSaveParticipant(
             host({
                 configuration: config({ "editor.formatOnSave": true }),
@@ -304,6 +348,7 @@ describe("createFormatOnSaveParticipant", () => {
         let editsApplied = 0;
         const pane = {
             getText: () => "x",
+            model: { document: { versionId: 1 } },
             viewState: { tabSize: 4, insertSpaces: true, selections: [] as ISelection[] },
             applyExternalEdits: () => {
                 editsApplied++;
@@ -325,6 +370,7 @@ describe("createFormatOnSaveParticipant", () => {
         const requests: { tabSize: number; insertSpaces: boolean }[] = [];
         const pane = {
             getText: () => "x",
+            model: { document: { versionId: 1 } },
             viewState: { tabSize: 3, insertSpaces: false, selections: [] as ISelection[] },
             applyExternalEdits: () => undefined,
         } as unknown as TextEditorPane;
@@ -341,5 +387,28 @@ describe("createFormatOnSaveParticipant", () => {
 
         expect(await participant(SNAPSHOT)).toEqual([]);
         expect(requests).toEqual([{ tabSize: 3, insertSpaces: false }]);
+    });
+
+    it("запрос несёт версию панели; range-форматтеру — диапазон всего текста панели", async () => {
+        const { pane, applied } = fakePane(
+            () => "a\nbc\ndef!",
+            () => 5,
+        );
+        const formatHost = host({ configuration: config({ "editor.formatOnSave": true }), paneForUri: () => pane });
+        const requests: (IFormattingRequest & { readonly range?: unknown })[] = [];
+        formatHost.languageFeatures.documentRangeFormattingEditProvider.register("*", {
+            provideDocumentRangeFormattingEdits: (req) => {
+                requests.push(req);
+                return Promise.resolve([
+                    { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, text: "y" },
+                ]);
+            },
+        });
+
+        expect(await createFormatOnSaveParticipant(formatHost)(SNAPSHOT)).toEqual([]);
+        expect(requests).toHaveLength(1);
+        expect(requests[0].versionId).toBe(5);
+        expect(requests[0].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 2, character: 4 } });
+        expect(applied).toEqual([{ edits: 1, label: "Format on Save" }]);
     });
 });

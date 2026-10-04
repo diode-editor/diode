@@ -32,8 +32,8 @@ describe("renameActions — команда Rename Symbol", () => {
 
     it("editor.action.rename доходит до провайдера под кареткой", async () => {
         const prepareRename = vi.fn(
-            (request: IRenameRequest): Promise<ICoreRenameLocation> =>
-                Promise.resolve({ kind: "name", name: request.text.slice(6, 11) }),
+            (_request: IRenameRequest): Promise<ICoreRenameLocation> =>
+                Promise.resolve({ kind: "name", name: "value" }),
         );
         h.container.get(LanguageFeaturesServiceDIToken).renameProvider.register("*", {
             prepareRename,

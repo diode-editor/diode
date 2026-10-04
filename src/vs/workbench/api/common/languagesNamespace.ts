@@ -183,7 +183,7 @@ interface IWireCompletionParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    readonly version?: number;
     readonly line?: number;
     readonly character?: number;
     /** `CompletionTriggerKind`; по умолчанию `Invoke`. */
@@ -225,7 +225,7 @@ interface IWireInlineCompletionParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    readonly version?: number;
     readonly line?: number;
     readonly character?: number;
     /** `InlineCompletionTriggerKind`; по умолчанию `Automatic`. */
@@ -239,7 +239,7 @@ interface IWireFoldingParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    readonly version?: number;
 }
 
 /** Wire-параметры запроса definition (host → subprocess). */
@@ -249,7 +249,7 @@ interface IWireDefinitionParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    readonly version?: number;
     readonly line?: number;
     readonly character?: number;
 }
@@ -265,7 +265,7 @@ interface IWireRenameRequestParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    readonly version?: number;
     readonly line?: number;
     readonly character?: number;
     readonly newName?: unknown;
@@ -278,7 +278,7 @@ interface IWireHoverParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    readonly version?: number;
     readonly line?: number;
     readonly character?: number;
 }
@@ -290,7 +290,7 @@ interface IWireReferenceParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    readonly version?: number;
     readonly line?: number;
     readonly character?: number;
     readonly includeDeclaration?: boolean;
@@ -877,11 +877,8 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «целей нет».
         const reg = definitionProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
         const position = new Position(p.line ?? 0, p.character ?? 0);
         let result: unknown;
         try {
@@ -909,12 +906,8 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «hover'а нет».
         const reg = hoverProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return null;
         const position = new Position(p.line ?? 0, p.character ?? 0);
         let result: unknown;
         try {
@@ -943,12 +936,8 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «подсказки нет».
         const reg = signatureHelpProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return null;
         const position = new Position(p.line ?? 0, p.character ?? 0);
         const context = {
             triggerKind: p.triggerKind ?? SignatureHelpTriggerKind.Invoke,
@@ -978,12 +967,8 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «ссылок нет».
         const reg = referenceProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
         const position = new Position(p.line ?? 0, p.character ?? 0);
         const context = { includeDeclaration: p.includeDeclaration === true };
         let result: unknown;
@@ -1012,17 +997,13 @@ export function createLanguagesNamespace(
     });
 
     /**
-     * Документ и позиция запроса rename. Обе ручки (`prepareRename` /
-     * `provideRenameEdits`) принимают одну и ту же форму параметров, поэтому
-     * синхронизация документа живёт одним хелпером.
+     * Документ (из зеркала) и позиция запроса rename; `null` — документ не
+     * открыт или запрос устарел. Обе ручки (`prepareRename` /
+     * `provideRenameEdits`) принимают одну и ту же форму параметров.
      */
-    function syncRenameTarget(p: IWireRenameRequestParams): { doc: ExtHostTextDocument; position: Position } {
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+    function syncRenameTarget(p: IWireRenameRequestParams): { doc: ExtHostTextDocument; position: Position } | null {
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return null;
         return { doc, position: new Position(p.line ?? 0, p.character ?? 0) };
     }
 
@@ -1036,7 +1017,9 @@ export function createLanguagesNamespace(
         // переименовывает слово под кареткой, а что считать словом — решает
         // ядро (у него есть текст и своя классификация символов).
         if (prepare === undefined) return null;
-        const { doc, position } = syncRenameTarget(p);
+        const target = syncRenameTarget(p);
+        if (target === null) return null;
+        const { doc, position } = target;
         let result: unknown;
         try {
             result = await Promise.resolve(
@@ -1064,7 +1047,11 @@ export function createLanguagesNamespace(
         if (typeof newName !== "string" || newName === "") {
             return { applied: false, error: "Rename requires a new name" };
         }
-        const { doc, position } = syncRenameTarget(p);
+        const target = syncRenameTarget(p);
+        // Документ ушёл дальше запроса (или закрыт) — правки по нему легли бы
+        // не туда; человек узнаёт, что ничего не произошло.
+        if (target === null) return { applied: false, error: "The document changed during rename" };
+        const { doc, position } = target;
         let edit: unknown;
         try {
             edit = await Promise.resolve(
@@ -1123,12 +1110,8 @@ export function createLanguagesNamespace(
             }
         }
         if (format === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
         const options = {
             tabSize: p.tabSize ?? 4,
             insertSpaces: p.insertSpaces ?? true,
@@ -1165,12 +1148,8 @@ export function createLanguagesNamespace(
         const p = params as IWireCodeActionParams;
         const reg = codeActionProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
         const range = new Range(p.range.startLine, p.range.startCharacter, p.range.endLine, p.range.endCharacter);
         const only = typeof p.only === "string" ? new CodeActionKind(p.only) : undefined;
         const context = {
@@ -1277,11 +1256,8 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult[]> => {
         const p = params as IWireCompletionParams;
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
         const position = new Position(p.line ?? 0, p.character ?? 0);
         const token = neverCancelledToken();
         const context = {
@@ -1407,12 +1383,8 @@ export function createLanguagesNamespace(
         "languages.provideInlineCompletions",
         async (params, cancellation): Promise<WireInlineCompletionItem[][]> => {
             const p = params as IWireInlineCompletionParams;
-            const doc: ExtHostTextDocument = documentSync.verify({
-                uri: p.uri,
-                // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
-                ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-                text: p.text ?? "",
-            });
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return [];
             const position = new Position(p.line ?? 0, p.character ?? 0);
             // Настоящий токен отмены (в отличие от остальных провайдеров): ядро
             // гасит устаревший запрос, и провайдер — в первую очередь платный
@@ -1476,11 +1448,8 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[][]> => {
         const p = params as IWireFoldingParams;
-        const doc: ExtHostTextDocument = documentSync.verify({
-            uri: p.uri,
-            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
-            text: p.text ?? "",
-        });
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
         const token = neverCancelledToken();
         const context = {} as vscode.FoldingContext;
 

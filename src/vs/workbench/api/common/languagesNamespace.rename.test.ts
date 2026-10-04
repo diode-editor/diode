@@ -18,13 +18,14 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
     stub: IStubRpc;
     languages: typeof vscode.languages;
     appliedEdits: vscode.WorkspaceEdit[];
+    documentSync: DocumentSyncTracker;
 } {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
         registry,
-        documentSync: new DocumentSyncTracker(registry),
+        documentSync: new DocumentSyncTracker(registry, () => undefined),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
     };
@@ -37,14 +38,17 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         executeCommand: () => Promise.resolve(undefined),
         ...deps,
     });
-    return { stub, languages, appliedEdits };
+    // Документ открыт document sync'ом (как `editor.didOpen`): запросы текста
+    // не везут, провайдер читает зеркало версии 1.
+    ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
+    return { stub, languages, appliedEdits, documentSync: ctx.documentSync };
 }
 
 const URI = "file:///proj/main.ts";
 const TEXT = "const value = 1;\nconst other = value;\n";
 
 function prepareParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-    return { handle: 0, uri: URI, languageId: "typescript", text: TEXT, line: 0, character: 8, ...overrides };
+    return { handle: 0, uri: URI, languageId: "typescript", version: 1, line: 0, character: 8, ...overrides };
 }
 
 function renameParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -140,7 +144,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toBeNull();
     });
 
-    it("документ и позиция приезжают провайдеру из параметров запроса", async () => {
+    it("документ — из зеркала, позиция — из параметров запроса", async () => {
         const { stub, languages } = makeCtx();
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position } = {};
         languages.registerRenameProvider(
@@ -250,7 +254,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(await stub.callRequest("languages.prepareRename", prepareParams({ handle: 1 }))).toBeNull();
     });
 
-    it("запрос без handle провайдера не будит, без текста — документ пустой", async () => {
+    it("запрос без handle провайдера не будит; документ — зеркало, а не запрос", async () => {
         const { stub, languages } = makeCtx();
         const seen: string[] = [];
         const register = (): void => {
@@ -273,10 +277,27 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         // Без `handle` в параметрах провайдера не ищем вовсе.
         expect(await stub.callRequest("languages.prepareRename", prepareParams({ handle: undefined }))).toBeNull();
         expect(seen).toEqual([]);
-        // Без `text` документ синхронизируется пустым — и имени в пустом
-        // диапазоне нет.
-        expect(await stub.callRequest("languages.prepareRename", prepareParams({ text: undefined }))).toBeNull();
-        expect(seen).toEqual([""]);
+        // Текст провайдер видит из зеркала документа (версия 1) — запрос его
+        // не везёт.
+        expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({ placeholder: "c" });
+        expect(seen).toEqual([TEXT]);
+    });
+
+    it("не открытый документ, устаревшая и забежавшая вперёд версия — null, провайдер не зовётся", async () => {
+        const { stub, languages, documentSync } = makeCtx();
+        const prepareRename = vi.fn(() => new Range(0, 6, 0, 11) as unknown as vscode.Range);
+        languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits: () => null, prepareRename });
+        documentSync.change({ uri: URI, version: 2, changes: [] });
+
+        const stale = [{ uri: "file:///proj/unknown.ts" }, { version: 1 }, { version: 3 }, { version: undefined }];
+        for (const overrides of stale) {
+            expect(await stub.callRequest("languages.prepareRename", prepareParams(overrides))).toBeNull();
+        }
+        expect(prepareRename).not.toHaveBeenCalled();
+        // Версия зеркала — провайдер зовётся.
+        expect(await stub.callRequest("languages.prepareRename", prepareParams({ version: 2 }))).toEqual({
+            placeholder: "value",
+        });
     });
 
     it("снятый провайдер — null, чужой handle провайдера не будит", async () => {
@@ -379,6 +400,27 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         expect(await stub.callRequest("languages.provideRenameEdits", renameParams({ handle: 1 }))).toEqual({
             applied: false,
         });
+        expect(appliedEdits).toHaveLength(0);
+    });
+
+    it("документ ушёл дальше запроса или не открыт — отказ с причиной, провайдер не зовётся", async () => {
+        const { stub, languages, appliedEdits, documentSync } = makeCtx();
+        const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
+        languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
+        documentSync.change({ uri: URI, version: 2, changes: [] });
+
+        for (const overrides of [{ uri: "file:///proj/unknown.ts" }, { version: 1 }, { version: 3 }]) {
+            expect(await stub.callRequest("languages.provideRenameEdits", renameParams(overrides))).toEqual({
+                applied: false,
+                error: "The document changed during rename",
+            });
+        }
+        documentSync.close(Uri.parse(URI));
+        expect(await stub.callRequest("languages.provideRenameEdits", renameParams({ version: 2 }))).toEqual({
+            applied: false,
+            error: "The document changed during rename",
+        });
+        expect(provideRenameEdits).not.toHaveBeenCalled();
         expect(appliedEdits).toHaveLength(0);
     });
 

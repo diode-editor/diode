@@ -10,6 +10,19 @@ import { CompletionItem, CompletionList, MarkdownString, Range, SnippetString, T
 import type { WireCompletionResult, WireResolvedCompletionItem } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
+const REQ = {
+    handles: [0],
+    uri: "file:///proj/main.ts",
+    languageId: "typescript",
+    version: 1,
+    line: 0,
+    character: 2,
+};
+
+/**
+ * Контекст субпроцесса с открытым документом запроса {@link REQ}: текст
+ * провайдер читает из зеркала, которое хост завёл `editor.didOpen`.
+ */
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -19,17 +32,9 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
     };
+    ctx.documentSync.open({ uri: REQ.uri, languageId: REQ.languageId, version: REQ.version, text: "d." });
     return { ctx, stub };
 }
-
-const REQ = {
-    handles: [0],
-    uri: "file:///proj/main.ts",
-    languageId: "typescript",
-    text: "d.",
-    line: 0,
-    character: 2,
-};
 
 describe("stripSnippetPlaceholders", () => {
     it("вырезает плейсхолдеры, оставляя их текст", () => {
@@ -114,6 +119,59 @@ describe("LanguagesNamespace — completion: сериализация полей
         await stub.callRequest("languages.provideCompletionItems", { ...REQ, triggerKind: 1, triggerCharacter: "." });
 
         expect(provideCompletionItems.mock.calls[0][3]).toMatchObject({ triggerKind: 1, triggerCharacter: "." });
+    });
+
+    it("документ — из зеркала: провайдер видит текст didOpen и правок didChange", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const texts: string[] = [];
+        languages.registerCompletionItemProvider({ language: "typescript" }, {
+            provideCompletionItems: (document: { getText(): string }) => {
+                texts.push(document.getText());
+                return [];
+            },
+        } as never);
+
+        await stub.callRequest("languages.provideCompletionItems", REQ);
+        ctx.documentSync.change({
+            uri: REQ.uri,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 2 }, text: "g" }],
+        });
+        await stub.callRequest("languages.provideCompletionItems", { ...REQ, version: 2, character: 3 });
+
+        expect(texts).toEqual(["d.", "d.g"]);
+    });
+
+    it("документ не открыт, запрос устарел или впереди зеркала — [], провайдер не зовётся", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const provideCompletionItems = vi.fn(() => [new CompletionItem("x")]);
+        languages.registerCompletionItemProvider({ language: "typescript" }, { provideCompletionItems } as never);
+        ctx.documentSync.change({
+            uri: REQ.uri,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 2, endLine: 0, endCharacter: 2 }, text: "g" }],
+        });
+
+        // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
+        expect(
+            await stub.callRequest("languages.provideCompletionItems", { ...REQ, uri: "file:///proj/other.ts" }),
+        ).toEqual([]);
+        // Устарел: ядро уже ушло на v2.
+        expect(await stub.callRequest("languages.provideCompletionItems", REQ)).toEqual([]);
+        // Впереди зеркала: правки v3 ещё не доехали — нарушение порядка, в stderr.
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            expect(await stub.callRequest("languages.provideCompletionItems", { ...REQ, version: 3 })).toEqual([]);
+            expect(warn).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+        }
+        expect(provideCompletionItems).not.toHaveBeenCalled();
+
+        expect(await stub.callRequest("languages.provideCompletionItems", { ...REQ, version: 2 })).toHaveLength(1);
+        expect(provideCompletionItems).toHaveBeenCalledTimes(1);
     });
 });
 

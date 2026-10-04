@@ -59,7 +59,7 @@ export class RenameService {
         const request: IRenameRequest = {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
-            text,
+            versionId: editor.model.document.versionId,
             line: caret.line,
             character: caret.character,
         };
@@ -88,14 +88,14 @@ export class RenameService {
             return;
         }
 
-        // Запрос пересобираем из АКТУАЛЬНОГО текста: пока человек набирал имя,
+        // Запрос пересобираем на АКТУАЛЬНУЮ версию: пока человек набирал имя,
         // документ мог уехать (авто-импорт, форматирование по сохранению), а
-        // отправить провайдеру протухший снапшот значит переименовать не то.
+        // запрос по протухшей версии субпроцесс отклонит как устаревший.
         const live = this.group.getActiveEditor();
         const result = await renameSymbol(
             registry,
             editor,
-            live?.uri.toString() === request.uri ? { ...request, text: live.getText() } : request,
+            live?.uri.toString() === request.uri ? { ...request, versionId: live.model.document.versionId } : request,
             newName,
         );
         // Сообщение показываем ровно по причине отказа: у применившегося

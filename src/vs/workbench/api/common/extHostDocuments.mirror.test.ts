@@ -141,56 +141,69 @@ describe("ExtHostTextDocument — зеркало правками", () => {
     });
 });
 
-describe("DocumentSyncTracker.verify — текст запроса сверяется с зеркалом", () => {
-    it("совпал — тихо, без события и без смены версии; мета обновляется", () => {
+describe("DocumentSyncTracker.resolve — документ запроса из зеркала по версии", () => {
+    it("версия совпала — тот же документ, без события и без смены версии; строковый languageId применяется", () => {
         const { tracker, doc, changes, warnings } = setup("a");
-        expect(tracker.verify({ uri: URI, languageId: "javascript", text: "a" })).toBe(doc);
+        expect(tracker.resolve(URI, 1, "javascript")).toBe(doc);
         expect(changes).toEqual([]);
         expect(warnings).toEqual([]);
         expect(doc.version).toBe(1);
+        expect(doc.getText()).toBe("a");
         expect(doc.languageId).toBe("javascript");
     });
 
-    it("разошёлся — предупреждение и пересинхронизация полной правкой от зеркала", () => {
-        const { tracker, doc, changes, warnings } = setup("old");
-        tracker.verify({ uri: URI, text: "new text" });
-        expect(warnings).toEqual([`document sync: request text differs from the mirror of ${URI} — resyncing`]);
-        expect(doc.getText()).toBe("new text");
-        expect(changes[0].contentChanges).toEqual([
-            { range: new Range(0, 0, 0, 3), rangeOffset: 0, rangeLength: 3, text: "new text" },
-        ]);
+    it("версия после правки didChange — документ с новым текстом", () => {
+        const { tracker, doc } = setup("ab");
+        tracker.change({ uri: URI, version: 4, changes: [wireChange(0, 2, 0, 2, "c")] });
+        expect(tracker.resolve(URI, 4)).toBe(doc);
+        expect(doc.getText()).toBe("abc");
     });
 
-    it("документ, открытый запросом (хост его не синхронизирует), обновляется из запросов молча", () => {
-        const registry = new DocumentRegistry();
-        const warnings: string[] = [];
-        const tracker = new DocumentSyncTracker(registry, (message) => warnings.push(message));
-        const doc = tracker.verify({ uri: URI, text: "one" });
-        tracker.verify({ uri: URI, text: "two" });
-        expect(doc.getText()).toBe("two");
-        expect(warnings).toEqual([]);
-
-        // Хост открыл его сам — дальше расхождение уже нарушение.
-        tracker.open({ uri: URI, version: 5, text: "two" });
-        tracker.verify({ uri: URI, text: "three" });
-        expect(warnings).toHaveLength(1);
-
-        // После закрытия — снова документ запросов.
-        tracker.close(Uri.parse(URI));
-        tracker.verify({ uri: URI, text: "four" });
-        tracker.verify({ uri: URI, text: "five" });
-        expect(warnings).toHaveLength(1);
+    it("не строковый languageId (и его отсутствие) не трогает язык документа", () => {
+        const { tracker, doc } = setup("a");
+        for (const languageId of [undefined, null, 42, { id: "javascript" }]) {
+            expect(tracker.resolve(URI, 1, languageId)).toBe(doc);
+            expect(doc.languageId).toBe("typescript");
+        }
     });
 
-    it("неизвестный документ (запрос раньше didOpen) открывается из запроса без предупреждения", () => {
+    it("не открытый документ — null без предупреждения и без открытия", () => {
         const registry = new DocumentRegistry();
         const warnings: string[] = [];
         const tracker = new DocumentSyncTracker(registry, (message) => warnings.push(message));
         const opened: string[] = [];
         tracker.onDidOpenEmitter.event((d) => opened.push(d.uri.toString()));
-        const doc = tracker.verify({ uri: URI, text: "x" });
-        expect(doc.getText()).toBe("x");
-        expect(opened).toEqual([URI]);
+        expect(tracker.resolve(URI, 1, "typescript")).toBeNull();
+        expect(registry.get(Uri.parse(URI))).toBeUndefined();
+        expect(opened).toEqual([]);
+        expect(warnings).toEqual([]);
+    });
+
+    it("устаревший запрос (версия запроса ниже зеркала) — null молча, язык не меняется", () => {
+        const { tracker, doc, warnings } = setup("a");
+        tracker.change({ uri: URI, version: 3, changes: [wireChange(0, 1, 0, 1, "b")] });
+        expect(tracker.resolve(URI, 2, "javascript")).toBeNull();
+        expect(warnings).toEqual([]);
+        expect(doc.languageId).toBe("typescript");
+    });
+
+    it("запрос без версии — null молча", () => {
+        const { tracker, warnings } = setup("a");
+        expect(tracker.resolve(URI, undefined)).toBeNull();
+        expect(warnings).toEqual([]);
+    });
+
+    it("запрос впереди зеркала — null с предупреждением о нарушенном порядке", () => {
+        const { tracker, doc, warnings } = setup("a");
+        expect(tracker.resolve(URI, 5, "javascript")).toBeNull();
+        expect(warnings).toEqual([`document sync: request for ${URI} v5 is ahead of the mirror v1`]);
+        expect(doc.languageId).toBe("typescript");
+    });
+
+    it("закрытый документ — null, хотя версия совпадает", () => {
+        const { tracker, warnings } = setup("a");
+        tracker.close(Uri.parse(URI));
+        expect(tracker.resolve(URI, 1)).toBeNull();
         expect(warnings).toEqual([]);
     });
 });

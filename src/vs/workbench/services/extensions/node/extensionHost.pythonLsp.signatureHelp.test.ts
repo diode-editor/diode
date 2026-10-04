@@ -10,6 +10,7 @@ import {
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideSignatureHelp,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -60,7 +61,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от ст
                 const found = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "python",
-                    text: MAIN_PY,
+                    versionId: documentVersion(harness, mainUri),
                     line: 2,
                     character: 6,
                     triggerKind: SignatureHelpTriggerKind.TriggerCharacter,

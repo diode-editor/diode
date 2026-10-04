@@ -10,8 +10,8 @@ import { ExtensionHost } from "./extensionHost.ts";
 
 /**
  * Completion по handle: субпроцесса нет, канал сшит in-process — так видно,
- * какие сообщения уходят (пачка handle на один запрос) и что остановка
- * субпроцесса отрезает запросы (образец — `extensionHost.hoverInProcess.test.ts`).
+ * какие сообщения уходят (пачка handle на один запрос), что документ без
+ * синхронизации не спрашивается и что остановка субпроцесса отрезает запросы (образец — `extensionHost.hoverInProcess.test.ts`).
  */
 
 const NOOP_EDITOR_OPTIONS = {
@@ -28,20 +28,24 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-function makeHost(): { host: ExtensionHost; peer: RpcEndpoint } {
+/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
+
+function makeHost(open = true): { host: ExtensionHost; peer: RpcEndpoint } {
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+    if (open) host.didOpenTextDocument(DOCUMENT);
     return { host, peer };
 }
 
 const REQUEST: ICompletionRequest = {
-    uri: "file:///a.ts",
+    uri: DOCUMENT.uri,
     languageId: "typescript",
-    text: "a.",
+    versionId: 3,
     line: 0,
     character: 2,
 };
@@ -63,7 +67,14 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
         ]);
 
         expect(provide).toHaveBeenCalledTimes(1);
-        expect(provide.mock.calls[0]?.[0]).toEqual({ handles: [4, 9], ...REQUEST });
+        expect(provide.mock.calls[0]?.[0]).toEqual({
+            handles: [4, 9],
+            uri: DOCUMENT.uri,
+            languageId: "typescript",
+            version: 3,
+            line: 0,
+            character: 2,
+        });
         expect(first).toEqual({ items: [{ label: "first", insertText: "first" }], isIncomplete: true });
         expect(second).toEqual({ items: [{ label: "second", insertText: "second" }], isIncomplete: false });
     });
@@ -84,10 +95,21 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
             "handles",
             "languageId",
             "line",
-            "text",
             "uri",
+            "version",
         ]);
         expect(seen[1]).toMatchObject({ triggerKind: 1, triggerCharacter: "." });
+    });
+
+    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+        const { host, peer } = makeHost(false);
+        const provide = vi.fn(() =>
+            Promise.resolve([{ items: [{ label: "a", insertText: "a" }], isIncomplete: false }]),
+        );
+        peer.handleRequest("languages.provideCompletionItems", provide);
+
+        expect(await host.provideCompletionItems(0, REQUEST)).toEqual({ items: [], isIncomplete: false });
+        expect(provide).not.toHaveBeenCalled();
     });
 
     it("после остановки субпроцесса completion и resolve не уходят", async () => {

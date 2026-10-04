@@ -186,16 +186,15 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // открытых редакторов (как editor.wordBasedSuggestions в VS Code).
         const providers = this.languageFeatures.completionProvider.ordered(editor);
         const ticket = this.latest.start();
-        // Без провайдеров — пустой ответ без снапшота: текст документа берём
-        // только тому, кто будет его читать.
+        // Без провайдеров — пустой ответ без обращения к агрегатору.
         const result =
-            // Stryker disable next-line ConditionalExpression: provideCompletions([]) даёт тот же пустой ответ — ветка лишь не снимает снапшот текста впустую
+            // Stryker disable next-line ConditionalExpression: provideCompletions([]) даёт тот же пустой ответ — ветка лишь не зовёт агрегатор впустую
             providers.length === 0
                 ? EMPTY_RESULT
                 : await provideCompletions(providers, {
                       uri: editor.uri.toString(),
                       languageId: editor.languageId,
-                      text: editor.getText(),
+                      versionId: editor.model.document.versionId,
                       line: active.line,
                       character: active.character,
                       triggerKind:

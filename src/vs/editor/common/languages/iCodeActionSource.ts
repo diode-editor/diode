@@ -12,8 +12,8 @@ export interface ICodeActionRequest {
     /** Ресурс активного документа как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Полный текст документа (LF-канонический). */
-    readonly text: string;
+    /** Версия документа на момент запроса: текст провайдер берёт из своей синхронизированной копии. */
+    readonly versionId: number;
     /** Диапазон запроса (выделение/каретка; source-команды шлют весь документ). */
     readonly range: IRange;
     /**
