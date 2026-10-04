@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { builtinActions } from "./builtinActions.ts";
+import { SCM_ACTIONS } from "./scmActions.ts";
 
 /** Команды, которые ходят в git на мутацию — им положен enablement занятости. */
 const MUTATING = [
@@ -37,7 +37,7 @@ const READ_ONLY = [
 ];
 
 function actionById(id: string): { enablement?: string } | undefined {
-    return builtinActions.find((action) => action.id === id);
+    return SCM_ACTIONS.find((action) => action.id === id);
 }
 
 describe("SCM-команды и enablement занятости", () => {

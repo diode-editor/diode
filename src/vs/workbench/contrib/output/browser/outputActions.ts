@@ -35,3 +35,6 @@ export const toggleOutputAction: CommandAction = {
         accessor.get(OutputComponentDIToken).focus();
     },
 };
+
+/** Экшены панели Output. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const OUTPUT_ACTIONS: readonly CommandAction[] = [toggleOutputAction];

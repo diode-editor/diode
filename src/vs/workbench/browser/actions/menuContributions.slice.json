@@ -352,13 +352,13 @@
             "git.showOutput"
         ],
         "navigation": [
-            "explorer.newFile",
             "search.action.collapseSearchResults",
             "search.action.expandSearchResults",
+            "explorer.newFile",
+            "scm.graph.refresh",
             "extensions.refresh",
             "references-view.collapseAll",
             "references-view.expandAll",
-            "scm.graph.refresh",
             "explorer.newFolder",
             "references-view.clear",
             "workbench.files.action.refreshFilesExplorer"
