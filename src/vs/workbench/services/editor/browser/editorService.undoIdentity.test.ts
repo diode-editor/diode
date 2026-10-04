@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -41,6 +42,11 @@ function createGroup(): EditorService {
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        diskFileService(),
     );
     return group;
 }

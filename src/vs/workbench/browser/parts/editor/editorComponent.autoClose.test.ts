@@ -1,6 +1,7 @@
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
@@ -46,7 +47,7 @@ describe("EditorComponent: авто-закрытие из language configuration
     });
 
     function createComponent(name: string, content: string, service: ILanguageConfigurationService) {
-        const model = new TextFileModel(tsOnlyLanguages, new UndoRedoService());
+        const model = new TextFileModel(tsOnlyLanguages, new UndoRedoService(), diskFileService());
         model.openFile(Uri.file(ws.writeFile(name, content)));
         const component = new EditorComponent(new TokenizationRegistry(), NULL_TOKEN_STYLE_RESOLVER, model, service);
         return { model, component };

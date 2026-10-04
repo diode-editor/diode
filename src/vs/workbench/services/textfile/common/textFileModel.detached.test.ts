@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { createInsertEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -14,7 +15,7 @@ import { TextFileModel } from "./textFileModel.ts";
  */
 describe("TextFileModel — модель без прикреплённых вью", () => {
     function make(): TextFileModel {
-        return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService());
+        return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
     }
 
     it("setEol без вью: снимок undo-шага без выделений, undo()/redo() без вью гоняют историю", () => {

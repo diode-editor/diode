@@ -1,6 +1,7 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -50,6 +51,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         return new DiffEditorPane2(
             NULL_LANGUAGE_SERVICE,
             new UndoRedoService(),
+            diskFileService(),
             new TokenizationRegistry(),
             NULL_TOKEN_STYLE_RESOLVER,
             {
@@ -66,7 +68,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     }
 
     function ownedModel(text: string): TextFileModel {
-        const model = new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService());
+        const model = new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
         model.setUntitled(1);
         // До создания панели у модели нет вью — сеем контент владельческим путём.
         if (text !== "") model.replaceOwnedContent(text);
@@ -497,7 +499,8 @@ describe("Workbench — дифф v2", () => {
         ws = createTempWorkspace({ prefix: "diode-diffv2-", files: { "a.txt": AT_HEAD } });
         const testContainer = createTestContainer();
         container = testContainer.container;
-        const registry = new FileService();
+        // Диск — модели пишут через файловый сервис; `git:` — сторона из ревизии.
+        const registry = diskFileService();
         headContent = AT_HEAD;
         fireGitChange = null;
         registry.registerProvider("git", {
@@ -947,9 +950,10 @@ describe("Workbench — дифф v2", () => {
         void editors.closeEditor(editors.activeGroup, editors.activeIndex);
         await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onSave?.();
-        await settle(20);
 
-        expect(editors.getPanes().includes(pane)).toBe(false);
+        await vi.waitFor(() => {
+            expect(editors.getPanes().includes(pane)).toBe(false);
+        });
         const { readFileSync } = await import("node:fs");
         expect(readFileSync(ws.path("a.txt"), "utf8")).toContain("XXold line");
     });

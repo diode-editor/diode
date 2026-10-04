@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -60,6 +61,7 @@ function createEditorService(configuration: Record<string, unknown> = {}): Edito
         undefined,
         [],
         languageFeatures,
+        diskFileService(),
     );
     registries.set(service, languageFeatures);
     return service;
@@ -367,29 +369,31 @@ describe("EditorService — сохранение по настройкам onSav
             });
 
             fs.rmSync(fp);
-            const pending = ctrl.getActiveEditor()!.save();
+            await ctrl.getActiveEditor()!.save();
 
-            // Пайплайн пуст (обе настройки выключены, host не подключён) —
-            // запись случилась ДО первого await, в этом же тике.
+            // Пайплайн пуст (обе настройки выключены, host не подключён).
             expect(fs.readFileSync(fp, "utf-8")).toBe("as is\n");
-            await pending;
             expect(touched).toBe(0);
             ctrl.dispose();
         });
 
-        it("настройка включена, но её источник не подключён — участник не в списке, save синхронный", async () => {
+        it("настройка включена, но её источник не подключён — участник не в списке", async () => {
             // Гейты collectSaveParticipants попарные: codeActions без источника
             // и формат с выключенной настройкой обязаны выпасть из пайплайна.
             const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
             const fp = writeFile("halfoff.txt", "x\n");
             ctrl.openFile(fp);
-            useFormatter(ctrl, () => Promise.resolve([]));
+            let formatCalled = 0;
+            useFormatter(ctrl, () => {
+                formatCalled++;
+                return Promise.resolve([]);
+            });
 
             fs.rmSync(fp);
-            const pending = ctrl.getActiveEditor()!.save();
+            await expect(ctrl.getActiveEditor()!.save()).resolves.toBe("saved");
 
             expect(fs.readFileSync(fp, "utf-8")).toBe("x\n");
-            await pending;
+            expect(formatCalled).toBe(0);
             ctrl.dispose();
         });
 
@@ -419,7 +423,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("настройки включены, но источников нет (host не подключён) — save работает и остаётся синхронным", async () => {
+        it("настройки включены, но источников нет (host не подключён) — save работает", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": { "source.fixAll": true },
                 "editor.formatOnSave": true,
@@ -428,10 +432,9 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(fp);
 
             fs.rmSync(fp);
-            const pending = ctrl.getActiveEditor()!.save();
+            await expect(ctrl.getActiveEditor()!.save()).resolves.toBe("saved");
 
             expect(fs.readFileSync(fp, "utf-8")).toBe("x");
-            await expect(pending).resolves.toBe("saved");
             ctrl.dispose();
         });
 

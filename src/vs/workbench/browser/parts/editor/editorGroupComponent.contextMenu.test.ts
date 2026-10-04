@@ -6,6 +6,7 @@ import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
@@ -282,6 +283,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         const diff = new DiffEditorPane2(
             NULL_LANGUAGE_SERVICE,
             new UndoRedoService(),
+            diskFileService(),
             new TokenizationRegistry(),
             NULL_TOKEN_STYLE_RESOLVER,
             {

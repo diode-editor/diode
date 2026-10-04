@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
@@ -29,7 +30,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         ws = createTempWorkspace({ prefix: "diode-shared-doc-" });
         undoRedo = new UndoRedoService();
         registry = new TextFileModelRegistry((uri) => {
-            const model = new TextFileModel(NULL_LANGUAGE_SERVICE, undoRedo);
+            const model = new TextFileModel(NULL_LANGUAGE_SERVICE, undoRedo, diskFileService());
             model.openFile(uri);
             return model;
         });

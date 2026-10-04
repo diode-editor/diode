@@ -18,6 +18,7 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { IFileService } from "../../../../platform/files/common/files.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 import type { ITextFileModelReference } from "../../../services/textfile/common/textFileModelRegistry.ts";
@@ -130,6 +131,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     public constructor(
         private readonly languageService: ILanguageService,
         private readonly undoRedoService: UndoRedoService,
+        // Стороны-снимки синтетические и на диск не пишут; сервис нужен модели по контракту.
+        private readonly files: IFileService,
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
         input: IDiffEditorPane2Input,
@@ -203,7 +206,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         } else if (source.kind === "owned") {
             model = source.model;
         } else {
-            model = new TextFileModel(this.languageService, this.undoRedoService);
+            model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
             // Ресурс снимка — синтетический и уникальный: пара + сторона.
             model.openSynthetic(
                 Uri.from({ scheme: "diode-diff-side", path: input.uri.path, query: input.uri.query, fragment: side }),

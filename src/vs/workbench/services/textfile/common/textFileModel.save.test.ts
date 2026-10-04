@@ -75,30 +75,105 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("без участников save остаётся синхронной записью", async () => {
+    it("save пишет файл атомарно через файловый сервис", async () => {
         const controller = createEditorPane();
         const fp = writeFile("plain.txt", "keep   \n");
         controller.openFile(Uri.file(fp));
-        fs.rmSync(fp);
+        const inode = fs.statSync(fp).ino;
 
-        const pending = controller.save();
+        await expect(controller.save()).resolves.toBe("saved");
 
-        // Запись случилась ДО первого await — файл уже на диске в этом же тике.
         expect(fs.readFileSync(fp, "utf-8")).toBe("keep   \n");
-        await expect(pending).resolves.toBe("saved");
+        // Атомарная замена — новый файл (временный сосед + rename).
+        expect(fs.statSync(fp).ino).not.toBe(inode);
         controller.dispose();
     });
 
-    it("без участников saveAs остаётся синхронной записью", async () => {
+    it("saveAs пишет новый файл через файловый сервис", async () => {
         const controller = createEditorPane();
-        const fp = writeFile("plain2.txt", "sync\n");
+        const fp = writeFile("plain2.txt", "as\n");
         controller.openFile(Uri.file(fp));
 
         const dst = ws.path("plain2-dst.txt");
-        const pending = controller.saveAs(dst);
+        await controller.saveAs(dst);
 
-        expect(fs.readFileSync(dst, "utf-8")).toBe("sync\n");
-        await pending;
+        expect(fs.readFileSync(dst, "utf-8")).toBe("as\n");
+        controller.dispose();
+    });
+
+    it("saveAs поверх существующего файла — атомарно; следующий save без ложного конфликта", async () => {
+        const controller = createEditorPane();
+        const fp = writeFile("from.txt", "body\n");
+        const dst = writeFile("to.txt", "old\n");
+        const inode = fs.statSync(dst).ino;
+        controller.openFile(Uri.file(fp));
+
+        await controller.saveAs(dst);
+        expect(fs.statSync(dst).ino).not.toBe(inode);
+
+        // Снимок диска после saveAs — от записанного файла: своя запись не конфликт.
+        await expect(controller.save()).resolves.toBe("saved");
+        expect(controller.model.hasDiskConflict).toBe(false);
+        controller.dispose();
+    });
+
+    it("файл изменили снаружи, пока работал участник — конфликт, диск не тронут", async () => {
+        const controller = createEditorPane();
+        const fp = writeFile("race.txt", "mine\n");
+        controller.openFile(Uri.file(fp));
+        setParticipant(controller, () => {
+            fs.writeFileSync(fp, "theirs, longer\n");
+            return Promise.resolve<ISaveEdit[]>([]);
+        });
+
+        await expect(controller.save()).resolves.toBe("conflict");
+
+        expect(fs.readFileSync(fp, "utf-8")).toBe("theirs, longer\n");
+        expect(controller.model.hasDiskConflict).toBe(true);
+        controller.dispose();
+    });
+
+    it("overwrite пишет поверх изменённого участником-соседом файла", async () => {
+        const controller = createEditorPane();
+        const fp = writeFile("force.txt", "mine\n");
+        controller.openFile(Uri.file(fp));
+        setParticipant(controller, () => {
+            fs.writeFileSync(fp, "theirs, longer\n");
+            return Promise.resolve<ISaveEdit[]>([]);
+        });
+
+        await expect(controller.save({ overwrite: true })).resolves.toBe("saved");
+
+        expect(fs.readFileSync(fp, "utf-8")).toBe("mine\n");
+        expect(controller.model.hasDiskConflict).toBe(false);
+        controller.dispose();
+    });
+
+    it("файла не было при открытии — гарда нет, save его создаёт", async () => {
+        const controller = createEditorPane();
+        const fp = ws.path("fresh.txt");
+        controller.openFile(Uri.file(fp));
+        setParticipant(controller, () => {
+            fs.writeFileSync(fp, "appeared\n");
+            return Promise.resolve<ISaveEdit[]>([]);
+        });
+
+        await expect(controller.save()).resolves.toBe("saved");
+
+        expect(fs.readFileSync(fp, "utf-8")).toBe("");
+        controller.dispose();
+    });
+
+    it("ошибка записи, отличная от конфликта, доходит до вызывающего", async () => {
+        const controller = createEditorPane();
+        const fp = writeFile("dir-target.txt", "x\n");
+        controller.openFile(Uri.file(fp));
+        fs.rmSync(fp);
+        fs.mkdirSync(fp);
+
+        // overwrite — мимо гардов: до записи доходит каталог на месте файла.
+        await expect(controller.save({ overwrite: true })).rejects.toThrow();
+        expect(controller.model.hasDiskConflict).toBe(false);
         controller.dispose();
     });
 });

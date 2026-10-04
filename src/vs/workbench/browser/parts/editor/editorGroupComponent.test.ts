@@ -9,6 +9,7 @@ import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorT
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
@@ -58,6 +59,9 @@ function createEditorGroup(
         NULL_LOG_SERVICE,
         undefined,
         dialogs,
+        undefined,
+        undefined,
+        diskFileService(),
     );
     const component = new EditorGroupComponent(service.activeGroup, service, createTestContextMenuService());
     return { service, component, dialogs };

@@ -338,6 +338,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         undefined,
         [],
         languageFeatures,
+        diskFileService(),
     );
     const groupComponent = new EditorGroupComponent(group.activeGroup, group, createTestContextMenuService());
 

@@ -108,7 +108,9 @@ describe("Workbench — Save As", () => {
         dialog!.onConfirm?.();
         h.testApp.render();
 
-        expect(fs.readFileSync(betaPath, "utf-8")).toBe("Alpha content");
+        await vi.waitFor(() => {
+            expect(fs.readFileSync(betaPath, "utf-8")).toBe("Alpha content");
+        });
     });
 
     it("validates the target path", async () => {

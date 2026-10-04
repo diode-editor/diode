@@ -114,9 +114,10 @@ describe("Workbench quit with save dialog", () => {
 
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         dialog.onSave?.();
-        await tick();
 
-        expect(exitSpy).toHaveBeenCalledOnce();
+        await vi.waitFor(() => {
+            expect(exitSpy).toHaveBeenCalledOnce();
+        });
     });
 
     it("shows dialog for each unsaved file sequentially", async () => {
@@ -199,14 +200,17 @@ describe("Workbench quit with save dialog", () => {
         await tick();
         expect(exitSpy).not.toHaveBeenCalled();
 
-        // A second dialog is shown for the remaining unsaved file.
+        // A second dialog is shown for the remaining unsaved file (after the save lands).
+        await vi.waitFor(() => {
+            expect(accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).not.toBeNull();
+        });
         const secondDialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
-        expect(secondDialog).not.toBeNull();
 
         // Save on the last file → quit.
         secondDialog.onSave?.();
-        await tick();
-        expect(exitSpy).toHaveBeenCalledOnce();
+        await vi.waitFor(() => {
+            expect(exitSpy).toHaveBeenCalledOnce();
+        });
     });
 
     it("skips editors that vanished mid-sequence and still quits", async () => {
@@ -269,6 +273,9 @@ describe("Workbench quit with save dialog", () => {
         await tick();
         expect(exitSpy).not.toHaveBeenCalled();
 
+        await vi.waitFor(() => {
+            expect(accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).not.toBeNull();
+        });
         const second = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         second.onDontSave?.();
         await tick();
@@ -327,10 +334,11 @@ describe("Workbench close-tab confirm flow", () => {
         testApp.sendKey("Ctrl+W");
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         dialog.onSave?.();
-        await tick();
-        testApp.render();
 
-        expect(tabStrip.getItemElements()).toHaveLength(1);
+        await vi.waitFor(() => {
+            testApp.render();
+            expect(tabStrip.getItemElements()).toHaveLength(1);
+        });
     });
 
     it("Cancel on the close-tab dialog keeps the tab open", () => {
