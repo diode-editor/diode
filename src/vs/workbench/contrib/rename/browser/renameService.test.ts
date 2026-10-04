@@ -80,8 +80,8 @@ describe("RenameService — Rename Symbol", () => {
             },
         } as unknown as QuickInputService;
         const statusBar = {
-            addEntry: (entry: { text: string }) => {
-                notices.push(entry.text);
+            addEntry: (entry: { id: string; text: string }) => {
+                notices.push(`${entry.id}: ${entry.text}`);
                 return { dispose: () => undefined };
             },
         } as unknown as StatusBarService;
@@ -109,7 +109,11 @@ describe("RenameService — Rename Symbol", () => {
         await service().rename();
 
         expect(opened).toHaveLength(1);
-        expect(opened[0]).toMatchObject({ title: "Rename Symbol", value: "value" });
+        expect(opened[0]).toEqual({
+            title: "Rename Symbol",
+            prompt: "Enter the new name; Escape to cancel",
+            value: "value",
+        });
         expect(seen.newName).toBe("renamed");
         expect(seen.request).toMatchObject({
             uri: Uri.file(ws.path("main.ts")).toString(),
@@ -143,7 +147,7 @@ describe("RenameService — Rename Symbol", () => {
 
         expect(opened).toEqual([]);
         expect(provideRenameEdits).not.toHaveBeenCalled();
-        expect(notices).toEqual(["Rename failed: You cannot rename this element."]);
+        expect(notices).toEqual(["rename.notice: Rename failed: You cannot rename this element."]);
     });
 
     it("prepare вернул null И каретка не на слове — поля ввода нет вовсе", async () => {
@@ -208,7 +212,7 @@ describe("RenameService — Rename Symbol", () => {
         await service().rename();
 
         expect(provideRenameEdits).not.toHaveBeenCalled();
-        expect(notices).toEqual(["Rename failed: the new name is empty"]);
+        expect(notices).toEqual(["rename.notice: Rename failed: the new name is empty"]);
     });
 
     it("отказ провайдера с сообщением показывается человеку", async () => {
@@ -221,7 +225,7 @@ describe("RenameService — Rename Symbol", () => {
 
         await service().rename();
 
-        expect(notices).toEqual(["Rename failed: 'class' is not a valid identifier"]);
+        expect(notices).toEqual(["rename.notice: Rename failed: 'class' is not a valid identifier"]);
     });
 
     it("отказ БЕЗ сообщения тихий: переименовывать было нечего", async () => {
@@ -257,6 +261,38 @@ describe("RenameService — Rename Symbol", () => {
         await new RenameService(group(), quickInput, statusBar, features).rename();
 
         expect(seen.text).toContain("// touched");
+    });
+
+    it("редактор закрылся, пока вводили имя — провайдер получает снапшот запроса", async () => {
+        const seen: { text?: string } = {};
+        provider({
+            prepareRename: () => name("value"),
+            provideRenameEdits: (request) => {
+                seen.text = request.text;
+                return Promise.resolve({ applied: true });
+            },
+        });
+        caretOnValue();
+        const real = group();
+        const editor = real.getActiveEditor();
+        // Группа отдаёт редактор до показа поля и `null` после — так ведёт себя
+        // закрытая (или потерявшая активный редактор) группа.
+        let closed = false;
+        const closingGroup = {
+            getActiveEditor: () => (closed ? null : editor),
+        } as unknown as EditorService;
+        const quickInput = {
+            input: () => {
+                closed = true;
+                return Promise.resolve("renamed");
+            },
+        } as unknown as QuickInputService;
+        const statusBar = { addEntry: () => ({ dispose: () => undefined }) } as unknown as StatusBarService;
+
+        await new RenameService(closingGroup, quickInput, statusBar, features).rename();
+
+        // Снапшот — тот, что собрали ДО показа поля: живого документа уже нет.
+        expect(seen.text).toContain("const value = 1;");
     });
 
     it("без провайдеров под документ и без активного редактора — no-op", async () => {

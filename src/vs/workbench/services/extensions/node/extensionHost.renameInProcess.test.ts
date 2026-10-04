@@ -32,20 +32,26 @@ const NOOP_COMMANDS = {
 /** Лимит текста запроса — общий `MAX_WILL_SAVE_TEXT_BYTES` хоста. */
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 
-function makeHost(options: ConstructorParameters<typeof ExtensionHost>[2] = {}): {
+function makeHost(
+    options: ConstructorParameters<typeof ExtensionHost>[2] = {},
+    withLogger = true,
+): {
     host: ExtensionHost;
     peer: RpcEndpoint;
-    warnings: { message: string }[];
+    warnings: { message: string; payload: unknown }[];
 } {
-    const warnings: { message: string }[] = [];
+    const warnings: { message: string; payload: unknown }[] = [];
     const logger = {
         info: () => undefined,
-        warn: (message: string) => warnings.push({ message }),
+        warn: (message: string, payload: unknown) => warnings.push({ message, payload }),
         error: () => undefined,
         debug: () => undefined,
         trace: () => undefined,
     } as unknown as ILogger;
-    const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, { ...options, logger });
+    const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
+        ...options,
+        ...(withLogger ? { logger } : {}),
+    });
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
@@ -109,12 +115,37 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
             applied: false,
             error: "Document too large to rename",
         });
-        expect(warnings.map((w) => w.message)).toEqual([
-            "skipping prepare rename: document too large",
-            "skipping rename: document too large",
+        // В логе — и повод, и чем документ не угодил: без ресурса и длины
+        // запись не отличить от соседних отказов.
+        expect(warnings).toEqual([
+            {
+                message: "skipping prepare rename: document too large",
+                payload: { uri: REQUEST.uri, length: MAX_TEXT_BYTES + 1 },
+            },
+            {
+                message: "skipping rename: document too large",
+                payload: { uri: REQUEST.uri, length: MAX_TEXT_BYTES + 1 },
+            },
         ]);
         expect(prepare).toHaveBeenCalledTimes(1);
         expect(rename).toHaveBeenCalledTimes(1);
+    });
+
+    it("хост без логгера на слишком большом документе не падает, а отвечает отказом", async () => {
+        const { host, peer } = makeHost({}, false);
+        const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
+        const rename = vi.fn(() => Promise.resolve({ applied: true }));
+        peer.handleRequest("languages.prepareRename", prepare);
+        peer.handleRequest("languages.provideRenameEdits", rename);
+
+        const tooBig = { ...REQUEST, text: "x".repeat(MAX_TEXT_BYTES + 1) };
+        expect(await host.prepareRename(0, tooBig)).toBeNull();
+        expect(await host.provideRenameEdits(0, tooBig, "renamed")).toEqual({
+            applied: false,
+            error: "Document too large to rename",
+        });
+        expect(prepare).not.toHaveBeenCalled();
+        expect(rename).not.toHaveBeenCalled();
     });
 
     it("после остановки субпроцесса запросы не уходят, применение отвечает отказом", async () => {

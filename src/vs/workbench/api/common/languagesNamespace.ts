@@ -347,7 +347,8 @@ function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | nu
  * (ядро спросит следующего провайдера).
  */
 function serializeRenamePrepare(raw: unknown, doc: ExtHostTextDocument): WireRenamePrepare | null {
-    if (typeof raw !== "object" || raw === null) return null;
+    // Своей проверки формы тут нет: `null`/`undefined` отсекает вызывающий
+    // («провайдеру сказать нечего»), а примитив отсеет разбор диапазона ниже.
     const holder = raw as { range?: unknown; placeholder?: unknown };
     // Голый `Range` от `{range, placeholder}` отличает наличие поля `range`:
     // у самого Range его нет.

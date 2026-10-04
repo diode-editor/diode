@@ -89,14 +89,16 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
             { language: "typescript" },
             {
                 provideRenameEdits: () => null,
+                // Placeholder НЕ совпадает с текстом диапазона (там `value`):
+                // иначе подстановку из текста не отличить от имени провайдера.
                 prepareRename: () => ({
                     range: new Range(0, 6, 0, 11) as unknown as vscode.Range,
-                    placeholder: "value",
+                    placeholder: "symbol",
                 }),
             },
         );
 
-        expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({ placeholder: "value" });
+        expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({ placeholder: "symbol" });
     });
 
     it("голый Range — placeholder добирается текстом документа в этом диапазоне", async () => {
@@ -203,6 +205,29 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         });
     });
 
+    it("пустая причина отказа — родовое сообщение, а не пустая строка", async () => {
+        const { stub, languages } = makeCtx();
+        languages.registerRenameProvider(
+            { language: "typescript" },
+            {
+                provideRenameEdits: () => null,
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно, в т.ч. пустой строкой
+                prepareRename: () => Promise.reject(""),
+            },
+        );
+        languages.registerRenameProvider(
+            { language: "typescript" },
+            { provideRenameEdits: () => null, prepareRename: () => Promise.reject(new Error("")) },
+        );
+
+        expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({
+            rejectReason: "Rename failed",
+        });
+        expect(await stub.callRequest("languages.prepareRename", prepareParams({ handle: 1 }))).toEqual({
+            rejectReason: "Rename failed",
+        });
+    });
+
     it("провайдер без prepareRename — null: слово под кареткой доберёт ядро", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits: () => null });
@@ -223,6 +248,35 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
 
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toBeNull();
         expect(await stub.callRequest("languages.prepareRename", prepareParams({ handle: 1 }))).toBeNull();
+    });
+
+    it("запрос без handle провайдера не будит, без текста — документ пустой", async () => {
+        const { stub, languages } = makeCtx();
+        const seen: string[] = [];
+        const register = (): void => {
+            languages.registerRenameProvider(
+                { language: "typescript" },
+                {
+                    provideRenameEdits: () => null,
+                    prepareRename: (document) => {
+                        seen.push(document.getText());
+                        return new Range(0, 0, 0, 1) as unknown as vscode.Range;
+                    },
+                },
+            );
+        };
+        // Два провайдера: «нет handle» не должно попасть ни в нулевой, ни в
+        // соседний — иначе промах читался бы как попадание по умолчанию.
+        register();
+        register();
+
+        // Без `handle` в параметрах провайдера не ищем вовсе.
+        expect(await stub.callRequest("languages.prepareRename", prepareParams({ handle: undefined }))).toBeNull();
+        expect(seen).toEqual([]);
+        // Без `text` документ синхронизируется пустым — и имени в пустом
+        // диапазоне нет.
+        expect(await stub.callRequest("languages.prepareRename", prepareParams({ text: undefined }))).toBeNull();
+        expect(seen).toEqual([""]);
     });
 
     it("снятый провайдер — null, чужой handle провайдера не будит", async () => {
@@ -339,6 +393,19 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
                 error: "Rename requires a new name",
             });
         }
+        expect(provideRenameEdits).not.toHaveBeenCalled();
+    });
+
+    it("запрос без handle провайдера не будит", async () => {
+        const { stub, languages } = makeCtx();
+        const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
+        // Два провайдера — см. prepareRename: промах не должен попадать в соседа.
+        languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
+        languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
+
+        expect(await stub.callRequest("languages.provideRenameEdits", renameParams({ handle: undefined }))).toEqual({
+            applied: false,
+        });
         expect(provideRenameEdits).not.toHaveBeenCalled();
     });
 
