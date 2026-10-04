@@ -328,11 +328,11 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             );
         });
         if (openedGroups.length > 0 || closedGroups.length > 0 || changedGroups.length > 0) {
-            const event = {
+            const event: vscode.TabGroupChangeEvent = {
                 opened: openedGroups.map(makeTabGroup),
                 closed: closedGroups.map(makeTabGroup),
                 changed: changedGroups.map(makeTabGroup),
-            } as unknown as vscode.TabGroupChangeEvent;
+            };
             for (const listener of [...tabGroupsListeners]) listener(event);
         }
 
@@ -355,11 +355,11 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             if (!nextTabs.has(key)) closedTabs.push(makeTab(group, tab));
         }
         if (openedTabs.length > 0 || closedTabs.length > 0 || changedTabs.length > 0) {
-            const event = {
+            const event: vscode.TabChangeEvent = {
                 opened: openedTabs,
                 closed: closedTabs,
                 changed: changedTabs,
-            } as unknown as vscode.TabChangeEvent;
+            };
             for (const listener of [...tabsListeners]) listener(event);
         }
 
@@ -414,44 +414,51 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         return undefined;
     }
 
-    /** `Tab` для `window.tabGroups` — снимок на момент вызова (идентичность не гарантируется). */
+    /**
+     * Внутренняя адресация вкладки для `tabGroups.close` (не часть vscode API) —
+     * вне объекта `Tab`, чтобы расширение не видело служебных полей.
+     */
+    const tabAddress = new WeakMap<vscode.Tab, { groupId: number; uri: string }>();
+
+    /**
+     * `Tab` для событий `onDidChangeTabs` — вкладка внутри свежего снимка своей
+     * группы (`tab.group.tabs` её содержит). `tab` — элемент `group.tabs`.
+     */
     function makeTab(group: IWireTabGroupSnapshot, tab: IWireTabSnapshot): vscode.Tab {
-        return {
-            label: tab.label,
-            input: tabInputOf(tab),
-            isActive: tab.isActive,
-            isDirty: tab.isDirty,
-            isPinned: false,
-            isPreview: false,
-            group: makeTabGroup(group),
-            // Внутренняя адресация для tabGroups.close (не часть vscode API).
-            _diodeGroupId: group.groupId,
-            _diodeUri: tab.uri,
-        } as unknown as vscode.Tab;
+        return makeTabGroup(group).tabs[group.tabs.indexOf(tab)];
     }
 
+    /** `TabGroup` — снимок на момент вызова (идентичность между снимками не гарантируется). */
     function makeTabGroup(group: IWireTabGroupSnapshot): vscode.TabGroup {
-        const active = group.tabs.find((tab) => tab.isActive);
-        return {
+        const tabs = group.tabs.map((tab) => makeTabOnly(group, tab, () => tabGroup));
+        const tabGroup: vscode.TabGroup = {
             isActive: group.isActive,
             viewColumn: group.viewColumn,
-            activeTab: active !== undefined ? makeTabOnly(group, active) : undefined,
-            tabs: group.tabs.map((tab) => makeTabOnly(group, tab)),
-        } as unknown as vscode.TabGroup;
+            activeTab: tabs.find((tab) => tab.isActive),
+            tabs,
+        };
+        return tabGroup;
     }
 
-    /** Tab без обратной ссылки на группу (обрыв рекурсии makeTab ↔ makeTabGroup). */
-    function makeTabOnly(group: IWireTabGroupSnapshot, tab: IWireTabSnapshot): vscode.Tab {
-        return {
+    /** Tab с ленивой обратной ссылкой `group` на объект своей группы (как upstream `extHostEditorTabs`). */
+    function makeTabOnly(
+        group: IWireTabGroupSnapshot,
+        tab: IWireTabSnapshot,
+        owner: () => vscode.TabGroup,
+    ): vscode.Tab {
+        const result: vscode.Tab = {
             label: tab.label,
             input: tabInputOf(tab),
             isActive: tab.isActive,
             isDirty: tab.isDirty,
             isPinned: false,
             isPreview: false,
-            _diodeGroupId: group.groupId,
-            _diodeUri: tab.uri,
-        } as unknown as vscode.Tab;
+            get group() {
+                return owner();
+            },
+        };
+        tabAddress.set(result, { groupId: group.groupId, uri: tab.uri });
+        return result;
     }
 
     function toSelection(s: IWireSelection): vscode.Selection {
@@ -951,7 +958,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                         viewColumn: 1,
                         activeTab: undefined,
                         tabs: [],
-                    } as unknown as vscode.TabGroup;
+                    };
                 }
                 return makeTabGroup(active);
             },
@@ -963,12 +970,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             ): Thenable<boolean> => {
                 const items = Array.isArray(tabOrTabs) ? tabOrTabs : [tabOrTabs];
                 if (items.length === 0) return Promise.resolve(true);
-                // Tab отличаем от TabGroup по внутренней адресации _diodeUri.
-                if ((items[0] as { _diodeUri?: unknown })._diodeUri !== undefined) {
-                    const tabs = (items as vscode.Tab[]).map((tab) => ({
-                        groupId: (tab as unknown as { _diodeGroupId: number })._diodeGroupId,
-                        uri: (tab as unknown as { _diodeUri: string })._diodeUri,
-                    }));
+                // Tab отличаем от TabGroup по внутренней адресации (WeakMap tabAddress);
+                // чужие объекты без адреса в closeTabs не попадают.
+                if (tabAddress.has(items[0] as vscode.Tab)) {
+                    const tabs = (items as vscode.Tab[]).flatMap((tab) => tabAddress.get(tab) ?? []);
                     return rpc.request("editor.closeTabs", { tabs });
                 }
                 const groupIds = (items as vscode.TabGroup[]).map((group) => {
@@ -980,7 +985,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 });
                 return rpc.request("editor.closeGroups", { groupIds });
             },
-        } as unknown as vscode.TabGroups,
+        } satisfies vscode.TabGroups,
 
         // Ввод и выбор по просьбе расширения: оба поднимают у хоста общий
         // QuickInput-оверлей приложения (тот же, что палитра и Quick Open) и
