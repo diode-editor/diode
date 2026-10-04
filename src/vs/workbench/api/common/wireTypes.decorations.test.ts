@@ -91,6 +91,8 @@ describe("WireTypes — decorations serialization (Chunk 4)", () => {
                     { uri: "file:///b" },
                     { uri: "", badge: "X" },
                     { badge: "no-uri" },
+                    null,
+                    "junk",
                 ]),
             ).toEqual([{ uri: "file:///a", badge: "M", colorId: "c", propagate: true }, { uri: "file:///b" }]);
         });

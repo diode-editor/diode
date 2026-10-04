@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createExtensionTestHarness } from "./ExtensionTestHarness.ts";
+import { createExtensionTestHarness, documentVersion, formatDocumentFor } from "./ExtensionTestHarness.ts";
 
 describe("createExtensionTestHarness", () => {
     it("builds a harness with no extensions and no initial file (line 99 ?? [] branch)", async () => {
@@ -12,6 +12,25 @@ describe("createExtensionTestHarness", () => {
             expect(harness.group).toBeDefined();
             expect(harness.host).toBeDefined();
             expect(harness.tmpDir).toMatch(/diode-ext-/);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("запрос по неоткрытому документу: версии нет (бросает), форматирование — по пустому тексту", async () => {
+        const harness = await createExtensionTestHarness();
+        try {
+            expect(() => documentVersion(harness, "file:///nowhere.ts")).toThrow(/no open editor/);
+            // Форматтеров нет вовсе — ответ null; диапазон всего документа взят из пустого текста.
+            expect(
+                await formatDocumentFor(harness, {
+                    uri: "file:///nowhere.ts",
+                    languageId: "typescript",
+                    versionId: 1,
+                    tabSize: 4,
+                    insertSpaces: true,
+                }),
+            ).toBeNull();
         } finally {
             await harness.dispose();
         }
