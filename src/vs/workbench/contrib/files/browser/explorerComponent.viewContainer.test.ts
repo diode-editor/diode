@@ -2,12 +2,13 @@ import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
-import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
+import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
 import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -36,7 +37,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         ws = createTempWorkspace({ prefix: "diode-explorer-container-", files: { "index.ts": "" } });
         h = makeViewsHarness(MENU_CONTRIBUTIONS);
         const clipboard = new InMemoryFileClipboard();
-        service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
+        service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, diskFileService(), NULL_TREE_FILE_WATCHER);
         component = new ExplorerComponent(
             service,
             new CommandRegistry(),

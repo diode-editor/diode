@@ -1,11 +1,12 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 
 import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
-import chokidar, { type FSWatcher } from "chokidar";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
-import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, DisposableMap } from "../../../../base/common/lifecycle.ts";
+import { Uri } from "../../../../base/common/uri.ts";
+import { FileType, type IFileService } from "../../../../platform/files/common/files.ts";
+import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { isExcludedPath } from "../../../common/configuration/excludeSettings.ts";
 
 export interface FileTreeNode {
@@ -17,7 +18,8 @@ export interface FileTreeNode {
 
 export class FileTreeDataProvider extends Disposable implements ITreeDataProvider<FileTreeNode> {
     private rootPath: string;
-    private watchers = new Map<string, FSWatcher>();
+    /** Слежение за раскрытыми каталогами (по одному на каталог, без рекурсии). */
+    private readonly watchers = this.register(new DisposableMap<string>());
     private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
     // Статус-декорации по абсолютному пути (цвет имени + буква-бейдж). Ставит их
     // ExplorerService.setFileDecorations; git/RPC-логика живёт выше и цвета уже
@@ -26,22 +28,20 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
 
     public onChange?: (element?: FileTreeNode) => void;
 
-    // Ошибка файлового watcher'а (например ENOSPC — исчерпан лимит inotify-watch'ей).
-    // Провайдер сам её не логирует и не показывает — он лишь отдаёт наверх, где есть
-    // логгер/UI. Наличие обработчика важно и функционально: без слушателя 'error'
-    // EventEmitter chokidar'а бросает исключение из своих async-потрохов, которое
-    // всплывает как unhandledRejection и убивает процесс.
-    public onWatchError?: (dirPath: string, error: Error) => void;
-
     /**
      * @param excludes Шаблоны `files.exclude` (см. `excludeSettings.ts`).
      * Функция, а не список: настройка живая, и дерево после `refresh()` обязано
      * увидеть новый набор. Читать её на каждый `readdir` дешевле, чем кешировать
      * и подписываться — обход каталога и так идёт в ФС.
+     * @param files Чтение каталогов — через файловый сервис.
+     * @param treeWatcher Слежение за раскрытыми каталогами — общий наблюдатель
+     * дерева (обход делится с git и LSP, ошибки ОС пишет он сам в `files.watcher`).
      */
     public constructor(
         rootPath: string,
         private readonly excludes: () => readonly string[],
+        private readonly files: IFileService,
+        private readonly treeWatcher: ITreeFileWatcher,
     ) {
         super();
         this.rootPath = rootPath;
@@ -85,7 +85,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         this.gitStatus = new Map(map);
     }
 
-    public getChildren(element?: FileTreeNode): FileTreeNode[] {
+    public getChildren(element?: FileTreeNode): Promise<FileTreeNode[]> {
         const dirPath = element ? element.path : this.rootPath;
         return this.readDirectory(dirPath);
     }
@@ -96,34 +96,19 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
 
     public watchDirectory(dirPath: string): void {
         if (this.watchers.has(dirPath)) return;
-
-        const watcher = chokidar.watch(dirPath, {
-            depth: 0,
-            ignoreInitial: true,
-            ignored: (filePath: string) => this.isExcluded(filePath, this.excludes()),
-        });
-
-        watcher.on("all", () => {
+        // Только прямые дети: excludes наблюдателю не передаём (обходить нечего),
+        // а скрытые настройкой входы отсекаем здесь — шаблоны `files.exclude`
+        // считаются от корня дерева, а не от раскрытого каталога.
+        const watch = this.treeWatcher.watchTree(dirPath, { recursive: false, excludes: [] }, (changes) => {
+            const excludes = this.excludes();
+            if (changes.every((change) => this.isExcluded(change.path, excludes))) return;
             this.debouncedNotify(dirPath);
         });
-
-        watcher.on("error", (err) => {
-            // Роняем неудавшийся watcher, чтобы повторное раскрытие папки могло
-            // попробовать снова (лимит мог освободиться), и сообщаем наверх.
-            void watcher.close();
-            this.watchers.delete(dirPath);
-            this.onWatchError?.(dirPath, err as Error);
-        });
-
-        this.watchers.set(dirPath, watcher);
+        this.watchers.set(dirPath, watch);
     }
 
     public unwatchDirectory(dirPath: string): void {
-        const watcher = this.watchers.get(dirPath);
-        if (!watcher) return;
-
-        void watcher.close();
-        this.watchers.delete(dirPath);
+        this.watchers.deleteAndDispose(dirPath);
 
         const timer = this.debounceTimers.get(dirPath);
         if (timer) {
@@ -133,10 +118,6 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
     }
 
     public override dispose(): void {
-        for (const watcher of this.watchers.values()) {
-            void watcher.close();
-        }
-        this.watchers.clear();
         for (const timer of this.debounceTimers.values()) {
             clearTimeout(timer);
         }
@@ -154,35 +135,26 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         return isExcludedPath(relative, excludes);
     }
 
-    private readDirectory(dirPath: string): FileTreeNode[] {
-        let entries: fs.Dirent[];
+    private async readDirectory(dirPath: string): Promise<FileTreeNode[]> {
+        let children;
         try {
-            entries = fs.readdirSync(dirPath, { withFileTypes: true });
+            children = (await this.files.resolve(Uri.file(dirPath))).children;
         } catch {
             return [];
         }
 
         const nodes: FileTreeNode[] = [];
         const excludes = this.excludes();
-        for (const entry of entries) {
-            const fullPath = path.join(dirPath, entry.name);
+        for (const child of children) {
+            const fullPath = path.join(dirPath, child.name);
             if (this.isExcluded(fullPath, excludes)) continue;
-            const isSymbolicLink = entry.isSymbolicLink();
-            let isDirectory = entry.isDirectory();
-            if (isSymbolicLink) {
-                // Dirent сообщает тип самой ссылки, а не цели. Резолвим цель, чтобы
-                // симлинк на каталог был раскрываемым. Битую ссылку показываем как файл.
-                try {
-                    isDirectory = fs.statSync(fullPath).isDirectory();
-                } catch {
-                    isDirectory = false;
-                }
-            }
+            // Тип симлинка — уже тип цели (провайдер разрешил ссылку): симлинк на
+            // каталог раскрывается, битая ссылка показывается файлом.
             nodes.push({
-                name: entry.name,
+                name: child.name,
                 path: fullPath,
-                isDirectory,
-                isSymbolicLink,
+                isDirectory: (child.type & FileType.Directory) !== 0,
+                isSymbolicLink: (child.type & FileType.SymbolicLink) !== 0,
             });
         }
 

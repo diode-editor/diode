@@ -1,7 +1,7 @@
 import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -31,10 +31,11 @@ describe("Workbench — Refresh Explorer", () => {
         ws.writeFile("aaa-new.txt", "new");
 
         h.commands.execute("workbench.files.action.refreshFilesExplorer");
-        await flushMicrotasks();
-        h.testApp.render();
-
-        expect(h.testApp.backend.screenToString()).toContain("aaa-new.txt");
+        // Каталог перечитывается файловым сервисом асинхронно.
+        await vi.waitFor(() => {
+            h.testApp.render();
+            expect(h.testApp.backend.screenToString()).toContain("aaa-new.txt");
+        });
     });
 
     it("is reachable from the file tree context menu", async () => {
@@ -68,6 +69,9 @@ describe("Workbench — Refresh Explorer", () => {
         h.testApp.render();
 
         expect(h.testApp.querySelector("PopupMenuElement")).toBeNull();
-        expect(h.testApp.backend.screenToString()).toContain("aaa-new.txt");
+        await vi.waitFor(() => {
+            h.testApp.render();
+            expect(h.testApp.backend.screenToString()).toContain("aaa-new.txt");
+        });
     });
 });

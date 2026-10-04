@@ -3,15 +3,17 @@ import * as path from "node:path";
 
 import { afterAll, bench, describe } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { cleanupDir, createTempDir } from "../../../../../TestUtils/perfFixtures.ts";
+import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 
 import { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
 
 // Бенчмарк раскрытия одного большого каталога в дереве файлов.
 // Запуск: `npm run test:perf`.
 //
-// Диагностика: readDirectory делает readdirSync + sort + getFileIcon на каждый
-// элемент. Это стоимость раскрытия одной директории с большим числом записей.
+// Диагностика: readDirectory делает resolve каталога файловым сервисом (readdir +
+// stat цели у симлинков) + sort + getFileIcon на каждый элемент. Это стоимость раскрытия одной директории с большим числом записей.
 //
 // NB: фикстуры строятся на верхнем уровне (см. комментарий в FileSearchService.bench.ts).
 
@@ -31,22 +33,24 @@ function makeDirWithEntries(count: number): string {
 const dir1k = makeDirWithEntries(1_000);
 const dir5k = makeDirWithEntries(5_000);
 
-const provider1k = new FileTreeDataProvider(dir1k, () => []);
-const provider5k = new FileTreeDataProvider(dir5k, () => []);
+const files = diskFileService();
+const provider1k = new FileTreeDataProvider(dir1k, () => [], files, NULL_TREE_FILE_WATCHER);
+const provider5k = new FileTreeDataProvider(dir5k, () => [], files, NULL_TREE_FILE_WATCHER);
 
 afterAll(() => {
     provider1k.dispose();
     provider5k.dispose();
+    files.dispose();
     cleanupDir(dir1k);
     cleanupDir(dir5k);
 });
 
 describe("FileTreeDataProvider.getChildren (one large dir)", () => {
-    bench("getChildren over 1000 entries", () => {
-        provider1k.getChildren();
+    bench("getChildren over 1000 entries", async () => {
+        await provider1k.getChildren();
     });
 
-    bench("getChildren over 5000 entries", () => {
-        provider5k.getChildren();
+    bench("getChildren over 5000 entries", async () => {
+        await provider5k.getChildren();
     });
 });

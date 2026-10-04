@@ -47,11 +47,14 @@ describe("Workbench — New File / New Folder", () => {
         typeInto(quickPickByTitle(h.testApp, "New File"), "hello.ts");
         h.testApp.sendKey("Enter");
         await flushMicrotasks(FLUSH_TURNS);
-        h.testApp.render();
 
         const created = ws.path("hello.ts");
         expect(fs.readFileSync(created, "utf-8")).toBe("");
-        expect(tabLabels(h.testApp).some((l) => l.includes("hello.ts"))).toBe(true);
+        // Вкладка открывается после reveal в дереве — а его каталоги читаются асинхронно.
+        await vi.waitFor(() => {
+            h.testApp.render();
+            expect(tabLabels(h.testApp).some((l) => l.includes("hello.ts"))).toBe(true);
+        });
     });
 
     it("creates a file next to a clicked file (target is the file's parent dir)", async () => {

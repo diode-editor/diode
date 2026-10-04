@@ -4,6 +4,7 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
@@ -13,8 +14,8 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
@@ -51,7 +52,12 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
     commands.register("workbench.openFile", (filePath) => {
         opened.push(filePath as string);
     });
-    const service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
+    const service = new ExplorerService(
+        clipboard,
+        NULL_CONFIGURATION_SERVICE,
+        diskFileService(),
+        NULL_TREE_FILE_WATCHER,
+    );
     const component = new ExplorerComponent(
         service,
         commands,
@@ -341,7 +347,12 @@ describe("ExplorerComponent — root assigned after construction", () => {
 
     it("builds the tree in the constructor when the root is already assigned", async () => {
         const clipboard = new InMemoryFileClipboard();
-        const service = new ExplorerService(clipboard, NULL_CONFIGURATION_SERVICE, NULL_LOG_SERVICE);
+        const service = new ExplorerService(
+            clipboard,
+            NULL_CONFIGURATION_SERVICE,
+            diskFileService(),
+            NULL_TREE_FILE_WATCHER,
+        );
         service.setRootPath(wsA.dir);
 
         const component = new ExplorerComponent(

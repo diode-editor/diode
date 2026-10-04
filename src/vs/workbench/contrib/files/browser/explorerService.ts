@@ -6,11 +6,10 @@ import type { IFileClipboard } from "../../../../platform/clipboard/common/iFile
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { describeFileWatchError } from "../../../../platform/files/common/fileWatchErrors.ts";
+import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
+import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFileWatcher.ts";
+import { ITreeFileWatcherDIToken } from "../../../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
-import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
-import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
 import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 
 import { FileTreeDataProvider, type FileTreeNode } from "./fileTreeDataProvider.ts";
@@ -46,7 +45,12 @@ export interface IExplorerView {
  * (`WorkbenchComponent.setWorkspaceFolder`) через {@link setRootPath}.
  */
 export class ExplorerService extends Disposable {
-    public static dependencies = [FileClipboardDIToken, IConfigurationServiceDIToken, ILogServiceDIToken] as const;
+    public static dependencies = [
+        FileClipboardDIToken,
+        IConfigurationServiceDIToken,
+        IFileServiceDIToken,
+        ITreeFileWatcherDIToken,
+    ] as const;
 
     /** Активный провайдер дерева (создаётся в {@link setRootPath}); читает его компонент. */
     public provider: FileTreeDataProvider | null = null;
@@ -55,17 +59,15 @@ export class ExplorerService extends Disposable {
     private view: IExplorerView | null = null;
     private readonly onDidChangeRootEmitter = this.register(new Emitter<void>());
     private readonly configurationService: IConfigurationService;
-    private readonly watcherLogger: ILogger;
 
     public constructor(
         fileClipboard: IFileClipboard,
         configurationService: IConfigurationService,
-        logService: ILogService,
+        private readonly files: IFileService,
+        private readonly treeWatcher: ITreeFileWatcher,
     ) {
         super();
         this.configurationService = configurationService;
-        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
-        this.watcherLogger = logService.createLogger("filetree.watcher", { label: "File Tree Watcher" });
         // Подсветка «вырезанных» файлов в дереве следует за состоянием буфера.
         this.register(
             fileClipboard.onDidChange((entry) => {
@@ -90,15 +92,13 @@ export class ExplorerService extends Disposable {
     public setRootPath(rootPath: string): void {
         this.rootPath = rootPath;
         this.provider = this.register(
-            new FileTreeDataProvider(rootPath, () => filesExcludeGlobs(this.configurationService)),
+            new FileTreeDataProvider(
+                rootPath,
+                () => filesExcludeGlobs(this.configurationService),
+                this.files,
+                this.treeWatcher,
+            ),
         );
-        // Ошибка файлового watcher'а не роняет процесс (см. FileTreeDataProvider):
-        // ловим её здесь и пишем в лог. ENOSPC/EMFILE — исчерпан лимит inotify; даём
-        // самодокументирующуюся подсказку, как в уведомлении VS Code.
-        this.provider.onWatchError = (dirPath, error) => {
-            const { code, hint } = describeFileWatchError(error);
-            this.watcherLogger.warn(`file watcher error${hint}`, { dirPath, code, error: String(error) });
-        };
         this.onDidChangeRootEmitter.fire();
     }
 

@@ -2,75 +2,119 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import type { FileService } from "../../../../platform/files/common/fileService.ts";
+import type {
+    ITreeFileChange,
+    ITreeFileWatcher,
+    ITreeFileWatchOptions,
+} from "../../../../platform/files/common/iTreeFileWatcher.ts";
 
 import { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
+
+interface IFakeWatch {
+    readonly path: string;
+    readonly options: ITreeFileWatchOptions;
+    readonly fire: (paths: string[]) => void;
+    disposed: boolean;
+}
+
+/** Наблюдатель дерева, которым тест управляет руками. */
+function fakeTreeWatcher(): ITreeFileWatcher & { watches: IFakeWatch[] } {
+    const watches: IFakeWatch[] = [];
+    return {
+        watches,
+        watchTree(rootPath, options, onChanges) {
+            const watch: IFakeWatch = {
+                path: rootPath,
+                options,
+                fire: (paths) => {
+                    onChanges(paths.map((path): ITreeFileChange => ({ type: "changed", path })));
+                },
+                disposed: false,
+            };
+            watches.push(watch);
+            return {
+                dispose: () => {
+                    watch.disposed = true;
+                },
+            };
+        },
+    };
+}
 
 describe("FileTreeDataProvider", () => {
     let ws: ITempWorkspace;
     let provider: FileTreeDataProvider;
+    let files: FileService;
+    let watcher: ReturnType<typeof fakeTreeWatcher>;
     /** Шаблоны `files.exclude`: меняются по ходу теста — настройка живая. */
     let excludes: string[];
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-test-" });
         excludes = [];
-        provider = new FileTreeDataProvider(ws.dir, () => excludes);
+        files = diskFileService();
+        watcher = fakeTreeWatcher();
+        provider = new FileTreeDataProvider(ws.dir, () => excludes, files, watcher);
     });
 
     afterEach(() => {
+        vi.useRealTimers();
         provider.dispose();
+        files.dispose();
         ws.dispose();
     });
 
     describe("getChildren", () => {
-        it("returns files and directories from root", () => {
+        it("returns files and directories from root", async () => {
             ws.writeFile("file.ts", "");
             fs.mkdirSync(ws.path("src"));
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             expect(children).toHaveLength(2);
         });
 
-        it("sorts directories before files", () => {
+        it("sorts directories before files", async () => {
             ws.writeFile("b.ts", "");
             fs.mkdirSync(ws.path("aDir"));
             ws.writeFile("a.ts", "");
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             expect(children[0].name).toBe("aDir");
             expect(children[0].isDirectory).toBe(true);
             expect(children[1].name).toBe("a.ts");
             expect(children[2].name).toBe("b.ts");
         });
 
-        it("sorts files alphabetically", () => {
+        it("sorts files alphabetically", async () => {
             ws.writeFile("z.ts", "");
             ws.writeFile("a.ts", "");
             ws.writeFile("m.ts", "");
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             expect(children.map((c) => c.name)).toEqual(["a.ts", "m.ts", "z.ts"]);
         });
 
-        it("скрывает входы по шаблонам files.exclude", () => {
+        it("скрывает входы по шаблонам files.exclude", async () => {
             fs.mkdirSync(ws.path("__pycache__"));
             ws.writeFile(".DS_Store", "");
             ws.writeFile("index.ts", "");
             excludes = ["**/__pycache__", "**/.DS_Store"];
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             expect(children.map((c) => c.name)).toEqual(["index.ts"]);
         });
 
-        it("без шаблонов не скрывает ничего — захардкоженного списка больше нет", () => {
+        it("без шаблонов не скрывает ничего — захардкоженного списка больше нет", async () => {
             fs.mkdirSync(ws.path("node_modules"));
             ws.writeFile("index.ts", "");
 
-            expect(provider.getChildren().map((c) => c.name)).toEqual(["node_modules", "index.ts"]);
+            expect((await provider.getChildren()).map((c) => c.name)).toEqual(["node_modules", "index.ts"]);
         });
 
-        it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня дерева", () => {
+        it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня дерева", async () => {
             // `**/x` режет вход на любой глубине, `x` — только в корне: иначе
             // шаблон либо не доставал бы вложенные каталоги, либо резал бы
             // одноимённые где попало.
@@ -80,47 +124,47 @@ describe("FileTreeDataProvider", () => {
             const pkg = { name: "pkg", path: ws.path("pkg"), isDirectory: true };
 
             excludes = ["out"];
-            expect(provider.getChildren().map((c) => c.name)).toEqual(["pkg"]);
-            expect(provider.getChildren(pkg).map((c) => c.name)).toEqual(["out"]);
+            expect((await provider.getChildren()).map((c) => c.name)).toEqual(["pkg"]);
+            expect((await provider.getChildren(pkg)).map((c) => c.name)).toEqual(["out"]);
 
             excludes = ["**/out"];
-            expect(provider.getChildren(pkg)).toEqual([]);
+            expect(await provider.getChildren(pkg)).toEqual([]);
         });
 
-        it("набор читается на каждое обращение — настройка применяется без рестарта", () => {
+        it("набор читается на каждое обращение — настройка применяется без рестарта", async () => {
             fs.mkdirSync(ws.path("__pycache__"));
             excludes = ["**/__pycache__"];
-            expect(provider.getChildren()).toEqual([]);
+            expect(await provider.getChildren()).toEqual([]);
 
             excludes = [];
-            expect(provider.getChildren().map((c) => c.name)).toEqual(["__pycache__"]);
+            expect((await provider.getChildren()).map((c) => c.name)).toEqual(["__pycache__"]);
         });
 
-        it("returns children of a subdirectory", () => {
+        it("returns children of a subdirectory", async () => {
             const subDir = ws.path("src");
             ws.writeFile("src/main.ts", "");
             ws.writeFile("src/util.ts", "");
 
             const dirNode = { name: "src", path: subDir, isDirectory: true };
-            const children = provider.getChildren(dirNode);
+            const children = await provider.getChildren(dirNode);
             expect(children).toHaveLength(2);
             expect(children.map((c) => c.name)).toEqual(["main.ts", "util.ts"]);
         });
 
-        it("returns empty array for empty directory", () => {
+        it("returns empty array for empty directory", async () => {
             const subDir = ws.path("empty");
             fs.mkdirSync(subDir);
 
             const dirNode = { name: "empty", path: subDir, isDirectory: true };
-            expect(provider.getChildren(dirNode)).toEqual([]);
+            expect(await provider.getChildren(dirNode)).toEqual([]);
         });
 
-        it("returns empty array for non-existent directory", () => {
+        it("returns empty array for non-existent directory", async () => {
             const dirNode = { name: "nope", path: ws.path("nope"), isDirectory: true };
-            expect(provider.getChildren(dirNode)).toEqual([]);
+            expect(await provider.getChildren(dirNode)).toEqual([]);
         });
 
-        it("orders files after directories for a dir/file/dir name sequence (sort branch 119)", () => {
+        it("orders files after directories for a dir/file/dir name sequence (sort branch 119)", async () => {
             // readdir yields these alphabetically as [a-dir, b-file, c-dir] — a
             // dir/file/dir sequence that drives the comparator down BOTH the
             // `-1` (dir before file) and `1` (file after dir) paths.
@@ -128,7 +172,7 @@ describe("FileTreeDataProvider", () => {
             ws.writeFile("b-file.ts", "");
             fs.mkdirSync(ws.path("c-dir"));
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             // Directories first (sorted), then the file.
             expect(children.map((c) => c.name)).toEqual(["a-dir", "c-dir", "b-file.ts"]);
             expect(children.map((c) => c.isDirectory)).toEqual([true, true, false]);
@@ -136,37 +180,37 @@ describe("FileTreeDataProvider", () => {
     });
 
     describe("symlinks", () => {
-        it("marks a symlink to a file as a symbolic link, not a directory", () => {
+        it("marks a symlink to a file as a symbolic link, not a directory", async () => {
             ws.writeFile("target.ts", "");
             fs.symlinkSync(ws.path("target.ts"), ws.path("link.ts"));
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             const link = children.find((c) => c.name === "link.ts");
             expect(link).toBeDefined();
             expect(link?.isSymbolicLink).toBe(true);
             expect(link?.isDirectory).toBe(false);
         });
 
-        it("resolves a symlink to a directory as a directory", () => {
+        it("resolves a symlink to a directory as a directory", async () => {
             fs.mkdirSync(ws.path("realDir"));
             fs.symlinkSync(ws.path("realDir"), ws.path("linkDir"));
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             const link = children.find((c) => c.name === "linkDir");
             expect(link?.isSymbolicLink).toBe(true);
             expect(link?.isDirectory).toBe(true);
         });
 
-        it("treats a broken symlink as a non-directory file", () => {
+        it("treats a broken symlink as a non-directory file", async () => {
             fs.symlinkSync(ws.path("does-not-exist"), ws.path("broken"));
 
-            const children = provider.getChildren();
+            const children = await provider.getChildren();
             const link = children.find((c) => c.name === "broken");
             expect(link?.isSymbolicLink).toBe(true);
             expect(link?.isDirectory).toBe(false);
         });
 
-        it("flags a symlinked file while keeping its normal type icon", () => {
+        it("flags a symlinked file while keeping its normal type icon", async () => {
             const node = { name: "link.ts", path: "/link.ts", isDirectory: false, isSymbolicLink: true };
             const item = provider.getTreeItem(node);
             expect(item.symlink).toBe(true);
@@ -176,14 +220,14 @@ describe("FileTreeDataProvider", () => {
             expect(item.iconColor).toBe(plain.iconColor);
         });
 
-        it("flags a symlinked directory and keeps it collapsible", () => {
+        it("flags a symlinked directory and keeps it collapsible", async () => {
             const node = { name: "linkDir", path: "/linkDir", isDirectory: true, isSymbolicLink: true };
             const item = provider.getTreeItem(node);
             expect(item.collapsible).toBe(true);
             expect(item.symlink).toBe(true);
         });
 
-        it("does not flag a regular file or directory as a symlink", () => {
+        it("does not flag a regular file or directory as a symlink", async () => {
             const file = provider.getTreeItem({ name: "main.ts", path: "/main.ts", isDirectory: false });
             const dir = provider.getTreeItem({ name: "src", path: "/src", isDirectory: true });
             expect(file.symlink).toBeFalsy();
@@ -192,34 +236,34 @@ describe("FileTreeDataProvider", () => {
     });
 
     describe("getKey", () => {
-        it("returns the file path as key", () => {
+        it("returns the file path as key", async () => {
             const node = { name: "test.ts", path: "/some/path/test.ts", isDirectory: false };
             expect(provider.getKey(node)).toBe("/some/path/test.ts");
         });
     });
 
     describe("getTreeItem", () => {
-        it("marks directories as collapsible", () => {
+        it("marks directories as collapsible", async () => {
             const node = { name: "src", path: "/src", isDirectory: true };
             const item = provider.getTreeItem(node);
             expect(item.collapsible).toBe(true);
             expect(item.label).toBe("src");
         });
 
-        it("marks files as non-collapsible", () => {
+        it("marks files as non-collapsible", async () => {
             const node = { name: "main.ts", path: "/main.ts", isDirectory: false };
             const item = provider.getTreeItem(node);
             expect(item.collapsible).toBe(false);
         });
 
-        it("provides icon for known file types", () => {
+        it("provides icon for known file types", async () => {
             const node = { name: "main.ts", path: "/main.ts", isDirectory: false };
             const item = provider.getTreeItem(node);
             expect(item.icon).toBeDefined();
             expect(item.iconColor).toBeDefined();
         });
 
-        it("does not provide icon for directories", () => {
+        it("does not provide icon for directories", async () => {
             const node = { name: "src", path: "/src", isDirectory: true };
             const item = provider.getTreeItem(node);
             expect(item.icon).toBeUndefined();
@@ -228,13 +272,13 @@ describe("FileTreeDataProvider", () => {
     });
 
     describe("git status decorations", () => {
-        it("has no decoration by default", () => {
+        it("has no decoration by default", async () => {
             const item = provider.getTreeItem({ name: "main.ts", path: "/main.ts", isDirectory: false });
             expect(item.labelColor).toBeUndefined();
             expect(item.badge).toBeUndefined();
         });
 
-        it("maps a status entry onto the tree item by absolute path", () => {
+        it("maps a status entry onto the tree item by absolute path", async () => {
             provider.setGitStatus(new Map([["/main.ts", { color: 0x73c991, badge: "M" }]]));
 
             const decorated = provider.getTreeItem({ name: "main.ts", path: "/main.ts", isDirectory: false });
@@ -248,7 +292,7 @@ describe("FileTreeDataProvider", () => {
             expect(plain.badge).toBeUndefined();
         });
 
-        it("decorates directories as well as files", () => {
+        it("decorates directories as well as files", async () => {
             provider.setGitStatus(new Map([["/src", { color: 0xe2c08d, badge: "U" }]]));
 
             const dir = provider.getTreeItem({ name: "src", path: "/src", isDirectory: true });
@@ -257,7 +301,7 @@ describe("FileTreeDataProvider", () => {
             expect(dir.badge).toBe("U ");
         });
 
-        it("replaces the whole status map on each call", () => {
+        it("replaces the whole status map on each call", async () => {
             provider.setGitStatus(new Map([["/a.ts", { color: 0x111111, badge: "A" }]]));
             provider.setGitStatus(new Map([["/b.ts", { color: 0x222222, badge: "M" }]]));
 
@@ -265,7 +309,7 @@ describe("FileTreeDataProvider", () => {
             expect(provider.getTreeItem({ name: "b.ts", path: "/b.ts", isDirectory: false }).badge).toBe("M ");
         });
 
-        it("supports a colour-only or badge-only entry", () => {
+        it("supports a colour-only or badge-only entry", async () => {
             provider.setGitStatus(
                 new Map([
                     ["/colour-only.ts", { color: 0x73c991 }],
@@ -284,199 +328,81 @@ describe("FileTreeDataProvider", () => {
     });
 
     describe("file watching", () => {
-        it("notifies onChange when a file is created in watched directory", async () => {
+        it("следит за раскрытым каталогом без рекурсии и без собственных excludes", () => {
+            provider.watchDirectory(ws.dir);
+            provider.watchDirectory(ws.dir); // повторно — та же подписка
+            expect(watcher.watches).toHaveLength(1);
+            expect(watcher.watches[0].path).toBe(ws.dir);
+            expect(watcher.watches[0].options).toEqual({ recursive: false, excludes: [] });
+        });
+
+        it("событие в каталоге — onChange с узлом каталога после дебаунса; пачка — одно уведомление", () => {
+            vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
-
             provider.watchDirectory(ws.dir);
 
-            // Wait for chokidar to be ready
-            await new Promise((r) => setTimeout(r, 500));
+            watcher.watches[0].fire([ws.path("one.ts")]);
+            vi.advanceTimersByTime(200);
+            watcher.watches[0].fire([ws.path("two.ts")]);
+            vi.advanceTimersByTime(299);
+            expect(callback).not.toHaveBeenCalled();
 
-            // Create a file in the watched directory
-            ws.writeFile("new-file.ts", "");
+            vi.advanceTimersByTime(1);
+            expect(callback).toHaveBeenCalledExactlyOnceWith({
+                name: ws.dir.slice(ws.dir.lastIndexOf("/") + 1),
+                path: ws.dir,
+                isDirectory: true,
+            });
+        });
 
-            // Wait for debounce (300ms) + buffer
-            await new Promise((r) => setTimeout(r, 1000));
-
-            expect(callback).toHaveBeenCalled();
-        }, 5000);
-
-        it("правка скрытого настройкой файла дерево не трогает", async () => {
-            // Исключение отдаётся chokidar'у как `ignored`, а не фильтруется по
-            // событиям: иначе `.DS_Store` или байткод перерисовывали бы дерево,
-            // в котором их не видно.
+        it("правка только скрытых настройкой файлов дерево не трогает", () => {
+            vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
             excludes = ["**/*.pyc"];
-
             provider.watchDirectory(ws.dir);
-            await new Promise((r) => setTimeout(r, 500));
-            ws.writeFile("app.cpython-312.pyc", "");
-            await new Promise((r) => setTimeout(r, 1000));
 
+            watcher.watches[0].fire([ws.path("app.cpython-312.pyc")]);
+            vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
 
-            // Контроль: свой файл в том же каталоге дерево перечитывает.
-            ws.writeFile("app.py", "");
-            await new Promise((r) => setTimeout(r, 1000));
-            expect(callback).toHaveBeenCalled();
-        }, 10000);
+            // Контроль: в пачке есть свой файл — дерево перечитывается.
+            watcher.watches[0].fire([ws.path("app.cpython-312.pyc"), ws.path("app.py")]);
+            vi.advanceTimersByTime(300);
+            expect(callback).toHaveBeenCalledOnce();
+        });
 
-        it("does not notify after unwatch", async () => {
+        it("unwatch снимает подписку и гасит ждущее уведомление; чужой каталог — no-op", () => {
+            vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
-
             provider.watchDirectory(ws.dir);
+            watcher.watches[0].fire([ws.path("a.ts")]);
+
+            provider.unwatchDirectory(ws.path("never-watched"));
+            expect(watcher.watches[0].disposed).toBe(false);
             provider.unwatchDirectory(ws.dir);
-
-            ws.writeFile("new-file.ts", "");
-
-            await new Promise((r) => setTimeout(r, 500));
-
+            expect(watcher.watches[0].disposed).toBe(true);
+            vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
-        });
 
-        it("does not duplicate watchers for the same directory", () => {
+            // Повторное раскрытие подписывается заново.
             provider.watchDirectory(ws.dir);
-            provider.watchDirectory(ws.dir); // second call should be no-op
-            // No error thrown — test passes
-            provider.unwatchDirectory(ws.dir);
+            expect(watcher.watches).toHaveLength(2);
         });
 
-        it("cleans up watchers on dispose", async () => {
+        it("dispose снимает подписки и гасит ждущие уведомления", () => {
+            vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
-
             provider.watchDirectory(ws.dir);
+            watcher.watches[0].fire([ws.path("a.ts")]);
+
             provider.dispose();
-
-            ws.writeFile("new-file.ts", "");
-
-            await new Promise((r) => setTimeout(r, 500));
-
+            expect(watcher.watches[0].disposed).toBe(true);
+            vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
         });
-
-        it("unwatchDirectory on a directory that was never watched is a no-op (branch 76)", () => {
-            expect(() => {
-                provider.unwatchDirectory(ws.path("never-watched"));
-            }).not.toThrow();
-        });
-
-        it("survives a watcher 'error' (e.g. ENOSPC) instead of crashing", async () => {
-            // Регрессия на исходный краш: chokidar при исчерпании лимита inotify делает
-            // emit('error'); без слушателя 'error' EventEmitter бросил бы исключение из
-            // своих async-потрохов, оно всплыло бы как unhandledRejection и убило процесс.
-            const onWatchError = vi.fn();
-            provider.onWatchError = onWatchError;
-
-            provider.watchDirectory(ws.dir);
-            await new Promise((r) => setTimeout(r, 300)); // дать chokidar устояться
-
-            const watchers = (
-                provider as unknown as {
-                    watchers: Map<string, { emit(event: string, ...args: unknown[]): boolean }>;
-                }
-            ).watchers;
-            const watcher = watchers.get(ws.dir);
-            expect(watcher).toBeDefined();
-
-            const err = Object.assign(new Error("ENOSPC: watch limit reached"), { code: "ENOSPC" });
-
-            // Эмит 'error' НЕ должен бросать (иначе — краш процесса).
-            expect(() => watcher?.emit("error", err)).not.toThrow();
-
-            // Ошибка проброшена наверх с путём каталога и объектом ошибки.
-            expect(onWatchError).toHaveBeenCalledWith(ws.dir, err);
-
-            // Неудавшийся watcher убран из карты — повторное раскрытие сможет попробовать снова.
-            expect(watchers.has(ws.dir)).toBe(false);
-        });
-    });
-
-    describe("debounce timer lifecycle", () => {
-        /** Wait until a 300ms debounce timer has been scheduled by debouncedNotify. */
-        async function waitForPendingDebounce(spy: { mock: { calls: unknown[][] } }): Promise<void> {
-            await vi.waitFor(
-                () => {
-                    const scheduled = spy.mock.calls.some((call: unknown[]) => call[1] === 300);
-                    expect(scheduled).toBe(true);
-                },
-                { interval: 10, timeout: 4000 },
-            );
-        }
-
-        it("clears a pending debounce timer when its directory is unwatched (lines 83-84, branch 82)", async () => {
-            const callback = vi.fn();
-            provider.onChange = callback;
-            provider.watchDirectory(ws.dir);
-            // Wait for chokidar to settle before emitting an event.
-            await new Promise((r) => setTimeout(r, 500));
-
-            const setSpy = vi.spyOn(globalThis, "setTimeout");
-            const clearSpy = vi.spyOn(globalThis, "clearTimeout");
-
-            // Trigger a watcher event → debouncedNotify schedules a 300ms timer.
-            ws.writeFile("trigger.ts", "");
-            await waitForPendingDebounce(setSpy);
-
-            const clearsBefore = clearSpy.mock.calls.length;
-            // Unwatching while the debounce timer is pending must clear it (lines 83-84).
-            provider.unwatchDirectory(ws.dir);
-            expect(clearSpy.mock.calls.length).toBeGreaterThan(clearsBefore);
-
-            // The cleared timer must never fire onChange.
-            await new Promise((r) => setTimeout(r, 400));
-            expect(callback).not.toHaveBeenCalled();
-
-            setSpy.mockRestore();
-            clearSpy.mockRestore();
-        }, 8000);
-
-        it("clears pending debounce timers on dispose (line 94)", async () => {
-            const callback = vi.fn();
-            provider.onChange = callback;
-            provider.watchDirectory(ws.dir);
-            await new Promise((r) => setTimeout(r, 500));
-
-            const setSpy = vi.spyOn(globalThis, "setTimeout");
-            const clearSpy = vi.spyOn(globalThis, "clearTimeout");
-
-            ws.writeFile("trigger.ts", "");
-            await waitForPendingDebounce(setSpy);
-
-            const clearsBefore = clearSpy.mock.calls.length;
-            provider.dispose();
-            // dispose() iterates pending debounce timers and clears them (line 94).
-            expect(clearSpy.mock.calls.length).toBeGreaterThan(clearsBefore);
-
-            await new Promise((r) => setTimeout(r, 400));
-            expect(callback).not.toHaveBeenCalled();
-
-            setSpy.mockRestore();
-            clearSpy.mockRestore();
-        }, 8000);
-
-        it("collapses back-to-back events into one notification (debounce reset, branch 128)", async () => {
-            const callback = vi.fn();
-            provider.onChange = callback;
-            provider.watchDirectory(ws.dir);
-            await new Promise((r) => setTimeout(r, 500));
-
-            // Several rapid events: each subsequent debouncedNotify sees an existing
-            // timer and clears it before re-scheduling (branch 128 true path).
-            ws.writeFile("one.ts", "");
-            ws.writeFile("two.ts", "");
-            ws.writeFile("three.ts", "");
-            await new Promise((r) => setTimeout(r, 100));
-            ws.writeFile("four.ts", "");
-            ws.writeFile("five.ts", "");
-
-            // Wait past the debounce window for the coalesced notification.
-            await new Promise((r) => setTimeout(r, 800));
-
-            expect(callback).toHaveBeenCalled();
-        }, 8000);
     });
 });

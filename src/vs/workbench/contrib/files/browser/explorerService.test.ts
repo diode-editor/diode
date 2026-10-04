@@ -11,9 +11,9 @@ import type {
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
+import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { LogEntry } from "../../../../platform/log/common/iLogService.ts";
-import { LogService } from "../../../../platform/log/common/logService.ts";
-import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 
 import { ExplorerService, type IExplorerView } from "./explorerService.ts";
 import type { FileTreeNode } from "./fileTreeDataProvider.ts";
@@ -21,12 +21,12 @@ import type { FileTreeNode } from "./fileTreeDataProvider.ts";
 function createService(options?: {
     clipboard?: InMemoryFileClipboard;
     configurationService?: IConfigurationService;
-    logService?: LogService;
 }): ExplorerService {
     return new ExplorerService(
         options?.clipboard ?? new InMemoryFileClipboard(),
         options?.configurationService ?? createTestConfigurationService(),
-        options?.logService ?? NULL_LOG_SERVICE,
+        diskFileService(),
+        NULL_TREE_FILE_WATCHER,
     );
 }
 
@@ -254,68 +254,6 @@ describe("ExplorerService — autoRevealActiveFile", () => {
     });
 });
 
-describe("ExplorerService — file watcher error logging", () => {
-    function createWithCapturedLog(): { service: ExplorerService; entries: LogEntry[]; dispose: () => void } {
-        const logService = new LogService();
-        const entries: LogEntry[] = [];
-        logService.onDidAppend((entry) => entries.push(entry));
-        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-watch-" });
-        const service = createService({ logService });
-        service.setRootPath(ws.dir);
-        return {
-            service,
-            entries,
-            dispose: () => {
-                service.dispose();
-                ws.dispose();
-            },
-        };
-    }
-
-    function fireWatchError(service: ExplorerService, dirPath: string, error: Error): void {
-        // onWatchError на провайдере присвоен в setRootPath — вызов колбэка
-        // эмулирует ошибку watcher'а, всплывшую из chokidar.
-        service.provider?.onWatchError?.(dirPath, error);
-    }
-
-    it("logs a warn with an inotify hint for ENOSPC", () => {
-        const { service, entries, dispose } = createWithCapturedLog();
-        const err = Object.assign(new Error("ENOSPC: watch limit reached"), { code: "ENOSPC" });
-
-        fireWatchError(service, "/repo/src", err);
-
-        expect(entries).toHaveLength(1);
-        const entry = entries[0];
-        expect(entry.channel).toBe("filetree.watcher");
-        expect(entry.message).toContain("increase fs.inotify.max_user_watches");
-        expect(entry.args[0]).toMatchObject({ dirPath: "/repo/src", code: "ENOSPC" });
-        dispose();
-    });
-
-    it("logs a warn with an inotify hint for EMFILE", () => {
-        const { service, entries, dispose } = createWithCapturedLog();
-        const err = Object.assign(new Error("EMFILE: too many open files"), { code: "EMFILE" });
-
-        fireWatchError(service, "/repo/lib", err);
-
-        expect(entries).toHaveLength(1);
-        expect(entries[0].message).toContain("increase fs.inotify.max_user_watches");
-        dispose();
-    });
-
-    it("logs a warn without a hint for an unrelated error code", () => {
-        const { service, entries, dispose } = createWithCapturedLog();
-        const err = Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
-
-        fireWatchError(service, "/repo/vendor", err);
-
-        expect(entries).toHaveLength(1);
-        expect(entries[0].message).toBe("file watcher error");
-        expect(entries[0].args[0]).toMatchObject({ dirPath: "/repo/vendor", code: "EACCES" });
-        dispose();
-    });
-});
-
 describe("ExplorerService — files.exclude", () => {
     /** Настройки с живым событием: правка эмитит onDidChangeConfiguration. */
     function emittingConfig(values: Record<string, unknown>): IConfigurationService & {
@@ -341,7 +279,7 @@ describe("ExplorerService — files.exclude", () => {
         };
     }
 
-    it("провайдер дерева скрывает входы по шаблонам настройки", () => {
+    it("провайдер дерева скрывает входы по шаблонам настройки", async () => {
         const ws = createTempWorkspace({ prefix: "diode-explorer-exclude-" });
         ws.writeFile("__pycache__/app.cpython-312.pyc", "");
         ws.writeFile("app.py", "");
@@ -351,7 +289,7 @@ describe("ExplorerService — files.exclude", () => {
 
         service.setRootPath(ws.dir);
 
-        expect(service.provider?.getChildren().map((n) => n.name)).toEqual(["app.py"]);
+        expect((await service.provider?.getChildren())?.map((n) => n.name)).toEqual(["app.py"]);
         service.dispose();
         ws.dispose();
     });

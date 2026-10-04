@@ -161,8 +161,6 @@ const NODE_IMPORT_DEBT = [
     // Explorer: операции, чтение каталогов и слежение — на IFileService/ITreeFileWatcher (PR 3).
     ["src/vs/workbench/contrib/files/browser/fileOperationsService.ts", "node:fs"],
     ["src/vs/workbench/contrib/files/browser/fileOperationsService.ts", "node:os"],
-    ["src/vs/workbench/contrib/files/browser/fileTreeDataProvider.ts", "node:fs"],
-    ["src/vs/workbench/contrib/files/browser/fileTreeDataProvider.ts", "chokidar"],
     // Загрузка и запись модели — последним (PR 4 — запись, PR 5 — загрузка).
     ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
 ];
