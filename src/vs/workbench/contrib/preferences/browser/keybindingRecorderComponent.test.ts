@@ -3,6 +3,7 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { detachedLayoutService, testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
 import {
     formatKeybinding,
     parseChord,
@@ -14,8 +15,7 @@ import { KeybindingRecorderComponent } from "./keybindingRecorderComponent.ts";
 function makeHost(tier = "kitty", os = "linux") {
     const body = new BodyElement();
     const testApp = TestApp.create(body, new Size(80, 24));
-    const recorder = new KeybindingRecorderComponent({ tier, os });
-    recorder.attachHost(body);
+    const recorder = new KeybindingRecorderComponent({ tier, os }, testLayoutService(body));
     testApp.render();
     return { body, testApp, recorder };
 }
@@ -115,15 +115,15 @@ describe("KeybindingRecorderComponent — запись", () => {
         void second;
     });
 
-    it("record без attachHost — честная ошибка", () => {
-        const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" });
+    it("record до прикрепления корня — честная ошибка", () => {
+        const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" }, detachedLayoutService());
 
         expect(recorder.isOpen()).toBe(false);
-        expect(() => recorder.record("x")).toThrow(/host is not attached/);
+        expect(() => recorder.record("x")).toThrow(/root is not attached/);
     });
 
     it("dispose до первой записи не падает (session ещё null)", () => {
-        const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" });
+        const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" }, testLayoutService());
 
         // session === null — ?. в dispose обязателен, иначе TypeError.
         expect(() => {

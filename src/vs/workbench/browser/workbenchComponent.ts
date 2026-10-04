@@ -168,6 +168,13 @@ export class WorkbenchComponent extends Component {
         lifecycleService: LifecycleService,
     ) {
         super();
+        // Корневая view — первой: оверлеи фич создают сессии на её слое в своих
+        // конструкторах (`LayoutService.mainContainer`), поэтому корень обязан
+        // быть прикреплён до резолва любой фичи.
+        this.view = new BodyElement();
+        this.view.id = "workbench";
+        this.layoutService = this.register(accessor.get(LayoutServiceDIToken));
+        this.layoutService.attachRoot(this.view);
         this.themeService = themeService;
         this.terminalEnv = terminalEnv;
         this.dialogService = this.register(dialogService);
@@ -210,23 +217,27 @@ export class WorkbenchComponent extends Component {
         // (шов IExplorerInputPrompt замкнут в DI).
         this.fileOperations = accessor.get(FileOperationsServiceDIToken);
         // Find/Suggest-кластер: компоненты владеют виджетами и overlay-сессиями
-        // (host'ы прикрепляются ниже, после постройки view), сервисы — логикой
+        // (хост берут у LayoutService сами), сервисы — логикой
         // поиска/автодополнения. WorkbenchComponent владеет их жизнью.
-        const suggestComponent = this.register(accessor.get(SuggestComponentDIToken));
+        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит CompletionService строкой ниже) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
+        this.register(accessor.get(SuggestComponentDIToken));
         this.register(accessor.get(CompletionServiceDIToken));
         // Hover-пара — тот же паттерн: компонент владеет попапом, сервис — логикой.
-        const hoverComponent = this.register(accessor.get(HoverComponentDIToken));
+        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит HoverService строкой ниже) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
+        this.register(accessor.get(HoverComponentDIToken));
         // Stryker disable next-line CallExpression: сервис всё равно резолвится (его держит WorkbenchContextKeys) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
         this.register(accessor.get(HoverServiceDIToken));
         // Подсказка параметров — третья пара того же вида.
-        const parameterHintsComponent = this.register(accessor.get(ParameterHintsComponentDIToken));
+        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит ParameterHintsService строкой ниже) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
+        this.register(accessor.get(ParameterHintsComponentDIToken));
         // Stryker disable next-line CallExpression: как и hover-сервис, он резолвится через WorkbenchContextKeys — register() лишь передаёт владение жизнью
         this.register(accessor.get(ParameterHintsServiceDIToken));
         // Призрачные подсказки: сервис без компонента — рисует прямо в редакторе
         // (TextEditorPane.setGhostText), попапов и overlay-сессий у него нет.
         // Stryker disable next-line CallExpression: резолвится и через WorkbenchContextKeys — register() лишь передаёт владение жизнью
         this.register(accessor.get(InlineCompletionsServiceDIToken));
-        const findComponent = this.register(accessor.get(FindComponentDIToken));
+        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит FindService строкой ниже) — register() тут только передаёт владение жизнью
+        this.register(accessor.get(FindComponentDIToken));
         this.register(accessor.get(FindServiceDIToken));
         this.statusBarComponent = this.register(statusBarComponent);
         // Panel-кластер: диагностики (headless), реестр вкладок панели, Problems и
@@ -256,7 +267,6 @@ export class WorkbenchComponent extends Component {
         // workbench'а (фокус/сервисы → ContextKeyService; замыкают хук
         // dispatcher.updateContextKeys). Сам layout-элемент и корневую view
         // прикрепляем ниже, как только они построены.
-        this.layoutService = this.register(accessor.get(LayoutServiceDIToken));
         this.sidebarService = accessor.get(SidebarServiceDIToken);
         this.viewsService = accessor.get(ViewsServiceDIToken);
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
@@ -285,8 +295,6 @@ export class WorkbenchComponent extends Component {
             this.workbenchState.captureOpenEditors();
         };
 
-        this.view = new BodyElement();
-        this.view.id = "workbench";
         this.dialogService.attachHost(this.view);
         // Темизированные стили контекстных меню: сервис показывает попапы сам,
         // тему знает только workbench — прикрепляем поставщика (как attachHost).
@@ -297,12 +305,6 @@ export class WorkbenchComponent extends Component {
 
         // Общий виджет QuickInput/QuickOpen живёт в overlay-слое корневой view.
         quickInputComponent.attachHost(this.view);
-        // Suggest-попап — в глобальном overlay-слое (у каретки), find-виджет —
-        // в локальном слое группы редакторов. Закрытие при смене активного
-        // редактора сервисы делают сами (подписки на onActiveEditorChanged).
-        suggestComponent.attachHost(this.view);
-        // Hover-попап — там же, в глобальном overlay-слое у каретки.
-        hoverComponent.attachHost(this.view);
         // Оверлей серии Ctrl+Tab (MRU-список вкладок) — passthrough-сессия
         // того же слоя; показ/скрытие ведут события EditorService.
         this.register(accessor.get(TabSwitcherComponentDIToken)).attachHost(this.view);
@@ -310,17 +312,12 @@ export class WorkbenchComponent extends Component {
         // модального сообщения по центру — тот же слой.
         this.notificationsComponent = this.register(accessor.get(NotificationsComponentDIToken));
         this.notificationsComponent.attachHost(this.view);
-        // Рекордер комбинаций вкладки Keyboard Shortcuts — модальный оверлей
-        // того же слоя.
-        this.register(accessor.get(KeybindingRecorderComponentDIToken)).attachHost(this.view);
-        // Keyboard Doctor — модальный оверлей того же слоя.
-        this.register(accessor.get(KeyboardDoctorComponentDIToken)).attachHost(this.view);
-        // Подсказка параметров — тот же слой, но якорится НАД кареткой, чтобы не
-        // делить место с попапом автодополнения.
-        parameterHintsComponent.attachHost(this.view);
-        // Find-виджеты — по одному на группу, на локальном overlay-слое каждой;
-        // компонент создаёт их лениво по первому Ctrl+F в группе.
-        findComponent.hostProvider = (groupId) => this.editorPartComponent.groupOverlayHost(groupId);
+        // Рекордер комбинаций вкладки Keyboard Shortcuts и Keyboard Doctor —
+        // модальные оверлеи того же слоя; хост берут у LayoutService сами.
+        // Stryker disable next-line CallExpression: без строки рекордер резолвится лениво — первой же командой записи; register() тут только передаёт владение жизнью, что юнитом не наблюдается
+        this.register(accessor.get(KeybindingRecorderComponentDIToken));
+        // Stryker disable next-line CallExpression: то же — доктор резолвится лениво командой запуска, register() лишь передаёт владение жизнью
+        this.register(accessor.get(KeyboardDoctorComponentDIToken));
         for (const action of builtinActions) {
             // Мак-дельты (таблица macKeybindings.ts) — поверх объявленных биндов.
             this.register(registerAction(commands, keybindings, accessor, withMacKeybindings(action)));

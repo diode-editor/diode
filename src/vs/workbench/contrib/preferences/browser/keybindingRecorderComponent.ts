@@ -15,6 +15,7 @@ import { requiresExtendedKeys } from "../../../../platform/keybinding/common/key
 import type { Keybinding, KeybindingChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { DIALOG_STYLES } from "../../../browser/parts/dialogs/dialogComponent.ts";
+import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 
 export const KeybindingRecorderComponentDIToken = token<KeybindingRecorderComponent>("KeybindingRecorderComponent");
 
@@ -53,7 +54,6 @@ const PORTABILITY_WARNING = "May not be available on legacy terminals";
  * отпустило бы его в редактор позади.
  */
 export class KeybindingRecorderComponent extends Disposable {
-    private host: BodyElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
     private readonly root: FitContentElement;
@@ -70,7 +70,10 @@ export class KeybindingRecorderComponent extends Disposable {
     private pendingOutcome: KeybindingChord | null | undefined;
     private resolveRecording: ((chord: KeybindingChord | null) => void) | null = null;
 
-    public constructor(private readonly terminalEnv: IRecorderTerminalEnv) {
+    public constructor(
+        private readonly terminalEnv: IRecorderTerminalEnv,
+        private readonly layoutService: LayoutService,
+    ) {
         super();
         this.root = new FitContentElement();
         this.root.id = "keybindingRecorder";
@@ -122,20 +125,14 @@ export class KeybindingRecorderComponent extends Disposable {
         });
     }
 
-    /** Вызывается владельцем корневой view до первой записи (конвенция DialogService). */
-    public attachHost(host: BodyElement): void {
-        this.host = host;
-    }
-
     /**
      * Показывает рекордер и резолвится записанным чордом (Enter) либо `null`
      * (Escape). Повторный вызов при открытом рекордере отменяет предыдущую
      * запись.
      */
     public record(commandTitle: string): Promise<KeybindingChord | null> {
-        if (this.host === null) {
-            throw new Error("KeybindingRecorderComponent: host is not attached (attachHost must be called first)");
-        }
+        // Хост — корневая view окна; до attachRoot сервис бросает сам.
+        const host = this.layoutService.mainContainer;
         this.resolveRecording?.(null);
 
         this.parts = [];
@@ -143,7 +140,7 @@ export class KeybindingRecorderComponent extends Disposable {
         this.titleLabel.setText(commandTitle);
         this.updateLabels();
 
-        const session = (this.session ??= this.host.overlayLayer.createSession(this.root, new Point(0, 0), {
+        const session = (this.session ??= host.overlayLayer.createSession(this.root, new Point(0, 0), {
             // Stryker disable next-line BooleanLiteral: стартовая невидимость сразу перекрывается open() в openCentered().
             visible: false,
             restoreFocus: true,
@@ -154,7 +151,7 @@ export class KeybindingRecorderComponent extends Disposable {
             // Stryker disable next-line StringLiteral: pointer-политика не проверяется в клавиатурных тестах рекордера.
             pointerPolicy: "modal",
         }));
-        this.openCentered(this.host, session);
+        this.openCentered(host, session);
         this.root.focus();
 
         return new Promise((resolve) => {

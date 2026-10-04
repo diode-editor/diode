@@ -60,9 +60,14 @@ bootstrap-последовательность приложения (mount → a
    `HoverComponent`, `ParameterHintsService` → `ParameterHintsComponent`, `FindService` →
    `FindComponent`, `CompletionService` → `SuggestComponent`, `ReferencesService` →
    `ReferencesComponent`. Отличие от VS Code: там владелец **сам создаёт** виджет (лениво,
-   с хостом из `layoutService`/редактора), а у нас виджет — DI-синглтон, и хост
-   приходит снаружи через `attachHost` от корня. Целевой каркас попапов («владелец
-   создаёт виджет сам») — задача H1.
+   с хостом из `layoutService`/редактора), а у нас виджет — DI-синглтон. Хост contrib-
+   оверлеи берут так же, как там: `LayoutService.mainContainer` (корневая view;
+   корень прикрепляет её `attachRoot` первым делом в конструкторе, до резолва фич),
+   сессию создают в своём конструкторе (suggest, hover, parameterHints) или лениво
+   при первом показе (рекордер, Keyboard Doctor); find берёт слои групп у
+   `EditorPartComponent` через DI. Оверлеи `browser/parts` и `DialogService` пока на
+   `attachHost` от корня. Целевой каркас попапов («владелец создаёт виджет сам») —
+   задача H1.
 3. **Сервис-владелец layout-контрола.** `LayoutService` держит `WorkbenchLayoutElement`
    через `attachLayout` и пишет в него сеттерами (`restoreLayout`/`captureLayout`).
    Это ближе всего к VS Code, где layout-сервис и есть корневой view.
@@ -94,8 +99,8 @@ bootstrap-последовательность приложения (mount → a
 ### Late-init `attach*`
 
 `attach*` допустим только для того, что физически появляется позже конструктора:
-хост корневой view (`attachHost(BodyElement)` у overlay-компонентов и `DialogService`,
-`attachLayout`, `attachEditorLayout`, `WorkbenchContextKeys.attachView`) и деревья,
+хост корневой view (`LayoutService.attachRoot`; `attachHost(BodyElement)` у
+оверлеев `browser/parts` и `DialogService`), `attachLayout`, `attachEditorLayout`, `WorkbenchContextKeys.attachView`) и деревья,
 которые компонент строит по событию (`ExplorerService.attachView`). Сейчас эти вызовы
 собраны в `WorkbenchComponent.mount`-проводке, и каждый новый попап добавляет туда
 строку; уход от этого (владелец берёт хост из layout-сервиса) — задачи H1/E4.
@@ -206,7 +211,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 | `workbench/browser/actions/builtinActions.ts`, `searchActions.ts`, `menuContributions.ts` | команды и меню фич | `<FEATURE>_ACTIONS` у фич + агрегатор | F2 |
 | `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
 | `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
-| `workbench/browser/workbenchComponent.ts`, `workbenchContributions.ts` | контейнеры вью, `attachHost`, список contribution'ов; агрегатора `workbench.common.main.ts` ещё нет; правило «центр не импортирует contrib» не проверяется | контейнеры — владельцам, агрегатор, храповик направления в `check-layers.mjs` | E4 |
+| `workbench/browser/workbenchComponent.ts`, `workbenchContributions.ts` | владение фич-компонентами, список contribution'ов; агрегатора `workbench.common.main.ts` ещё нет | агрегатор, фаза `blockStartup`; храповик направления в `check-layers.mjs`, контейнеры у владельцев и хост оверлеев через `LayoutService` уже сделаны | E4 |
 | `workbench/common/configuration/{scm,terminal,explorer,files,search}Configuration.ts` | узлы настроек фич | `contrib/<f>/common/` вместе с переездом `CONFIGURATION_CONTRIBUTIONS` в агрегатор | H6, необязательно |
 | `src/vs/diode/modules/workbenchModule.ts` | DI-биндинги фич | дескриптор фичи `contrib/<f>/browser/<f>.contribution.ts` | H6/C5, необязательно, после F2, E4 и F3 |
 | `contrib/diff/browser/compareActions.ts` | команды ревизий scm; из-за них цикл diff ↔ scm | `contrib/scm` | H6, необязательно |
@@ -999,8 +1004,8 @@ hide-toggle (`isHiddenByDefault`). См.
     (`getQuery`/`setQuery`/`setCounter`/`focus` + колбэки `onQueryChange`/`onNext`/
     `onPrev`/`onClose`), а не на `view`. Overlay-сессия — в ЛОКАЛЬНОМ слое группы
     редакторов (`pointerPolicy: "passthrough"` — док-виджет, клики мимо уходят в
-    редактор); хост (`OverlayHostElement` группы) приходит через late-init шов `attachHost`
-    (зовёт `WorkbenchComponent` после постройки дерева). `show()` позиционирует
+    редактор); хост (`OverlayHostElement` группы) `FindComponent` берёт у полосы групп
+    (`EditorPartComponent.groupOverlayHost`, зависимость DI) при первом Ctrl+F в группе. `show()` позиционирует
     виджет (правый край группы с 1-колоночным отступом, под tab strip) и фокусирует input.
   - `Services/FindService.ts` — состояние поиска query → matches → current
     index: `open` (сеет запрос из однострочного выделения), `close` (курсор
@@ -1013,7 +1018,8 @@ hide-toggle (`isHiddenByDefault`). См.
   - `Components/Editor/SuggestComponent.ts` — компонент suggest-попапа; владеет
     `CompletionListElement` (`view.id = "suggestWidget"`; цвета — токены `editorSuggestWidget.*`
     каскадом) и overlay-сессией в глобальном body-слое
-    (`attachHost(BodyElement)`; `capturesKeyboard: false` — редактор сохраняет
+    (хост — `LayoutService.mainContainer`, сессия создаётся в конструкторе;
+    `capturesKeyboard: false` — редактор сохраняет
     фокус, команды идут по `suggestWidgetVisible`; `close-on-outside`).
     `openAt(anchor)`/`setAnchor` — позиционирование у каретки
     (`EditorPane.getCaretAnchor`).
@@ -1035,10 +1041,10 @@ hide-toggle (`isHiddenByDefault`). См.
     вставляет в неё view компонентов (`EditorGroupComponent` в центр,
     `PanelComponent` вниз, контейнеры view — в `mount()` через
     `ViewsService.attachRegisteredContainers()`, `StatusBarComponent`, `MenuBarComponent` — ПОСЛЕ
-    применения user keybindings), прикрепляет late-init швы
-    (`DialogService`/`ExplorerComponent`/`QuickInputComponent`/`SuggestComponent`
-    `attachHost(BodyElement)`, `FindComponent.attachHost(OverlayHostElement)`,
-    `LayoutService.attachLayout`, `WorkbenchContextKeys.attachView`), вешает
+    применения user keybindings), первым делом прикрепляет корневую view
+    (`LayoutService.attachRoot` — хост оверлеев фич), затем late-init швы
+    (`DialogService`/`QuickInputComponent`/`TabSwitcherComponent`/`NotificationsComponent`
+    `attachHost(BodyElement)`, `LayoutService.attachLayout`, `WorkbenchContextKeys.attachView`), вешает
     листенеры `KeybindingDispatcher` и фокус-хуки, регистрирует список
     `builtinActions` одним циклом. Фич-проводка (autoReveal, live-reload темы,
     контекст-меню редактора, команда `workbench.openFile`, статус-бар) вынесена в

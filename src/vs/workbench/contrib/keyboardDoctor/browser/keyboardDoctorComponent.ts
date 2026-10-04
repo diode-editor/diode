@@ -12,6 +12,7 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { Keybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { DIALOG_STYLES } from "../../../browser/parts/dialogs/dialogComponent.ts";
+import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 import {
     describeBindings,
     describeEnv,
@@ -75,7 +76,6 @@ function observed(event: TUIKeyboardEvent): ObservedKey {
  * рекордер); шаг с keyup — отпусканием модификатора или голым Enter.
  */
 export class KeyboardDoctorComponent extends Disposable {
-    private host: BodyElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
     private readonly root: FitContentElement;
@@ -104,6 +104,7 @@ export class KeyboardDoctorComponent extends Disposable {
     public constructor(
         private readonly env: IKeyboardDoctorEnvProvider,
         private readonly lookup: BindingLookup,
+        private readonly layoutService: LayoutService,
     ) {
         super();
         this.root = new FitContentElement();
@@ -165,11 +166,6 @@ export class KeyboardDoctorComponent extends Disposable {
         });
     }
 
-    /** Вызывается владельцем корневой view до первого запуска (конвенция DialogService). */
-    public attachHost(host: BodyElement): void {
-        this.host = host;
-    }
-
     /** Открыт ли доктор (для тестов/оркестрации). */
     public isOpen(): boolean {
         return this.session?.isOpen() ?? false;
@@ -180,9 +176,8 @@ export class KeyboardDoctorComponent extends Disposable {
      * фидбека). Повторный вызов при открытом докторе начинает заново.
      */
     public run(): Promise<string> {
-        if (this.host === null) {
-            throw new Error("KeyboardDoctorComponent: host is not attached (attachHost must be called first)");
-        }
+        // Хост — корневая view окна; до attachRoot сервис бросает сам.
+        const host = this.layoutService.mainContainer;
         this.steps = doctorSteps(this.env.snapshot());
         this.results = [];
         this.awaitingKeyUp = null;
@@ -194,7 +189,7 @@ export class KeyboardDoctorComponent extends Disposable {
         this.render();
 
         // Stryker disable next-line ObjectLiteral: опции сессии — политика оверлея; по-отдельности они размечены ниже.
-        const session = (this.session ??= this.host.overlayLayer.createSession(this.root, new Point(0, 0), {
+        const session = (this.session ??= host.overlayLayer.createSession(this.root, new Point(0, 0), {
             // Stryker disable next-line BooleanLiteral: стартовая невидимость сразу перекрывается open() в openCentered().
             visible: false,
             restoreFocus: true,
@@ -204,7 +199,7 @@ export class KeyboardDoctorComponent extends Disposable {
             // Stryker disable next-line StringLiteral: pointer-политика не проверяется в клавиатурных тестах.
             pointerPolicy: "modal",
         }));
-        this.openCentered(this.host, session);
+        this.openCentered(host, session);
         this.root.focus();
 
         return new Promise((resolve) => {
@@ -285,7 +280,7 @@ export class KeyboardDoctorComponent extends Disposable {
         this.lastLabel.setText(this.lastText(env));
         this.hintLabel.setText(this.awaitingKeyUp === null ? HINT : KEYUP_HINT);
         // Stryker disable next-line all: перецентровка под новую ширину текста — косметика позиции, покадрово не проверяется.
-        if (this.host !== null && this.session?.isOpen() === true) this.openCentered(this.host, this.session);
+        if (this.session?.isOpen() === true) this.openCentered(this.layoutService.mainContainer, this.session);
     }
 
     private lastText(env: KeyboardDoctorEnv): string {

@@ -8,6 +8,7 @@ import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
@@ -21,6 +22,13 @@ describe("Workbench integration", () => {
 
         expect(h.testApp.querySelector("MenuBarElement")).not.toBeNull();
         expect(h.testApp.querySelector("ScrollBarDecorator")).not.toBeNull();
+    });
+
+    it("корневая view #workbench — хост оверлеев фич (LayoutService.mainContainer)", () => {
+        const h = createAppTestHarness();
+
+        expect(h.workbench.view.id).toBe("workbench");
+        expect(h.container.get(LayoutServiceDIToken).mainContainer).toBe(h.workbench.view);
     });
 
     it("focuses editor via focusEditor()", () => {

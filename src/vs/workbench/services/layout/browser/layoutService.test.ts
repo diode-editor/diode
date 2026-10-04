@@ -1,3 +1,4 @@
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -239,5 +240,14 @@ describe("LayoutService", () => {
         expect(() => {
             service.toggleSidebar();
         }).toThrow("attachLayout");
+    });
+
+    it("mainContainer — корневая view из attachRoot; до него — честная ошибка", () => {
+        const service = new LayoutService(state, panelService, contextKeys);
+        expect(() => service.mainContainer).toThrow("attachRoot must be called first");
+
+        const root = new BodyElement();
+        service.attachRoot(root);
+        expect(service.mainContainer).toBe(root);
     });
 });
