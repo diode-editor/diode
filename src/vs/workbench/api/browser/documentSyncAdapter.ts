@@ -49,7 +49,7 @@ export function documentChangedEventOfModel(
 export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncSnapshot[] {
     const snapshots: IWireDocumentSyncSnapshot[] = [];
     const seen = new Set<BaseTextEditorModel>();
-    for (const editor of group.getEditors()) {
+    for (const editor of group.getTextSurfaces()) {
         if (seen.has(editor.model)) continue;
         seen.add(editor.model);
         snapshots.push(documentSyncSnapshotOfModel(editor.model));
@@ -62,7 +62,11 @@ export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncS
  * первое открытие ресурса, `didChange` на правку его модели — в какой бы группе
  * (и активна ли она) правка ни случилась; `didClose` — когда закрыта последняя
  * вкладка документа. Подписка на МОДЕЛЬ, не на вкладку: документ в двух группах
- * даёт один didChange, а не два. didChange — дельта: точные правки батча
+ * даёт один didChange, а не два. Документы — всех текстовых поверхностей
+ * (`getTextSurfaces`): вкладок и сторон дифф-вкладок, по которым тоже зовут
+ * провайдеров. Панели Output — нет: их содержимое — лог, в том числе канал
+ * «Extension Host (RPC)», и каждая его строка, уехав субпроцессу правкой,
+ * порождала бы новую строку того же канала. didChange — дельта: точные правки батча
  * модели (`onDidChangeModelContent`), а не полный текст; полный снапшот — только
  * на открытии и на замене содержимого целиком (flush).
  */
@@ -88,7 +92,7 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
     /** Согласует множество отслеживаемых моделей с открытыми вкладками. */
     const reconcile = (): void => {
         const alive = new Set<BaseTextEditorModel>();
-        for (const editor of group.getEditors()) alive.add(editor.model);
+        for (const editor of group.getTextSurfaces()) alive.add(editor.model);
         for (const [model, subscription] of [...tracked]) {
             if (alive.has(model)) continue;
             subscription.dispose();
