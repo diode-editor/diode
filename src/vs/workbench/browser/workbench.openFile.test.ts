@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle, tabLabels } from "../../../TestUtils/domQueries.ts";
@@ -28,13 +28,15 @@ describe("Workbench — Open File / Open Folder", () => {
         ws.dispose();
     });
 
-    it("opens the Open File prompt empty (no scary seed error)", () => {
+    it("opens the Open File prompt empty (no scary seed error)", async () => {
         h.commands.execute("workbench.action.files.openFile");
         h.testApp.render();
 
         const input = quickPickByTitle(h.testApp, "Open File");
         expect(input.getQuery()).toBe("");
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
     });
 
     it("opens the entered absolute path in a new tab", async () => {
@@ -58,7 +60,9 @@ describe("Workbench — Open File / Open Folder", () => {
         const input = quickPickByTitle(h.testApp, "Open File");
         // A bare name is valid because it resolves against the workspace root.
         input.onQueryChange?.("beta.txt");
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
 
         input.setQuery("beta.txt");
         h.testApp.sendKey("Enter");
@@ -68,24 +72,32 @@ describe("Workbench — Open File / Open Folder", () => {
         expect(tabLabels(h.testApp).some((l) => l.includes("beta.txt"))).toBe(true);
     });
 
-    it("validates the Open File path", () => {
+    it("validates the Open File path", async () => {
         h.commands.execute("workbench.action.files.openFile");
         h.testApp.render();
         const input = quickPickByTitle(h.testApp, "Open File");
 
         // Empty input is not flagged as an error (Enter is a harmless no-op).
         input.onQueryChange?.("   ");
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
 
         input.onQueryChange?.(ws.path("nope.txt"));
-        expect(input.validationMessage).toContain("File does not exist");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toContain("File does not exist");
+        });
 
         // The workspace directory itself is a folder, not a file.
         input.onQueryChange?.(ws.dir);
-        expect(input.validationMessage).toBe("That is a folder, not a file");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("That is a folder, not a file");
+        });
 
         input.onQueryChange?.(ws.path("alpha.txt"));
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
     });
 
     it("Escape cancels Open File without opening anything", async () => {
@@ -125,7 +137,9 @@ describe("Workbench — Open File / Open Folder", () => {
             h.testApp.render();
             const fileInput = quickPickByTitle(h.testApp, "Open File");
             fileInput.onQueryChange?.("gamma.txt");
-            expect(fileInput.validationMessage).toBeNull();
+            await vi.waitFor(() => {
+                expect(fileInput.validationMessage).toBeNull();
+            });
         } finally {
             other.dispose();
         }
@@ -159,31 +173,39 @@ describe("Workbench — Open File / Open Folder", () => {
         expect(() => quickPickByTitle(h.testApp, "Open Folder")).not.toThrow();
     });
 
-    it("validates the Open Folder path", () => {
+    it("validates the Open Folder path", async () => {
         h.commands.execute("workbench.action.files.openFolder");
         h.testApp.render();
         const input = quickPickByTitle(h.testApp, "Open Folder");
 
         input.onQueryChange?.(ws.path("no-such-dir"));
-        expect(input.validationMessage).toContain("Folder does not exist");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toContain("Folder does not exist");
+        });
 
         // An existing file is not a valid folder target.
         input.onQueryChange?.(ws.path("alpha.txt"));
-        expect(input.validationMessage).toBe("That is a file, not a folder");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("That is a file, not a folder");
+        });
 
         input.onQueryChange?.(ws.dir);
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
     });
 
-    it("expands a leading ~ to the home directory", () => {
+    it("expands a leading ~ to the home directory", async () => {
         h.commands.execute("workbench.action.files.openFile");
         h.testApp.render();
         const input = quickPickByTitle(h.testApp, "Open File");
 
         input.onQueryChange?.("~/definitely-nonexistent-xyz");
-        expect(input.validationMessage).toBe(
-            `File does not exist: ${path.join(os.homedir(), "definitely-nonexistent-xyz")}`,
-        );
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe(
+                `File does not exist: ${path.join(os.homedir(), "definitely-nonexistent-xyz")}`,
+            );
+        });
     });
 
     it("Escape cancels Open Folder without swapping the root", async () => {
@@ -205,7 +227,9 @@ describe("Workbench — Open File / Open Folder", () => {
             h.testApp.render();
             const fileInput = quickPickByTitle(h.testApp, "Open File");
             fileInput.onQueryChange?.("beta.txt");
-            expect(fileInput.validationMessage).toBeNull();
+            await vi.waitFor(() => {
+                expect(fileInput.validationMessage).toBeNull();
+            });
         } finally {
             other.dispose();
         }
@@ -225,12 +249,14 @@ describe("Workbench — Open File / Open Folder", () => {
         h.testApp.render();
         const fileInput = quickPickByTitle(h.testApp, "Open File");
         fileInput.onQueryChange?.("beta.txt");
-        expect(fileInput.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(fileInput.validationMessage).toBeNull();
+        });
     });
 });
 
 describe("Workbench — Open File without a workspace folder", () => {
-    it("resolves relative paths against the process cwd", () => {
+    it("resolves relative paths against the process cwd", async () => {
         // No workspaceFolder: getRootPath() is null → cwd fallback.
         const h = createAppTestHarness();
         try {
@@ -239,9 +265,11 @@ describe("Workbench — Open File without a workspace folder", () => {
             const input = quickPickByTitle(h.testApp, "Open File");
 
             input.onQueryChange?.("definitely-nonexistent-xyz.txt");
-            expect(input.validationMessage).toBe(
-                `File does not exist: ${path.join(process.cwd(), "definitely-nonexistent-xyz.txt")}`,
-            );
+            await vi.waitFor(() => {
+                expect(input.validationMessage).toBe(
+                    `File does not exist: ${path.join(process.cwd(), "definitely-nonexistent-xyz.txt")}`,
+                );
+            });
         } finally {
             h.dispose();
         }

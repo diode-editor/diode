@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle, tabLabels } from "../../../TestUtils/domQueries.ts";
@@ -178,10 +178,11 @@ describe("Workbench — New Untitled File", () => {
         saveAs!.setQuery(target);
         saveAs!.onQueryChange?.(target);
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        // Цель Save As проверяется по диску асинхронно (файловый сервис).
+        await vi.waitFor(() => {
+            expect(fs.existsSync(target)).toBe(true);
+        });
         h.testApp.render();
-
-        expect(fs.existsSync(target)).toBe(true);
         expect(tabLabels(h.testApp)).toContain("saved-untitled.txt");
     });
 });

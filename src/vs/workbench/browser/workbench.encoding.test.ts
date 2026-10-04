@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 
 import iconv from "iconv-lite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -20,6 +20,18 @@ function visiblePicker(h: IAppHarness): QuickPickElement {
     const picker = pickers.find((p) => p.items.length > 0);
     if (picker === undefined) throw new Error("Quick pick with items not found");
     return picker;
+}
+
+/**
+ * Запускает Change File Encoding и ждёт первый уровень пикера: доступность
+ * «Reopen» проверяется по диску асинхронно (файловый сервис).
+ */
+async function changeEncoding(h: IAppHarness): Promise<void> {
+    h.commands.execute("workbench.action.editor.changeEncoding");
+    await vi.waitFor(() => {
+        h.testApp.render();
+        visiblePicker(h);
+    });
 }
 
 /** Фильтрует пикер по подстроке и принимает активный элемент. */
@@ -55,8 +67,7 @@ describe("Workbench — Change File Encoding", () => {
         h.commands.execute("workbench.openFile", ws.path("plain.txt"));
         h.testApp.render();
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         h.testApp.render();
 
         const labels = visiblePicker(h).items.map((item) => item.label);
@@ -69,8 +80,7 @@ describe("Workbench — Change File Encoding", () => {
         h.testApp.render();
         h.commands.execute("workbench.action.files.toggleActiveEditorReadonlyInSession");
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         h.testApp.render();
 
         const labels = visiblePicker(h).items.map((item) => item.label);
@@ -97,8 +107,7 @@ describe("Workbench — Change File Encoding", () => {
         h.commands.execute("workbench.action.files.newUntitledFile");
         h.testApp.render();
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         h.testApp.render();
 
         const labels = visiblePicker(h).items.map((item) => item.label);
@@ -112,8 +121,7 @@ describe("Workbench — Change File Encoding", () => {
         const editor = h.activeEditor();
         expect(editor.getText()).not.toContain("Привет");
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         await pick(h, "Reopen");
         await pick(h, "Cyrillic (Windows 1251)");
 
@@ -130,8 +138,7 @@ describe("Workbench — Change File Encoding", () => {
         editor.viewState.type("x");
         expect(editor.isModified).toBe(true);
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         await pick(h, "Reopen");
         await pick(h, "Cyrillic (Windows 1251)");
 
@@ -152,8 +159,7 @@ describe("Workbench — Change File Encoding", () => {
         h.commands.execute("workbench.openFile", filePath);
         h.testApp.render();
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         await pick(h, "Save with Encoding");
         await pick(h, "Cyrillic (Windows 1251)");
 
@@ -175,8 +181,7 @@ describe("Workbench — Change File Encoding", () => {
         h.testApp.render();
         h.activeEditor().viewState.type("Ёлка");
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         await pick(h, "Save with Encoding");
         await pick(h, "Cyrillic (Windows 1251)");
 
@@ -189,9 +194,10 @@ describe("Workbench — Change File Encoding", () => {
         const target = ws.path("untitled-out.txt");
         input!.setQuery(target);
         h.testApp.sendKey("Enter");
-        await flushMicrotasks();
-
-        expect([...fs.readFileSync(target)]).toEqual([...iconv.encode("Ёлка", "windows1251")]);
+        // Save As проверяет цель по диску асинхронно (файловый сервис).
+        await vi.waitFor(() => {
+            expect([...fs.readFileSync(target)]).toEqual([...iconv.encode("Ёлка", "windows1251")]);
+        });
     });
 
     it("Save with Encoding при внешнем изменении файла — Overwrite-диалог", async () => {
@@ -201,8 +207,7 @@ describe("Workbench — Change File Encoding", () => {
         // Внешняя правка после открытия: save() должен увидеть конфликт.
         fs.writeFileSync(filePath, "external edit that changes size\n", "utf-8");
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         await pick(h, "Save with Encoding");
         await pick(h, "Cyrillic (Windows 1251)");
 
@@ -222,8 +227,7 @@ describe("Workbench — Change File Encoding", () => {
         h.commands.execute("workbench.openFile", filePath);
         h.testApp.render();
 
-        h.commands.execute("workbench.action.editor.changeEncoding");
-        await flushMicrotasks();
+        await changeEncoding(h);
         await pick(h, "Save with Encoding");
         h.testApp.sendKey("Escape");
         await flushMicrotasks();

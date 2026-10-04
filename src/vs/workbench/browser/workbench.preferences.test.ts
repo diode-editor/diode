@@ -37,15 +37,15 @@ describe("Workbench — Preferences commands", () => {
             });
         });
 
-        it("openSettings seeds a missing settings.json and opens it", () => {
-            h.commands.execute("workbench.action.openSettings");
+        it("openSettings seeds a missing settings.json and opens it", async () => {
+            await h.commands.execute("workbench.action.openSettings");
 
             expect(fs.readFileSync(settingsFile, "utf-8")).toBe("{}\n");
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
         });
 
-        it("openGlobalKeybindingsFile seeds a missing keybindings.json and opens it", () => {
-            h.commands.execute("workbench.action.openGlobalKeybindingsFile");
+        it("openGlobalKeybindingsFile seeds a missing keybindings.json and opens it", async () => {
+            await h.commands.execute("workbench.action.openGlobalKeybindingsFile");
 
             expect(fs.readFileSync(keybindingsFile, "utf-8")).toBe("[]\n");
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(keybindingsFile));
@@ -80,11 +80,11 @@ describe("Workbench — Preferences commands", () => {
             expect(editorService.getPanes().length).toBe(openedCount);
         });
 
-        it("does not overwrite an existing settings.json", () => {
+        it("does not overwrite an existing settings.json", async () => {
             fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
             fs.writeFileSync(settingsFile, '{ "editor.tabSize": 2 }\n', "utf-8");
 
-            h.commands.execute("workbench.action.openSettings");
+            await h.commands.execute("workbench.action.openSettings");
 
             expect(fs.readFileSync(settingsFile, "utf-8")).toBe('{ "editor.tabSize": 2 }\n');
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
@@ -173,11 +173,11 @@ describe("Workbench — Preferences commands", () => {
             h = createAppTestHarness();
         });
 
-        it("openSettings opens settings.json of the test environment (a fresh temp dir per container)", () => {
+        it("openSettings opens settings.json of the test environment (a fresh temp dir per container)", async () => {
             const { settingsResource, userDataRoot } = h.container.get(IEnvironmentServiceDIToken);
             expect(settingsResource.startsWith(userDataRoot)).toBe(true);
 
-            h.commands.execute("workbench.action.openSettings");
+            await h.commands.execute("workbench.action.openSettings");
 
             expect(fs.readFileSync(settingsResource, "utf-8")).toBe("{}\n");
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsResource));

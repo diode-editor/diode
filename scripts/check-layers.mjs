@@ -152,10 +152,10 @@ const NODE_IMPORT_DEBT = [
     ["src/vs/workbench/api/common/workspaceNamespace.ts", "node:fs/promises"],
     // Extension host: env.machineId и т.п.; вне файлового сервиса.
     ["src/vs/workbench/api/common/vscodeNamespace.ts", "node:crypto"],
-    // Холодные потребители — на IFileService (PR 2).
-    ["src/vs/workbench/browser/actions/encodingActions.ts", "node:fs"],
-    ["src/vs/workbench/contrib/files/browser/fileActions.ts", "node:fs"],
-    ["src/vs/workbench/contrib/preferences/browser/preferencesActions.ts", "node:fs"],
+    // Рестор вкладок и история навигации проверяют существование файла синхронно:
+    // рестор синхронен по устройству (бутстрапу нужны пути до первого кадра), и
+    // асинхронным он станет вместе с загрузкой модели (PR 5, §7.2); история —
+    // открытый вопрос §12.3, до решения поведение не меняем.
     ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
     ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
     // Explorer: операции, чтение каталогов и слежение — на IFileService/ITreeFileWatcher (PR 3).

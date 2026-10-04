@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -61,14 +61,31 @@ describe("Workbench — Save As", () => {
         const newPath = ws.path("renamed.md");
         openInputBox(h.testApp).setQuery(newPath);
         h.testApp.sendKey("Enter");
-        await flushMicrotasks();
+        // Цель проверяется по диску асинхронно (файловый сервис).
+        await vi.waitFor(() => {
+            expect(fs.readFileSync(newPath, "utf-8")).toBe("Alpha content");
+        });
         h.testApp.render();
-
-        expect(fs.readFileSync(newPath, "utf-8")).toBe("Alpha content");
 
         const tabStrip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
         const labels = tabStrip.getItemElements().map((el) => el.getLabel());
         expect(labels.some((l) => l.includes("renamed.md"))).toBe(true);
+    });
+
+    it("Save As в собственный путь сохраняет без вопроса о перезаписи", async () => {
+        const alphaPath = ws.path("alpha.txt");
+        h.commands.execute("workbench.openFile", alphaPath);
+        h.testApp.render();
+        h.activeEditor().viewState.type("X");
+        h.commands.execute("workbench.action.files.saveAs");
+        h.testApp.render();
+
+        openInputBox(h.testApp).setQuery(alphaPath);
+        h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(fs.readFileSync(alphaPath, "utf-8")).toBe("XAlpha content");
+        });
+        expect(h.container.get(DialogServiceDIToken).getOpenConfirmDialog()).toBeNull();
     });
 
     it("prompts before overwriting a different existing file", async () => {
@@ -80,12 +97,12 @@ describe("Workbench — Save As", () => {
         const betaPath = ws.path("beta.txt");
         openInputBox(h.testApp).setQuery(betaPath);
         h.testApp.sendKey("Enter");
-        await flushMicrotasks();
-        h.testApp.render();
-
         // A confirm dialog appears and beta.txt is NOT overwritten yet.
+        await vi.waitFor(() => {
+            expect(h.container.get(DialogServiceDIToken).getOpenConfirmDialog()).not.toBeNull();
+        });
+        h.testApp.render();
         const dialog = h.container.get(DialogServiceDIToken).getOpenConfirmDialog();
-        expect(dialog).not.toBeNull();
         expect(fs.readFileSync(betaPath, "utf-8")).toBe("Beta content");
 
         dialog!.onConfirm?.();
@@ -94,7 +111,7 @@ describe("Workbench — Save As", () => {
         expect(fs.readFileSync(betaPath, "utf-8")).toBe("Alpha content");
     });
 
-    it("validates the target path", () => {
+    it("validates the target path", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         h.testApp.render();
         h.commands.execute("workbench.action.files.saveAs");
@@ -103,18 +120,26 @@ describe("Workbench — Save As", () => {
         const input = openInputBox(h.testApp);
 
         input.onQueryChange?.("   ");
-        expect(input.validationMessage).toBe("Please enter a file name");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("Please enter a file name");
+        });
 
         const missingDir = ws.path("no/such/dir/file.txt");
         input.onQueryChange?.(missingDir);
-        expect(input.validationMessage).toContain("Directory does not exist");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toContain("Directory does not exist");
+        });
 
         // The workspace directory itself is a folder, not a valid file target.
         input.onQueryChange?.(ws.dir);
-        expect(input.validationMessage).toBe("A folder with that name already exists");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("A folder with that name already exists");
+        });
 
         input.onQueryChange?.(ws.path("fresh.txt"));
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
     });
 
     it("does nothing when there is no active editor", () => {

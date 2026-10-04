@@ -1,6 +1,4 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
-
+import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
@@ -8,6 +6,7 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { IEnvironmentServiceDIToken } from "../../../../platform/environment/common/environment.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     keybindingLabelStyle,
@@ -27,12 +26,15 @@ import { KeybindingsEditorPane, KeybindingsEditorTargetDIToken } from "./keybind
  * yet: we seed it (create the parent dir + a minimal skeleton) so the editor opens
  * a real file and a subsequent Ctrl+S can't fail with ENOENT, mirroring VS Code.
  */
-function openUserConfigFile(accessor: ServiceAccessor, resource: string, skeleton: string): void {
-    if (!fs.existsSync(resource)) {
-        fs.mkdirSync(path.dirname(resource), { recursive: true });
-        fs.writeFileSync(resource, skeleton, "utf-8");
+async function openUserConfigFile(accessor: ServiceAccessor, resource: string, skeleton: string): Promise<void> {
+    const files = accessor.get(IFileServiceDIToken);
+    const commands = accessor.get(CommandRegistryDIToken);
+    const uri = Uri.file(resource);
+    if (!(await files.exists(uri))) {
+        await files.createFolder(Uri.joinPath(uri, ".."));
+        await files.writeFile(uri, new TextEncoder().encode(skeleton));
     }
-    accessor.get(CommandRegistryDIToken).execute("workbench.openFile", resource);
+    commands.execute("workbench.openFile", resource);
 }
 
 /**
@@ -47,7 +49,7 @@ export const openSettingsAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 10 }],
     keybinding: parseKeybinding("mod+,"),
     run(accessor) {
-        openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "{}\n");
+        return openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "{}\n");
     },
 };
 
@@ -97,6 +99,6 @@ export const openKeybindingsFileAction: CommandAction = {
     shortTitle: "Keyboard Shortcuts (JSON)",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 21 }],
     run(accessor) {
-        openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).keybindingsResource, "[]\n");
+        return openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).keybindingsResource, "[]\n");
     },
 };

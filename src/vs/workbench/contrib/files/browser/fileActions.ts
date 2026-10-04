@@ -1,10 +1,10 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { type IFileService, IFileServiceDIToken, type IFileStat } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -37,16 +37,18 @@ export const WorkspaceFolderOpenerDIToken = token<IWorkspaceFolderOpener>("Works
 async function runOpenFile(accessor: ServiceAccessor): Promise<void> {
     const quickInput = accessor.get(QuickInputServiceDIToken);
     const fileOperations = accessor.get(FileOperationsServiceDIToken);
+    const files = accessor.get(IFileServiceDIToken);
 
     const target = await quickInput.input({
         title: "Open File",
         placeholder: "Enter a file path",
-        validateInput: (value) => {
+        validateInput: async (value) => {
             const resolved = fileOperations.resolveInputPath(value);
             // Empty is not flagged (fresh prompt shows no error); Enter is a no-op.
             if (!resolved) return null;
-            if (!fs.existsSync(resolved)) return `File does not exist: ${resolved}`;
-            if (fs.statSync(resolved).isDirectory()) return "That is a folder, not a file";
+            const stat = await statOrNull(files, resolved);
+            if (stat === null) return `File does not exist: ${resolved}`;
+            if (stat.isDirectory) return "That is a folder, not a file";
             return null;
         },
     });
@@ -64,16 +66,18 @@ async function runOpenFile(accessor: ServiceAccessor): Promise<void> {
 async function runOpenFolder(accessor: ServiceAccessor): Promise<void> {
     const quickInput = accessor.get(QuickInputServiceDIToken);
     const fileOperations = accessor.get(FileOperationsServiceDIToken);
+    const files = accessor.get(IFileServiceDIToken);
 
     const target = await quickInput.input({
         title: "Open Folder",
         placeholder: "Enter a folder path",
-        validateInput: (value) => {
+        validateInput: async (value) => {
             const resolved = fileOperations.resolveInputPath(value);
             // Empty is not flagged (fresh prompt shows no error); Enter is a no-op.
             if (!resolved) return null;
-            if (!fs.existsSync(resolved)) return `Folder does not exist: ${resolved}`;
-            if (!fs.statSync(resolved).isDirectory()) return "That is a file, not a folder";
+            const stat = await statOrNull(files, resolved);
+            if (stat === null) return `Folder does not exist: ${resolved}`;
+            if (!stat.isDirectory) return "That is a file, not a folder";
             return null;
         },
     });
@@ -132,6 +136,7 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
     const editorService = accessor.get(EditorServiceDIToken);
     const editor = editorService.getActiveTabEditor();
     if (!editor) return;
+    const files = accessor.get(IFileServiceDIToken);
 
     // Безымянный буфер (Ctrl+N) не имеет пути — стартуем от cwd и предложенного
     // имени (`Untitled-3.txt`: метка буфера + расширение его языка).
@@ -143,13 +148,13 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
         title: "Save As",
         placeholder: "Enter path to save",
         value: seed,
-        validateInput: (value) => {
+        validateInput: async (value) => {
             const trimmed = value.trim();
             if (trimmed === "") return "Please enter a file name";
             const resolved = path.resolve(trimmed);
             const dir = path.dirname(resolved);
-            if (!fs.existsSync(dir)) return `Directory does not exist: ${dir}`;
-            if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+            if (!(await files.exists(Uri.file(dir)))) return `Directory does not exist: ${dir}`;
+            if ((await statOrNull(files, resolved))?.isDirectory === true) {
                 return "A folder with that name already exists";
             }
             return null;
@@ -174,7 +179,7 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
 
     // Overwriting a *different* existing file → confirm first. Сравниваем ресурсы,
     // а не сырые строки: `resolved` уже абсолютный, но канонизацию даёт Uri.
-    if (Uri.file(resolved).toString() !== editor.uri.toString() && fs.existsSync(resolved)) {
+    if (Uri.file(resolved).toString() !== editor.uri.toString() && (await files.exists(Uri.file(resolved)))) {
         accessor.get(DialogServiceDIToken).showConfirmDialog(
             {
                 title: "Save As",
@@ -275,3 +280,12 @@ export const toggleActiveEditorReadonlyInSessionAction: CommandAction = {
         accessor.get(WorkbenchContextKeysDIToken).update();
     },
 };
+
+/** Stat пути на диске; `null` — его нет (или он недоступен). */
+async function statOrNull(files: IFileService, fsPath: string): Promise<IFileStat | null> {
+    try {
+        return await files.stat(Uri.file(fsPath));
+    } catch {
+        return null;
+    }
+}
