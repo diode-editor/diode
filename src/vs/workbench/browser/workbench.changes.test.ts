@@ -5,10 +5,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
+import { Event } from "../../base/common/event.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../platform/files/common/files.ts";
 import type { ChangesComponent } from "../contrib/scm/browser/changesComponent.ts";
 import { ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../contrib/scm/browser/changesService.ts";
@@ -91,9 +92,10 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         // Дополняем штатный реестр (в нём уже есть file: из markersModule)
         // git:-провайдером — как это делает адаптер расширения. Untracked-файлу
         // originalResource отвечает null — как настоящее git-расширение.
-        container.get(FileSystemProviderRegistryDIToken).registerProvider("git", {
+        container.get(IFileServiceDIToken).registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
 
         workbench = container.get(WorkbenchComponentDIToken);

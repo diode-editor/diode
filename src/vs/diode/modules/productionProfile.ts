@@ -27,6 +27,7 @@ import { environmentModule } from "./environmentModule.ts";
 import { extensionHostModule, type IExtensionHostModuleContext } from "./extensionHostModule.ts";
 import type { ExtensionsModuleContext } from "./extensionsModule.ts";
 import { extensionsModule } from "./extensionsModule.ts";
+import { filesModule } from "./filesModule.ts";
 import { fileWatcherModule } from "./fileWatcherModule.ts";
 import { keybindingsModule } from "./keybindingsModule.ts";
 import { lifecycleModule } from "./lifecycleModule.ts";
@@ -93,6 +94,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(keybindingsModule, { rules: ctx.userKeybindings })
         .use(workspaceModule)
         .use(fileWatcherModule)
+        .use(filesModule)
         .use(markersModule)
         .use(workbenchModule)
         .use(lifecycleModule, ctx)

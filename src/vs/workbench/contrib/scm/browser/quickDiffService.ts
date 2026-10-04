@@ -5,8 +5,8 @@ import { DefaultLinesDiffComputer } from "../../../../editor/common/diff/default
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import type { IFileSystemProviderRegistry } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import type { IFileService } from "../../../../platform/files/common/files.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -45,7 +45,7 @@ export interface IQuickDiffEditorSource {
  *
  * Решение «есть ли у файла оригинал» принадлежит именно поставщику: untracked,
  * ignored, файл вне репозитория — всё это знает git, а не ядро. Ядро получает
- * ресурс и читает его через {@link IFileSystemProviderRegistry}, не зная про git.
+ * ресурс и читает его через {@link IFileService}, не зная про git.
  */
 export interface IOriginalResourceProvider {
     /** `ref` — ревизия оригинала; не задан — `HEAD` (обычный quick diff). */
@@ -73,7 +73,7 @@ export class QuickDiffService extends Disposable {
     public static dependencies = [
         QuickDiffEditorSourceDIToken,
         OriginalResourceProviderDIToken,
-        FileSystemProviderRegistryDIToken,
+        IFileServiceDIToken,
         IConfigurationServiceDIToken,
         ThemeServiceDIToken,
     ] as const;
@@ -94,7 +94,7 @@ export class QuickDiffService extends Disposable {
     public constructor(
         private readonly editorSource: IQuickDiffEditorSource,
         private readonly originalResources: IOriginalResourceProvider,
-        private readonly providers: IFileSystemProviderRegistry,
+        private readonly providers: IFileService,
         private readonly configurationService: IConfigurationService,
         private readonly themeService: ThemeService,
     ) {
@@ -108,7 +108,7 @@ export class QuickDiffService extends Disposable {
         );
         // Сдвинулся HEAD/индекс — кэшированные оригиналы устарели.
         this.register(
-            this.providers.onDidChangeFile(() => {
+            this.providers.onDidFilesChange(() => {
                 this.originals.clear();
                 void this.refresh(this.editorSource.getActiveEditor());
             }),
@@ -117,7 +117,7 @@ export class QuickDiffService extends Disposable {
         // первого файла: к моменту стартового пересчёта поставщика ещё нет.
         // Без этой подписки бары не появились бы до следующей правки.
         this.register(
-            this.providers.onDidChangeProviders(() => {
+            this.providers.onDidChangeFileSystemProviderRegistrations(() => {
                 void this.refresh(this.editorSource.getActiveEditor());
             }),
         );
@@ -207,8 +207,8 @@ export class QuickDiffService extends Disposable {
         try {
             const originalResource = await this.originalResources.provideOriginalResource(uri);
             if (originalResource === null) return null;
-            if (!this.providers.hasProvider(originalResource.scheme)) return null;
-            return new TextDecoder().decode(await this.providers.readFile(originalResource));
+            // Схема без провайдера — отказ readFile (Unavailable), ловится ниже.
+            return new TextDecoder().decode((await this.providers.readFile(originalResource)).value);
         } catch {
             // Расширения нет, git недоступен, файла нет в ревизии — во всех
             // случаях показывать нечего, и это не повод шуметь.

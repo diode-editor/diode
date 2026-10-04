@@ -6,7 +6,7 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { FileSystemProviderRegistryDIToken } from "../../../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
@@ -232,15 +232,15 @@ async function openFileAtRevision(accessor: ServiceAccessor): Promise<void> {
     } catch {
         revisionUri = null;
     }
-    const providers = accessor.get(FileSystemProviderRegistryDIToken);
-    if (revisionUri === null || !providers.hasProvider(revisionUri.scheme)) {
+    const providers = accessor.get(IFileServiceDIToken);
+    if (revisionUri === null || !providers.hasProvider(revisionUri)) {
         showCompareNotice(accessor, "Cannot open: the file has no version in git");
         return;
     }
 
     let text: string;
     try {
-        text = new TextDecoder().decode(await providers.readFile(revisionUri));
+        text = new TextDecoder().decode((await providers.readFile(revisionUri)).value);
     } catch {
         // Файла на этой ревизии нет — честный нотис, а не пустая вкладка.
         showCompareNotice(accessor, `Cannot open: the file does not exist on ${ref}`);

@@ -27,6 +27,7 @@ import { configurationModuleDefault } from "./configurationModule.ts";
 import { coreModuleLate } from "./coreModule.ts";
 import { environmentModule } from "./environmentModule.ts";
 import { extensionsModule } from "./extensionsModule.ts";
+import { filesModule } from "./filesModule.ts";
 import { fileWatcherModuleDefault } from "./fileWatcherModule.ts";
 import { keybindingsModuleDefault } from "./keybindingsModule.ts";
 import { lifecycleModule } from "./lifecycleModule.ts";
@@ -103,6 +104,7 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
         .use(keybindingsModuleDefault)
         .use(workspaceModule)
         .use(fileWatcherModuleDefault)
+        .use(filesModule)
         .use(markersModule)
         .use(workbenchModule)
         // Выход и перезагрузка окна в тестах — no-op: настоящие унесли бы

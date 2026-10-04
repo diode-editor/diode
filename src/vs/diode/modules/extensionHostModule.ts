@@ -6,7 +6,7 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { IExtension } from "../../platform/extensions/common/iExtension.ts";
-import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { IFileServiceDIToken } from "../../platform/files/common/files.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
@@ -262,7 +262,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // встроенного git), становятся читаемыми через реестр ядра. Адаптер сам
         // следит за появлением/исчезновением схем — расширение может
         // активироваться позже создания хоста.
-        new FileSystemProviderAdapter(host, container.get(FileSystemProviderRegistryDIToken));
+        new FileSystemProviderAdapter(host, container.get(IFileServiceDIToken));
 
         // Языковые провайдеры расширений (languages.register): прокси по handle
         // в реестрах ядра — их читают потребители фич (HoverService, …).

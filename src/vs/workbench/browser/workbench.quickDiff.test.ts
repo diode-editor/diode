@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
+import { Event } from "../../base/common/event.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { FileSystemProviderRegistry } from "../../platform/files/common/fileSystemProviderRegistry.ts";
-import { FileSystemProviderRegistryDIToken } from "../../platform/files/common/iFileSystemProviderRegistry.ts";
+import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../platform/files/common/files.ts";
+import { FileService } from "../../platform/files/common/fileService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
@@ -50,12 +51,13 @@ describe("Workbench — живой гуттер quick diff", () => {
         const { container, bindApp } = createTestContainer();
 
         // Заглушка SCM: реестр провайдеров отдаёт «версию из HEAD».
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         registry.registerProvider("git", {
+            capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(ORIGINAL_TEXT)),
-            onDidChangeFile: () => ({ dispose: () => undefined }),
+            onDidChangeFile: Event.None,
         });
-        container.bind(FileSystemProviderRegistryDIToken, () => registry);
+        container.bind(IFileServiceDIToken, () => registry);
 
         workbench = container.get(WorkbenchComponentDIToken);
         commands = container.get(CommandRegistryDIToken);

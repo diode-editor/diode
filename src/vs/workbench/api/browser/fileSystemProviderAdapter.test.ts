@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
-import { FileSystemProviderRegistry } from "../../../platform/files/common/fileSystemProviderRegistry.ts";
+import { FileService } from "../../../platform/files/common/fileService.ts";
 import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.ts";
 import { NULL_EXTENSION_FILE_SYSTEM_BRIDGE } from "../common/iExtensionFileSystem.ts";
 
@@ -44,55 +44,55 @@ const outputUri = Uri.from({ scheme: "output", path: "/channel" });
 
 describe("FileSystemProviderAdapter", () => {
     it("регистрирует схемы, объявленные до создания адаптера", async () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const { bridge } = fakeBridge(["git"]);
 
         new FileSystemProviderAdapter(bridge, registry);
 
-        expect(registry.hasProvider("git")).toBe(true);
-        expect(new TextDecoder().decode(await registry.readFile(gitUri))).toBe("содержимое git:/repo/a.ts");
+        expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(true);
+        expect(new TextDecoder().decode((await registry.readFile(gitUri)).value)).toBe("содержимое git:/repo/a.ts");
     });
 
     it("подхватывает схему, появившуюся позже (расширение активировалось после старта)", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const harness = fakeBridge([]);
         new FileSystemProviderAdapter(harness.bridge, registry);
-        expect(registry.hasProvider("git")).toBe(false);
+        expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(false);
 
         harness.setSchemes(["git"]);
 
-        expect(registry.hasProvider("git")).toBe(true);
+        expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(true);
     });
 
     it("снимает регистрацию исчезнувшей схемы", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const harness = fakeBridge(["git", "output"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
 
         harness.setSchemes(["git"]);
 
-        expect(registry.hasProvider("git")).toBe(true);
-        expect(registry.hasProvider("output")).toBe(false);
+        expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(true);
+        expect(registry.hasProvider(Uri.from({ scheme: "output", path: "/" }))).toBe(false);
     });
 
     it("повторное объявление того же набора не пересоздаёт регистрации", () => {
         // Пересоздание уронило бы регистрацию в реестре с «схема уже занята».
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const harness = fakeBridge(["git"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
 
         expect(() => {
             harness.setSchemes(["git"]);
         }).not.toThrow();
-        expect(registry.hasProvider("git")).toBe(true);
+        expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(true);
     });
 
     it("событие изменения фильтруется по схеме поставщика", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const harness = fakeBridge(["git", "output"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
         const seen = vi.fn();
-        registry.onDidChangeFile(seen);
+        registry.onDidFilesChange(seen);
 
         harness.fireChange([gitUri, outputUri]);
 
@@ -101,11 +101,11 @@ describe("FileSystemProviderAdapter", () => {
     });
 
     it("изменение только чужой схемы не будит поставщика", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const harness = fakeBridge(["git"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
         const seen = vi.fn();
-        registry.onDidChangeFile(seen);
+        registry.onDidFilesChange(seen);
 
         harness.fireChange([outputUri]);
 
@@ -113,21 +113,21 @@ describe("FileSystemProviderAdapter", () => {
     });
 
     it("dispose снимает все регистрации и отписки", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         const harness = fakeBridge(["git"]);
         const adapter = new FileSystemProviderAdapter(harness.bridge, registry);
 
         adapter.dispose();
 
-        expect(registry.hasProvider("git")).toBe(false);
+        expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(false);
         expect(harness.fileListenerCount).toBe(0);
     });
 
     it("с NULL-мостом ничего не регистрирует", () => {
-        const registry = new FileSystemProviderRegistry();
+        const registry = new FileService();
         new FileSystemProviderAdapter(NULL_EXTENSION_FILE_SYSTEM_BRIDGE, registry);
 
-        expect(registry.hasProvider("git")).toBe(false);
+        expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(false);
     });
 });
 
