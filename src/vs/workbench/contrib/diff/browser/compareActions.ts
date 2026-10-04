@@ -18,7 +18,7 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import type { DiffViewMode } from "../../../common/stateKeys.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
-import { FileSearchServiceDIToken } from "../../../services/search/node/fileSearchService.ts";
+import { FileSearchServiceDIToken } from "../../../services/search/common/fileSearch.ts";
 import { openDiffWithHead } from "../../scm/browser/compareWithHeadAction.ts";
 import { OriginalResourceProviderDIToken } from "../../scm/browser/quickDiffService.ts";
 import { ScmRepoStateServiceDIToken } from "../../scm/browser/repoStateService.ts";

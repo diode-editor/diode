@@ -271,8 +271,9 @@ import {
 import { OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputChannelRegistry } from "../../workbench/services/output/common/outputChannelRegistry.ts";
 import { OutputService, OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { FileSearchServiceDIToken } from "../../workbench/services/search/common/fileSearch.ts";
 import { TextSearchServiceDIToken } from "../../workbench/services/search/common/textSearch.ts";
-import { FileSearchService, FileSearchServiceDIToken } from "../../workbench/services/search/node/fileSearchService.ts";
+import { FileSearchService } from "../../workbench/services/search/node/fileSearchService.ts";
 import { TextSearchService } from "../../workbench/services/search/node/textSearchService.ts";
 import {
     StatusBarService,

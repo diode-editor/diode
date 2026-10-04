@@ -64,10 +64,7 @@ const EXCEPTIONS = [
     // Single-process TUI: «browser»-сторона зовёт node-сервисы напрямую, без
     // RPC-моста vscode (IFileService и т.п.). Признанный долг — см.
     // docs/TODO/VscodeStructureFollowUps.md.
-    ["src/vs/workbench/browser/", "src/vs/workbench/services/search/node/"],
     ["src/vs/workbench/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
-    ["src/vs/workbench/contrib/quickaccess/browser/", "src/vs/workbench/services/search/node/"],
-    ["src/vs/workbench/contrib/diff/browser/", "src/vs/workbench/services/search/node/"],
     ["src/vs/workbench/services/keybinding/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
     // Мост тема→стили держит unthemed-дефолты у виджета редактора; разнос —
     // follow-up (unthemed-дефолты в platform или getEditorStyles в editor).
