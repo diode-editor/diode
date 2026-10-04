@@ -118,7 +118,7 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         const hovers = await getHovers(this.languageFeatures.hoverProvider, editor, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
-            text: editor.getText(),
+            versionId: editor.model.document.versionId,
             line: caret.line,
             character: caret.character,
         });

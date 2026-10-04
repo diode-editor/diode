@@ -47,7 +47,6 @@ export interface IWireWillSaveParams {
     readonly languageId: string;
     readonly version: number;
     readonly isDirty: boolean;
-    readonly text: string;
     /** `vscode.TextDocumentSaveReason` (1=Manual, 2=AfterDelay, 3=FocusOut). */
     readonly reason: number;
     /** Текущий EOL документа (`vscode.EndOfLine`: 1=LF, 2=CRLF). */
@@ -478,7 +477,8 @@ export interface IWireCompletionParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
     readonly line: number;
     readonly character: number;
 }
@@ -687,7 +687,8 @@ export interface IWireInlineCompletionParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
     readonly line: number;
     readonly character: number;
     /** `InlineCompletionTriggerKind`: 0 — Invoke, 1 — Automatic. */
@@ -808,7 +809,8 @@ export interface IWireFoldingParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
 }
 
 /** Валидирует одну wire-область folding; `null`, если форма не распознана. */
@@ -892,7 +894,8 @@ export interface IWireDefinitionParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
     readonly line: number;
     readonly character: number;
 }
@@ -969,7 +972,8 @@ export interface IWireHoverParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
     readonly line: number;
     readonly character: number;
 }
@@ -1179,7 +1183,8 @@ export interface IWireReferenceParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
     readonly line: number;
     readonly character: number;
     readonly includeDeclaration: boolean;
@@ -1248,7 +1253,8 @@ export interface IWireSignatureHelpParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
     readonly line: number;
     readonly character: number;
     readonly triggerKind: SignatureHelpTriggerKind;
@@ -1405,7 +1411,8 @@ export interface IWireFormattingParams {
     readonly handle?: number;
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version?: number;
     /** `vscode.FormattingOptions` активного редактора. */
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
@@ -1448,7 +1455,8 @@ export interface IWireCodeActionParams {
     readonly handle?: number;
     readonly uri: string;
     readonly languageId?: string;
-    readonly text?: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version?: number;
     readonly range: IWireRange;
     /** LSP `CodeActionContext.only` (`source.organizeImports` и т.п.). */
     readonly only?: string;
@@ -1528,7 +1536,8 @@ export interface IWirePrepareRenameParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    readonly text: string;
+    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
+    readonly version: number;
     readonly line: number;
     readonly character: number;
 }

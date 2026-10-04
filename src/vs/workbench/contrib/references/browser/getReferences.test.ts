@@ -11,7 +11,7 @@ const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
 const REQUEST: IReferenceRequest = {
     uri: TS.uri.toString(),
     languageId: "typescript",
-    text: "const a = b;\n",
+    versionId: 1,
     line: 0,
     character: 10,
     includeDeclaration: true,

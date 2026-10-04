@@ -16,21 +16,25 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
         registry,
-        documentSync: new DocumentSyncTracker(registry),
+        documentSync: new DocumentSyncTracker(registry, () => undefined),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
     };
+    // Документ открыт document sync'ом (как `editor.didOpen`): запросы текста
+    // не везут, провайдер читает зеркало версии 1.
+    ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { ctx, stub };
 }
 
 const URI = "file:///proj/main.ts";
+const TEXT = "con\n";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         handles: [0],
         uri: URI,
         languageId: "typescript",
-        text: "con\n",
+        version: 1,
         line: 0,
         character: 3,
         triggerKind: 1,
@@ -59,7 +63,7 @@ describe("LanguagesNamespace — registerInlineCompletionItemProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
-    it("кладёт снапшот документа в реестр и зовёт провайдер с позицией и triggerKind", async () => {
+    it("зовёт провайдер с документом из зеркала, позицией и triggerKind", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; context?: vscode.InlineCompletionContext } = {};
@@ -87,7 +91,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(seen.pos?.character).toBe(3);
         expect(seen.context?.triggerKind).toBe(1);
         expect(seen.context?.selectedCompletionInfo).toBeUndefined();
-        expect(ctx.registry.get(URI as unknown as vscode.Uri)?.getText()).toBe("con\n");
+        expect(seen.doc).toBe(ctx.registry.get(URI as unknown as vscode.Uri));
         expect(result).toStrictEqual([
             [
                 {
@@ -169,25 +173,27 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         ]);
     });
 
-    it("дефолты params: без languageId/line/character/triggerKind — позиция (0,0), Automatic", async () => {
+    it("дефолты params: без languageId/line/character/triggerKind — позиция (0,0), Automatic, язык не затирается", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const seen: { pos?: vscode.Position; context?: vscode.InlineCompletionContext } = {};
+        const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; context?: vscode.InlineCompletionContext } = {};
         languages.registerInlineCompletionItemProvider("plaintext", {
-            provideInlineCompletionItems: (_doc, position, context) => {
+            provideInlineCompletionItems: (document, position, context) => {
+                seen.doc = document;
                 seen.pos = position;
                 seen.context = context;
                 return [];
             },
         });
 
-        await stub.callRequest("languages.provideInlineCompletions", { handles: [0], uri: URI });
+        await stub.callRequest("languages.provideInlineCompletions", { handles: [0], uri: URI, version: 1 });
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
         expect(seen.context?.triggerKind).toBe(1); // Automatic
-        // Без text снапшот документа — пустая строка, не мусор.
-        expect(ctx.registry.get(URI as unknown as vscode.Uri)?.getText()).toBe("");
+        // Текст — из зеркала; languageId в запросе не пришёл — язык из didOpen.
+        expect(seen.doc?.getText()).toBe(TEXT);
+        expect(seen.doc?.languageId).toBe("typescript");
     });
 
     it("null/undefined/мусор от провайдера — пустой ответ; пустой insertText отбрасывается", async () => {
@@ -236,6 +242,35 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(
             await stub.callRequest("languages.provideInlineCompletions", requestParams({ handles: undefined })),
         ).toStrictEqual([]);
+    });
+});
+
+describe("LanguagesNamespace — provideInlineCompletions по версии зеркала", () => {
+    it("не открытый документ, устаревшая и забежавшая вперёд версия — [], провайдер не зовётся", async () => {
+        const { stub, ctx } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        let asked = 0;
+        languages.registerInlineCompletionItemProvider(
+            { language: "typescript" },
+            {
+                provideInlineCompletionItems: () => {
+                    asked++;
+                    return [new InlineCompletionItem("x") as never];
+                },
+            },
+        );
+        ctx.documentSync.change({ uri: URI, version: 2, changes: [] });
+
+        const stale = [{ uri: "file:///proj/unknown.ts" }, { version: 1 }, { version: 3 }, { version: undefined }];
+        for (const overrides of stale) {
+            expect(
+                await stub.callRequest("languages.provideInlineCompletions", requestParams(overrides)),
+            ).toStrictEqual([]);
+        }
+        expect(asked).toBe(0);
+        expect(
+            await stub.callRequest("languages.provideInlineCompletions", requestParams({ version: 2 })),
+        ).toStrictEqual([[{ insertText: "x" }]]);
     });
 });
 

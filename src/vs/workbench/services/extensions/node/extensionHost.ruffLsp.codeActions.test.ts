@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideCodeActions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -67,7 +68,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
             const actions = await provideCodeActions(harness, {
                 uri,
                 languageId: "python",
-                text: LINT_PY,
+                versionId: documentVersion(harness, uri),
                 range: createRange(0, 0, 4, 17),
                 only,
             });
@@ -125,7 +126,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "python",
-                        text: LINT_PY,
+                        versionId: documentVersion(harness, lintUri),
                         range: createRange(0, 0, 0, 10),
                     });
                     const found = actions.filter((a) => a.kind === "quickfix");

@@ -120,7 +120,7 @@ describe("RenameService — Rename Symbol", () => {
             line: 0,
             character: 8,
         });
-        expect(seen.request?.text).toContain("const value = 1;");
+        expect(seen.request?.versionId).toBe(group().getActiveEditor()?.model.document.versionId);
         expect(notices).toEqual([]);
     });
 
@@ -175,6 +175,7 @@ describe("RenameService — Rename Symbol", () => {
                 uri: Uri.file(ws.path("main.ts")),
                 languageId: "typescript",
                 getText: () => "const value = 1;\n",
+                model: { document: { versionId: 1 } },
                 viewState: { selections: [{ active: { line: 99, character: 0 } }] },
             }),
         } as unknown as IEditorService;
@@ -238,12 +239,15 @@ describe("RenameService — Rename Symbol", () => {
         expect(notices).toEqual([]);
     });
 
-    it("текст пересобирается на момент применения: провайдер видит живой документ", async () => {
-        const seen: { text?: string } = {};
+    it("версия пересобирается на момент применения: провайдер видит живой документ", async () => {
+        const seen: { prepared?: number; applied?: number } = {};
         provider({
-            prepareRename: () => name("value"),
+            prepareRename: (request) => {
+                seen.prepared = request.versionId;
+                return name("value");
+            },
             provideRenameEdits: (request) => {
-                seen.text = request.text;
+                seen.applied = request.versionId;
                 return Promise.resolve({ applied: true });
             },
         });
@@ -260,15 +264,19 @@ describe("RenameService — Rename Symbol", () => {
 
         await new RenameService(group(), quickInput, statusBar, features).rename();
 
-        expect(seen.text).toContain("// touched");
+        expect(seen.applied).toBe(editor?.model.document.versionId);
+        expect(seen.applied).not.toBe(seen.prepared);
     });
 
     it("редактор закрылся, пока вводили имя — провайдер получает снапшот запроса", async () => {
-        const seen: { text?: string } = {};
+        const seen: { prepared?: number; applied?: number } = {};
         provider({
-            prepareRename: () => name("value"),
+            prepareRename: (request) => {
+                seen.prepared = request.versionId;
+                return name("value");
+            },
             provideRenameEdits: (request) => {
-                seen.text = request.text;
+                seen.applied = request.versionId;
                 return Promise.resolve({ applied: true });
             },
         });
@@ -283,6 +291,8 @@ describe("RenameService — Rename Symbol", () => {
         } as unknown as IEditorService;
         const quickInput = {
             input: () => {
+                // Документ ещё и уехал — но живого редактора у группы уже нет.
+                editor?.pushUndo(editor.viewState.insertText("// touched\n"));
                 closed = true;
                 return Promise.resolve("renamed");
             },
@@ -292,7 +302,9 @@ describe("RenameService — Rename Symbol", () => {
         await new RenameService(closingGroup, quickInput, statusBar, features).rename();
 
         // Снапшот — тот, что собрали ДО показа поля: живого документа уже нет.
-        expect(seen.text).toContain("const value = 1;");
+        expect(seen.applied).toBeDefined();
+        expect(seen.applied).toBe(seen.prepared);
+        expect(seen.applied).not.toBe(editor?.model.document.versionId);
     });
 
     it("без провайдеров под документ и без активного редактора — no-op", async () => {

@@ -192,8 +192,8 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(component().view.linesFor(30)).toEqual(["живой"]);
     });
 
-    it("запрос несёт снапшот и позицию каретки", async () => {
-        const seen: { uri?: string; line?: number; character?: number; text?: string } = {};
+    it("запрос несёт версию документа и позицию каретки, но не текст", async () => {
+        const seen: { uri?: string; line?: number; character?: number; versionId?: number } = {};
         useProvider((request) => {
             Object.assign(seen, request);
             return Promise.resolve(hoverOf(["x"]));
@@ -203,7 +203,8 @@ describe("HoverService — показ и закрытие попапа", () => {
         await service().showHover();
 
         expect(seen).toMatchObject({ line: 1, character: 6 });
-        expect(seen.text).toContain("const answer");
+        expect(seen.versionId).toBe(group().getActiveEditor()?.model.document.versionId);
+        expect(seen).not.toHaveProperty("text");
     });
 
     it("Ctrl+K Ctrl+U открывает попап, Escape закрывает — фокус остаётся в редакторе", async () => {

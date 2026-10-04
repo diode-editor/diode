@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
     provideDefinitions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -18,8 +19,11 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
 };
 
-function requestFor(uri: string, line: number): IDefinitionRequest {
-    return { uri, languageId: "typescript", text: "const answer = compute();\nconst other = 1;\n", line, character: 6 };
+/** Версия для запросов по документу без открытого редактора: ответ пустой при любой. */
+const UNOPENED_VERSION = 1;
+
+function requestFor(uri: string, line: number, versionId: number): IDefinitionRequest {
+    return { uri, languageId: "typescript", versionId, line, character: 6 };
 }
 
 describe("ExtensionHost — definition providers (subprocess)", () => {
@@ -34,19 +38,18 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             const defsUri = Uri.file(`${harness.tmpDir}/defs.ts`).toString();
 
             // Строка 0 → фикстура возвращает одиночный vscode.Location.
-            const fromLocation = await provideDefinitions(harness, requestFor(mainUri, 0));
+            const fromLocation = await provideDefinitions(
+                harness,
+                requestFor(mainUri, 0, documentVersion(harness, mainUri)),
+            );
             expect(fromLocation).toEqual([{ uri: defsUri, range: createRange(2, 4, 2, 9) }]);
 
             // Строка 1 → массив LocationLink; прицельный диапазон — targetSelectionRange.
-            const fromLink = await provideDefinitions(harness, requestFor(mainUri, 1));
+            const fromLink = await provideDefinitions(
+                harness,
+                requestFor(mainUri, 1, documentVersion(harness, mainUri)),
+            );
             expect(fromLink).toEqual([{ uri: defsUri, range: createRange(5, 9, 5, 14) }]);
-
-            // Слишком большой документ не гоняется через RPC.
-            const huge = await provideDefinitions(harness, {
-                ...requestFor(mainUri, 0),
-                text: "x".repeat(8 * 1024 * 1024 + 1),
-            });
-            expect(huge).toEqual([]);
         } finally {
             await harness.dispose();
         }
@@ -60,7 +63,7 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await provideDefinitions(lazy, requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideDefinitions(lazy, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toEqual([]);
         } finally {
             await lazy.dispose();
         }
@@ -71,7 +74,7 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await provideDefinitions(noProviders, requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideDefinitions(noProviders, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toEqual([]);
         } finally {
             await noProviders.dispose();
         }

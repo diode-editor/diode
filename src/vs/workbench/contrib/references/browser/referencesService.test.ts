@@ -55,6 +55,8 @@ function fakeGroup(opts: IFakeEditorOptions = {}): IEditorService {
         uri: Uri.file(MAIN),
         languageId: "typescript",
         getText: () => opts.text ?? MAIN_TEXT,
+        // Запрос несёт версию модели вместо текста документа.
+        model: { document: { versionId: 3 } },
         viewState: { selections: [{ active: { line, character } }] },
     };
     const group = {
@@ -145,7 +147,7 @@ describe("ReferencesService — findReferences", () => {
             {
                 uri: Uri.file(MAIN).toString(),
                 languageId: "typescript",
-                text: MAIN_TEXT,
+                versionId: 3,
                 line: 2,
                 character: 15,
                 // VS Code показывает объявление первой строкой списка.

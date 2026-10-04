@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PY_LANGUAGE_SERVICE, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     formatDocumentFor,
     type IExtensionHarness,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -57,7 +58,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
                     languageId: "python",
-                    text: MESSY_PY,
+                    versionId: documentVersion(harness, mainUri),
                     tabSize: 4,
                     insertSpaces: true,
                 });
@@ -102,7 +103,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
                     languageId: "python",
-                    text: MESSY_PY,
+                    versionId: documentVersion(harness, mainUri),
                     range: createRange(1, 0, 2, 0),
                     tabSize: 4,
                     insertSpaces: true,

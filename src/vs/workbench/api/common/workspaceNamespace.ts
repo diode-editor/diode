@@ -206,7 +206,7 @@ interface IWireWillSaveParams {
     readonly uri: string;
     readonly languageId?: string;
     readonly isDirty?: boolean;
-    readonly text?: string;
+    readonly version?: number;
     readonly reason?: number;
     /** `vscode.EndOfLine`: 1=LF, 2=CRLF. */
     readonly eol?: number;
@@ -424,16 +424,17 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         } as vscode.ConfigurationChangeEvent);
     });
 
-    // Хост запрашивает pre-save правки: обновляем полный текст документа в
-    // реестре, фаерим onWillSaveTextDocument, собираем waitUntil-thenable'ы (по
+    // Хост запрашивает pre-save правки: документ — из зеркала (текста запрос не
+    // везёт; устаревший или не открытый — правок нет), мета сохранения — из
+    // запроса; фаерим onWillSaveTextDocument, собираем waitUntil-thenable'ы (по
     // одному per-listener таймауту), сериализуем полученные TextEdit[].
     rpc.handleRequest("workspace.willSaveTextDocument", async (params): Promise<WireTextEdit[]> => {
         const p = params as IWireWillSaveParams;
-        const doc = documentSync.verify({
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
+        doc.applyMeta({
             uri: p.uri,
-            languageId: p.languageId,
             isDirty: p.isDirty,
-            text: p.text ?? "",
             ...(p.eol === 1 || p.eol === 2 ? { eol: p.eol } : {}),
             ...(typeof p.encoding === "string" ? { encoding: p.encoding } : {}),
         });

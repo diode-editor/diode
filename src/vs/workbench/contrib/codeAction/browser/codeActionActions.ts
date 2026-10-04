@@ -44,7 +44,7 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
     const items = await getCodeActions(languageFeatures.codeActionProvider, editor, {
         uri: editor.uri.toString(),
         languageId: editor.languageId,
-        text,
+        versionId: editor.model.document.versionId,
         // Source-действия применяются к целому файлу — диапазон всегда полный,
         // выделение роли не играет (как в VS Code).
         range: createRange(0, 0, lastLine, lines[lastLine].length),
@@ -102,7 +102,7 @@ async function pickCodeAction(
     const found = await getCodeActions(languageFeatures.codeActionProvider, editor, {
         uri: editor.uri.toString(),
         languageId: editor.languageId,
-        text,
+        versionId: editor.model.document.versionId,
         // Каретка/выделение — как VS Code: действия по месту (пустое
         // выделение — строка каретки, чтобы накрыть диагностики строки).
         range: selectionRange(editor.viewState.selections[0], text),

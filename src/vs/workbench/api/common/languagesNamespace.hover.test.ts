@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
@@ -24,12 +24,19 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
 
 const URI = "file:///proj/main.ts";
 
+const TEXT = "const a = b;\n";
+
+/** Открывает документ в зеркале субпроцесса — как `editor.didOpen` хоста. */
+function openDoc(ctx: IVscodeHostContext, text = TEXT, languageId = "typescript", uri = URI): void {
+    ctx.documentSync.open({ uri, languageId, version: 1, text });
+}
+
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         handle: 0,
         uri: URI,
         languageId: "typescript",
-        text: "const a = b;\n",
+        version: 1,
         line: 0,
         character: 10,
         ...overrides,
@@ -74,6 +81,7 @@ describe("LanguagesNamespace — registerHoverProvider", () => {
             { language: "typescript" },
             { provideHover: () => new Hover("жив") as unknown as vscode.Hover },
         );
+        openDoc(ctx);
         expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["жив"] });
 
         registration.dispose();
@@ -83,9 +91,10 @@ describe("LanguagesNamespace — registerHoverProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideHover", () => {
-    it("кладёт снапшот документа в реестр и зовёт провайдер с позицией каретки", async () => {
+    it("документ — из зеркала по версии запроса, провайдер зовётся с позицией каретки", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
+        openDoc(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position } = {};
         languages.registerHoverProvider(
             { language: "typescript" },
@@ -103,6 +112,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
 
         const result = await stub.callRequest("languages.provideHover", requestParams());
 
+        expect(seen.doc).toBe(ctx.registry.get(Uri.parse(URI)));
         expect(seen.doc?.getText()).toBe("const a = b;\n");
         expect(seen.doc?.languageId).toBe("typescript");
         expect(seen.pos?.line).toBe(0);
@@ -138,6 +148,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             },
         );
 
+        openDoc(ctx);
         const result = await stub.callRequest("languages.provideHover", requestParams());
 
         expect(result).toEqual({
@@ -145,7 +156,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         });
     });
 
-    it("contents не-массивом и запрос без полей: позиция — (0,0), текст — пустой", async () => {
+    it("contents не-массивом и запрос без позиции и языка: позиция — (0,0), язык зеркала не затирается", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { pos?: vscode.Position } = {};
@@ -159,14 +170,14 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             },
         );
 
-        const result = await stub.callRequest("languages.provideHover", { handle: 0, uri: URI });
+        openDoc(ctx, "", "markdown");
+        const result = await stub.callRequest("languages.provideHover", { handle: 0, uri: URI, version: 1 });
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
-        expect(ctx.registry.get(Uri.parse(URI))?.getText()).toBe("");
-        // languageId в запросе не пришёл — документ остаётся на дефолте реестра,
+        // languageId в запросе не пришёл — документ остаётся на языке зеркала,
         // а не получает undefined (иначе селекторы перестали бы матчиться).
-        expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("plaintext");
+        expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("markdown");
         expect(result).toEqual({ contents: ["одна строка не в массиве"] });
     });
 
@@ -194,6 +205,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             { language: "typescript" },
             provider("second", () => new Hover(["от второго", "и ещё"]) as unknown as vscode.Hover),
         );
+        openDoc(ctx);
 
         expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 2 }))).toEqual({
             contents: ["от второго", "и ещё"],
@@ -226,8 +238,50 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             { language: "typescript" },
             { provideHover: () => ({ contents: [] }) as unknown as vscode.Hover },
         );
+        openDoc(ctx);
 
         expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["текст"] });
         expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 1 }))).toBeNull();
+    });
+
+    it("документ не открыт, запрос устарел или впереди зеркала — null, провайдер не зовётся", async () => {
+        const { stub, ctx } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        let calls = 0;
+        languages.registerHoverProvider(
+            { language: "typescript" },
+            {
+                provideHover: () => {
+                    calls++;
+                    return new Hover("есть") as unknown as vscode.Hover;
+                },
+            },
+        );
+
+        // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
+        expect(await stub.callRequest("languages.provideHover", requestParams())).toBeNull();
+
+        openDoc(ctx);
+        ctx.documentSync.change({
+            uri: URI,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+        });
+        // Устарел: ядро уже ушло на v2.
+        expect(await stub.callRequest("languages.provideHover", requestParams({ version: 1 }))).toBeNull();
+        // Впереди зеркала: правки v3 ещё не доехали — нарушение порядка, в stderr.
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            expect(await stub.callRequest("languages.provideHover", requestParams({ version: 3 }))).toBeNull();
+            expect(warn).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+        }
+        expect(calls).toBe(0);
+
+        expect(await stub.callRequest("languages.provideHover", requestParams({ version: 2 }))).toEqual({
+            contents: ["есть"],
+        });
+        expect(calls).toBe(1);
     });
 });

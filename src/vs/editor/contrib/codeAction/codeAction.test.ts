@@ -15,7 +15,7 @@ const PY = { uri: Uri.file("/w/a.py"), languageId: "python" };
 const REQUEST: ICodeActionRequest = {
     uri: PY.uri.toString(),
     languageId: "python",
-    text: "import os\n",
+    versionId: 1,
     range: createRange(0, 0, 0, 9),
 };
 

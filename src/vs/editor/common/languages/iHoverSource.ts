@@ -9,8 +9,8 @@ export interface IHoverRequest {
     /** Ресурс активного документа как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Полный текст документа (LF-канонический). */
-    readonly text: string;
+    /** Версия документа на момент запроса: текст провайдер берёт из своей синхронизированной копии. */
+    readonly versionId: number;
     /** Позиция курсора, 0-based. */
     readonly line: number;
     readonly character: number;

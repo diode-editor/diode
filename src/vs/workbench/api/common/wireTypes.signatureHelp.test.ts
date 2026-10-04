@@ -8,7 +8,7 @@ const PARAMS: IWireSignatureHelpParams = {
     handle: 0,
     uri: "file:///a.ts",
     languageId: "typescript",
-    text: "greet(\n",
+    version: 1,
     line: 0,
     character: 6,
     triggerKind: SignatureHelpTriggerKind.TriggerCharacter,

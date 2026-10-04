@@ -207,7 +207,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
             {
                 uri: editor.uri.toString(),
                 languageId: editor.languageId,
-                text: editor.getText(),
+                versionId,
                 line: caret.line,
                 character: caret.character,
                 triggerKind,

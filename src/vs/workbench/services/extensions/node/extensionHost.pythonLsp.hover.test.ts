@@ -11,6 +11,7 @@ import {
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideHovers,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -59,7 +60,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
                 const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
                     languageId: "python",
-                    text: MAIN_PY,
+                    versionId: documentVersion(harness, mainUri),
                     line: 2,
                     character: 15,
                 });

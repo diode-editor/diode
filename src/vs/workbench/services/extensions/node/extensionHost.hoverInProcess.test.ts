@@ -13,7 +13,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 /**
  * Регистрации языковых провайдеров и hover-запрос по handle: субпроцесса нет,
  * канал сшит in-process — так проверяются ветки, недостижимые через настоящий
- * fork (чужая форма нотификации, отсечка по размеру документа, дефолтный таймаут). Образец —
+ * fork (чужая форма нотификации, документ без синхронизации, дефолтный таймаут). Образец —
  * `extensionHost.completionInProcess.test.ts`.
  */
 
@@ -31,13 +31,19 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-const MAX_TEXT_BYTES = 8 * 1024 * 1024;
+/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
+const REQUEST: IHoverRequest = { uri: DOCUMENT.uri, languageId: "typescript", versionId: 3, line: 0, character: 0 };
 
-function requestOf(text: string): IHoverRequest {
-    return { uri: "file:///a.ts", languageId: "typescript", text, line: 0, character: 0 };
-}
-
-function makeHost(options: { warn?: ILogger["warn"]; hoverTimeoutMs?: number } = {}): {
+function makeHost(
+    options: {
+        warn?: ILogger["warn"];
+        hoverTimeoutMs?: number;
+        maxSyncedDocumentChars?: number;
+        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
+        open?: boolean;
+    } = {},
+): {
     host: ExtensionHost;
     peer: RpcEndpoint;
 } {
@@ -48,12 +54,16 @@ function makeHost(options: { warn?: ILogger["warn"]; hoverTimeoutMs?: number } =
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         ...(logger === undefined ? {} : { logger }),
         ...(options.hoverTimeoutMs === undefined ? {} : { hoverTimeoutMs: options.hoverTimeoutMs }),
+        ...(options.maxSyncedDocumentChars === undefined
+            ? {}
+            : { maxSyncedDocumentChars: options.maxSyncedDocumentChars }),
     });
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+    if (options.open !== false) host.didOpenTextDocument(DOCUMENT);
     return { host, peer };
 }
 
@@ -134,32 +144,47 @@ describe("ExtensionHost — регистрации языковых провай
 });
 
 describe("ExtensionHost — hover-запрос по handle (in-process)", () => {
-    it("запрос несёт handle провайдера и снапшот документа", async () => {
+    it("запрос несёт handle провайдера и версию документа, без текста", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn((_params: unknown) => Promise.resolve({ contents: ["const a: number"] }));
         peer.handleRequest("languages.provideHover", provide);
 
-        expect(await host.provideHover(7, requestOf("const a = 1;\n"))).toEqual({ contents: ["const a: number"] });
-        expect(provide.mock.calls[0]?.[0]).toEqual({ handle: 7, ...requestOf("const a = 1;\n") });
+        expect(await host.provideHover(7, REQUEST)).toEqual({ contents: ["const a: number"] });
+        expect(provide.mock.calls[0]?.[0]).toEqual({
+            handle: 7,
+            uri: "file:///a.ts",
+            languageId: "typescript",
+            version: 3,
+            line: 0,
+            character: 0,
+        });
     });
 
-    it("документ ровно в лимит проходит, больше лимита — отсекается с записью в лог", async () => {
-        const warn = vi.fn();
-        const { host, peer } = makeHost({ warn });
+    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+        const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve({ contents: ["ok"] }));
         peer.handleRequest("languages.provideHover", provide);
 
-        // Граница включительная: 8 МБ ровно — ещё гоняем.
-        expect(await host.provideHover(1, requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual({ contents: ["ok"] });
-        expect(provide).toHaveBeenCalledTimes(1);
-        expect(warn).not.toHaveBeenCalled();
+        expect(await host.provideHover(1, REQUEST)).toBeUndefined();
+        expect(provide).not.toHaveBeenCalled();
+    });
 
-        // На символ больше — не гоняем и пишем, что и почему пропустили.
-        expect(await host.provideHover(1, requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toBeUndefined();
+    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+        const length = DOCUMENT.text.length;
+        const atLimit = makeHost({ maxSyncedDocumentChars: length });
+        const provide = vi.fn(() => Promise.resolve({ contents: ["ok"] }));
+        atLimit.peer.handleRequest("languages.provideHover", provide);
+        expect(await atLimit.host.provideHover(1, REQUEST)).toEqual({ contents: ["ok"] });
         expect(provide).toHaveBeenCalledTimes(1);
-        expect(warn).toHaveBeenCalledWith("skipping hover: document too large", {
+
+        const warn = vi.fn();
+        const over = makeHost({ warn, maxSyncedDocumentChars: length - 1 });
+        over.peer.handleRequest("languages.provideHover", provide);
+        expect(await over.host.provideHover(1, REQUEST)).toBeUndefined();
+        expect(provide).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith("skipping document sync: document too large", {
             uri: "file:///a.ts",
-            length: MAX_TEXT_BYTES + 1,
+            length,
         });
     });
 
@@ -167,11 +192,11 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve({ contents: ["жив"] }));
         peer.handleRequest("languages.provideHover", provide);
-        expect(await host.provideHover(1, requestOf("x"))).toEqual({ contents: ["жив"] });
+        expect(await host.provideHover(1, REQUEST)).toEqual({ contents: ["жив"] });
 
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        expect(await host.provideHover(1, requestOf("x"))).toBeUndefined();
+        expect(await host.provideHover(1, REQUEST)).toBeUndefined();
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
@@ -189,6 +214,6 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
             return { contents: ["опоздал"] };
         });
 
-        expect(await host.provideHover(1, requestOf("x"))).toBeUndefined();
+        expect(await host.provideHover(1, REQUEST)).toBeUndefined();
     });
 });

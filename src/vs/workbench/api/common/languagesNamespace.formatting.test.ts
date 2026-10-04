@@ -19,17 +19,20 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
     };
+    // Документ запросов открыт зеркалом (`editor.didOpen`): запросы текста не везут.
+    ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { ctx, stub };
 }
 
 const URI = "file:///proj/main.ts";
+const TEXT = "const  a=1;\nconst b = 2;\n";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         handle: 0,
         uri: URI,
         languageId: "typescript",
-        text: "const  a=1;\nconst b = 2;\n",
+        version: 1,
         tabSize: 2,
         insertSpaces: true,
         ...overrides,
@@ -265,19 +268,62 @@ describe("LanguagesNamespace — провайдеры форматировани
         ).toEqual([]);
     });
 
-    it("голые параметры (без languageId/text) — документ на дефолтном языке с пустым текстом", async () => {
+    it("голые параметры (без languageId) — документ из зеркала, язык не затирается", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        const texts: string[] = [];
-        languages.registerDocumentFormattingEditProvider({ language: "plaintext" }, {
+        const seen: { text: string; languageId: string }[] = [];
+        languages.registerDocumentFormattingEditProvider({ language: "typescript" }, {
             provideDocumentFormattingEdits: (doc: vscode.TextDocument) => {
-                texts.push(doc.getText());
+                seen.push({ text: doc.getText(), languageId: doc.languageId });
                 return [];
             },
         } as unknown as vscode.DocumentFormattingEditProvider);
 
-        expect(await stub.callRequest("languages.provideFormattingEdits", { handle: 0, uri: URI })).toEqual([]);
-        expect(texts).toEqual([""]);
+        expect(await stub.callRequest("languages.provideFormattingEdits", { handle: 0, uri: URI, version: 1 })).toEqual(
+            [],
+        );
+        expect(seen).toEqual([{ text: TEXT, languageId: "typescript" }]);
+    });
+
+    it("не открытый, устаревший, обогнавший зеркало и без версии документ — [] без вызова провайдера", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const provide = vi.fn(() => [new TextEdit(new Range(0, 5, 0, 7), " ")]);
+        languages.registerDocumentFormattingEditProvider({ language: "typescript" }, {
+            provideDocumentFormattingEdits: provide,
+        } as unknown as vscode.DocumentFormattingEditProvider); // 0
+        languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
+            provideDocumentRangeFormattingEdits: provide,
+        } as unknown as vscode.DocumentRangeFormattingEditProvider); // 1
+        ctx.documentSync.change({
+            uri: URI,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "//\n" }],
+        });
+        const selection = { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 };
+        const unknown = "file:///proj/unknown.ts";
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            for (const request of [{ handle: 0 }, { handle: 1, range: selection }]) {
+                for (const overrides of [{ uri: unknown }, { version: 1 }, { version: 3 }, { version: undefined }]) {
+                    expect(
+                        await stub.callRequest(
+                            "languages.provideFormattingEdits",
+                            requestParams({ ...request, ...overrides }),
+                        ),
+                    ).toEqual([]);
+                }
+            }
+        } finally {
+            warn.mockRestore();
+        }
+        expect(ctx.registry.get(Uri.parse(unknown))).toBeUndefined();
+        expect(provide).not.toHaveBeenCalled();
+        // Актуальная версия — провайдер зовётся.
+        expect(await stub.callRequest("languages.provideFormattingEdits", requestParams({ version: 2 }))).toEqual([
+            WIRE_EDIT,
+        ]);
+        expect(provide).toHaveBeenCalledTimes(1);
     });
 
     it("дефолты options: без tabSize/insertSpaces провайдер видит 4 и true", async () => {

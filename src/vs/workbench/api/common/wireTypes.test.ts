@@ -34,7 +34,6 @@ const PARAMS = {
     languageId: "plaintext",
     version: 1,
     isDirty: true,
-    text: "hi\n",
     reason: 1,
     eol: 1,
 };
@@ -151,7 +150,7 @@ const COMPLETION_PARAMS = {
     handles: [4],
     uri: Uri.file("/proj/.editorconfig").toString(),
     languageId: "editorconfig",
-    text: "ind",
+    version: 1,
     line: 0,
     character: 3,
 };
@@ -508,7 +507,7 @@ describe("WireTypes — requestFoldingRanges (InProcessChannelPair)", () => {
             ]);
             const regions = await requestFoldingRanges(
                 (m, p) => host.request(m, p),
-                { handles: [0], uri: Uri.file("/x.cs").toString(), languageId: "csharp", text: "" },
+                { handles: [0], uri: Uri.file("/x.cs").toString(), languageId: "csharp", version: 1 },
                 1000,
             );
             expect(regions).toEqual([[{ startLine: 1, endLine: 4, isCollapsed: false }]]);
@@ -520,7 +519,7 @@ describe("WireTypes — requestFoldingRanges (InProcessChannelPair)", () => {
     it("ответ не массивом (даже с числовыми ключами) и недостающий элемент — пусто", async () => {
         const { host, sub, dispose } = connectPair();
         try {
-            const params = { handles: [0, 1], uri: Uri.file("/x.cs").toString(), languageId: "csharp", text: "" };
+            const params = { handles: [0, 1], uri: Uri.file("/x.cs").toString(), languageId: "csharp", version: 1 };
             sub.handleRequest("languages.provideFoldingRanges", () => ({ 0: [{ start: 1, end: 4 }] }));
             expect(await requestFoldingRanges((m, p) => host.request(m, p), params, 1000)).toEqual([[], []]);
         } finally {
@@ -534,7 +533,7 @@ describe("WireTypes — requestFoldingRanges (InProcessChannelPair)", () => {
             sub.handleRequest("languages.provideFoldingRanges", () => new Promise(() => {})); // никогда не резолвится
             const regions = await requestFoldingRanges(
                 (m, p) => host.request(m, p),
-                { handles: [0], uri: Uri.file("/x.cs").toString(), languageId: "csharp", text: "" },
+                { handles: [0], uri: Uri.file("/x.cs").toString(), languageId: "csharp", version: 1 },
                 20,
             );
             expect(regions).toEqual([[]]);

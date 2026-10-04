@@ -44,17 +44,20 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         },
         ...deps,
     });
+    // Документ запросов открыт зеркалом (`editor.didOpen`): запросы текста не везут.
+    ctx.documentSync.open({ uri: URI, languageId: "python", version: 1, text: TEXT });
     return { ctx, stub, languages, appliedEdits, executed };
 }
 
 const URI = "file:///proj/main.py";
+const TEXT = "import b\nimport a\nunused()\n";
 
 function requestParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         handle: 0,
         uri: URI,
         languageId: "python",
-        text: "import b\nimport a\nunused()\n",
+        version: 1,
         range: { startLine: 0, startCharacter: 0, endLine: 2, endCharacter: 8 },
         ...overrides,
     };
@@ -451,10 +454,12 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
     it("дефолтные deps (namespace без проводки) честно отказывают: правки false, команда reject", async () => {
         const stub = makeStubRpc();
         const registry = new DocumentRegistry();
+        const documentSync = new DocumentSyncTracker(registry);
+        documentSync.open({ uri: URI, languageId: "python", version: 1, text: TEXT });
         const { languages } = createLanguagesNamespace({
             rpc: stub.rpc,
             registry,
-            documentSync: new DocumentSyncTracker(registry),
+            documentSync,
             configStore: new WorkspaceConfigStore(),
             disk: createNodeExtHostDisk(),
         });
@@ -469,12 +474,12 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await stub.callRequest("languages.applyCodeAction", { id: result[1].id })).toBe(false);
     });
 
-    it("голые параметры (без languageId/text) — документ на дефолтном языке с пустым текстом", async () => {
+    it("голые параметры (без languageId) — документ из зеркала, язык не затирается", async () => {
         const { stub, languages } = makeCtx();
-        const texts: string[] = [];
-        languages.registerCodeActionsProvider("plaintext", {
+        const seen: { text: string; languageId: string }[] = [];
+        languages.registerCodeActionsProvider("python", {
             provideCodeActions: (doc: vscode.TextDocument) => {
-                texts.push(doc.getText());
+                seen.push({ text: doc.getText(), languageId: doc.languageId });
                 return [];
             },
         } as unknown as vscode.CodeActionProvider);
@@ -482,10 +487,38 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
             await stub.callRequest("languages.provideCodeActions", {
                 handle: 0,
                 uri: URI,
+                version: 1,
                 range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
             }),
         ).toEqual([]);
-        expect(texts).toEqual([""]);
+        expect(seen).toEqual([{ text: TEXT, languageId: "python" }]);
+    });
+
+    it("не открытый, устаревший, обогнавший зеркало и без версии документ — [] без вызова провайдера", async () => {
+        const { stub, languages, ctx } = makeCtx();
+        const provide = vi.fn(() => [editAction("Fix", "quickfix")]);
+        languages.registerCodeActionsProvider("python", {
+            provideCodeActions: provide,
+        } as unknown as vscode.CodeActionProvider);
+        ctx.documentSync.change({
+            uri: URI,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "#\n" }],
+        });
+        const unknown = "file:///proj/unknown.py";
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            for (const overrides of [{ uri: unknown }, { version: 1 }, { version: 3 }, { version: undefined }]) {
+                expect(await stub.callRequest("languages.provideCodeActions", requestParams(overrides))).toEqual([]);
+            }
+        } finally {
+            warn.mockRestore();
+        }
+        expect(ctx.registry.get(Uri.parse(unknown))).toBeUndefined();
+        expect(provide).not.toHaveBeenCalled();
+        // Актуальная версия — провайдер зовётся по тексту зеркала после правки.
+        expect(await stub.callRequest("languages.provideCodeActions", requestParams({ version: 2 }))).toHaveLength(1);
+        expect(provide).toHaveBeenCalledTimes(1);
     });
 
     it("resolve, вернувший пустоту, не подменяет действие — остаётся command-путь", async () => {

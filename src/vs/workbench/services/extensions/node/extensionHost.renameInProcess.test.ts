@@ -11,8 +11,9 @@ import { ExtensionHost } from "./extensionHost.ts";
 
 /**
  * Rename по handle: субпроцесса нет, канал сшит in-process — так видно, что
- * уезжает субпроцессу (документ, позиция, новое имя), что отсекается по
- * размеру и таймауту и что остановка субпроцесса отрезает запросы.
+ * уезжает субпроцессу (документ, версия, позиция, новое имя), что отсекается
+ * без синхронизации документа и по таймауту и что остановка субпроцесса
+ * отрезает запросы.
  */
 
 const NOOP_EDITOR_OPTIONS = {
@@ -29,12 +30,13 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Лимит текста запроса — общий `MAX_WILL_SAVE_TEXT_BYTES` хоста. */
-const MAX_TEXT_BYTES = 8 * 1024 * 1024;
+/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+const DOCUMENT = { uri: "file:///proj/main.ts", languageId: "typescript", version: 3, text: "const value = 1;\n" };
 
 function makeHost(
     options: ConstructorParameters<typeof ExtensionHost>[2] = {},
     withLogger = true,
+    open = true,
 ): {
     host: ExtensionHost;
     peer: RpcEndpoint;
@@ -57,13 +59,14 @@ function makeHost(
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+    if (open) host.didOpenTextDocument(DOCUMENT);
     return { host, peer, warnings };
 }
 
 const REQUEST: IRenameRequest = {
-    uri: "file:///proj/main.ts",
+    uri: DOCUMENT.uri,
     languageId: "typescript",
-    text: "const value = 1;\n",
+    versionId: 3,
     line: 0,
     character: 8,
 };
@@ -77,10 +80,11 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         peer.handleRequest("languages.provideRenameEdits", rename);
 
         expect(await host.prepareRename(4, REQUEST)).toEqual({ kind: "name", name: "value" });
-        expect(prepare.mock.calls[0]?.[0]).toEqual({ handle: 4, ...REQUEST });
+        const wire = { uri: REQUEST.uri, languageId: "typescript", version: 3, line: 0, character: 8 };
+        expect(prepare.mock.calls[0]?.[0]).toEqual({ handle: 4, ...wire });
 
         expect(await host.provideRenameEdits(4, REQUEST, "renamed")).toEqual({ applied: true });
-        expect(rename.mock.calls[0]?.[0]).toEqual({ handle: 4, ...REQUEST, newName: "renamed" });
+        expect(rename.mock.calls[0]?.[0]).toEqual({ handle: 4, ...wire, newName: "renamed" });
     });
 
     it("отказ провайдера доезжает причиной, а не теряется", async () => {
@@ -97,52 +101,62 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         });
     });
 
-    it("документ ровно в лимит проходит, больше лимита — отсекается с записью в лог", async () => {
-        const { host, peer, warnings } = makeHost();
+    it("документ не открыт субпроцессу — prepare пусто, применение отказом, без RPC", async () => {
+        const { host, peer } = makeHost({}, true, false);
         const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
         const rename = vi.fn(() => Promise.resolve({ applied: true }));
         peer.handleRequest("languages.prepareRename", prepare);
         peer.handleRequest("languages.provideRenameEdits", rename);
 
-        const atLimit = { ...REQUEST, text: "x".repeat(MAX_TEXT_BYTES) };
-        expect(await host.prepareRename(0, atLimit)).toEqual({ kind: "name", name: "value" });
-        expect(await host.provideRenameEdits(0, atLimit, "renamed")).toEqual({ applied: true });
-        expect(warnings).toEqual([]);
-
-        const tooBig = { ...REQUEST, text: "x".repeat(MAX_TEXT_BYTES + 1) };
-        expect(await host.prepareRename(0, tooBig)).toBeNull();
-        expect(await host.provideRenameEdits(0, tooBig, "renamed")).toEqual({
+        expect(await host.prepareRename(0, REQUEST)).toBeNull();
+        expect(await host.provideRenameEdits(0, REQUEST, "renamed")).toEqual({
             applied: false,
-            error: "Document too large to rename",
+            error: "The document is not available to language extensions",
+        });
+        expect(prepare).not.toHaveBeenCalled();
+        expect(rename).not.toHaveBeenCalled();
+    });
+
+    it("документ ровно в порог синхронизации проходит, больше порога — отказ без RPC и запись в лог", async () => {
+        const length = DOCUMENT.text.length;
+        const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
+        const rename = vi.fn(() => Promise.resolve({ applied: true }));
+
+        const atLimit = makeHost({ maxSyncedDocumentChars: length });
+        atLimit.peer.handleRequest("languages.prepareRename", prepare);
+        atLimit.peer.handleRequest("languages.provideRenameEdits", rename);
+        expect(await atLimit.host.prepareRename(0, REQUEST)).toEqual({ kind: "name", name: "value" });
+        expect(await atLimit.host.provideRenameEdits(0, REQUEST, "renamed")).toEqual({ applied: true });
+        expect(atLimit.warnings).toEqual([]);
+
+        const over = makeHost({ maxSyncedDocumentChars: length - 1 });
+        over.peer.handleRequest("languages.prepareRename", prepare);
+        over.peer.handleRequest("languages.provideRenameEdits", rename);
+        expect(await over.host.prepareRename(0, REQUEST)).toBeNull();
+        expect(await over.host.provideRenameEdits(0, REQUEST, "renamed")).toEqual({
+            applied: false,
+            error: "The document is not available to language extensions",
         });
         // В логе — и повод, и чем документ не угодил: без ресурса и длины
         // запись не отличить от соседних отказов.
-        expect(warnings).toEqual([
-            {
-                message: "skipping prepare rename: document too large",
-                payload: { uri: REQUEST.uri, length: MAX_TEXT_BYTES + 1 },
-            },
-            {
-                message: "skipping rename: document too large",
-                payload: { uri: REQUEST.uri, length: MAX_TEXT_BYTES + 1 },
-            },
+        expect(over.warnings).toEqual([
+            { message: "skipping document sync: document too large", payload: { uri: REQUEST.uri, length } },
         ]);
         expect(prepare).toHaveBeenCalledTimes(1);
         expect(rename).toHaveBeenCalledTimes(1);
     });
 
     it("хост без логгера на слишком большом документе не падает, а отвечает отказом", async () => {
-        const { host, peer } = makeHost({}, false);
+        const { host, peer } = makeHost({ maxSyncedDocumentChars: DOCUMENT.text.length - 1 }, false);
         const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
         const rename = vi.fn(() => Promise.resolve({ applied: true }));
         peer.handleRequest("languages.prepareRename", prepare);
         peer.handleRequest("languages.provideRenameEdits", rename);
 
-        const tooBig = { ...REQUEST, text: "x".repeat(MAX_TEXT_BYTES + 1) };
-        expect(await host.prepareRename(0, tooBig)).toBeNull();
-        expect(await host.provideRenameEdits(0, tooBig, "renamed")).toEqual({
+        expect(await host.prepareRename(0, REQUEST)).toBeNull();
+        expect(await host.provideRenameEdits(0, REQUEST, "renamed")).toEqual({
             applied: false,
-            error: "Document too large to rename",
+            error: "The document is not available to language extensions",
         });
         expect(prepare).not.toHaveBeenCalled();
         expect(rename).not.toHaveBeenCalled();

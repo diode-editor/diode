@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideReferences,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -109,7 +110,7 @@ describe("ExtensionHost — references от стокового typescript-langua
                 const found: readonly ICoreReference[] = await provideReferences(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: MAIN_TS,
+                    versionId: documentVersion(harness, mainUri),
                     line: 2,
                     character: 15,
                     includeDeclaration: true,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
     provideReferences,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -20,8 +21,11 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 
 const TEXT = "const answer = compute();\nconst other = 1;\n";
 
-function requestFor(uri: string, line: number, includeDeclaration = true): IReferenceRequest {
-    return { uri, languageId: "typescript", text: TEXT, line, character: 6, includeDeclaration };
+/** Версия для запросов по документу без открытого редактора: ответ пустой при любой. */
+const UNOPENED_VERSION = 1;
+
+function requestFor(uri: string, line: number, versionId: number, includeDeclaration = true): IReferenceRequest {
+    return { uri, languageId: "typescript", versionId, line, character: 6, includeDeclaration };
 }
 
 describe("ExtensionHost — reference providers (subprocess)", () => {
@@ -38,28 +42,27 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             // Строка 0 → отвечают оба: объявление + ссылка от первого, чужой
             // файл от второго. Score одинаковый — второй (зарегистрирован позже)
             // идёт первым, как в vscode.
-            expect(await provideReferences(harness, requestFor(mainUri, 0))).toEqual([
-                { uri: otherUri, range: createRange(7, 2, 7, 8) },
-                { uri: mainUri, range: createRange(0, 0, 0, 5) },
-                { uri: mainUri, range: createRange(0, 6, 0, 12) },
-            ]);
+            expect(await provideReferences(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual(
+                [
+                    { uri: otherUri, range: createRange(7, 2, 7, 8) },
+                    { uri: mainUri, range: createRange(0, 0, 0, 5) },
+                    { uri: mainUri, range: createRange(0, 6, 0, 12) },
+                ],
+            );
 
             // includeDeclaration: false доезжает до провайдера настоящим
             // `ReferenceContext` — объявления в ответе больше нет.
-            expect(await provideReferences(harness, requestFor(mainUri, 0, false))).toEqual([
+            expect(
+                await provideReferences(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri), false)),
+            ).toEqual([
                 { uri: otherUri, range: createRange(7, 2, 7, 8) },
                 { uri: mainUri, range: createRange(0, 6, 0, 12) },
             ]);
 
             // Строка 1 → оба молчат: пустой ответ, не мусор.
-            expect(await provideReferences(harness, requestFor(mainUri, 1))).toEqual([]);
-
-            // Слишком большой документ не гоняется через RPC.
-            const huge = await provideReferences(harness, {
-                ...requestFor(mainUri, 0),
-                text: "x".repeat(8 * 1024 * 1024 + 1),
-            });
-            expect(huge).toEqual([]);
+            expect(await provideReferences(harness, requestFor(mainUri, 1, documentVersion(harness, mainUri)))).toEqual(
+                [],
+            );
         } finally {
             await harness.dispose();
         }
@@ -73,7 +76,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await provideReferences(lazy, requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideReferences(lazy, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toEqual([]);
         } finally {
             await lazy.dispose();
         }
@@ -84,7 +87,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            expect(await provideReferences(noProviders, requestFor("file:///a.ts", 0))).toEqual([]);
+            expect(await provideReferences(noProviders, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toEqual([]);
         } finally {
             await noProviders.dispose();
         }

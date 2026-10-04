@@ -90,7 +90,7 @@ export class ReferencesService {
         const references = await getReferences(registry, editor, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
-            text,
+            versionId: editor.model.document.versionId,
             line: caret.line,
             character: caret.character,
             // VS Code показывает объявление первой строкой списка.

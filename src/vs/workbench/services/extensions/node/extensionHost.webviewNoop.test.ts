@@ -2,12 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
+    type IExtensionHarness,
     provideInlineCompletions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
+import {
+    type IInlineCompletionRequest,
+    InlineCompletionTriggerKind,
+} from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
 /**
  * Расширение с чат-панелью обязано активироваться ЦЕЛИКОМ. Webview в TUI не
@@ -24,14 +29,18 @@ const WEBVIEW_ENTRY_POINTS = [
     "registerWebviewPanelSerializer",
 ] as const;
 
-const REQ = {
-    uri: Uri.file("/proj/main.ts").toString(),
-    languageId: "typescript",
-    text: "const x = ",
-    line: 0,
-    character: 10,
-    triggerKind: InlineCompletionTriggerKind.Automatic,
-};
+/** Запрос в конец строки открытого в харнессе `main.ts` — с его текущей версией. */
+function requestIn(harness: IExtensionHarness): IInlineCompletionRequest {
+    const uri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
+    return {
+        uri,
+        languageId: "typescript",
+        versionId: documentVersion(harness, uri),
+        line: 0,
+        character: 10,
+        triggerKind: InlineCompletionTriggerKind.Automatic,
+    };
+}
 
 function chatExtensionHarness(api: string): Promise<Awaited<ReturnType<typeof createExtensionTestHarness>>> {
     return createExtensionTestHarness({
@@ -58,7 +67,7 @@ describe("ExtensionHost — расширение с чат-панелью (webvi
             const harness = await chatExtensionHarness(api);
             try {
                 await settle();
-                expect(await provideInlineCompletions(harness, REQ)).toEqual([{ insertText: "GHOST" }]);
+                expect(await provideInlineCompletions(harness, requestIn(harness))).toEqual([{ insertText: "GHOST" }]);
             } finally {
                 await harness.dispose();
             }

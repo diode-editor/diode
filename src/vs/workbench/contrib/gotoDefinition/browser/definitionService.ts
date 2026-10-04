@@ -63,7 +63,7 @@ export class DefinitionService {
             locations = await getDefinitions(this.languageFeatures.definitionProvider, editor, {
                 uri: editor.uri.toString(),
                 languageId: editor.languageId,
-                text: editor.getText(),
+                versionId: editor.model.document.versionId,
                 line: caret.line,
                 character: caret.character,
             });

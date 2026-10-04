@@ -9,7 +9,7 @@ const PARAMS = {
     handle: 0,
     uri: "file:///a.ts",
     languageId: "typescript",
-    text: "const a = 1;\n",
+    version: 1,
     line: 0,
     character: 6,
 };

@@ -7,12 +7,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideSignatureHelp,
     signatureHelpCharacters,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ICoreSignatureHelp } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -118,13 +121,20 @@ describe("ExtensionHost — подсказка параметров от сто�
                 retriggerCharacters: [")"],
             });
 
-            // Каретка сразу за `greet(` — текста с вызовом НА ДИСКЕ нет, сервер
-            // видит его только через didChange (правило docs/TODO/LSP.md).
+            // Каретка сразу за `greet(` — текста с вызовом НА ДИСКЕ нет: его
+            // набирают в редакторе, и сервер видит его только через didChange
+            // (правило docs/TODO/LSP.md).
+            const editor = harness.group.getActiveEditor();
+            editor?.applyExternalEdits(
+                [createTextEdit(createRange(1, 0, 1, 0), MAIN_TYPING.slice(MAIN_SAVED.length))],
+                "type call",
+            );
+            expect(editor?.getText()).toBe(MAIN_TYPING);
             const help = await until("подсказку после `greet(`", async () => {
                 const found: ICoreSignatureHelp | null = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: MAIN_TYPING,
+                    versionId: documentVersion(harness, mainUri),
                     line: 1,
                     character: MAIN_TYPING.length - 32,
                     triggerKind: SignatureHelpTriggerKind.TriggerCharacter,
@@ -141,11 +151,16 @@ describe("ExtensionHost — подсказка параметров от сто�
 
             // После запятой активным становится второй параметр.
             const afterComma = `${MAIN_TYPING}"world",`;
+            editor?.applyExternalEdits(
+                [createTextEdit(createRange(1, MAIN_TYPING.length - 32, 1, MAIN_TYPING.length - 32), '"world",')],
+                "type argument",
+            );
+            expect(editor?.getText()).toBe(afterComma);
             const second = await until("активный параметр после запятой", async () => {
                 const found = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: afterComma,
+                    versionId: documentVersion(harness, mainUri),
                     line: 1,
                     character: afterComma.length - 32,
                     triggerKind: SignatureHelpTriggerKind.TriggerCharacter,

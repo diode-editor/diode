@@ -56,6 +56,8 @@ function makeSetup(
         uri: Uri.file("/proj/a.py"),
         languageId: "python",
         getText: () => "import b\nimport a",
+        // Запрос несёт версию модели, а не текст (его субпроцесс берёт из зеркала).
+        model: { document: { versionId: 7 } },
         viewState: {
             selections: [options.selection ?? { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }],
         },
@@ -115,7 +117,7 @@ describe("editor.action.organizeImports / fixAll", () => {
             {
                 uri: Uri.file("/proj/a.py").toString(),
                 languageId: "python",
-                text: "import b\nimport a",
+                versionId: 7,
                 range: createRange(0, 0, 1, 8),
                 only: "source.organizeImports",
             },
@@ -191,7 +193,7 @@ describe("editor.action.organizeImports / fixAll", () => {
             {
                 uri: Uri.file("/proj/a.py").toString(),
                 languageId: "python",
-                text: "import b\nimport a",
+                versionId: 7,
                 range: createRange(1, 0, 1, 8),
             },
         ]);
@@ -308,7 +310,7 @@ describe("editor.action.organizeImports / fixAll", () => {
             {
                 uri: Uri.file("/proj/a.py").toString(),
                 languageId: "python",
-                text: "import b\nimport a",
+                versionId: 7,
                 range: createRange(1, 0, 1, 8),
                 only: "refactor",
             },

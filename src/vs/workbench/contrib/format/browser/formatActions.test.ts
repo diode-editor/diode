@@ -48,10 +48,13 @@ function makeSetup(
     const requests: IFormattingRequest[] = [];
     // Правка документа — событие модели: по нему action узнаёт, что ответ устарел.
     const contentListeners = new Set<() => void>();
+    // Версия модели: запрос несёт её вместо текста; правка документа её поднимает.
+    const document = { versionId: 1 };
     const editor = {
         uri: Uri.file("/proj/a.py"),
         languageId: "python",
         getText: () => text,
+        model: { document },
         onDidChangeContent: (listener: () => void) => {
             contentListeners.add(listener);
             return { dispose: () => contentListeners.delete(listener) };
@@ -105,6 +108,7 @@ function makeSetup(
         selections: () => editor.viewState.selections,
         setText: (next) => {
             text = next;
+            document.versionId++;
             for (const listener of [...contentListeners]) listener();
         },
         contentListenerCount: () => contentListeners.size,
@@ -131,6 +135,8 @@ describe("editor.action.formatDocument", () => {
         const setup = makeSetup(() => Promise.resolve([EDIT]), {
             selection: { anchor: { line: 0, character: 7 }, active: { line: 0, character: 7 } },
         });
+        // Правка до команды поднимает версию: запрос берёт текущую, а не начальную.
+        setup.setText("const  a=1;\nsecond line\nthird");
         await formatDocumentAction.run(setup.accessor);
         expect(setup.applied).toEqual([{ edits: [EDIT], label: "Format Document" }]);
         expect(setup.notices).toEqual([]);
@@ -139,13 +145,13 @@ describe("editor.action.formatDocument", () => {
         // После применения — ОДНА каретка на прежнем месте, а не по каретке на
         // каждую правку (мультикурсорная семантика applyEdits форматтеру чужая).
         expect(setup.selections()).toEqual([createSelection(0, 7, 0, 7)]);
-        // Запрос несёт снапшот и настройки отступов активного редактора, БЕЗ
-        // range (strict: даже `range: undefined` в payload'е — лишний ключ).
+        // Запрос несёт версию модели (не текст) и настройки отступов активного
+        // редактора, БЕЗ range (strict: даже `range: undefined` — лишний ключ).
         expect(setup.requests).toStrictEqual([
             {
                 uri: Uri.file("/proj/a.py").toString(),
                 languageId: "python",
-                text: "const  a=1;\nsecond line\nthird",
+                versionId: 2,
                 tabSize: 2,
                 insertSpaces: true,
             },

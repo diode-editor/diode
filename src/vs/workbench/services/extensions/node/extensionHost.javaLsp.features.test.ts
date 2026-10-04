@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CLIENT_CRASH_PATTERNS, until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideCompletions,
     provideDefinitions,
@@ -75,7 +76,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 const found = await provideHovers(harness, {
                     uri: appUri,
                     languageId: "java",
-                    text: APP_JAVA,
+                    versionId: documentVersion(harness, appUri),
                     line: 8,
                     character: 27,
                 });
@@ -102,7 +103,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 const found = await provideHovers(harness!, {
                     uri: appUri,
                     languageId: "java",
-                    text: APP_JAVA,
+                    versionId: documentVersion(harness!, appUri),
                     line: 8,
                     character: 27,
                 });
@@ -129,7 +130,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 const found = await provideCompletions(harness!, {
                     uri: appUri,
                     languageId: "java",
-                    text: APP_JAVA,
+                    versionId: documentVersion(harness!, appUri),
                     line: 10,
                     character: 19,
                 });
@@ -152,7 +153,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 const found = await provideDefinitions(harness!, {
                     uri: appUri,
                     languageId: "java",
-                    text: APP_JAVA,
+                    versionId: documentVersion(harness!, appUri),
                     line: 8,
                     character: 27,
                 });
@@ -174,7 +175,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 const refs = await provideReferences(harness!, {
                     uri: appUri,
                     languageId: "java",
-                    text: APP_JAVA,
+                    versionId: documentVersion(harness!, appUri),
                     line: 3,
                     character: 18,
                     includeDeclaration: true,

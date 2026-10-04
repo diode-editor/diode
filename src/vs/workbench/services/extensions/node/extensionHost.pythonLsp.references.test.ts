@@ -11,6 +11,7 @@ import {
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     provideReferences,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -58,7 +59,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от сток
                 const found = await provideReferences(harness, {
                     uri: mainUri,
                     languageId: "python",
-                    text: MAIN_PY,
+                    versionId: documentVersion(harness, mainUri),
                     line: 2,
                     character: 15,
                     includeDeclaration: true,

@@ -62,9 +62,9 @@ describe("DefinitionService — Go to Definition", () => {
         await service().revealDefinition();
 
         expect(caret()).toMatchObject({ line: 1, character: 6 });
-        // Запрос нёс полный снапшот и позицию каретки на момент вызова.
+        // Запрос нёс версию документа и позицию каретки на момент вызова.
         expect(seen.request).toMatchObject({ uri: mainUri, line: 0, character: 0 });
-        expect(seen.request?.text).toContain("const answer");
+        expect(seen.request?.versionId).toBe(group().getActiveEditor()?.model.document.versionId);
     });
 
     it("кросс-файловый прыжок: открывает другой файл и доводит каретку", async () => {

@@ -31,7 +31,7 @@ import { LanguageFeaturesService } from "../vs/editor/common/services/languageFe
 import { getCodeActions } from "../vs/editor/contrib/codeAction/codeAction.ts";
 import type { IFoldingRegion } from "../vs/editor/contrib/folding/iFoldingRegion.ts";
 import { provideFoldingRanges } from "../vs/editor/contrib/folding/syntaxRangeProvider.ts";
-import { formatDocument, formatRange } from "../vs/editor/contrib/format/format.ts";
+import { documentRange, formatDocument, formatRange } from "../vs/editor/contrib/format/format.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
@@ -495,6 +495,16 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
  * Hover'ы для запроса так, как их собирает `HoverService`: подошедшие документу
  * провайдеры реестра харнесса, склейка в порядке `ordered`.
  */
+/**
+ * Версия документа открытого редактора по `uri` — для запросов провайдерам:
+ * запросы текста не везут, субпроцесс читает зеркало документа этой версии.
+ */
+export function documentVersion(harness: IExtensionHarness, uri: string): number {
+    const editor = harness.group.getEditors().find((candidate) => candidate.uri.toString() === uri);
+    if (editor === undefined) throw new Error(`no open editor for ${uri}`);
+    return editor.model.document.versionId;
+}
+
 export function provideHovers(harness: IExtensionHarness, request: IHoverRequest): Promise<ICoreHover[]> {
     return getHovers(harness.languageFeatures.hoverProvider, targetOf(request), request);
 }
@@ -564,8 +574,15 @@ export function formatDocumentFor(
     request: IFormattingRequest,
 ): Promise<readonly ITextEdit[] | null> {
     const { range } = request;
+    // Запрос текста не везёт — диапазон всего документа (для range-форматтера
+    // без документного) берём из открытого редактора, как команда.
+    const text =
+        harness.group
+            .getEditors()
+            .find((editor) => editor.uri.toString() === request.uri)
+            ?.getText() ?? "";
     return range === undefined
-        ? formatDocument(harness.languageFeatures, targetOf(request), request)
+        ? formatDocument(harness.languageFeatures, targetOf(request), request, documentRange(text))
         : formatRange(harness.languageFeatures, targetOf(request), { ...request, range });
 }
 

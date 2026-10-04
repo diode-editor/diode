@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
     createExtensionTestHarness,
+    documentVersion,
     formatDocumentFor,
     type IExtensionHarness,
     manifestWithDefaults,
@@ -106,7 +107,7 @@ describe("ExtensionHost — форматирование от стокового
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
                     languageId: "typescript",
-                    text: MESSY_TS,
+                    versionId: documentVersion(harness, mainUri),
                     tabSize: 4,
                     insertSpaces: true,
                 });

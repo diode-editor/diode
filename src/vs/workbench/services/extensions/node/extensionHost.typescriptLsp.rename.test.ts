@@ -8,6 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     type IExtensionHarness,
     prepareRenameAt,
     provideReferences,
@@ -113,7 +114,7 @@ describe("ExtensionHost — rename от стокового typescript-language-s
             const request = {
                 uri: defsUri,
                 languageId: "typescript",
-                text: DEFS_TS,
+                versionId: documentVersion(harness, defsUri),
                 line: 0,
                 character: 18,
             };

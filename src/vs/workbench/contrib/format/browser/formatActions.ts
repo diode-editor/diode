@@ -1,7 +1,7 @@
 import { comparePositions, positionsEqual } from "../../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
-import { formatDocument, formatRange } from "../../../../editor/contrib/format/format.ts";
+import { documentRange, formatDocument, formatRange } from "../../../../editor/contrib/format/format.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -40,7 +40,7 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
     const request = {
         uri: editor.uri.toString(),
         languageId: editor.languageId,
-        text,
+        versionId: editor.model.document.versionId,
         tabSize: editor.viewState.tabSize,
         insertSpaces: editor.viewState.insertSpaces,
     };
@@ -55,7 +55,7 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
                   ...request,
                   range: selectionRange(editor.viewState.selections[0], text),
               })
-            : await formatDocument(languageFeatures, editor, request);
+            : await formatDocument(languageFeatures, editor, request, documentRange(text));
     } finally {
         state.dispose();
     }

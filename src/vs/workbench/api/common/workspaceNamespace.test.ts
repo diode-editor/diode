@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
-import { makeStubRpc } from "./testStubRpc.ts";
+import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { EndOfLine, Position, Range, TextEdit, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
@@ -364,22 +364,25 @@ describe("WorkspaceNamespace — save subscriptions", () => {
 
 describe("WorkspaceNamespace — will-save request handler", () => {
     const REQUEST = "workspace.willSaveTextDocument";
-    const paramsFor = (text: string) => ({
-        uri: Uri.file("/f.txt").toString(),
-        languageId: "plaintext",
-        isDirty: true,
-        text,
-        reason: 1,
-    });
+    const F_URI = Uri.file("/f.txt").toString();
+    /** Хост открывает документ в зеркале субпроцесса (`editor.didOpen`, v1). */
+    const openDoc = (stub: IStubRpc, text: string, uri = F_URI) => {
+        stub.fire("editor.didOpen", { uri, languageId: "plaintext", version: 1, text });
+    };
+    /** Запрос will-save текста не везёт — только версию документа. */
+    const PARAMS = { uri: F_URI, languageId: "plaintext", version: 1, isDirty: true, reason: 1 };
 
-    it("сериализует TextEdit[] участника (upsertFull + fire + waitUntil)", async () => {
+    it("сериализует TextEdit[] участника (документ из зеркала + fire + waitUntil)", async () => {
         const { stub, ctx, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
-            // текст доехал в реестр
+            // документ — зеркало didOpen, мета сохранения — из запроса
+            expect(e.document).toBe(ctx.registry.get(Uri.file("/f.txt")));
             expect(e.document.getText()).toBe("abc   \n");
+            expect(e.document.isDirty).toBe(true);
             e.waitUntil(Promise.resolve([TextEdit.delete(new Range(0, 3, 0, 6))]));
         });
-        const result = await stub.callRequest(REQUEST, paramsFor("abc   \n"));
+        openDoc(stub, "abc   \n");
+        const result = await stub.callRequest(REQUEST, PARAMS);
         expect(result).toEqual([{ range: { startLine: 0, startCharacter: 3, endLine: 0, endCharacter: 6 }, text: "" }]);
         expect(ctx.registry.get(Uri.file("/f.txt"))?.getText()).toBe("abc   \n");
     });
@@ -389,13 +392,15 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         crlf.workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([TextEdit.setEndOfLine(EndOfLine.CRLF)]));
         });
-        expect(await crlf.stub.callRequest(REQUEST, paramsFor("a\n"))).toEqual([{ setEndOfLine: 2 }]);
+        openDoc(crlf.stub, "a\n");
+        expect(await crlf.stub.callRequest(REQUEST, PARAMS)).toEqual([{ setEndOfLine: 2 }]);
 
         const lf = makeCtx();
         lf.workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([TextEdit.setEndOfLine(EndOfLine.LF)]));
         });
-        expect(await lf.stub.callRequest(REQUEST, paramsFor("a\n"))).toEqual([{ setEndOfLine: 1 }]);
+        openDoc(lf.stub, "a\n");
+        expect(await lf.stub.callRequest(REQUEST, PARAMS)).toEqual([{ setEndOfLine: 1 }]);
     });
 
     it("прокидывает eol документа в реестр (для SetEndOfLine расширения)", async () => {
@@ -403,7 +408,8 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([]));
         });
-        await stub.callRequest(REQUEST, { ...paramsFor("a\n"), eol: 2 });
+        openDoc(stub, "a\n");
+        await stub.callRequest(REQUEST, { ...PARAMS, eol: 2 });
         expect(ctx.registry.get(Uri.file("/f.txt"))?.eol).toBe(EndOfLine.CRLF);
     });
 
@@ -412,25 +418,68 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([]));
         });
-        await stub.callRequest(REQUEST, { ...paramsFor("a\n"), encoding: "windows1251" });
+        openDoc(stub, "a\n");
+        await stub.callRequest(REQUEST, { ...PARAMS, encoding: "windows1251" });
         expect(ctx.registry.get(Uri.file("/f.txt"))?.encoding).toBe("windows1251");
     });
 
-    it("минимальные params (без text/reason/languageId) не падают", async () => {
+    it("минимальные params (без reason/languageId/isDirty) не падают", async () => {
         const { stub, ctx, workspace } = makeCtx();
         let reason: number | undefined;
         workspace.onWillSaveTextDocument((e) => {
             reason = e.reason as unknown as number;
             e.waitUntil(Promise.resolve([]));
         });
-        expect(await stub.callRequest(REQUEST, { uri: Uri.file("/x.txt").toString() })).toEqual([]);
+        const uri = Uri.file("/x.txt").toString();
+        stub.fire("editor.didOpen", { uri, languageId: "markdown", version: 1, text: "x" });
+        expect(await stub.callRequest(REQUEST, { uri, version: 1 })).toEqual([]);
         expect(reason).toBe(1); // TextDocumentSaveReason.Manual по умолчанию
-        expect(ctx.registry.get(Uri.file("/x.txt"))?.getText()).toBe(""); // text ?? ""
+        // Мета без полей запроса остаётся от didOpen.
+        const doc = ctx.registry.get(Uri.file("/x.txt"));
+        expect(doc?.getText()).toBe("x");
+        expect(doc?.languageId).toBe("markdown");
+        expect(doc?.isDirty).toBe(false);
+    });
+
+    it("не открытый, устаревший и обогнавший зеркало документ — [] без события", async () => {
+        const { stub, ctx, workspace } = makeCtx();
+        let fired = 0;
+        workspace.onWillSaveTextDocument((e) => {
+            fired++;
+            e.waitUntil(Promise.resolve([TextEdit.insert(new Position(0, 0), "x")]));
+        });
+
+        // Не открыт: хост не присылал didOpen — документ не заводится.
+        expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
+        expect(ctx.registry.get(Uri.file("/f.txt"))).toBeUndefined();
+
+        openDoc(stub, "a\n");
+        stub.fire("editor.didChange", {
+            uri: F_URI,
+            version: 2,
+            changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "b" }],
+        });
+        // Устарел: модель уже на v2; мета запроса (isDirty) не применяется.
+        expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
+        expect(ctx.registry.get(Uri.file("/f.txt"))?.isDirty).toBe(false);
+        // Обогнал зеркало: нарушение порядка, в stderr.
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            expect(await stub.callRequest(REQUEST, { ...PARAMS, version: 3 })).toEqual([]);
+            expect(warn).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+        }
+        // Закрыт: версия совпадает, но документа в зеркале больше нет.
+        stub.fire("editor.didClose", { uri: F_URI });
+        expect(await stub.callRequest(REQUEST, { ...PARAMS, version: 2 })).toEqual([]);
+        expect(fired).toBe(0);
     });
 
     it("без слушателей возвращает []", async () => {
         const { stub } = makeCtx();
-        expect(await stub.callRequest(REQUEST, paramsFor("a\n"))).toEqual([]);
+        openDoc(stub, "a\n");
+        expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
     });
 
     it("не-TextEdit и не-массив результаты отбрасываются", async () => {
@@ -444,7 +493,8 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([TextEdit.insert(new Position(0, 0), "x")]));
         });
-        expect(await stub.callRequest(REQUEST, paramsFor("a\n"))).toEqual([
+        openDoc(stub, "a\n");
+        expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([
             { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" },
         ]);
     });
@@ -454,7 +504,8 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.reject(new Error("boom")));
         });
-        expect(await stub.callRequest(REQUEST, paramsFor("a\n"))).toEqual([]);
+        openDoc(stub, "a\n");
+        expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
     });
 
     it("waitUntil после завершения диспетча игнорируется", async () => {
@@ -463,7 +514,8 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         workspace.onWillSaveTextDocument((e) => {
             captured = e;
         });
-        const result = await stub.callRequest(REQUEST, paramsFor("a\n"));
+        openDoc(stub, "a\n");
+        const result = await stub.callRequest(REQUEST, PARAMS);
         expect(result).toEqual([]);
         // collecting уже false — правка не подхватится (и не бросит)
         captured?.waitUntil(Promise.resolve([TextEdit.insert(new Position(0, 0), "x")]));
@@ -476,7 +528,8 @@ describe("WorkspaceNamespace — will-save request handler", () => {
             workspace.onWillSaveTextDocument((e) => {
                 e.waitUntil(new Promise(() => {}));
             });
-            const pending = stub.callRequest(REQUEST, paramsFor("a\n"));
+            openDoc(stub, "a\n");
+            const pending = stub.callRequest(REQUEST, PARAMS);
             await vi.advanceTimersByTimeAsync(1500);
             expect(await pending).toEqual([]);
         } finally {

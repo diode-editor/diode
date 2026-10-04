@@ -4,7 +4,7 @@ import type { IFoldingRequest } from "../../common/languages/iFoldingSource.ts";
 
 import { provideFoldingRanges } from "./syntaxRangeProvider.ts";
 
-const REQUEST: IFoldingRequest = { uri: "file:///w/a.cs", languageId: "csharp", text: "" };
+const REQUEST: IFoldingRequest = { uri: "file:///w/a.cs", languageId: "csharp", versionId: 1 };
 const region = (startLine: number) => ({ startLine, endLine: startLine + 2, isCollapsed: false });
 
 describe("provideFoldingRanges — агрегация провайдеров", () => {

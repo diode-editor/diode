@@ -8,6 +8,7 @@ import {
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import {
     createExtensionTestHarness,
+    documentVersion,
     formatDocumentFor,
     type IExtensionHarness,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
@@ -80,7 +81,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: duoUri,
                     languageId: "python",
-                    text: DUO_PY,
+                    versionId: documentVersion(harness, duoUri),
                     tabSize: 4,
                     insertSpaces: true,
                 });

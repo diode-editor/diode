@@ -12,8 +12,8 @@ import { ExtensionHost } from "./extensionHost.ts";
 
 /**
  * Запрос форматирования по handle: субпроцесса нет, канал сшит in-process —
- * так проверяются ветки, недостижимые через настоящий fork (отсечка по размеру
- * документа, форма параметров RPC). Образец —
+ * так проверяются ветки, недостижимые через настоящий fork (документ без
+ * синхронизации, форма параметров RPC). Образец —
  * `extensionHost.signatureHelpInProcess.test.ts`.
  */
 
@@ -31,34 +31,46 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-const MAX_TEXT_BYTES = 8 * 1024 * 1024;
+/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const WIRE_EDIT = { range: { startLine: 0, startCharacter: 5, endLine: 0, endCharacter: 7 }, text: " " };
 
-function requestOf(text: string, patch: Partial<IFormattingRequest> = {}): IFormattingRequest {
+function requestOf(patch: Partial<IFormattingRequest> = {}): IFormattingRequest {
     return {
-        uri: "file:///a.ts",
+        uri: DOCUMENT.uri,
         languageId: "typescript",
-        text,
+        versionId: 3,
         tabSize: 2,
         insertSpaces: true,
         ...patch,
     };
 }
 
-function makeHost(options: { warn?: ILogger["warn"] } = {}): { host: ExtensionHost; peer: RpcEndpoint } {
+function makeHost(
+    options: {
+        warn?: ILogger["warn"];
+        maxSyncedDocumentChars?: number;
+        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
+        open?: boolean;
+    } = {},
+): { host: ExtensionHost; peer: RpcEndpoint } {
     const logger =
         options.warn === undefined
             ? undefined
             : ({ warn: options.warn, info: () => undefined, error: () => undefined } as unknown as ILogger);
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         ...(logger === undefined ? {} : { logger }),
+        ...(options.maxSyncedDocumentChars === undefined
+            ? {}
+            : { maxSyncedDocumentChars: options.maxSyncedDocumentChars }),
     });
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+    if (options.open !== false) host.didOpenTextDocument(DOCUMENT);
     return { host, peer };
 }
 
@@ -71,18 +83,18 @@ describe("ExtensionHost — форматирование по handle (in-process
             return Promise.resolve([WIRE_EDIT]);
         });
 
-        expect(await host.provideFormattingEdits(5, requestOf("x"))).toEqual([
+        expect(await host.provideFormattingEdits(5, requestOf())).toEqual([
             { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " },
         ]);
-        await host.provideFormattingEdits(6, requestOf("x", { range: createRange(1, 2, 3, 4) }));
+        await host.provideFormattingEdits(6, requestOf({ range: createRange(1, 2, 3, 4) }));
 
         expect(seen).toEqual([
-            { handle: 5, uri: "file:///a.ts", languageId: "typescript", text: "x", tabSize: 2, insertSpaces: true },
+            { handle: 5, uri: "file:///a.ts", languageId: "typescript", version: 3, tabSize: 2, insertSpaces: true },
             {
                 handle: 6,
                 uri: "file:///a.ts",
                 languageId: "typescript",
-                text: "x",
+                version: 3,
                 tabSize: 2,
                 insertSpaces: true,
                 range: { startLine: 1, startCharacter: 2, endLine: 3, endCharacter: 4 },
@@ -90,25 +102,32 @@ describe("ExtensionHost — форматирование по handle (in-process
         ]);
     });
 
-    it("слишком большой документ — [] без RPC (не «нет форматтера») + warn", async () => {
-        const warn = vi.fn();
-        const { host, peer } = makeHost({ warn });
+    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+        const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
         peer.handleRequest("languages.provideFormattingEdits", provide);
 
-        const huge = "x".repeat(MAX_TEXT_BYTES + 1);
-        expect(await host.provideFormattingEdits(0, requestOf(huge))).toEqual([]);
+        expect(await host.provideFormattingEdits(0, requestOf())).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
-        expect(warn).toHaveBeenCalledExactlyOnceWith("skipping formatting: document too large", {
-            uri: "file:///a.ts",
-            length: MAX_TEXT_BYTES + 1,
-        });
+    });
 
-        // Ровно на границе — не «слишком большой»: запрос уходит.
-        const exact = "x".repeat(MAX_TEXT_BYTES);
-        await host.provideFormattingEdits(0, requestOf(exact));
+    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+        const length = DOCUMENT.text.length;
+        const atLimit = makeHost({ maxSyncedDocumentChars: length });
+        const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
+        atLimit.peer.handleRequest("languages.provideFormattingEdits", provide);
+        expect(await atLimit.host.provideFormattingEdits(0, requestOf())).toHaveLength(1);
         expect(provide).toHaveBeenCalledTimes(1);
-        expect(warn).toHaveBeenCalledOnce();
+
+        const warn = vi.fn();
+        const over = makeHost({ warn, maxSyncedDocumentChars: length - 1 });
+        over.peer.handleRequest("languages.provideFormattingEdits", provide);
+        expect(await over.host.provideFormattingEdits(0, requestOf())).toEqual([]);
+        expect(provide).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith("skipping document sync: document too large", {
+            uri: "file:///a.ts",
+            length,
+        });
     });
 
     it("после остановки субпроцесса запрос не уходит", async () => {
@@ -118,16 +137,16 @@ describe("ExtensionHost — форматирование по handle (in-process
 
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        expect(await host.provideFormattingEdits(0, requestOf("x"))).toEqual([]);
+        expect(await host.provideFormattingEdits(0, requestOf())).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
     });
 
     it("слишком большой документ без логгера — тот же [], без падения на warn", async () => {
-        const { host, peer } = makeHost();
+        const { host, peer } = makeHost({ maxSyncedDocumentChars: DOCUMENT.text.length - 1 });
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
         peer.handleRequest("languages.provideFormattingEdits", provide);
 
-        expect(await host.provideFormattingEdits(0, requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toEqual([]);
+        expect(await host.provideFormattingEdits(0, requestOf())).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
     });
 });

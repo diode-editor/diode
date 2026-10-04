@@ -124,7 +124,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         const help = await provideSignatureHelp(providers, {
             uri: editor.uri.toString(),
             languageId: editor.languageId,
-            text: editor.getText(),
+            versionId: editor.model.document.versionId,
             line: caret.line,
             character: caret.character,
             triggerKind,

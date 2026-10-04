@@ -6,23 +6,25 @@ import type { ITextEdit } from "../../common/core/iTextEdit.ts";
 import type { IFormattingRequest } from "../../common/languages/iFormattingSource.ts";
 import { LanguageFeaturesService } from "../../common/services/languageFeaturesService.ts";
 
-import { formatDocument, formatRange, hasDocumentFormatter } from "./format.ts";
+import { documentRange, formatDocument, formatRange, hasDocumentFormatter } from "./format.ts";
 
 const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
 const REQUEST: IFormattingRequest = {
     uri: TS.uri.toString(),
     languageId: "typescript",
-    text: "a\nbc\n\ndef",
+    versionId: 1,
     tabSize: 4,
     insertSpaces: true,
 };
+/** Диапазон всего документа «a\nbc\n\ndef» — его формат отдаёт range-провайдеру. */
+const WHOLE = documentRange("a\nbc\n\ndef");
 const edit = (text: string): ITextEdit => ({ range: createRange(0, 0, 0, 0), text });
 
 describe("format — выбор форматтера по реестрам", () => {
     it("без провайдеров — форматтера нет: null у обоих видов, has — false", async () => {
         const features = new LanguageFeaturesService();
         expect(hasDocumentFormatter(features, TS)).toBe(false);
-        expect(await formatDocument(features, TS, REQUEST)).toBeNull();
+        expect(await formatDocument(features, TS, REQUEST, WHOLE)).toBeNull();
         expect(await formatRange(features, TS, { ...REQUEST, range: createRange(0, 0, 0, 1) })).toBeNull();
     });
 
@@ -35,7 +37,7 @@ describe("format — выбор форматтера по реестрам", () 
             provideDocumentFormattingEdits: () => Promise.resolve([edit("any")]),
         });
         expect(hasDocumentFormatter(features, TS)).toBe(true);
-        expect(await formatDocument(features, TS, REQUEST)).toEqual([edit("exact")]);
+        expect(await formatDocument(features, TS, REQUEST, WHOLE)).toEqual([edit("exact")]);
     });
 
     it("документного нет — range-провайдер форматирует документ на полный диапазон", async () => {
@@ -46,8 +48,8 @@ describe("format — выбор форматтера по реестрам", () 
         });
 
         expect(hasDocumentFormatter(features, TS)).toBe(true);
-        expect(await formatDocument(features, TS, REQUEST)).toEqual([edit("synthetic")]);
-        // От (0,0) до конца последней строки «def».
+        expect(await formatDocument(features, TS, REQUEST, WHOLE)).toEqual([edit("synthetic")]);
+        // Переданный диапазон всего документа: от (0,0) до конца последней строки «def».
         expect(provide.mock.calls[0]?.[0]).toEqual({ ...REQUEST, range: createRange(0, 0, 3, 3) });
     });
 
@@ -61,7 +63,7 @@ describe("format — выбор форматтера по реестрам", () 
             provideDocumentFormattingEdits: () => Promise.resolve([edit("real")]),
         });
 
-        expect(await formatDocument(features, TS, REQUEST)).toEqual([edit("real")]);
+        expect(await formatDocument(features, TS, REQUEST, WHOLE)).toEqual([edit("real")]);
         expect(synthetic).not.toHaveBeenCalled();
     });
 
@@ -83,10 +85,16 @@ describe("format — выбор форматтера по реестрам", () 
         const features = new LanguageFeaturesService();
         const fail = (): Promise<readonly ITextEdit[]> => Promise.reject(new Error("boom"));
         features.documentRangeFormattingEditProvider.register("*", { provideDocumentRangeFormattingEdits: fail });
-        expect(await formatDocument(features, TS, REQUEST)).toEqual([]);
+        expect(await formatDocument(features, TS, REQUEST, WHOLE)).toEqual([]);
         expect(await formatRange(features, TS, { ...REQUEST, range: createRange(0, 0, 0, 1) })).toEqual([]);
 
         features.documentFormattingEditProvider.register("*", { provideDocumentFormattingEdits: fail });
-        expect(await formatDocument(features, TS, REQUEST)).toEqual([]);
+        expect(await formatDocument(features, TS, REQUEST, WHOLE)).toEqual([]);
+    });
+
+    it("documentRange — от (0,0) до конца последней строки, пустой текст — нулевой диапазон", () => {
+        expect(documentRange("a\nbc\n\ndef")).toEqual(createRange(0, 0, 3, 3));
+        expect(documentRange("x\n")).toEqual(createRange(0, 0, 1, 0));
+        expect(documentRange("")).toEqual(createRange(0, 0, 0, 0));
     });
 });

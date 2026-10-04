@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
-import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 
@@ -25,7 +24,7 @@ const HOVER = { handle: 1, kind: "hover", selector: [{ language: "typescript" }]
 const COMPLETION = { handle: 2, kind: "completion", selector: [], triggerCharacters: ["."] };
 
 function setup() {
-    const customer = new LanguageFeaturesCustomer(TIMEOUTS, undefined);
+    const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true);
     const changed = vi.fn();
     customer.onProvidersChanged(changed);
     const [a, b] = createInProcessChannelPair();
@@ -80,14 +79,12 @@ describe("LanguageFeaturesCustomer — реестр провайдеров сп�
     });
 });
 
-const LIMIT = 8 * 1024 * 1024;
-
 /** Запрос, годный любому провайдеру: лишние поля провайдеры не читают. */
-function anyRequest(text: string): never {
+function anyRequest(uri: string): never {
     return {
-        uri: "file:///a.ts",
+        uri,
         languageId: "typescript",
-        text,
+        versionId: 7,
         line: 0,
         character: 0,
         tabSize: 4,
@@ -100,7 +97,7 @@ function anyRequest(text: string): never {
 interface IRequestCase {
     readonly name: string;
     readonly method: string;
-    readonly call: (customer: LanguageFeaturesCustomer, text: string) => Promise<unknown>;
+    readonly call: (customer: LanguageFeaturesCustomer, uri: string) => Promise<unknown>;
     readonly empty: unknown;
 }
 
@@ -108,116 +105,112 @@ const REQUEST_CASES: readonly IRequestCase[] = [
     {
         name: "completion",
         method: "languages.provideCompletionItems",
-        call: (c, t) => c.provideCompletionItems(1, anyRequest(t)),
+        call: (c, u) => c.provideCompletionItems(1, anyRequest(u)),
         empty: { items: [], isIncomplete: false },
     },
     {
         name: "inline completion",
         method: "languages.provideInlineCompletions",
-        call: (c, t) => c.provideInlineCompletions(1, anyRequest(t)),
+        call: (c, u) => c.provideInlineCompletions(1, anyRequest(u)),
         empty: [],
     },
     {
         name: "folding",
         method: "languages.provideFoldingRanges",
-        call: (c, t) => c.provideFoldingRanges(1, anyRequest(t)),
+        call: (c, u) => c.provideFoldingRanges(1, anyRequest(u)),
         empty: [],
     },
     {
         name: "definition",
         method: "languages.provideDefinition",
-        call: (c, t) => c.provideDefinition(1, anyRequest(t)),
+        call: (c, u) => c.provideDefinition(1, anyRequest(u)),
         empty: [],
     },
     {
         name: "hover",
         method: "languages.provideHover",
-        call: (c, t) => c.provideHover(1, anyRequest(t)),
+        call: (c, u) => c.provideHover(1, anyRequest(u)),
         empty: undefined,
     },
     {
         name: "references",
         method: "languages.provideReferences",
-        call: (c, t) => c.provideReferences(1, anyRequest(t)),
+        call: (c, u) => c.provideReferences(1, anyRequest(u)),
         empty: [],
     },
     {
         name: "signature help",
         method: "languages.provideSignatureHelp",
-        call: (c, t) => c.provideSignatureHelp(1, anyRequest(t)),
+        call: (c, u) => c.provideSignatureHelp(1, anyRequest(u)),
         empty: null,
     },
     {
         name: "formatting",
         method: "languages.provideFormattingEdits",
-        call: (c, t) => c.provideFormattingEdits(1, anyRequest(t)),
+        call: (c, u) => c.provideFormattingEdits(1, anyRequest(u)),
         empty: [],
     },
     {
         name: "code actions",
         method: "languages.provideCodeActions",
-        call: (c, t) => c.provideCodeActions(1, anyRequest(t)),
+        call: (c, u) => c.provideCodeActions(1, anyRequest(u)),
         empty: [],
     },
     {
         name: "prepare rename",
         method: "languages.prepareRename",
-        call: (c, t) => c.prepareRename(1, anyRequest(t)),
+        call: (c, u) => c.prepareRename(1, anyRequest(u)),
         empty: null,
     },
     {
         name: "rename",
         method: "languages.provideRenameEdits",
-        call: (c, t) => c.provideRenameEdits(1, anyRequest(t), "renamed"),
-        empty: { applied: false, error: "Document too large to rename" },
+        call: (c, u) => c.provideRenameEdits(1, anyRequest(u), "renamed"),
+        empty: { applied: false, error: "The document is not available to language extensions" },
     },
 ];
 
-function setupWithLogger(logger: ILogger | undefined) {
-    const customer = new LanguageFeaturesCustomer(TIMEOUTS, logger);
+const SYNCED = "file:///synced.ts";
+const UNSYNCED = "file:///unsynced.ts";
+
+function setupWithSync() {
+    const asked: string[] = [];
+    const customer = new LanguageFeaturesCustomer(TIMEOUTS, (uri) => {
+        asked.push(uri);
+        return uri === SYNCED;
+    });
     const [a, b] = createInProcessChannelPair();
     const peer = new RpcEndpoint(b);
     customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
-    const requested: string[] = [];
+    const requested: { method: string; params: Record<string, unknown> }[] = [];
     for (const { method } of REQUEST_CASES) {
-        peer.handleRequest(method, () => {
-            requested.push(method);
+        peer.handleRequest(method, (params) => {
+            requested.push({ method, params: params as Record<string, unknown> });
             return null;
         });
     }
-    return { customer, requested };
+    return { customer, requested, asked };
 }
 
 // Без it.each: имена-параметры мутационный раннер может не найти по фильтру имени.
-describe("LanguageFeaturesCustomer — защитный лимит снапшота 8 МБ", () => {
-    it("слишком большой документ: пустой ответ без запроса и предупреждение с uri и длиной", async () => {
-        const warn = vi.fn();
-        const h = setupWithLogger({ warn } as unknown as ILogger);
-        const huge = "x".repeat(LIMIT + 1);
+describe("LanguageFeaturesCustomer — запросы только по синхронизированным документам", () => {
+    it("документ не синхронизирован: пустой ответ каждого вида без RPC", async () => {
+        const h = setupWithSync();
         for (const c of REQUEST_CASES) {
-            await expect(c.call(h.customer, huge), c.name).resolves.toEqual(c.empty);
+            await expect(c.call(h.customer, UNSYNCED), c.name).resolves.toEqual(c.empty);
         }
         expect(h.requested).toEqual([]);
-        expect(warn.mock.calls).toEqual(
-            REQUEST_CASES.map((c) => [
-                `skipping ${c.name}: document too large`,
-                { uri: "file:///a.ts", length: LIMIT + 1 },
-            ]),
-        );
+        // Спросили про документ запроса — по разу на вид.
+        expect(h.asked).toEqual(REQUEST_CASES.map(() => UNSYNCED));
     });
 
-    it("документ ровно на лимите уходит провайдеру", async () => {
-        const h = setupWithLogger(undefined);
-        const atLimit = "x".repeat(LIMIT);
-        for (const c of REQUEST_CASES) await c.call(h.customer, atLimit);
-        expect(h.requested).toEqual(REQUEST_CASES.map((c) => c.method));
-    });
-
-    it("без логгера слишком большой документ отбрасывается без падения", async () => {
-        const h = setupWithLogger(undefined);
-        const huge = "x".repeat(LIMIT + 1);
-        for (const c of REQUEST_CASES) {
-            await expect(c.call(h.customer, huge), c.name).resolves.toEqual(c.empty);
+    it("синхронизированный документ: запрос уходит с version из versionId и без text", async () => {
+        const h = setupWithSync();
+        for (const c of REQUEST_CASES) await c.call(h.customer, SYNCED);
+        expect(h.requested.map((r) => r.method)).toEqual(REQUEST_CASES.map((c) => c.method));
+        for (const { method, params } of h.requested) {
+            expect(params, method).toMatchObject({ uri: SYNCED, version: 7 });
+            expect(params, method).not.toHaveProperty("text");
         }
     });
 });

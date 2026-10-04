@@ -3,24 +3,25 @@ import { describe, expect, it } from "vitest";
 import {
     completionTriggerCharacters,
     createExtensionTestHarness,
+    documentVersion,
     extensionFixture,
+    type IExtensionHarness,
     provideCompletions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { ICompletionRequest } from "../../../../editor/common/languages/iCompletionSource.ts";
 
 // Вторая половина completion-контракта: описание и правки авто-импорта приходят
 // не в списке, а по запросу выбранного пункта (`languages.resolveCompletionItem`),
 // а триггер-символы провайдера ядро узнаёт из подписки. Тест гоняет НАСТОЯЩИЙ
 // subprocess — id пункта обязан пережить сериализацию и найтись в кэше ответа.
 
-const REQ = {
-    uri: Uri.file("/proj/.editorconfig").toString(),
-    languageId: "editorconfig",
-    text: "ind",
-    line: 0,
-    character: 3,
-};
+/** Запрос по открытому в харнессе `.editorconfig` (`ind|`) — с его текущей версией. */
+function requestIn(harness: IExtensionHarness): ICompletionRequest {
+    const uri = Uri.file(`${harness.tmpDir}/.editorconfig`).toString();
+    return { uri, languageId: "editorconfig", versionId: documentVersion(harness, uri), line: 0, character: 3 };
+}
 
 describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
     it("догружает detail/documentation/правки и раздаёт триггер-символы", async () => {
@@ -33,9 +34,9 @@ describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
 
             // Триггер-символы регистрации доехали до ядра (их объявляет провайдер,
             // а у LSP-клиента — сервер) метаданными регистрации и видны для документа.
-            expect(completionTriggerCharacters(harness, REQ).sort()).toEqual([".", "="]);
+            expect(completionTriggerCharacters(harness, requestIn(harness)).sort()).toEqual([".", "="]);
 
-            const { items } = await provideCompletions(harness, REQ);
+            const { items } = await provideCompletions(harness, requestIn(harness));
             expect(items).toHaveLength(1);
             // В списке описания ещё нет — ровно как у стокового сервера.
             expect(items[0].detail).toBeUndefined();
@@ -57,7 +58,12 @@ describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
         });
         try {
             expect(await harness.host.resolveCompletionItem("1.0")).toBeNull();
-            expect(completionTriggerCharacters(harness, REQ)).toEqual([]);
+            expect(
+                completionTriggerCharacters(harness, {
+                    uri: Uri.file("/proj/.editorconfig").toString(),
+                    languageId: "editorconfig",
+                }),
+            ).toEqual([]);
         } finally {
             await harness.dispose();
         }

@@ -14,7 +14,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 /**
  * Запрос подсказки параметров по handle: субпроцесса нет, канал сшит
  * in-process — так проверяются ветки, недостижимые через настоящий fork
- * (отсечка по размеру документа, дефолтный таймаут, доставка триггер-символов
+ * (документ без синхронизации, дефолтный таймаут, доставка триггер-символов
  * метаданными регистрации). Образец —
  * `extensionHost.referencesInProcess.test.ts`.
  */
@@ -33,7 +33,8 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-const MAX_TEXT_BYTES = 8 * 1024 * 1024;
+/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const HELP = {
     signatures: [{ label: "greet(name: string): void", parameters: [{ label: "name: string" }] }],
@@ -41,11 +42,11 @@ const HELP = {
     activeParameter: 0,
 };
 
-function requestOf(text: string, patch: Partial<ISignatureHelpRequest> = {}): ISignatureHelpRequest {
+function requestOf(patch: Partial<ISignatureHelpRequest> = {}): ISignatureHelpRequest {
     return {
-        uri: "file:///a.ts",
+        uri: DOCUMENT.uri,
         languageId: "typescript",
-        text,
+        versionId: 3,
         line: 0,
         character: 6,
         triggerKind: SignatureHelpTriggerKind.Invoke,
@@ -54,7 +55,15 @@ function requestOf(text: string, patch: Partial<ISignatureHelpRequest> = {}): IS
     };
 }
 
-function makeHost(options: { warn?: ILogger["warn"]; signatureHelpTimeoutMs?: number } = {}): {
+function makeHost(
+    options: {
+        warn?: ILogger["warn"];
+        signatureHelpTimeoutMs?: number;
+        maxSyncedDocumentChars?: number;
+        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
+        open?: boolean;
+    } = {},
+): {
     host: ExtensionHost;
     peer: RpcEndpoint;
 } {
@@ -67,12 +76,16 @@ function makeHost(options: { warn?: ILogger["warn"]; signatureHelpTimeoutMs?: nu
         ...(options.signatureHelpTimeoutMs === undefined
             ? {}
             : { signatureHelpTimeoutMs: options.signatureHelpTimeoutMs }),
+        ...(options.maxSyncedDocumentChars === undefined
+            ? {}
+            : { maxSyncedDocumentChars: options.maxSyncedDocumentChars }),
     });
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+    if (options.open !== false) host.didOpenTextDocument(DOCUMENT);
     return { host, peer };
 }
 
@@ -85,10 +98,10 @@ describe("ExtensionHost — подсказка параметров по handle 
             return Promise.resolve(null);
         });
 
-        await host.provideSignatureHelp(0, requestOf("x"));
+        await host.provideSignatureHelp(0, requestOf());
         await host.provideSignatureHelp(
             0,
-            requestOf("x", {
+            requestOf({
                 triggerKind: SignatureHelpTriggerKind.TriggerCharacter,
                 triggerCharacter: ",",
                 isRetrigger: true,
@@ -100,7 +113,7 @@ describe("ExtensionHost — подсказка параметров по handle 
             handle: 0,
             uri: "file:///a.ts",
             languageId: "typescript",
-            text: "x",
+            version: 3,
             line: 0,
             character: 6,
             triggerKind: SignatureHelpTriggerKind.Invoke,
@@ -114,15 +127,15 @@ describe("ExtensionHost — подсказка параметров по handle 
             "isRetrigger",
             "languageId",
             "line",
-            "text",
             "triggerKind",
             "uri",
+            "version",
         ]);
         expect(seen[1]).toEqual({
             handle: 0,
             uri: "file:///a.ts",
             languageId: "typescript",
-            text: "x",
+            version: 3,
             line: 0,
             character: 6,
             triggerKind: SignatureHelpTriggerKind.TriggerCharacter,
@@ -158,21 +171,31 @@ describe("ExtensionHost — подсказка параметров по handle 
         ]);
     });
 
-    it("документ ровно в лимит проходит, больше лимита — отсекается с записью в лог", async () => {
-        const warn = vi.fn();
-        const { host, peer } = makeHost({ warn });
+    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+        const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve(HELP));
         peer.handleRequest("languages.provideSignatureHelp", provide);
 
-        expect(await host.provideSignatureHelp(0, requestOf("x".repeat(MAX_TEXT_BYTES)))).toEqual(HELP);
-        expect(provide).toHaveBeenCalledTimes(1);
-        expect(warn).not.toHaveBeenCalled();
+        expect(await host.provideSignatureHelp(0, requestOf())).toBeNull();
+        expect(provide).not.toHaveBeenCalled();
+    });
 
-        expect(await host.provideSignatureHelp(0, requestOf("x".repeat(MAX_TEXT_BYTES + 1)))).toBeNull();
+    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+        const length = DOCUMENT.text.length;
+        const atLimit = makeHost({ maxSyncedDocumentChars: length });
+        const provide = vi.fn(() => Promise.resolve(HELP));
+        atLimit.peer.handleRequest("languages.provideSignatureHelp", provide);
+        expect(await atLimit.host.provideSignatureHelp(0, requestOf())).toEqual(HELP);
         expect(provide).toHaveBeenCalledTimes(1);
-        expect(warn).toHaveBeenCalledWith("skipping signature help: document too large", {
+
+        const warn = vi.fn();
+        const over = makeHost({ warn, maxSyncedDocumentChars: length - 1 });
+        over.peer.handleRequest("languages.provideSignatureHelp", provide);
+        expect(await over.host.provideSignatureHelp(0, requestOf())).toBeNull();
+        expect(provide).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith("skipping document sync: document too large", {
             uri: "file:///a.ts",
-            length: MAX_TEXT_BYTES + 1,
+            length,
         });
     });
 
@@ -180,11 +203,11 @@ describe("ExtensionHost — подсказка параметров по handle 
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve(HELP));
         peer.handleRequest("languages.provideSignatureHelp", provide);
-        expect(await host.provideSignatureHelp(0, requestOf("x"))).toEqual(HELP);
+        expect(await host.provideSignatureHelp(0, requestOf())).toEqual(HELP);
 
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
-        expect(await host.provideSignatureHelp(0, requestOf("x"))).toBeNull();
+        expect(await host.provideSignatureHelp(0, requestOf())).toBeNull();
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
@@ -204,6 +227,6 @@ describe("ExtensionHost — подсказка параметров по handle 
             return HELP;
         });
 
-        expect(await host.provideSignatureHelp(0, requestOf("x"))).toBeNull();
+        expect(await host.provideSignatureHelp(0, requestOf())).toBeNull();
     });
 });

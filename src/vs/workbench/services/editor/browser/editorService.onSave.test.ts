@@ -141,6 +141,7 @@ describe("EditorService — сохранение по настройкам onSav
             const fp = writeFile("a.txt", "import sys\nimport os\n");
             ctrl.openFile(fp);
             const pane = ctrl.getActiveEditor()!;
+            const versionBefore = pane.model.document.versionId;
 
             const provided: ICodeActionRequest[] = [];
             const applied: string[] = [];
@@ -169,7 +170,9 @@ describe("EditorService — сохранение по настройкам onSav
             expect(provided[0].languageId).toBe("plaintext");
             // Полный диапазон документа: 3 «строки» сплита, последняя пустая.
             expect(provided[0].range).toEqual(createRange(0, 0, 2, 0));
-            expect(provided[0].text).toBe("import sys\nimport os\n");
+            // Версия документа на момент запроса — до правок apply.
+            expect(provided[0].versionId).toBe(versionBefore);
+            expect(pane.model.document.versionId).not.toBe(versionBefore);
             expect(applied).toEqual(["fix.1", "fix.2"]);
             // Правка применена ДО записи: на диске уже поправленный текст.
             expect(fs.readFileSync(fp, "utf-8")).toBe("import os\n");
@@ -250,6 +253,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.openFile(fp);
             const pane = ctrl.getActiveEditor()!;
             pane.viewState.selections = [createCursorSelection(1, 1), createCursorSelection(0, 2)];
+            const versionBefore = pane.model.document.versionId;
 
             const requests: IFormattingRequest[] = [];
             useFormatter(ctrl, (req) => {
@@ -260,7 +264,7 @@ describe("EditorService — сохранение по настройкам onSav
             await pane.save();
 
             expect(requests).toHaveLength(1);
-            expect(requests[0].text).toBe("a  =  1\nb=2\n");
+            expect(requests[0].versionId).toBe(versionBefore);
             expect(requests[0].range).toBeUndefined();
             expect(fs.readFileSync(fp, "utf-8")).toBe("a = 1\nb=2\n");
             // Одна каретка на прежнем месте первичного выделения (сеттер
@@ -328,6 +332,7 @@ describe("EditorService — сохранение по настройкам onSav
             const pane = ctrl.getActiveEditor()!;
 
             const order: string[] = [];
+            let afterFix: number | undefined;
             useCodeActions(ctrl, {
                 provide: () => {
                     order.push("actions");
@@ -335,13 +340,15 @@ describe("EditorService — сохранение по настройкам onSav
                 },
                 apply: () => {
                     pane.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "fixed:")], "fix");
+                    afterFix = pane.model.document.versionId;
                     return Promise.resolve(true);
                 },
             });
             useFormatter(ctrl, (req) => {
                 order.push("format");
-                // Формат обязан видеть текст ПОСЛЕ code action.
-                expect(req.text).toBe("fixed:base\n");
+                // Формат обязан видеть версию ПОСЛЕ code action.
+                expect(afterFix).toBeDefined();
+                expect(req.versionId).toBe(afterFix);
                 return Promise.resolve([createTextEdit(createRange(0, 0, 0, 0), "fmt:")]);
             });
             ctrl.saveParticipant = (snapshot) => {
@@ -454,18 +461,25 @@ describe("EditorService — сохранение по настройкам onSav
             writeFile("first.txt", "first\n");
             const fp = writeFile("second.txt", "second\n");
             ctrl.openFile(path.join(ws.dir, "first.txt"));
+            // Версии панелей разводим: first.txt правим дважды.
+            const first = ctrl.getActiveEditor()!;
+            first.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "a")], "edit");
+            first.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "b")], "edit");
             ctrl.openFile(fp);
+            const second = ctrl.getActiveEditor()!;
+            expect(second).not.toBe(first);
+            expect(second.model.document.versionId).not.toBe(first.model.document.versionId);
 
-            const texts: string[] = [];
+            const versions: number[] = [];
             useFormatter(ctrl, (req) => {
-                texts.push(req.text);
+                versions.push(req.versionId);
                 return Promise.resolve([]);
             });
 
-            await ctrl.getActiveEditor()!.save();
+            await second.save();
 
-            // Панель ищется по uri снапшота: запрос обязан нести текст second.txt.
-            expect(texts).toEqual(["second\n"]);
+            // Панель ищется по uri снапшота: запрос обязан нести версию second.txt.
+            expect(versions).toEqual([second.model.document.versionId]);
             ctrl.dispose();
         });
     });

@@ -30,22 +30,26 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
+/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+const DOCUMENT = { uri: "file:///proj/main.ts", languageId: "typescript", version: 3, text: "con" };
+
 const REQ = {
-    uri: "file:///proj/main.ts",
+    uri: DOCUMENT.uri,
     languageId: "typescript",
-    text: "con",
+    versionId: 3,
     line: 0,
     character: 3,
     triggerKind: InlineCompletionTriggerKind.Invoke,
 };
 
-function makeHost(): { host: ExtensionHost; peer: RpcEndpoint } {
+function makeHost(open = true): { host: ExtensionHost; peer: RpcEndpoint } {
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+    if (open) host.didOpenTextDocument(DOCUMENT);
     return { host, peer };
 }
 
@@ -65,12 +69,29 @@ describe("ExtensionHost — inline completions (in-process)", () => {
 
         expect(first).toEqual([{ insertText: " = 42;" }]);
         expect(second).toEqual([{ insertText: " = 7;" }]);
-        // Параметры как есть + пачка handle + токен отмены этого запроса (второй
-        // аргумент хендлера — его выдаёт RpcEndpoint принимающей стороны).
+        // Параметры с версией вместо текста + пачка handle + токен отмены этого
+        // запроса (второй аргумент хендлера — его выдаёт RpcEndpoint принимающей стороны).
         expect(seen).toHaveBeenCalledExactlyOnceWith(
-            { handles: [3, 8], ...REQ },
+            {
+                handles: [3, 8],
+                uri: DOCUMENT.uri,
+                languageId: "typescript",
+                version: 3,
+                line: 0,
+                character: 3,
+                triggerKind: InlineCompletionTriggerKind.Invoke,
+            },
             expect.objectContaining({ isCancellationRequested: false }),
         );
+    });
+
+    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+        const { host, peer } = makeHost(false);
+        const seen = vi.fn(() => [[{ insertText: "x" }]]);
+        peer.handleRequest("languages.provideInlineCompletions", seen);
+
+        expect(await host.provideInlineCompletions(0, REQ)).toEqual([]);
+        expect(seen).not.toHaveBeenCalled();
     });
 
     it("после остановки субпроцесса запрос не уходит", async () => {
@@ -117,6 +138,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         const peer = new RpcEndpoint(b);
         (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
         (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
+        host.didOpenTextDocument(DOCUMENT);
 
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideInlineCompletions", (_params, token) => {
