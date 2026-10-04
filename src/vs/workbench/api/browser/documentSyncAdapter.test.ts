@@ -11,10 +11,10 @@ import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
-import type { ExtensionHost } from "../../services/extensions/node/extensionHost.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
-import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
+import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 
 import { bindDocumentSync, openDocumentSnapshots } from "./documentSyncAdapter.ts";
 
@@ -51,20 +51,31 @@ describe("documentSyncAdapter", () => {
 
     /** Host-стаб: записывает push'и вместо RPC в субпроцесс. */
     function recordingHost(): {
-        host: ExtensionHost;
+        host: IDocumentSyncTarget;
         opened: string[];
         changed: string[];
+        deltas: IWireDocumentChangedEvent[];
+        flushes: IWireDocumentSyncSnapshot[];
         closed: string[];
     } {
         const opened: string[] = [];
         const changed: string[] = [];
+        const deltas: IWireDocumentChangedEvent[] = [];
+        const flushes: IWireDocumentSyncSnapshot[] = [];
         const closed: string[] = [];
-        const host = {
-            didOpenTextDocument: (snapshot: IWireDocumentSyncSnapshot) => opened.push(snapshot.uri),
-            didChangeTextDocument: (snapshot: IWireDocumentSyncSnapshot) => changed.push(snapshot.uri),
-            didCloseTextDocument: (uri: string) => closed.push(uri),
-        } as unknown as ExtensionHost;
-        return { host, opened, changed, closed };
+        const host: IDocumentSyncTarget = {
+            didOpenTextDocument: (snapshot) => opened.push(snapshot.uri),
+            didChangeTextDocument: (snapshot) => {
+                changed.push(snapshot.uri);
+                flushes.push(snapshot);
+            },
+            didChangeTextDocumentContent: (event) => {
+                changed.push(event.uri);
+                deltas.push(event);
+            },
+            didCloseTextDocument: (uri) => closed.push(uri),
+        };
+        return { host, opened, changed, deltas, flushes, closed };
     }
 
     it("openDocumentSnapshots: документ в двух группах даёт один снапшот", () => {
@@ -99,26 +110,40 @@ describe("documentSyncAdapter", () => {
         expect(opened).toEqual([uri]); // повторных didOpen не было
     });
 
-    it("bindDocumentSync: перечитка с диска — didChange с новым текстом и растущей версией", () => {
-        const snapshots: IWireDocumentSyncSnapshot[] = [];
-        const host = {
-            didOpenTextDocument: () => undefined,
-            didChangeTextDocument: (snapshot: IWireDocumentSyncSnapshot) => snapshots.push(snapshot),
-            didCloseTextDocument: () => undefined,
-        } as unknown as ExtensionHost;
+    it("bindDocumentSync: правка — дельта батча модели с версией и dirty, синхронно", () => {
+        const { host, deltas, flushes } = recordingHost();
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        bindDocumentSync(service, service.editorGroups, host);
+
+        editor.viewState.type("x");
+
+        expect(flushes).toEqual([]);
+        expect(deltas).toEqual([
+            {
+                uri: editor.uri.toString(),
+                version: editor.model.document.versionId,
+                changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+                isDirty: true,
+            },
+        ]);
+    });
+
+    it("bindDocumentSync: перечитка с диска — полный снапшот с новым текстом и растущей версией", () => {
+        const { host, deltas, flushes } = recordingHost();
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
         editor.viewState.type("x");
         bindDocumentSync(service, service.editorGroups, host);
         editor.viewState.type("y");
-        const versionBefore = snapshots.at(-1)!.version;
+        const versionBefore = deltas.at(-1)!.version;
 
         ws.writeFile("a.ts", "from disk");
         editor.revertToDisk();
 
-        // Хост узнаёт о перечитке как о правке: текст с диска, версия не откатилась.
-        expect(snapshots.at(-1)?.text).toBe("from disk");
-        expect(snapshots.at(-1)!.version).toBeGreaterThan(versionBefore);
+        // Хост узнаёт о перечитке снапшотом: текст с диска, версия не откатилась.
+        expect(flushes.at(-1)?.text).toBe("from disk");
+        expect(flushes.at(-1)!.version).toBeGreaterThan(versionBefore);
     });
 
     it("bindDocumentSync: открытие нового файла после привязки даёт didOpen", () => {

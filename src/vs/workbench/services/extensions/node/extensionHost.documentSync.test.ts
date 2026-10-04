@@ -44,7 +44,7 @@ async function dumpLog(harness: IExtensionHarness): Promise<IDumpEntry[]> {
 }
 
 describe("ExtensionHost — document sync producer (subprocess)", () => {
-    it("правка в настоящем редакторе доезжает до расширения: полный текст, растущая версия", async () => {
+    it("правка в настоящем редакторе доезжает до расширения точной правкой с версией модели", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [extensionFixture("test.docSync", "recordsDocumentSync.cjs")],
@@ -70,9 +70,10 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             let changes = (await dumpLog(harness)).filter((e) => e.kind === "change");
             expect(changes).toHaveLength(1);
             expect(changes[0].text).toBe("// intro\nconst a = 1;\n");
-            expect(changes[0].newText).toBe("// intro\nconst a = 1;\n");
-            // Full-range правка покрывает весь СТАРЫЙ текст.
-            expect(changes[0].rangeLength).toBe("const a = 1;\n".length);
+            // Дельта, а не full-range: вставка в начало, без удаления.
+            expect(changes[0].newText).toBe("// intro\n");
+            expect(changes[0].rangeLength).toBe(0);
+            expect(changes[0].version).toBe(editor?.model.document.versionId);
             expect(changes[0].version ?? 0).toBeGreaterThan(openVersion);
 
             // Вторая правка — версия продолжает расти.
@@ -82,6 +83,7 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             changes = (await dumpLog(harness)).filter((e) => e.kind === "change");
             expect(changes).toHaveLength(2);
             expect(changes[1].text).toBe("// intro\nlet b = 2;\nconst a = 1;\n");
+            expect(changes[1].newText).toBe("let b = 2;\n");
             expect(changes[1].version ?? 0).toBeGreaterThan(changes[0].version ?? 0);
         } finally {
             await harness.dispose();

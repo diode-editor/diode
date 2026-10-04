@@ -1,4 +1,4 @@
-import type { IWireDocumentSyncSnapshot } from "./wireTypes.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "./wireTypes.ts";
 
 /**
  * Тонкий «port» приёмника document sync (core → host), нужный
@@ -9,8 +9,10 @@ import type { IWireDocumentSyncSnapshot } from "./wireTypes.ts";
 export interface IDocumentSyncTarget {
     /** Документ открыт (`editor.didOpen` → `workspace.textDocuments`). */
     didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void;
-    /** Документ изменился (`editor.didChange`); коалесинг — забота приёмника. */
+    /** Содержимое документа заменено целиком (flush): полный снапшот. */
     didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void;
+    /** Правки модели (`editor.didChange` дельтой) — синхронно, на каждый батч. */
+    didChangeTextDocumentContent(event: IWireDocumentChangedEvent): void;
     /** Закрыта последняя вкладка документа (`editor.didClose`). */
     didCloseTextDocument(uri: string): void;
 }

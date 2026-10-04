@@ -8,12 +8,10 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireDocumentSyncSnapshot } from "../../../api/common/wireTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
-import type { ExtensionPhases } from "./extensionPhases.ts";
-import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 // Хост на in-process RPC-паре (как extensionHost.decorationsInProcess.test.ts):
-// гейты document sync — у DocumentsCustomer (см. его тесты), здесь — только
-// проводка хоста: didOpen/didClose ждут хоть одного активного расширения.
+// правила document sync — у DocumentsCustomer (см. его тесты), здесь — только
+// проводка фасада хоста к нему.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -34,27 +32,23 @@ const NOOP_COMMANDS = {
 const SNAPSHOT: IWireDocumentSyncSnapshot = { uri: "file:///a.ts", languageId: "typescript", version: 1, text: "x" };
 
 describe("ExtensionHost — document sync (in-process)", () => {
-    it("живой спавн без активных расширений didOpen/didClose не шлёт; с расширением — шлёт", async () => {
+    it("хост проводит открытие, правки дельтой и закрытие живому спавну", async () => {
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS);
         const [a, b] = createInProcessChannelPair();
         const peer = new RpcEndpoint(b);
         const received: string[] = [];
-        peer.handleNotification("editor.didOpen", () => received.push("didOpen"));
-        peer.handleNotification("editor.didClose", () => received.push("didClose"));
+        for (const method of ["editor.didOpen", "editor.didChange", "editor.didClose"]) {
+            peer.handleNotification(method, () => received.push(method));
+        }
+        // До спавна слать некому.
+        host.didOpenTextDocument(SNAPSHOT);
         (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(new RpcEndpoint(a));
 
         host.didOpenTextDocument(SNAPSHOT);
+        host.didChangeTextDocumentContent({ uri: SNAPSHOT.uri, version: 2, changes: [] });
+        host.didChangeTextDocument({ ...SNAPSHOT, version: 3 });
         host.didCloseTextDocument(SNAPSHOT.uri);
         await flushMicrotasks();
-        expect(received).toEqual([]);
-
-        // Активированное расширение попадает в активные фазы (см. requestActivation).
-        (host as unknown as { phases: ExtensionPhases }).phases.markActive({
-            id: "test.fixture",
-        } as IExtensionRegistration);
-        host.didOpenTextDocument(SNAPSHOT);
-        host.didCloseTextDocument(SNAPSHOT.uri);
-        await flushMicrotasks();
-        expect(received).toEqual(["didOpen", "didClose"]);
+        expect(received).toEqual(["editor.didOpen", "editor.didChange", "editor.didChange", "editor.didClose"]);
     });
 });

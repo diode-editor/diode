@@ -1,4 +1,5 @@
 import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentContentChange } from "./wireTypes.ts";
 
 /**
  * Реестр документов на стороне subprocess со СТАБИЛЬНОЙ идентичностью.
@@ -8,8 +9,9 @@ import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts"
  * {@link ExtHostTextDocument}, живущий весь жизненный цикл сессии.
  * Обновления метаданных/текста мутируют существующий объект, а не создают новый.
  *
- * Полные снапшоты текста приходят только на пути will-save (WP6); до тех пор
- * текст — пустая строка, а `lineAt`/`lineCount` отражают последний снапшот.
+ * Текст документа — зеркало ядрового: полный снапшот на открытии
+ * (`editor.didOpen`) и на flush, дальше — точные правки `editor.didChange`
+ * ({@link ExtHostTextDocument.acceptChanges}) с `versionId` модели.
  */
 
 /** Метаданные документа (путь active-editor-change; без текста). */
@@ -80,8 +82,10 @@ export class ExtHostTextDocument {
     public isDirty = false;
     public version = 0;
 
-    private text = "";
-    private lineCache: string[] | null = null;
+    /** Строки зеркала (разделитель `\n`) — источник правды: их правят правки. */
+    private lineStore: string[] = [""];
+    /** Текст целиком — кэш, собирается из строк лениво до следующей мутации. */
+    private textCache: string | null = "";
 
     public constructor(uri: Uri) {
         this.uri = uri;
@@ -101,13 +105,41 @@ export class ExtHostTextDocument {
      */
     public applyFull(snapshot: ExtHostDocumentSnapshot): void {
         this.applyMeta(snapshot);
-        this.text = snapshot.text;
-        this.lineCache = null;
+        this.textCache = snapshot.text;
+        this.lineStore = snapshot.text.split("\n");
         this.version = snapshot.version ?? this.version + 1;
     }
 
+    /**
+     * Применяет правки батча модели по одной — в порядке провода (по убыванию,
+     * в координатах до каждой правки; см. `IModelContentChangedEvent` ядра) — и
+     * выставляет версию модели. Возвращает правки в виде
+     * `TextDocumentContentChangeEvent`: `rangeOffset`/`rangeLength` считаются по
+     * строкам ДО каждой правки, как у `mirrorTextModel` эталона. Вставленный
+     * текст режется по `\n` — так же, как в модели ядра.
+     */
+    public acceptChanges(version: number, changes: readonly IWireDocumentContentChange[]): IDocumentContentChange[] {
+        const lines = this.lines();
+        const result: IDocumentContentChange[] = [];
+        for (const { range: wire, text } of changes) {
+            const range = this.validateRange(
+                new Range(wire.startLine, wire.startCharacter, wire.endLine, wire.endCharacter),
+            );
+            const rangeOffset = this.offsetAt(range.start);
+            const rangeLength = this.offsetAt(range.end) - rangeOffset;
+            const prefix = lines[range.start.line].slice(0, range.start.character);
+            const suffix = lines[range.end.line].slice(range.end.character);
+            const inserted = (prefix + text + suffix).split("\n");
+            lines.splice(range.start.line, range.end.line - range.start.line + 1, ...inserted);
+            this.textCache = null;
+            result.push({ range, rangeOffset, rangeLength, text });
+        }
+        this.version = version;
+        return result;
+    }
+
     public getText(range?: Range): string {
-        if (range === undefined) return this.text;
+        if (range === undefined) return (this.textCache ??= this.lines().join("\n"));
         // По контракту `vscode.d.ts` диапазон «will be adjusted» — провайдер,
         // посчитавший границу по своей копии текста, не должен получить
         // исключение из-за одного лишнего символа.
@@ -145,7 +177,7 @@ export class ExtHostTextDocument {
      */
     public positionAt(offset: number): Position {
         const lines = this.lines();
-        let remaining = Math.min(Math.max(0, offset), this.text.length);
+        let remaining = Math.min(Math.max(0, offset), this.getText().length);
         // Шагаем, пока остаток не влезает в строку. Проверки «не вышли за
         // последнюю строку» тут нет и не нужно: сумма длин строк с
         // разделителями равна длине текста, а смещение к ней прижато — значит
@@ -201,8 +233,7 @@ export class ExtHostTextDocument {
     }
 
     private lines(): string[] {
-        this.lineCache ??= this.text.split("\n");
-        return this.lineCache;
+        return this.lineStore;
     }
 }
 
@@ -278,8 +309,11 @@ function endOfText(text: string): Position {
 }
 
 /**
- * ЕДИНСТВЕННАЯ точка входа текста в реестр на путях document sync
- * (`editor.didOpen`/`didChange`), will-save и `languages.provide*`.
+ * ЕДИНСТВЕННАЯ точка входа текста в реестр: document sync (`editor.didOpen` —
+ * {@link DocumentSyncTracker.open}, `editor.didChange` — правками
+ * {@link DocumentSyncTracker.change}), а запросы с текстом (will-save,
+ * `languages.provide*`) только сверяют его с зеркалом
+ * ({@link DocumentSyncTracker.verify}).
  *
  * Инвариант: любой потребитель onDidOpen/onDidChange (стоковый
  * vscode-languageclient, который транслирует их в LSP didOpen/didChange) видит
@@ -296,18 +330,39 @@ function endOfText(text: string): Position {
 export class DocumentSyncTracker {
     /** Ресурсы, о которых уже фаерился didOpen (один раз на ресурс — как в VS Code). */
     private readonly opened = new Set<string>();
+    /**
+     * Открытые, чьё зеркало ведёт хост (снапшот didOpen, дальше правки
+     * didChange). Документ вне набора, но открытый, открыл запрос: хост его не
+     * синхронизирует (сторона диффа, панель Output — модели не во вкладках), и
+     * свежий текст ему приходит только запросами.
+     */
+    private readonly mirrored = new Set<string>();
     public readonly onDidOpenEmitter = new EventEmitter<ExtHostTextDocument>();
     public readonly onDidChangeEmitter = new EventEmitter<IDocumentChangeEvent>();
     public readonly onDidCloseEmitter = new EventEmitter<ExtHostTextDocument>();
 
-    public constructor(private readonly registry: DocumentRegistry) {}
+    /**
+     * @param warn куда сообщить о рассинхроне (по умолчанию stderr субпроцесса —
+     *   хост зеркалит его в лог расширений)
+     */
+    public constructor(
+        private readonly registry: DocumentRegistry,
+        private readonly warn: (message: string) => void = (message) => {
+            console.warn(`[ext-host] ${message}`);
+        },
+    ) {}
 
     /**
      * Согласует снапшот с реестром: новый ресурс → didOpen; изменившийся текст →
      * didChange одной full-range правкой (валидно и для Full, и для Incremental
      * sync сервера); тот же текст → тихое обновление меты (без churn версии).
      */
-    public sync(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
+    public open(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
+        this.mirrored.add(snapshot.uri);
+        return this.sync(snapshot);
+    }
+
+    private sync(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
         const prev = this.registry.get(Uri.parse(snapshot.uri));
         if (prev === undefined || !this.opened.has(snapshot.uri)) {
             const doc = this.registry.upsertFull(snapshot);
@@ -334,6 +389,46 @@ export class DocumentSyncTracker {
     }
 
     /**
+     * Правки модели (`editor.didChange`): применяются к зеркалу открытого
+     * документа и уходят расширениям настоящими `contentChanges`. По
+     * неоткрытому документу правки отбрасываются с предупреждением —
+     * применённые к чужому тексту, они испортили бы зеркало (хост шлёт правки
+     * только открытым, так что это нарушенный инвариант, а не штатный путь).
+     */
+    public change(event: IWireDocumentChangedEvent): ExtHostTextDocument | null {
+        if (!this.opened.has(event.uri)) {
+            this.warn(`document sync: changes for a document that is not open: ${event.uri}`);
+            return null;
+        }
+        // Открытый документ всегда есть в реестре — `getOrCreate` его только находит.
+        const doc = this.registry.getOrCreate(Uri.parse(event.uri));
+        const contentChanges = doc.acceptChanges(event.version, event.changes);
+        // `applyMeta` сам пропускает отсутствующие поля.
+        doc.applyMeta({ uri: event.uri, isDirty: event.isDirty });
+        this.onDidChangeEmitter.fire({ document: doc, contentChanges, reason: undefined });
+        return doc;
+    }
+
+    /**
+     * Текст, приехавший в запросе (will-save, `languages.provide*`). Для
+     * документа, чьё зеркало ведёт хост, — не источник, а сверка: расхождение —
+     * нарушенный инвариант порядка, пишем предупреждение и пересинхронизируем
+     * документ полной правкой, посчитанной от зеркала (её и увидят расширения,
+     * так что их копии сойдутся). Документ, которого хост не синхронизирует
+     * (запрос раньше didOpen, модель не во вкладке), открывается и обновляется
+     * из запроса молча — других источников текста у него нет.
+     */
+    public verify(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
+        if (
+            this.mirrored.has(snapshot.uri) &&
+            this.registry.getOrCreate(Uri.parse(snapshot.uri)).getText() !== snapshot.text
+        ) {
+            this.warn(`document sync: request text differs from the mirror of ${snapshot.uri} — resyncing`);
+        }
+        return this.sync(snapshot);
+    }
+
+    /**
      * Закрытие документа (`editor.didClose`): сброс didOpen-дедупа (следующее
      * открытие того же ресурса снова фаерит didOpen — сервер получает свежий
      * didOpen после didClose, как требует LSP) + `isClosed` + событие. Документ
@@ -343,6 +438,7 @@ export class DocumentSyncTracker {
         const doc = this.registry.get(uri);
         if (doc === undefined || !this.opened.has(uri.toString())) return null;
         this.opened.delete(uri.toString());
+        this.mirrored.delete(uri.toString());
         doc.isClosed = true;
         this.onDidCloseEmitter.fire(doc);
         return doc;
