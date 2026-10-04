@@ -33,8 +33,8 @@ import type { LayoutService } from "../services/layout/browser/layoutService.ts"
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import type { LifecycleService } from "../services/lifecycle/browser/lifecycleService.ts";
 import { LifecycleServiceDIToken } from "../services/lifecycle/browser/lifecycleService.ts";
-import type { FileSearchService } from "../services/search/node/fileSearchService.ts";
-import { FileSearchServiceDIToken } from "../services/search/node/fileSearchService.ts";
+import type { IFileSearchService } from "../services/search/common/fileSearch.ts";
+import { FileSearchServiceDIToken } from "../services/search/common/fileSearch.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import type { ThemeService } from "../services/themes/common/themeService.ts";
@@ -106,7 +106,7 @@ export class WorkbenchComponent extends Component {
     private explorerService: ExplorerService;
     private sidebarService: SidebarService;
     private viewsService: ViewsService;
-    private fileSearchService: FileSearchService;
+    private fileSearchService: IFileSearchService;
     private quickInput: QuickInputService;
     private statusBarComponent: StatusBarComponent;
     private notificationsComponent: NotificationsComponent;

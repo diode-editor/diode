@@ -6,49 +6,24 @@ import { charMask, fuzzyMatchPreparedLower, prepareQuery } from "../../../../bas
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     FILES_EXCLUDE_SETTING,
     isExcludedPath,
     SEARCH_EXCLUDE_SETTING,
     searchExcludeGlobs,
 } from "../../../common/configuration/excludeSettings.ts";
-
-export const FileSearchServiceDIToken = token<FileSearchService>("FileSearchService");
-
-/**
- * Basename bonus so that a match in the filename beats a match only in the path.
- * Exported so the open-editors picker ranks its own (tiny, index-free) list the
- * same way the file picker ranks the index — one ranking, one constant.
- */
-export const BASENAME_BONUS = 200;
+import {
+    BASENAME_BONUS,
+    type FileSearchEntry,
+    type FileSearchResult,
+    type IFileSearchService,
+} from "../common/fileSearch.ts";
 
 /** Debounce for onIndexChanged so a background walk does not spam subscribers. */
 const NOTIFY_DEBOUNCE_MS = 50;
 
 /** Skip an on-demand re-walk if the index was rebuilt more recently than this. */
 const STALE_AFTER_MS = 10_000;
-
-export interface FileSearchEntry {
-    relativePath: string;
-    absolutePath: string;
-    /** Basename in original case — used for word-boundary scoring and labels. */
-    basename: string;
-    /** Pre-lowercased basename, for allocation-free matching on the hot path. */
-    basenameLower: string;
-    /** Pre-lowercased relative path, for the path-fallback match. */
-    relativePathLower: string;
-    /** Char-presence mask of `basenameLower`, to skip the basename match. */
-    basenameBits: number;
-    /** Char-presence mask of `relativePathLower`; the global match prefilter. */
-    relativePathBits: number;
-}
-
-export interface FileSearchResult {
-    entry: FileSearchEntry;
-    score: number;
-    matchedIndices: readonly number[];
-}
 
 /**
  * In-memory file index for Quick Open.
@@ -59,7 +34,7 @@ export interface FileSearchResult {
  * loop); freshness is best-effort via `refreshIfStale()` (called when Quick Open
  * opens). A just-created file may therefore appear with a small delay.
  */
-export class FileSearchService extends Disposable {
+export class FileSearchService extends Disposable implements IFileSearchService {
     public static dependencies = [IConfigurationServiceDIToken] as const;
 
     private entries: FileSearchEntry[] = [];
