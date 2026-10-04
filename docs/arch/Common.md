@@ -57,6 +57,14 @@ public readonly onDidChange = this.onDidChangeEmitter.event;
 
 `onUnexpectedError` (`errors.ts`) в проде уходит в лог (`main.ts`, субпроцесс extension host'а), в тестах — роняет тест (см. [../TESTING.md](../TESTING.md)).
 
+## Шелл системы: `base/node/shell.ts`
+
+`getSystemShell(platform?, env?)` — единственная точка «какой шелл запускать» (upstream `base/node/shell.ts`):
+unix — `$SHELL` → шелл учётной записи (`os.userInfo()`) → `sh`, `/bin/false` заменяется на `/bin/bash`;
+win32 — `%COMSPEC%` → `cmd.exe` (обнаружения PowerShell нет). Встроенный терминал спавнит его в
+`EmbeddedTerminalSession` и отдаёт полем `shell` сессии — по нему вкладка получает заголовок; browser-слой
+`process.env.SHELL` не читает.
+
 ## Вехи старта: `performance.ts`
 
 `mark(name, detail?)` — тонкая обёртка над стандартным `performance.mark` (аналог

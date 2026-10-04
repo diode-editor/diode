@@ -22,6 +22,20 @@ function awaitExit(session: EmbeddedTerminalSession): Promise<number> {
 }
 
 describe("EmbeddedTerminalSession", () => {
+    it("запоминает запущенный шелл; без явного — системный (getSystemShell)", async () => {
+        const explicit = new EmbeddedTerminalSession({ cols: 20, rows: 5, shell: "/bin/sh", args: ["-c", "exit 0"] });
+        expect(explicit.shell).toBe("/bin/sh");
+        await awaitExit(explicit);
+        explicit.dispose();
+
+        vi.stubEnv("SHELL", "/bin/sh");
+        const system = new EmbeddedTerminalSession({ cols: 20, rows: 5, args: ["-c", "exit 0"] });
+        vi.unstubAllEnvs();
+        expect(system.shell).toBe("/bin/sh");
+        await awaitExit(system);
+        system.dispose();
+    });
+
     it("captures shell output via readCell and reports the exit code", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
