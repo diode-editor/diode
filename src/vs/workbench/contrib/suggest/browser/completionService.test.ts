@@ -1268,6 +1268,15 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
     });
 
+    it("движение каретки при закрытом попапе не снимает запланированный авто-запрос", async () => {
+        const { service, fake, source } = setup(ITEMS);
+        service.autoSuggestDelayMs = 20;
+        fake.type("inde", 4); // запланировали авто-suggest
+        fake.move(0, 4); // каретка дёрнулась до срабатывания таймера
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        expect(source).toHaveBeenCalled();
+    });
+
     it("чистое движение каретки НЕ открывает попап", async () => {
         const { service, fake, source } = setup(ITEMS);
         fake.move(0, 2); // без content-изменения

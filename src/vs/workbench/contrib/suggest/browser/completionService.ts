@@ -356,8 +356,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * прежнего. Word-символ при закрытом попапе авто-открывает его.
      */
     private onDidType(editor: TextEditorPane, text: string): void {
-        const selections = editor.viewState.selections;
-        if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
+        // Мультикурсор и выделение отсекает сам trigger(): попап привязан к одной каретке.
         // Символы — метаданные провайдеров, подошедших именно этому документу:
         // «.» сервера TypeScript не открывает попап в markdown.
         const triggers = this.languageFeatures.completionProvider
