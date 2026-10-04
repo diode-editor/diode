@@ -1,16 +1,9 @@
 import type * as vscode from "vscode";
 
+import { CancellationTokenNone, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { Emitter } from "../../../base/common/event.ts";
 
-import { EventEmitter } from "./vscodeTypes.ts";
-
-/** Токен отмены-заглушка: запрос содержимого короткоживущий, отменять его некому. */
-function neverCancelledToken(): vscode.CancellationToken {
-    return {
-        isCancellationRequested: false,
-        onCancellationRequested: new EventEmitter<unknown>().event,
-    } as unknown as vscode.CancellationToken;
-}
+import { callWithVscodeToken } from "./vscodeCancellation.ts";
 
 /**
  * Реестр `TextDocumentContentProvider`'ов, зарегистрированных расширениями
@@ -85,12 +78,15 @@ export class SubprocessTextDocumentContentProviders {
      * Содержимое ресурса от провайдера его схемы. `null` — провайдера нет либо
      * он сам отказался (`ProviderResult` разрешает `undefined`/`null`). Сбой
      * провайдера пробрасывается: ядру нужно показать человеку причину, а не
-     * молчаливо ничего не открыть.
+     * молчаливо ничего не открыть. `token` — отмена запроса хоста; локальное
+     * чтение (`openTextDocument`) отмены не знает.
      */
-    public async provide(uri: vscode.Uri): Promise<string | null> {
+    public async provide(uri: vscode.Uri, token: ICancellationToken = CancellationTokenNone): Promise<string | null> {
         const entry = this.entries.get(uri.scheme);
         if (entry === undefined) return null;
-        const content = await entry.provider.provideTextDocumentContent(uri, neverCancelledToken());
+        const content = await callWithVscodeToken(token, (vscodeToken) =>
+            entry.provider.provideTextDocumentContent(uri, vscodeToken),
+        );
         return content ?? null;
     }
 

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
+
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import { EventEmitter, Uri } from "./vscodeTypes.ts";
 
@@ -42,6 +44,35 @@ describe("SubprocessTextDocumentContentProviders", () => {
         // же строке.
         expect(seen?.isCancellationRequested).toBe(false);
         expect(() => seen?.onCancellationRequested(() => undefined)).not.toThrow();
+    });
+
+    it("отмена запроса доходит до токена провайдера", async () => {
+        const registry = new SubprocessTextDocumentContentProviders();
+        const fired: string[] = [];
+        let seen: vscode.CancellationToken | undefined;
+        let release: () => void = () => undefined;
+        registry.register("jdt", {
+            provideTextDocumentContent: (_uri: vscode.Uri, token: vscode.CancellationToken) => {
+                seen = token;
+                token.onCancellationRequested(() => fired.push("cancelled"));
+                return new Promise<string>((resolve) => {
+                    release = () => {
+                        resolve("late");
+                    };
+                });
+            },
+        } as unknown as vscode.TextDocumentContentProvider);
+
+        const caller = new CancellationTokenSource();
+        const pending = registry.provide(JDT, caller.token);
+        await Promise.resolve();
+        expect(seen?.isCancellationRequested).toBe(false);
+
+        caller.cancel();
+        expect(seen?.isCancellationRequested).toBe(true);
+        expect(fired).toEqual(["cancelled"]);
+        release();
+        expect(await pending).toBe("late");
     });
 
     it("чужая схема — null, а не исключение", async () => {

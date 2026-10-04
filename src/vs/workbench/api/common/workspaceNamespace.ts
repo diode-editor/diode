@@ -293,17 +293,20 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         rpc.notify("workspace.textDocumentContentChanged", { uri: uri.toString() });
     });
 
-    rpc.handleRequest("workspace.provideTextDocumentContent", async (params): Promise<IWireTextContentResult> => {
-        const p = params as { uri?: unknown };
-        if (typeof p.uri !== "string") {
-            throw new Error("workspace.provideTextDocumentContent: uri must be a string");
-        }
-        const uri = Uri.parse(p.uri);
-        if (!contentProviders.has(uri.scheme)) {
-            throw new Error(`no text document content provider for scheme "${uri.scheme}"`);
-        }
-        return { content: await contentProviders.provide(uri as unknown as vscode.Uri) };
-    });
+    rpc.handleRequest(
+        "workspace.provideTextDocumentContent",
+        async (params, cancellation): Promise<IWireTextContentResult> => {
+            const p = params as { uri?: unknown };
+            if (typeof p.uri !== "string") {
+                throw new Error("workspace.provideTextDocumentContent: uri must be a string");
+            }
+            const uri = Uri.parse(p.uri);
+            if (!contentProviders.has(uri.scheme)) {
+                throw new Error(`no text document content provider for scheme "${uri.scheme}"`);
+            }
+            return { content: await contentProviders.provide(uri as unknown as vscode.Uri, cancellation) };
+        },
+    );
 
     // ── Файловые watcher'ы (`createFileSystemWatcher`) ──────────────────────
     // Слежение ведёт ядро: оно владеет excludes (`files.watcherExclude`) и

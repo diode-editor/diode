@@ -1,7 +1,7 @@
 import type * as vscode from "vscode";
 
-import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
+import { isCancellationError } from "../../../base/common/errorSerialization.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,
@@ -10,15 +10,14 @@ import type {
 
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { callWithVscodeToken, toVscodeCancellationToken } from "./vscodeCancellation.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
-    CancellationTokenSource,
     CodeAction,
     CodeActionKind,
     CodeActionTriggerKind,
     CompletionTriggerKind,
     DisposableImpl,
-    EventEmitter,
     InlineCompletionTriggerKind,
     Position,
     Range,
@@ -516,45 +515,6 @@ function serializeParameterLabel(raw: unknown): string | readonly [number, numbe
     return [start, end];
 }
 
-/** Токен отмены-заглушка (запросы completion короткоживущие, отмена не нужна). */
-function neverCancelledToken(): vscode.CancellationToken {
-    return {
-        isCancellationRequested: false,
-        onCancellationRequested: new EventEmitter<unknown>().event,
-    } as unknown as vscode.CancellationToken;
-}
-
-/**
- * Переводит транспортный токен RPC в `vscode.CancellationToken`. Отдать свой
- * напрямую нельзя: расширения ждут vscode-семантику `Event` (`thisArgs`,
- * `disposables`), которую даёт только {@link CancellationTokenSource} из
- * vscodeTypes. Возвращённый `dispose` снимает подписку на транспортный токен —
- * запрос отработал, держать слушателя больше незачем.
- */
-function toVscodeCancellationToken(token: ICancellationToken): {
-    token: vscode.CancellationToken;
-    dispose: () => void;
-} {
-    const source = new CancellationTokenSource();
-    // Уже отменённый токен зовёт слушателя синхронно — провайдер получит
-    // отменённый токен, не успев начать (отмена обогнала запрос).
-    const subscription = token.onCancellationRequested(() => {
-        source.cancel();
-    });
-    return {
-        token: source.token,
-        // Уборка после отработавшего запроса: отписка от транспортного токена
-        // наблюдаемого поведения не меняет (сам токен живёт ровно до ответа),
-        // поэтому проверять тут нечего — только не течь.
-        // Stryker disable BlockStatement,CallExpression: см. выше
-        dispose: (): void => {
-            subscription.dispose();
-            source.dispose();
-        },
-        // Stryker restore BlockStatement,CallExpression
-    };
-}
-
 /** Читает `label` элемента (строка или `CompletionItemLabel { label }`). */
 function readLabel(item: vscode.CompletionItem): string | undefined {
     const label = (item as { label?: unknown }).label;
@@ -728,6 +688,9 @@ function serializeTextEdit(edit: unknown): WireTextEdit | null {
  * ответил: менять нечего», и ни в одном логе следа не было (#381).
  */
 function reportProviderFailure(method: string, err: unknown): void {
+    // Отмена — штатный исход отменённого запроса (провайдер честно бросил
+    // CancellationError по токену), а не сбой.
+    if (isCancellationError(err)) return;
     console.error(`[ext-host] ${method} failed: ${describeRejection(err)}`);
 }
 
@@ -872,36 +835,40 @@ export function createLanguagesNamespace(
         return found;
     }
 
-    rpc.handleRequest("languages.provideDefinition", async (params): Promise<WireDefinitionLocation[]> => {
-        const p = params as IWireDefinitionParams;
-        // Провайдер мог сняться, пока запрос летел: отвечаем «целей нет».
-        const reg = definitionProviders.get(p.handle ?? -1);
-        if (reg === undefined) return [];
-        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
-        if (doc === null) return [];
-        const position = new Position(p.line ?? 0, p.character ?? 0);
-        let result: unknown;
-        try {
-            result = await Promise.resolve(
-                reg.provider.provideDefinition(
-                    doc as unknown as vscode.TextDocument,
-                    position as unknown as vscode.Position,
-                    neverCancelledToken(),
-                ),
-            );
-        } catch {
-            // Сбойный провайдер = «целей нет»: `result` остаётся неприсвоенным,
-            // и сериализация ниже его отбрасывает.
-        }
-        const locations: WireDefinitionLocation[] = [];
-        for (const item of Array.isArray(result) ? result : [result]) {
-            const wire = serializeDefinitionLocation(item);
-            if (wire !== null) locations.push(wire);
-        }
-        return locations;
-    });
+    rpc.handleRequest(
+        "languages.provideDefinition",
+        async (params, cancellation): Promise<WireDefinitionLocation[]> => {
+            const p = params as IWireDefinitionParams;
+            // Провайдер мог сняться, пока запрос летел: отвечаем «целей нет».
+            const reg = definitionProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return [];
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideDefinition(
+                        doc as unknown as vscode.TextDocument,
+                        position as unknown as vscode.Position,
+                        token,
+                    ),
+                );
+            } catch (err) {
+                reportProviderFailure("provideDefinition", err);
+                // Сбойный провайдер = «целей нет»: `result` остаётся неприсвоенным,
+                // и сериализация ниже его отбрасывает.
+            }
+            const locations: WireDefinitionLocation[] = [];
+            for (const item of Array.isArray(result) ? result : [result]) {
+                const wire = serializeDefinitionLocation(item);
+                if (wire !== null) locations.push(wire);
+            }
+            return locations;
+        },
+    );
 
-    rpc.handleRequest("languages.provideHover", async (params): Promise<WireHover | null> => {
+    rpc.handleRequest("languages.provideHover", async (params, cancellation): Promise<WireHover | null> => {
         const p = params as IWireHoverParams;
         // Провайдер мог сняться, пока запрос летел: отвечаем «hover'а нет».
         const reg = hoverProviders.get(p.handle ?? -1);
@@ -911,14 +878,15 @@ export function createLanguagesNamespace(
         const position = new Position(p.line ?? 0, p.character ?? 0);
         let result: unknown;
         try {
-            result = await Promise.resolve(
+            result = await callWithVscodeToken(cancellation, (token) =>
                 reg.provider.provideHover(
                     doc as unknown as vscode.TextDocument,
                     position as unknown as vscode.Position,
-                    neverCancelledToken(),
+                    token,
                 ),
             );
-        } catch {
+        } catch (err) {
+            reportProviderFailure("provideHover", err);
             // Сбойный провайдер = «hover'а нет»: `result` остаётся неприсвоенным,
             // и его отсеивает общая проверка ниже.
         }
@@ -929,40 +897,44 @@ export function createLanguagesNamespace(
         return { contents, ...(range === null ? {} : { range }) };
     });
 
-    rpc.handleRequest("languages.provideSignatureHelp", async (params): Promise<ICoreSignatureHelp | null> => {
-        // Всё, кроме `uri`, читаем как необязательное: по RPC приезжает что
-        // прислали, и дефолты ниже — не украшение, а обработка недоехавшего поля.
-        const p = params as Pick<IWireSignatureHelpParams, "uri"> & Partial<IWireSignatureHelpParams>;
-        // Провайдер мог сняться, пока запрос летел: отвечаем «подсказки нет».
-        const reg = signatureHelpProviders.get(p.handle ?? -1);
-        if (reg === undefined) return null;
-        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
-        if (doc === null) return null;
-        const position = new Position(p.line ?? 0, p.character ?? 0);
-        const context = {
-            triggerKind: p.triggerKind ?? SignatureHelpTriggerKind.Invoke,
-            triggerCharacter: p.triggerCharacter,
-            isRetrigger: p.isRetrigger === true,
-            activeSignatureHelp: p.activeSignatureHelp,
-        };
-        let result: unknown;
-        try {
-            result = await Promise.resolve(
-                reg.provider.provideSignatureHelp(
-                    doc as unknown as vscode.TextDocument,
-                    position as unknown as vscode.Position,
-                    neverCancelledToken(),
-                    context as unknown as vscode.SignatureHelpContext,
-                ),
-            );
-        } catch {
-            // Сбойный провайдер = «подсказки нет»: `result` остаётся
-            // неприсвоенным, и его отсеивает сериализация ниже.
-        }
-        return serializeSignatureHelp(result);
-    });
+    rpc.handleRequest(
+        "languages.provideSignatureHelp",
+        async (params, cancellation): Promise<ICoreSignatureHelp | null> => {
+            // Всё, кроме `uri`, читаем как необязательное: по RPC приезжает что
+            // прислали, и дефолты ниже — не украшение, а обработка недоехавшего поля.
+            const p = params as Pick<IWireSignatureHelpParams, "uri"> & Partial<IWireSignatureHelpParams>;
+            // Провайдер мог сняться, пока запрос летел: отвечаем «подсказки нет».
+            const reg = signatureHelpProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            const context = {
+                triggerKind: p.triggerKind ?? SignatureHelpTriggerKind.Invoke,
+                triggerCharacter: p.triggerCharacter,
+                isRetrigger: p.isRetrigger === true,
+                activeSignatureHelp: p.activeSignatureHelp,
+            };
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideSignatureHelp(
+                        doc as unknown as vscode.TextDocument,
+                        position as unknown as vscode.Position,
+                        token,
+                        context as unknown as vscode.SignatureHelpContext,
+                    ),
+                );
+            } catch (err) {
+                reportProviderFailure("provideSignatureHelp", err);
+                // Сбойный провайдер = «подсказки нет»: `result` остаётся
+                // неприсвоенным, и его отсеивает сериализация ниже.
+            }
+            return serializeSignatureHelp(result);
+        },
+    );
 
-    rpc.handleRequest("languages.provideReferences", async (params): Promise<WireReference[]> => {
+    rpc.handleRequest("languages.provideReferences", async (params, cancellation): Promise<WireReference[]> => {
         const p = params as IWireReferenceParams;
         // Провайдер мог сняться, пока запрос летел: отвечаем «ссылок нет».
         const reg = referenceProviders.get(p.handle ?? -1);
@@ -973,15 +945,16 @@ export function createLanguagesNamespace(
         const context = { includeDeclaration: p.includeDeclaration === true };
         let result: unknown;
         try {
-            result = await Promise.resolve(
+            result = await callWithVscodeToken(cancellation, (token) =>
                 reg.provider.provideReferences(
                     doc as unknown as vscode.TextDocument,
                     position as unknown as vscode.Position,
                     context as vscode.ReferenceContext,
-                    neverCancelledToken(),
+                    token,
                 ),
             );
-        } catch {
+        } catch (err) {
+            reportProviderFailure("provideReferences", err);
             // Сбойный провайдер = «ссылок нет»: `result` остаётся неприсвоенным,
             // и его отсеивает общая проверка ниже.
         }
@@ -1007,7 +980,7 @@ export function createLanguagesNamespace(
         return { doc, position: new Position(p.line ?? 0, p.character ?? 0) };
     }
 
-    rpc.handleRequest("languages.prepareRename", async (params): Promise<WireRenamePrepare | null> => {
+    rpc.handleRequest("languages.prepareRename", async (params, cancellation): Promise<WireRenamePrepare | null> => {
         const p = params as IWireRenameRequestParams;
         // Провайдер мог сняться, пока запрос летел: «сказать нечего».
         const reg = renameProviders.get(p.handle ?? -1);
@@ -1022,12 +995,8 @@ export function createLanguagesNamespace(
         const { doc, position } = target;
         let result: unknown;
         try {
-            result = await Promise.resolve(
-                prepare(
-                    doc as unknown as vscode.TextDocument,
-                    position as unknown as vscode.Position,
-                    neverCancelledToken(),
-                ),
+            result = await callWithVscodeToken(cancellation, (token) =>
+                prepare(doc as unknown as vscode.TextDocument, position as unknown as vscode.Position, token),
             );
         } catch (error) {
             // «Здесь переименовывать нельзя» эталон выражает именно отказом
@@ -1038,7 +1007,7 @@ export function createLanguagesNamespace(
         return serializeRenamePrepare(result, doc);
     });
 
-    rpc.handleRequest("languages.provideRenameEdits", async (params): Promise<WireRenameResult> => {
+    rpc.handleRequest("languages.provideRenameEdits", async (params, cancellation): Promise<WireRenameResult> => {
         const p = params as IWireRenameRequestParams;
         // Провайдер мог сняться, пока запрос летел: «правок нет».
         const reg = renameProviders.get(p.handle ?? -1);
@@ -1054,12 +1023,12 @@ export function createLanguagesNamespace(
         const { doc, position } = target;
         let edit: unknown;
         try {
-            edit = await Promise.resolve(
+            edit = await callWithVscodeToken(cancellation, (token) =>
                 reg.provider.provideRenameEdits(
                     doc as unknown as vscode.TextDocument,
                     position as unknown as vscode.Position,
                     newName,
-                    neverCancelledToken(),
+                    token,
                 ),
             );
         } catch (error) {
@@ -1079,7 +1048,7 @@ export function createLanguagesNamespace(
     // документа range-провайдером на полный диапазон), без — документный.
     // Провайдера выбрало ядро (по score — `editor/contrib/format`); снятый или
     // чужой handle — пустой ответ, как и сбой провайдера (no-op).
-    rpc.handleRequest("languages.provideFormattingEdits", async (params): Promise<WireTextEdit[]> => {
+    rpc.handleRequest("languages.provideFormattingEdits", async (params, cancellation): Promise<WireTextEdit[]> => {
         const p = params as IWireFormattingParams;
         const handle = p.handle ?? -1;
         const range = p.range;
@@ -1116,11 +1085,12 @@ export function createLanguagesNamespace(
             tabSize: p.tabSize ?? 4,
             insertSpaces: p.insertSpaces ?? true,
         } as vscode.FormattingOptions;
-        const token = neverCancelledToken();
 
         let result: unknown;
         try {
-            result = await Promise.resolve(format(doc as unknown as vscode.TextDocument, options, token));
+            result = await callWithVscodeToken(cancellation, (token) =>
+                format(doc as unknown as vscode.TextDocument, options, token),
+            );
         } catch (err) {
             // Сбойный провайдер — пустой ответ (no-op), не «нет форматтера»:
             // `result` остаётся неприсвоенным, его отсеет проверка ниже. В
@@ -1144,7 +1114,7 @@ export function createLanguagesNamespace(
     // `data`, по которому сервер матчит фиксы), а не едут с хоста lossy-копией.
     // Провайдера выбрало ядро (по селектору и `providedCodeActionKinds`);
     // снятый или чужой handle — пустой список.
-    rpc.handleRequest("languages.provideCodeActions", async (params): Promise<WireCodeAction[]> => {
+    rpc.handleRequest("languages.provideCodeActions", async (params, cancellation): Promise<WireCodeAction[]> => {
         const p = params as IWireCodeActionParams;
         const reg = codeActionProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
@@ -1164,15 +1134,16 @@ export function createLanguagesNamespace(
         const wire: WireCodeAction[] = [];
         let result: unknown;
         try {
-            result = await Promise.resolve(
+            result = await callWithVscodeToken(cancellation, (token) =>
                 reg.provider.provideCodeActions(
                     doc as unknown as vscode.TextDocument,
                     range as unknown as vscode.Range,
                     context,
-                    neverCancelledToken(),
+                    token,
                 ),
             );
-        } catch {
+        } catch (err) {
+            reportProviderFailure("provideCodeActions", err);
             // Сбойный провайдер = «действий нет»: `result` остаётся
             // неприсвоенным, и его отсеивает проверка ниже.
         }
@@ -1203,7 +1174,7 @@ export function createLanguagesNamespace(
     // Применение закэшированного действия: ленивый resolve (правки многих
     // серверов приезжают только по codeAction/resolve), затем правки через
     // `workspace.applyEdit` (существующий RPC до хоста) и команда действия.
-    rpc.handleRequest("languages.applyCodeAction", async (params): Promise<boolean> => {
+    rpc.handleRequest("languages.applyCodeAction", async (params, cancellation): Promise<boolean> => {
         const id = (params as { id?: unknown }).id;
         if (typeof id !== "string") return false;
         const found = findCachedCodeAction(id);
@@ -1230,9 +1201,10 @@ export function createLanguagesNamespace(
         const canResolve = resolve !== undefined;
         if (action.edit === undefined && canResolve) {
             try {
-                const resolved = await Promise.resolve(resolve(action as never, neverCancelledToken()));
+                const resolved = await callWithVscodeToken(cancellation, (token) => resolve(action as never, token));
                 if (resolved != null) action = resolved as CodeAction;
-            } catch {
+            } catch (err) {
+                reportProviderFailure("resolveCodeAction", err);
                 // Сбойный resolve — применяем то, что есть (обычно command).
             }
         }
@@ -1254,62 +1226,68 @@ export function createLanguagesNamespace(
         return applied;
     });
 
-    rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult[]> => {
-        const p = params as IWireCompletionParams;
-        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
-        if (doc === null) return [];
-        const position = new Position(p.line ?? 0, p.character ?? 0);
-        const token = neverCancelledToken();
-        const context = {
-            triggerKind: p.triggerKind ?? CompletionTriggerKind.Invoke,
-            triggerCharacter: p.triggerCharacter,
-        } as unknown as vscode.CompletionContext;
+    rpc.handleRequest(
+        "languages.provideCompletionItems",
+        async (params, cancellation): Promise<WireCompletionResult[]> => {
+            const p = params as IWireCompletionParams;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return [];
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            const context = {
+                triggerKind: p.triggerKind ?? CompletionTriggerKind.Invoke,
+                triggerCharacter: p.triggerCharacter,
+            } as unknown as vscode.CompletionContext;
 
-        // Одно ведро кэша на пачку: id пунктов уникальны сквозь всех провайдеров.
-        const cacheId = nextCacheId++;
-        const cached: ICachedCompletion[] = [];
-        const results: WireCompletionResult[] = [];
-        // Провайдеров — в присланном ядром порядке; ответ выровнен по `handles`.
-        // Снятый, пока запрос летел, или чужой handle — пустой результат.
-        for (const handle of Array.isArray(p.handles) ? p.handles : []) {
-            // Handle чужого типа Map.get и так не найдёт — отдельная проверка не нужна.
-            const reg = completionProviders.get(handle as number);
-            // Stryker disable next-line ConditionalExpression,BlockStatement: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой результат
-            if (reg === undefined) {
-                results.push({ items: [], isIncomplete: false });
-                continue;
+            // Одно ведро кэша на пачку: id пунктов уникальны сквозь всех провайдеров.
+            const cacheId = nextCacheId++;
+            const cached: ICachedCompletion[] = [];
+            const results: WireCompletionResult[] = [];
+            // Провайдеров — в присланном ядром порядке; ответ выровнен по `handles`.
+            // Снятый, пока запрос летел, или чужой handle — пустой результат.
+            for (const handle of Array.isArray(p.handles) ? p.handles : []) {
+                // Отменённый запрос дальше не обходим: ответа уже никто не ждёт,
+                // а следующий провайдер посчитал бы его зря.
+                if (cancellation.isCancellationRequested) break;
+                // Handle чужого типа Map.get и так не найдёт — отдельная проверка не нужна.
+                const reg = completionProviders.get(handle as number);
+                // Stryker disable next-line ConditionalExpression,BlockStatement: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой результат
+                if (reg === undefined) {
+                    results.push({ items: [], isIncomplete: false });
+                    continue;
+                }
+                const items: WireCompletionItem[] = [];
+                let result: unknown;
+                try {
+                    result = await callWithVscodeToken(cancellation, (token) =>
+                        reg.provider.provideCompletionItems(
+                            doc as unknown as vscode.TextDocument,
+                            position as unknown as vscode.Position,
+                            token,
+                            context,
+                        ),
+                    );
+                } catch (err) {
+                    reportProviderFailure("provideCompletionItems", err);
+                    // Сбойный провайдер = пустой результат: `result` остаётся
+                    // неприсвоенным, и нормализация ниже даёт пустой список.
+                }
+                const normalized = normalizeResult(result);
+                for (const item of normalized.items) {
+                    // id выдаём ДО сериализации: resolve обязан получить тот же самый
+                    // объект, который вернул провайдер (у languageclient это
+                    // ProtocolCompletionItem с приватным `data` для completionItem/resolve).
+                    const id = `${String(cacheId)}.${String(cached.length)}`;
+                    const wire = serializeCompletionItem(item, id);
+                    if (wire === null) continue;
+                    cached.push({ item, provider: reg.provider });
+                    items.push(wire);
+                }
+                results.push({ items, isIncomplete: normalized.isIncomplete });
             }
-            const items: WireCompletionItem[] = [];
-            let result: unknown;
-            try {
-                result = await Promise.resolve(
-                    reg.provider.provideCompletionItems(
-                        doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
-                        token,
-                        context,
-                    ),
-                );
-            } catch {
-                // Сбойный провайдер = пустой результат: `result` остаётся
-                // неприсвоенным, и нормализация ниже даёт пустой список.
-            }
-            const normalized = normalizeResult(result);
-            for (const item of normalized.items) {
-                // id выдаём ДО сериализации: resolve обязан получить тот же самый
-                // объект, который вернул провайдер (у languageclient это
-                // ProtocolCompletionItem с приватным `data` для completionItem/resolve).
-                const id = `${String(cacheId)}.${String(cached.length)}`;
-                const wire = serializeCompletionItem(item, id);
-                if (wire === null) continue;
-                cached.push({ item, provider: reg.provider });
-                items.push(wire);
-            }
-            results.push({ items, isIncomplete: normalized.isIncomplete });
-        }
-        rememberCompletions(cacheId, cached);
-        return results;
-    });
+            rememberCompletions(cacheId, cached);
+            return results;
+        },
+    );
 
     /**
      * `languages.resolveCompletionItem`: догружает detail/documentation/
@@ -1317,37 +1295,41 @@ export function createLanguagesNamespace(
      * серверу `resolveSupport` именно на эти три свойства — у tsserver в первом
      * ответе их нет вовсе.
      */
-    rpc.handleRequest("languages.resolveCompletionItem", async (params): Promise<WireResolvedCompletionItem | null> => {
-        const id = (params as { id?: unknown }).id;
-        if (typeof id !== "string") return null;
-        const entry = findCachedCompletion(id);
-        if (entry === null) return null;
-        const resolve = entry.provider.resolveCompletionItem?.bind(entry.provider);
-        if (resolve === undefined) return null;
+    rpc.handleRequest(
+        "languages.resolveCompletionItem",
+        async (params, cancellation): Promise<WireResolvedCompletionItem | null> => {
+            const id = (params as { id?: unknown }).id;
+            if (typeof id !== "string") return null;
+            const entry = findCachedCompletion(id);
+            if (entry === null) return null;
+            const resolve = entry.provider.resolveCompletionItem?.bind(entry.provider);
+            if (resolve === undefined) return null;
 
-        let resolved: unknown;
-        try {
-            resolved = await Promise.resolve(resolve(entry.item, neverCancelledToken()));
-        } catch {
-            return null; // сбойный resolve не должен ронять попап
-        }
-        const item = (resolved ?? entry.item) as vscode.CompletionItem;
-        const detail = (item as { detail?: unknown }).detail;
-        const documentation = readDocumentation(item);
-        const rawEdits = (item as { additionalTextEdits?: unknown }).additionalTextEdits;
-        const additionalEdits: WireTextEdit[] = [];
-        if (Array.isArray(rawEdits)) {
-            for (const edit of rawEdits) {
-                const wire = serializeTextEdit(edit);
-                if (wire !== null) additionalEdits.push(wire);
+            let resolved: unknown;
+            try {
+                resolved = await callWithVscodeToken(cancellation, (token) => resolve(entry.item, token));
+            } catch (err) {
+                reportProviderFailure("resolveCompletionItem", err);
+                return null; // сбойный resolve не должен ронять попап
             }
-        }
-        return {
-            ...(typeof detail === "string" ? { detail } : {}),
-            ...(documentation !== undefined ? { documentation } : {}),
-            ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
-        };
-    });
+            const item = (resolved ?? entry.item) as vscode.CompletionItem;
+            const detail = (item as { detail?: unknown }).detail;
+            const documentation = readDocumentation(item);
+            const rawEdits = (item as { additionalTextEdits?: unknown }).additionalTextEdits;
+            const additionalEdits: WireTextEdit[] = [];
+            if (Array.isArray(rawEdits)) {
+                for (const edit of rawEdits) {
+                    const wire = serializeTextEdit(edit);
+                    if (wire !== null) additionalEdits.push(wire);
+                }
+            }
+            return {
+                ...(typeof detail === "string" ? { detail } : {}),
+                ...(documentation !== undefined ? { documentation } : {}),
+                ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
+            };
+        },
+    );
 
     /**
      * Сериализует пункт инлайн-подсказки (утиный тип `vscode.InlineCompletionItem`):
@@ -1386,10 +1368,10 @@ export function createLanguagesNamespace(
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return [];
             const position = new Position(p.line ?? 0, p.character ?? 0);
-            // Настоящий токен отмены (в отличие от остальных провайдеров): ядро
-            // гасит устаревший запрос, и провайдер — в первую очередь платный
-            // LLM — узнаёт об этом. Расширение на vscode-languageclient
-            // превратит сработавший токен в `$/cancelRequest` языковому серверу.
+            // Один токен на всю пачку: ядро гасит устаревший запрос (или его
+            // срок истёк), и провайдер — в первую очередь платный LLM — узнаёт
+            // об этом. Расширение на vscode-languageclient превратит сработавший
+            // токен в `$/cancelRequest` языковому серверу.
             const cancel = toVscodeCancellationToken(cancellation);
             // selectedCompletionInfo не поддержан: пока открыт suggest-попап, ядро
             // ghost text не запрашивает вовсе (люфт v1 — docs/TODO/InlineCompletions.md).
@@ -1423,7 +1405,8 @@ export function createLanguagesNamespace(
                                 cancel.token,
                             ),
                         );
-                    } catch {
+                    } catch (err) {
+                        reportProviderFailure("provideInlineCompletionItems", err);
                         // Сбойный провайдер не роняет остальные: `result` остаётся
                         // неприсвоенным, и его отсеивает общая проверка ниже — своего
                         // `continue` тут нет намеренно, иначе ветка неотличима от неё
@@ -1446,17 +1429,18 @@ export function createLanguagesNamespace(
         },
     );
 
-    rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[][]> => {
+    rpc.handleRequest("languages.provideFoldingRanges", async (params, cancellation): Promise<WireFoldingRange[][]> => {
         const p = params as IWireFoldingParams;
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
-        const token = neverCancelledToken();
         const context = {} as vscode.FoldingContext;
 
         // Провайдеров — в присланном ядром порядке; ответ выровнен по `handles`.
         // Снятый, пока запрос летел, или чужой handle — пустой список.
         const results: WireFoldingRange[][] = [];
         for (const handle of Array.isArray(p.handles) ? p.handles : []) {
+            // Отменённый запрос дальше не обходим — как у completion.
+            if (cancellation.isCancellationRequested) break;
             // Handle чужого типа Map.get и так не найдёт — отдельная проверка не нужна.
             const reg = foldingProviders.get(handle as number);
             const ranges: WireFoldingRange[] = [];
@@ -1465,10 +1449,11 @@ export function createLanguagesNamespace(
             if (reg === undefined) continue;
             let result: unknown;
             try {
-                result = await Promise.resolve(
+                result = await callWithVscodeToken(cancellation, (token) =>
                     reg.provider.provideFoldingRanges(doc as unknown as vscode.TextDocument, context, token),
                 );
-            } catch {
+            } catch (err) {
+                reportProviderFailure("provideFoldingRanges", err);
                 // Сбойный провайдер = пустой список: `result` остаётся
                 // неприсвоенным, и его отсеивает проверка ниже.
             }
