@@ -102,5 +102,5 @@ export interface IEditorOptionsService {
      * Пустой список — тоже `false`: вакуумный успех пустого edit'а субпроцесс
      * отвечает сам, без RPC.
      */
-    applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): boolean;
+    applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): Promise<boolean>;
 }

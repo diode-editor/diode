@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
@@ -45,6 +46,7 @@ function makeService(enableTrash = true): { service: WorkspaceEditService; undoR
         new TrashService(),
         configWith(enableTrash),
         NULL_BULK_EDIT_BUFFERS,
+        diskFileService(),
     );
     return { service, undoRedo };
 }
@@ -69,7 +71,7 @@ describe("WorkspaceEditService scenarios — copy", () => {
         const src = write("a.txt", "orig");
         const dst = mkdir("dst");
 
-        const el = service.applyFileEdits([{ kind: "copy", from: src, to: dst }], "Paste");
+        const el = await service.applyFileEdits([{ kind: "copy", from: src, to: dst }], "Paste");
         const copy = path.join(dst, "a.txt");
         fs.writeFileSync(copy, "MODIFIED"); // правим копию на диске
 
@@ -83,7 +85,7 @@ describe("WorkspaceEditService scenarios — copy", () => {
         const { service } = makeService();
         const src = write("a.txt", "orig");
 
-        const el = service.applyFileEdits([{ kind: "copy", from: src, to: tmpDir }], "Paste");
+        const el = await service.applyFileEdits([{ kind: "copy", from: src, to: tmpDir }], "Paste");
         const copy = path.join(tmpDir, "a copy.txt");
         expect(fs.existsSync(copy)).toBe(true);
 
@@ -97,7 +99,7 @@ describe("WorkspaceEditService scenarios — copy", () => {
         write("tree/inner/f.txt", "deep");
         const dst = mkdir("dst");
 
-        const el = service.applyFileEdits([{ kind: "copy", from: path.join(tmpDir, "tree"), to: dst }], "Paste");
+        const el = await service.applyFileEdits([{ kind: "copy", from: path.join(tmpDir, "tree"), to: dst }], "Paste");
         expect(fs.readFileSync(path.join(dst, "tree", "inner", "f.txt"), "utf8")).toBe("deep");
 
         await el!.undo();
@@ -112,7 +114,7 @@ describe("WorkspaceEditService scenarios — move", () => {
         const dst = mkdir("dst");
         fs.writeFileSync(path.join(dst, "a.txt"), "existing");
 
-        const el = service.applyFileEdits([{ kind: "move", from: src, to: dst }], "Move");
+        const el = await service.applyFileEdits([{ kind: "move", from: src, to: dst }], "Move");
         expect(fs.existsSync(path.join(dst, "a copy.txt"))).toBe(true); // renamed on move
         expect(fs.existsSync(src)).toBe(false);
 
@@ -126,7 +128,7 @@ describe("WorkspaceEditService scenarios — move", () => {
         const src = write("a.txt", "v");
         const dst = mkdir("dst");
 
-        const el = service.applyFileEdits([{ kind: "move", from: src, to: dst }], "Move");
+        const el = await service.applyFileEdits([{ kind: "move", from: src, to: dst }], "Move");
         fs.writeFileSync(src, "new"); // что-то заняло исходный путь
 
         await el!.undo();
@@ -143,7 +145,7 @@ describe("WorkspaceEditService scenarios — multi-edit & ordering", () => {
         const b = write("b.txt", "B");
         const dst = mkdir("dst");
 
-        const el = service.applyFileEdits(
+        const el = await service.applyFileEdits(
             [
                 { kind: "copy", from: a, to: dst },
                 { kind: "copy", from: b, to: dst },
@@ -166,11 +168,11 @@ describe("WorkspaceEditService scenarios — multi-edit & ordering", () => {
         const { service, undoRedo } = makeService();
         const a = write("a.txt", "A");
         const dstCopy = mkdir("copydst");
-        service.applyFileEdits([{ kind: "copy", from: a, to: dstCopy }], "Paste"); // op #1
+        await service.applyFileEdits([{ kind: "copy", from: a, to: dstCopy }], "Paste"); // op #1
 
         const b = write("b.txt", "B");
         const dstMove = mkdir("movedst");
-        service.applyFileEdits([{ kind: "move", from: b, to: dstMove }], "Move"); // op #2
+        await service.applyFileEdits([{ kind: "move", from: b, to: dstMove }], "Move"); // op #2
 
         // LIFO: сначала откатывается последняя операция (move), потом первая (copy).
         await undoRedo.undo(WORKSPACE_UNDO_CONTEXT);
@@ -187,7 +189,7 @@ describe.skipIf(process.platform !== "linux")("WorkspaceEditService scenarios �
         const { service } = makeService(true);
         write("d/sub/f.txt", "deep");
 
-        const el = service.applyFileEdits([{ kind: "delete", from: path.join(tmpDir, "d") }], "Delete");
+        const el = await service.applyFileEdits([{ kind: "delete", from: path.join(tmpDir, "d") }], "Delete");
         expect(el).not.toBeNull();
         expect(fs.existsSync(path.join(tmpDir, "d"))).toBe(false);
 

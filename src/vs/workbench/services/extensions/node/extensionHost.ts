@@ -1960,7 +1960,7 @@ export class ExtensionHost extends Disposable {
         // Сабпроцесс просит применить workspace edit (`workspace.applyEdit`):
         // текстовые правки по ресурсам плюс файловые операции, all-or-nothing
         // по валидации. Мусор в параметрах — честный `false`, а не частичный edit.
-        rpc.handleRequest("workspace.applyEdit", (params): unknown => {
+        rpc.handleRequest("workspace.applyEdit", async (params): Promise<unknown> => {
             const ops = parseWireApplyWorkspaceEditParams(params);
             if (ops === null) return false;
             return this.editorOptions.applyWorkspaceEdit(ops);

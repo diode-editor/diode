@@ -416,8 +416,9 @@ hide-toggle (`isHiddenByDefault`). См.
   себя `WorkbenchContextKeys`), `StateKeys`,
   `ModifierReleaseArmory`, `ChokidarFileWatcher` + `IFileWatcherDIToken`,
   `FileSearchService`, `QuickOpenParsing`, `collectWordCompletions`,
-  каталоги `Workspace/` (undo/redo + `TrashService`/`WorkspaceEditService`/
-  `fileClipboardFs.ts` — чистые ФС-операции copy/cut/paste), `TerminalEnvironment/`,
+  каталоги `Workspace/` (undo/redo + `TrashService` за `ITrashService`;
+  `WorkspaceEditService` — `contrib/bulkEdit/browser`, ходит на диск через
+  `IFileService`), `TerminalEnvironment/`,
   `Terminal/` (EmbeddedTerminalSession, фабрика, загрузчик node-pty,
   `TerminalService`), `Diagnostics/` (валидатор settings.json,
   `ProblemsTreeDataProvider`, `DiagnosticsService`), `history/`

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
@@ -102,9 +102,13 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
             expect(active?.isModified).toBe(true);
 
             // ОДИН Ctrl+Z на весь edit: откатывается и буфер, и файл на диске.
+            // Шаг с закрытым файлом сначала сверяется с диском (асинхронно,
+            // через файловый сервис), поэтому откат ждём.
             active?.undo();
-            expect(active?.getText()).toBe("alpha");
-            expect(fs.readFileSync(closed, "utf8")).toBe("beta");
+            await vi.waitFor(() => {
+                expect(active?.getText()).toBe("alpha");
+                expect(fs.readFileSync(closed, "utf8")).toBe("beta");
+            });
         } finally {
             await harness.dispose();
         }

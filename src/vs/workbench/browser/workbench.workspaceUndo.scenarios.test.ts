@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -24,8 +24,6 @@ function createWorkspace(): ITempWorkspace {
     process.env.XDG_DATA_HOME = ws.path(".xdg");
     return ws;
 }
-
-const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 function activeEditorText(workbench: WorkbenchComponent): string {
     const group = (workbench as unknown as { editorService: EditorService }).editorService;
@@ -65,10 +63,14 @@ describe("Explorer undo/redo scenarios", () => {
         const a = ws.path("a.txt");
         h.commands.execute("fileOperations.deleteFile", a);
         confirmDelete();
-        expect(fs.existsSync(a)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(false);
+        });
 
         h.commands.execute("fileOperations.undo");
-        await flush();
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(true);
+        });
         expect(fs.readFileSync(a, "utf8")).toBe("AAA");
     });
 
@@ -77,31 +79,44 @@ describe("Explorer undo/redo scenarios", () => {
         const b = ws.path("b.txt");
         h.commands.execute("fileOperations.deleteFile", a);
         confirmDelete();
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(false);
+        });
         h.commands.execute("fileOperations.deleteFile", b);
         confirmDelete();
+        await vi.waitFor(() => {
+            expect(fs.existsSync(b)).toBe(false);
+        });
 
         h.commands.execute("fileOperations.undo");
-        await flush();
-        expect(fs.existsSync(b)).toBe(true); // последний удалённый восстановлен первым
+        await vi.waitFor(() => {
+            expect(fs.existsSync(b)).toBe(true);
+        }); // последний удалённый восстановлен первым
         expect(fs.existsSync(a)).toBe(false);
 
         h.commands.execute("fileOperations.undo");
-        await flush();
-        expect(fs.existsSync(a)).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(true);
+        });
     });
 
     it("redo re-deletes after an undo", async () => {
         const a = ws.path("a.txt");
         h.commands.execute("fileOperations.deleteFile", a);
         confirmDelete();
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(false);
+        });
 
         h.commands.execute("fileOperations.undo");
-        await flush();
-        expect(fs.existsSync(a)).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(true);
+        });
 
         h.commands.execute("fileOperations.redo");
-        await flush();
-        expect(fs.existsSync(a)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(false);
+        });
     });
 
     it("editor and file-operation undo stacks are independent (VS Code model)", async () => {
@@ -113,8 +128,10 @@ describe("Explorer undo/redo scenarios", () => {
         h.testApp.sendKey("ArrowDown"); // a.txt
         h.commands.execute("fileOperations.cut");
         h.testApp.sendKey("ArrowUp"); // target/
-        h.commands.execute("fileOperations.paste");
-        expect(fs.existsSync(a)).toBe(false);
+        await h.commands.execute("fileOperations.paste");
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(false);
+        });
         expect(fs.existsSync(ws.path("target/a.txt"))).toBe(true);
 
         // Правка текста в редакторе (отдельный стек по пути файла).
@@ -132,8 +149,9 @@ describe("Explorer undo/redo scenarios", () => {
 
         // Отмена файловой операции откатывает MOVE, текста не касается.
         h.commands.execute("fileOperations.undo");
-        await flush();
-        expect(fs.existsSync(a)).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(a)).toBe(true);
+        });
         expect(activeEditorText(h.workbench)).not.toContain("x");
     });
 });

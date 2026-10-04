@@ -63,7 +63,13 @@ export class UndoRedoService {
         const stack = this.stack(this.undoStacks, context);
         const element = stack.at(-1);
         if (!element) return false;
-        if (element.canUndo?.() === false) return false;
+        const canUndo = element.canUndo?.();
+        // Синхронный ответ не ждём: тогда шаг уходит в redo-стек до первого
+        // await (см. ниже). Промис — шаг спрашивает диск; пока спрашивал, стек
+        // могли сдвинуть, и снимать тогда чужой верхний шаг нельзя.
+        if (canUndo instanceof Promise ? !(await canUndo) || stack.at(-1) !== element : canUndo === false) {
+            return false;
+        }
         stack.pop();
         // Перемещаем по стекам синхронно (до await), чтобы немедленный redo сразу видел
         // элемент; синхронная часть element.undo() тоже успевает отработать до возврата.
@@ -77,7 +83,10 @@ export class UndoRedoService {
         const stack = this.stack(this.redoStacks, context);
         const element = stack.at(-1);
         if (!element) return false;
-        if (element.canRedo?.() === false) return false;
+        const canRedo = element.canRedo?.();
+        if (canRedo instanceof Promise ? !(await canRedo) || stack.at(-1) !== element : canRedo === false) {
+            return false;
+        }
         stack.pop();
         this.stack(this.undoStacks, context).push(element);
         await element.redo();

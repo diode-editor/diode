@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -14,7 +14,7 @@ import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybin
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
-import type { WorkspaceEditService } from "../../bulkEdit/node/workspaceEditService.ts";
+import type { WorkspaceEditService } from "../../bulkEdit/browser/workspaceEditService.ts";
 
 import type { ExplorerService } from "./explorerService.ts";
 import { FileOperationsService } from "./fileOperationsService.ts";
@@ -122,5 +122,74 @@ describe("FileOperationsService — подсказка отмены в диал�
             "«a.txt» будет перемещён в корзину.",
             "Можно восстановить из корзины.",
         ]);
+    });
+});
+
+describe("FileOperationsService — что уходит исполнителю правок", () => {
+    function recording(answer?: string): {
+        service: FileOperationsService;
+        calls: { edits: unknown; label: string }[];
+        clipboard: InMemoryFileClipboard;
+    } {
+        const calls: { edits: unknown; label: string }[] = [];
+        const clipboard = new InMemoryFileClipboard();
+        const service = new FileOperationsService(
+            {
+                getPasteTargetDir: () => "/ws/target",
+                refresh: () => Promise.resolve(),
+                revealPath: () => Promise.resolve(true),
+            } as unknown as ExplorerService,
+            {
+                willMoveToTrash: () => true,
+                applyFileEdits: (edits: unknown, label: string) => {
+                    calls.push({ edits, label });
+                    return Promise.resolve(null);
+                },
+            } as unknown as WorkspaceEditService,
+            {} as UndoRedoService,
+            {} as DialogService,
+            createTestConfigurationService({ "explorer.confirmDelete": false }),
+            clipboard,
+            new CommandRegistry(),
+            { input: () => Promise.resolve(answer) },
+            new KeybindingRegistry(),
+            new ContextKeyService(),
+            new WorkspaceContextService(),
+            diskFileService(),
+            createTestEnvironment(),
+        );
+        return { service, calls, clipboard };
+    }
+
+    it("удаление без подтверждения — шаг «Delete»", async () => {
+        const { service, calls } = recording();
+        service.requestDeleteFile("/ws/a.txt");
+        await vi.waitFor(() => {
+            expect(calls).toEqual([{ edits: [{ kind: "delete", from: "/ws/a.txt" }], label: "Delete" }]);
+        });
+    });
+
+    it("переименование — шаг «Rename» на точный путь", async () => {
+        const { service, calls } = recording("b.txt");
+        await service.runRename("/ws/a.txt");
+        expect(calls).toEqual([
+            { edits: [{ kind: "rename", from: "/ws/a.txt", to: path.resolve("/ws", "b.txt") }], label: "Rename" },
+        ]);
+    });
+
+    it("вставка вырезанного — шаг «Move», буфер пустеет", async () => {
+        const { service, calls, clipboard } = recording();
+        clipboard.write(["/ws/a.txt"], "cut");
+        await service.paste();
+        expect(calls.map((call) => call.label)).toEqual(["Move"]);
+        expect(clipboard.read()).toBeNull();
+    });
+
+    it("вставка скопированного — шаг «Paste», буфер остаётся", async () => {
+        const { service, calls, clipboard } = recording();
+        clipboard.write(["/ws/a.txt"], "copy");
+        await service.paste();
+        expect(calls.map((call) => call.label)).toEqual(["Paste"]);
+        expect(clipboard.read()).toEqual({ paths: ["/ws/a.txt"], mode: "copy" });
     });
 });

@@ -6,7 +6,7 @@ import type { EditorService } from "../../services/editor/browser/editorService.
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 /** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
-const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 /**
  * Минимальный стаб EditorService — адаптер спрашивает у него **вкладку**

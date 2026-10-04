@@ -2,18 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { token } from "../../instantiation/common/diContainer.ts";
+import type { ITrashEntry, ITrashService } from "../common/iTrashService.ts";
 
 import { moveToPath, resolveNonConflictingDest } from "./fileClipboardFs.ts";
-
-export interface TrashEntry {
-    /** Абсолютный путь, откуда файл удалён (куда восстанавливать). */
-    readonly originalPath: string;
-    /** Текущее положение в корзине (`Trash/files/<имя>`). */
-    readonly trashedPath: string;
-    /** Сопроводительный `.trashinfo`. */
-    readonly infoPath: string;
-}
 
 /**
  * Системная корзина по спецификации freedesktop.org (Linux): перенос в
@@ -22,7 +13,7 @@ export interface TrashEntry {
  * от внешних утилит. На платформах без поддерживаемого бэкенда корзина считается
  * недоступной — вызывающий код тогда удаляет безвозвратно.
  */
-export class TrashService {
+export class TrashService implements ITrashService {
     private trashHome(): string {
         // Пустой XDG_DATA_HOME по спеке трактуем как незаданный (отсюда явная проверка, а не `??`).
         let dataHome = process.env.XDG_DATA_HOME;
@@ -48,7 +39,11 @@ export class TrashService {
         }
     }
 
-    public trash(filePath: string): TrashEntry {
+    public trash(filePath: string): Promise<ITrashEntry> {
+        return Promise.resolve().then(() => this.trashSync(filePath));
+    }
+
+    private trashSync(filePath: string): ITrashEntry {
         if (!this.ensureDirs()) {
             throw new Error("Системная корзина недоступна");
         }
@@ -67,7 +62,11 @@ export class TrashService {
         return { originalPath, trashedPath, infoPath };
     }
 
-    public restore(entry: TrashEntry): string {
+    public restore(entry: ITrashEntry): Promise<string> {
+        return Promise.resolve().then(() => this.restoreSync(entry));
+    }
+
+    private restoreSync(entry: ITrashEntry): string {
         let dest = entry.originalPath;
         if (fs.existsSync(dest)) {
             dest = resolveNonConflictingDest(path.dirname(dest), path.basename(dest));
@@ -91,5 +90,3 @@ function formatDeletionDate(date: Date): string {
         `T${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`
     );
 }
-
-export const TrashServiceDIToken = token<TrashService>("TrashService");

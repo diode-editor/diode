@@ -40,7 +40,7 @@ function makeHost(applyResult: boolean) {
         applyActiveEditorEdits: () => false,
         applyWorkspaceEdit: (ops: readonly IWireWorkspaceEditOp[]) => {
             applied.push(ops);
-            return applyResult;
+            return Promise.resolve(applyResult);
         },
     } as unknown as IEditorOptionsService;
 
