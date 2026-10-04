@@ -1,4 +1,3 @@
-import { type ChildProcess, spawn } from "node:child_process";
 import * as path from "node:path";
 
 import {
@@ -11,7 +10,6 @@ import { Emitter } from "../../../../base/common/event.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -56,10 +54,8 @@ import {
     type IFileDecorationsService,
     NULL_FILE_DECORATIONS_SERVICE,
 } from "../../../api/common/iFileDecorationsService.ts";
-import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
-import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
-import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
+import type { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
     type IWireClipboardText,
@@ -173,6 +169,7 @@ export interface IProgressSink {
 import type { IExternalOpener } from "../../externalOpener/common/iExternalOpener.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
+import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
@@ -612,8 +609,8 @@ export class ExtensionHost extends Disposable {
      * него не поднимается.
      */
     private readonly pending = new Map<string, IExtensionRegistration>();
-    private subprocess: ChildProcess | null = null;
-    private channel: IpcMessageChannel | null = null;
+    /** Текущий субпроцесс: spawn, канал, выключение (см. {@link ExtensionHostProcess}). */
+    private process: ExtensionHostProcess | null = null;
     private rpc: RpcEndpoint | null = null;
     private readyPromise: Promise<void> | null = null;
     /**
@@ -628,7 +625,7 @@ export class ExtensionHost extends Disposable {
     /** Прощание с субпроцессом, начатое {@link dispose}: его ждёт {@link shutdown}. */
     private shutdownDone: Promise<void> = Promise.resolve();
     /** Субпроцесс, которого вежливо попросили выйти, а он ещё не вышел (см. {@link disposeNow}). */
-    private exitingSubprocess: ChildProcess | null = null;
+    private exitingProcess: ExtensionHostProcess | null = null;
     /** Есть ли в субпроцессе активные подписки на will/did-save (см. `workspace.updateSubscriptions`). */
     private willSaveSubscribed = false;
     private didSaveSubscribed = false;
@@ -1847,9 +1844,7 @@ export class ExtensionHost extends Disposable {
      */
     public disposeNow(): void {
         this.dispose();
-        // Мёртвому ребёнку `kill` не бросает — просто вернёт false, так что
-        // отдельной проверки «а жив ли он» здесь не нужно.
-        this.exitingSubprocess?.kill("SIGKILL");
+        this.exitingProcess?.kill();
     }
 
     /** Снимает один watcher субпроцесса (если он есть). */
@@ -1875,40 +1870,25 @@ export class ExtensionHost extends Disposable {
             await this.readyPromise;
             return this.rpc;
         }
-        const spec = this.options.spawnArgs();
-        const stdoutMode: "pipe" | "inherit" = this.stdoutLogger !== undefined ? "pipe" : "inherit";
-        const stderrMode: "pipe" | "inherit" = this.stderrLogger !== undefined ? "pipe" : "inherit";
-        this.logger?.debug("spawning extension host subprocess", {
-            command: spec.command,
-            args: spec.args,
-            stdio: ["ignore", stdoutMode, stderrMode, "ipc"],
-        });
-        const child = spawn(spec.command, spec.args, {
-            stdio: ["ignore", stdoutMode, stderrMode, "ipc"],
-            env: spec.env ?? { ...process.env, DIODE_EXTENSION_HOST: "1" },
-        });
-        if (child.stdout !== null && this.stdoutLogger !== undefined) {
-            pipeStreamToLogger(child.stdout, this.stdoutLogger, "info");
-        }
-        if (child.stderr !== null && this.stderrLogger !== undefined) {
-            pipeStreamToLogger(child.stderr, this.stderrLogger, "warn");
-        }
-        child.once("exit", (code, signal) => {
-            this.logger?.info("extension host subprocess exited", { code, signal });
-            this.handleSubprocessDeath(child);
-        });
-        child.once("error", (err) => {
-            this.logger?.error("extension host subprocess error", err);
-        });
-        const channel = new IpcMessageChannel(child as unknown as IIpcEndpoint);
-        const rpc = new RpcEndpoint(channel, this.rpcLogger);
+        const subprocess = new ExtensionHostProcess(
+            {
+                spawnArgs: this.options.spawnArgs,
+                logger: this.logger,
+                rpcLogger: this.rpcLogger,
+                stdoutLogger: this.stdoutLogger,
+                stderrLogger: this.stderrLogger,
+            },
+            () => {
+                this.handleSubprocessDeath(subprocess);
+            },
+        );
+        const rpc = subprocess.rpc;
         this.installHostHandlers(rpc);
 
-        this.subprocess = child;
-        this.channel = channel;
+        this.process = subprocess;
         this.rpc = rpc;
 
-        this.readyPromise = waitForReady(rpc, child, this.options.readyTimeoutMs).then(() => {
+        this.readyPromise = subprocess.waitForReady(this.options.readyTimeoutMs).then(() => {
             this.logger?.info("extension host ready");
             // Push конфигурацию ДО стартового active-editor и первого
             // activateExtension: расширение читает getConfiguration уже в activate().
@@ -2520,8 +2500,7 @@ export class ExtensionHost extends Disposable {
         this.spawnStore = new DisposableStore();
         this.disposeFileWatchers();
         this.rpc = null;
-        this.channel = null;
-        this.subprocess = null;
+        this.process = null;
         this.readyPromise = null;
         this.willSaveSubscribed = false;
         this.didSaveSubscribed = false;
@@ -2568,20 +2547,15 @@ export class ExtensionHost extends Disposable {
      * пункты статус-бара и прокси-команды мертвеца висели бы до перезапуска
      * редактора, а `rpc` указывал бы на закрытый канал.
      */
-    private handleSubprocessDeath(child: ChildProcess): void {
-        // Вежливое выключение уже обнулило `subprocess` — там всё сделано.
-        if (this.subprocess !== child) return;
+    private handleSubprocessDeath(subprocess: ExtensionHostProcess): void {
+        // Вежливое выключение уже обнулило `process` — там всё сделано.
+        if (this.process !== subprocess) return;
         this.logger?.warn("extension host subprocess died — resetting host state");
-        const rpc = this.rpc;
-        const channel = this.channel;
         this.resetSubprocessState();
         // Канал мертвеца закрываем: запросы в полёте (прежде всего
         // `host.activateExtension`) получают отказ, а не висят вечно, — и
         // оборванная активация возвращается к оживлению (см. requestActivation).
-        // Stryker disable next-line OptionalChaining: канал и RPC заводятся вместе с субпроцессом (ensureSubprocess), так что у живого ребёнка они есть всегда
-        rpc?.dispose();
-        // Stryker disable next-line OptionalChaining: см. выше
-        channel?.dispose();
+        subprocess.dispose();
         // Активные возвращаются в `pending` и оживут на ЛЮБОМ следующем событии
         // активации — оно проиграет журнал (см. `requestedEvents`).
         for (const [id, reg] of this.activatedRegistrations) this.pending.set(id, reg);
@@ -2599,44 +2573,17 @@ export class ExtensionHost extends Disposable {
 
     private async shutdownSubprocess(): Promise<void> {
         const rpc = this.rpc;
-        const channel = this.channel;
-        const child = this.subprocess;
+        const subprocess = this.process;
         this.resetSubprocessState();
-        if (child === null) {
+        if (subprocess === null) {
+            // Канал без субпроцесса — только у in-process тестов, подключающих
+            // RPC руками; закрываем и его.
             rpc?.dispose();
-            channel?.dispose();
             return;
         }
-        this.exitingSubprocess = child;
-        const exit = waitForExit(child);
-        /* v8 ignore start -- defensive: ensureSubprocess sets `subprocess` and `rpc` together and shutdownSubprocess captures them together, so a non-null child always implies a non-null rpc here */
-        if (rpc !== null) {
-            /* v8 ignore stop */
-            try {
-                await Promise.race([rpc.request("host.shutdown"), sleep(this.options.shutdownTimeoutMs)]);
-            } catch {
-                // ignore
-            }
-        }
-        if (child.exitCode === null && !child.killed) {
-            try {
-                child.kill("SIGTERM");
-            } catch {
-                // ignore
-            }
-            await Promise.race([exit, sleep(500)]);
-        }
-        if (child.exitCode === null && !child.killed) {
-            try {
-                child.kill("SIGKILL");
-            } catch {
-                // ignore
-            }
-            await Promise.race([exit, sleep(500)]);
-        }
-        this.exitingSubprocess = null;
-        rpc?.dispose();
-        channel?.dispose();
+        this.exitingProcess = subprocess;
+        await subprocess.shutdown(this.options.shutdownTimeoutMs);
+        this.exitingProcess = null;
     }
 }
 
@@ -2703,87 +2650,6 @@ function parseCommandId(raw: unknown): string | null {
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as { id?: unknown };
     return typeof obj.id === "string" && obj.id !== "" ? obj.id : null;
-}
-
-/**
- * Как запустить себя же ext-host'ом. Развилка dev/SEA общая с watcher-процессом
- * и с перезагрузкой окна — живёт в `base/node/selfSpawnArgs.ts`.
- */
-function defaultSpawnArgs(): { command: string; args: string[] } {
-    return selfSpawnArgs();
-}
-
-function waitForReady(rpc: RpcEndpoint, child: ChildProcess, timeoutMs: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const handle = rpc.handleNotification("host.ready", () => {
-            handle.dispose();
-            cleanup();
-            resolve();
-        });
-        const onExit = (code: number | null): void => {
-            handle.dispose();
-            cleanup();
-            reject(new Error(`extension host subprocess exited before ready (code ${String(code)})`));
-        };
-        const timer = setTimeout(() => {
-            handle.dispose();
-            cleanup();
-            reject(new Error(`extension host subprocess did not become ready in ${String(timeoutMs)}ms`));
-        }, timeoutMs);
-        const cleanup = (): void => {
-            child.off("exit", onExit);
-            clearTimeout(timer);
-        };
-        child.once("exit", onExit);
-    });
-}
-
-function waitForExit(child: ChildProcess): Promise<void> {
-    return new Promise((resolve) => {
-        /* v8 ignore start -- defensive: смерть субпроцесса разбирает handleSubprocessDeath, и он обнуляет `subprocess`; поэтому до waitForExit доезжает только живой ребёнок (у мёртвого shutdownSubprocess видит null и выходит раньше) */
-        if (child.exitCode !== null || child.killed) {
-            resolve();
-            return;
-        }
-        /* v8 ignore stop */
-        child.once("exit", () => {
-            resolve();
-        });
-    });
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Линейно-буферизованная подписка на `Readable` (stdout/stderr subprocess'а).
- * Каждую полную строку (`\n`-delimited) пишем как одну запись лога. Хвост без
- * `\n` сбрасываем при `end`.
- */
-function pipeStreamToLogger(stream: NodeJS.ReadableStream, logger: ILogger, level: "info" | "warn"): void {
-    stream.setEncoding("utf8");
-    let buffer = "";
-    stream.on("data", (chunk: string) => {
-        buffer += chunk;
-        let nl = buffer.indexOf("\n");
-        while (nl !== -1) {
-            const line = buffer.slice(0, nl);
-            buffer = buffer.slice(nl + 1);
-            if (line.length > 0) {
-                if (level === "warn") logger.warn(line);
-                else logger.info(line);
-            }
-            nl = buffer.indexOf("\n");
-        }
-    });
-    stream.on("end", () => {
-        if (buffer.length > 0) {
-            if (level === "warn") logger.warn(buffer);
-            else logger.info(buffer);
-            buffer = "";
-        }
-    });
 }
 
 /**

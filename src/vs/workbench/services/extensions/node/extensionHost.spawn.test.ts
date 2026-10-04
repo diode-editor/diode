@@ -157,9 +157,9 @@ describe("ExtensionHost — SIGKILL escalation (lines 242-247)", () => {
         });
         await registerAndActivate(host, makeReg("ext.a"));
 
-        host.dispose();
+        // Выключение дожидается и последнего шага, а не только отправки сигнала.
+        await host.shutdown();
 
-        await waitUntil(() => child.signals.includes("SIGKILL"));
         expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
     });
 });
