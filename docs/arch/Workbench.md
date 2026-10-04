@@ -857,7 +857,11 @@ hide-toggle (`isHiddenByDefault`). См.
     реестром моделей (`TextFileModelRegistry`: одна `TextFileModel` на ресурс,
     вкладка владеет ref-count-ссылкой), `openFile`/`openUri` (`{group:"beside"}` —
     Open to the Side), `newUntitled`, `displayName`/`suggestedSaveName`,
-    применение `editor.*`-настроек, группа-уровневые швы host'а
+    применение `editor.*`-настроек (`TextEditorConfiguration`,
+    `textEditorConfiguration.ts`, не DI-сервис: сервис держит его как
+    `editorConfiguration` и отдаёт колбэком список поверхностей — вкладки и стороны
+    диффов; live-reload по `onDidChangeConfiguration`, Alt+Z — session-override
+    `toggleWordWrap`), группа-уровневые швы host'а
     (`saveParticipant`; языковые провайдеры — в реестре `ILanguageFeaturesService`), `IShutdownParticipant`
     (`collectDirty` — дедуп по документу). **Закрытие с подтверждением** —
     одна точка `closeEditor(group, pane|index)` / `closeEditors(group, panes)` /
