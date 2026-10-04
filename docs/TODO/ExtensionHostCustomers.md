@@ -26,9 +26,9 @@
    последовательность семян handshake — страховка для переносов ниже.
 2. [x] `ExtensionHostProcess` (#484) — spawn/ready/shutdown/kill/stdio отдельно от хоста
    (аналог `LocalProcessExtensionHost`).
-3. [~] Контракт `IExtensionHostCustomer` + первые customers без состояния
+3. [x] Контракт (#490) `IExtensionHostCustomer` + первые customers без состояния
    (secrets, env: clipboard/openExternal).
-4. [ ] window-customer: progress, statusBar, output, diagnostics, quickInput,
+4. [~] window-customer: progress, statusBar, output, diagnostics, quickInput,
    messages — handle'ы и их очистка уезжают в attach/dispose.
 5. [ ] decorations + тема.
 6. [ ] filesystem-customer (FS-схемы, text-content, watcher'ы); отдельным
