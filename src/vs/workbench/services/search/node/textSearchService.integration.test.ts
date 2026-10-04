@@ -1,3 +1,5 @@
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -188,5 +190,35 @@ describe("TextSearchService (against real ripgrep)", () => {
         const handle = service.search(query(), ws.dir, () => {});
         service.dispose();
         await expect(handle.complete).resolves.toBeDefined();
+    });
+
+    // ── Конец поиска — когда вывод дочитан, а не когда rg вышел ───────────────────
+
+    it.skipIf(process.platform === "win32")("строки, дописанные в stdout после выхода rg, не теряются", async () => {
+        ws = createTempWorkspace({ prefix: "diode-textsearch-" });
+        const line = JSON.stringify({
+            type: "match",
+            data: {
+                path: { text: path.join(ws.dir, "late.ts") },
+                lines: { text: "foo\n" },
+                line_number: 1,
+                absolute_offset: 0,
+                submatches: [{ match: { text: "foo" }, start: 0, end: 3 }],
+            },
+        });
+        // «rg», который выходит сразу, а строку результата дописывает его потомок,
+        // унаследовавший stdout: `exit` приходит раньше, чем вывод дочитан.
+        const bin = mkdtempSync(path.join(tmpdir(), "diode-fake-rg-"));
+        const fakeRg = path.join(bin, "rg");
+        writeFileSync(fakeRg, `#!/bin/sh\n(sleep 0.2; printf '%s\\n' '${line}') &\nexit 0\n`);
+        chmodSync(fakeRg, 0o755);
+        try {
+            service = new TextSearchService(fakeRg);
+            const { results, complete } = await runSearch(service, query(), ws.dir);
+            expect(results.map((m) => m.absolutePath)).toEqual([path.join(ws.dir, "late.ts")]);
+            expect(complete.matchCount).toBe(1);
+        } finally {
+            rmSync(bin, { recursive: true, force: true });
+        }
     });
 });

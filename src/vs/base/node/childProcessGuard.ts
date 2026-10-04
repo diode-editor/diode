@@ -112,6 +112,5 @@ export function splitLines(stream: Readable, onLine: (line: string) => void): vo
     });
     stream.on("end", () => {
         if (buffer !== "") onLine(buffer);
-        buffer = "";
     });
 }

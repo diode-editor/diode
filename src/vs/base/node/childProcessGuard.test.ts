@@ -1,4 +1,5 @@
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
@@ -31,6 +32,39 @@ function ends(guard: GuardedChildProcess): { all: IChildProcessEnd[]; first: Pro
 function node(script: string, stdio: "pipe" | "ignore" = "pipe") {
     return spawn(process.execPath, ["-e", script], { stdio: ["ignore", stdio, stdio] });
 }
+
+/** Ребёнок без stdio, у которого `exit` и `close` эмитятся руками — порядок под контролем теста. */
+function scriptedChild(): ChildProcess {
+    const child = new EventEmitter() as EventEmitter & { stdin: null; stdout: null; stderr: null };
+    child.stdin = null;
+    child.stdout = null;
+    child.stderr = null;
+    return child as unknown as ChildProcess;
+}
+
+describe("GuardedChildProcess — exit или close", () => {
+    it("по умолчанию конец — на exit, close не нужен", () => {
+        const child = scriptedChild();
+        const guard = new GuardedChildProcess(child, { label: "t" });
+        const { all } = ends(guard);
+
+        child.emit("exit", 0, null);
+
+        expect(all).toEqual([{ code: 0, signal: null }]);
+    });
+
+    it("waitForStdio: exit ещё не конец — конец на close (вывод дочитан)", () => {
+        const child = scriptedChild();
+        const guard = new GuardedChildProcess(child, { label: "t", waitForStdio: true });
+        const { all } = ends(guard);
+
+        child.emit("exit", 0, null);
+        expect(all).toEqual([]);
+
+        child.emit("close", 0, null);
+        expect(all).toEqual([{ code: 0, signal: null }]);
+    });
+});
 
 describe("GuardedChildProcess", () => {
     it("exit — конец с кодом, ровно один раз", async () => {
@@ -167,13 +201,14 @@ describe("splitLines", () => {
         const lines: string[] = [];
         splitLines(stream, (line) => lines.push(line));
 
-        stream.write("one\r\ntw");
+        stream.write("one\r\nin\rside\r\ntw");
         stream.write("o\nthree");
         stream.end();
 
         return new Promise<void>((resolve) => {
             stream.on("end", () => {
-                expect(lines).toEqual(["one", "two", "three"]);
+                // Снимается только `\r` перед переводом строки, а не любой.
+                expect(lines).toEqual(["one", "in\rside", "two", "three"]);
                 resolve();
             });
         });

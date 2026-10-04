@@ -58,6 +58,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
         const child = spawn(this.rgPath(), args, { cwd: folder });
         // Конец — по `close`: результаты разбираются из stdout, и после `exit` в
         // нём ещё могут оставаться строки.
+        // Stryker disable next-line StringLiteral: логгера у сервиса нет — метка в лог не попадает
         const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
         this.children.add(guard);
 

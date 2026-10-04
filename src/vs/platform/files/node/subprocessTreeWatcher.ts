@@ -287,11 +287,13 @@ function spawnWatcherProcess(logger: ILogger | undefined): IWatcherProcess {
         },
         onExit: (listener) => {
             guard.onDidEnd((end) => {
+                // Stryker disable next-line ConditionalExpression: на конце с ошибкой onError уже провёл смерть (handleChildError → handleExit), и второй handleExit — no-op по сверке процесса
                 if (end.error === undefined) listener();
             });
         },
         onError: (listener) => {
             guard.onDidEnd((end) => {
+                // Stryker disable next-line ConditionalExpression: на чистом выходе onExit (подписан раньше) уже снял процесс, и handleChildError выходит на сверке процесса
                 if (end.error !== undefined) listener(end.error);
             });
         },
