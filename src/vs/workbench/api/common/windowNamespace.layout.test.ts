@@ -517,6 +517,56 @@ describe("WindowNamespace — подписки layout-событий (thisArgs/d
     });
 });
 
+describe("WindowNamespace — Tab.group и служебная адресация вкладок", () => {
+    it("вкладка из tabGroups.all знает свою группу: tabs[j].group и activeTab.group — тот же объект", () => {
+        const { stub, tabs } = makeCtx();
+        stub.fire("editor.layoutChanged", {
+            groups: [
+                { groupId: 1, viewColumn: 1, isActive: false, tabs: [tab(A, { isActive: true }), tab(B)] },
+                { groupId: 2, viewColumn: 2, isActive: true, tabs: [tab(B, { isActive: true })] },
+            ],
+        });
+
+        const all = tabs.tabGroups.all;
+        expect(all[0].tabs[0].group).toBe(all[0]);
+        expect(all[0].tabs[1].group).toBe(all[0]);
+        expect(all[1].tabs[0].group).toBe(all[1]);
+        expect(all[0].activeTab).toBe(all[0].tabs[0]);
+        expect(all[0].activeTab?.group).toBe(all[0]);
+        const active = tabs.tabGroups.activeTabGroup;
+        expect(active.activeTab?.group).toBe(active);
+    });
+
+    it("вкладка из onDidChangeTabs лежит в tabs своей группы", () => {
+        const { stub, tabs } = makeCtx();
+        const events: vscode.TabChangeEvent[] = [];
+        tabs.tabGroups.onDidChangeTabs((e) => events.push(e));
+
+        stub.fire("editor.layoutChanged", {
+            groups: [{ groupId: 3, viewColumn: 1, isActive: true, tabs: [tab(A), tab(B, { isActive: true })] }],
+        });
+
+        const opened = events.at(-1)!.opened;
+        expect(opened.map((t) => t.label)).toEqual(["a.ts", "b.ts"]);
+        expect(opened[1].group.tabs[1]).toBe(opened[1]);
+        expect(opened[1].group.activeTab).toBe(opened[1]);
+        expect(opened[1].group.viewColumn).toBe(1);
+    });
+
+    it("служебные поля не видны на объекте Tab", () => {
+        const { stub, tabs } = makeCtx();
+        stub.fire("editor.layoutChanged", {
+            groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
+        });
+
+        const first = tabs.tabGroups.activeTabGroup.tabs[0];
+        expect(Object.keys(first).filter((key) => key.startsWith("_diode"))).toEqual([]);
+        expect(Object.keys(first).sort()).toEqual(
+            ["group", "input", "isActive", "isDirty", "isPinned", "isPreview", "label"].sort(),
+        );
+    });
+});
+
 describe("WindowNamespace — tabGroups.close", () => {
     it("одиночная вкладка → editor.closeTabs с парой (groupId, uri)", async () => {
         const { stub, tabs } = makeCtx();
@@ -552,6 +602,37 @@ describe("WindowNamespace — tabGroups.close", () => {
                     { groupId: 2, uri: B },
                 ],
             },
+        });
+    });
+
+    it("вкладка из события onDidChangeTabs закрывается по своей паре (groupId, uri)", async () => {
+        const { stub, tabs } = makeCtx();
+        const events: vscode.TabChangeEvent[] = [];
+        tabs.tabGroups.onDidChangeTabs((e) => events.push(e));
+        stub.fire("editor.layoutChanged", {
+            groups: [{ groupId: 5, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true }), tab(B)] }],
+        });
+
+        await tabs.tabGroups.close(events.at(-1)!.opened[1]);
+
+        expect(stub.requests.at(-1)).toEqual({
+            method: "editor.closeTabs",
+            params: { tabs: [{ groupId: 5, uri: B }] },
+        });
+    });
+
+    it("объекты без внутренней адресации в массиве вкладок пропускаются", async () => {
+        const { stub, tabs } = makeCtx();
+        stub.fire("editor.layoutChanged", {
+            groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
+        });
+        const foreign = { ...tabs.tabGroups.activeTabGroup.tabs[0] };
+
+        await tabs.tabGroups.close([tabs.tabGroups.activeTabGroup.tabs[0], foreign]);
+
+        expect(stub.requests.at(-1)).toEqual({
+            method: "editor.closeTabs",
+            params: { tabs: [{ groupId: 1, uri: A }] },
         });
     });
 
