@@ -19,12 +19,12 @@
 
 ## План
 
-1. [~] Состояние спавна (`spawnStore`) и исправления латентных ошибок сброса:
+1. [x] Состояние спавна (#476) (`spawnStore`) и исправления латентных ошибок сброса:
    подписки спавна на ядро снимаются на смерти (не копятся на респавне),
    watcher'ы расширений снимаются на смерти, канал мертвеца закрывается, а
    оборванная смертью активация возвращается к оживлению. Тест на точную
    последовательность семян handshake — страховка для переносов ниже.
-2. [ ] `ExtensionHostProcess` — spawn/ready/shutdown/kill/stdio отдельно от хоста
+2. [~] `ExtensionHostProcess` — spawn/ready/shutdown/kill/stdio отдельно от хоста
    (аналог `LocalProcessExtensionHost`).
 3. [ ] Контракт `IExtensionHostCustomer` + первые customers без состояния
    (secrets, env: clipboard/openExternal).
