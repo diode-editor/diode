@@ -28,9 +28,9 @@
    (аналог `LocalProcessExtensionHost`).
 3. [x] Контракт (#490) `IExtensionHostCustomer` + первые customers без состояния
    (secrets, env: clipboard/openExternal).
-4. [~] window-customer: progress, statusBar, output, diagnostics, quickInput,
+4. [x] window-customer (#491): progress, statusBar, output, diagnostics, quickInput,
    messages — handle'ы и их очистка уезжают в attach/dispose.
-5. [ ] decorations + тема.
+5. [~] decorations + тема.
 6. [ ] filesystem-customer (FS-схемы, text-content, watcher'ы); отдельным
    коммитом — сброс объявленных схем на смерти с событием.
 7. [ ] commands (прокси на спавн, заглушки-активаторы долгоживущие).

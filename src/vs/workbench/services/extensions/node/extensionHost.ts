@@ -11,7 +11,6 @@ import { matchGlob } from "../../../../base/common/glob.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
-import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type {
@@ -35,7 +34,6 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
-import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { IConfigurationData } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -58,7 +56,6 @@ import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../ap
 import type { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
-    type IWireColorTheme,
     type IWireDocumentSyncSnapshot,
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
@@ -69,12 +66,10 @@ import {
     type IWireValidationMessage,
     type IWireWatcherCreate,
     type IWireWatcherEvent,
-    parseDecorationRanges,
     parseWireApplyWorkspaceEditParams,
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
     parseWireEditorEdits,
-    parseWireFileDecorations,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     parseWireMementoUpdate,
@@ -97,8 +92,6 @@ import {
     requestResolveCompletionItem,
     requestSignatureHelp,
     requestWillSaveEdits,
-    type SerializedDecorationRenderOptions,
-    themeColorIdOf,
     type WireMarker,
     type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
@@ -148,6 +141,7 @@ import type { IExternalOpener } from "../../externalOpener/common/iExternalOpene
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
 
+import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
@@ -554,15 +548,8 @@ export class ExtensionHost extends Disposable {
     private readonly stdoutLogger: ILogger | undefined;
     private readonly stderrLogger: ILogger | undefined;
     private readonly configuration: IExtensionHostConfigProvider | undefined;
-    private readonly editorDecorations: IEditorDecorationsService;
-    private readonly fileDecorations: IFileDecorationsService;
-    private readonly themeColorResolver: IThemeColorResolver;
-    /** Реестр типов декораций: key → { overviewRulerColorId?, isWholeLine }. Gutter-тип = есть overviewRulerColor. */
-    private readonly decorationTypes = new Map<number, { overviewRulerColorId?: string; isWholeLine: boolean }>();
-    /** Держимые декорации редактора: uri → (key → ranges). Пере-резолвятся при смене темы. */
-    private readonly editorDecorationsByFile = new Map<string, Map<number, readonly IRange[]>>();
-    /** Держимые файловые декорации: absPath → { badge?, colorId? }. Пере-резолвятся при смене темы. */
-    private readonly fileDecorationState = new Map<string, { badge?: string; colorId?: string }>();
+    /** Декорации и тема — customer, которому хост ещё отдаёт семя темы на handshake. */
+    private readonly decorations: DecorationsCustomer;
     private readonly extensions = new Set<string>();
     /** Регистрации уже активированных расширений (нужны для оживления после смерти субпроцесса). */
     private readonly activatedRegistrations = new Map<string, IExtensionRegistration>();
@@ -706,9 +693,13 @@ export class ExtensionHost extends Disposable {
         this.stdoutLogger = options.stdoutLogger;
         this.stderrLogger = options.stderrLogger;
         this.configuration = options.configuration;
-        this.editorDecorations = options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE;
-        this.fileDecorations = options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE;
-        this.themeColorResolver = options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER;
+        this.decorations = this.register(
+            new DecorationsCustomer(
+                options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE,
+                options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE,
+                options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
+            ),
+        );
         this.openDocumentsProvider = options.openDocumentsProvider;
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
         this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
@@ -718,6 +709,7 @@ export class ExtensionHost extends Disposable {
         this.customers = [
             new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
             new EnvCustomer(options.clipboard, options.externalOpener),
+            this.decorations,
             new WindowCustomer({
                 diagnosticsSink: options.diagnosticsSink,
                 progressSink: options.progressSink,
@@ -727,14 +719,6 @@ export class ExtensionHost extends Disposable {
                 notificationSink: options.notificationSink,
             }),
         ];
-        // Смена темы → пере-резолв держимых декораций в обе поверхности + новая
-        // тема расширениям (`window.onDidChangeActiveColorTheme`).
-        this.register(
-            this.themeColorResolver.onDidChange(() => {
-                this.repushAllDecorations();
-                this.pushActiveColorTheme();
-            }),
-        );
     }
 
     /**
@@ -1870,7 +1854,7 @@ export class ExtensionHost extends Disposable {
             // Активная тема — тоже ДО первой активации: расширение читает
             // `window.activeColorTheme` уже в `activate()` (так делают все,
             // кто подбирает иконки/цвета под светлую и тёмную).
-            this.pushActiveColorTheme();
+            this.decorations.pushActiveColorTheme();
             // Каталог расширений — тоже ДО первой активации: `getExtension`
             // зовут прямо в `activate()`, детектя соседей (так делают все
             // AI-автодополнения). На оживлении после смерти субпроцесса это же
@@ -2091,66 +2075,6 @@ export class ExtensionHost extends Disposable {
             if (id === null) return;
             this.disposeFileWatcher(id);
         });
-        // ─── Decorations bridge (Chunk 4) ────────────────────────────────────
-        // Субпроцесс завёл тип декорации. Регистрируем его форму: наличие
-        // overviewRulerColor делает тип gutter change-bar'ом.
-        rpc.handleNotification("window.createTextEditorDecorationType", (params) => {
-            const p = params as { key?: unknown; options?: unknown };
-            if (typeof p.key !== "number") return;
-            const options: SerializedDecorationRenderOptions =
-                typeof p.options === "object" && p.options !== null
-                    ? (p.options as SerializedDecorationRenderOptions)
-                    : {};
-            const overviewRulerColorId = themeColorIdOf(options.overviewRulerColor);
-            this.decorationTypes.set(p.key, {
-                ...(overviewRulerColorId !== undefined ? { overviewRulerColorId } : {}),
-                isWholeLine: options.isWholeLine === true,
-            });
-        });
-        // Тип снят — гасим его декорации во всех файлах и пере-push.
-        rpc.handleNotification("window.disposeTextEditorDecorationType", (params) => {
-            const p = params as { key?: unknown };
-            if (typeof p.key !== "number") return;
-            this.decorationTypes.delete(p.key);
-            const affected: string[] = [];
-            for (const [uri, byKey] of this.editorDecorationsByFile) {
-                if (byKey.delete(p.key)) affected.push(uri);
-            }
-            for (const uri of affected) this.pushEditorDecorations(uri);
-        });
-        // Набор диапазонов типа в ресурсе. Пере-резолвим ThemeColor и проталкиваем
-        // gutter-декорации в редактор(ы) этого ресурса.
-        rpc.handleNotification("editor.setDecorations", (params) => {
-            const p = params as { key?: unknown; uri?: unknown; ranges?: unknown };
-            if (typeof p.key !== "number" || typeof p.uri !== "string") return;
-            const ranges = parseDecorationRanges(p.ranges);
-            let byKey = this.editorDecorationsByFile.get(p.uri);
-            if (byKey === undefined) {
-                byKey = new Map();
-                this.editorDecorationsByFile.set(p.uri, byKey);
-            }
-            if (ranges.length === 0) byKey.delete(p.key);
-            else byKey.set(p.key, ranges);
-            this.pushEditorDecorations(p.uri);
-        });
-        // Изменившиеся файловые декорации. Мержим в держимый набор (голый uri без
-        // цвета/бейджа = снятие) и пере-push всего набора в дерево.
-        rpc.handleNotification("window.fileDecorationsChanged", (params) => {
-            const p = params as { decorations?: unknown };
-            for (const d of parseWireFileDecorations(p.decorations)) {
-                const filePath = fileUriToPath(d.uri);
-                if (filePath === null) continue;
-                if (d.badge === undefined && d.colorId === undefined) {
-                    this.fileDecorationState.delete(filePath);
-                } else {
-                    this.fileDecorationState.set(filePath, {
-                        ...(d.badge !== undefined ? { badge: d.badge } : {}),
-                        ...(d.colorId !== undefined ? { colorId: d.colorId } : {}),
-                    });
-                }
-            }
-            this.pushFileDecorations();
-        });
         const configuration = this.configuration;
         if (configuration !== undefined) {
             spawnStore.add(
@@ -2162,46 +2086,6 @@ export class ExtensionHost extends Disposable {
                 }),
             );
         }
-    }
-
-    /**
-     * Схлопывает держимые декорации файла в gutter change-bar'ы (только
-     * gutter-типы — есть overviewRulerColor) с пере-резолвом ThemeColor и
-     * проталкивает их в редактор(ы) этого ресурса. Пустой набор снимает бары.
-     */
-    private pushEditorDecorations(uri: string): void {
-        const byKey = this.editorDecorationsByFile.get(uri);
-        const decorations: IGutterChangeDecoration[] = [];
-        /* v8 ignore start -- defensive: pushEditorDecorations зовётся только для ресурсов с записью (setDecorations/disposeType/repushAll) */
-        if (byKey === undefined) {
-            this.editorDecorations.setGutterChangeDecorations(uri, decorations);
-            return;
-        }
-        /* v8 ignore stop */
-        for (const [key, ranges] of byKey) {
-            const type = this.decorationTypes.get(key);
-            if (type?.overviewRulerColorId === undefined) continue;
-            const color = this.themeColorResolver.resolve(type.overviewRulerColorId);
-            if (color === undefined) continue;
-            // VS Code's dirty-diff draws modified lines dashed, added/deleted solid.
-            const dashed = type.overviewRulerColorId === "editorGutter.modifiedBackground";
-            for (const range of ranges) decorations.push({ range, color, ...(dashed ? { dashed: true } : {}) });
-        }
-        this.editorDecorations.setGutterChangeDecorations(uri, decorations);
-    }
-
-    /** Пере-резолвит держимые файловые декорации и проталкивает полный набор в дерево. */
-    private pushFileDecorations(): void {
-        const entries: { path: string; color?: number; badge?: string }[] = [];
-        for (const [filePath, state] of this.fileDecorationState) {
-            const color = state.colorId !== undefined ? this.themeColorResolver.resolve(state.colorId) : undefined;
-            entries.push({
-                path: filePath,
-                ...(color !== undefined ? { color } : {}),
-                ...(state.badge !== undefined ? { badge: state.badge } : {}),
-            });
-        }
-        this.fileDecorations.setFileDecorations(entries);
     }
 
     /**
@@ -2226,22 +2110,6 @@ export class ExtensionHost extends Disposable {
             this.extensionState.set(extensionId, shared, value);
             return null;
         });
-    }
-
-    /**
-     * Шлёт субпроцессу вид активной темы. Молча ничего не делает, пока
-     * субпроцесса нет: тема приедет семенем на его подъёме (`ensureSubprocess`),
-     * и досылать её мёртвому некому.
-     */
-    private pushActiveColorTheme(): void {
-        const theme: IWireColorTheme = { kind: this.themeColorResolver.kind() };
-        this.rpc?.notify("window.themeChanged", theme);
-    }
-
-    /** Пере-push всех держимых декораций в обе поверхности (на смену темы). */
-    private repushAllDecorations(): void {
-        for (const uri of this.editorDecorationsByFile.keys()) this.pushEditorDecorations(uri);
-        this.pushFileDecorations();
     }
 
     /** Снимает все прокси-регистрации команд (при смерти сабпроцесса). */
@@ -2279,11 +2147,6 @@ export class ExtensionHost extends Disposable {
             this.fireLanguageProvidersChanged();
         }
         this.pendingDidChange.clear();
-        // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
-        // респавн начинал с чистого листа (сами поверхности перерисует расширение).
-        this.decorationTypes.clear();
-        this.editorDecorationsByFile.clear();
-        this.fileDecorationState.clear();
         // Прокси-команды указывали на умирающий сабпроцесс — снимаем их из
         // общего DI-синглтона CommandRegistry, чтобы не оставить висячие записи.
         this.clearProxyCommands();
@@ -2370,20 +2233,6 @@ function parseCommandInvocation(raw: unknown): { id: string; args: unknown[] } {
     }
     const args = Array.isArray(obj.args) ? (obj.args as unknown[]) : [];
     return { id: obj.id, args };
-}
-
-/**
- * Переводит wire-uri файловой декорации в абсолютный путь; `null` — если ресурс
- * не на диске. Субпроцесс шлёт `Uri.toString()`, разбираем тем же типом.
- *
- * Раньше не-file строки возвращались как есть («best-effort»), и схема уезжала в
- * ключ `fileDecorationState` (`git:/foo.ts?{...}`), где молча не совпадала ни с
- * одним путём дерева. Декорацию для не-file ресурса честнее отбросить: дерево
- * адресуется путями, показать там `git:`-ресурс всё равно нечем.
- */
-function fileUriToPath(uri: string): string | null {
-    const parsed = Uri.parse(uri);
-    return parsed.scheme === "file" ? parsed.fsPath : null;
 }
 
 function parseCommandId(raw: unknown): string | null {
