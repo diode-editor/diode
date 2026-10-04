@@ -340,5 +340,6 @@
     "references-view.prev",
     "references-view.clear",
     "references-view.collapseAll",
-    "references-view.expandAll"
+    "references-view.expandAll",
+    "editor.action.rename"
 ]
