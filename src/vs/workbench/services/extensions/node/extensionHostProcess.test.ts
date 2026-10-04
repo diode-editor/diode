@@ -304,7 +304,9 @@ describe("ExtensionHostProcess — потомство субпроцесса", (
         const { subprocess } = start(child);
         child.pid = 9999;
 
-        expect(() => subprocess.kill()).not.toThrow();
+        expect(() => {
+            subprocess.kill();
+        }).not.toThrow();
         expect(child.signals).toEqual([]);
         expect(child.groupSignals).toEqual([]);
     });
