@@ -13,7 +13,7 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
     CallHierarchyItem,
@@ -93,7 +93,7 @@ import {
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
-import { parseWireClipboardText, parseWireOpenExternalResult } from "./wireTypes.ts";
+import { type IWireExtensionDescription, parseWireClipboardText, parseWireOpenExternalResult } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
@@ -113,6 +113,10 @@ export interface IVscodeHost {
     readonly extensionExports: Map<string, unknown>;
     /** Фабрика `ExtensionContext.secrets` — по одному хранилищу на расширение. */
     readonly secrets: IExtensionSecretsFactory;
+    /** Владелец создающего вызова — его выставляет оверлей расширения (`extensionApiFactory.ts`). */
+    readonly owner: ExtensionOwner;
+    /** Каталог расширений от хоста — по нему индексируются их корни. */
+    readonly onDidReceiveCatalog: vscode.Event<readonly IWireExtensionDescription[]>;
 }
 
 /**
@@ -136,6 +140,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk,
+        owner: new ExtensionOwner(),
     };
 
     const window = createWindowNamespace(ctx);
@@ -219,7 +224,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     // семенем ДО первой активации, `extensions.activated` — на каждое оживление).
     // Именно этим соседей детектят AI-автодополнения: раньше им всегда отвечали
     // «ничего не установлено».
-    const { extensions, exportsById } = createExtensionsNamespace(rpc);
+    const { extensions, exportsById, onDidReceiveCatalog } = createExtensionsNamespace(rpc);
     // Секреты расширения (`ExtensionContext.secrets`) — тоже за хостом: он
     // владеет user-data, в которой они переживают перезапуск.
     const secrets = createExtensionSecretsFactory(rpc);
@@ -375,5 +380,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         configStore: ctx.configStore,
         extensionExports: exportsById,
         secrets,
+        owner: ctx.owner,
+        onDidReceiveCatalog,
     };
 }

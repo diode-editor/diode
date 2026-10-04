@@ -5,7 +5,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
@@ -19,6 +19,7 @@ function makeCtx() {
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     return { stub, ctx, workspace: createWorkspaceNamespace(ctx) };
 }

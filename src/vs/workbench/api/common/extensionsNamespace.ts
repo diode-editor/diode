@@ -26,6 +26,12 @@ export interface IExtensionsNamespace {
      * Владелец — точка входа субпроцесса; namespace только читает.
      */
     readonly exportsById: Map<string, unknown>;
+    /**
+     * Каждый принятый каталог целиком (а не только смена состава, как
+     * `onDidChange`): по нему субпроцесс индексирует корни расширений
+     * (`ExtensionPaths`) ещё до их активации.
+     */
+    readonly onDidReceiveCatalog: vscode.Event<readonly IWireExtensionDescription[]>;
 }
 
 /**
@@ -55,6 +61,7 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
     /** id активных — отдельно от каталога: `extensions.activated` двигает только его. */
     const activeIds = new Set<string>();
     const changeEmitter = new EventEmitter<void>();
+    const catalogEmitter = new EventEmitter<readonly IWireExtensionDescription[]>();
 
     /**
      * `Extension` — живой вид на состояние, а не снимок: `isActive`/`exports`
@@ -98,6 +105,7 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
         // эталоне; на активацию он не стреляет, поэтому сравниваем именно id.
         const after = known.map((e) => e.id);
         if (before.length !== after.length || before.some((id, i) => id !== after[i])) changeEmitter.fire();
+        catalogEmitter.fire(parsed.extensions);
     });
 
     rpc.handleNotification("extensions.activated", (params) => {
@@ -120,5 +128,9 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
         onDidChange: changeEmitter.event,
     };
 
-    return { extensions: implementsApi<typeof vscode.extensions>()(extensions), exportsById };
+    return {
+        extensions: implementsApi<typeof vscode.extensions>()(extensions),
+        exportsById,
+        onDidReceiveCatalog: catalogEmitter.event,
+    };
 }

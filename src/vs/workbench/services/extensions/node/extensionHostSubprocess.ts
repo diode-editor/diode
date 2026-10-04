@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import { createRequire, Module, registerHooks } from "node:module";
 import * as path from "node:path";
 
@@ -5,6 +6,9 @@ import { describeRejection } from "../../../../base/common/describeRejection.ts"
 import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { importModule } from "../../../../base/node/importModule.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import { ExtensionApiFactory, VSCODE_GLOBAL_KEY_NAME } from "../../../api/common/extensionApiFactory.ts";
+import { ExtensionPaths } from "../../../api/common/extensionPaths.ts";
 import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
 import type { SubprocessRpc } from "../../../api/common/extHostProtocol.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
@@ -115,9 +119,10 @@ export function runExtensionHostSubprocess(): void {
     const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
     // Логгер — в stderr: сбой обработчика запроса (провайдер расширения упал)
     // и запрос без обработчика видны в канале `extensions.host.stderr`.
-    const rpc: SubprocessRpc = new RpcEndpoint(channel, createStderrLogger());
+    const logger = createStderrLogger();
+    const rpc: SubprocessRpc = new RpcEndpoint(channel, logger);
 
-    const { configStore, extensionExports, secrets } = installVscodeStub(rpc);
+    const { configStore, extensionExports, secrets, paths } = installVscodeStub(rpc, logger);
 
     const extensions = new Map<string, ActivatedExtension>();
 
@@ -135,13 +140,16 @@ export function runExtensionHostSubprocess(): void {
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
         }
+        // Корень расширения — общее правило обеих сторон RPC (тот же путь хост
+        // кладёт в `Extension.extensionPath` каталога `vscode.extensions`). В
+        // индекс — ДО загрузки: `require("vscode")` верхнего уровня модуля
+        // должен уже знать, чьё оно.
+        const rootPath = extensionRootPath({ extensionPath, mainPath, filename });
+        paths.add(rootPath, id);
         const loaded = await loadExtensionModule({ mainPath, source, filename, moduleType });
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
         }
-        // Корень расширения — общее правило обеих сторон RPC (тот же путь хост
-        // кладёт в `Extension.extensionPath` каталога `vscode.extensions`).
-        const rootPath = extensionRootPath({ extensionPath, mainPath, filename });
         const context: ExtensionContext = {
             subscriptions: [],
             extensionPath: rootPath,
@@ -388,92 +396,94 @@ function parseExtensionId(raw: unknown): string {
     return obj.id;
 }
 
-/** URL виртуального ESM-модуля `"vscode"` — см. {@link installVscodeStub}. */
-const VSCODE_ESM_URL = "diode-vscode:api";
-
-/** Ключ, под которым ESM-шим достаёт namespace из `globalThis`. */
-const VSCODE_GLOBAL_KEY_NAME = "diode.vscodeApi";
+/** Ключ, под которым ESM-шим достаёт API из `globalThis`. */
 const VSCODE_GLOBAL_KEY = Symbol.for(VSCODE_GLOBAL_KEY_NAME);
 
 /**
- * Собирает исходник виртуального ESM-модуля `"vscode"`: по именованному export'у
- * на каждый член namespace'а, значения берутся из `globalThis` в момент import'а.
+ * Регистрирует виртуальный модуль `"vscode"` для ОБОИХ loader'ов Node — и
+ * раздаёт его ПО ИМПОРТЁРУ: модуль внутри корня расширения получает оверлей
+ * этого расширения (`extensionApiFactory.ts`), чужой — общий namespace.
  *
- * Так же устроен эталон (`NodeModuleRequireInterceptor` в
- * `extHostExtensionService.ts`): сгенерированный модуль реэкспортирует члены
- * живого объекта API. Реэкспортировать можно только то, что является валидным
- * JS-идентификатором, — других имён в `vscode.d.ts` и не бывает.
+ * - CJS: патч `Module._resolveFilename` отдаёт `vscode:<id>` по
+ *   `parent.filename` и лениво кладёт под этот ключ в `Module._cache` API
+ *   расширения. Приватные API — приём расширений Node и оригинальный приём VS Code;
+ * - ESM (и `require` на Node с `module.registerHooks`: синхронные хуки видят оба
+ *   loader'а): `resolve` отдаёт `diode-vscode:api/<id>` по `context.parentURL`,
+ *   `load` — сгенерированный модуль с именованными export'ами этого API
+ *   (`buildVscodeEsmShim`). Без хуков ESM-ветка падает на
+ *   `ERR_MODULE_NOT_FOUND`: CJS-кэш ESM-loader'у не виден. Эталон держит ровно
+ *   эти два механизма рядом по той же причине.
+ *
+ * Вся логика опознания — в покрытых модулях `api/common` (`ExtensionPaths`,
+ * `ExtensionApiFactory`); здесь только проводка.
  */
-export function buildVscodeEsmShim(exportNames: readonly string[]): string {
-    const names = exportNames.filter((name) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && name !== "default");
-    return [
-        `const ns = globalThis[Symbol.for(${JSON.stringify(VSCODE_GLOBAL_KEY_NAME)})];`,
-        ...names.map((name) => `export const ${name} = ns[${JSON.stringify(name)}];`),
-    ].join("\n");
-}
-
-/**
- * Регистрирует виртуальный модуль `"vscode"` для ОБОИХ loader'ов Node:
- *
- * - CJS: `Module._cache` + патч `Module._resolveFilename`, чтобы
- *   `require("vscode")` вернул host-backed namespace. Приватные API — приём
- *   расширений Node и оригинальный приём VS Code;
- * - ESM: `module.registerHooks` (`resolve` + `load`), чтобы
- *   `import … from "vscode"` в ESM-расширении получил сгенерированный модуль с
- *   именованными export'ами ({@link buildVscodeEsmShim}). Без этого ESM-ветка
- *   падает на `ERR_MODULE_NOT_FOUND`: CJS-кэш ESM-loader'у не виден. Эталон
- *   держит ровно эти два механизма рядом по той же причине.
- *
- * Хуки и CJS-кэш не мешают друг другу: `require("vscode")` по-прежнему берёт
- * объект из кэша, а не сгенерированный ESM (проверено тестом).
- */
-function installVscodeStub(rpc: SubprocessRpc): IDisposable & {
+function installVscodeStub(
+    rpc: SubprocessRpc,
+    logger: ILogger,
+): IDisposable & {
     configStore: WorkspaceConfigStore;
     extensionExports: Map<string, unknown>;
     secrets: IExtensionSecretsFactory;
+    paths: ExtensionPaths;
 } {
-    const { namespace, configStore, extensionExports, secrets } = buildVscodeNamespace(rpc, createNodeExtHostDisk());
+    const host = buildVscodeNamespace(rpc, createNodeExtHostDisk());
+    const { configStore, extensionExports, secrets } = host;
+    const paths = new ExtensionPaths({ realpath: fs.realpathSync.native });
+    // Корни расширений — из каталога хоста (семя ДО первой активации), чтобы
+    // опознать и `require("vscode")` раньше `activate()` своего расширения.
+    const catalogSubscription = host.onDidReceiveCatalog((catalog) => {
+        for (const description of catalog) paths.add(description.extensionPath, description.id);
+    });
+    const api = new ExtensionApiFactory({
+        shared: host.namespace,
+        owner: host.owner,
+        paths,
+        warn: (message) => {
+            logger.warn(message);
+        },
+    });
     const moduleAny = Module as unknown as {
         _cache: Record<string, { exports: unknown; loaded: boolean; id: string; filename: string }>;
         _resolveFilename: (request: string, parent: unknown, ...rest: unknown[]) => string;
     };
 
-    const cacheKey = "vscode";
-    moduleAny._cache[cacheKey] = {
-        id: cacheKey,
-        filename: cacheKey,
-        loaded: true,
-        exports: namespace,
-    };
-
+    const cacheKeys = new Set<string>();
     const origResolve = moduleAny._resolveFilename;
     moduleAny._resolveFilename = function (request: string, parent: unknown, ...rest: unknown[]): string {
-        if (request === "vscode") return cacheKey;
-        return origResolve.call(this, request, parent, ...rest);
+        if (request !== "vscode") return origResolve.call(this, request, parent, ...rest);
+        const { key, exports } = api.cjsModule((parent as { filename?: string } | null | undefined)?.filename);
+        if (!cacheKeys.has(key)) {
+            cacheKeys.add(key);
+            moduleAny._cache[key] = { id: key, filename: key, loaded: true, exports };
+        }
+        return key;
     };
 
-    // ESM-ветка: сгенерированный модуль читает namespace из globalThis — через
+    // ESM-ветка: сгенерированный модуль берёт API из globalThis — через
     // замыкание его в исходник не передать.
-    (globalThis as unknown as Record<symbol, unknown>)[VSCODE_GLOBAL_KEY] = namespace;
-    const esmShimSource = buildVscodeEsmShim(Object.keys(namespace));
+    (globalThis as unknown as Record<symbol, unknown>)[VSCODE_GLOBAL_KEY] = api.lookup;
     const hooks = registerHooks({
         resolve: (specifier, context, nextResolve) =>
-            specifier === "vscode" ? { url: VSCODE_ESM_URL, shortCircuit: true } : nextResolve(specifier, context),
-        load: (url, context, nextLoad) =>
-            url === VSCODE_ESM_URL
-                ? { format: "module", source: esmShimSource, shortCircuit: true }
-                : nextLoad(url, context),
+            specifier === "vscode"
+                ? { url: api.esmUrl(context.parentURL), shortCircuit: true }
+                : nextResolve(specifier, context),
+        load: (url, context, nextLoad) => {
+            const source = api.esmSource(url);
+            return source === undefined ? nextLoad(url, context) : { format: "module", source, shortCircuit: true };
+        },
     });
 
     return {
         configStore,
         extensionExports,
         secrets,
+        paths,
         dispose: (): void => {
             hooks.deregister();
+            catalogSubscription.dispose();
             Reflect.deleteProperty(globalThis as unknown as Record<symbol, unknown>, VSCODE_GLOBAL_KEY);
             moduleAny._resolveFilename = origResolve;
-            Reflect.deleteProperty(moduleAny._cache, cacheKey);
+            for (const key of cacheKeys) Reflect.deleteProperty(moduleAny._cache, key);
         },
     };
 }

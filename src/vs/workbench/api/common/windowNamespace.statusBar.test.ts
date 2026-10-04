@@ -6,7 +6,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { IStubRpc } from "./testStubRpc.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { StatusBarAlignment } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
 import type { IWireStatusBarItem } from "./wireTypes.ts";
@@ -21,6 +21,7 @@ function makeWindow(): { stub: IStubRpc; window: typeof vscode.window } {
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     return { stub, window: createWindowNamespace(ctx) };
 }
