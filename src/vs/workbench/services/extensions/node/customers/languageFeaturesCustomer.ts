@@ -34,6 +34,7 @@ import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import {
     type IWireLanguageProviderRegistration,
+    type IWirePositionParams,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     requestApplyCodeAction,
@@ -133,11 +134,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             loggingRequest(rpc, this.logger),
             {
                 handles,
-                uri: req.uri,
-                languageId: req.languageId,
-                version: req.versionId,
-                line: req.line,
-                character: req.character,
+                ...positionParams(req),
                 // Спред — про чистоту payload'а: `undefined`-ключи всё равно
                 // выбрасывает JSON-транспорт RPC.
                 // Stryker disable next-line ConditionalExpression: см. выше
@@ -204,11 +201,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             loggingRequest(rpc, this.logger),
             {
                 handles,
-                uri: req.uri,
-                languageId: req.languageId,
-                version: req.versionId,
-                line: req.line,
-                character: req.character,
+                ...positionParams(req),
                 triggerKind: req.triggerKind,
             },
             req.timeoutMs ?? this.timeouts["languages.provideInlineCompletions"],
@@ -269,11 +262,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             loggingRequest(rpc, this.logger),
             {
                 handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                version: req.versionId,
-                line: req.line,
-                character: req.character,
+                ...positionParams(req),
             },
             this.timeouts["languages.provideDefinition"],
         );
@@ -296,11 +285,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             loggingRequest(rpc, this.logger),
             {
                 handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                version: req.versionId,
-                line: req.line,
-                character: req.character,
+                ...positionParams(req),
             },
             this.timeouts["languages.provideHover"],
         );
@@ -323,11 +308,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             loggingRequest(rpc, this.logger),
             {
                 handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                version: req.versionId,
-                line: req.line,
-                character: req.character,
+                ...positionParams(req),
                 includeDeclaration: req.includeDeclaration,
             },
             this.timeouts["languages.provideReferences"],
@@ -351,11 +332,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             loggingRequest(rpc, this.logger),
             {
                 handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                version: req.versionId,
-                line: req.line,
-                character: req.character,
+                ...positionParams(req),
                 triggerKind: req.triggerKind,
                 // Оба спреда — про чистоту payload'а: `undefined`-ключи всё равно
                 // выбрасывает JSON-транспорт RPC, поэтому за границей канала
@@ -476,7 +453,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         if (!this.isSynced(req.uri)) return null;
         return requestPrepareRename(
             loggingRequest(rpc, this.logger),
-            { handle, ...renameTarget(req) },
+            { handle, ...positionParams(req) },
             this.timeouts["languages.prepareRename"],
         );
     }
@@ -499,7 +476,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         }
         return requestRename(
             loggingRequest(rpc, this.logger),
-            { handle, ...renameTarget(req), newName },
+            { handle, ...positionParams(req), newName },
             this.timeouts["languages.provideRenameEdits"],
         );
     }
@@ -539,17 +516,13 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
 }
 
 /**
- * Общая часть параметров обеих rename-ручек: документ и позиция каретки.
- * `prepareRename` и `provideRenameEdits` спрашивают об одном и том же месте,
- * и расходятся только новым именем.
+ * Документ и позиция каретки в wire-форме — общая часть параметров всех
+ * запросов с позицией (completion, inline, definition, hover, references,
+ * signature help, обе rename-ручки).
  */
-function renameTarget(req: IRenameRequest): {
-    uri: string;
-    languageId: string;
-    version: number;
-    line: number;
-    character: number;
-} {
+function positionParams(
+    req: Pick<ICompletionRequest, "uri" | "languageId" | "versionId" | "line" | "character">,
+): IWirePositionParams {
     return {
         uri: req.uri,
         languageId: req.languageId,

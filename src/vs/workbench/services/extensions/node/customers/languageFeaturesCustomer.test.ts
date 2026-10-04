@@ -91,8 +91,8 @@ function anyRequest(uri: string): never {
         uri,
         languageId: "typescript",
         versionId: 7,
-        line: 0,
-        character: 0,
+        line: 2,
+        character: 3,
         tabSize: 4,
         insertSpaces: true,
         range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
@@ -228,6 +228,32 @@ describe("LanguageFeaturesCustomer — запросы только по синх
         for (const { method, params } of h.requested) {
             expect(params, method).toMatchObject({ uri: SYNCED, version: 7 });
             expect(params, method).not.toHaveProperty("text");
+        }
+    });
+
+    it("документ, позиция и адресация провайдера уходят по проводу в wire-форме", async () => {
+        const h = setupWithSync();
+        for (const c of REQUEST_CASES) await c.call(h.customer, SYNCED);
+        // Пачечные запросы адресуют провайдеров списком, остальные — одним handle.
+        const batched = new Set([
+            "languages.provideCompletionItems",
+            "languages.provideInlineCompletions",
+            "languages.provideFoldingRanges",
+        ]);
+        // Без позиции — запросы по документу или диапазону.
+        const positionless = new Set([
+            "languages.provideFoldingRanges",
+            "languages.provideFormattingEdits",
+            "languages.provideCodeActions",
+        ]);
+        for (const { method, params } of h.requested) {
+            expect(params, method).toMatchObject({ uri: SYNCED, languageId: "typescript", version: 7 });
+            expect(params, method).toMatchObject(batched.has(method) ? { handles: [1] } : { handle: 1 });
+            if (positionless.has(method)) {
+                expect(params, method).not.toHaveProperty("line");
+            } else {
+                expect(params, method).toMatchObject({ line: 2, character: 3 });
+            }
         }
     });
 
