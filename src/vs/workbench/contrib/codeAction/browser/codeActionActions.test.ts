@@ -15,7 +15,13 @@ import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { type EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
-import { fixAllAction, organizeImportsAction, quickFixAction } from "./codeActionActions.ts";
+import {
+    fixAllAction,
+    organizeImportsAction,
+    quickFixAction,
+    refactorAction,
+    sourceActionAction,
+} from "./codeActionActions.ts";
 
 // Source-команды code actions: полный диапазон + only в запросе, выбор
 // предпочтительного действия, честные notices на «нечего применять» и отказ.
@@ -283,6 +289,58 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(provide).not.toHaveBeenCalled();
     });
 
+    it("Refactor…: запрос с only=refactor, свой заголовок меню и свой текст «пусто»", async () => {
+        const setup = makeSetup(
+            {
+                provide: () => Promise.resolve([{ id: "2.0", title: "Extract method", kind: "refactor.extract" }]),
+                apply: () => Promise.resolve(true),
+            },
+            {
+                pickLabel: "Extract method",
+                selection: { anchor: { line: 1, character: 3 }, active: { line: 1, character: 3 } },
+            },
+        );
+
+        await refactorAction.run(setup.accessor);
+
+        expect(setup.requests).toStrictEqual([
+            {
+                uri: Uri.file("/proj/a.py").toString(),
+                languageId: "python",
+                text: "import b\nimport a",
+                range: createRange(1, 0, 1, 8),
+                only: "refactor",
+            },
+        ]);
+        expect(setup.pickCalls[0].title).toBe("Refactor");
+        expect(setup.appliedIds).toEqual(["2.0"]);
+
+        const empty = makeSetup({ provide: () => Promise.resolve([]), apply: () => Promise.resolve(true) });
+        await refactorAction.run(empty.accessor);
+        expect(empty.notices).toEqual(["codeAction.notice: No refactorings available"]);
+    });
+
+    it("Source Action…: запрос с only=source, свой заголовок меню и свой текст «пусто»", async () => {
+        const setup = makeSetup(
+            {
+                provide: () =>
+                    Promise.resolve([{ id: "3.0", title: "Organize Imports", kind: "source.organizeImports" }]),
+                apply: () => Promise.resolve(true),
+            },
+            { pickLabel: "Organize Imports" },
+        );
+
+        await sourceActionAction.run(setup.accessor);
+
+        expect(setup.requests[0]).toMatchObject({ only: "source" });
+        expect(setup.pickCalls[0].title).toBe("Source Action");
+        expect(setup.appliedIds).toEqual(["3.0"]);
+
+        const empty = makeSetup({ provide: () => Promise.resolve([]), apply: () => Promise.resolve(true) });
+        await sourceActionAction.run(empty.accessor);
+        expect(empty.notices).toEqual(["codeAction.notice: No source actions available"]);
+    });
+
     it("метаданные запиннены: id/title/бинды/when — пользовательский контракт", () => {
         expect(organizeImportsAction.id).toBe("editor.action.organizeImports");
         expect(organizeImportsAction.title).toBe("Organize Imports");
@@ -293,6 +351,19 @@ describe("editor.action.organizeImports / fixAll", () => {
             { keys: parseKeybinding("shift+alt+o"), when: "tier != 'legacy'" },
         ]);
         expect(organizeImportsAction.when).toBe("textInputFocus && !editorReadonly");
+
+        expect(refactorAction.id).toBe("editor.action.refactor");
+        expect(refactorAction.title).toBe("Refactor...");
+        expect(refactorAction.keybinding).toEqual(parseChord("ctrl+k alt+r"));
+        expect(refactorAction.keybindings).toEqual([
+            { keys: parseKeybinding("mod+shift+r"), when: "tier != 'legacy'" },
+        ]);
+        expect(refactorAction.when).toBe("textInputFocus && !editorReadonly");
+
+        expect(sourceActionAction.id).toBe("editor.action.sourceAction");
+        expect(sourceActionAction.title).toBe("Source Action...");
+        expect(sourceActionAction.keybinding).toBeUndefined();
+        expect(sourceActionAction.when).toBe("textInputFocus && !editorReadonly");
 
         expect(fixAllAction.id).toBe("editor.action.fixAll");
         expect(fixAllAction.title).toBe("Fix All");

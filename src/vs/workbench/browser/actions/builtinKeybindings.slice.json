@@ -251,6 +251,13 @@
             "*": "ctrl+.",
             "mac-cmd (kitty) #1": "meta+."
         },
+        "editor.action.refactor": {
+            "*": "ctrl+k alt+r",
+            "pc csi-u #1": "ctrl+shift+r",
+            "pc kitty #1": "ctrl+shift+r",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+r",
+            "mac-cmd (kitty) #1": "shift+meta+r"
+        },
         "editor.action.removeCommentLine": {
             "*": "ctrl+k ctrl+u",
             "mac-cmd (kitty) #1": "meta+k meta+u"

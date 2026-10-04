@@ -82,10 +82,10 @@ export const undoAction: CommandAction = {
     title: "Undo",
     keybinding: parseKeybinding("mod+z"),
     when: "textInputFocus && !editorReadonly",
-    menus: [
-        { menuId: MenuId.EditorContext, group: "2_undo", order: 10 },
-        { menuId: MenuId.MenubarEditMenu, group: "1_undo", order: 10 },
-    ],
+    // Контекст-меню редактора Undo не содержит — в эталоне его там нет
+    // (отмена живёт на Ctrl+Z и в меню Edit), а состав EditorContext мы берём
+    // дословно upstream'ский.
+    menus: [{ menuId: MenuId.MenubarEditMenu, group: "1_undo", order: 10 }],
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.undo();
     },

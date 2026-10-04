@@ -103,6 +103,7 @@ import {
     previousEditorInGroupAction,
 } from "./browser/actions/tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "./browser/actions/tabCloseActions.ts";
+import { LanguageFeatureContextKeysDIToken } from "./browser/languageFeatureContextKeys.ts";
 import { OpenFailureNotificationContributionDIToken } from "./browser/openFailureNotificationContribution.ts";
 import { EditorStatusContributionDIToken } from "./browser/parts/editor/editorStatusContribution.ts";
 import { changeEncodingAction } from "./browser/parts/editor/encodingActions.ts";
@@ -464,6 +465,8 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     ScmInputComponentDIToken,
     TerminalServiceDIToken,
     TabSwitcherComponentDIToken,
+    // «У документа есть провайдер такой-то фичи» — видимость пунктов контекст-меню.
+    LanguageFeatureContextKeysDIToken,
     // Не ключи, а активное поле ввода для редактирующих команд — в том же опросе.
     InputWidgetServiceDIToken,
 ];

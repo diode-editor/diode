@@ -123,6 +123,12 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
         expect(editor.viewState.selections).toHaveLength(3);
     });
 
+    it("changeAll — тот же мультикурсор по вхождениям под именем эталона", () => {
+        const { editor, commands } = openEditor("foo\nfoo\nfoo");
+        commands.execute("editor.action.changeAll");
+        expect(editor.viewState.selections).toHaveLength(3);
+    });
+
     it("без активного редактора все команды — тихий no-op", () => {
         const { commands, service } = openEditor("foo\nfoo");
         service.activeGroup.closeTab(0);

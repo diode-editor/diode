@@ -15,6 +15,10 @@ import {
 } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
+import {
+    LanguageFeatureContextKeys,
+    LanguageFeatureContextKeysDIToken,
+} from "../../workbench/browser/languageFeatureContextKeys.ts";
 import { MenuBarComponent, MenuBarComponentDIToken } from "../../workbench/browser/menuBarComponent.ts";
 import {
     OpenFailureNotificationContribution,
@@ -363,6 +367,9 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TextSearchServiceDIToken, TextSearchService);
     container.bind(SearchComponentDIToken, SearchComponent);
     container.bind(FileOperationsServiceDIToken, FileOperationsService);
+    // Ключи «у документа есть провайдер фичи» — видимость пунктов контекст-меню
+    // (опрашивается вместе с остальными контрибьюторами контекст-ключей).
+    container.bind(LanguageFeatureContextKeysDIToken, LanguageFeatureContextKeys);
     container.bind(InputWidgetServiceDIToken, InputWidgetService);
     // QuickInput-кластер (этап 8): общий виджет-компонент (host прикрепляет
     // WorkbenchComponent через attachHost), InputBox/list-pick сервис и Quick Open

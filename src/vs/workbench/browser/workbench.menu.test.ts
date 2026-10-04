@@ -505,7 +505,10 @@ describe("Workbench — editor context menu", () => {
         const labels = getEditorEntries(testApp)
             .filter((e): e is MenuItemEntry => e.type !== "separator")
             .map((e) => e.label);
-        expect(labels).toEqual(["Copy", "Cut", "Paste", "Undo"]);
+        // Состав эталона; пункты языковых фич гейтятся `editorHas*Provider`,
+        // а в этом приложении провайдеров нет (их видимость — в
+        // `workbench.contextMenu.test.ts`).
+        expect(labels).toEqual(["Change All Occurrences", "Cut", "Copy", "Paste", "Command Palette..."]);
     });
 
     it("editor context menu Copy entry runs the copy command", () => {
@@ -550,17 +553,17 @@ describe("Workbench — editor context menu", () => {
         expect(executeSpy).toHaveBeenCalledWith("editor.action.clipboardPasteAction");
     });
 
-    it("editor context menu Undo entry runs the undo command", () => {
+    it("editor context menu Command Palette entry runs the palette command", () => {
         const { testApp, workbench, commands } = createAppTestHarness();
-        workbench.openFile("/tmp/menu-ctx-undo.txt");
+        workbench.openFile("/tmp/menu-ctx-palette.txt");
         testApp.render();
         const executeSpy = vi.spyOn(commands, "execute");
 
-        const undo = getEditorEntries(testApp).find(
-            (e): e is MenuItemEntry => e.type !== "separator" && e.label === "Undo",
+        const palette = getEditorEntries(testApp).find(
+            (e): e is MenuItemEntry => e.type !== "separator" && e.label === "Command Palette...",
         )!;
-        undo.onSelect?.();
+        palette.onSelect?.();
 
-        expect(executeSpy).toHaveBeenCalledWith("undo");
+        expect(executeSpy).toHaveBeenCalledWith("workbench.action.showCommands");
     });
 });

@@ -19,7 +19,7 @@ export const clipboardCopyAction: CommandAction = {
     // Шире, чем у Cut/Paste: копировать можно и из read-only диффа.
     when: "textViewFocus",
     menus: [
-        { menuId: MenuId.EditorContext, group: "1_clipboard", order: 10 },
+        { menuId: MenuId.EditorContext, group: "9_cutcopypaste", order: 2 },
         { menuId: MenuId.MenubarEditMenu, group: "2_clipboard", order: 20 },
     ],
     async run(accessor) {
@@ -60,7 +60,7 @@ export const clipboardCutAction: CommandAction = {
     keybinding: parseKeybinding("ctrl+x"),
     when: "textInputFocus && !editorReadonly",
     menus: [
-        { menuId: MenuId.EditorContext, group: "1_clipboard", order: 20 },
+        { menuId: MenuId.EditorContext, group: "9_cutcopypaste", order: 1 },
         { menuId: MenuId.MenubarEditMenu, group: "2_clipboard", order: 10 },
     ],
     async run(accessor) {
@@ -83,7 +83,7 @@ export const clipboardPasteAction: CommandAction = {
     keybinding: parseKeybinding("ctrl+v"),
     when: "textInputFocus && !editorReadonly",
     menus: [
-        { menuId: MenuId.EditorContext, group: "1_clipboard", order: 30 },
+        { menuId: MenuId.EditorContext, group: "9_cutcopypaste", order: 4 },
         { menuId: MenuId.MenubarEditMenu, group: "2_clipboard", order: 30 },
     ],
     async run(accessor) {

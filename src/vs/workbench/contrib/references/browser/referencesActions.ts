@@ -30,6 +30,9 @@ export const findAllReferencesAction: CommandAction = {
     when: "textInputFocus",
     keybinding: parseChord("ctrl+k ctrl+r"),
     keybindings: [parseKeybinding("shift+alt+f12")],
+    // Группа и порядок — дословно upstream (`goToCommands.ts`, пункт «Go to
+    // References»): без reference-провайдера пункта нет.
+    menus: [{ menuId: MenuId.EditorContext, group: "navigation", order: 1.45, when: "editorHasReferenceProvider" }],
     run(accessor) {
         return accessor.get(ReferencesServiceDIToken).findReferences();
     },
