@@ -26,7 +26,7 @@ import type { IConfigurationData } from "../../../platform/configuration/common/
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
 import type { IHostToSubprocess } from "./extHostProtocol.ts";
-import type { IRequestOptions, RequestMethod, RequestParams } from "./rpcEndpoint.ts";
+import type { IRequestOptions, RequestMethod, RequestParams, RequestResult } from "./rpcEndpoint.ts";
 
 /**
  * Wire-форма правки save-участника (subprocess → host). Либо замена текста в
@@ -101,52 +101,6 @@ function isFiniteNumber(v: unknown): v is number {
     return typeof v === "number" && Number.isFinite(v);
 }
 
-/** Валидирует одну wire-правку; `null`, если форма не распознана. */
-function parseWireTextEdit(raw: unknown): WireTextEdit | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if ("setEndOfLine" in obj) {
-        const eol = obj.setEndOfLine;
-        if (eol === 1 || eol === 2) return { setEndOfLine: eol };
-        return null;
-    }
-    const range = obj.range;
-    if (typeof range !== "object" || range === null) return null;
-    const r = range as Record<string, unknown>;
-    if (
-        !isFiniteNumber(r.startLine) ||
-        !isFiniteNumber(r.startCharacter) ||
-        !isFiniteNumber(r.endLine) ||
-        !isFiniteNumber(r.endCharacter) ||
-        typeof obj.text !== "string"
-    ) {
-        return null;
-    }
-    return {
-        range: {
-            startLine: r.startLine,
-            startCharacter: r.startCharacter,
-            endLine: r.endLine,
-            endCharacter: r.endCharacter,
-        },
-        text: obj.text,
-    };
-}
-
-/**
- * Разбирает сырой ответ will-save в массив валидных {@link WireTextEdit}.
- * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
- */
-export function parseWireTextEdits(raw: unknown): WireTextEdit[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireTextEdit[] = [];
-    for (const item of raw) {
-        const parsed = parseWireTextEdit(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
 /** Переводит wire-правки в core-правки ({@link ISaveEdit}). */
 export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
     return wire.map((edit) =>
@@ -168,8 +122,10 @@ export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
 /**
  * Отправка запроса субпроцессу (обычно `rpc.request`): срок ответа и отмену
  * несёт транспорт — истёкший срок отменяет запрос на второй стороне и
- * отклоняет промис `TimeoutError`. Голая функция — чтобы логику запросов можно
- * было юнит-тестировать через {@link InProcessChannelPair} без форка.
+ * отклоняет промис `TimeoutError`. Ответ типизирован картой протокола: его
+ * форму гарантирует сериализатор субпроцесса, хост её не перепроверяет.
+ * Голая функция — чтобы логику запросов можно было юнит-тестировать через
+ * {@link InProcessChannelPair} без форка.
  */
 /** Запросы хоста к субпроцессу (см. `extHostProtocol.ts`). */
 type HostToSubprocess = IHostToSubprocess;
@@ -178,24 +134,11 @@ export type RequestFn = <K extends RequestMethod<HostToSubprocess>>(
     method: K,
     params: RequestParams<HostToSubprocess, K>,
     options: IRequestOptions,
-) => Promise<unknown>;
-
-/** Маркер «запрос не удался» (истёк срок, отказ RPC) для {@link settle}. */
-const FAILED = Symbol("failed");
-
-/**
- * Общий исход pull-запроса к субпроцессу: расширение не ответило в срок или
- * ответило отказом — вызывающий получает {@link FAILED} и откатывается на
- * пустой результат, UI никогда не блокируется навсегда. Сам сбой пишет в лог
- * тот, кто дал {@link RequestFn}.
- */
-async function settle(pending: Promise<unknown>): Promise<unknown> {
-    return pending.catch(() => FAILED);
-}
+) => Promise<RequestResult<HostToSubprocess, K>>;
 
 /**
  * Запрашивает у subprocess'а правки will-save с таймаутом. Возвращает пустой
- * массив на таймаут, ошибку RPC или невалидный ответ — сохранение никогда не
+ * массив на таймаут или ошибку RPC — сохранение никогда не
  * блокируется навсегда и не портит данные. `request` — голая функция (обычно
  * `rpc.request`), чтобы логику можно было юнит-тестировать через
  * {@link InProcessChannelPair} без форка subprocess'а.
@@ -205,9 +148,9 @@ export async function requestWillSaveEdits(
     params: IWireWillSaveParams,
     timeoutMs: number,
 ): Promise<ISaveEdit[]> {
-    // Сбой (FAILED) парсер сам превращает в «правок нет».
-    const outcome = await settle(request("workspace.willSaveTextDocument", params, { timeoutMs }));
-    return wireToSaveEdits(parseWireTextEdits(outcome));
+    // Сбой запроса (истёк срок, отказ RPC) — «правок нет»; в лог его пишет тот, кто дал `request`.
+    const edits = await request("workspace.willSaveTextDocument", params, { timeoutMs }).catch(() => []);
+    return wireToSaveEdits(edits);
 }
 
 // ─── Document sync (зеркало документа: снапшот на открытии, дальше правки) ──
@@ -520,7 +463,7 @@ export interface WireResolvedCompletionItem {
     readonly detail?: string;
     readonly documentation?: string;
     /** Правки-спутники (авто-импорт): применяются вместе со вставкой. */
-    readonly additionalEdits?: readonly WireTextEdit[];
+    readonly additionalEdits?: readonly IWireEditorEdit[];
 }
 
 /**
@@ -593,92 +536,12 @@ function parseWireRange(raw: unknown): IWireRange | undefined {
     };
 }
 
-function parseWireCommand(raw: unknown): WireCompletionItem["command"] {
-    if (typeof raw !== "object" || raw === null) return undefined;
-    const c = raw as Record<string, unknown>;
-    if (typeof c.command !== "string" || c.command === "") return undefined;
+/** Переводит догруженные поля пункта в форму ядра ({@link ICoreResolvedCompletion}). */
+export function wireToCoreResolvedCompletion(wire: WireResolvedCompletionItem): ICoreResolvedCompletion {
     return {
-        command: c.command,
-        ...(Array.isArray(c.arguments) ? { arguments: c.arguments as readonly unknown[] } : {}),
-    };
-}
-
-/** Валидирует один wire-элемент completion; `null`, если форма не распознана. */
-function parseWireCompletionItem(raw: unknown): WireCompletionItem | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.label !== "string" || obj.label === "") return null;
-    const insertText = typeof obj.insertText === "string" ? obj.insertText : obj.label;
-    const range = parseWireRange(obj.range);
-    const command = parseWireCommand(obj.command);
-    return {
-        label: obj.label,
-        insertText,
-        ...(typeof obj.id === "string" && obj.id !== "" ? { id: obj.id } : {}),
-        ...(typeof obj.labelDetail === "string" ? { labelDetail: obj.labelDetail } : {}),
-        ...(typeof obj.labelDescription === "string" ? { labelDescription: obj.labelDescription } : {}),
-        ...(isFiniteNumber(obj.kind) ? { kind: obj.kind } : {}),
-        ...(typeof obj.detail === "string" ? { detail: obj.detail } : {}),
-        ...(typeof obj.documentation === "string" ? { documentation: obj.documentation } : {}),
-        ...(command !== undefined ? { command } : {}),
-        ...(range !== undefined ? { range } : {}),
-        ...(typeof obj.sortText === "string" ? { sortText: obj.sortText } : {}),
-        ...(typeof obj.filterText === "string" ? { filterText: obj.filterText } : {}),
-    };
-}
-
-/**
- * Разбирает сырой ответ completion в массив валидных {@link WireCompletionItem}.
- * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
- */
-export function parseWireCompletionItems(raw: unknown): WireCompletionItem[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireCompletionItem[] = [];
-    for (const item of raw) {
-        const parsed = parseWireCompletionItem(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
-/**
- * Разбирает ответ `languages.provideCompletionItems`. Понимает и голый массив —
- * форму до появления `isIncomplete` (расширение из чужой поставки, старый
- * subprocess): такой ответ считается полным списком.
- */
-export function parseWireCompletionResult(raw: unknown): WireCompletionResult {
-    if (Array.isArray(raw)) return { items: parseWireCompletionItems(raw), isIncomplete: false };
-    if (typeof raw !== "object" || raw === null) return { items: [], isIncomplete: false };
-    const obj = raw as Record<string, unknown>;
-    return {
-        items: parseWireCompletionItems(obj.items),
-        isIncomplete: obj.isIncomplete === true,
-    };
-}
-
-/** Разбирает ответ `languages.resolveCompletionItem`; `null` — резолва нет. */
-export function parseWireResolvedCompletionItem(raw: unknown): ICoreResolvedCompletion | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    const additionalEdits: ITextEdit[] = [];
-    if (Array.isArray(obj.additionalEdits)) {
-        for (const edit of obj.additionalEdits) {
-            if (typeof edit !== "object" || edit === null) continue;
-            const e = edit as Record<string, unknown>;
-            const range = parseWireRange(e.range);
-            if (range === undefined || typeof e.text !== "string") continue;
-            additionalEdits.push(
-                createTextEdit(
-                    createRange(range.startLine, range.startCharacter, range.endLine, range.endCharacter),
-                    e.text,
-                ),
-            );
-        }
-    }
-    return {
-        ...(typeof obj.detail === "string" ? { detail: obj.detail } : {}),
-        ...(typeof obj.documentation === "string" ? { documentation: obj.documentation } : {}),
-        ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
+        ...(wire.detail === undefined ? {} : { detail: wire.detail }),
+        ...(wire.documentation === undefined ? {} : { documentation: wire.documentation }),
+        ...(wire.additionalEdits === undefined ? {} : { additionalEdits: wireToCoreTextEdits(wire.additionalEdits) }),
     };
 }
 
@@ -716,43 +579,6 @@ export function wireToCoreCompletionItems(wire: readonly WireCompletionItem[]): 
     }));
 }
 
-/**
- * Запрашивает у subprocess'а элементы автодополнения пачки провайдеров с
- * таймаутом. Результаты выровнены по `params.handles`; на таймаут, ошибку RPC
- * или невалидный ответ провайдер получает пустой результат (completion —
- * best-effort, не блокирует UI). `request` — голая функция для юнит-тестов через
- * {@link InProcessChannelPair} без форка subprocess'а (как {@link requestWillSaveEdits}).
- */
-export async function requestCompletionItems(
-    request: RequestFn,
-    params: IWireCompletionParams,
-    timeoutMs: number,
-): Promise<ICoreCompletionResult[]> {
-    const outcome = await settle(request("languages.provideCompletionItems", params, { timeoutMs }));
-    // Не-массив (таймаут, сбой, чужая форма) — пусто у всех; недостающий
-    // элемент массива — пусто у своего провайдера.
-    const results = Array.isArray(outcome) ? outcome : undefined;
-    return params.handles.map((_handle, index): ICoreCompletionResult => {
-        const parsed = parseWireCompletionResult(results?.[index]);
-        return { items: wireToCoreCompletionItems(parsed.items), isIncomplete: parsed.isIncomplete };
-    });
-}
-
-/**
- * Просит субпроцесс догрузить detail/documentation/additionalTextEdits пункта
- * (`languages.resolveCompletionItem`). `null` — таймаут, ошибка RPC или
- * провайдер без resolve: попап просто останется с тем, что уже есть.
- */
-export async function requestResolveCompletionItem(
-    request: RequestFn,
-    id: string,
-    timeoutMs: number,
-): Promise<ICoreResolvedCompletion | null> {
-    // Сбой (FAILED) — не объект, парсер отдаёт «резолвить нечего».
-    const outcome = await settle(request("languages.resolveCompletionItem", { id }, { timeoutMs }));
-    return parseWireResolvedCompletionItem(outcome);
-}
-
 // ─── Inline completions (ghost text) ─────────────────────────────────────────
 
 /**
@@ -772,36 +598,6 @@ export interface WireInlineCompletionItem {
 export interface IWireInlineCompletionParams extends IWirePositionParams, IWireProviderHandles {
     /** `InlineCompletionTriggerKind`: 0 — Invoke, 1 — Automatic. */
     readonly triggerKind: number;
-}
-
-/** Валидирует один wire-пункт инлайн-подсказки; `null` — форма не распознана. */
-function parseWireInlineCompletionItem(raw: unknown): WireInlineCompletionItem | null {
-    // Клауза typeof — защитная: не-объект без .insertText отсеет следующий гард
-    // (примитив со строковым insertText невозможен) — её мутанты эквивалентны.
-    // Stryker disable next-line ConditionalExpression: см. выше
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.insertText !== "string" || obj.insertText === "") return null;
-    const range = parseWireRange(obj.range);
-    return {
-        insertText: obj.insertText,
-        ...(typeof obj.filterText === "string" ? { filterText: obj.filterText } : {}),
-        ...(range !== undefined ? { range } : {}),
-    };
-}
-
-/**
- * Разбирает сырой ответ `languages.provideInlineCompletions` в массив валидных
- * пунктов. Невалидные элементы отбрасываются (drop+skip), а не роняют ответ.
- */
-export function parseWireInlineCompletionItems(raw: unknown): WireInlineCompletionItem[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireInlineCompletionItem[] = [];
-    for (const item of raw) {
-        const parsed = parseWireInlineCompletionItem(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
 }
 
 /** Переводит wire-пункты в core-пункты ({@link ICoreInlineCompletionItem}). */
@@ -824,32 +620,6 @@ export function wireToCoreInlineCompletionItems(
     }));
 }
 
-/**
- * Запрашивает у subprocess'а инлайн-подсказки с таймаутом. Возвращает пустой
- * массив на таймаут, ошибку RPC или невалидный ответ (ghost text — best-effort,
- * не блокирует UI). `request` — голая функция для юнит-тестов через
- * {@link InProcessChannelPair} без форка subprocess'а (как {@link requestCompletionItems}).
- */
-export async function requestInlineCompletions(
-    request: RequestFn,
-    params: IWireInlineCompletionParams,
-    timeoutMs: number,
-    token?: ICancellationToken,
-): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
-    // Отмена «сверху» и истёкший срок доходят до провайдера одинаково —
-    // транспорт отменяет запрос (иначе зависший LLM-вызов считал бы в пустоту
-    // до конца жизни субпроцесса).
-    const outcome = await settle(
-        request("languages.provideInlineCompletions", params, { timeoutMs, ...(token === undefined ? {} : { token }) }),
-    );
-    // Не-массив (сбой, чужая форма) — пусто у всех; недостающий элемент
-    // массива — пусто у своего провайдера.
-    const results = Array.isArray(outcome) ? outcome : undefined;
-    return params.handles.map((_handle, index) =>
-        wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(results?.[index])),
-    );
-}
-
 // ─── Folding (#87) ───────────────────────────────────────────────────────────
 
 /**
@@ -865,32 +635,6 @@ export interface WireFoldingRange {
 
 /** Параметры запроса folding (host → subprocess); запрос пачечный. */
 export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
-
-/** Валидирует одну wire-область folding; `null`, если форма не распознана. */
-function parseWireFoldingRange(raw: unknown): WireFoldingRange | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (!isFiniteNumber(obj.start) || !isFiniteNumber(obj.end)) return null;
-    return {
-        start: obj.start,
-        end: obj.end,
-        ...(isFiniteNumber(obj.kind) ? { kind: obj.kind } : {}),
-    };
-}
-
-/**
- * Разбирает сырой ответ folding в массив валидных {@link WireFoldingRange}.
- * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
- */
-export function parseWireFoldingRanges(raw: unknown): WireFoldingRange[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireFoldingRange[] = [];
-    for (const item of raw) {
-        const parsed = parseWireFoldingRange(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
 
 /**
  * Переводит wire-области в core-регионы ({@link IFoldingRegion}). Отбрасывает
@@ -909,24 +653,6 @@ export function wireToCoreFoldingRegions(wire: readonly WireFoldingRange[]): IFo
     return regions;
 }
 
-/**
- * Запрашивает у subprocess'а области сворачивания с таймаутом. Возвращает пустой
- * массив на таймаут, ошибку RPC или невалидный ответ (folding — best-effort:
- * ядро откатится на indentation-фолды). `request` — голая функция для юнит-тестов
- * через {@link InProcessChannelPair} без форка subprocess'а.
- */
-export async function requestFoldingRanges(
-    request: RequestFn,
-    params: IWireFoldingParams,
-    timeoutMs: number,
-): Promise<IFoldingRegion[][]> {
-    const outcome = await settle(request("languages.provideFoldingRanges", params, { timeoutMs }));
-    // Не-массив (таймаут, сбой, чужая форма) — пусто у всех; недостающий
-    // элемент массива — пусто у своего провайдера.
-    const results = Array.isArray(outcome) ? outcome : undefined;
-    return params.handles.map((_handle, index) => wireToCoreFoldingRegions(parseWireFoldingRanges(results?.[index])));
-}
-
 // ─── Definition (LSP) ────────────────────────────────────────────────────────
 
 /**
@@ -943,52 +669,12 @@ export interface WireDefinitionLocation {
 /** Параметры запроса definition (host → subprocess): документ, позиция, провайдер. */
 export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
 
-/** Валидирует одну wire-цель definition; `null`, если форма не распознана. */
-function parseWireDefinitionLocation(raw: unknown): WireDefinitionLocation | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.uri !== "string" || obj.uri === "") return null;
-    const range = parseWireRange(obj.range);
-    if (range === undefined) return null;
-    return { uri: obj.uri, range };
-}
-
-/**
- * Разбирает сырой ответ definition в массив валидных {@link WireDefinitionLocation}.
- * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
- */
-export function parseWireDefinitionLocations(raw: unknown): WireDefinitionLocation[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireDefinitionLocation[] = [];
-    for (const item of raw) {
-        const parsed = parseWireDefinitionLocation(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
 /** Переводит wire-цели в core-цели ({@link ICoreDefinitionLocation}). */
 export function wireToCoreDefinitionLocations(wire: readonly WireDefinitionLocation[]): ICoreDefinitionLocation[] {
     return wire.map((loc) => ({
         uri: loc.uri,
         range: createRange(loc.range.startLine, loc.range.startCharacter, loc.range.endLine, loc.range.endCharacter),
     }));
-}
-
-/**
- * Запрашивает у subprocess'а цели definition с таймаутом. Возвращает пустой
- * массив на таймаут, ошибку RPC или невалидный ответ (go-to-definition —
- * best-effort, не блокирует UI). `request` — голая функция для юнит-тестов через
- * {@link InProcessChannelPair} без форка subprocess'а.
- */
-export async function requestDefinition(
-    request: RequestFn,
-    params: IWireDefinitionParams,
-    timeoutMs: number,
-): Promise<ICoreDefinitionLocation[]> {
-    // Сбой (FAILED) — не массив, парсер отдаёт «целей нет».
-    const outcome = await settle(request("languages.provideDefinition", params, { timeoutMs }));
-    return wireToCoreDefinitionLocations(parseWireDefinitionLocations(outcome));
 }
 
 // ─── Hover (LSP) ─────────────────────────────────────────────────────────────
@@ -1008,17 +694,6 @@ export interface WireHover {
 /** Параметры запроса hover (host → subprocess) — форма definition-запроса. */
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 
-/** Валидирует wire-hover; `null`, если форма не распознана или контента нет. */
-export function parseWireHover(raw: unknown): WireHover | null {
-    // Stryker disable next-line ConditionalExpression: не-объект всё равно отсеивается строкой ниже — у него нет массива `contents`; проверка стоит ради `null`, на котором чтение поля кинуло бы
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (!Array.isArray(obj.contents)) return null;
-    const contents = obj.contents.filter((block): block is string => typeof block === "string" && block !== "");
-    if (contents.length === 0) return null;
-    return { contents, range: parseWireRange(obj.range) };
-}
-
 /** Переводит wire-hover в core-hover ({@link ICoreHover}). */
 export function wireToCoreHover(hover: WireHover): ICoreHover {
     return {
@@ -1034,24 +709,6 @@ export function wireToCoreHover(hover: WireHover): ICoreHover {
                   ),
               }),
     };
-}
-
-/**
- * Запрашивает у subprocess'а hover одного провайдера с таймаутом. Возвращает
- * `undefined` на таймаут, ошибку RPC или невалидный ответ (hover — best-effort,
- * не блокирует UI). `request` — голая функция для юнит-тестов через
- * {@link InProcessChannelPair} без форка subprocess'а.
- */
-export async function requestHover(
-    request: RequestFn,
-    params: IWireHoverParams,
-    timeoutMs: number,
-): Promise<ICoreHover | undefined> {
-    const outcome = await settle(request("languages.provideHover", params, { timeoutMs }));
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не hover, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === FAILED) return undefined;
-    const hover = parseWireHover(outcome);
-    return hover === null ? undefined : wireToCoreHover(hover);
 }
 
 // ─── Регистрации языковых провайдеров ────────────────────────────────────────
@@ -1211,54 +868,12 @@ export interface IWireReferenceParams extends IWirePositionParams, IWireProvider
     readonly includeDeclaration: boolean;
 }
 
-/** Валидирует одну wire-ссылку; `null`, если форма не распознана. */
-function parseWireReference(raw: unknown): WireReference | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка `uri` строкой ниже (у него этого поля нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.uri !== "string" || obj.uri === "") return null;
-    const range = parseWireRange(obj.range);
-    if (range === undefined) return null;
-    return { uri: obj.uri, range };
-}
-
-/**
- * Разбирает сырой ответ references в массив валидных {@link WireReference}.
- * Невалидные элементы отбрасываются (drop+skip), а не роняют весь ответ.
- */
-export function parseWireReferences(raw: unknown): WireReference[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireReference[] = [];
-    for (const item of raw) {
-        const parsed = parseWireReference(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
 /** Переводит wire-ссылки в core-ссылки ({@link ICoreReference}). */
 export function wireToCoreReferences(wire: readonly WireReference[]): ICoreReference[] {
     return wire.map((ref) => ({
         uri: ref.uri,
         range: createRange(ref.range.startLine, ref.range.startCharacter, ref.range.endLine, ref.range.endCharacter),
     }));
-}
-
-/**
- * Запрашивает у subprocess'а ссылки на символ с таймаутом. Возвращает пустой
- * массив на таймаут, ошибку RPC или невалидный ответ (панель просто останется
- * пустой — Find All References не блокирует UI). `request` — голая функция для
- * юнит-тестов через {@link InProcessChannelPair} без форка subprocess'а.
- */
-export async function requestReferences(
-    request: RequestFn,
-    params: IWireReferenceParams,
-    timeoutMs: number,
-): Promise<ICoreReference[]> {
-    const outcome = await settle(request("languages.provideReferences", params, { timeoutMs }));
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === FAILED) return [];
-    return wireToCoreReferences(parseWireReferences(outcome));
 }
 
 // ─── Signature Help (LSP) ────────────────────────────────────────────────────
@@ -1273,139 +888,6 @@ export interface IWireSignatureHelpParams extends IWirePositionParams, IWireProv
     readonly triggerCharacter?: string;
     readonly isRetrigger: boolean;
     readonly activeSignatureHelp?: ICoreSignatureHelp;
-}
-
-/**
- * Разбирает сырой ответ подсказки. Отдельной `Wire`-формы у неё нет:
- * диапазонов подсказка не несёт, поэтому проволочная и ядерная формы совпадают
- * до байта — дублировать типы ради переименования незачем.
- *
- * Разбор СТРОГИЙ (в отличие от drop+skip у hover): битая сигнатура или параметр
- * роняют весь ответ в `null`. Причина — индексы: `activeSignature` и
- * `activeParameter` осмысленны только против полного списка, и выброс одного
- * элемента сдвинул бы подсветку на соседний параметр молча.
- */
-export function parseWireSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
-    const obj = asRawRecord(raw);
-    if (obj === null) return null;
-    if (!Array.isArray(obj.signatures)) return null;
-
-    const signatures: ICoreSignature[] = [];
-    for (const item of obj.signatures) {
-        const signature = parseWireSignature(item);
-        if (signature === null) return null;
-        signatures.push(signature);
-    }
-    if (signatures.length === 0) return null;
-
-    return {
-        signatures,
-        activeSignature: clampIndex(obj.activeSignature, signatures.length),
-        // `-1` — легальное «активного параметра нет» (noActiveParameterSupport),
-        // поэтому нижней границы здесь нет, только отбраковка не-чисел.
-        activeParameter: finiteNumber(obj.activeParameter) ?? 0,
-    };
-}
-
-/** Одна сигнатура из сырого ответа; `null` — форма чужая. */
-function parseWireSignature(raw: unknown): ICoreSignature | null {
-    const obj = asRawRecord(raw);
-    if (obj === null) return null;
-    if (typeof obj.label !== "string") return null;
-
-    const parameters: ICoreParameterInfo[] = [];
-    if (obj.parameters !== undefined) {
-        if (!Array.isArray(obj.parameters)) return null;
-        for (const item of obj.parameters) {
-            const parameter = parseWireParameter(item);
-            if (parameter === null) return null;
-            parameters.push(parameter);
-        }
-    }
-
-    const documentation = nonEmptyString(obj.documentation);
-    const activeParameter = finiteNumber(obj.activeParameter);
-    return {
-        label: obj.label,
-        parameters,
-        ...(documentation === null ? {} : { documentation }),
-        ...(activeParameter === null ? {} : { activeParameter }),
-    };
-}
-
-/** Один параметр; метка — подстрока метки сигнатуры либо пара офсетов. */
-function parseWireParameter(raw: unknown): ICoreParameterInfo | null {
-    const obj = asRawRecord(raw);
-    if (obj === null) return null;
-    const label = parseParameterLabel(obj.label);
-    if (label === null) return null;
-    const documentation = nonEmptyString(obj.documentation);
-    return { label, ...(documentation === null ? {} : { documentation }) };
-}
-
-/** Метка параметра: строка или пара конечных офсетов `[start, end)`. */
-function parseParameterLabel(raw: unknown): string | readonly [number, number] | null {
-    if (typeof raw === "string") return raw;
-    if (!Array.isArray(raw) || raw.length !== 2) return null;
-    const start = finiteNumber(raw[0]);
-    const end = finiteNumber(raw[1]);
-    if (start === null || end === null) return null;
-    return [start, end];
-}
-
-/** Индекс активной сигнатуры: не-целое или выход за список → 0. */
-function clampIndex(raw: unknown, length: number): number {
-    const index = integerNumber(raw);
-    if (index === null) return 0;
-    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
-    if (index < 0 || index >= length) return 0;
-    return index;
-}
-
-/**
- * Сырое значение как объект-словарь; `null` — не объект (в том числе `null`,
- * у которого `typeof` тоже «object»).
- */
-function asRawRecord(raw: unknown): Record<string, unknown> | null {
-    // Stryker disable next-line ConditionalExpression: оба конъюнкта в рантайме избыточны — примитив отсеют проверки полей у вызывающих (у числа нет ни `signatures`, ни строкового `label`), а `null` уйдёт из приведения тем же `null`, который вызывающие проверяют; нужны они компилятору для сужения типа
-    return typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : null;
-}
-
-/**
- * Конечное число из сырого поля; `null` — не число, NaN или Infinity.
- * `Number.isFinite` типы не приводит (для строки `"1"` он уже false), но и не
- * сужает их для компилятора — отсюда приведение вместо второй проверки.
- */
-function finiteNumber(raw: unknown): number | null {
-    return Number.isFinite(raw) ? (raw as number) : null;
-}
-
-/** Целое из сырого поля; `null` — не число или дробное (см. {@link finiteNumber}). */
-function integerNumber(raw: unknown): number | null {
-    return Number.isInteger(raw) ? (raw as number) : null;
-}
-
-/** Непустая строка из сырого поля; `null` — не строка или пустая. */
-function nonEmptyString(raw: unknown): string | null {
-    if (typeof raw !== "string" || raw === "") return null;
-    return raw;
-}
-
-/**
- * Запрашивает у subprocess'а подсказку параметров с таймаутом. `null` — на
- * таймаут, ошибку RPC или невалидный ответ (попап просто не откроется; как и
- * hover, подсказка не блокирует набор). `request` — голая функция для
- * юнит-тестов через {@link InProcessChannelPair} без форка subprocess'а.
- */
-export async function requestSignatureHelp(
-    request: RequestFn,
-    params: IWireSignatureHelpParams,
-    timeoutMs: number,
-): Promise<ICoreSignatureHelp | null> {
-    const outcome = await settle(request("languages.provideSignatureHelp", params, { timeoutMs }));
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не объект с `signatures`, поэтому разбор ниже вернул бы тот же `null`; ранний выход только называет причину
-    if (outcome === FAILED) return null;
-    return parseWireSignatureHelp(outcome);
 }
 
 // ─── Formatting (LSP, #196) ──────────────────────────────────────────────────
@@ -1429,21 +911,11 @@ export interface IWireFormattingParams extends IWireDocumentParams {
 }
 
 /**
- * Запрашивает у subprocess'а правки форматирования с таймаутом. Трёхзначный
- * ответ — как у {@link import("../../../editor/common/languages/iFormattingSource.ts").FormattingSource}:
- * `null` — нет провайдера под документ («нет форматтера»), пустой массив —
- * менять нечего либо таймаут/битый ответ (молчаливый no-op: врать «нет
- * форматтера» из-за медленного сервера нельзя).
+ * Переводит wire-правки текста в core-правки ({@link ITextEdit}): ответ
+ * форматирования и правки-спутники автодополнения.
  */
-export async function requestFormattingEdits(
-    request: RequestFn,
-    params: IWireFormattingParams,
-    timeoutMs: number,
-): Promise<readonly ITextEdit[]> {
-    const outcome = await settle(request("languages.provideFormattingEdits", params, { timeoutMs }));
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === FAILED) return [];
-    return parseWireEditorEdits(outcome).map((edit) =>
+export function wireToCoreTextEdits(wire: readonly IWireEditorEdit[]): ITextEdit[] {
+    return wire.map((edit) =>
         createTextEdit(
             createRange(edit.range.startLine, edit.range.startCharacter, edit.range.endLine, edit.range.endCharacter),
             edit.text,
@@ -1471,58 +943,6 @@ export interface WireCodeAction {
     readonly title: string;
     readonly kind?: string;
     readonly isPreferred?: boolean;
-}
-
-/** Валидирует один wire-code-action; `null`, если форма не распознана. */
-function parseWireCodeAction(raw: unknown): WireCodeAction | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка полей ниже
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.id !== "string" || obj.id === "") return null;
-    if (typeof obj.title !== "string") return null;
-    return {
-        id: obj.id,
-        title: obj.title,
-        ...(typeof obj.kind === "string" ? { kind: obj.kind } : {}),
-        ...(obj.isPreferred === true ? { isPreferred: true } : {}),
-    };
-}
-
-/** Разбирает ответ провайдеров: невалидные элементы отбрасываются поштучно. */
-export function parseWireCodeActions(raw: unknown): WireCodeAction[] {
-    if (!Array.isArray(raw)) return [];
-    const result: WireCodeAction[] = [];
-    for (const item of raw) {
-        const parsed = parseWireCodeAction(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
-/**
- * Запрашивает у subprocess'а список code actions с таймаутом. Трёхзначный
- * контракт — как у форматирования: `null` — нет провайдера под документ,
- * пустой массив — действий нет либо таймаут/битый ответ.
- */
-export async function requestCodeActions(
-    request: RequestFn,
-    params: IWireCodeActionParams,
-    timeoutMs: number,
-): Promise<readonly WireCodeAction[]> {
-    const outcome = await settle(request("languages.provideCodeActions", params, { timeoutMs }));
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === FAILED) return [];
-    return parseWireCodeActions(outcome);
-}
-
-/**
- * Просит субпроцесс применить закэшированное действие (`languages.applyCodeAction`):
- * резолв + правки существующим `workspace.applyEdit` + команда действия — всё
- * на стороне субпроцесса. `false` — таймаут, не-boolean ответ или честный отказ.
- */
-export async function requestApplyCodeAction(request: RequestFn, id: string, timeoutMs: number): Promise<boolean> {
-    const outcome = await settle(request("languages.applyCodeAction", { id }, { timeoutMs }));
-    return outcome === true;
 }
 
 // ─── Rename (languages.registerRenameProvider) ───────────────────────────────
@@ -1553,62 +973,15 @@ export interface WireRenameResult {
 }
 
 /**
- * Разбирает ответ `prepareRename` в форму ядра. Отказ бьёт имя: провайдер,
+ * Переводит ответ `prepareRename` в форму ядра. Отказ бьёт имя: провайдер,
  * сказавший «здесь нельзя», не должен открыть поле ввода из-за того, что
- * прислал заодно и placeholder. `null` — ни имени, ни причины (в том числе у
- * мусорного ответа): ядро спросит следующего провайдера.
+ * прислал заодно и placeholder. `null` — ни имени, ни причины: ядро спросит
+ * следующего провайдера.
  */
-export function parseWireRenamePrepare(raw: unknown): ICoreRenameLocation | null {
-    // Stryker disable next-line ConditionalExpression: не-объект всё равно отсеет чтение полей ниже; проверка стоит ради `null`, на котором чтение кинуло бы
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.rejectReason === "string" && obj.rejectReason !== "") {
-        return { kind: "reject", reason: obj.rejectReason };
-    }
-    if (typeof obj.placeholder === "string" && obj.placeholder !== "") {
-        return { kind: "name", name: obj.placeholder };
-    }
+export function wireToCoreRenameLocation(wire: WireRenamePrepare): ICoreRenameLocation | null {
+    if (wire.rejectReason !== undefined) return { kind: "reject", reason: wire.rejectReason };
+    if (wire.placeholder !== undefined) return { kind: "name", name: wire.placeholder };
     return null;
-}
-
-/**
- * Спрашивает у rename-провайдера субпроцесса текущее имя символа в позиции
- * каретки (`languages.prepareRename`). Таймаут и битый ответ — `null`
- * («провайдеру сказать нечего»): врать «переименовать нельзя» из-за медленного
- * сервера не за что, а слово под кареткой ядро доберёт само.
- */
-export async function requestPrepareRename(
-    request: RequestFn,
-    params: IWirePrepareRenameParams,
-    timeoutMs: number,
-): Promise<ICoreRenameLocation | null> {
-    const outcome = await settle(request("languages.prepareRename", params, { timeoutMs }));
-    // Stryker disable next-line ConditionalExpression: маркер таймаута — не объект с полями ответа, поэтому разбор ниже вернул бы тот же `null`; ранний выход только называет причину
-    if (outcome === FAILED) return null;
-    return parseWireRenamePrepare(outcome);
-}
-
-/**
- * Просит субпроцесс переименовать символ (`languages.provideRenameEdits`):
- * вызов провайдера и правки существующим `workspace.applyEdit` — всё на его
- * стороне. Таймаут и битый ответ — отказ С СООБЩЕНИЕМ: в отличие от
- * форматирования, молчаливый no-op здесь неприемлем (человек ввёл имя и ждёт
- * результата).
- */
-export async function requestRename(
-    request: RequestFn,
-    params: IWireRenameParams,
-    timeoutMs: number,
-): Promise<ICoreRenameResult> {
-    const outcome = await settle(request("languages.provideRenameEdits", params, { timeoutMs }));
-    if (outcome === FAILED) return { applied: false, error: "Rename timed out" };
-    if (typeof outcome !== "object" || outcome === null) return { applied: false, error: "Rename failed" };
-    const obj = outcome as Record<string, unknown>;
-    if (obj.applied === true) return { applied: true };
-    return {
-        applied: false,
-        ...(typeof obj.error === "string" && obj.error !== "" ? { error: obj.error } : {}),
-    };
 }
 
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────

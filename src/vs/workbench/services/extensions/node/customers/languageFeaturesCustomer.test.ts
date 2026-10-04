@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
+import { CancellationTokenNone, CancellationTokenSource } from "../../../../../base/common/cancellation.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
@@ -176,6 +177,23 @@ const REQUEST_CASES: readonly IRequestCase[] = [
     },
 ];
 
+/** Пустой ответ субпроцесса каждого метода в форме карты протокола. */
+const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
+    "languages.provideCompletionItems": [],
+    "languages.resolveCompletionItem": null,
+    "languages.provideInlineCompletions": [],
+    "languages.provideFoldingRanges": [],
+    "languages.provideDefinition": [],
+    "languages.provideHover": null,
+    "languages.provideReferences": [],
+    "languages.provideSignatureHelp": null,
+    "languages.provideFormattingEdits": [],
+    "languages.provideCodeActions": [],
+    "languages.applyCodeAction": false,
+    "languages.prepareRename": null,
+    "languages.provideRenameEdits": { applied: false },
+};
+
 const SYNCED = "file:///synced.ts";
 const UNSYNCED = "file:///unsynced.ts";
 
@@ -203,7 +221,7 @@ function setupWithSync() {
     ]) {
         peer.handleRequest(method, (params) => {
             requested.push({ method, params: params as Record<string, unknown> });
-            return null;
+            return EMPTY_WIRE[method];
         });
     }
     return { customer, requested, asked, sent };
@@ -268,5 +286,184 @@ describe("LanguageFeaturesCustomer — запросы только по синх
                 (method) => [method, TIMEOUTS[method as keyof RequestTimeouts]],
             ),
         );
+    });
+});
+
+const RANGE = { startLine: 2, startCharacter: 4, endLine: 2, endCharacter: 9 };
+const CORE_RANGE = { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } };
+
+type Answer = (params: unknown) => unknown;
+
+/** Customer поверх субпроцесса с заданными ответами; документ синхронизирован. */
+function setupAnswering(answers: Readonly<Record<string, Answer>>) {
+    const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+    const [a, b] = createInProcessChannelPair();
+    const peer = new RpcEndpoint(b);
+    const hostRpc: HostRpc = new RpcEndpoint(a);
+    const sent = vi.spyOn(hostRpc, "request");
+    customer.attach({ rpc: hostRpc, logger: undefined });
+    for (const [method, answer] of Object.entries(answers)) peer.handleRequest(method, answer);
+    return { customer, sent };
+}
+
+/** Все языковые методы отвечают одинаково. */
+function answerAll(answer: Answer): Record<string, Answer> {
+    return Object.fromEntries(Object.keys(EMPTY_WIRE).map((method) => [method, answer]));
+}
+
+/** Пустой ответ каждого вида: rename — отказ С сообщением о причине, остальные — как у несинхронизированного. */
+function emptyResult(c: IRequestCase, renameError: string): unknown {
+    return c.method === "languages.provideRenameEdits" ? { applied: false, error: renameError } : c.empty;
+}
+
+describe("LanguageFeaturesCustomer — ответ субпроцесса в форме ядра", () => {
+    it("пачечные ответы выровнены по провайдерам: недостающий элемент — пусто у своего", async () => {
+        const h = setupAnswering({
+            "languages.provideCompletionItems": () => [
+                { items: [{ label: "a", insertText: "a", range: RANGE }], isIncomplete: true },
+            ],
+            "languages.provideInlineCompletions": () => [[{ insertText: "x", range: RANGE }]],
+            "languages.provideFoldingRanges": () => [
+                [
+                    { start: 1, end: 4, kind: 3 },
+                    { start: 6, end: 6 },
+                ],
+            ],
+        });
+        const c = h.customer;
+        // Пачку собирает один и тот же запрос к нескольким провайдерам.
+        const req = anyRequest(SYNCED);
+        expect(await Promise.all([c.provideCompletionItems(1, req), c.provideCompletionItems(2, req)])).toEqual([
+            { items: [{ label: "a", insertText: "a", range: CORE_RANGE }], isIncomplete: true },
+            { items: [], isIncomplete: false },
+        ]);
+        expect(await Promise.all([c.provideInlineCompletions(1, req), c.provideInlineCompletions(2, req)])).toEqual([
+            [{ insertText: "x", range: CORE_RANGE }],
+            [],
+        ]);
+        // Вырожденная область отсеивается переводом в регионы ядра.
+        expect(await Promise.all([c.provideFoldingRanges(1, req), c.provideFoldingRanges(2, req)])).toEqual([
+            [{ startLine: 1, endLine: 4, isCollapsed: false }],
+            [],
+        ]);
+    });
+
+    it("одиночные ответы переводятся в форму ядра", async () => {
+        const h = setupAnswering({
+            "languages.resolveCompletionItem": () => ({
+                detail: "d",
+                additionalEdits: [{ range: RANGE, text: "import x\n" }],
+            }),
+            "languages.provideDefinition": () => [{ uri: "file:///b.ts", range: RANGE }],
+            "languages.provideHover": () => ({ contents: ["**x**"], range: RANGE }),
+            "languages.provideReferences": () => [{ uri: "file:///c.ts", range: RANGE }],
+            "languages.provideSignatureHelp": () => ({
+                signatures: [{ label: "f(a)", parameters: [] }],
+                activeSignature: 0,
+                activeParameter: -1,
+            }),
+            "languages.provideFormattingEdits": () => [{ range: RANGE, text: "  " }],
+            "languages.provideCodeActions": () => [{ id: "1.0", title: "Fix", kind: "quickfix", isPreferred: true }],
+            "languages.applyCodeAction": () => true,
+            "languages.prepareRename": () => ({ placeholder: "value" }),
+            "languages.provideRenameEdits": () => ({ applied: false, error: "Invalid name" }),
+        });
+        const c = h.customer;
+        expect(await c.resolveCompletionItem("1.0")).toEqual({
+            detail: "d",
+            additionalEdits: [{ range: CORE_RANGE, text: "import x\n" }],
+        });
+        expect(await c.provideDefinition(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///b.ts", range: CORE_RANGE }]);
+        expect(await c.provideHover(1, anyRequest(SYNCED))).toEqual({ contents: ["**x**"], range: CORE_RANGE });
+        expect(await c.provideReferences(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///c.ts", range: CORE_RANGE }]);
+        expect(await c.provideSignatureHelp(1, anyRequest(SYNCED))).toEqual({
+            signatures: [{ label: "f(a)", parameters: [] }],
+            activeSignature: 0,
+            activeParameter: -1,
+        });
+        expect(await c.provideFormattingEdits(1, anyRequest(SYNCED))).toEqual([{ range: CORE_RANGE, text: "  " }]);
+        expect(await c.provideCodeActions(1, anyRequest(SYNCED))).toEqual([
+            { id: "1.0", title: "Fix", kind: "quickfix", isPreferred: true },
+        ]);
+        expect(await c.applyCodeAction("1.0")).toBe(true);
+        expect(await c.prepareRename(1, anyRequest(SYNCED))).toEqual({ kind: "name", name: "value" });
+        expect(await c.provideRenameEdits(1, anyRequest(SYNCED), "renamed")).toEqual({
+            applied: false,
+            error: "Invalid name",
+        });
+    });
+
+    it("«сказать нечего» субпроцесса — пусто в форме ядра", async () => {
+        const empty = setupAnswering(
+            Object.fromEntries(Object.entries(EMPTY_WIRE).map(([method, value]) => [method, () => value])),
+        );
+        for (const c of REQUEST_CASES) {
+            const expected = c.method === "languages.provideRenameEdits" ? { applied: false } : c.empty;
+            await expect(c.call(empty.customer, SYNCED), c.name).resolves.toEqual(expected);
+        }
+        expect(await empty.customer.resolveCompletionItem("1.0")).toBeNull();
+        expect(await empty.customer.applyCodeAction("1.0")).toBe(false);
+    });
+});
+
+describe("LanguageFeaturesCustomer — сбой запроса", () => {
+    it("отказ RPC — пустой ответ каждого вида; rename — отказ С сообщением", async () => {
+        const h = setupAnswering(
+            answerAll(() => {
+                throw new Error("boom");
+            }),
+        );
+        for (const c of REQUEST_CASES) {
+            await expect(c.call(h.customer, SYNCED), c.name).resolves.toEqual(emptyResult(c, "Rename timed out"));
+        }
+        expect(await h.customer.resolveCompletionItem("1.0")).toBeNull();
+        expect(await h.customer.applyCodeAction("1.0")).toBe(false);
+    });
+
+    it("истёкший срок — пустой ответ, человек узнаёт о несостоявшемся rename", async () => {
+        const h = setupAnswering(answerAll(() => new Promise<never>(() => undefined)));
+        await expect(h.customer.provideHover(1, anyRequest(SYNCED))).resolves.toBeUndefined();
+        await expect(h.customer.provideRenameEdits(1, anyRequest(SYNCED), "renamed")).resolves.toEqual({
+            applied: false,
+            error: "Rename timed out",
+        });
+    });
+
+    it("спавна нет — пустой ответ каждого вида без вопроса о синхронизации", async () => {
+        const asked: string[] = [];
+        const customer = new LanguageFeaturesCustomer(
+            TIMEOUTS,
+            (uri) => {
+                asked.push(uri);
+                return true;
+            },
+            undefined,
+        );
+        for (const c of REQUEST_CASES) {
+            await expect(c.call(customer, SYNCED), c.name).resolves.toEqual(emptyResult(c, "Rename failed"));
+        }
+        expect(await customer.resolveCompletionItem("1.0")).toBeNull();
+        expect(await customer.applyCodeAction("1.0")).toBe(false);
+        expect(asked).toEqual([]);
+    });
+});
+
+describe("LanguageFeaturesCustomer — опции запроса inline completions", () => {
+    it("срок из самого запроса и токен ядра уезжают в options; без срока — табличный", async () => {
+        const h = setupAnswering({ "languages.provideInlineCompletions": () => [[]] });
+        const caller = new CancellationTokenSource();
+        await h.customer.provideInlineCompletions(
+            1,
+            { ...(anyRequest(SYNCED) as object), timeoutMs: 7 } as never,
+            caller.token,
+        );
+        await h.customer.provideInlineCompletions(1, anyRequest(SYNCED));
+        expect(h.sent.mock.calls.map(([, , options]) => options)).toStrictEqual([
+            { timeoutMs: 7, token: caller.token },
+            { timeoutMs: TIMEOUTS["languages.provideInlineCompletions"], token: CancellationTokenNone },
+        ]);
+        // Остальные запросы токена не несут — в options его ключа нет вовсе.
+        await h.customer.provideHover(1, anyRequest(SYNCED));
+        expect(h.sent.mock.calls.at(-1)?.[2]).toStrictEqual({ timeoutMs: TIMEOUTS["languages.provideHover"] });
     });
 });

@@ -22,6 +22,7 @@ import type {
     IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
     IWireDocumentSyncSnapshot,
+    IWireEditorEdit,
     IWireEditorLayout,
     IWireExecuteCommandParams,
     IWireExtensionCatalog,
@@ -97,8 +98,11 @@ import type {
  *
  * Параметры — то, что ШЛЁТ отправитель. Принимающая сторона вправе смотреть на
  * них осторожнее (поля необязательны — по проводу едет что прислали), но это
- * её локальное сужение доверия, а не контракт. Результат на хосте по-прежнему
- * проходит `parseWire*`.
+ * её локальное сужение доверия, а не контракт. Ответ языковых запросов
+ * (`languages.*`, `workspace.willSaveTextDocument`) хост не перепроверяет:
+ * форму гарантирует сериализатор субпроцесса — единственное место утиной
+ * проверки объекта расширения. Прочие ответы субпроцесса пока проходят
+ * `parseWire*`.
  *
  * Карта описывает все методы провода, кроме служебного `$/cancelRequest`
  * (его ведёт сам `RpcEndpoint`). Метод вне карты не скомпилируется: новый
@@ -122,7 +126,7 @@ export interface IHostToSubprocess {
         readonly "languages.provideHover": readonly [IWireHoverParams, WireHover | null];
         readonly "languages.provideReferences": readonly [IWireReferenceParams, WireReference[]];
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];
-        readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, WireTextEdit[]];
+        readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, IWireEditorEdit[]];
         readonly "languages.provideCodeActions": readonly [IWireCodeActionParams, WireCodeAction[]];
         readonly "languages.applyCodeAction": readonly [{ readonly id: string }, boolean];
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];

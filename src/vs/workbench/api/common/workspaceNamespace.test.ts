@@ -403,6 +403,24 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(await lf.stub.callRequest(REQUEST, PARAMS)).toEqual([{ setEndOfLine: 1 }]);
     });
 
+    it("испорченная правка (нечисловой диапазон, нестроковый текст) отбрасывается поштучно — хост ответ не перепроверяет", async () => {
+        const { stub, workspace } = makeCtx();
+        workspace.onWillSaveTextDocument((e) => {
+            const broken = TextEdit.delete(new Range(0, 0, 0, 1));
+            (broken as { range: unknown }).range = {
+                start: { line: NaN, character: 0 },
+                end: { line: 0, character: 1 },
+            };
+            const noText = TextEdit.replace(new Range(0, 0, 0, 1), "x");
+            (noText as { newText: unknown }).newText = 42;
+            e.waitUntil(Promise.resolve([broken, noText, TextEdit.insert(new Position(0, 0), "ok")]));
+        });
+        openDoc(stub, "a\n");
+        expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([
+            { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "ok" },
+        ]);
+    });
+
     it("прокидывает eol документа в реестр (для SetEndOfLine расширения)", async () => {
         const { stub, ctx, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {

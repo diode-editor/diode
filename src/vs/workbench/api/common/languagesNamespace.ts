@@ -31,6 +31,7 @@ import type {
     IWireCodeActionParams,
     IWireCompletionParams,
     IWireDefinitionParams,
+    IWireEditorEdit,
     IWireFoldingParams,
     IWireFormattingParams,
     IWireHoverParams,
@@ -54,7 +55,6 @@ import type {
     WireRenamePrepare,
     WireRenameResult,
     WireResolvedCompletionItem,
-    WireTextEdit,
 } from "./wireTypes.ts";
 
 /** `vscode.Diagnostic` (утиный тип) → {@link WireMarker}; кривые поля — к дефолтам. */
@@ -211,18 +211,27 @@ function rangesIntersect(a: Range, b: Range): boolean {
     return startsBeforeOrAt(a.start, b.end) && startsBeforeOrAt(b.start, a.end);
 }
 
-/** Сериализует `vscode.Range` (утиный тип) в wire-диапазон; `null`, если форма чужая. */
-function serializeDefinitionRange(raw: unknown): WireDefinitionLocation["range"] | null {
+/** Конечное число: не `NaN`, не `Infinity` и не значение другого типа. */
+function isFiniteNumber(raw: unknown): raw is number {
+    return Number.isFinite(raw);
+}
+
+/**
+ * Сериализует `vscode.Range` (утиный тип) в wire-диапазон; `null`, если форма
+ * чужая или координата не конечное число (`Position` расширения клампит к нулю,
+ * но `NaN` пропускает). Хост диапазоны ответа не перепроверяет.
+ */
+export function serializeDefinitionRange(raw: unknown): WireDefinitionLocation["range"] | null {
     if (typeof raw !== "object" || raw === null) return null;
     const r = raw as { start?: { line?: unknown; character?: unknown }; end?: { line?: unknown; character?: unknown } };
     const { start, end } = r;
     if (
         start == null ||
         end == null ||
-        typeof start.line !== "number" ||
-        typeof start.character !== "number" ||
-        typeof end.line !== "number" ||
-        typeof end.character !== "number"
+        !isFiniteNumber(start.line) ||
+        !isFiniteNumber(start.character) ||
+        !isFiniteNumber(end.line) ||
+        !isFiniteNumber(end.character)
     ) {
         return null;
     }
@@ -244,13 +253,18 @@ function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | nu
     if (typeof item !== "object" || item === null) return null;
     const link = item as { targetUri?: unknown; targetRange?: unknown; targetSelectionRange?: unknown };
     if (link.targetUri != null) {
-        const range = serializeDefinitionRange(link.targetSelectionRange ?? link.targetRange);
-        return range === null ? null : { uri: uriText(link.targetUri), range };
+        return serializeLocation(link.targetUri, link.targetSelectionRange ?? link.targetRange);
     }
     const loc = item as { uri?: unknown; range?: unknown };
     if (loc.uri == null) return null;
-    const range = serializeDefinitionRange(loc.range);
-    return range === null ? null : { uri: uriText(loc.uri), range };
+    return serializeLocation(loc.uri, loc.range);
+}
+
+/** Цель с диапазоном; `null` — диапазон чужой формы или uri пустой (прыгать некуда). */
+function serializeLocation(rawUri: unknown, rawRange: unknown): WireDefinitionLocation | null {
+    const uri = uriText(rawUri);
+    const range = serializeDefinitionRange(rawRange);
+    return range === null || uri === "" ? null : { uri, range };
 }
 
 /**
@@ -350,9 +364,10 @@ function readStringList(raw: unknown): readonly string[] {
 /**
  * `vscode.SignatureHelp` (утиный тип) → форма ядра; `null` — форма чужая или
  * подсказки нет. Разбор строгий: битая сигнатура или параметр отбраковывают
- * весь ответ, и хендлер спрашивает следующего провайдера. Причина та же, что у
- * `parseWireSignatureHelp`: `activeSignature`/`activeParameter` — индексы, и
- * выброс одного элемента сдвинул бы подсветку на соседний параметр молча.
+ * весь ответ, и хендлер спрашивает следующего провайдера: `activeSignature`/
+ * `activeParameter` — индексы, и выброс одного элемента сдвинул бы подсветку на
+ * соседний параметр молча. Хост ответ не перепроверяет — индексы и числа
+ * приводятся здесь.
  */
 function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
     if (typeof raw !== "object" || raw === null) return null;
@@ -368,9 +383,20 @@ function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
 
     return {
         signatures,
-        activeSignature: typeof help.activeSignature === "number" ? help.activeSignature : 0,
-        activeParameter: typeof help.activeParameter === "number" ? help.activeParameter : 0,
+        activeSignature: clampSignatureIndex(help.activeSignature, signatures.length),
+        // `-1` — легальное «активного параметра нет» (noActiveParameterSupport),
+        // поэтому нижней границы здесь нет, только отбраковка не-чисел.
+        activeParameter: isFiniteNumber(help.activeParameter) ? help.activeParameter : 0,
     };
+}
+
+/** Индекс активной сигнатуры: не-целое или выход за список → 0. */
+function clampSignatureIndex(raw: unknown, length: number): number {
+    if (!Number.isInteger(raw)) return 0;
+    const index = raw as number;
+    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
+    if (index < 0 || index >= length) return 0;
+    return index;
 }
 
 /** Одна сигнатура (`vscode.SignatureInformation`); `null` — форма чужая. */
@@ -393,8 +419,8 @@ function serializeSignature(raw: unknown): ICoreSignature | null {
     return {
         label: item.label,
         parameters,
-        ...(documentation === undefined ? {} : { documentation }),
-        ...(typeof item.activeParameter === "number" ? { activeParameter: item.activeParameter } : {}),
+        ...(documentation === undefined || documentation === "" ? {} : { documentation }),
+        ...(isFiniteNumber(item.activeParameter) ? { activeParameter: item.activeParameter } : {}),
     };
 }
 
@@ -405,7 +431,7 @@ function serializeParameter(raw: unknown): ICoreParameterInfo | null {
     const label = serializeParameterLabel(item.label);
     if (label === null) return null;
     const documentation = readDocumentationText(item.documentation);
-    return { label, ...(documentation === undefined ? {} : { documentation }) };
+    return { label, ...(documentation === undefined || documentation === "" ? {} : { documentation }) };
 }
 
 /**
@@ -424,7 +450,7 @@ function serializeParameterLabel(raw: unknown): string | readonly [number, numbe
     if (typeof raw === "string") return raw;
     if (!Array.isArray(raw) || raw.length !== 2) return null;
     const [start, end] = raw as unknown[];
-    if (typeof start !== "number" || typeof end !== "number") return null;
+    if (!isFiniteNumber(start) || !isFiniteNumber(end)) return null;
     return [start, end];
 }
 
@@ -519,12 +545,7 @@ function readRange(item: vscode.CompletionItem): WireCompletionItem["range"] {
               ? (raw as { replacing: Range }).replacing
               : undefined;
     if (range === undefined) return undefined;
-    return {
-        startLine: range.start.line,
-        startCharacter: range.start.character,
-        endLine: range.end.line,
-        endCharacter: range.end.character,
-    };
+    return serializeDefinitionRange(range) ?? undefined;
 }
 
 /**
@@ -535,7 +556,7 @@ function serializeCompletionItem(item: vscode.CompletionItem, id: string): WireC
     const label = readLabel(item);
     if (label === undefined || label === "") return null;
     const labelDetails = readLabelDetails(item);
-    const command = (item as { command?: { command?: unknown; arguments?: unknown } }).command;
+    const command = (item as { command?: { command?: unknown; arguments?: unknown } | null }).command;
     const kind = (item as { kind?: unknown }).kind;
     const detail = (item as { detail?: unknown }).detail;
     const sortText = (item as { sortText?: unknown }).sortText;
@@ -548,10 +569,10 @@ function serializeCompletionItem(item: vscode.CompletionItem, id: string): WireC
         id,
         ...(labelDetails.detail !== undefined ? { labelDetail: labelDetails.detail } : {}),
         ...(labelDetails.description !== undefined ? { labelDescription: labelDetails.description } : {}),
-        ...(typeof kind === "number" ? { kind } : {}),
+        ...(isFiniteNumber(kind) ? { kind } : {}),
         ...(typeof detail === "string" ? { detail } : {}),
         ...(documentation !== undefined ? { documentation } : {}),
-        ...(command !== undefined && typeof command.command === "string" && command.command !== ""
+        ...(typeof command?.command === "string" && command.command !== ""
             ? {
                   command: {
                       command: command.command,
@@ -580,10 +601,10 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
 }
 
 /**
- * Сериализует `vscode.TextEdit` (утиный тип) в общую wire-форму правки
- * ({@link WireTextEdit}, та же, что у save-участников); `null` — форма чужая.
+ * Сериализует `vscode.TextEdit` (утиный тип) в wire-правку текста
+ * ({@link IWireEditorEdit}); `null` — форма чужая.
  */
-function serializeTextEdit(edit: unknown): WireTextEdit | null {
+function serializeTextEdit(edit: unknown): IWireEditorEdit | null {
     if (typeof edit !== "object" || edit === null) return null;
     const e = edit as { range?: unknown; newText?: unknown };
     const range = serializeDefinitionRange(e.range);
@@ -617,7 +638,7 @@ function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | n
     return {
         start,
         end,
-        ...(typeof kind === "number" ? { kind } : {}),
+        ...(isFiniteNumber(kind) ? { kind } : {}),
     };
 }
 
@@ -942,7 +963,7 @@ export function createLanguagesNamespace(
     // документа range-провайдером на полный диапазон), без — документный.
     // Провайдера выбрало ядро (по score — `editor/contrib/format`); снятый или
     // чужой handle — пустой ответ, как и сбой провайдера (no-op).
-    rpc.handleRequest("languages.provideFormattingEdits", async (params, cancellation): Promise<WireTextEdit[]> => {
+    rpc.handleRequest("languages.provideFormattingEdits", async (params, cancellation): Promise<IWireEditorEdit[]> => {
         const p: Received<IWireFormattingParams> = params;
         const handle = p.handle ?? -1;
         const range = p.range;
@@ -988,7 +1009,7 @@ export function createLanguagesNamespace(
             );
         }
         if (!Array.isArray(result)) return [];
-        const edits: WireTextEdit[] = [];
+        const edits: IWireEditorEdit[] = [];
         for (const item of result) {
             const wire = serializeTextEdit(item);
             if (wire !== null) edits.push(wire);
@@ -1039,13 +1060,15 @@ export function createLanguagesNamespace(
             // запрошенном `only` отбрасываются (как в VS Code).
             const action: CodeAction | undefined = item instanceof CodeAction ? item : undefined;
             const kind = action?.kind;
+            // `kind` — публичное поле: расширение вправе положить туда что угодно.
+            const kindValue: unknown = (kind as { value?: unknown } | null | undefined)?.value;
             if (only !== undefined && (kind === undefined || !only.contains(kind))) continue;
             const id = `${String(cacheId)}.${String(cached.length)}`;
             cached.push({ item: item as vscode.CodeAction | vscode.Command, registration: reg });
             wire.push({
                 id,
                 title: (item as { title: string }).title,
-                ...(kind === undefined ? {} : { kind: kind.value }),
+                ...(typeof kindValue === "string" ? { kind: kindValue } : {}),
                 ...(action?.isPreferred === true ? { isPreferred: true } : {}),
             });
         }
@@ -1193,7 +1216,7 @@ export function createLanguagesNamespace(
             const detail = (item as { detail?: unknown }).detail;
             const documentation = readDocumentation(item);
             const rawEdits = (item as { additionalTextEdits?: unknown }).additionalTextEdits;
-            const additionalEdits: WireTextEdit[] = [];
+            const additionalEdits: IWireEditorEdit[] = [];
             if (Array.isArray(rawEdits)) {
                 for (const edit of rawEdits) {
                     const wire = serializeTextEdit(edit);

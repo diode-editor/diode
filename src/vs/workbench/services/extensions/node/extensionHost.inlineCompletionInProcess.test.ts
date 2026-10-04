@@ -153,11 +153,4 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         // Молчащий провайдер узнаёт, что его ответа больше не ждут.
         expect(seen!.isCancellationRequested).toBe(true);
     });
-
-    it("мусорный ответ субпроцесса — пустой список (drop+skip на пунктах)", async () => {
-        const { host, peer } = makeHost();
-        peer.handleRequest("languages.provideInlineCompletions", () => ({ items: "junk" }));
-
-        expect(await host.provideInlineCompletions(0, REQ)).toEqual([]);
-    });
 });

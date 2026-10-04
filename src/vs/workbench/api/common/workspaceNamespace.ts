@@ -11,7 +11,7 @@ import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { findFiles as walkForFiles } from "./findFiles.ts";
-import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
+import { serializeDefinitionRange, stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -103,20 +103,18 @@ function listenerTimeout(): Promise<readonly TextEdit[]> {
     });
 }
 
-/** Сериализует `vscode.TextEdit` в wire-форму (subprocess → host). */
-function serializeTextEdit(edit: TextEdit): WireTextEdit {
+/**
+ * Сериализует `vscode.TextEdit` в wire-форму (subprocess → host); `null` —
+ * поля правки испорчены (её `range`/`newText` публичны и записываемы). Хост
+ * ответ will-save не перепроверяет.
+ */
+function serializeTextEdit(edit: TextEdit): WireTextEdit | null {
     if (edit.newEol !== undefined) {
         return { setEndOfLine: edit.newEol === EndOfLine.CRLF ? 2 : 1 };
     }
-    return {
-        range: {
-            startLine: edit.range.start.line,
-            startCharacter: edit.range.start.character,
-            endLine: edit.range.end.line,
-            endCharacter: edit.range.end.character,
-        },
-        text: edit.newText,
-    };
+    const range = serializeDefinitionRange(edit.range);
+    if (range === null || typeof edit.newText !== "string") return null;
+    return { range, text: edit.newText };
 }
 
 /**
@@ -460,7 +458,8 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         for (const result of settled) {
             if (!Array.isArray(result)) continue;
             for (const edit of result) {
-                if (edit instanceof TextEdit) edits.push(serializeTextEdit(edit));
+                const wire = edit instanceof TextEdit ? serializeTextEdit(edit) : null;
+                if (wire !== null) edits.push(wire);
             }
         }
         return edits;

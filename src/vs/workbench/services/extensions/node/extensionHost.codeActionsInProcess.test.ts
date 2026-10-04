@@ -104,10 +104,9 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideCodeActions", (params) => {
             seen.push(params);
-            return Promise.resolve(null);
+            return Promise.resolve([]);
         });
 
-        // `null` от субпроцесса (старая форма «провайдера нет») читается как «действий нет».
         expect(await host.provideCodeActions(0, requestOf({ range: createRange(1, 2, 3, 4) }))).toEqual([]);
         await host.provideCodeActions(0, requestOf({ only: "source.organizeImports" }));
 

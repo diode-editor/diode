@@ -179,7 +179,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         const { host, peer } = makeHost();
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
         const request = vi.spyOn(hostRpc, "request");
-        peer.handleRequest("languages.provideReferences", () => null);
+        peer.handleRequest("languages.provideReferences", () => []);
         // Срок уезжает транспорту с запросом, а не ждётся вживую: реальное
         // ожидание в мутационном прогоне стоит секунды на каждом мутанте.
         await host.provideReferences(0, requestOf());
