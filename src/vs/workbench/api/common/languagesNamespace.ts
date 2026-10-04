@@ -8,6 +8,7 @@ import type {
     ICoreSignatureHelp,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
+import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { callWithVscodeToken, toVscodeCancellationToken } from "./vscodeCancellation.ts";
@@ -898,21 +899,20 @@ export function createLanguagesNamespace(
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return null;
             const position = new Position(p.line ?? 0, p.character ?? 0);
-            const context = {
+            const context: vscode.SignatureHelpContext = {
                 triggerKind: p.triggerKind ?? SignatureHelpTriggerKind.Invoke,
                 triggerCharacter: p.triggerCharacter,
                 isRetrigger: p.isRetrigger === true,
-                activeSignatureHelp: p.activeSignatureHelp,
+                // Точечный каст: ядро присылает подсказку plain-объектом с
+                // readonly-массивами, а не экземплярами SignatureHelp/
+                // SignatureInformation; по полям форма та же, провайдеры её
+                // только читают (конвертера wire → API-классы пока нет, это G5).
+                activeSignatureHelp: p.activeSignatureHelp as vscode.SignatureHelp | undefined,
             };
             let result: unknown;
             try {
                 result = await callWithVscodeToken(cancellation, (token) =>
-                    reg.provider.provideSignatureHelp(
-                        doc,
-                        position,
-                        token,
-                        context as unknown as vscode.SignatureHelpContext,
-                    ),
+                    reg.provider.provideSignatureHelp(doc, position, token, context),
                 );
             } catch (err) {
                 reportProviderFailure("provideSignatureHelp", err);
@@ -931,11 +931,11 @@ export function createLanguagesNamespace(
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
         const position = new Position(p.line ?? 0, p.character ?? 0);
-        const context = { includeDeclaration: p.includeDeclaration === true };
+        const context: vscode.ReferenceContext = { includeDeclaration: p.includeDeclaration === true };
         let result: unknown;
         try {
             result = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideReferences(doc, position, context as vscode.ReferenceContext, token),
+                reg.provider.provideReferences(doc, position, context, token),
             );
         } catch (err) {
             reportProviderFailure("provideReferences", err);
@@ -1016,7 +1016,7 @@ export function createLanguagesNamespace(
         }
         // Не-правки от провайдера («нет результата») — ядро спросит следующего.
         if (!(edit instanceof WorkspaceEdit)) return { applied: false };
-        const ok = await codeActionDeps.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+        const ok = await codeActionDeps.applyEdit(edit);
         return ok ? { applied: true } : { applied: false, error: "Rename failed to apply edits" };
     });
 
@@ -1053,10 +1053,10 @@ export function createLanguagesNamespace(
         if (format === undefined) return [];
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
-        const options = {
+        const options: vscode.FormattingOptions = {
             tabSize: p.tabSize ?? 4,
             insertSpaces: p.insertSpaces ?? true,
-        } as vscode.FormattingOptions;
+        };
 
         let result: unknown;
         try {
@@ -1092,11 +1092,11 @@ export function createLanguagesNamespace(
         if (doc === null) return [];
         const range = new Range(p.range.startLine, p.range.startCharacter, p.range.endLine, p.range.endCharacter);
         const only = typeof p.only === "string" ? new CodeActionKind(p.only) : undefined;
-        const context = {
+        const context: vscode.CodeActionContext = {
             triggerKind: CodeActionTriggerKind.Invoke,
             diagnostics: diagnosticsIntersecting(doc.uri.toString(), range),
             only,
-        } as unknown as vscode.CodeActionContext;
+        };
 
         // Stryker disable next-line UpdateOperator: направление счётчика ненаблюдаемо — вёдра различает уникальность id, а не порядок
         const cacheId = nextCacheId++;
@@ -1176,14 +1176,14 @@ export function createLanguagesNamespace(
 
         let applied = false;
         if (action.edit instanceof WorkspaceEdit) {
-            const ok = await codeActionDeps.applyEdit(action.edit as unknown as vscode.WorkspaceEdit);
+            const ok = await codeActionDeps.applyEdit(action.edit);
             // Правки не легли — команду не запускаем: VS Code применяет edit
             // ПЕРЕД командой, и продолжать после отказа значило бы исполнить
             // действие наполовину.
             if (!ok) return false;
             applied = true;
         }
-        const command = action.command as vscode.Command | undefined;
+        const command = action.command;
         if (command !== undefined && typeof command.command === "string") {
             if (!(await runActionCommand(command))) return false;
             applied = true;
@@ -1198,10 +1198,10 @@ export function createLanguagesNamespace(
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return [];
             const position = new Position(p.line ?? 0, p.character ?? 0);
-            const context = {
+            const context: vscode.CompletionContext = {
                 triggerKind: p.triggerKind ?? CompletionTriggerKind.Invoke,
                 triggerCharacter: p.triggerCharacter,
-            } as unknown as vscode.CompletionContext;
+            };
 
             // Одно ведро кэша на пачку: id пунктов уникальны сквозь всех провайдеров.
             const cacheId = nextCacheId++;
@@ -1335,10 +1335,10 @@ export function createLanguagesNamespace(
             const cancel = toVscodeCancellationToken(cancellation);
             // selectedCompletionInfo не поддержан: пока открыт suggest-попап, ядро
             // ghost text не запрашивает вовсе (люфт v1 — docs/TODO/InlineCompletions.md).
-            const context = {
+            const context: vscode.InlineCompletionContext = {
                 triggerKind: p.triggerKind ?? InlineCompletionTriggerKind.Automatic,
                 selectedCompletionInfo: undefined,
-            } as unknown as vscode.InlineCompletionContext;
+            };
 
             // Провайдеров — в присланном ядром порядке; ответ выровнен по
             // `handles`. Снятый, пока запрос летел, или чужой handle — пусто.
@@ -1388,7 +1388,7 @@ export function createLanguagesNamespace(
         const p: IWireFoldingParams = params;
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
-        const context = {} as vscode.FoldingContext;
+        const context: vscode.FoldingContext = {};
 
         // Провайдеров — в присланном ядром порядке; ответ выровнен по `handles`.
         // Снятый, пока запрос летел, или чужой handle — пустой список.
@@ -1454,7 +1454,9 @@ export function createLanguagesNamespace(
             publish(resource, diags ?? []);
         };
 
-        const collection = {
+        // Параметры-ресурсы — `unknown`, а не `Uri`: JS-расширение вправе
+        // прислать строку, и `resourceOf` её разбирает.
+        const collection: vscode.DiagnosticCollection = {
             name: name ?? "diagnostics",
             set: (arg: unknown, diags?: readonly vscode.Diagnostic[]): void => {
                 // Перегрузка VS Code: set(uri, diags) | set([[uri, diags], …]).
@@ -1476,7 +1478,11 @@ export function createLanguagesNamespace(
                 store.clear();
             },
             forEach: (
-                callback: (uri: unknown, diagnostics: readonly vscode.Diagnostic[], c: unknown) => unknown,
+                callback: (
+                    uri: vscode.Uri,
+                    diagnostics: readonly vscode.Diagnostic[],
+                    c: vscode.DiagnosticCollection,
+                ) => unknown,
                 thisArg?: unknown,
             ): void => {
                 for (const [resource, diags] of store) callback.call(thisArg, Uri.parse(resource), diags, collection);
@@ -1486,11 +1492,11 @@ export function createLanguagesNamespace(
             dispose: (): void => {
                 collection.clear();
             },
-            *[Symbol.iterator](): IterableIterator<[unknown, readonly vscode.Diagnostic[]]> {
+            *[Symbol.iterator](): IterableIterator<[vscode.Uri, readonly vscode.Diagnostic[]]> {
                 for (const [resource, diags] of store) yield [Uri.parse(resource), diags];
             },
         };
-        return collection as unknown as vscode.DiagnosticCollection;
+        return collection;
     };
 
     const languagesNs = {
@@ -1621,6 +1627,6 @@ export function createLanguagesNamespace(
     };
 
     return {
-        languages: languagesNs as unknown as typeof vscode.languages,
+        languages: implementsApi<typeof vscode.languages>()(languagesNs),
     };
 }

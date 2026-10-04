@@ -6,6 +6,7 @@ import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/com
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
 
+import { implementsApi } from "./apiSurface.ts";
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
@@ -417,7 +418,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         onDidChangeConfigurationEmitter.fire({
             affectsConfiguration: (section: string): boolean =>
                 affectedKeys.some((key) => key === section || key.startsWith(section + ".")),
-        } as vscode.ConfigurationChangeEvent);
+        });
     });
 
     // Хост запрашивает pre-save правки: документ — из зеркала (текста запрос не
@@ -438,7 +439,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         let collecting = true;
         const event: vscode.TextDocumentWillSaveEvent = {
             document: doc,
-            reason: (p.reason ?? TextDocumentSaveReason.Manual) as vscode.TextDocumentSaveReason,
+            reason: p.reason ?? TextDocumentSaveReason.Manual,
             waitUntil: (thenable: Thenable<unknown>): void => {
                 // waitUntil валиден только во время диспетча события (как в VS Code).
                 if (collecting) thenables.push(Promise.resolve(thenable) as Thenable<readonly vscode.TextEdit[]>);
@@ -481,16 +482,18 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // Язык из scope — `TextDocument` или `{ languageId }` (`scopeToOverrides` vscode):
         // поверх значений ложится секция `"[<язык>]"`.
         const languageId = languageIdOfScope(scope);
-        const config: Record<string, unknown> = {
-            get: (key: string, defaultValue?: unknown): unknown =>
-                configStore.get(prefix + key, defaultValue, languageId),
+        // Значения настроек нетипизированы: `T` у get/inspect — утверждение
+        // вызывающего о форме значения (как в эталоне), проверить его нечем.
+        const config: vscode.WorkspaceConfiguration & Record<string, unknown> = {
+            get: <T>(key: string, defaultValue?: T): T | undefined =>
+                configStore.get(prefix + key, defaultValue, languageId) as T | undefined,
             has: (key: string): boolean => configStore.has(prefix + key, languageId),
-            inspect: (key: string) => {
+            inspect: <T>(key: string) => {
                 const r = configStore.inspect(prefix + key, languageId);
                 return {
                     key: r.key,
-                    defaultValue: r.defaultValue,
-                    globalValue: r.globalValue,
+                    defaultValue: r.defaultValue as T | undefined,
+                    globalValue: r.globalValue as T | undefined,
                     workspaceValue: undefined,
                     workspaceFolderValue: undefined,
                 };
@@ -509,7 +512,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             if (key in config) continue; // не затираем get/has/inspect/update
             config[key] = configStore.get(prefix + key, undefined, languageId);
         }
-        return config as unknown as vscode.WorkspaceConfiguration;
+        return config;
     }
 
     function asRelativePath(pathOrUri: string | vscode.Uri, includeWorkspaceFolder?: boolean): string {
@@ -574,9 +577,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
 
     const workspaceNs = {
         get workspaceFolders(): readonly vscode.WorkspaceFolder[] | undefined {
-            return workspaceFolders.length === 0
-                ? undefined
-                : (workspaceFolders as unknown as readonly vscode.WorkspaceFolder[]);
+            return workspaceFolders.length === 0 ? undefined : workspaceFolders;
         },
 
         get name(): string | undefined {
@@ -599,7 +600,10 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
 
         getConfiguration,
         asRelativePath,
-        openTextDocument,
+        // Точечный каст: перегрузки `openTextDocument(options?: { language,
+        // content })` — безымянного документа — у нас нет (новый функционал);
+        // такой вызов падает в ветку «не-file схема» и отклоняется.
+        openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
         // Подписки document sync — со счётчиком: пока их нет, host не гоняет
@@ -644,7 +648,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         getWorkspaceFolder: (uri: vscode.Uri): vscode.WorkspaceFolder | undefined => {
             const p = uri.fsPath;
             const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));
-            return found as unknown as vscode.WorkspaceFolder | undefined;
+            return found;
         },
         createFileSystemWatcher: (
             globPattern: vscode.GlobPattern,
@@ -753,5 +757,5 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         },
     };
 
-    return workspaceNs as unknown as typeof vscode.workspace;
+    return implementsApi<typeof vscode.workspace>()(workspaceNs);
 }

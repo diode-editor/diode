@@ -253,6 +253,22 @@ export enum TextDocumentSaveReason {
     FocusOut = 3,
 }
 
+/**
+ * Цель `WorkspaceConfiguration.update` — расширения передают её явно
+ * (`config.update(key, value, vscode.ConfigurationTarget.Global)`).
+ */
+export enum ConfigurationTarget {
+    Global = 1,
+    Workspace = 2,
+    WorkspaceFolder = 3,
+}
+
+/** Причина транзакционной правки документа (`TextDocumentChangeEvent.reason`). */
+export enum TextDocumentChangeReason {
+    Undo = 1,
+    Redo = 2,
+}
+
 /** Тип записи файловой системы. */
 export enum FileType {
     Unknown = 0,
@@ -396,6 +412,14 @@ export class FileSystemError extends Error implements vscode.FileSystemError {
         return new FileSystemError(messageOrUri, "FileExists");
     }
 
+    public static FileNotADirectory(messageOrUri?: string | Uri): FileSystemError {
+        return new FileSystemError(messageOrUri, "FileNotADirectory");
+    }
+
+    public static FileIsADirectory(messageOrUri?: string | Uri): FileSystemError {
+        return new FileSystemError(messageOrUri, "FileIsADirectory");
+    }
+
     public static NoPermissions(messageOrUri?: string | Uri): FileSystemError {
         return new FileSystemError(messageOrUri, "NoPermissions");
     }
@@ -471,7 +495,7 @@ export class CompletionItem implements vscode.CompletionItem {
  * конвертация ответа падала целиком, и ошибка уходила только в
  * `client.outputChannel` — LSP-пунктов в попапе не было вовсе.
  */
-export class CompletionList<T extends CompletionItem = CompletionItem> implements vscode.CompletionList<T> {
+export class CompletionList<T extends vscode.CompletionItem = CompletionItem> implements vscode.CompletionList<T> {
     public items: T[];
     public isIncomplete: boolean;
 
@@ -882,12 +906,12 @@ export class CodeLens {
     }
 }
 
-export class CodeAction {
+export class CodeAction implements vscode.CodeAction {
     public title: string;
     public kind?: CodeActionKind;
-    public edit?: unknown;
+    public edit?: vscode.WorkspaceEdit;
     public diagnostics?: Diagnostic[];
-    public command?: unknown;
+    public command?: vscode.Command;
     public isPreferred?: boolean;
 
     public constructor(title: string, kind?: CodeActionKind) {
@@ -1020,11 +1044,11 @@ export class MarkdownString implements vscode.MarkdownString {
     }
 }
 
-export class Hover {
-    public contents: unknown[];
+export class Hover implements vscode.Hover {
+    public contents: vscode.Hover["contents"];
     public range?: Range;
 
-    public constructor(contents: unknown, range?: Range) {
+    public constructor(contents: ConstructorParameters<typeof vscode.Hover>[0], range?: Range) {
         this.contents = Array.isArray(contents) ? contents : [contents];
         this.range = range;
     }

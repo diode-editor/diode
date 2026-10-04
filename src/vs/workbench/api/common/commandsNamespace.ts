@@ -1,5 +1,6 @@
 import type * as vscode from "vscode";
 
+import { implementsApi } from "./apiSurface.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl } from "./vscodeTypes.ts";
 
@@ -73,8 +74,7 @@ export function buildCommandsNamespace(
         });
     };
 
-    // Возвращаем Promise (совместим с `Thenable<T>` из типов vscode); точная
-    // сигнатура стирается финальным кастом `as unknown as typeof vscode.commands`.
+    // Возвращаем Promise — он совместим с `Thenable<T>` из типов vscode.
     const executeCommand = <T = unknown>(id: string, ...args: unknown[]): Promise<T> => {
         const handler = localCommands.get(id);
         if (handler !== undefined) {
@@ -83,11 +83,11 @@ export function buildCommandsNamespace(
         return rpc.request("commands.executeCommand", { id, args }) as Promise<T>;
     };
 
-    return {
+    return implementsApi<typeof vscode.commands>()({
         registerCommand,
         registerTextEditorCommand,
         executeCommand,
-    } as unknown as typeof vscode.commands;
+    });
 }
 
 /** Инертный edit-builder для {@link buildCommandsNamespace registerTextEditorCommand}. */
