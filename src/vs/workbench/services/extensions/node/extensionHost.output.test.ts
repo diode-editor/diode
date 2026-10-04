@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import type { IOutputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
-import { ExtensionHost, type IOutputSink } from "./extensionHost.ts";
+import { ExtensionHost } from "./extensionHost.ts";
 
 // Детерминированный in-process тест стока output-каналов (`output.append`/`show`):
 // installHostHandlers на in-process RPC-паре (паттерн extensionHost.progress.test).

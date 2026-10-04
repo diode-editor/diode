@@ -1,5 +1,13 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
+import type {
+    DiagnosticsSink,
+    INotificationSink,
+    IOutputSink,
+    IProgressSink,
+    IQuickInputSink,
+    IStatusBarItemSink,
+} from "../../../../api/common/iExtensionWindowSinks.ts";
 import {
     type IWireInputBoxResult,
     type IWireQuickPickResult,
@@ -21,14 +29,6 @@ import {
     type WireMessageSeverity,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
-import type {
-    DiagnosticsSink,
-    INotificationSink,
-    IOutputSink,
-    IProgressSink,
-    IQuickInputSink,
-    IStatusBarItemSink,
-} from "../extensionHost.ts";
 
 /** Стоки поверхностей окна; без стока поверхность молча отбрасывает своё. */
 export interface IWindowSinks {

@@ -48,6 +48,14 @@ import {
 import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../api/common/iEditorLayoutService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
+import type {
+    DiagnosticsSink,
+    INotificationSink,
+    IOutputSink,
+    IProgressSink,
+    IQuickInputSink,
+    IStatusBarItemSink,
+} from "../../../api/common/iExtensionWindowSinks.ts";
 import {
     type IFileDecorationsService,
     NULL_FILE_DECORATIONS_SERVICE,
@@ -59,15 +67,10 @@ import {
     type IWireDocumentSyncSnapshot,
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
-    type IWireInputBoxRequest,
-    type IWireQuickPickRequest,
-    type IWireShowMessageRequest,
-    type IWireStatusBarItem,
-    type IWireValidationMessage,
     parseWireMementoUpdate,
-    type WireMarker,
-    type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
+import type { IExternalOpener } from "../../externalOpener/common/iExternalOpener.ts";
+import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 import {
     hasWorkspaceContainsPatterns,
     type IWorkspaceContainsPatterns,
@@ -75,42 +78,6 @@ import {
     readCommandActivationIds,
     readWorkspaceContainsPatterns,
 } from "../common/activationEvents.ts";
-
-import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
-import { createTransientExtensionStateStore, type IExtensionStateStore } from "./extensionStateStore.ts";
-import {
-    ensureExtensionStorageParents,
-    fallbackExtensionStorageHomes,
-    type IExtensionStorageHomes,
-    resolveExtensionStoragePaths,
-} from "./extensionStoragePaths.ts";
-import {
-    createNodeWorkspaceScanner,
-    type IWorkspaceContainsResult,
-    type IWorkspaceScanner,
-    matchWorkspaceContains,
-} from "./workspaceContainsActivation.ts";
-
-/**
- * Сток диагностик расширений (`diagnostics.publish`): владелец (коллекция),
- * ресурс как `uri.toString()` и его полный набор маркеров (замена, не мерж).
- * Подключается в module/харнессе к `MarkerService.changeOne`.
- */
-export type DiagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]) => void;
-
-/**
- * Сток прогресса расширений (`window.withProgress` → `window.progress.*`):
- * потребитель (module/харнесс) рисует запись статус-бара на `start`, обновляет
- * на `report` и снимает на `end`. `handle` уникален в рамках subprocess'а.
- */
-export interface IProgressSink {
-    start(handle: number, title: string): void;
-    report(handle: number, message?: string, increment?: number): void;
-    end(handle: number): void;
-}
-
-import type { IExternalOpener } from "../../externalOpener/common/iExternalOpener.ts";
-import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
 
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
@@ -124,82 +91,21 @@ import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.t
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
+import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
+import { createTransientExtensionStateStore, type IExtensionStateStore } from "./extensionStateStore.ts";
+import {
+    ensureExtensionStorageParents,
+    fallbackExtensionStorageHomes,
+    type IExtensionStorageHomes,
+    resolveExtensionStoragePaths,
+} from "./extensionStoragePaths.ts";
 import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
-
-/**
- * Сток output-каналов расширений (`window.createOutputChannel` →
- * `output.append`/`output.show`): потребитель (module/харнесс) регистрирует
- * канал в реестре Output лениво по label и пишет строку логгером уровня `level`.
- */
-export interface IOutputSink {
-    append(channel: string, label: string, level: WireOutputLevel, value: string): void;
-    show(channel: string, label: string): void;
-}
-
-/**
- * Сток пунктов статус-бара расширений (`window.createStatusBarItem` →
- * `window.statusBarItem.*`): потребитель (module/харнесс) держит запись полосы
- * на каждый живой пункт. `update` — upsert полного состояния, `remove` —
- * `hide()`/`dispose()` со стороны расширения, `clear` — субпроцесс умер и его
- * `remove` уже не придёт.
- */
-export interface IStatusBarItemSink {
-    update(item: IWireStatusBarItem): void;
-    remove(handle: number): void;
-    clear(): void;
-}
-
-/**
- * Сток ввода от расширений (`window.showInputBox` / `window.showQuickPick`):
- * потребитель (module/харнесс) поднимает QuickInput-оверлей приложения и
- * резолвится тем, что человек ввёл/выбрал, либо `undefined` на отмене.
- *
- * `cancel(handle)` закрывает показ извне — токеном отмены расширения или
- * смертью его процесса. Закрытие ОБЯЗАНО довести обещание расширения до
- * `undefined`: иначе команда расширения зависает навсегда и этого ниоткуда
- * не видно.
- */
-export interface IQuickInputSink {
-    showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined>;
-    showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined>;
-    cancel(handle: number): void;
-}
-
-/**
- * Сток сообщений расширений (`window.show{Information,Warning,Error}Message`):
- * потребитель (module/харнесс) показывает их человеку — тостом над статус-баром
- * или, у модального сообщения, диалогом — и резолвится ИНДЕКСОМ нажатой кнопки
- * в `request.items` либо `undefined`, если человек закрыл сообщение не выбрав.
- *
- * Сообщение без кнопок сток обязан резолвить СРАЗУ (выбирать нечего): иначе
- * расширение, сделавшее `await showErrorMessage(...)`, повисло бы на времени
- * жизни тоста, а error-тост сам не гаснет.
- *
- * `cancel(handle)` снимает показ извне — смертью субпроцесса расширений: ответить
- * на сообщение стало некому, а на экране оно осталось бы навсегда.
- */
-export interface INotificationSink {
-    showMessage(request: INotificationRequest): Promise<number | undefined>;
-    cancel(handle: number): void;
-}
-
-/**
- * Просьба показать сообщение плюс адрес показа. Адрес минтит ХОСТ, а не
- * расширение: отменять показ своими силами расширение не умеет (у `show*Message`
- * нет токена), а «погасить при смерти субпроцесса» нужно именно хосту.
- */
-export interface INotificationRequest extends IWireShowMessageRequest {
-    readonly handle: number;
-}
-
-/**
- * Просьба показать поле ввода плюс канал валидации: сама валидация живёт в
- * расширении, поэтому сток зовёт её через границу процессов на каждое изменение
- * значения. `undefined` вместо колбэка — у расширения `validateInput` нет.
- */
-export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
-    readonly validate?: (value: string) => Promise<IWireValidationMessage | null>;
-}
+import {
+    createNodeWorkspaceScanner,
+    type IWorkspaceContainsResult,
+    type IWorkspaceScanner,
+    matchWorkspaceContains,
+} from "./workspaceContainsActivation.ts";
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
 
@@ -554,11 +460,11 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private rpc: RpcEndpoint | null = null;
     private readyPromise: Promise<void> | null = null;
     /**
-     * Подписки одного спавна субпроцесса (на события ядра, которые шлют ему
-     * нотификации). Наполняет {@link installHostHandlers}, а
-     * {@link resetSubprocessState} снимает целиком и заводит чистый для
-     * следующего спавна: иначе каждый респавн копил бы вечных слушателей,
-     * шлющих в мёртвый канал.
+     * Всё, что живёт один спавн субпроцесса: подключения customers (их
+     * обработчики, подписки на ядро и handle'ы). Наполняет
+     * {@link installHostHandlers}, а {@link endSpawn} снимает целиком и заводит
+     * чистый для следующего спавна: иначе каждый респавн копил бы вечных
+     * слушателей, шлющих в мёртвый канал.
      */
     private spawnStore = new DisposableStore();
     /** Поверхности API, вынесенные из хоста (G1); подключаются на каждый спавн. */
@@ -678,7 +584,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * наступает событие из `reg.activationEvents`. Заголовки команд регистрируем
      * сразу: команда расширения должна быть видна в палитре ещё до активации —
      * и, вместе с заголовком, заглушку-активатор на каждый `onCommand:<id>`
-     * (см. {@link armCommandActivation}), иначе видимая команда была бы no-op.
+     * (см. `CommandsCustomer.arm`), иначе видимая команда была бы no-op.
      */
     public registerExtension(reg: IExtensionRegistration): IDisposable {
         if (this.hostDisposed) throw new Error("ExtensionHost disposed");
@@ -1199,7 +1105,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // Stryker disable next-line CallExpression: гигиена — каталог после dispose никто не запрашивает (субпроцесса уже нет), наблюдаемой разницы нет
         this.registrations.clear();
         // Заглушки-активаторы живут в ОБЩЕМ реестре команд ядра (как и
-        // прокси, см. clearProxyCommands) — после dispose там висели бы записи,
+        // прокси, см. CommandsCustomer) — после dispose там висели бы записи,
         // которые уже некого поднимать.
         this.commands.disarmAll();
         this.shutdownDone = this.shutdownSubprocess();
@@ -1312,16 +1218,13 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     /**
-     * Сбрасывает всё, что принадлежало ушедшему субпроцессу: ссылки на канал,
-     * флаги подписок и поверхности, которые он держал (спиннеры, пункты полосы,
-     * декорации, прокси-команды). Общий для вежливого выключения
-     * ({@link shutdownSubprocess}) и для внезапной смерти
-     * ({@link handleSubprocessDeath}).
+     * Конец спавна: customers отцепляются — всё, что субпроцесс держал (спиннеры,
+     * пункты полосы, декорации, прокси-команды, провайдеры, watcher'ы, подписки
+     * на ядро), уходит вместе со `spawnStore`, — а хост забывает канал и процесс.
+     * Общий для вежливого выключения ({@link shutdownSubprocess}) и для
+     * внезапной смерти ({@link handleSubprocessDeath}).
      */
-    private resetSubprocessState(): void {
-        // Подписки спавна на ядро и watcher'ы расширений принадлежали ушедшему
-        // субпроцессу: слать их события больше некому, а оставь их — каждый
-        // респавн добавлял бы новых поверх (и держал inotify-бюджет дерева).
+    private endSpawn(): void {
         this.spawnStore.dispose();
         this.spawnStore = new DisposableStore();
         this.rpc = null;
@@ -1341,7 +1244,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // Вежливое выключение уже обнулило `process` — там всё сделано.
         if (this.process !== subprocess) return;
         this.logger?.warn("extension host subprocess died — resetting host state");
-        this.resetSubprocessState();
+        this.endSpawn();
         // Канал мертвеца закрываем: запросы в полёте (прежде всего
         // `host.activateExtension`) получают отказ, а не висят вечно, — и
         // оборванная активация возвращается к оживлению (см. requestActivation).
@@ -1350,7 +1253,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // активации — оно проиграет журнал (см. `requestedEvents`).
         for (const [id, reg] of this.activatedRegistrations) this.pending.set(id, reg);
         this.replayPending = true;
-        // Прокси-команды мертвеца сняты вместе с ним (`clearProxyCommands`) —
+        // Прокси-команды мертвеца сняты вместе с его спавном (`CommandsCustomer`) —
         // возвращаем на их место заглушки-активаторы. Иначе команда исчезла бы и
         // из палитры, и вместе с ней единственный способ оживить расширение
         // руками: оживление ждёт события активации, а команда им и была.
@@ -1364,7 +1267,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private async shutdownSubprocess(): Promise<void> {
         const rpc = this.rpc;
         const subprocess = this.process;
-        this.resetSubprocessState();
+        this.endSpawn();
         if (subprocess === null) {
             // Канал без субпроцесса — только у in-process тестов, подключающих
             // RPC руками; закрываем и его.

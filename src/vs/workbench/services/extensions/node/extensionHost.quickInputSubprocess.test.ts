@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import type { IQuickInputBoxRequest, IQuickInputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import type { IWireQuickPickRequest, IWireValidationMessage } from "../../../api/common/wireTypes.ts";
-
-import type { IQuickInputBoxRequest, IQuickInputSink } from "./extensionHost.ts";
 
 // Полный круг quick input'а через НАСТОЯЩИЙ субпроцесс: команда расширения →
 // window.showInputBox/showQuickPick → RPC → сток хоста → ответ → обратно в

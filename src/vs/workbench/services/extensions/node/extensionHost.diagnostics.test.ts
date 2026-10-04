@@ -4,11 +4,12 @@ import { createExtensionTestHarness, extensionFixture } from "../../../../../Tes
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import type { DiagnosticsSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-import { type DiagnosticsSink, ExtensionHost } from "./extensionHost.ts";
+import { ExtensionHost } from "./extensionHost.ts";
 
 // Детерминированный in-process тест стока диагностик (`diagnostics.publish`):
 // вместо форка subprocess'а гоняем `installHostHandlers` на in-process RPC-паре
