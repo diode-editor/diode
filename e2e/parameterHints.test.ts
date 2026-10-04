@@ -64,9 +64,10 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             // Набираем вызов в конце файла: «(» — триггер-символ сервера,
             // подсказка обязана открыться сама, без единой команды.
             await session.key("Ctrl+End");
-            // Посимвольно: подсказку открывает НАБОР триггер-символа, а вставка
-            // блока — намеренно нет (та же эвристика, что у автодополнения).
-            for (const char of "greet(") await session.text(char);
+            // Нажатиями клавиш: подсказку открывает НАБОР триггер-символа
+            // (событие редактора onDidType), а вставка — даже одного символа —
+            // намеренно нет, как в VS Code. `session.text` — это вставка.
+            for (const char of "greet(") await session.key(char);
 
             await session.waitForText((text) => text.includes(SIGNATURE), {
                 timeoutMs: 60_000,
@@ -75,7 +76,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
 
             // Запятая перезапрашивает подсказку: активным становится второй
             // параметр — попап остаётся на месте с той же сигнатурой.
-            for (const char of '"world",') await session.text(char);
+            for (const char of '"world",') await session.key(char);
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frameToText(frame).includes(SIGNATURE),
@@ -83,13 +84,16 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             );
 
             // Escape закрывает попап, буфер остаётся с набранным текстом —
-            // значит Escape не просочился в редактор и не отменил правку.
-            await session.key("Escape");
-            const frame = await waitUntil(
-                () => session.captureFrame(),
-                (f) => !frameToText(f).includes(SIGNATURE),
-                { describe: "попап закрыт по Escape", timeoutMs: 30_000, intervalMs: 250 },
-            );
+            // значит Escape не просочился в редактор и не отменил правку. Набор
+            // слова `world` клавишами мог открыть и автодополнение, а Escape
+            // принадлежит ему, пока оно показано (как в VS Code), — тогда
+            // подсказку закрывает следующий Escape.
+            let frame = await session.captureFrame();
+            for (let attempt = 0; attempt < 3 && frameToText(frame).includes(SIGNATURE); attempt++) {
+                await session.key("Escape");
+                frame = await session.captureFrame();
+            }
+            expect(frameToText(frame)).not.toContain(SIGNATURE);
             expect(frameToText(frame)).toContain('greet("world",');
         });
     },
