@@ -3,11 +3,9 @@ import {
     CancellationTokenSource,
     type ICancellationToken,
 } from "../../../../base/common/cancellation.ts";
-import { renderCodicons } from "../../../../base/common/codicons.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type {
@@ -137,6 +135,7 @@ import type { IExternalOpener } from "../../externalOpener/common/iExternalOpene
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
 
+import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
@@ -518,20 +517,6 @@ export interface IExtensionHostOptions {
  */
 export class ExtensionHost extends Disposable {
     private readonly editorOptions: IEditorOptionsService;
-    private readonly commandService: ICommandService;
-    /** Прокси-регистрации команд сабпроцесса в host CommandRegistry (по id). */
-    private readonly proxyCommands = new Map<string, IDisposable>();
-    /**
-     * Заглушки команд под `onCommand:<id>` (id → регистрация в host-реестре).
-     * Стоят ВМЕСТО прокси, пока расширение не активировано: исполнение такой
-     * команды сперва поднимает расширение, а потом уходит в уже настоящий прокси
-     * (см. {@link armCommandActivation}).
-     */
-    private readonly commandActivationStubs = new Map<string, IDisposable>();
-    /** Заголовки команд из contributes.commands (id → title) для видимости в палитре. */
-    private readonly commandTitles = new Map<string, string>();
-    /** Группы команд из contributes.commands (id → category) — префикс подписи в палитре. */
-    private readonly commandCategories = new Map<string, string>();
     private readonly options: Required<
         Pick<
             IExtensionHostOptions,
@@ -622,6 +607,8 @@ export class ExtensionHost extends Disposable {
     private readonly pendingDidChange = new Map<string, IWireDocumentSyncSnapshot>();
     private readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
     private readonly editorLayout: IEditorLayoutService;
+    /** Команды расширений в реестре ядра: прокси спавна и заглушки-активаторы. */
+    private readonly commands: CommandsCustomer;
     /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
     private readonly fileSystem: FileSystemCustomer;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
@@ -672,7 +659,6 @@ export class ExtensionHost extends Disposable {
     ) {
         super();
         this.editorOptions = editorOptions;
-        this.commandService = commandService;
         this.options = {
             spawnArgs: options.spawnArgs ?? defaultSpawnArgs,
             readyTimeoutMs: options.readyTimeoutMs ?? 5000,
@@ -706,12 +692,14 @@ export class ExtensionHost extends Disposable {
         );
         this.openDocumentsProvider = options.openDocumentsProvider;
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
+        this.commands = new CommandsCustomer(commandService, (event) => this.activateByEvent(event), this.logger);
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
         this.customers = [
             new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
+            this.commands,
             new EnvCustomer(options.clipboard, options.externalOpener),
             this.fileSystem,
             this.decorations,
@@ -754,21 +742,12 @@ export class ExtensionHost extends Disposable {
         // Здесь же разворачиваем разметку значков: это точка, где текст
         // манифеста становится подписью НАШЕГО пункта палитры, а у эталона
         // подпись команды — метка quick pick'а, то есть значки в ней живые.
-        if (reg.commandTitles !== undefined) {
-            for (const [id, title] of Object.entries(reg.commandTitles)) {
-                this.commandTitles.set(id, renderCodicons(title));
-            }
-        }
-        if (reg.commandCategories !== undefined) {
-            for (const [id, category] of Object.entries(reg.commandCategories)) {
-                this.commandCategories.set(id, renderCodicons(category));
-            }
-        }
+        this.commands.addPaletteMetadata(reg);
         this.pending.set(reg.id, reg);
         this.registrations.set(reg.id, reg);
         // ПОСЛЕ pending: заглушка исполняется асинхронно и обязана найти
         // расширение в очереди, когда до неё дойдёт активация.
-        for (const id of readCommandActivationIds(reg)) this.armCommandActivation(id);
+        for (const id of readCommandActivationIds(reg)) this.commands.arm(id);
         // Состав каталога изменился — субпроцессу это `extensions.onDidChange`.
         this.pushExtensionCatalog();
         // Событие расширения уже звучало (как `_activateAddedExtensionIfNeeded`
@@ -791,7 +770,7 @@ export class ExtensionHost extends Disposable {
                 // объявляет ещё кто-то: id бывает общим, и чужую дверь снятие
                 // соседа захлопывать не должно.
                 for (const id of readCommandActivationIds(reg)) {
-                    if (!this.isCommandActivationClaimed(id)) this.disarmCommandActivation(id);
+                    if (!this.isCommandActivationClaimed(id)) this.commands.disarm(id);
                 }
                 if (this.pending.delete(reg.id)) return; // ещё не активировано (или ждёт оживления)
                 // Осталась одна фаза — активное расширение; собственный гард
@@ -1057,54 +1036,6 @@ export class ExtensionHost extends Disposable {
         // Запись об успехе — ВНЕ try: этот `catch` про сбой активации, и
         // беда логгера не должна прикидываться им (а заодно тихо глотаться).
         this.logger?.info(`activated extension "${reg.id}" (${reason})`);
-    }
-
-    /**
-     * Ставит заглушку-активатор на команду `id`: до активации расширения
-     * команда уже есть в host-реестре (значит видна в палитре и исполнима по
-     * id), а её исполнение СНАЧАЛА поднимает расширение и только потом уходит в
-     * настоящий прокси. Без ожидания активации команда не нашлась бы: реальный
-     * прокси заводит сам субпроцесс в `commands.registerCommand`.
-     *
-     * Настоящий прокси заглушкой не затирается: если команда уже живая (её
-     * зарегистрировало активное расширение), ставить поверх нечего.
-     */
-    private armCommandActivation(id: string): void {
-        if (this.proxyCommands.has(id) || this.commandActivationStubs.has(id)) return;
-        const event = `onCommand:${id}`;
-        this.commandActivationStubs.set(
-            id,
-            this.commandService.registerProxy(
-                id,
-                async (args): Promise<unknown> => {
-                    try {
-                        await this.activateByEvent(event);
-                    } catch (err) {
-                        // Провал хоста (subprocess не поднялся) гасим здесь:
-                        // вызывающие команду (палитра, бинд) результат не ждут,
-                        // и reject ушёл бы в unhandledRejection главного процесса.
-                        this.logger?.error(`failed to activate extension for command "${id}"`, err);
-                        return undefined;
-                    }
-                    // Расширение поднялось, но команду не завело (ошибка в
-                    // `activate()`, опечатка в манифесте) — исполнять нечего, и
-                    // зваться повторно через заглушку тоже: получилась бы петля.
-                    if (!this.proxyCommands.has(id)) {
-                        this.logger?.warn(`command "${id}" is still unregistered after activation`);
-                        return undefined;
-                    }
-                    return this.commandService.execute(id, args);
-                },
-                this.commandTitles.get(id),
-                this.commandCategories.get(id),
-            ),
-        );
-    }
-
-    /** Снимает заглушку-активатор команды (расширение активировалось или снято). */
-    private disarmCommandActivation(id: string): void {
-        this.commandActivationStubs.get(id)?.dispose();
-        this.commandActivationStubs.delete(id);
     }
 
     /** Объявляет ли команду `id` хоть одна из оставшихся регистраций. */
@@ -1805,7 +1736,7 @@ export class ExtensionHost extends Disposable {
         // Заглушки-активаторы живут в ОБЩЕМ реестре команд ядра (как и
         // прокси, см. clearProxyCommands) — после dispose там висели бы записи,
         // которые уже некого поднимать.
-        for (const id of [...this.commandActivationStubs.keys()]) this.disarmCommandActivation(id);
+        this.commands.disarmAll();
         this.shutdownDone = this.shutdownSubprocess();
         super.dispose();
     }
@@ -1935,42 +1866,6 @@ export class ExtensionHost extends Disposable {
             if (ops === null) return false;
             return this.editorOptions.applyWorkspaceEdit(ops);
         });
-        // Сабпроцесс просит исполнить команду ядра (напр. встроенную
-        // editor.action.trimTrailingWhitespace). Нормализуем через Promise —
-        // handler ядра может вернуть значение или thenable.
-        rpc.handleRequest("commands.executeCommand", (params): unknown => {
-            const { id, args } = parseCommandInvocation(params);
-            // Источник `command` для смены каретки: команда, сдвинувшая курсор,
-            // приедет расширению как `TextEditorSelectionChangeKind.Command`.
-            // Область синхронная — команда, двигающая каретку уже после await,
-            // отдаст `kind === undefined` (см. cursorChangeSource.ts).
-            return Promise.resolve(withCursorChangeSource("command", () => this.commandService.execute(id, args)));
-        });
-        // Сабпроцесс зарегистрировал команду — заводим прокси в host-реестре,
-        // который уводит исполнение обратно в сабпроцесс обратным RPC.
-        rpc.handleNotification("commands.registerCommand", (params): void => {
-            const id = parseCommandId(params);
-            if (id === null) return;
-            // Заглушка-активатор отработала (или её никто не трогал) — теперь
-            // команду держит настоящий прокси, и ждать активации больше нечего.
-            this.disarmCommandActivation(id);
-            this.proxyCommands.get(id)?.dispose();
-            this.proxyCommands.set(
-                id,
-                this.commandService.registerProxy(
-                    id,
-                    (args) => rpc.request("commands.executeCommand", { id, args }),
-                    this.commandTitles.get(id),
-                    this.commandCategories.get(id),
-                ),
-            );
-        });
-        rpc.handleNotification("commands.unregisterCommand", (params): void => {
-            const id = parseCommandId(params);
-            if (id === null) return;
-            this.proxyCommands.get(id)?.dispose();
-            this.proxyCommands.delete(id);
-        });
         // Полоса групп: снимки по изменениям (коалесинг в адаптере). Инвариант
         // порядка: layoutChanged всегда раньше связанного activeEditorChanged —
         // подписка на layout стоит первой, а мета дополнительно флашит отложенный
@@ -2083,14 +1978,6 @@ export class ExtensionHost extends Disposable {
         });
     }
 
-    /** Снимает все прокси-регистрации команд (при смерти сабпроцесса). */
-    private clearProxyCommands(): void {
-        for (const disposable of this.proxyCommands.values()) {
-            disposable.dispose();
-        }
-        this.proxyCommands.clear();
-    }
-
     /**
      * Сбрасывает всё, что принадлежало ушедшему субпроцессу: ссылки на канал,
      * флаги подписок и поверхности, которые он держал (спиннеры, пункты полосы,
@@ -2117,9 +2004,6 @@ export class ExtensionHost extends Disposable {
             this.fireLanguageProvidersChanged();
         }
         this.pendingDidChange.clear();
-        // Прокси-команды указывали на умирающий сабпроцесс — снимаем их из
-        // общего DI-синглтона CommandRegistry, чтобы не оставить висячие записи.
-        this.clearProxyCommands();
     }
 
     /**
@@ -2148,7 +2032,7 @@ export class ExtensionHost extends Disposable {
         // из палитры, и вместе с ней единственный способ оживить расширение
         // руками: оживление ждёт события активации, а команда им и была.
         for (const reg of this.activatedRegistrations.values()) {
-            for (const id of readCommandActivationIds(reg)) this.armCommandActivation(id);
+            for (const id of readCommandActivationIds(reg)) this.commands.arm(id);
         }
         this.activatedRegistrations.clear();
         this.extensions.clear();
@@ -2212,22 +2096,4 @@ function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
         patch.insertSpaces = obj.insertSpaces;
     }
     return patch;
-}
-
-function parseCommandInvocation(raw: unknown): { id: string; args: unknown[] } {
-    if (typeof raw !== "object" || raw === null) {
-        throw new Error("commands.executeCommand: params must be an object");
-    }
-    const obj = raw as { id?: unknown; args?: unknown };
-    if (typeof obj.id !== "string" || obj.id === "") {
-        throw new Error("commands.executeCommand: id must be a non-empty string");
-    }
-    const args = Array.isArray(obj.args) ? (obj.args as unknown[]) : [];
-    return { id: obj.id, args };
-}
-
-function parseCommandId(raw: unknown): string | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as { id?: unknown };
-    return typeof obj.id === "string" && obj.id !== "" ? obj.id : null;
 }
