@@ -121,7 +121,7 @@ export class SubprocessFileSystemWatchers {
                 this.transport.dispose(id);
             },
         };
-        return watcher as unknown as vscode.FileSystemWatcher;
+        return watcher;
     }
 
     /** Валидный watcher, который никогда не стреляет: следить не за чем (нет воркспейса). */
@@ -141,7 +141,7 @@ export class SubprocessFileSystemWatchers {
             dispose: () => {
                 emitter.dispose();
             },
-        } as unknown as vscode.FileSystemWatcher;
+        };
     }
 
     /** Разводит пачку событий хоста по эмиттерам своего watcher'а. */
@@ -150,7 +150,7 @@ export class SubprocessFileSystemWatchers {
         // Гонка на закрытии: хост успел отправить пачку до `workspace.watcher.dispose`.
         if (emitters === undefined) return;
         for (const event of events.events) {
-            const uri = Uri.parse(event.uri) as unknown as vscode.Uri;
+            const uri = Uri.parse(event.uri);
             if (event.type === "created") emitters.onDidCreate.fire(uri);
             else if (event.type === "changed") emitters.onDidChange.fire(uri);
             else emitters.onDidDelete.fire(uri);

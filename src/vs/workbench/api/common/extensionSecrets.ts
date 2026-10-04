@@ -57,7 +57,7 @@ export function createExtensionSecretsFactory(rpc: SubprocessRpc): IExtensionSec
                     await rpc.request("secrets.delete", { extensionId, key });
                 },
                 onDidChange: emitter.event,
-            } as unknown as vscode.SecretStorage;
+            };
         },
     };
 }

@@ -62,10 +62,10 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
      */
     const toExtension = (description: IWireExtensionDescription): vscode.Extension<unknown> => ({
         id: description.id,
-        extensionUri: Uri.file(description.extensionPath) as unknown as vscode.Uri,
+        extensionUri: Uri.file(description.extensionPath),
         extensionPath: description.extensionPath,
         packageJSON: description.packageJSON,
-        extensionKind: ExtensionKind.UI as unknown as vscode.ExtensionKind,
+        extensionKind: ExtensionKind.UI,
         get isActive(): boolean {
             return activeIds.has(description.id);
         },
