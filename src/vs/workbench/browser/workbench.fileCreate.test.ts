@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle, tabLabels } from "../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 
 import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
@@ -21,9 +22,32 @@ import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 const FLUSH_TURNS = 20;
 
 /** Simulate typing into an InputBox: set the value AND revalidate (setQuery alone doesn't). */
-function typeInto(input: QuickPickElement, text: string): void {
+/** Вводит имя и ждёт, пока его проверка по диску (асинхронная) признает его годным. */
+async function typeInto(input: QuickPickElement, text: string): Promise<void> {
     input.setQuery(text);
     input.onQueryChange?.(text);
+    await vi.waitFor(() => {
+        expect(input.validationMessage).toBeNull();
+    });
+}
+
+/** Промпт принят: Enter ждёт асинхронную проверку имени по диску. */
+async function promptClosed(app: TestApp): Promise<void> {
+    await vi.waitFor(() => {
+        expect(app.root.overlayLayer.hasVisibleItems()).toBe(false);
+    });
+    await flushMicrotasks(FLUSH_TURNS);
+}
+
+/**
+ * Промпт New File/Folder: перед показом команда смотрит, файл или каталог
+ * кликнули (stat файловым сервисом, асинхронно) — ждём, пока он появится.
+ */
+async function promptByTitle(app: TestApp, title: string): Promise<ReturnType<typeof quickPickByTitle>> {
+    return vi.waitFor(() => {
+        app.render();
+        return quickPickByTitle(app, title);
+    });
 }
 
 describe("Workbench — New File / New Folder", () => {
@@ -44,9 +68,9 @@ describe("Workbench — New File / New Folder", () => {
         h.commands.execute("explorer.newFile", ws.dir);
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New File"), "hello.ts");
+        await typeInto(await promptByTitle(h.testApp, "New File"), "hello.ts");
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        await promptClosed(h.testApp);
 
         const created = ws.path("hello.ts");
         expect(fs.readFileSync(created, "utf-8")).toBe("");
@@ -62,9 +86,9 @@ describe("Workbench — New File / New Folder", () => {
         h.commands.execute("explorer.newFile", clicked);
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New File"), "beside.ts");
+        await typeInto(await promptByTitle(h.testApp, "New File"), "beside.ts");
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        await promptClosed(h.testApp);
         h.testApp.render();
 
         expect(fs.existsSync(ws.path("beside.ts"))).toBe(true);
@@ -74,9 +98,9 @@ describe("Workbench — New File / New Folder", () => {
         h.commands.execute("explorer.newFile"); // no explorer path → getPasteTargetDir() (root)
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New File"), "from-palette.ts");
+        await typeInto(await promptByTitle(h.testApp, "New File"), "from-palette.ts");
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        await promptClosed(h.testApp);
         h.testApp.render();
 
         expect(fs.existsSync(ws.path("from-palette.ts"))).toBe(true);
@@ -86,9 +110,9 @@ describe("Workbench — New File / New Folder", () => {
         h.commands.execute("explorer.newFolder", ws.dir);
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New Folder"), "assets");
+        await typeInto(await promptByTitle(h.testApp, "New Folder"), "assets");
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        await promptClosed(h.testApp);
         h.testApp.render();
 
         expect(fs.statSync(ws.path("assets")).isDirectory()).toBe(true);
@@ -99,41 +123,51 @@ describe("Workbench — New File / New Folder", () => {
         h.commands.execute("explorer.newFile", ws.dir);
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New File"), path.join("sub", "dir", "note.md"));
+        await typeInto(await promptByTitle(h.testApp, "New File"), path.join("sub", "dir", "note.md"));
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        await promptClosed(h.testApp);
         h.testApp.render();
 
         expect(fs.existsSync(path.join(ws.dir, "sub", "dir", "note.md"))).toBe(true);
     });
 
-    it("validates the name", () => {
+    it("validates the name", async () => {
         ws.writeFile("taken.txt", "x");
         h.commands.execute("explorer.newFile", ws.dir);
         h.testApp.render();
-        const input = quickPickByTitle(h.testApp, "New File");
+        const input = await promptByTitle(h.testApp, "New File");
 
         input.onQueryChange?.("   ");
-        expect(input.validationMessage).toBe("Please enter a name");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("Please enter a name");
+        });
 
         input.onQueryChange?.("..");
-        expect(input.validationMessage).toBe("Invalid name");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("Invalid name");
+        });
 
         input.onQueryChange?.(path.join(os.tmpdir(), "abs.txt"));
-        expect(input.validationMessage).toBe("Please enter a relative name");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("Please enter a relative name");
+        });
 
         input.onQueryChange?.("taken.txt");
-        expect(input.validationMessage).toBe("A file or folder with that name already exists");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("A file or folder with that name already exists");
+        });
 
         input.onQueryChange?.("fresh.txt");
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
     });
 
     it("Escape cancels without creating anything", async () => {
         h.commands.execute("explorer.newFile", ws.dir);
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New File"), "ghost.txt");
+        await typeInto(await promptByTitle(h.testApp, "New File"), "ghost.txt");
         h.testApp.sendKey("Escape");
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
@@ -229,9 +263,9 @@ describe("Workbench — create via context menu", () => {
         h.testApp.sendKey("Enter"); // first entry: New File...
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New File"), "menu-file.ts");
+        await typeInto(await promptByTitle(h.testApp, "New File"), "menu-file.ts");
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        await promptClosed(h.testApp);
         h.testApp.render();
 
         expect(fs.existsSync(ws.path("menu-file.ts"))).toBe(true);
@@ -257,9 +291,9 @@ describe("Workbench — create via context menu", () => {
         h.testApp.sendKey("Enter");
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "New Folder"), "menu-folder");
+        await typeInto(await promptByTitle(h.testApp, "New Folder"), "menu-folder");
         h.testApp.sendKey("Enter");
-        await flushMicrotasks(FLUSH_TURNS);
+        await promptClosed(h.testApp);
         h.testApp.render();
 
         expect(fs.statSync(ws.path("menu-folder")).isDirectory()).toBe(true);

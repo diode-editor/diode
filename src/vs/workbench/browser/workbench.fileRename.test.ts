@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle } from "../../../TestUtils/domQueries.ts";
@@ -18,9 +18,13 @@ import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 const FLUSH_TURNS = 20;
 
 /** Simulate typing into an InputBox: set the value AND revalidate (setQuery alone doesn't). */
-function typeInto(input: QuickPickElement, text: string): void {
+/** Вводит имя и ждёт, пока его проверка по диску (асинхронная) признает его годным. */
+async function typeInto(input: QuickPickElement, text: string): Promise<void> {
     input.setQuery(text);
     input.onQueryChange?.(text);
+    await vi.waitFor(() => {
+        expect(input.validationMessage).toBeNull();
+    });
 }
 
 describe("Workbench — Rename", () => {
@@ -44,7 +48,7 @@ describe("Workbench — Rename", () => {
         const input = quickPickByTitle(h.testApp, "Rename");
         expect(input.getQuery()).toBe("old.txt"); // seeded with the current name
 
-        typeInto(input, "new.txt");
+        await typeInto(input, "new.txt");
         h.testApp.sendKey("Enter");
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
@@ -58,7 +62,7 @@ describe("Workbench — Rename", () => {
         h.commands.execute("fileOperations.rename", ws.path("dir"));
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "Rename"), "renamed");
+        await typeInto(quickPickByTitle(h.testApp, "Rename"), "renamed");
         h.testApp.sendKey("Enter");
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
@@ -79,36 +83,48 @@ describe("Workbench — Rename", () => {
         expect(fs.readFileSync(ws.path("old.txt"), "utf-8")).toBe("hi");
     });
 
-    it("validates the new name", () => {
+    it("validates the new name", async () => {
         ws.writeFile("taken.txt", "x");
         h.commands.execute("fileOperations.rename", ws.path("old.txt"));
         h.testApp.render();
         const input = quickPickByTitle(h.testApp, "Rename");
 
         input.onQueryChange?.("   ");
-        expect(input.validationMessage).toBe("Please enter a name");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("Please enter a name");
+        });
 
         input.onQueryChange?.("..");
-        expect(input.validationMessage).toBe("Invalid name");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("Invalid name");
+        });
 
         input.onQueryChange?.(path.join(os.tmpdir(), "abs.txt"));
-        expect(input.validationMessage).toBe("Please enter a relative name");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("Please enter a relative name");
+        });
 
         input.onQueryChange?.("taken.txt");
-        expect(input.validationMessage).toBe("A file or folder with that name already exists");
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBe("A file or folder with that name already exists");
+        });
 
         input.onQueryChange?.("old.txt"); // unchanged name is valid (handled as a no-op)
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
 
         input.onQueryChange?.("fresh.txt");
-        expect(input.validationMessage).toBeNull();
+        await vi.waitFor(() => {
+            expect(input.validationMessage).toBeNull();
+        });
     });
 
     it("Escape cancels without renaming", async () => {
         h.commands.execute("fileOperations.rename", ws.path("old.txt"));
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "Rename"), "ghost.txt");
+        await typeInto(quickPickByTitle(h.testApp, "Rename"), "ghost.txt");
         h.testApp.sendKey("Escape");
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
@@ -128,7 +144,7 @@ describe("Workbench — Rename", () => {
         h.commands.execute("fileOperations.rename");
         h.testApp.render();
 
-        typeInto(quickPickByTitle(h.testApp, "Rename"), "picked.txt");
+        await typeInto(quickPickByTitle(h.testApp, "Rename"), "picked.txt");
         h.testApp.sendKey("Enter");
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
@@ -136,7 +152,7 @@ describe("Workbench — Rename", () => {
         expect(fs.existsSync(ws.path("picked.txt"))).toBe(true);
     });
 
-    it("does nothing when neither an argument nor a selection is available", () => {
+    it("does nothing when neither an argument nor a selection is available", async () => {
         // No workspace → empty tree → getSelectedPaths() is empty → no prompt.
         const bare = createAppTestHarness();
         bare.commands.execute("fileOperations.rename");
@@ -195,7 +211,7 @@ describe("Workbench — Rename via context menu", () => {
 
         expect(h.testApp.querySelector("PopupMenuElement")).toBeNull();
 
-        typeInto(quickPickByTitle(h.testApp, "Rename"), "beta.txt");
+        await typeInto(quickPickByTitle(h.testApp, "Rename"), "beta.txt");
         h.testApp.sendKey("Enter");
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();

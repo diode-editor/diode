@@ -159,8 +159,6 @@ const NODE_IMPORT_DEBT = [
     ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
     ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
     // Explorer: операции, чтение каталогов и слежение — на IFileService/ITreeFileWatcher (PR 3).
-    ["src/vs/workbench/contrib/files/browser/fileOperationsService.ts", "node:fs"],
-    ["src/vs/workbench/contrib/files/browser/fileOperationsService.ts", "node:os"],
     // Загрузка и запись модели — последним (PR 4 — запись, PR 5 — загрузка).
     ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
 ];

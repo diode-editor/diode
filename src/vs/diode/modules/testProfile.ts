@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import * as path from "node:path";
 
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
@@ -71,6 +71,7 @@ export function createTestEnvironment(): IEnvironmentService {
         extensionsDir: path.join(root, "extensions"),
         logsDir: path.join(root, "user-data", "logs"),
         registry: path.join(root, "no-registry"),
+        userHome: homedir(),
         settingsResource: path.join(profileDir, "settings.json"),
         keybindingsResource: path.join(profileDir, "keybindings.json"),
         globalStorageDir: path.join(profileDir, "globalStorage"),

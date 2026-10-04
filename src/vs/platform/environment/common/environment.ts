@@ -26,6 +26,8 @@ export interface IEnvironmentService {
     readonly logsDir: string;
     /** `--registry`: каталог или URL реестра расширений; `undefined` — публичный магазин Diode. */
     readonly registry: string | undefined;
+    /** Домашний каталог пользователя — для `~` в путях, которые вводит человек. */
+    readonly userHome: string;
 
     // ── Активный профиль ────────────────────────────────────────
 

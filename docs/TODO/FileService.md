@@ -6,7 +6,10 @@ PR 0 (храповик на модули ОС в `common`/`browser`, `NODE_IMPOR
 `scripts/check-layers.mjs`) — #459; PR 1 (сервис, реестр поглощён) — #462;
 PR 2 (холодные потребители: Encoding, Open File/Folder/Save As,
 Preferences) — #467; PR 3 разрезан на три: дерево Explorer
-(`IFileService.resolve` + `ITreeFileWatcher` вместо своего `chokidar`) — влит. Фильтр рестора вкладок и проверка истории навигации из
+(`IFileService.resolve` + `ITreeFileWatcher` вместо своего `chokidar`) — #470;
+файловые операции Explorer (цель New File/Rename через `stat`, `~` из
+`IEnvironmentService.userHome` вместо `node:os`) — #475;
+исполнитель правок `WorkspaceEditService` — 3c. Фильтр рестора вкладок и проверка истории навигации из
 PR 2 перенесены в PR 5: рестор синхронен по устройству (§7.2), история —
 открытый вопрос §12.3. Документ отвечает на вопрос «нужен ли нам
 аналог `IFileService` / `IFileSystemProvider`, какой минимальной формы, во что
