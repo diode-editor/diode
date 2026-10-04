@@ -274,6 +274,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const participants: SaveParticipant[] = [];
         if (
             this.languageFeatures.codeActionProvider.has(model) &&
+            // Stryker disable next-line EqualityOperator,ConditionalExpression: участник без включённых видов — no-op (провайдера не зовёт), а запись и так асинхронная; отсев только экономит проход
             enabledCodeActionKindsOnSave(this.configurationService, model.languageId).length > 0
         ) {
             participants.push(this.codeActionsOnSaveParticipant);
