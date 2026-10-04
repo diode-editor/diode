@@ -65,9 +65,10 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
 **Зафиксировано и реализовано: embed + runtime-extract.** Нативные артефакты вшиваются
 в SEA как ассет `node-pty.bundle` (тот же формат, что `diode.bundle` — magic+header+data, см.
 `Common/Assets/` и `scripts/pack-assets.mjs`); на первом запуске распаковываются в
-`os.tmpdir()/diode-embedded-pty-<size>/` и грузятся через `createRequire` (нативный `.node` требует
-файл на диске для `process.dlopen`). Сохраняет модель «один файл» ценой записи в tmp на первом
-запуске; повторные запуски переиспользуют распакованное (маркер `.diode-ready`).
+пользовательский кэш (`<userCacheDir>/node-pty/<version>-<sha>`, общий загрузчик
+`base/node/assets/packagedAsset.ts` + `extractBundleToCacheSync`) и грузятся через `createRequire`
+(нативный `.node` требует файл на диске для `process.dlopen`). Сохраняет модель «один файл» ценой записи
+в кэш на первом запуске; повторные запуски переиспользуют распакованное (маркер `.diode-ready`).
 
 Реализация:
 - `src/vs/workbench/contrib/terminal/node/loadNodePty.ts` — dev: `require("node-pty")`; SEA: `sea.getAsset` → распаковка → `createRequire`.
@@ -102,7 +103,7 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
 
 **Переносимо «бесплатно» (чистый JS, одинаково везде):** @xterm/headless (эмуляция, буфер,
 mouse-энкодер), наш рендер/цвета/стили/wide-chars/курсор, `encodeKeyForPty`, проброс мыши,
-механизм распаковки (`os.tmpdir()` + `createRequire`; `chmod +x` на Windows — безвредный no-op).
+механизм распаковки (кэш + `createRequire`; `chmod +x` на Windows — безвредный no-op).
 
 **Требует работы и проверки на целевой ОС — PTY и упаковка:**
 - **SEA пер-платформенный по природе** — нативный код вшивается под конкретную ОС/арх; билд гоняется

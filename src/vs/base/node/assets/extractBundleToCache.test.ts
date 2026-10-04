@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -6,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { packBundle } from "../../common/assets/assetBundleFormat.ts";
 
-import { extractBundleToCache, READY_MARKER } from "./extractBundleToCache.ts";
+import { extractBundleToCache, extractBundleToCacheSync, READY_MARKER } from "./extractBundleToCache.ts";
 
 // Распаковка бандла в кэш: идемпотентность, атомарная публикация (rename),
 // мьютекс mkdir-lock — схема self-extract-стаба, перенесённая в TS.
@@ -38,13 +39,13 @@ describe("extractBundleToCache", () => {
         expect(existsSync(`${target}.lock`)).toBe(false);
     });
 
-    it("повторный вызов — мгновенный no-op (mtime не меняется)", async () => {
+    it("повторный вызов — мгновенный no-op: распакованное не перезаписывается", async () => {
         const target = path.join(root, "v1-abc");
         await extractBundleToCache(bundle(), target);
-        const before = statSync(path.join(target, "server/lib/cli.mjs")).mtimeMs;
+        writeFileSync(path.join(target, "server/lib/cli.mjs"), "edited after unpack");
 
         await extractBundleToCache(bundle(), target);
-        expect(statSync(path.join(target, "server/lib/cli.mjs")).mtimeMs).toBe(before);
+        expect(readFileSync(path.join(target, "server/lib/cli.mjs"), "utf8")).toBe("edited after unpack");
     });
 
     it("незавершённый мусор прошлого падения затирается под локом", async () => {
@@ -72,6 +73,8 @@ describe("extractBundleToCache", () => {
         }, 50);
 
         await expect(done).resolves.toBeUndefined();
+        // Распаковывал «владелец», а не мы: файлов бандла в каталоге нет.
+        expect(existsSync(path.join(target, "server/lib/cli.mjs"))).toBe(false);
     });
 
     it("stale lock: таймаут с внятной подсказкой", async () => {
@@ -80,7 +83,10 @@ describe("extractBundleToCache", () => {
 
         await expect(
             extractBundleToCache(bundle(), target, { waitTimeoutMs: 120, pollIntervalMs: 20 }),
-        ).rejects.toThrow(/stale lock/);
+        ).rejects.toThrow(
+            `diode: timed out waiting for cache unpack at ${target}. ` +
+                `If no other diode is starting, remove the stale lock: rm -rf '${target}.lock'`,
+        );
     });
 
     it.skipIf(process.platform === "win32")("не-EEXIST ошибка лока пробрасывается (readonly cacheRoot)", async () => {
@@ -110,5 +116,78 @@ describe("extractBundleToCache", () => {
 
         await expect(extractBundleToCache(patched, target)).rejects.toThrow(/Invalid segment/);
         expect(existsSync(`${target}.lock`)).toBe(false);
+    });
+
+    it.skipIf(process.platform === "win32")("executable: отмеченные файлы исполняемы, остальные — нет", async () => {
+        const target = path.join(root, "v1-abc");
+        await extractBundleToCache(bundle(), target, { executable: (p) => p.endsWith("cli.mjs") });
+
+        expect(statSync(path.join(target, "server/lib/cli.mjs")).mode & 0o111).not.toBe(0);
+        expect(statSync(path.join(target, "node_modules/typescript/lib/tsserver.js")).mode & 0o111).toBe(0);
+    });
+});
+
+describe("extractBundleToCacheSync", () => {
+    let root: string;
+
+    const bundle = () => packBundle([{ virtualPath: "bin/rg", data: Buffer.from("#!/bin/sh\necho rg") }]);
+
+    beforeEach(() => {
+        root = mkdtempSync(path.join(tmpdir(), "diode-extract-sync-"));
+    });
+
+    afterEach(() => {
+        rmSync(root, { recursive: true, force: true });
+    });
+
+    it("распаковывает синхронно, второй вызов — no-op", () => {
+        const target = path.join(root, "v1-abc");
+        extractBundleToCacheSync(bundle(), target, { executable: () => true });
+
+        expect(readFileSync(path.join(target, "bin/rg"), "utf8")).toBe("#!/bin/sh\necho rg");
+        expect(existsSync(`${target}.lock`)).toBe(false);
+        writeFileSync(path.join(target, "bin/rg"), "edited after unpack");
+        extractBundleToCacheSync(bundle(), target);
+        expect(readFileSync(path.join(target, "bin/rg"), "utf8")).toBe("edited after unpack");
+    });
+
+    it("чужой лок без публикации — таймаут с подсказкой про stale lock", () => {
+        const target = path.join(root, "v1-abc");
+        mkdirSync(`${target}.lock`, { recursive: true });
+
+        expect(() => {
+            extractBundleToCacheSync(bundle(), target, { waitTimeoutMs: 60, pollIntervalMs: 10 });
+        }).toThrow(/stale lock/);
+    });
+
+    it("чужой лок: ждём, пока другой процесс опубликует каталог", () => {
+        const target = path.join(root, "v1-abc");
+        mkdirSync(`${target}.lock`, { recursive: true });
+        // Синхронное ожидание блокирует поток — «владельца» играет отдельный процесс.
+        const script = `setTimeout(() => {
+            const fs = require("node:fs");
+            fs.mkdirSync(${JSON.stringify(target)}, { recursive: true });
+            fs.writeFileSync(${JSON.stringify(path.join(target, READY_MARKER))}, "");
+        }, 100);`;
+        const peer = spawn(process.execPath, ["-e", script], { stdio: "ignore" });
+        try {
+            extractBundleToCacheSync(bundle(), target); // дефолты: таймаут 30 с, опрос 100 мс
+            expect(existsSync(path.join(target, READY_MARKER))).toBe(true);
+            // Распаковывал «владелец»-сосед, а не мы.
+            expect(existsSync(path.join(target, "bin/rg"))).toBe(false);
+        } finally {
+            peer.kill();
+        }
+    });
+
+    it("чужой лок, но каталог уже опубликован — сразу готово", () => {
+        const target = path.join(root, "v1-abc");
+        mkdirSync(target, { recursive: true });
+        writeFileSync(path.join(target, READY_MARKER), "");
+        mkdirSync(`${target}.lock`);
+
+        expect(() => {
+            extractBundleToCacheSync(bundle(), target, { waitTimeoutMs: 60 });
+        }).not.toThrow();
     });
 });

@@ -2,9 +2,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 /**
- * Пользовательский кэш-каталог diode для распакованных ассетов (вшитый
- * language-сервер и т.п.): переживает ребут (в отличие от `os.tmpdir()`,
- * куда распаковываются rg/node-pty) и уважает XDG. Раскладка совпадает с
+ * Пользовательский кэш-каталог diode для распакованных ассетов (rg, node-pty,
+ * вшитый language-сервер — `packagedAssetCacheDir`): переживает ребут (в
+ * отличие от `os.tmpdir()`) и уважает XDG. Раскладка совпадает с
  * кэшем self-extract-стаба (`scripts/selfextract-stub.sh`):
  * `${XDG_CACHE_HOME:-~/.cache}/diode`; на Windows — `%LOCALAPPDATA%/diode/cache`.
  */

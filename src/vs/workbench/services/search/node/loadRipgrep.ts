@@ -1,82 +1,45 @@
 // Загрузчик бинаря ripgrep (`rg`) с двумя путями, ровно как loadNodePty:
 //   - dev (tsx/npm): путь из пакета @vscode/ripgrep (он же кладёт per-platform
 //     бинарь в node_modules);
-//   - SEA (single executable): бинарь вшит в exe как ассет `rg.bundle`; на первом
-//     запуске распаковываем его во временный каталог и запускаем оттуда
-//     (исполняемый файл нельзя запустить из JS-blob — нужен файл на диске).
-//
-// Формат `rg.bundle` совпадает с pack-assets.mjs / loadNodePty.ts:
-//   [magic 8B "DIODEBND"][headerLen uint32 LE][header JSON][data …]
-// header = { version, files: { <virtualPath>: { offset, size } } }.
+//   - упакованная сборка: бинарь вшит ассетом `rg.bundle`; на первом запуске
+//     распаковываем его в пользовательский кэш и запускаем оттуда (исполняемый
+//     файл нельзя запустить из JS-blob — нужен файл на диске).
+// Чтение ассета и безопасная распаковка — общие (base/node/assets): кэш по
+// хэшу содержимого, лок против двух одновременно стартующих diode.
 
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
-import { isSeaBinary } from "../../../../base/node/isSea.ts";
+import { extractBundleToCacheSync } from "../../../../base/node/assets/extractBundleToCache.ts";
+import { packagedAssetCacheDir, readPackagedAsset } from "../../../../base/node/assets/packagedAsset.ts";
 
-const MAGIC = "DIODEBND";
 const ASSET_NAME = "rg.bundle";
-/** Имя бинаря внутри бандла — платформозависимо (совпадает с pack-ripgrep.mjs). */
-const RG_BINARY_NAME = process.platform === "win32" ? "rg.exe" : "rg";
 
 let cached: string | null = null;
 
-/**
- * Возвращает абсолютный путь к исполняемому `rg`.
- * dev — из пакета @vscode/ripgrep; SEA — распаковав ассет `rg.bundle` в tmp.
- * Результат кэшируется на процесс.
- */
+/** Абсолютный путь к исполняемому `rg`; кэшируется на процесс. */
 export function loadRipgrepPath(): string {
-    if (cached !== null) return cached;
-    cached = isSeaBinary() ? loadFromSeaAsset() : loadFromNodeModules();
+    // Stryker disable next-line AssignmentOperator: без кэша путь тот же — теряется только экономия повторного чтения ассета
+    cached ??= resolveRipgrepPath();
     return cached;
 }
 
-function loadFromNodeModules(): string {
-    const require = createRequire(import.meta.url);
-    const { rgPath } = require("@vscode/ripgrep") as { rgPath: string };
-    return rgPath;
-}
-
-function loadFromSeaAsset(): string {
-    // `node:sea` доступен только через require внутри SEA (статический ESM-импорт падает).
-    const seaRequire = createRequire("file:///");
-    const sea = seaRequire("node:sea") as { getAsset(key: string): ArrayBuffer };
-    const bundle = Buffer.from(sea.getAsset(ASSET_NAME));
-
-    // Каталог с суффиксом по размеру ассета — авто-инвалидация при пересборке.
-    const targetDir = join(tmpdir(), `diode-embedded-rg-${String(bundle.length)}`);
-    const rgPath = join(targetDir, RG_BINARY_NAME);
-    const readyMarker = join(targetDir, ".diode-ready");
-
-    if (!existsSync(readyMarker)) {
-        extractBundle(bundle, targetDir);
-        writeFileSync(readyMarker, "");
+/**
+ * Путь к `rg` без кэша на процесс: `bundle` — байты `rg.bundle` упакованной
+ * сборки (`null` — dev, берём @vscode/ripgrep), `cacheRoot` — корень кэша
+ * распаковки (по умолчанию пользовательский кэш diode). Имя бинаря в бандле
+ * платформозависимо (совпадает с pack-ripgrep.mjs).
+ */
+export function resolveRipgrepPath(
+    bundle: Uint8Array | null = readPackagedAsset(ASSET_NAME),
+    cacheRoot?: string,
+    platform: NodeJS.Platform = process.platform,
+): string {
+    if (bundle === null) {
+        const require = createRequire(import.meta.url);
+        return (require("@vscode/ripgrep") as { rgPath: string }).rgPath;
     }
-
-    return rgPath;
-}
-
-function extractBundle(bundle: Buffer, targetDir: string): void {
-    const magic = bundle.toString("latin1", 0, MAGIC.length);
-    if (magic !== MAGIC) throw new Error("rg.bundle: bad magic");
-
-    const headerLen = bundle.readUInt32LE(MAGIC.length);
-    const headerStart = MAGIC.length + 4;
-    const header = JSON.parse(bundle.toString("utf-8", headerStart, headerStart + headerLen)) as {
-        version: number;
-        files: Record<string, { offset: number; size: number }>;
-    };
-    const dataStart = headerStart + headerLen;
-
-    for (const [virtualPath, { offset, size }] of Object.entries(header.files)) {
-        const dest = join(targetDir, virtualPath);
-        mkdirSync(dirname(dest), { recursive: true });
-        const start = dataStart + offset;
-        writeFileSync(dest, bundle.subarray(start, start + size));
-        // Бинарь rg должен быть исполняемым после распаковки.
-        chmodSync(dest, 0o755);
-    }
+    const dir = packagedAssetCacheDir("rg", bundle, cacheRoot);
+    extractBundleToCacheSync(bundle, dir, { executable: () => true });
+    return join(dir, platform === "win32" ? "rg.exe" : "rg");
 }
