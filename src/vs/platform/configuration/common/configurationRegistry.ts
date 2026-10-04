@@ -1,3 +1,5 @@
+import { isOverrideKey } from "./configurationModel.ts";
+
 /**
  * Область, в которой ключ настроек **разрешено** переопределять (аналог
  * `ConfigurationScope` vscode). Порядок — от самой узкой области записи к самой
@@ -85,6 +87,10 @@ export interface IExtensionConfigurationProperty {
     readonly extensionId: string;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const SCOPES: readonly ConfigurationScope[] = ["application", "machine", "window", "resource", "language-overridable"];
 
 /**
@@ -149,11 +155,18 @@ export class ConfigurationRegistry {
     /**
      * Переопределяет дефолты ключей (аналог `registerDefaultConfigurations`
      * vscode): `contributes.configurationDefaults` и курируемые инъекции. Ключи —
-     * полные dotted; повторная запись того же ключа — главнее прежней.
+     * полные dotted; повторная запись того же ключа — главнее прежней. Секции
+     * языков (`"[go]": { … }`) от разных источников сливаются по ключам.
      */
     public registerDefaultConfigurations(overrides: Readonly<Record<string, unknown>>): void {
         for (const [key, value] of Object.entries(overrides)) {
-            this.defaultOverrides.set(key, value);
+            const existing = this.defaultOverrides.get(key);
+            this.defaultOverrides.set(
+                key,
+                isOverrideKey(key) && isPlainObject(existing) && isPlainObject(value)
+                    ? { ...existing, ...value }
+                    : value,
+            );
         }
     }
 

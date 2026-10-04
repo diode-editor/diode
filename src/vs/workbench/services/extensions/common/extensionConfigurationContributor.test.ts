@@ -60,6 +60,32 @@ describe("ExtensionConfigurationContributor", () => {
         });
     });
 
+    it("contributes.configurationDefaults — переопределения дефолтов, в том числе секции языков; инъекции главнее", () => {
+        const registry = new ConfigurationRegistry();
+        const make = {
+            id: "vscode.make",
+            manifest: { contributes: { configurationDefaults: { "[makefile]": { "editor.insertSpaces": false } } } },
+        };
+        const acme = {
+            id: "acme.tool",
+            manifest: {
+                contributes: {
+                    configuration: { properties: { "acme.mode": { default: "a" } } },
+                    configurationDefaults: { "acme.mode": "b" },
+                },
+            },
+        };
+
+        new ExtensionConfigurationContributor([make, acme], registry, (e) =>
+            e.id === "acme.tool" ? { "acme.mode": "c" } : {},
+        ).apply();
+
+        expect(registry.getDefaultConfiguration()).toEqual({
+            "[makefile]": { "editor.insertSpaces": false },
+            acme: { mode: "c" },
+        });
+    });
+
     it("без логгера дубль ключа — тихий пропуск", () => {
         const registry = new ConfigurationRegistry();
 

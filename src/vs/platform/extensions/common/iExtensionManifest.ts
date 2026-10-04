@@ -113,6 +113,13 @@ export interface IExtensionContributions {
     readonly configuration?: IConfigurationContribution | readonly IConfigurationContribution[];
 
     /**
+     * Переопределения дефолтов: плоские ключи и секции языков
+     * (`"[makefile]": { "editor.insertSpaces": false }`). Ложатся в общий
+     * реестр настроек переопределениями дефолтов (`registerDefaultConfigurations`).
+     */
+    readonly configurationDefaults?: Readonly<Record<string, unknown>>;
+
+    /**
      * Команды расширения. Используем `command`/`title`/`category`: заголовок и
      * группа прокидываются в host, чтобы рантайм-`registerCommand` показался в
      * палитре (см. `IExtensionRegistration.commandTitles` /
@@ -144,8 +151,6 @@ export interface IExtensionContributions {
     // readonly submenus?: readonly ISubmenuContribution[];
     //
     // readonly snippets?: readonly ISnippetContribution[];
-    //
-    // readonly configurationDefaults?: Readonly<Record<string, unknown>>;
     //
     // readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
     // readonly viewsContainers?: Readonly<Record<string, readonly IViewContainerContribution[]>>;

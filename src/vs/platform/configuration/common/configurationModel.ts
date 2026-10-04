@@ -9,14 +9,23 @@
  * Слияние: глубоко по объектам, для примитивов/массивов выигрывает
  * правый операнд (последующий слой). Это совпадает с поведением VS Code:
  * массивы не конкатенируются, объекты сливаются рекурсивно.
+ *
+ * Секции языков (`"[go]": { "editor.insertSpaces": false }`, в том числе
+ * сдвоенные `"[javascript][typescript]"`) хранятся отдельно от основного дерева
+ * — как `overrides` у `ConfigurationModel` vscode — и сливаются послойно так же.
+ * Значение для языка даёт {@link override}: основное дерево, поверх — секция
+ * языка. Применяется к уже слитой модели всех слоёв, поэтому `[lang]` из
+ * любого слоя (и из дефолтов расширения) бьёт плоское значение любого слоя.
  */
 export class ConfigurationModel {
-    public static readonly EMPTY = new ConfigurationModel({});
+    public static readonly EMPTY = new ConfigurationModel({}, new Map());
 
     private readonly tree: ReadonlyTree;
+    private readonly overrides: ReadonlyMap<string, ReadonlyTree>;
 
-    private constructor(tree: ReadonlyTree) {
+    private constructor(tree: ReadonlyTree, overrides: ReadonlyMap<string, ReadonlyTree>) {
         this.tree = tree;
+        this.overrides = overrides;
     }
 
     /**
@@ -26,18 +35,67 @@ export class ConfigurationModel {
      */
     public static fromRaw(raw: unknown): ConfigurationModel {
         if (!isPlainObject(raw)) return ConfigurationModel.EMPTY;
-        const normalized = normalizeNode(raw);
-        return new ConfigurationModel(normalized);
+        const contents: Record<string, unknown> = {};
+        const overrides = new Map<string, Record<string, unknown>>();
+        for (const [key, value] of Object.entries(raw)) {
+            const identifiers = overrideIdentifiersOf(key);
+            if (identifiers === null) {
+                contents[key] = value;
+                continue;
+            }
+            // Секция языка — объект настроек; иное (опечатка) игнорируется.
+            if (!isPlainObject(value)) continue;
+            const section = normalizeNode(value);
+            for (const identifier of identifiers) {
+                overrides.set(identifier, deepMerge(overrides.get(identifier) ?? {}, section));
+            }
+        }
+        return new ConfigurationModel(normalizeNode(contents), overrides);
     }
 
     public static merge(...layers: readonly ConfigurationModel[]): ConfigurationModel {
         if (layers.length === 0) return ConfigurationModel.EMPTY;
         if (layers.length === 1) return layers[0];
         let acc: ReadonlyTree = {};
+        const overrides = new Map<string, ReadonlyTree>();
         for (const layer of layers) {
             acc = deepMerge(acc, layer.tree);
+            for (const [identifier, section] of layer.overrides) {
+                overrides.set(identifier, deepMerge(overrides.get(identifier) ?? {}, section));
+            }
         }
-        return new ConfigurationModel(acc);
+        return new ConfigurationModel(acc, overrides);
+    }
+
+    /** Идентификаторы языков, у которых в модели есть своя секция. */
+    public getOverrideIdentifiers(): string[] {
+        return [...this.overrides.keys()];
+    }
+
+    /** Секция языка как самостоятельная модель (без основного дерева); пустая, если секции нет. */
+    public getOverride(identifier: string): ConfigurationModel {
+        const section = this.overrides.get(identifier);
+        return section === undefined ? ConfigurationModel.EMPTY : new ConfigurationModel(section, new Map());
+    }
+
+    /**
+     * Модель для языка: основное дерево, поверх — секция `identifier` (аналог
+     * `ConfigurationModel.override` vscode). Без секции — та же модель.
+     */
+    public override(identifier: string): ConfigurationModel {
+        const section = this.overrides.get(identifier);
+        if (section === undefined) return this;
+        return new ConfigurationModel(deepMerge(this.tree, section), new Map());
+    }
+
+    /**
+     * Сырая форма слоя: основное дерево плюс секции `"[lang]"` — то, что едет в
+     * extension host и разбирается там тем же {@link fromRaw}.
+     */
+    public toRaw(): Record<string, unknown> {
+        const raw: Record<string, unknown> = { ...this.tree };
+        for (const [identifier, section] of this.overrides) raw[`[${identifier}]`] = section;
+        return raw;
     }
 
     /** Точечный лукап. */
@@ -69,6 +127,23 @@ export class ConfigurationModel {
 }
 
 type ReadonlyTree = Readonly<Record<string, unknown>>;
+
+/** `"[go]"` → `["go"]`, `"[javascript][typescript]"` → оба; обычный ключ → `null`. */
+const OVERRIDE_KEY = /^(\[[^\]]+\])+$/;
+
+/** Ключ секции языка (`"[go]"`, `"[a][b]"`) — как `OVERRIDE_PROPERTY_REGEX` vscode. */
+export function isOverrideKey(key: string): boolean {
+    return OVERRIDE_KEY.test(key);
+}
+
+function overrideIdentifiersOf(key: string): string[] | null {
+    if (!isOverrideKey(key)) return null;
+    return key
+        .slice(1, -1)
+        .split("][")
+        .map((identifier) => identifier.trim())
+        .filter((identifier) => identifier.length > 0);
+}
 
 function splitKey(key: string): string[] {
     if (key.length === 0) return [];

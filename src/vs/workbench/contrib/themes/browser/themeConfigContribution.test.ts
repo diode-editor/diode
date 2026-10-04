@@ -29,6 +29,7 @@ class FakeConfig {
     public emit(affectedKeys: string[]): void {
         const event: IConfigurationChangeEvent = {
             affectedKeys,
+            overrideIdentifiers: [],
             affectsConfiguration: (key) => affectedKeys.some((k) => k === key || k.startsWith(`${key}.`)),
         };
         for (const l of this.listeners) l(event);

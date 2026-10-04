@@ -120,6 +120,16 @@ describe("DiagnosticsService — settings.json validation", () => {
         h.service.dispose();
     });
 
+    it("секция языка — известный ключ верхнего уровня", () => {
+        const h = createHarness();
+        const text = ["{", '    "[python]": { "editor.tabSize": 2 },', '    "[nope": 1', "}"].join("\n");
+        h.source.open(new FakeEditor(SETTINGS_PATH, text));
+
+        expect(h.markerService.read().map((m) => m.message)).toEqual(["Unknown Configuration Setting: [nope"]);
+
+        h.service.dispose();
+    });
+
     it("reports no markers when every setting is known", () => {
         const h = createHarness();
         const editor = new FakeEditor(SETTINGS_PATH, KNOWN_SETTINGS);

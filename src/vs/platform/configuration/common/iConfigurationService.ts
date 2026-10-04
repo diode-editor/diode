@@ -17,14 +17,21 @@ export interface IConfigurationService {
      * значение вне схемы (не тот тип, не из `enum`, вне `minimum`/`maximum`)
      * реализация заменяет дефолтом.
      */
-    get<K extends keyof IConfigurationKeys>(key: K): IConfigurationKeys[K];
+    get<K extends keyof IConfigurationKeys>(key: K, overrides?: IConfigurationOverrides): IConfigurationKeys[K];
     /**
      * Чужой ключ (настройки расширений, `git.*`) или ключ с явным типом:
-     * значение по точечному ключу (`"editor.tabSize"`), а если его нет ни в
-     * одном слое — `defaultValue` (или `undefined`). `T` здесь — приведение для
-     * удобства: тип значения вне схемы приложения не проверяется.
+     * значение по точечному ключу, `undefined`, если его нет ни в одном слое.
+     * `T` здесь — приведение для удобства: тип значения вне схемы приложения не
+     * проверяется.
+     *
+     * `overrides.overrideIdentifier` — язык: поверх итогового значения ложится
+     * секция `"[<язык>]"` (из любого слоя, включая дефолты расширений) — как
+     * `getValue(section, { overrideIdentifier })` у VS Code. В секции действуют
+     * только ключи ядра со `scope: "language-overridable"`; прочие ключи ядра там
+     * игнорируются.
      */
-    get<T>(key: string, defaultValue?: T): T | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T — приведение для чужих ключей, как у ConfigurationModel.get
+    get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined;
 
     /**
      * Возвращает всё дерево настроек или поддерево по dotted-section.
@@ -46,7 +53,7 @@ export interface IConfigurationService {
      * если в соответствующем слое ключ не задан. `value` — итоговое
      * значение (то же, что вернёт `get(key)`).
      */
-    inspect<T>(key: string): IConfigurationInspectResult<T>;
+    inspect<T>(key: string, overrides?: IConfigurationOverrides): IConfigurationInspectResult<T>;
 
     /**
      * Подписка на изменения: правка settings.json на диске (live-reload) и
@@ -94,9 +101,16 @@ export interface IConfigurationInspectResult<T> {
     readonly value: T | undefined;
 }
 
+/** Уточнение чтения: язык, для которого нужно значение (аналог `IConfigurationOverrides` vscode). */
+export interface IConfigurationOverrides {
+    readonly overrideIdentifier?: string;
+}
+
 export interface IConfigurationChangeEvent {
-    /** Список изменившихся точечных ключей. */
+    /** Список изменившихся точечных ключей — в основном дереве или в секции языка. */
     readonly affectedKeys: readonly string[];
+    /** Языки, чья секция (`"[go]"`) поменялась. */
+    readonly overrideIdentifiers: readonly string[];
     /** Удобный helper: проверяет, затронут ли ключ или его префикс. */
     affectsConfiguration(key: string): boolean;
 }

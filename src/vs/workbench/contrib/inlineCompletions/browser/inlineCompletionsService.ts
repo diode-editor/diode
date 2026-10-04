@@ -189,7 +189,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         const providers = this.languageFeatures.inlineCompletionsProvider.ordered(editor);
         if (providers.length === 0) return;
         if (editor.readOnly) return;
-        if (triggerKind === InlineCompletionTriggerKind.Automatic && !this.autoTriggerEnabled) return;
+        if (triggerKind === InlineCompletionTriggerKind.Automatic && !this.autoTriggerEnabled(editor.languageId))
+            return;
         if (this.completionService.isOpen()) return;
 
         const selections = editor.viewState.selections;
@@ -210,7 +211,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
                 line: caret.line,
                 character: caret.character,
                 triggerKind,
-                timeoutMs: this.requestTimeoutMs,
+                timeoutMs: this.requestTimeoutMs(editor.languageId),
             },
             ticket.token,
         );
@@ -244,21 +245,22 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         this.clearSession();
     }
 
-    // ─── Настройки (читаются на каждом обращении — правка применяется на лету) ─
+    // ─── Настройки (читаются на каждом обращении — правка применяется на лету;
+    //     для языка документа — с его секцией `"[lang]"`) ─
 
     /** `editor.inlineSuggest.enabled`: разрешён ли авто-запрос при наборе. */
-    private get autoTriggerEnabled(): boolean {
-        return this.configuration.get("editor.inlineSuggest.enabled");
+    private autoTriggerEnabled(languageId: string): boolean {
+        return this.configuration.get("editor.inlineSuggest.enabled", { overrideIdentifier: languageId });
     }
 
     /** `editor.inlineSuggest.delay`: пауза перед авто-запросом, мс. */
-    private get autoTriggerDelayMs(): number {
-        return this.configuration.get("editor.inlineSuggest.delay");
+    private autoTriggerDelayMs(languageId: string | undefined): number {
+        return this.configuration.get("editor.inlineSuggest.delay", { overrideIdentifier: languageId });
     }
 
     /** `editor.inlineSuggest.requestTimeout`: сколько ждать ответ источника, мс. */
-    private get requestTimeoutMs(): number {
-        return this.configuration.get("editor.inlineSuggest.requestTimeout");
+    private requestTimeoutMs(languageId: string): number {
+        return this.configuration.get("editor.inlineSuggest.requestTimeout", { overrideIdentifier: languageId });
     }
 
     /** Принимает показанную подсказку: одна undoable-правка, каретка в конец. */
@@ -429,7 +431,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     }
 
     private scheduleAutoTrigger(): void {
-        this.autoTrigger.schedule(this.autoTriggerDelayMs);
+        this.autoTrigger.schedule(this.autoTriggerDelayMs(this.group.getActiveEditor()?.languageId));
     }
 
     private cancelAutoTrigger(): void {

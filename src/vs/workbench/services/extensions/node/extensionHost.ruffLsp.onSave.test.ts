@@ -11,11 +11,11 @@ import {
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { type IInstalledRuff, installRuff, LINT_PY } from "../../../../../TestUtils/ruffFixture.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 
 // onSave поверх СТОКОВОГО стека (#196, хвост): настоящий ruff.vsix + вшитый
 // `ruff server`. `editor.codeActionsOnSave: {"source.fixAll": true}` при
@@ -27,12 +27,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 let installed: IInstalledRuff;
 
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            return key in values ? (values[key] as T) : defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с onSave-настройками и стоковым ruff", () => {

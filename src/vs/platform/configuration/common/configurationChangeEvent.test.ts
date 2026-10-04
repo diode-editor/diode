@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createConfigurationChangeEvent, diffConfigurationKeys } from "./configurationChangeEvent.ts";
+import {
+    createConfigurationChangeEvent,
+    diffConfigurationKeys,
+    diffOverrideIdentifiers,
+} from "./configurationChangeEvent.ts";
 import { ConfigurationModel } from "./configurationModel.ts";
 
 describe("diffConfigurationKeys", () => {
@@ -38,9 +42,30 @@ describe("createConfigurationChangeEvent", () => {
         expect(event.affectsConfiguration("editorX")).toBe(false); // prefix but not a segment boundary
     });
 
+    it("без языков — пустой список overrideIdentifiers", () => {
+        expect(createConfigurationChangeEvent(["editor.tabSize"]).overrideIdentifiers).toEqual([]);
+    });
+
     it("affectsConfiguration — достаточно одного совпавшего ключа из нескольких", () => {
         const event = createConfigurationChangeEvent(["editor.tabSize", "files.exclude"]);
         expect(event.affectsConfiguration("files.exclude")).toBe(true);
         expect(event.affectsConfiguration("search.exclude")).toBe(false);
+    });
+});
+
+describe("diffOverrideIdentifiers", () => {
+    it("только языки, чья секция поменялась; появившаяся и исчезнувшая — тоже", () => {
+        const prev = ConfigurationModel.fromRaw({
+            "[go]": { "editor.tabSize": 4 },
+            "[python]": { "editor.tabSize": 2 },
+            "[rust]": { "editor.tabSize": 4 },
+        });
+        const next = ConfigurationModel.fromRaw({
+            "[go]": { "editor.tabSize": 8 },
+            "[python]": { "editor.tabSize": 2 },
+            "[c]": { "editor.tabSize": 4 },
+        });
+
+        expect(diffOverrideIdentifiers(prev, next).sort()).toEqual(["c", "go", "rust"]);
     });
 });

@@ -15,7 +15,10 @@ import { ConfigurationModel } from "../../../platform/configuration/common/confi
  *
  * Слияние — та же {@link ConfigurationModel}, что в главном процессе (аналог
  * `ExtHostConfigProvider` vscode поверх `configurationModels.ts`): своего
- * merge-кода и своего defaults-слоя у субпроцесса нет.
+ * merge-кода и своего defaults-слоя у субпроцесса нет. Секции языков
+ * (`"[python]"`) приезжают в тех же слоях; `languageId` у чтений выбирает
+ * значение для языка. Фильтра `language-overridable` здесь нет — схем ядра
+ * субпроцесс не знает.
  */
 
 /** Результат покомпонентного inspect (подмножество `vscode`). */
@@ -42,22 +45,22 @@ export class WorkspaceConfigStore {
         this.merged = ConfigurationModel.merge(this.defaults, this.user);
     }
 
-    /** Значение по dotted-ключу; `defaultValue`, если ключ отсутствует. */
-    public get(dottedKey: string, defaultValue?: unknown): unknown {
-        return this.merged.get(dottedKey) ?? defaultValue;
+    /** Значение по dotted-ключу (для языка `languageId`, если задан); `defaultValue`, если ключа нет. */
+    public get(dottedKey: string, defaultValue?: unknown, languageId?: string): unknown {
+        return this.model(languageId).get(dottedKey) ?? defaultValue;
     }
 
     /** Есть ли ключ (в любом слое). */
-    public has(dottedKey: string): boolean {
-        return this.merged.get(dottedKey) !== undefined;
+    public has(dottedKey: string, languageId?: string): boolean {
+        return this.model(languageId).get(dottedKey) !== undefined;
     }
 
-    public inspect(dottedKey: string): IConfigInspectResult {
+    public inspect(dottedKey: string, languageId?: string): IConfigInspectResult {
         return {
             key: dottedKey,
             defaultValue: this.defaults.get(dottedKey),
             globalValue: this.user.get(dottedKey),
-            value: this.merged.get(dottedKey),
+            value: this.model(languageId).get(dottedKey),
         };
     }
 
@@ -65,9 +68,14 @@ export class WorkspaceConfigStore {
      * Собственные ключи поддерева `section` (для зеркалирования на объект
      * `WorkspaceConfiguration` — VS Code выставляет значения секции как поля).
      */
-    public sectionKeys(section: string | undefined): string[] {
-        const node = this.merged.getValue(section);
+    public sectionKeys(section: string | undefined, languageId?: string): string[] {
+        const node = this.model(languageId).getValue(section);
         return isPlainObject(node) ? Object.keys(node) : [];
+    }
+
+    private model(languageId: string | undefined): ConfigurationModel {
+        // Stryker disable next-line ConditionalExpression: override() без секции и так отдаёт ту же модель — ветка нужна только типу
+        return languageId === undefined ? this.merged : this.merged.override(languageId);
     }
 }
 

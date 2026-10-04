@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
@@ -16,7 +17,6 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -33,12 +33,7 @@ import { EditorService } from "./editorService.ts";
 // формат → will-save расширений; на диск уходит уже поправленный текст.
 
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            return key in values ? (values[key] as T) : defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 /** Реестры каждого созданного сервиса — тесты кладут в них провайдеров. */
@@ -270,6 +265,22 @@ describe("EditorService — сохранение по настройкам onSav
             // viewState сортирует мультикурсоры по позиции — первичное (0,2)).
             expect(pane.viewState.selections).toHaveLength(1);
             expect(pane.viewState.selections[0].active).toEqual({ line: 0, character: 2 });
+            ctrl.dispose();
+        });
+
+        it("включён только секцией языка документа — участник в списке для этого языка", async () => {
+            const ctrl = createEditorService({ "[plaintext]": { "editor.formatOnSave": true } });
+            const fp = writeFile("lang.txt", "x\n");
+            ctrl.openFile(fp);
+            let calls = 0;
+            useFormatter(ctrl, () => {
+                calls++;
+                return Promise.resolve([]);
+            });
+
+            await ctrl.getActiveEditor()!.save();
+
+            expect(calls).toBe(1);
             ctrl.dispose();
         });
 
