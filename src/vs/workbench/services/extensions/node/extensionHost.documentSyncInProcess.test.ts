@@ -8,6 +8,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireDocumentSyncSnapshot } from "../../../api/common/wireTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
+import type { ExtensionPhases } from "./extensionPhases.ts";
+import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 // Хост на in-process RPC-паре (как extensionHost.decorationsInProcess.test.ts):
 // гейты document sync — у DocumentsCustomer (см. его тесты), здесь — только
@@ -46,8 +48,10 @@ describe("ExtensionHost — document sync (in-process)", () => {
         await flushMicrotasks();
         expect(received).toEqual([]);
 
-        // Активированное расширение попадает в `extensions` (см. activateRegistration).
-        (host as unknown as { extensions: Set<string> }).extensions.add("test.fixture");
+        // Активированное расширение попадает в активные фазы (см. requestActivation).
+        (host as unknown as { phases: ExtensionPhases }).phases.markActive({
+            id: "test.fixture",
+        } as IExtensionRegistration);
         host.didOpenTextDocument(SNAPSHOT);
         host.didCloseTextDocument(SNAPSHOT.uri);
         await flushMicrotasks();
