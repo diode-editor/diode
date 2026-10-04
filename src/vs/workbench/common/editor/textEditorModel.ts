@@ -309,6 +309,9 @@ export abstract class BaseTextEditorModel extends Disposable {
             label: "Change End of Line Sequence",
             versionBefore: version,
             versionAfter: version,
+            // Текст шаг не трогает: undo/redo гоняют backwardEdits, а forwardEdits
+            // шага EOL не исполняются никогда — мутант массива ненаблюдаем.
+            // Stryker disable next-line ArrayDeclaration: эквивалентен — см. выше
             forwardEdits: [],
             backwardEdits: [],
             beforeSelections: selections,

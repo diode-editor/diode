@@ -69,8 +69,10 @@ describe("Workbench — Save As", () => {
         });
         h.testApp.render();
 
+        // Файл переехал на новый путь той же вкладкой — второй не появилось.
         const tabStrip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
         const labels = tabStrip.getItemElements().map((el) => el.getLabel());
+        expect(labels).toHaveLength(1);
         expect(labels.some((l) => l.includes("renamed.md"))).toBe(true);
     });
 
