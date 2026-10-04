@@ -1168,16 +1168,15 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const key = uri.toString();
         // Вкладка недискового ресурса — текстовая и синтетическая по построению;
         // обе проверки сужают тип, отличить их поведением нечем.
-        const targets = this.allPanes()
-            // Stryker disable next-line MethodExpression: эквивалентен — см. выше
-            .filter(isTextEditorPane)
-            .flatMap((pane) =>
-                pane.uri.toString() === key &&
-                // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
-                pane.model instanceof SyntheticTextModel
-                    ? [pane.model]
-                    : [],
-            );
+        // Stryker disable next-line MethodExpression: эквивалентен — см. выше
+        const textPanes = this.allPanes().filter(isTextEditorPane);
+        const targets = textPanes.flatMap((pane) =>
+            pane.uri.toString() === key &&
+            // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+            pane.model instanceof SyntheticTextModel
+                ? [pane.model]
+                : [],
+        );
         if (targets.length === 0) return;
         // `.catch` ХВОСТОМ, а не вторым аргументом `then`: так он накрывает и
         // отказ провайдера, и поломку самой заливки текста. Иначе исключение из
