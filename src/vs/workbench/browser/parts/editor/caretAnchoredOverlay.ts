@@ -76,15 +76,19 @@ export class CaretAnchoredOverlay extends Disposable {
      * всё равно закрыл бы каретку.
      */
     public setAnchor(anchor: OverlayAnchorPosition, placement: CaretOverlayPlacement = "below"): void {
-        if (placement === "below") {
-            this.session.setAnchor(anchor);
-            return;
+        switch (placement) {
+            case "below":
+                this.session.setAnchor(anchor);
+                return;
+            case "aboveElseBelow": {
+                const height = this.element.getMaxIntrinsicHeight(this.element.getMaxIntrinsicWidth(0));
+                const fitsAbove = anchor.screenY >= height;
+                this.session.setAnchor(
+                    fitsAbove ? { ...anchor, preferBelow: false, offsetY: -height } : { ...anchor, preferBelow: true },
+                );
+                return;
+            }
         }
-        const height = this.element.getMaxIntrinsicHeight(this.element.getMaxIntrinsicWidth(0));
-        const fitsAbove = anchor.screenY >= height;
-        this.session.setAnchor(
-            fitsAbove ? { ...anchor, preferBelow: false, offsetY: -height } : { ...anchor, preferBelow: true },
-        );
     }
 
     /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
