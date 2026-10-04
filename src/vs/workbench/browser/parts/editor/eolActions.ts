@@ -1,8 +1,8 @@
-import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
+import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**
  * `when: "!editorReadonly"` у команд ниже — декларация: `commandAction.ts`

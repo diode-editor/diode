@@ -117,7 +117,7 @@ PR 2 перенесены в PR 5: рестор синхронен по устр
 | `contrib/files/browser/fileActions.ts` | `existsSync`/`statSync` `:48-49` `:75-76` `:151-152` `:177` | 8 | тёплый | валидаторы Open File / Open Folder / Save As — **на каждое нажатие** в поле ввода |
 | `contrib/files/browser/fileOperationsService.ts` | `statSync` `:223`, `existsSync` `:242` `:281` | 3 | тёплый | New File/Folder, Rename: цель + валидаторы на каждое нажатие |
 | `contrib/preferences/browser/preferencesActions.ts` | `existsSync`, `mkdirSync`, `writeFileSync` `:35-38` | 3 | холодный | посев `settings.json`/`keybindings.json` |
-| `browser/actions/encodingActions.ts` | `existsSync` `:29` | 1 | холодный | доступен ли Reopen with Encoding |
+| `browser/parts/editor/encodingActions.ts` | `existsSync` `:29` | 1 | холодный | доступен ли Reopen with Encoding |
 | `base/common/assets/bundleFile.ts` *(→ `base/node/assets`, PR 6)* | `existsSync` `:23`, `readFileSync` `:44` | 2 | bootstrap | чтение бандла ассетов; оба импортёра — из `base/node/assets` |
 
 Итого: **9 файлов, 26 sync-вызовов.**

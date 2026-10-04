@@ -1,15 +1,18 @@
-import { comparePositions, positionsEqual } from "../../../editor/common/core/iPosition.ts";
-import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
-import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
-import { formatDocument, formatRange } from "../../../editor/contrib/format/format.ts";
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
-import { showTransientNotice } from "../../services/statusbar/common/transientNotice.ts";
-import { applyFormattingEdits } from "../parts/editor/applyFormattingEdits.ts";
-import { EditorStateCancellationTokenSource, EditorStateFlag } from "../parts/editor/editorStateCancellation.ts";
+import { comparePositions, positionsEqual } from "../../../../editor/common/core/iPosition.ts";
+import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import { formatDocument, formatRange } from "../../../../editor/contrib/format/format.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormattingEdits.ts";
+import {
+    EditorStateCancellationTokenSource,
+    EditorStateFlag,
+} from "../../../browser/parts/editor/editorStateCancellation.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { showTransientNotice } from "../../../services/statusbar/common/transientNotice.ts";
 
 // ─── Formatting (#196) ──────────────────────────────────────
 //
@@ -122,3 +125,6 @@ export const formatSelectionAction: CommandAction = {
         return runFormat(accessor, true, "Format Selection");
     },
 };
+
+/** Экшены форматирования. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const FORMAT_ACTIONS: readonly CommandAction[] = [formatDocumentAction, formatSelectionAction];

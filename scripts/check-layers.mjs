@@ -107,7 +107,6 @@ const DIRECTION_EXCEPTIONS = [
     "src/vs/workbench/browser/actions/inputActions.ts",
     "src/vs/workbench/browser/actions/layoutActions.ts",
     "src/vs/workbench/browser/actions/menuContributions.ts",
-    "src/vs/workbench/browser/actions/searchActions.ts",
 ];
 
 /**

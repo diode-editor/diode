@@ -1,15 +1,14 @@
-import { createRange } from "../../../editor/common/core/iRange.ts";
-import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
-import { getCodeActions, type ICodeActionItem } from "../../../editor/contrib/codeAction/codeAction.ts";
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
-import { showTransientNotice } from "../../services/statusbar/common/transientNotice.ts";
-import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
-
-import { selectionRange } from "./formatActions.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import { getCodeActions, type ICodeActionItem } from "../../../../editor/contrib/codeAction/codeAction.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { showTransientNotice } from "../../../services/statusbar/common/transientNotice.ts";
+import { selectionRange } from "../../format/browser/formatActions.ts";
 
 // ─── Code actions (#196) ────────────────────────────────────
 //
@@ -166,3 +165,6 @@ export const fixAllAction: CommandAction = {
         return runSourceAction(accessor, "source.fixAll", "fix all");
     },
 };
+
+/** Экшены code actions (organize imports, fix all, quick fix). Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const CODE_ACTION_ACTIONS: readonly CommandAction[] = [organizeImportsAction, fixAllAction, quickFixAction];

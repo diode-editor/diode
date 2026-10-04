@@ -22,7 +22,7 @@ import {
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { formatDocumentAction, formatSelectionAction } from "../../../browser/actions/formatActions.ts";
+import { formatDocumentAction, formatSelectionAction } from "../../../contrib/format/browser/formatActions.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 

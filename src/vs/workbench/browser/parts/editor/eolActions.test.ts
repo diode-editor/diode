@@ -2,26 +2,26 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { diskFileService } from "../../../../TestUtils/diskFileService.ts";
-import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
-import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
-import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
-import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
-import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
-import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import { registerAction } from "../../../platform/actions/common/commandAction.ts";
-import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
-import { NULL_CONFIGURATION_SERVICE } from "../../../platform/configuration/common/nullConfigurationService.ts";
-import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
-import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
-import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
-import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
-import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
-import { ThemeService } from "../../services/themes/common/themeService.ts";
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
+import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
+import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
+import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
+import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
+import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
+import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
+import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
+import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { convertToCrlfAction, convertToLfAction, toggleEolAction } from "./eolActions.ts";
 

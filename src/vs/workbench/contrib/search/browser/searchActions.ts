@@ -1,14 +1,10 @@
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import {
-    SEARCH_VIEW_ID,
-    SEARCH_VIEWLET_ID,
-    SearchComponentDIToken,
-} from "../../contrib/search/browser/searchComponent.ts";
-import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
-import { viewMenuVisible } from "./menuContexts.ts";
+import { SEARCH_VIEW_ID, SEARCH_VIEWLET_ID, SearchComponentDIToken } from "./searchComponent.ts";
 
 /** nf-cod-collapse_all — inline-кнопка заголовка Search. */
 const COLLAPSE_ALL_ICON = "\ueac5";
@@ -185,3 +181,16 @@ export const searchViewAsListAction: CommandAction = {
         accessor.get(SearchComponentDIToken).setViewMode("list");
     },
 };
+
+/** Экшены вьюлета поиска. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const SEARCH_ACTIONS: readonly CommandAction[] = [
+    showSearchAction,
+    searchViewAsTreeAction,
+    searchViewAsListAction,
+    toggleSearchDetailsAction,
+    collapseSearchResultsAction,
+    expandSearchResultsAction,
+    focusNextInputBoxAction,
+    focusPreviousInputBoxAction,
+    focusSearchFromResultsAction,
+];

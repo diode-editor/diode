@@ -1,26 +1,38 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
+import { CODE_ACTION_ACTIONS } from "../../contrib/codeAction/browser/codeActionActions.ts";
+import { COMMENT_ACTIONS } from "../../contrib/comment/browser/commentActions.ts";
 import { COMPARE_ACTIONS } from "../../contrib/diff/browser/compareActions.ts";
 import { EXTENSIONS_ACTIONS } from "../../contrib/extensions/browser/extensionsActions.ts";
 import { FILES_ACTIONS } from "../../contrib/files/browser/filesActions.ts";
 import { FIND_ACTIONS } from "../../contrib/find/browser/findActions.ts";
+import { FOLDING_ACTIONS } from "../../contrib/folding/browser/foldingActions.ts";
+import { FORMAT_ACTIONS } from "../../contrib/format/browser/formatActions.ts";
 import { GOTO_DEFINITION_ACTIONS } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { HOVER_ACTIONS } from "../../contrib/hover/browser/hoverActions.ts";
 import { INLINE_COMPLETIONS_ACTIONS } from "../../contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
 import { KEYBOARD_DOCTOR_ACTIONS } from "../../contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
+import { LINES_OPERATIONS_ACTIONS } from "../../contrib/linesOperations/browser/linesOperationsActions.ts";
+import { MULTI_CURSOR_ACTIONS } from "../../contrib/multicursor/browser/multiCursorActions.ts";
 import { OUTPUT_ACTIONS } from "../../contrib/output/browser/outputActions.ts";
 import { PARAMETER_HINTS_ACTIONS } from "../../contrib/parameterHints/browser/parameterHintsActions.ts";
 import { PREFERENCES_ACTIONS } from "../../contrib/preferences/browser/preferencesActions.ts";
 import { QUICK_ACCESS_ACTIONS } from "../../contrib/quickaccess/browser/quickOpenActions.ts";
 import { REFERENCES_ACTIONS } from "../../contrib/references/browser/referencesActions.ts";
 import { SCM_ACTIONS } from "../../contrib/scm/browser/scmActions.ts";
+import { SEARCH_ACTIONS } from "../../contrib/search/browser/searchActions.ts";
 import { SUGGEST_ACTIONS } from "../../contrib/suggest/browser/suggestActions.ts";
 import { TERMINAL_ACTIONS } from "../../contrib/terminal/browser/terminalActions.ts";
 import { THEME_ACTIONS } from "../../contrib/themes/browser/themeActions.ts";
+import { changeEncodingAction } from "../parts/editor/encodingActions.ts";
+import {
+    changeEolAction,
+    convertToCrlfAction,
+    convertToLfAction,
+    toggleEolAction,
+} from "../parts/editor/eolActions.ts";
 
 import { quitAction, reloadWindowAction, showAboutDialogAction } from "./appActions.ts";
 import { clipboardCopyAction, clipboardCutAction, clipboardPasteAction } from "./clipboardActions.ts";
-import { fixAllAction, organizeImportsAction, quickFixAction } from "./codeActionActions.ts";
-import { COMMENT_ACTIONS } from "./commentActions.ts";
 import { showEditorContextMenuAction } from "./contextMenuActions.ts";
 import {
     cursorBottomAction,
@@ -66,21 +78,6 @@ import {
     undoAction,
 } from "./editorEditActions.ts";
 import { EDITOR_GROUP_ACTIONS } from "./editorGroupActions.ts";
-import { changeEncodingAction } from "./encodingActions.ts";
-import { changeEolAction, convertToCrlfAction, convertToLfAction, toggleEolAction } from "./eolActions.ts";
-import {
-    foldAction,
-    foldAllAction,
-    foldLevelActions,
-    foldRecursivelyAction,
-    gotoNextFoldAction,
-    gotoPreviousFoldAction,
-    toggleFoldAction,
-    unfoldAction,
-    unfoldAllAction,
-    unfoldRecursivelyAction,
-} from "./foldingActions.ts";
-import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 import {
     inputCopyAction,
     inputCursorEndAction,
@@ -117,33 +114,13 @@ import {
     toggleSidebarAction,
 } from "./layoutActions.ts";
 import {
-    copyLinesDownAction,
-    copyLinesUpAction,
-    deleteLinesAction,
-    duplicateSelectionAction,
-    moveLinesDownAction,
-    moveLinesUpAction,
-} from "./lineOperationActions.ts";
-import {
     listFocusFirstAction,
     listFocusLastAction,
     listFocusPageDownAction,
     listFocusPageUpAction,
 } from "./listActions.ts";
-import { MULTI_CURSOR_ACTIONS } from "./multiCursorActions.ts";
 import { navigateBackAction, navigateForwardAction } from "./navigationActions.ts";
 import { clearNotificationsAction, focusNotificationAction } from "./notificationActions.ts";
-import {
-    collapseSearchResultsAction,
-    expandSearchResultsAction,
-    focusNextInputBoxAction,
-    focusPreviousInputBoxAction,
-    focusSearchFromResultsAction,
-    searchViewAsListAction,
-    searchViewAsTreeAction,
-    showSearchAction,
-    toggleSearchDetailsAction,
-} from "./searchActions.ts";
 import {
     closeActiveEditorAction,
     nextEditorAction,
@@ -153,7 +130,6 @@ import {
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "./tabCloseActions.ts";
-import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whitespaceActions.ts";
 
 /**
  * Реестр встроенных экшенов Workbench'а. Регистрирует их владелец приложения
@@ -214,37 +190,18 @@ export const builtinActions: readonly CommandAction[] = [
     selectAllAction,
     indentLinesAction,
     outdentLinesAction,
-    copyLinesUpAction,
-    copyLinesDownAction,
-    moveLinesUpAction,
-    moveLinesDownAction,
-    duplicateSelectionAction,
-    deleteLinesAction,
+    ...LINES_OPERATIONS_ACTIONS,
     ...COMMENT_ACTIONS,
     convertToLfAction,
     convertToCrlfAction,
     toggleEolAction,
-    foldAction,
-    unfoldAction,
-    toggleFoldAction,
-    foldAllAction,
-    unfoldAllAction,
-    foldRecursivelyAction,
-    unfoldRecursivelyAction,
-    ...foldLevelActions,
-    gotoNextFoldAction,
-    gotoPreviousFoldAction,
-    trimTrailingWhitespaceAction,
-    insertFinalNewLineAction,
+    ...FOLDING_ACTIONS,
     ...SUGGEST_ACTIONS,
     ...GOTO_DEFINITION_ACTIONS,
     ...HOVER_ACTIONS,
     ...PARAMETER_HINTS_ACTIONS,
-    formatDocumentAction,
-    formatSelectionAction,
-    organizeImportsAction,
-    fixAllAction,
-    quickFixAction,
+    ...FORMAT_ACTIONS,
+    ...CODE_ACTION_ACTIONS,
     clipboardCopyAction,
     clipboardCutAction,
     clipboardPasteAction,
@@ -289,15 +246,7 @@ export const builtinActions: readonly CommandAction[] = [
     ...INLINE_COMPLETIONS_ACTIONS,
     toggleSidebarAction,
     showExplorerAction,
-    showSearchAction,
-    searchViewAsTreeAction,
-    searchViewAsListAction,
-    toggleSearchDetailsAction,
-    collapseSearchResultsAction,
-    expandSearchResultsAction,
-    focusNextInputBoxAction,
-    focusPreviousInputBoxAction,
-    focusSearchFromResultsAction,
+    ...SEARCH_ACTIONS,
     revealActiveFileInExplorerAction,
     increaseSidebarWidthAction,
     decreaseSidebarWidthAction,
