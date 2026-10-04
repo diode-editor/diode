@@ -269,7 +269,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         const uri = Uri.parse(p.uri);
         const provider = fsProviders.get(uri.scheme);
         if (provider === undefined) throw new Error(`no file system provider for scheme "${uri.scheme}"`);
-        const content = await provider.readFile(uri as unknown as vscode.Uri);
+        const content = await provider.readFile(uri);
         return { content: Buffer.from(content).toString("base64") };
     });
 
@@ -298,7 +298,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             if (!contentProviders.has(uri.scheme)) {
                 throw new Error(`no text document content provider for scheme "${uri.scheme}"`);
             }
-            return { content: await contentProviders.provide(uri as unknown as vscode.Uri, cancellation) };
+            return { content: await contentProviders.provide(uri, cancellation) };
         },
     );
 
@@ -358,7 +358,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             const wrapper = new DisposableImpl(() => {
                 inner.dispose();
                 onCountChanged(-1);
-            }) as unknown as vscode.Disposable;
+            });
             if (disposables !== undefined) disposables.push(wrapper);
             return wrapper;
         };
@@ -514,7 +514,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     }
 
     function asRelativePath(pathOrUri: string | vscode.Uri, includeWorkspaceFolder?: boolean): string {
-        const p = typeof pathOrUri === "string" ? pathOrUri : (pathOrUri as unknown as Uri).fsPath;
+        const p = typeof pathOrUri === "string" ? pathOrUri : pathOrUri.fsPath;
         for (const folder of workspaceFolders) {
             const root = folder.uri.fsPath;
             if (p === root || p.startsWith(root + "/")) {
@@ -531,7 +531,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         options?: { encoding?: string },
     ): Promise<vscode.TextDocument> {
         // Строка здесь — путь на диске (перегрузка `openTextDocument(path)`), а не uri.
-        const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : (uriOrPath as unknown as Uri);
+        const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         // Открытый документ — отдаём стабильный объект из реестра.
         const open = registry.get(uri);
         if (open !== undefined) return open as unknown as vscode.TextDocument;
@@ -541,8 +541,8 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // content providers … are consulted»). RPC здесь не нужен: провайдер
         // живёт в этом же субпроцессе.
         if (contentProviders.has(uri.scheme)) {
-            const content = await contentProviders.provide(uri as unknown as vscode.Uri);
-            if (content === null) throw FileSystemError.FileNotFound(uri as unknown as vscode.Uri);
+            const content = await contentProviders.provide(uri);
+            if (content === null) throw FileSystemError.FileNotFound(uri);
             return makeEphemeralDocument(uri, content, "utf8") as unknown as vscode.TextDocument;
         }
 
@@ -550,7 +550,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // кладём — это не открытый буфер). Читать умеем только с диска, поэтому для
         // не-file схемы честно отказываем, а не скармливаем `fsPath` в node:fs
         // (у не-file схем это не путь).
-        if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri as unknown as vscode.Uri);
+        if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 
         // Читаем сырые байты и декодируем осью encoding ядра: explicit-кодировка
         // из options побеждает BOM-сниф; неизвестный id по контракту vscode.d.ts
@@ -595,7 +595,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             const registration = fsProviders.register(scheme, provider);
             return new DisposableImpl(() => {
                 registration.dispose();
-            }) as unknown as vscode.Disposable;
+            });
         },
 
         getConfiguration,
@@ -643,7 +643,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // мире почти безобидный, а в мульти-руте — источник неверной адресации,
         // на котором расширения успели бы устаканиться.
         getWorkspaceFolder: (uri: vscode.Uri): vscode.WorkspaceFolder | undefined => {
-            const p = (uri as unknown as Uri).fsPath;
+            const p = uri.fsPath;
             const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));
             return found as unknown as vscode.WorkspaceFolder | undefined;
         },
@@ -697,7 +697,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                 for (const relativePath of relativePaths)
                     results.push(Uri.file(nodePath.join(resolved.base, relativePath)));
             }
-            return results as unknown as vscode.Uri[];
+            return results;
         },
 
         registerTextDocumentContentProvider: (
@@ -707,7 +707,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             const registration = contentProviders.register(scheme, provider);
             return new DisposableImpl(() => {
                 registration.dispose();
-            }) as unknown as vscode.Disposable;
+            });
         },
 
         // Модели доверия воркспейса у Diode нет — открытое всегда доверено
@@ -731,7 +731,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                 inner.dispose();
                 willSaveCount--;
                 if (willSaveCount === 0) pushSubscriptions();
-            }) as unknown as vscode.Disposable;
+            });
             if (disposables !== undefined) disposables.push(wrapper);
             return wrapper;
         },
@@ -748,7 +748,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                 inner.dispose();
                 didSaveCount--;
                 if (didSaveCount === 0) pushSubscriptions();
-            }) as unknown as vscode.Disposable;
+            });
             if (disposables !== undefined) disposables.push(wrapper);
             return wrapper;
         },

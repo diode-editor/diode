@@ -49,7 +49,7 @@ export function buildCommandsNamespace(
                 localCommands.delete(id);
                 rpc.notify("commands.unregisterCommand", { id });
             }
-        }) as unknown as vscode.Disposable;
+        });
     };
 
     // Команда «только при активном редакторе» (семантика VS Code): без него —
@@ -91,12 +91,12 @@ export function buildCommandsNamespace(
 }
 
 /** Инертный edit-builder для {@link buildCommandsNamespace registerTextEditorCommand}. */
-const noopTextEditorEdit = {
+const noopTextEditorEdit: vscode.TextEditorEdit = {
     replace: (): void => undefined,
     insert: (): void => undefined,
     delete: (): void => undefined,
     setEndOfLine: (): void => undefined,
-} as unknown as vscode.TextEditorEdit;
+};
 
 function parseExecuteParams(raw: unknown): { id: string; args: unknown[] } {
     if (typeof raw !== "object" || raw === null) {

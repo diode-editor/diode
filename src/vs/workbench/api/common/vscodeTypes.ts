@@ -14,7 +14,7 @@ import { Uri } from "../../../base/common/uri.ts";
  */
 
 /** Совместимая с `vscode.Disposable`. Возвращается из подписочных API. */
-export class DisposableImpl {
+export class DisposableImpl implements vscode.Disposable {
     private readonly callOnDispose: () => unknown;
 
     public constructor(callOnDispose: () => unknown) {
@@ -33,7 +33,7 @@ export class DisposableImpl {
 }
 
 /** Иммутабельная позиция (0-based line/character). */
-export class Position {
+export class Position implements vscode.Position {
     public readonly line: number;
     public readonly character: number;
 
@@ -107,7 +107,7 @@ export class Position {
 }
 
 /** Иммутабельный диапазон; `start.isBeforeOrEqual(end)` гарантирован. */
-export class Range {
+export class Range implements vscode.Range {
     public readonly start: Position;
     public readonly end: Position;
 
@@ -193,7 +193,7 @@ export class Range {
  * неподвижный конец, `active` — конец с курсором. `isReversed` истинно, когда
  * курсор стоит перед якорем.
  */
-export class Selection extends Range {
+export class Selection extends Range implements vscode.Selection {
     public readonly anchor: Position;
     public readonly active: Position;
 
@@ -230,7 +230,7 @@ export class Selection extends Range {
  * `vscode.Location` — позиция внутри ресурса (цель definition/references).
  * Position в конструкторе сворачивается в пустой Range (контракт vscode.d.ts).
  */
-export class Location {
+export class Location implements vscode.Location {
     public uri: Uri;
     public range: Range;
 
@@ -269,7 +269,7 @@ export enum FileChangeType {
 }
 
 /** Одиночная текстовая правка либо смена EOL всего документа. */
-export class TextEdit {
+export class TextEdit implements vscode.TextEdit {
     public range: Range;
     public newText: string;
     public newEol?: EndOfLine;
@@ -338,7 +338,7 @@ export enum FoldingRangeKind {
  * Провайдеры расширений возвращают её из `provideFoldingRanges`; хост
  * сериализует в `WireFoldingRange` (kind — числом).
  */
-export class FoldingRange {
+export class FoldingRange implements vscode.FoldingRange {
     public start: number;
     public end: number;
     public kind?: FoldingRangeKind;
@@ -379,7 +379,7 @@ const PROVIDER_CODE_NAME: Record<string, string> = {
     Unknown: "Unknown",
 };
 
-export class FileSystemError extends Error {
+export class FileSystemError extends Error implements vscode.FileSystemError {
     public readonly code: string;
 
     public constructor(messageOrUri?: string | Uri, code = "Unknown") {
@@ -444,7 +444,7 @@ export enum CompletionTriggerKind {
 }
 
 /** Элемент автодополнения. Сериализуется хостом в `WireCompletionItem` (WP8). */
-export class CompletionItem {
+export class CompletionItem implements vscode.CompletionItem {
     public label: string;
     public kind?: CompletionItemKind;
     public insertText?: string;
@@ -471,7 +471,7 @@ export class CompletionItem {
  * конвертация ответа падала целиком, и ошибка уходила только в
  * `client.outputChannel` — LSP-пунктов в попапе не было вовсе.
  */
-export class CompletionList<T extends CompletionItem = CompletionItem> {
+export class CompletionList<T extends CompletionItem = CompletionItem> implements vscode.CompletionList<T> {
     public items: T[];
     public isIncomplete: boolean;
 
@@ -545,7 +545,7 @@ export class SnippetString {
  * хост-сериализатор превращает её в `{ $themeColor: id }`, а resolve в конкретный
  * packed-RGB делает уже сторона host'а через тему (см. IThemeColorResolver).
  */
-export class ThemeColor {
+export class ThemeColor implements vscode.ThemeColor {
     public readonly id: string;
 
     public constructor(id: string) {
@@ -625,7 +625,7 @@ export enum DecorationRangeBehavior {
  * цвет из реестра темы. `provideFileDecoration` провайдера возвращает её;
  * host-мост сериализует `color.id` в `colorId` и резолвит в цвет имени файла.
  */
-export class FileDecoration {
+export class FileDecoration implements vscode.FileDecoration {
     public badge?: string;
     public tooltip?: string;
     public color?: ThemeColor;
@@ -642,7 +642,7 @@ export class FileDecoration {
  * Совместимый с `vscode.EventEmitter<T>`. `fire` итерирует снапшот списка
  * слушателей — расширения нередко отписываются во время dispatch.
  */
-export class EventEmitter<T> {
+export class EventEmitter<T> implements vscode.EventEmitter<T> {
     private readonly listeners: ((e: T) => unknown)[] = [];
 
     public readonly event: vscode.Event<T> = (
@@ -656,8 +656,8 @@ export class EventEmitter<T> {
             const idx = this.listeners.indexOf(bound);
             if (idx >= 0) this.listeners.splice(idx, 1);
         });
-        if (disposables !== undefined) disposables.push(disposable as unknown as vscode.Disposable);
-        return disposable as unknown as vscode.Disposable;
+        if (disposables !== undefined) disposables.push(disposable);
+        return disposable;
     };
 
     public fire(data: T): void {
@@ -790,7 +790,7 @@ export enum SymbolKind {
 }
 
 /** Иерархический тег вида code-action (`vscode.CodeActionKind` — класс, не enum). */
-export class CodeActionKind {
+export class CodeActionKind implements vscode.CodeActionKind {
     public static readonly Empty = new CodeActionKind("");
     public static readonly QuickFix = new CodeActionKind("quickfix");
     public static readonly Refactor = new CodeActionKind("refactor");
@@ -841,7 +841,7 @@ export enum CodeActionTriggerKind {
  * — вся пачка диагностик: файл оставался вообще без squiggle, а ошибка была
  * видна только в output-канале клиента.
  */
-export class DiagnosticRelatedInformation {
+export class DiagnosticRelatedInformation implements vscode.DiagnosticRelatedInformation {
     public location: Location;
     public message: string;
 
@@ -851,7 +851,7 @@ export class DiagnosticRelatedInformation {
     }
 }
 
-export class Diagnostic {
+export class Diagnostic implements vscode.Diagnostic {
     public range: Range;
     public message: string;
     public severity: DiagnosticSeverity;
@@ -979,7 +979,7 @@ export class CancellationTokenSource {
                 return isCancelled();
             },
             onCancellationRequested: this.emitter.event,
-        } as unknown as vscode.CancellationToken;
+        };
     }
 
     public cancel(): void {
@@ -993,7 +993,7 @@ export class CancellationTokenSource {
     }
 }
 
-export class MarkdownString {
+export class MarkdownString implements vscode.MarkdownString {
     public value: string;
     public isTrusted?: boolean;
     public supportThemeIcons?: boolean;
@@ -1085,7 +1085,7 @@ export enum SignatureHelpTriggerKind {
  * офсетов `[start, end)` внутри неё: клиент объявляет серверу
  * `labelOffsetSupport: true`, так что вторая форма — легальный ответ.
  */
-export class ParameterInformation {
+export class ParameterInformation implements vscode.ParameterInformation {
     public label: string | [number, number];
     public documentation?: string | MarkdownString;
 
@@ -1096,7 +1096,7 @@ export class ParameterInformation {
 }
 
 /** Одна сигнатура (перегрузка) вызываемого символа. */
-export class SignatureInformation {
+export class SignatureInformation implements vscode.SignatureInformation {
     public label: string;
     public documentation?: string | MarkdownString;
     public parameters: ParameterInformation[] = [];
@@ -1114,7 +1114,7 @@ export class SignatureInformation {
  * же грабля, что с `CompletionList`: без класса конвертация ответа падала бы
  * целиком, а след ушёл бы только в `client.outputChannel`).
  */
-export class SignatureHelp {
+export class SignatureHelp implements vscode.SignatureHelp {
     public signatures: SignatureInformation[] = [];
     public activeSignature = 0;
     public activeParameter = 0;
@@ -1162,7 +1162,7 @@ export type WorkspaceEditOperation =
  * {@link resourceEdits} — их приземляет сериализация `workspace.applyEdit`
  * (плейсхолдеры вырезаются, как у completion).
  */
-export class WorkspaceEdit {
+export class WorkspaceEdit implements vscode.WorkspaceEdit {
     private readonly ops: WorkspaceEditOperation[] = [];
 
     public replace(uri: Uri, range: Range, newText: string): void {
@@ -1333,12 +1333,12 @@ export enum ViewColumn {
 // вкладок просто никогда не встречаются в снимке.
 
 /** Вкладка с текстовым ресурсом. */
-export class TabInputText {
+export class TabInputText implements vscode.TabInputText {
     public constructor(public readonly uri: Uri) {}
 }
 
 /** Вкладка-дифф двух текстовых ресурсов. */
-export class TabInputTextDiff {
+export class TabInputTextDiff implements vscode.TabInputTextDiff {
     public constructor(
         public readonly original: Uri,
         public readonly modified: Uri,
@@ -1346,7 +1346,7 @@ export class TabInputTextDiff {
 }
 
 /** Вкладка custom-редактора (Diode не производит). */
-export class TabInputCustom {
+export class TabInputCustom implements vscode.TabInputCustom {
     public constructor(
         public readonly uri: Uri,
         public readonly viewType: string,
@@ -1354,12 +1354,12 @@ export class TabInputCustom {
 }
 
 /** Вкладка webview (Diode не производит). */
-export class TabInputWebview {
+export class TabInputWebview implements vscode.TabInputWebview {
     public constructor(public readonly viewType: string) {}
 }
 
 /** Вкладка notebook (Diode не производит). */
-export class TabInputNotebook {
+export class TabInputNotebook implements vscode.TabInputNotebook {
     public constructor(
         public readonly uri: Uri,
         public readonly notebookType: string,
@@ -1367,7 +1367,7 @@ export class TabInputNotebook {
 }
 
 /** Вкладка-дифф notebook'ов (Diode не производит). */
-export class TabInputNotebookDiff {
+export class TabInputNotebookDiff implements vscode.TabInputNotebookDiff {
     public constructor(
         public readonly original: Uri,
         public readonly modified: Uri,
@@ -1381,7 +1381,7 @@ export class TabInputNotebookDiff {
  * так что заменить объектом или функцией, как предлагает правило, нельзя.
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- см. комментарий выше
-export class TabInputTerminal {}
+export class TabInputTerminal implements vscode.TabInputTerminal {}
 
 /**
  * Строгость сообщения валидации InputBox (`vscode.InputBoxValidationSeverity`).

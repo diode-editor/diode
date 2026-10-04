@@ -227,8 +227,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     // пользователем настройка роняла бы клиент целиком). Настоящая проводка —
     // вместе со слоем тасков.
     const tasks = {
-        registerTaskProvider: (): vscode.Disposable =>
-            new DisposableImpl(() => undefined) as unknown as vscode.Disposable,
+        registerTaskProvider: (): vscode.Disposable => new DisposableImpl(() => undefined),
         taskExecutions: [] as const,
         onDidStartTask: new EventEmitter<never>().event,
         onDidEndTask: new EventEmitter<never>().event,

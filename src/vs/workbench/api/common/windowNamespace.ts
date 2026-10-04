@@ -45,8 +45,8 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
             const idx = listeners.indexOf(bound);
             if (idx >= 0) listeners.splice(idx, 1);
         });
-        if (disposables !== undefined) disposables.push(disposable as unknown as vscode.Disposable);
-        return disposable as unknown as vscode.Disposable;
+        if (disposables !== undefined) disposables.push(disposable);
+        return disposable;
     }) as vscode.Event<T>;
 }
 
@@ -74,11 +74,11 @@ function normalizeDecorationRanges(
 }
 
 /** Никогда-не-отменённый токен для `provideFileDecoration` (host-мост не отменяет запросы). */
-const NEVER_CANCELLED = {
+const NEVER_CANCELLED: vscode.CancellationToken = {
     isCancellationRequested: false,
     /* v8 ignore next -- defensive stub: host-мост никогда не отменяет provideFileDecoration, слушатель не вызывается */
     onCancellationRequested: () => new DisposableImpl(() => undefined),
-} as unknown as vscode.CancellationToken;
+};
 
 function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): vscode.Uri[] {
     if (changed === undefined) return [];
@@ -457,7 +457,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         return new Selection(
             new Position(s.anchorLine, s.anchorCharacter),
             new Position(s.activeLine, s.activeCharacter),
-        ) as unknown as vscode.Selection;
+        );
     }
 
     /** Выделения редактора (группа, документ): у активного — активные, у видимых — из снимка. */
@@ -485,7 +485,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         const primarySelection = (): vscode.Selection => {
             const primary = editorSelections(groupId, document.uri.toString()).at(0);
             if (primary === undefined) {
-                return new Selection(new Position(0, 0), new Position(0, 0)) as unknown as vscode.Selection;
+                return new Selection(new Position(0, 0), new Position(0, 0));
             }
             return toSelection(primary);
         };
@@ -530,7 +530,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     setEndOfLine: () => {
                         /* смена EOL из edit() пока не поддержана (MVP #194) */
                     },
-                } as unknown as vscode.TextEditorEdit;
+                };
                 callback(builder);
                 if (edits.length === 0) return Promise.resolve(true);
                 return rpc.request("editor.applyEdit", {
@@ -661,8 +661,8 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 const idx = activeEditorListeners.indexOf(bound);
                 if (idx >= 0) activeEditorListeners.splice(idx, 1);
             });
-            if (disposables !== undefined) disposables.push(disposable as unknown as vscode.Disposable);
-            return disposable as unknown as vscode.Disposable;
+            if (disposables !== undefined) disposables.push(disposable);
+            return disposable;
         },
 
         // Смена каретки/выделения в редакторе. Продюсер — хост
@@ -684,7 +684,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         ): vscode.Disposable => {
             // В TUI окно всегда активно — событие никогда не стреляет. Возвращаем
             // валидный no-op Disposable, чтобы регистрация не падала.
-            const disposable = new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+            const disposable = new DisposableImpl(() => undefined);
             if (disposables !== undefined) disposables.push(disposable);
             return disposable;
         },
@@ -725,7 +725,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         registerFileDecorationProvider: (provider: vscode.FileDecorationProvider): vscode.Disposable => {
             const changeEvent = provider.onDidChangeFileDecorations;
             if (changeEvent === undefined) {
-                return new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+                return new DisposableImpl(() => undefined);
             }
             return changeEvent((changed) => {
                 void pushFileDecorations(provider, changed);
@@ -875,7 +875,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     return currentId();
                 },
                 get alignment(): vscode.StatusBarAlignment {
-                    return alignment ?? (StatusBarAlignment.Left as unknown as vscode.StatusBarAlignment);
+                    return alignment ?? StatusBarAlignment.Left;
                 },
                 get priority(): number | undefined {
                     return priority;
@@ -1052,7 +1052,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             const token: vscode.CancellationToken = {
                 isCancellationRequested: false,
                 onCancellationRequested: new EventEmitter<never>().event,
-            } as unknown as vscode.CancellationToken;
+            };
             rpc.notify("window.progress.start", { handle, title: options.title ?? "" });
             const progress: vscode.Progress<{ message?: string; increment?: number }> = {
                 report: (value: unknown) => {

@@ -142,14 +142,14 @@ export function createWebviewNoopMembers(rpc: SubprocessRpc): IWebviewNoopMember
         // TUI нет; disposable честный (отписываться не от чего).
         registerWebviewViewProvider: (viewId: string): vscode.Disposable => {
             reportUnsupported(rpc, "registerWebviewViewProvider", viewId);
-            return new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+            return new DisposableImpl(() => undefined);
         },
 
         // Сериализатор восстанавливает панели прошлой сессии; панелей не бывает,
         // поэтому `deserializeWebviewPanel` тоже никто не позовёт.
         registerWebviewPanelSerializer: (viewType: string): vscode.Disposable => {
             reportUnsupported(rpc, "registerWebviewPanelSerializer", viewType);
-            return new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+            return new DisposableImpl(() => undefined);
         },
 
         // Кастомный редактор — тот же webview, только вкладкой вместо панели
@@ -159,7 +159,7 @@ export function createWebviewNoopMembers(rpc: SubprocessRpc): IWebviewNoopMember
         // просто не падать: она идёт в `activate()` первой строкой.
         registerCustomEditorProvider: (viewType: string): vscode.Disposable => {
             reportUnsupported(rpc, "registerCustomEditorProvider", viewType);
-            return new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+            return new DisposableImpl(() => undefined);
         },
     };
 }

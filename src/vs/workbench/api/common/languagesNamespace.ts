@@ -358,10 +358,7 @@ function serializeRenamePrepare(raw: unknown, doc: ExtHostTextDocument): WireRen
         return { placeholder: holder.placeholder };
     }
     const text = doc.getText(
-        new Range(
-            new Position(range.startLine, range.startCharacter),
-            new Position(range.endLine, range.endCharacter),
-        ) as unknown as vscode.Range,
+        new Range(new Position(range.startLine, range.startCharacter), new Position(range.endLine, range.endCharacter)),
     );
     // Пустой диапазон не даёт имени: отвечаем «сказать нечего», и слово под
     // кареткой доберёт ядро.
@@ -776,7 +773,7 @@ export function createLanguagesNamespace(
         rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector), ...metadata });
         return new DisposableImpl(() => {
             if (providers.delete(handle)) rpc.notify("languages.unregister", { handle });
-        }) as unknown as vscode.Disposable;
+        });
     }
 
     // Кэш ответов completion для resolve. Держим последние COMPLETION_CACHE_DEPTH
@@ -848,11 +845,7 @@ export function createLanguagesNamespace(
             let result: unknown;
             try {
                 result = await callWithVscodeToken(cancellation, (token) =>
-                    reg.provider.provideDefinition(
-                        doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
-                        token,
-                    ),
+                    reg.provider.provideDefinition(doc as unknown as vscode.TextDocument, position, token),
                 );
             } catch (err) {
                 reportProviderFailure("provideDefinition", err);
@@ -879,11 +872,7 @@ export function createLanguagesNamespace(
         let result: unknown;
         try {
             result = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideHover(
-                    doc as unknown as vscode.TextDocument,
-                    position as unknown as vscode.Position,
-                    token,
-                ),
+                reg.provider.provideHover(doc as unknown as vscode.TextDocument, position, token),
             );
         } catch (err) {
             reportProviderFailure("provideHover", err);
@@ -920,7 +909,7 @@ export function createLanguagesNamespace(
                 result = await callWithVscodeToken(cancellation, (token) =>
                     reg.provider.provideSignatureHelp(
                         doc as unknown as vscode.TextDocument,
-                        position as unknown as vscode.Position,
+                        position,
                         token,
                         context as unknown as vscode.SignatureHelpContext,
                     ),
@@ -948,7 +937,7 @@ export function createLanguagesNamespace(
             result = await callWithVscodeToken(cancellation, (token) =>
                 reg.provider.provideReferences(
                     doc as unknown as vscode.TextDocument,
-                    position as unknown as vscode.Position,
+                    position,
                     context as vscode.ReferenceContext,
                     token,
                 ),
@@ -996,7 +985,7 @@ export function createLanguagesNamespace(
         let result: unknown;
         try {
             result = await callWithVscodeToken(cancellation, (token) =>
-                prepare(doc as unknown as vscode.TextDocument, position as unknown as vscode.Position, token),
+                prepare(doc as unknown as vscode.TextDocument, position, token),
             );
         } catch (error) {
             // «Здесь переименовывать нельзя» эталон выражает именно отказом
@@ -1024,12 +1013,7 @@ export function createLanguagesNamespace(
         let edit: unknown;
         try {
             edit = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideRenameEdits(
-                    doc as unknown as vscode.TextDocument,
-                    position as unknown as vscode.Position,
-                    newName,
-                    token,
-                ),
+                reg.provider.provideRenameEdits(doc as unknown as vscode.TextDocument, position, newName, token),
             );
         } catch (error) {
             // Отклонённый промис — штатный канал «имя невалидно» эталона («If
@@ -1068,12 +1052,7 @@ export function createLanguagesNamespace(
         } else {
             const reg = rangeFormattingProviders.get(handle);
             if (reg !== undefined) {
-                const selection = new Range(
-                    range.startLine,
-                    range.startCharacter,
-                    range.endLine,
-                    range.endCharacter,
-                ) as unknown as vscode.Range;
+                const selection = new Range(range.startLine, range.startCharacter, range.endLine, range.endCharacter);
                 format = (doc, options, token) =>
                     reg.provider.provideDocumentRangeFormattingEdits(doc, selection, options, token);
             }
@@ -1135,12 +1114,7 @@ export function createLanguagesNamespace(
         let result: unknown;
         try {
             result = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideCodeActions(
-                    doc as unknown as vscode.TextDocument,
-                    range as unknown as vscode.Range,
-                    context,
-                    token,
-                ),
+                reg.provider.provideCodeActions(doc as unknown as vscode.TextDocument, range, context, token),
             );
         } catch (err) {
             reportProviderFailure("provideCodeActions", err);
@@ -1261,7 +1235,7 @@ export function createLanguagesNamespace(
                     result = await callWithVscodeToken(cancellation, (token) =>
                         reg.provider.provideCompletionItems(
                             doc as unknown as vscode.TextDocument,
-                            position as unknown as vscode.Position,
+                            position,
                             token,
                             context,
                         ),
@@ -1400,7 +1374,7 @@ export function createLanguagesNamespace(
                         result = await Promise.resolve(
                             reg.provider.provideInlineCompletionItems(
                                 doc as unknown as vscode.TextDocument,
-                                position as unknown as vscode.Position,
+                                position,
                                 context,
                                 cancel.token,
                             ),
@@ -1469,8 +1443,7 @@ export function createLanguagesNamespace(
     // No-op регистрация провайдера — валидный Disposable; фича не работает,
     // но стоковый клиент (vscode-languageclient заводит провайдеры под
     // capabilities сервера) не падает. Шаги закрытия каждого — docs/TODO/LSP.md.
-    const registerNoopProvider = (): vscode.Disposable =>
-        new DisposableImpl(() => undefined) as unknown as vscode.Disposable;
+    const registerNoopProvider = (): vscode.Disposable => new DisposableImpl(() => undefined);
 
     /**
      * Коллекция диагностик, форвардящая маркеры хосту нотификацией
