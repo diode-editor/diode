@@ -45,7 +45,7 @@ import {
     NULL_EDITOR_DECORATIONS_SERVICE,
 } from "../../../api/common/iEditorDecorationsService.ts";
 import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../api/common/iEditorLayoutService.ts";
-import type { IEditorOptionsPatch, IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
 import {
     type IFileDecorationsService,
@@ -63,15 +63,9 @@ import {
     type IWireShowMessageRequest,
     type IWireStatusBarItem,
     type IWireValidationMessage,
-    parseWireApplyWorkspaceEditParams,
-    parseWireCloseGroupsParams,
-    parseWireCloseTabsParams,
-    parseWireEditorEdits,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     parseWireMementoUpdate,
-    parseWireSelections,
-    parseWireShowTextDocumentParams,
     requestApplyCodeAction,
     requestCodeActions,
     requestCompletionItems,
@@ -136,7 +130,9 @@ import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSavePartic
 import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
 
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
+import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
+import { EditorCustomer } from "./customers/editorCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
@@ -516,7 +512,6 @@ export interface IExtensionHostOptions {
  *   прощания (его ждёт `LifecycleService.onWillShutdown`).
  */
 export class ExtensionHost extends Disposable {
-    private readonly editorOptions: IEditorOptionsService;
     private readonly options: Required<
         Pick<
             IExtensionHostOptions,
@@ -606,7 +601,10 @@ export class ExtensionHost extends Disposable {
      */
     private readonly pendingDidChange = new Map<string, IWireDocumentSyncSnapshot>();
     private readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
-    private readonly editorLayout: IEditorLayoutService;
+    /** Редакторы и полоса групп — customer, которому хост отдаёт семена на handshake. */
+    private readonly editor: EditorCustomer;
+    /** Настройки — customer семени `workspace.initialize`; нет провайдера — нет и его. */
+    private readonly configurationCustomer: ConfigurationCustomer | undefined;
     /** Команды расширений в реестре ядра: прокси спавна и заглушки-активаторы. */
     private readonly commands: CommandsCustomer;
     /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
@@ -658,7 +656,6 @@ export class ExtensionHost extends Disposable {
         options: IExtensionHostOptions = {},
     ) {
         super();
-        this.editorOptions = editorOptions;
         this.options = {
             spawnArgs: options.spawnArgs ?? defaultSpawnArgs,
             readyTimeoutMs: options.readyTimeoutMs ?? 5000,
@@ -691,7 +688,9 @@ export class ExtensionHost extends Disposable {
             ),
         );
         this.openDocumentsProvider = options.openDocumentsProvider;
-        this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
+        this.editor = new EditorCustomer(editorOptions, options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE);
+        this.configurationCustomer =
+            options.configuration === undefined ? undefined : new ConfigurationCustomer(options.configuration);
         this.commands = new CommandsCustomer(commandService, (event) => this.activateByEvent(event), this.logger);
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
@@ -703,6 +702,8 @@ export class ExtensionHost extends Disposable {
             new EnvCustomer(options.clipboard, options.externalOpener),
             this.fileSystem,
             this.decorations,
+            this.editor,
+            ...(this.configurationCustomer === undefined ? [] : [this.configurationCustomer]),
             new WindowCustomer({
                 diagnosticsSink: options.diagnosticsSink,
                 progressSink: options.progressSink,
@@ -1794,19 +1795,9 @@ export class ExtensionHost extends Disposable {
             this.logger?.info("extension host ready");
             // Push конфигурацию ДО стартового active-editor и первого
             // activateExtension: расширение читает getConfiguration уже в activate().
-            if (this.configuration !== undefined) {
-                rpc.notify("workspace.initialize", {
-                    configuration: this.configuration.getSnapshot(),
-                    workspaceFolders: this.configuration.getWorkspaceFolders(),
-                });
-            }
-            // Полоса групп — ДО меты активного редактора: `visibleTextEditors`/
-            // `tabGroups` обязаны существовать к моменту активации (стоковый
-            // languageclient читает их на start()).
-            rpc.notify("editor.layoutChanged", this.editorLayout.getLayoutSnapshot());
-            // Send initial active editor state so that window.activeTextEditor
-            // is correct before the first host.activateExtension call.
-            rpc.notify("editor.activeEditorChanged", this.editorOptions.getActiveEditorMeta());
+            this.configurationCustomer?.pushInitialState();
+            // Полоса групп, затем мета активного редактора — до первой активации.
+            this.editor.pushInitialState();
             // Активная тема — тоже ДО первой активации: расширение читает
             // `window.activeColorTheme` уже в `activate()` (так делают все,
             // кто подбирает иконки/цвета под светлую и тёмную).
@@ -1832,89 +1823,6 @@ export class ExtensionHost extends Disposable {
         // attach и уходит вместе со spawnStore.
         for (const customer of this.customers) spawnStore.add(customer.attach({ rpc, logger: this.logger }));
         this.installMementoHandlers(rpc);
-        rpc.handleRequest("editor.setOptions", (params): unknown => {
-            const patch = sanitizeOptionsPatch(params);
-            this.editorOptions.setActiveEditorOptions(patch);
-            return null;
-        });
-        rpc.handleRequest("editor.getOptions", (): unknown => {
-            return this.editorOptions.getActiveEditorOptions();
-        });
-        // Сабпроцесс просит выставить выделения активного редактора
-        // (`TextEditor.selection(s) =`). Fire-and-forget со стороны расширения,
-        // но обрабатывается в порядке прихода (до последующего executeCommand).
-        rpc.handleNotification("editor.setSelection", (params): void => {
-            const p = params as { uri?: unknown; selections?: unknown; groupId?: unknown };
-            if (typeof p.uri !== "string") return;
-            this.editorOptions.setActiveEditorSelections(
-                p.uri,
-                parseWireSelections(p.selections),
-                typeof p.groupId === "number" ? p.groupId : undefined,
-            );
-        });
-        // Сабпроцесс просит применить правки `TextEditor.edit` одним undoable-батчем.
-        rpc.handleRequest("editor.applyEdit", (params): unknown => {
-            const p = params as { uri?: unknown; edits?: unknown };
-            if (typeof p.uri !== "string") return false;
-            return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits));
-        });
-        // Сабпроцесс просит применить workspace edit (`workspace.applyEdit`):
-        // текстовые правки по ресурсам плюс файловые операции, all-or-nothing
-        // по валидации. Мусор в параметрах — честный `false`, а не частичный edit.
-        rpc.handleRequest("workspace.applyEdit", async (params): Promise<unknown> => {
-            const ops = parseWireApplyWorkspaceEditParams(params);
-            if (ops === null) return false;
-            return this.editorOptions.applyWorkspaceEdit(ops);
-        });
-        // Полоса групп: снимки по изменениям (коалесинг в адаптере). Инвариант
-        // порядка: layoutChanged всегда раньше связанного activeEditorChanged —
-        // подписка на layout стоит первой, а мета дополнительно флашит отложенный
-        // снимок, чтобы `visibleTextEditors` не отставал от `activeTextEditor`.
-        spawnStore.add(
-            this.editorLayout.onDidChangeLayout((layout) => {
-                rpc.notify("editor.layoutChanged", layout);
-            }),
-        );
-        // `window.showTextDocument`: открыть/активировать ресурс в колонке;
-        // ответ уезжает ПОСЛЕ layoutChanged (flush перед reply) — после `await`
-        // расширение видит свежий `tabGroups`.
-        rpc.handleRequest("editor.showTextDocument", async (params): Promise<unknown> => {
-            const parsed = parseWireShowTextDocumentParams(params);
-            if (parsed === null) throw new Error("editor.showTextDocument: malformed params");
-            const result = await this.editorLayout.showTextDocument(parsed);
-            this.editorLayout.flushPendingLayout();
-            return result;
-        });
-        rpc.handleRequest("editor.closeTabs", async (params): Promise<unknown> => {
-            const parsed = parseWireCloseTabsParams(params);
-            if (parsed === null) throw new Error("editor.closeTabs: malformed params");
-            const result = await this.editorLayout.closeTabs(parsed);
-            this.editorLayout.flushPendingLayout();
-            return result;
-        });
-        rpc.handleRequest("editor.closeGroups", async (params): Promise<unknown> => {
-            const parsed = parseWireCloseGroupsParams(params);
-            if (parsed === null) throw new Error("editor.closeGroups: malformed params");
-            const result = await this.editorLayout.closeGroups(parsed);
-            this.editorLayout.flushPendingLayout();
-            return result;
-        });
-        spawnStore.add(
-            this.editorOptions.onActiveEditorChanged((meta) => {
-                this.editorLayout.flushPendingLayout();
-                rpc.notify("editor.activeEditorChanged", meta);
-            }),
-        );
-        // Движение каретки/смена выделения — отдельным сообщением, чтобы
-        // `activeTextEditor.selection` в расширении не залипал на состоянии момента
-        // открытия файла. Именно `activeEditorChanged` слать нельзя: он дёргает
-        // `onDidChangeActiveTextEditor`, и, например, встроенный git пересчитывал бы
-        // статус на каждое нажатие стрелки.
-        spawnStore.add(
-            this.editorOptions.onActiveEditorSelectionChanged((selections) => {
-                rpc.notify("editor.selectionChanged", selections);
-            }),
-        );
         // Субпроцесс сообщает, есть ли подписчики на will/did-save. Без них хост
         // не гоняет RPC на сохранении (save остаётся синхронным).
         rpc.handleNotification("workspace.updateSubscriptions", (params) => {
@@ -1941,17 +1849,6 @@ export class ExtensionHost extends Disposable {
             if (unregistration === null || !this.languageProviders.delete(unregistration.handle)) return;
             this.fireLanguageProvidersChanged();
         });
-        const configuration = this.configuration;
-        if (configuration !== undefined) {
-            spawnStore.add(
-                configuration.onDidChange((affectedKeys) => {
-                    rpc.notify("workspace.configurationChanged", {
-                        configuration: configuration.getSnapshot(),
-                        affectedKeys,
-                    });
-                }),
-            );
-        }
     }
 
     /**
@@ -2073,27 +1970,4 @@ function renameTarget(req: IRenameRequest): {
         line: req.line,
         character: req.character,
     };
-}
-
-function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
-    if (typeof raw !== "object" || raw === null) return {};
-    const obj = raw as { tabSize?: unknown; insertSpaces?: unknown; indentSize?: unknown };
-    const patch: { tabSize?: number; insertSpaces?: boolean } = {};
-    if (typeof obj.tabSize === "number" && Number.isFinite(obj.tabSize) && obj.tabSize > 0) {
-        patch.tabSize = Math.floor(obj.tabSize);
-    }
-    // `indentSize` — алиас tabSize (Diode пока не различает их): применяем только
-    // если явного tabSize нет. editorconfig шлёт indent_size именно так.
-    if (
-        patch.tabSize === undefined &&
-        typeof obj.indentSize === "number" &&
-        Number.isFinite(obj.indentSize) &&
-        obj.indentSize > 0
-    ) {
-        patch.tabSize = Math.floor(obj.indentSize);
-    }
-    if (typeof obj.insertSpaces === "boolean") {
-        patch.insertSpaces = obj.insertSpaces;
-    }
-    return patch;
 }
