@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IFoldingRequest } from "../../common/languages/iFoldingSource.ts";
 
 import { provideFoldingRanges } from "./syntaxRangeProvider.ts";
@@ -16,8 +17,24 @@ describe("provideFoldingRanges — агрегация провайдеров", (
                 { provideFoldingRanges: () => Promise.resolve([region(5)]) },
             ],
             REQUEST,
+            new CancellationTokenSource().token,
         );
 
         expect(regions).toStrictEqual([region(1), region(5)]);
+    });
+
+    it("каждый провайдер получает токен запроса", async () => {
+        const seen: ICancellationToken[] = [];
+        const provider = {
+            provideFoldingRanges: (_request: IFoldingRequest, token: ICancellationToken) => {
+                seen.push(token);
+                return Promise.resolve([]);
+            },
+        };
+        const token = new CancellationTokenSource().token;
+
+        await provideFoldingRanges([provider, provider], REQUEST, token);
+
+        expect(seen).toEqual([token, token]);
     });
 });

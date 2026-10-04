@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
@@ -86,5 +88,25 @@ describe("ExtensionHost — folding по handle (in-process)", () => {
 
         expect(await host.provideFoldingRanges(0, REQUEST)).toEqual([]);
         expect(provide).not.toHaveBeenCalled();
+    });
+
+    it("отмена ядра доезжает до токена субпроцесса (provideFoldingRanges)", async () => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest("languages.provideFoldingRanges", (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host.provideFoldingRanges(0, REQUEST, source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
     });
 });

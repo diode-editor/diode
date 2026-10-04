@@ -193,19 +193,23 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             // Stryker disable next-line ConditionalExpression: provideCompletions([]) даёт тот же пустой ответ — ветка лишь не зовёт агрегатор впустую
             providers.length === 0
                 ? EMPTY_RESULT
-                : await provideCompletions(providers, {
-                      uri: editor.uri.toString(),
-                      languageId: editor.languageId,
-                      versionId: editor.model.document.versionId,
-                      line: active.line,
-                      character: active.character,
-                      triggerKind:
-                          triggerCharacter !== undefined
-                              ? CompletionTriggerKind.TriggerCharacter
-                              : CompletionTriggerKind.Invoke,
-                      // Stryker disable next-line ConditionalExpression: запрос уходит по RPC JSON'ом, а он выбрасывает undefined-поля — `{triggerCharacter: undefined}` у провайдера неотличим от отсутствия
-                      ...(triggerCharacter !== undefined ? { triggerCharacter } : {}),
-                  });
+                : await provideCompletions(
+                      providers,
+                      {
+                          uri: editor.uri.toString(),
+                          languageId: editor.languageId,
+                          versionId: editor.model.document.versionId,
+                          line: active.line,
+                          character: active.character,
+                          triggerKind:
+                              triggerCharacter !== undefined
+                                  ? CompletionTriggerKind.TriggerCharacter
+                                  : CompletionTriggerKind.Invoke,
+                          // Stryker disable next-line ConditionalExpression: запрос уходит по RPC JSON'ом, а он выбрасывает undefined-поля — `{triggerCharacter: undefined}` у провайдера неотличим от отсутствия
+                          ...(triggerCharacter !== undefined ? { triggerCharacter } : {}),
+                      },
+                      ticket.token,
+                  );
         // Пока ходили за ответом, пользователь мог набрать ещё символ — свежий
         // запрос уже в пути, и старый ответ не имеет права перекрыть его.
         if (ticket.isStale()) return;

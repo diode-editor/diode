@@ -562,9 +562,10 @@ export function signatureHelpCharacters(
 export async function provideCompletions(
     harness: IExtensionHarness,
     request: ICompletionRequest,
+    token: ICancellationToken = CancellationTokenNone,
 ): Promise<ICoreCompletionResult> {
     const providers = harness.languageFeatures.completionProvider.ordered(targetOf(request));
-    const { items, isIncomplete } = await provideCompletionsFrom(providers, request);
+    const { items, isIncomplete } = await provideCompletionsFrom(providers, request, token);
     return { items, isIncomplete };
 }
 
@@ -608,8 +609,16 @@ export async function provideCodeActions(
 }
 
 /** Области сворачивания от провайдеров так, как их собирает `EditorComponent`. */
-export function provideFoldingRegions(harness: IExtensionHarness, request: IFoldingRequest): Promise<IFoldingRegion[]> {
-    return provideFoldingRanges(harness.languageFeatures.foldingRangeProvider.ordered(targetOf(request)), request);
+export function provideFoldingRegions(
+    harness: IExtensionHarness,
+    request: IFoldingRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<IFoldingRegion[]> {
+    return provideFoldingRanges(
+        harness.languageFeatures.foldingRangeProvider.ordered(targetOf(request)),
+        request,
+        token,
+    );
 }
 
 /** Инлайн-подсказки так, как их собирает `InlineCompletionsService`. */

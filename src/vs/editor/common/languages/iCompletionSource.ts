@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 
@@ -104,7 +105,11 @@ export interface ICoreResolvedCompletion {
 export interface CompletionItemProvider {
     /** Символы, набор которых сам открывает попап (`.` у tsserver). */
     readonly triggerCharacters: readonly string[];
-    provideCompletionItems(request: ICompletionRequest): Promise<ICoreCompletionResult>;
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
+     * закрытие попапа) — отмена доезжает до провайдера расширения.
+     */
+    provideCompletionItems(request: ICompletionRequest, token: ICancellationToken): Promise<ICoreCompletionResult>;
     /**
      * Ленивая догрузка одного своего пункта по его {@link ICoreCompletionItem.id}.
      * `null` — провайдер не ответил или резолва нет; попап остаётся с тем, что есть.

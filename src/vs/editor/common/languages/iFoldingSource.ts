@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 
 /**
@@ -20,5 +21,10 @@ export interface IFoldingRequest {
  * (`EditorComponent`); пустой ответ — у провайдера областей нет.
  */
 export interface FoldingRangeProvider {
-    provideFoldingRanges(request: IFoldingRequest): Promise<readonly IFoldingRegion[]>;
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (правка,
+     * смена состава провайдеров, закрытие редактора) — отмена доезжает до
+     * провайдера расширения.
+     */
+    provideFoldingRanges(request: IFoldingRequest, token: ICancellationToken): Promise<readonly IFoldingRegion[]>;
 }

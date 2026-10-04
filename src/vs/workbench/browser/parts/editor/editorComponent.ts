@@ -624,11 +624,17 @@ export class EditorComponent extends Component {
         // Stryker disable next-line ConditionalExpression: with no providers the aggregator answers [] and the branch below returns the same way — the guard only spares the aggregator call
         if (providers.length === 0) return;
 
-        void provideFoldingRanges(providers, {
-            uri: this.model.uri.toString(),
-            languageId: this.model.languageId,
-            versionId: this.model.document.versionId,
-        }).then((providerRegions) => {
+        // The ticket's token reaches the extension's provider: a superseded
+        // request stops its work there too.
+        void provideFoldingRanges(
+            providers,
+            {
+                uri: this.model.uri.toString(),
+                languageId: this.model.languageId,
+                versionId: this.model.document.versionId,
+            },
+            ticket.token,
+        ).then((providerRegions) => {
             if (ticket.isStale()) return;
             // Stryker disable next-line ConditionalExpression: merging an empty set re-applies the indentation folds already applied above — the guard only skips that no-op
             if (providerRegions.length === 0) return; // nothing to merge, indentation stays

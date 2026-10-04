@@ -84,7 +84,7 @@ export class LanguageFeaturesAdapter extends Disposable {
         completion: ({ handle, selector, triggerCharacters = [] }) =>
             this.languageFeatures.completionProvider.register(selector, {
                 triggerCharacters,
-                provideCompletionItems: (request) => this.bridge.provideCompletionItems(handle, request),
+                provideCompletionItems: (request, token) => this.bridge.provideCompletionItems(handle, request, token),
                 resolveCompletionItem: (id) => this.bridge.resolveCompletionItem(id),
             }),
         formatting: ({ handle, selector }) =>
@@ -103,7 +103,7 @@ export class LanguageFeaturesAdapter extends Disposable {
             }),
         folding: ({ handle, selector }) =>
             this.languageFeatures.foldingRangeProvider.register(selector, {
-                provideFoldingRanges: (request) => this.bridge.provideFoldingRanges(handle, request),
+                provideFoldingRanges: (request, token) => this.bridge.provideFoldingRanges(handle, request, token),
             }),
         inlineCompletions: ({ handle, selector }) =>
             this.languageFeatures.inlineCompletionsProvider.register(selector, {
