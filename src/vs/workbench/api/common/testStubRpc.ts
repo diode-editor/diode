@@ -1,6 +1,7 @@
 import { CancellationTokenNone, type ICancellationToken } from "../../../base/common/cancellation.ts";
 
-import type { IRequestHandler, RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
+import type { IRequestHandler } from "./rpcEndpoint.ts";
 
 /**
  * Лёгкий стаб {@link RpcEndpoint} для unit-тестов namespace'ов subprocess.
@@ -8,7 +9,7 @@ import type { IRequestHandler, RpcEndpoint } from "./rpcEndpoint.ts";
  * с хоста) и записывает исходящие request/notify.
  */
 export interface IStubRpc {
-    readonly rpc: RpcEndpoint;
+    readonly rpc: SubprocessRpc;
     /** Имитирует приход notif от хоста. */
     fire(method: string, params: unknown): void;
     /**
@@ -49,7 +50,7 @@ export function makeStubRpc(): IStubRpc {
             notifies.push({ method, params });
         },
         dispose: () => undefined,
-    } as unknown as RpcEndpoint;
+    } as unknown as SubprocessRpc;
 
     const stub: IStubRpc = {
         rpc,

@@ -50,6 +50,44 @@ export type IRequestHandler = (params: unknown, token: ICancellationToken) => un
 export type INotificationHandler = (params: unknown) => void;
 
 /**
+ * Карта протокола одного направления: запросы `метод → [параметры, результат]`
+ * и нотификации `метод → параметры`. Только типы — на проводе ничего не
+ * меняется; карта даёт компилятору проверить, что сторона шлёт и что
+ * обработчик принимает и возвращает (см. `extHostProtocol.ts`).
+ */
+export interface IRpcProtocol {
+    readonly requests: object;
+    readonly notifications: object;
+}
+
+/** Протокол без карты: любой метод, параметры и результат — `unknown`. */
+export interface IUntypedProtocol {
+    readonly requests: Readonly<Record<string, readonly [params: unknown, result: unknown]>>;
+    readonly notifications: Readonly<Record<string, unknown>>;
+}
+
+/** Методы запросов протокола. */
+export type RequestMethod<P extends IRpcProtocol> = keyof P["requests"] & string;
+/** Параметры запроса `K`. */
+export type RequestParams<P extends IRpcProtocol, K extends RequestMethod<P>> = P["requests"][K] extends readonly [
+    infer A,
+    unknown,
+]
+    ? A
+    : unknown;
+/** Результат запроса `K`. */
+export type RequestResult<P extends IRpcProtocol, K extends RequestMethod<P>> = P["requests"][K] extends readonly [
+    unknown,
+    infer R,
+]
+    ? R
+    : unknown;
+/** Методы нотификаций протокола. */
+export type NotificationMethod<P extends IRpcProtocol> = keyof P["notifications"] & string;
+/** Параметры нотификации `K`. */
+export type NotificationParams<P extends IRpcProtocol, K extends NotificationMethod<P>> = P["notifications"][K];
+
+/**
  * Зарезервированный метод отмены (аналог LSP `$/cancelRequest`): нотификация
  * `{ id }` — «запрос #id больше не нужен». Отменой владеет сторона, которая
  * запрос послала; принимающая гасит токен обработчика. Транспорт общий для
@@ -76,7 +114,10 @@ const EARLY_CANCEL_MEMORY = 64;
  * и notification поверх канального транспорта. Симметрична — оба конца
  * (host и runtime) используют один и тот же класс.
  */
-export class RpcEndpoint implements IDisposable {
+export class RpcEndpoint<
+    TOut extends IRpcProtocol = IUntypedProtocol,
+    TIn extends IRpcProtocol = IUntypedProtocol,
+> implements IDisposable {
     private readonly channel: IMessageChannel;
     private readonly logger: ILogger | undefined;
     private readonly channelSubscription: IDisposable;
@@ -119,15 +160,20 @@ export class RpcEndpoint implements IDisposable {
      * второй стороны узнаёт об этом токеном, language server — `$/cancelRequest`),
      * а промис отклоняется {@link TimeoutError}, не дожидаясь опоздавшего ответа.
      */
-    public request(method: string, params?: unknown, options: IRequestOptions = {}): Promise<unknown> {
+    public request<K extends RequestMethod<TOut>>(
+        method: K,
+        params?: RequestParams<TOut, K>,
+        options: IRequestOptions = {},
+    ): Promise<RequestResult<TOut, K>> {
         const { token, timeoutMs } = options;
         if (this.disposed) {
             return Promise.reject(new Error(`RpcEndpoint disposed; cannot request "${method}"`));
         }
         const id = this.nextRequestId++;
-        return new Promise<unknown>((resolve, reject) => {
+        return new Promise<RequestResult<TOut, K>>((resolve, reject) => {
             const pending = {
-                resolve,
+                // Результат приходит с провода как есть: тип ему даёт карта протокола.
+                resolve: resolve as (value: unknown) => void,
                 reject,
                 cancelSubscription: null as IDisposable | null,
                 timer: undefined as ReturnType<typeof setTimeout> | undefined,
@@ -155,15 +201,26 @@ export class RpcEndpoint implements IDisposable {
         });
     }
 
-    public notify(method: string, params?: unknown): void {
+    public notify<K extends NotificationMethod<TOut>>(method: K, params?: NotificationParams<TOut, K>): void {
+        this.sendNotification(method, params);
+    }
+
+    /** Отправка нотификации мимо карты протокола: служебный `$/cancelRequest` в ней не значится. */
+    private sendNotification(method: string, params: unknown): void {
         if (this.disposed) return;
         const msg: INotificationMessage = { kind: "notif", method, params };
         this.logger?.trace(`-> notif ${method}`, params);
         this.channel.postMessage(msg);
     }
 
-    public handleRequest(method: string, handler: IRequestHandler): IDisposable {
-        this.requestHandlers.set(method, handler);
+    public handleRequest<K extends RequestMethod<TIn>>(
+        method: K,
+        handler: (
+            params: RequestParams<TIn, K>,
+            token: ICancellationToken,
+        ) => RequestResult<TIn, K> | Promise<RequestResult<TIn, K>>,
+    ): IDisposable {
+        this.requestHandlers.set(method, handler as IRequestHandler);
         return {
             dispose: (): void => {
                 if (this.requestHandlers.get(method) === handler) {
@@ -173,8 +230,11 @@ export class RpcEndpoint implements IDisposable {
         };
     }
 
-    public handleNotification(method: string, handler: INotificationHandler): IDisposable {
-        this.notificationHandlers.set(method, handler);
+    public handleNotification<K extends NotificationMethod<TIn>>(
+        method: K,
+        handler: (params: NotificationParams<TIn, K>) => void,
+    ): IDisposable {
+        this.notificationHandlers.set(method, handler as INotificationHandler);
         return {
             dispose: (): void => {
                 if (this.notificationHandlers.get(method) === handler) {
@@ -220,7 +280,7 @@ export class RpcEndpoint implements IDisposable {
     private cancelOutgoing(id: number, method: string): void {
         // Stryker disable next-line StringLiteral: текст trace-строки ненаблюдаем (логгера в тестах endpoint'а нет)
         this.logger?.trace(`-> cancel req#${String(id)} ${method}`);
-        this.notify(CANCEL_REQUEST_METHOD, { id } satisfies ICancelRequestParams);
+        this.sendNotification(CANCEL_REQUEST_METHOD, { id } satisfies ICancelRequestParams);
     }
 
     /** Отмена входящего запроса: гасит токен его обработчика. */

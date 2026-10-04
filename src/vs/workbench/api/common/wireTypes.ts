@@ -23,7 +23,8 @@ import type {
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
-import type { IRequestOptions } from "./rpcEndpoint.ts";
+import type { IHostToSubprocess, WithUntyped } from "./extHostProtocol.ts";
+import type { IRequestOptions, RequestMethod, RequestParams } from "./rpcEndpoint.ts";
 
 /**
  * Wire-форма правки save-участника (subprocess → host). Либо замена текста в
@@ -131,7 +132,14 @@ export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
  * отклоняет промис `TimeoutError`. Голая функция — чтобы логику запросов можно
  * было юнит-тестировать через {@link InProcessChannelPair} без форка.
  */
-export type RequestFn = (method: string, params: unknown, options: IRequestOptions) => Promise<unknown>;
+/** Запросы хоста к субпроцессу (см. `extHostProtocol.ts`). */
+type HostToSubprocess = WithUntyped<IHostToSubprocess>;
+
+export type RequestFn = <K extends RequestMethod<HostToSubprocess>>(
+    method: K,
+    params: RequestParams<HostToSubprocess, K>,
+    options: IRequestOptions,
+) => Promise<unknown>;
 
 /** Маркер «запрос не удался» (истёк срок, отказ RPC) для {@link settle}. */
 const FAILED = Symbol("failed");

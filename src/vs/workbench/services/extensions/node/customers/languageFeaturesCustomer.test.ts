@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import { DEFAULT_REQUEST_TIMEOUTS, type RequestTimeouts } from "../requestPolicy.ts";
@@ -190,7 +191,7 @@ function setupWithSync() {
     );
     const [a, b] = createInProcessChannelPair();
     const peer = new RpcEndpoint(b);
-    const hostRpc = new RpcEndpoint(a);
+    const hostRpc: HostRpc = new RpcEndpoint(a);
     // Опции запроса (срок) видны только на стороне хоста.
     const sent = vi.spyOn(hostRpc, "request");
     customer.attach({ rpc: hostRpc, logger: undefined });

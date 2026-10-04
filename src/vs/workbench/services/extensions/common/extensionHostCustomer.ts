@@ -1,11 +1,11 @@
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
-import type { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
+import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 
 /** Контекст одного спавна субпроцесса ext host'а. Живёт ровно до его смерти или выключения. */
 export interface IExtensionHostContext {
-    /** RPC текущего спавна. G4 заменит строковую адресацию типизированной. */
-    readonly rpc: RpcEndpoint;
+    /** RPC текущего спавна; методы из карты протокола проверяются компилятором. */
+    readonly rpc: HostRpc;
     readonly logger: ILogger | undefined;
 }
 

@@ -9,9 +9,9 @@ import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import type { IExtHostDisk } from "./extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -125,7 +125,7 @@ export interface IVscodeHost {
  * Все мутирующие действия проксируются хосту как RPC-запросы; прямой ссылки на
  * host-сервисы у `vscode`-неймспейса нет.
  */
-export function buildVscodeNamespace(rpc: RpcEndpoint, disk: IExtHostDisk): IVscodeHost {
+export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IVscodeHost {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc,

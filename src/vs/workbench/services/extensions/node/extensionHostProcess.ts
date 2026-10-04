@@ -2,6 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
@@ -35,7 +36,7 @@ export interface IExtensionHostProcessOptions {
  * процесс, handshake и выход.
  */
 export class ExtensionHostProcess {
-    public readonly rpc: RpcEndpoint;
+    public readonly rpc: HostRpc;
     private readonly child: ChildProcess;
     private readonly channel: IpcMessageChannel;
     private readonly logger: ILogger | undefined;
@@ -151,7 +152,7 @@ export function defaultSpawnArgs(): IExtensionHostSpawnSpec {
     return selfSpawnArgs();
 }
 
-function waitForReady(rpc: RpcEndpoint, child: ChildProcess, timeoutMs: number): Promise<void> {
+function waitForReady(rpc: HostRpc, child: ChildProcess, timeoutMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
         // Уборка ненаблюдаема ни в одной ветке: промис уже разрешён или
         // отклонён, и поздние `host.ready`/таймер/выход ребёнка в нём ничего не

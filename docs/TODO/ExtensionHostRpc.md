@@ -24,10 +24,10 @@
 2. [x] Таймаут как отмена (#515) в транспорте: `request(…, { token, timeoutMs })`,
    `raceWithTimeout` удаляется; таблица таймаутов вместо опций `*TimeoutMs`;
    ошибка и таймаут логируются раздельно.
-3. [~] Токены отмены в субпроцессе вместо `neverCancelledToken`, логгер у
+3. [x] Токены отмены в субпроцессе (#518) вместо `neverCancelledToken`, логгер у
    `RpcEndpoint` субпроцесса, warn на исключение провайдера.
-4. [ ] Карта протокола: generic `RpcEndpoint<TOut, TIn>`, `extHostProtocol.ts`
-   по группам методов; затем убрать untyped-дефолт.
+4. [~] Карта протокола: generic `RpcEndpoint<TOut, TIn>`, `extHostProtocol.ts`
+   по группам методов (`languages.*` — сделано); затем убрать untyped-дефолт.
 
 ## Не делаем
 

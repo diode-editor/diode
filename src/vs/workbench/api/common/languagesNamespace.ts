@@ -838,7 +838,7 @@ export function createLanguagesNamespace(
     rpc.handleRequest(
         "languages.provideDefinition",
         async (params, cancellation): Promise<WireDefinitionLocation[]> => {
-            const p = params as IWireDefinitionParams;
+            const p: IWireDefinitionParams = params;
             // Провайдер мог сняться, пока запрос летел: отвечаем «целей нет».
             const reg = definitionProviders.get(p.handle ?? -1);
             if (reg === undefined) return [];
@@ -869,7 +869,7 @@ export function createLanguagesNamespace(
     );
 
     rpc.handleRequest("languages.provideHover", async (params, cancellation): Promise<WireHover | null> => {
-        const p = params as IWireHoverParams;
+        const p: IWireHoverParams = params;
         // Провайдер мог сняться, пока запрос летел: отвечаем «hover'а нет».
         const reg = hoverProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
@@ -902,7 +902,7 @@ export function createLanguagesNamespace(
         async (params, cancellation): Promise<ICoreSignatureHelp | null> => {
             // Всё, кроме `uri`, читаем как необязательное: по RPC приезжает что
             // прислали, и дефолты ниже — не украшение, а обработка недоехавшего поля.
-            const p = params as Pick<IWireSignatureHelpParams, "uri"> & Partial<IWireSignatureHelpParams>;
+            const p: Pick<IWireSignatureHelpParams, "uri"> & Partial<IWireSignatureHelpParams> = params;
             // Провайдер мог сняться, пока запрос летел: отвечаем «подсказки нет».
             const reg = signatureHelpProviders.get(p.handle ?? -1);
             if (reg === undefined) return null;
@@ -935,7 +935,7 @@ export function createLanguagesNamespace(
     );
 
     rpc.handleRequest("languages.provideReferences", async (params, cancellation): Promise<WireReference[]> => {
-        const p = params as IWireReferenceParams;
+        const p: IWireReferenceParams = params;
         // Провайдер мог сняться, пока запрос летел: отвечаем «ссылок нет».
         const reg = referenceProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
@@ -981,7 +981,7 @@ export function createLanguagesNamespace(
     }
 
     rpc.handleRequest("languages.prepareRename", async (params, cancellation): Promise<WireRenamePrepare | null> => {
-        const p = params as IWireRenameRequestParams;
+        const p: IWireRenameRequestParams = params;
         // Провайдер мог сняться, пока запрос летел: «сказать нечего».
         const reg = renameProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
@@ -1008,7 +1008,7 @@ export function createLanguagesNamespace(
     });
 
     rpc.handleRequest("languages.provideRenameEdits", async (params, cancellation): Promise<WireRenameResult> => {
-        const p = params as IWireRenameRequestParams;
+        const p: IWireRenameRequestParams = params;
         // Провайдер мог сняться, пока запрос летел: «правок нет».
         const reg = renameProviders.get(p.handle ?? -1);
         if (reg === undefined) return { applied: false };
@@ -1049,7 +1049,7 @@ export function createLanguagesNamespace(
     // Провайдера выбрало ядро (по score — `editor/contrib/format`); снятый или
     // чужой handle — пустой ответ, как и сбой провайдера (no-op).
     rpc.handleRequest("languages.provideFormattingEdits", async (params, cancellation): Promise<WireTextEdit[]> => {
-        const p = params as IWireFormattingParams;
+        const p: IWireFormattingParams = params;
         const handle = p.handle ?? -1;
         const range = p.range;
         // Вызов провайдера, выбранного ядром; `undefined` — handle снят или чужого вида.
@@ -1115,7 +1115,7 @@ export function createLanguagesNamespace(
     // Провайдера выбрало ядро (по селектору и `providedCodeActionKinds`);
     // снятый или чужой handle — пустой список.
     rpc.handleRequest("languages.provideCodeActions", async (params, cancellation): Promise<WireCodeAction[]> => {
-        const p = params as IWireCodeActionParams;
+        const p: IWireCodeActionParams = params;
         const reg = codeActionProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
@@ -1175,7 +1175,7 @@ export function createLanguagesNamespace(
     // серверов приезжают только по codeAction/resolve), затем правки через
     // `workspace.applyEdit` (существующий RPC до хоста) и команда действия.
     rpc.handleRequest("languages.applyCodeAction", async (params, cancellation): Promise<boolean> => {
-        const id = (params as { id?: unknown }).id;
+        const id: unknown = params.id;
         if (typeof id !== "string") return false;
         const found = findCachedCodeAction(id);
         if (found === null) return false;
@@ -1229,7 +1229,7 @@ export function createLanguagesNamespace(
     rpc.handleRequest(
         "languages.provideCompletionItems",
         async (params, cancellation): Promise<WireCompletionResult[]> => {
-            const p = params as IWireCompletionParams;
+            const p: IWireCompletionParams = params;
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return [];
             const position = new Position(p.line ?? 0, p.character ?? 0);
@@ -1298,7 +1298,7 @@ export function createLanguagesNamespace(
     rpc.handleRequest(
         "languages.resolveCompletionItem",
         async (params, cancellation): Promise<WireResolvedCompletionItem | null> => {
-            const id = (params as { id?: unknown }).id;
+            const id: unknown = params.id;
             if (typeof id !== "string") return null;
             const entry = findCachedCompletion(id);
             if (entry === null) return null;
@@ -1364,7 +1364,7 @@ export function createLanguagesNamespace(
     rpc.handleRequest(
         "languages.provideInlineCompletions",
         async (params, cancellation): Promise<WireInlineCompletionItem[][]> => {
-            const p = params as IWireInlineCompletionParams;
+            const p: IWireInlineCompletionParams = params;
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return [];
             const position = new Position(p.line ?? 0, p.character ?? 0);
@@ -1430,7 +1430,7 @@ export function createLanguagesNamespace(
     );
 
     rpc.handleRequest("languages.provideFoldingRanges", async (params, cancellation): Promise<WireFoldingRange[][]> => {
-        const p = params as IWireFoldingParams;
+        const p: IWireFoldingParams = params;
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
         const context = {} as vscode.FoldingContext;

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 
@@ -40,7 +41,7 @@ function attach(sinks: IWindowSinks) {
         error: vi.fn(),
         isEnabled: () => true,
     };
-    const hostRpc = new RpcEndpoint(a, rpcLogger);
+    const hostRpc: HostRpc = new RpcEndpoint(a, rpcLogger);
     const peer = new RpcEndpoint(b);
     const attached = new WindowCustomer(sinks).attach({ rpc: hostRpc, logger: undefined });
     return { peer, attached, rpcLogger };

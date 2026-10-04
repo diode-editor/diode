@@ -39,6 +39,7 @@ import type { IClipboard } from "../../../../platform/clipboard/common/iClipboar
 import type { IConfigurationData } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IDocumentSyncTarget } from "../../../api/common/iDocumentSyncTarget.ts";
 import {
@@ -61,7 +62,6 @@ import {
     NULL_FILE_DECORATIONS_SERVICE,
 } from "../../../api/common/iFileDecorationsService.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
-import type { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
     type IWireDocumentChangedEvent,
@@ -365,7 +365,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly activating = new Map<string, { reg: IExtensionRegistration; done: Promise<void> }>();
     /** Текущий субпроцесс: spawn, канал, выключение (см. {@link ExtensionHostProcess}). */
     private process: ExtensionHostProcess | null = null;
-    private rpc: RpcEndpoint | null = null;
+    private rpc: HostRpc | null = null;
     private readyPromise: Promise<void> | null = null;
     /**
      * Всё, что живёт один спавн субпроцесса: подключения customers (их
@@ -731,7 +731,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         await Promise.all(toActivate.map((reg) => this.activateRegistration(rpc, reg, reason)));
     }
 
-    private activateRegistration(rpc: RpcEndpoint, reg: IExtensionRegistration, reason: string): Promise<void> {
+    private activateRegistration(rpc: HostRpc, reg: IExtensionRegistration, reason: string): Promise<void> {
         // Guard на случай, если параллельная активация уже занялась им: тот
         // вызов и дождётся (см. `activating`).
         if (!this.phases.takePending(reg.id)) return this.activating.get(reg.id)?.done ?? Promise.resolve();
@@ -744,7 +744,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return done;
     }
 
-    private async requestActivation(rpc: RpcEndpoint, reg: IExtensionRegistration, reason: string): Promise<void> {
+    private async requestActivation(rpc: HostRpc, reg: IExtensionRegistration, reason: string): Promise<void> {
         // Per-extension изоляция: упавший `activate()` одного расширения не
         // блокирует активацию остальных и не роняет bootstrap (как в VS Code).
         const storage = this.resolveStoragePaths(reg.id);
@@ -1023,7 +1023,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * Ленивая инициализация subprocess'а. Идемпотентна — параллельные вызовы
      * получают одну и ту же `readyPromise`.
      */
-    private async ensureSubprocess(): Promise<RpcEndpoint> {
+    private async ensureSubprocess(): Promise<HostRpc> {
         if (this.rpc !== null && this.readyPromise !== null) {
             await this.readyPromise;
             return this.rpc;
@@ -1070,7 +1070,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return rpc;
     }
 
-    private installHostHandlers(rpc: RpcEndpoint): void {
+    private installHostHandlers(rpc: HostRpc): void {
         const spawnStore = this.spawnStore;
         // Поверхности, вынесенные в customers: их состояние спавна живёт в
         // attach и уходит вместе со spawnStore.
@@ -1086,7 +1086,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * словарь воркспейса A протёк бы в стор B (честное лечение — перезапуск
      * хоста при смене папки, как reload окна у vscode).
      */
-    private installMementoHandlers(rpc: RpcEndpoint): void {
+    private installMementoHandlers(rpc: HostRpc): void {
         rpc.handleRequest("memento.update", (params): unknown => {
             const update = parseWireMementoUpdate(params);
             if (update === null) throw new Error("memento.update: malformed params");
