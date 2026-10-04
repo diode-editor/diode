@@ -24,8 +24,10 @@ export function isSeaBinary(): boolean {
  * Байты SEA-ассета по имени (`node:sea.getAsset`). Только внутри SEA-бинаря —
  * вне его `node:sea` недоступен, и вызов бросает.
  */
+// Stryker disable all: тело исполняется только внутри SEA-бинаря — юнитом не достать (файл исключён и из покрытия); проверяет e2e на собранном бинаре
 export function readSeaAsset(name: string): ArrayBuffer {
     const req = createRequire("file:///");
     const sea = req("node:sea") as { getAsset(key: string): ArrayBuffer };
     return sea.getAsset(name);
 }
+// Stryker restore all

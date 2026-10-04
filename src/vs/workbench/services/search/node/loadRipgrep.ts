@@ -19,6 +19,7 @@ let cached: string | null = null;
 
 /** Абсолютный путь к исполняемому `rg`; кэшируется на процесс. */
 export function loadRipgrepPath(): string {
+    // Stryker disable next-line AssignmentOperator: без кэша путь тот же — теряется только экономия повторного чтения ассета
     cached ??= resolveRipgrepPath();
     return cached;
 }

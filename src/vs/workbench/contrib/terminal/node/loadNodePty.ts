@@ -30,6 +30,7 @@ let cached: NodePtyModule | null = null;
 
 /** Загрузить node-pty (dev — из node_modules; упакованная сборка — из распакованного ассета). */
 export function loadNodePty(): NodePtyModule {
+    // Stryker disable next-line AssignmentOperator: без кэша модуль тот же (require кэширует его сам) — теряется только экономия
     cached ??= resolveNodePty();
     return cached;
 }

@@ -39,13 +39,13 @@ describe("extractBundleToCache", () => {
         expect(existsSync(`${target}.lock`)).toBe(false);
     });
 
-    it("повторный вызов — мгновенный no-op (mtime не меняется)", async () => {
+    it("повторный вызов — мгновенный no-op: распакованное не перезаписывается", async () => {
         const target = path.join(root, "v1-abc");
         await extractBundleToCache(bundle(), target);
-        const before = statSync(path.join(target, "server/lib/cli.mjs")).mtimeMs;
+        writeFileSync(path.join(target, "server/lib/cli.mjs"), "edited after unpack");
 
         await extractBundleToCache(bundle(), target);
-        expect(statSync(path.join(target, "server/lib/cli.mjs")).mtimeMs).toBe(before);
+        expect(readFileSync(path.join(target, "server/lib/cli.mjs"), "utf8")).toBe("edited after unpack");
     });
 
     it("незавершённый мусор прошлого падения затирается под локом", async () => {
@@ -73,6 +73,8 @@ describe("extractBundleToCache", () => {
         }, 50);
 
         await expect(done).resolves.toBeUndefined();
+        // Распаковывал «владелец», а не мы: файлов бандла в каталоге нет.
+        expect(existsSync(path.join(target, "server/lib/cli.mjs"))).toBe(false);
     });
 
     it("stale lock: таймаут с внятной подсказкой", async () => {
@@ -81,7 +83,10 @@ describe("extractBundleToCache", () => {
 
         await expect(
             extractBundleToCache(bundle(), target, { waitTimeoutMs: 120, pollIntervalMs: 20 }),
-        ).rejects.toThrow(/stale lock/);
+        ).rejects.toThrow(
+            `diode: timed out waiting for cache unpack at ${target}. ` +
+                `If no other diode is starting, remove the stale lock: rm -rf '${target}.lock'`,
+        );
     });
 
     it.skipIf(process.platform === "win32")("не-EEXIST ошибка лока пробрасывается (readonly cacheRoot)", async () => {
@@ -141,9 +146,9 @@ describe("extractBundleToCacheSync", () => {
 
         expect(readFileSync(path.join(target, "bin/rg"), "utf8")).toBe("#!/bin/sh\necho rg");
         expect(existsSync(`${target}.lock`)).toBe(false);
-        const before = statSync(path.join(target, "bin/rg")).mtimeMs;
+        writeFileSync(path.join(target, "bin/rg"), "edited after unpack");
         extractBundleToCacheSync(bundle(), target);
-        expect(statSync(path.join(target, "bin/rg")).mtimeMs).toBe(before);
+        expect(readFileSync(path.join(target, "bin/rg"), "utf8")).toBe("edited after unpack");
     });
 
     it("чужой лок без публикации — таймаут с подсказкой про stale lock", () => {
@@ -168,6 +173,8 @@ describe("extractBundleToCacheSync", () => {
         try {
             extractBundleToCacheSync(bundle(), target); // дефолты: таймаут 30 с, опрос 100 мс
             expect(existsSync(path.join(target, READY_MARKER))).toBe(true);
+            // Распаковывал «владелец»-сосед, а не мы.
+            expect(existsSync(path.join(target, "bin/rg"))).toBe(false);
         } finally {
             peer.kill();
         }

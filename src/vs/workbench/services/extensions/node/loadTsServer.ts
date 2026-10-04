@@ -87,6 +87,7 @@ function computeTarget(): ITsServerPaths | null {
 function bundleSource(): IBundleSource | null {
     if (cachedSource !== undefined) return cachedSource;
     const bundle = readPackagedAsset(ASSET_NAME);
+    // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
     cachedSource = bundle === null ? null : { bundle, cacheDir: packagedAssetCacheDir("ts-server", bundle) };
     return cachedSource;
 }
