@@ -323,6 +323,6 @@ export const toggleWordWrapAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "5_editor", order: 10 }],
     keybinding: parseKeybinding("alt+z"),
     run(accessor) {
-        accessor.get(EditorServiceDIToken).toggleWordWrap();
+        accessor.get(EditorServiceDIToken).editorConfiguration.toggleWordWrap();
     },
 };

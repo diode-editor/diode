@@ -17,14 +17,11 @@ import { TokenizationRegistryDIToken } from "../../../../editor/common/languages
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
-import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { hasDocumentFormatter } from "../../../../editor/contrib/format/format.ts";
-import type {
-    IConfigurationOverrides,
-    IConfigurationService,
-} from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { FileService } from "../../../../platform/files/common/fileService.ts";
@@ -69,6 +66,7 @@ import {
     enabledCodeActionKindsOnSave,
     type IOnSaveParticipantHost,
 } from "./onSaveParticipants.ts";
+import { TextEditorConfiguration } from "./textEditorConfiguration.ts";
 
 export const EditorServiceDIToken = token<EditorService>("EditorService");
 
@@ -138,9 +136,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     ] as const;
 
     /**
-     * Полоса групп в порядке ViewColumn − 1. Пока сплитов нет — ровно одна;
-     * вкладочная поверхность сервиса (activeIndex, activateTab, MRU)
-     * делегирует в активную группу.
+     * Полоса групп в порядке ViewColumn − 1; без сплитов — ровно одна.
+     * Вкладочные операции (позиция, `activateTab`, MRU) — у самой группы
+     * ({@link activeGroup}), фасада на сервисе нет.
      */
     private groupsList: EditorGroup[] = [];
     private activeGroupValue!: EditorGroup;
@@ -169,8 +167,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private languageConfigurationService: ILanguageConfigurationService;
     private readonly languageFeatures: ILanguageFeaturesService;
     private configurationService: IConfigurationService;
-    /** Transient-состояние Alt+Z: `null` — действует конфиг (см. {@link toggleWordWrap}). */
-    private wordWrapSessionOverride: "off" | "on" | null = null;
+    /**
+     * `editor.*`-настройки текстовых поверхностей: новые настраивает сервис,
+     * стороны диффа — `openDiffPair`, Alt+Z — команда `toggleWordWrap`.
+     */
+    public readonly editorConfiguration: TextEditorConfiguration;
     private undoRedoService: UndoRedoService;
     private fileWatcher: IFileWatcher;
     private readonly files: IFileService;
@@ -386,17 +387,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 this.groupSubscriptions.clear();
             },
         });
-        // Live-reload: при изменении `editor.*` настроек перепримeняем их ко всем
-        // открытым редакторам группы (не только к вновь создаваемым).
-        this.register(
-            this.configurationService.onDidChangeConfiguration((event) => {
-                if (!event.affectsConfiguration("editor")) return;
-                // Стороны диффа — тоже редактирующие поверхности: tabSize и
-                // прочие editor.* обязаны доехать и до них.
-                for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
-                    this.applyConfigurationToEditor(editor);
-                }
-            }),
+        // Стороны диффа — тоже редактирующие поверхности: tabSize и прочие
+        // editor.* обязаны доехать и до них.
+        this.editorConfiguration = this.register(
+            new TextEditorConfiguration(this.configurationService, () => [
+                ...this.textPanes(),
+                ...this.diffSidePanes(),
+            ]),
         );
     }
 
@@ -918,7 +915,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         editor.detached = true;
         // Вкладочные панели обвязывает группа; detached — сам сервис.
         this.wirePane(editor);
-        this.applyConfigurationToEditor(editor);
+        this.editorConfiguration.apply(editor);
         this.detachedPanes.push(editor);
         return editor;
     }
@@ -1057,7 +1054,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             } else {
                 const ref = this.modelRegistry.acquire(uri);
                 editor = this.createPaneForModel(ref.model, ref);
-                this.applyConfigurationToEditor(editor);
+                this.editorConfiguration.apply(editor);
             }
             // Прямое присваивание, без reveal: позиция пришла из вкладки, где
             // она и так была видима.
@@ -1193,7 +1190,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         model.replaceContent(content);
         const editor = this.createPaneForModel(model);
         editor.labelOverride = overrides.label ?? path.basename(uri.path);
-        this.applyConfigurationToEditor(editor);
+        this.editorConfiguration.apply(editor);
         editor.readOnly = true;
         return editor;
     }
@@ -1243,7 +1240,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const editor = this.createPaneForModel(model);
         // Файл не грузим (view-state из конструктора не пересоздаётся) — конфиг
         // применяем сразу.
-        this.applyConfigurationToEditor(editor);
+        this.editorConfiguration.apply(editor);
         const group = this.activeGroupValue;
         group.insertPane(editor);
         group.activateTab(group.editorCount - 1, { focus });
@@ -1310,9 +1307,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // языка (`"[lang]"`-секции). Переприменяем ко всем, как при правке
         // настроек: остальным это ничего не меняет. Подписка живёт, сколько модель.
         model.onDidChangeLanguage(() => {
-            for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
-                this.applyConfigurationToEditor(editor);
-            }
+            this.editorConfiguration.reapply();
         });
     }
 
@@ -1416,68 +1411,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public async activate(): Promise<void> {
         // Пока нечего активировать: async-инициализация редакторов (LSP и т.п.) —
         // будущий шов сервисного слоя.
-    }
-
-    /**
-     * Применяет к редактору настройки из `IConfigurationService`
-     * (`editor.cursorSurroundingLines`, `editor.tabSize`, `editor.insertSpaces`,
-     * `editor.detectIndentation`, перенос строк, подсветка вхождений). Значения
-     * всегда есть — дефолты реестра.
-     * Публичный: стороны дифф-вкладки создаёт `openDiffPair`, а конфиг — общий.
-     */
-    public applyConfigurationToEditor(editor: TextEditorPane): void {
-        // Значения — для языка документа: `"[makefile]": { "editor.insertSpaces": false }`
-        // из любого слоя (и из configurationDefaults расширения) бьёт плоское значение.
-        const overrides = { overrideIdentifier: editor.languageId };
-        // `editor.occurrencesHighlight`: "off" disables; "singleFile"/"multiFile"
-        // enable. We only support single-file scope.
-        const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight", overrides);
-        editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
-
-        editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
-
-        // Отступ: конфиг — это БАЗА, а не приказ. При включённом
-        // `editor.detectIndentation` (дефолт) содержимое файла главнее, как в
-        // VS Code; иначе действуют tabSize/insertSpaces из настроек. Раньше
-        // здесь стоял `setIndentOptions` — дверь для расширений, которая гасит
-        // автоопределение; поскольку `get()` отдаёт и дефолты реестра (4/true),
-        // детекция глохла на каждом открытом файле.
-        editor.applyIndentConfiguration({
-            tabSize: this.configurationService.get("editor.tabSize", overrides),
-            insertSpaces: this.configurationService.get("editor.insertSpaces", overrides),
-            detectIndentation: this.configurationService.get("editor.detectIndentation", overrides),
-        });
-
-        // Session-override от Alt+Z главнее конфига (transient, как в VS Code);
-        // мусорное значение из settings.json деградирует к "off".
-        editor.setWordWrap(
-            this.wordWrapSessionOverride ?? this.configuredWordWrap(overrides),
-            this.configurationService.get("editor.wordWrapColumn", overrides),
-        );
-    }
-
-    /** `editor.wordWrap` из конфига (мусор из settings.json сервис уже заменил дефолтом схемы). */
-    private configuredWordWrap(overrides?: IConfigurationOverrides): WordWrapMode {
-        return this.configurationService.get("editor.wordWrap", overrides);
-    }
-
-    /**
-     * Transient-переключение Alt+Z: поверх конфига на время сессии, settings.json
-     * не трогаем (VS Code хранит per-resource transient state — у нас упрощение
-     * до session-global, см. docs/TODO/WordWrap.md). Выключенный перенос
-     * включается конфигурным режимом, если он есть, иначе — "on".
-     */
-    public toggleWordWrap(): void {
-        const configured = this.configuredWordWrap();
-        const effective = this.wordWrapSessionOverride ?? configured;
-        if (effective === "off") {
-            this.wordWrapSessionOverride = configured === "off" ? "on" : null;
-        } else {
-            this.wordWrapSessionOverride = "off";
-        }
-        for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
-            this.applyConfigurationToEditor(editor);
-        }
     }
 
     /**

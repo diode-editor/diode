@@ -139,7 +139,7 @@ by design» — [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md). Зап
 без BOM всегда utf-8. Follow-up как в VS Code:
 
 - **`files.encoding`** — кодировка по умолчанию для открытия/сохранения (вместо
-  захардкоженного utf-8), применять в `EditorService.applyConfigurationToEditor` (`src/vs/workbench/services/editor/browser/editorService.ts`).
+  захардкоженного utf-8), применять в `TextEditorConfiguration.apply` (`src/vs/workbench/services/editor/browser/textEditorConfiguration.ts`).
 - **`files.autoGuessEncoding`** — эвристический детект содержимого (jschardet-подобный),
   отдельная опция поверх BOM-снифа.
 - Предупреждение о некодируемых символах при сохранении (сейчас — молчаливый `?`

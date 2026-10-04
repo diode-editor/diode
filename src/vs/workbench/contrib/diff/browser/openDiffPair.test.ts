@@ -1,5 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -64,6 +64,16 @@ describe("openDiffPair", () => {
         expect(screen).toContain("a.txt ↔ b.txt");
         expect(screen).toMatch(/2-\s+bravo/u);
         expect(screen).toMatch(/2\+\s+BRAVO/u);
+    });
+
+    it("стороны новой вкладки получают editor.*-настройки, как любой редактор", async () => {
+        const applied = vi.spyOn(editors.editorConfiguration, "apply");
+
+        await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
+
+        const pane = editors.activeGroup.activePane;
+        expect(pane instanceof DiffEditorPane2).toBe(true);
+        for (const side of (pane as DiffEditorPane2).sidePanes()) expect(applied).toHaveBeenCalledWith(side);
     });
 
     it("та же пара — одна вкладка, повторный вызов обновляет снимок на месте (US-32)", async () => {

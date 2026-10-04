@@ -138,7 +138,7 @@ export async function openDiffPair(
     );
     // Стороны — редактирующие поверхности: editor.*-конфиг (tabSize, отступы)
     // применяется как к обычным вкладкам.
-    for (const side of pane.sidePanes()) editors.applyConfigurationToEditor(side);
+    for (const side of pane.sidePanes()) editors.editorConfiguration.apply(side);
     // Спеки сторон — для автоосвежения снимков по onDidChangeFile (US-31):
     // политика чтения (`onMissing`) остаётся в одном месте.
     paneOptions.set(pane, options);
