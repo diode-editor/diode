@@ -65,19 +65,6 @@ import {
     type IWireStatusBarItem,
     type IWireValidationMessage,
     parseWireMementoUpdate,
-    requestApplyCodeAction,
-    requestCodeActions,
-    requestCompletionItems,
-    requestDefinition,
-    requestFoldingRanges,
-    requestFormattingEdits,
-    requestHover,
-    requestInlineCompletions,
-    requestPrepareRename,
-    requestReferences,
-    requestRename,
-    requestResolveCompletionItem,
-    requestSignatureHelp,
     type WireMarker,
     type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
@@ -88,7 +75,6 @@ import {
     readCommandActivationIds,
     readWorkspaceContainsPatterns,
 } from "../common/activationEvents.ts";
-import { ProviderRequestBatcher } from "../common/providerRequestBatcher.ts";
 
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 import { createTransientExtensionStateStore, type IExtensionStateStore } from "./extensionStateStore.ts";
@@ -130,7 +116,7 @@ import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts"
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
-import { DocumentsCustomer, MAX_WILL_SAVE_TEXT_BYTES } from "./customers/documentsCustomer.ts";
+import { DocumentsCustomer } from "./customers/documentsCustomer.ts";
 import { EditorCustomer } from "./customers/editorCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
@@ -216,9 +202,6 @@ export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
 }
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
-
-/** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
-const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
 
 /** Папка воркспейса, проецируемая в subprocess (`workspace.workspaceFolders`). */
 export interface IWorkspaceFolderInfo {
@@ -616,22 +599,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly registrations = new Map<string, IExtensionRegistration>();
     /** Реестр языковых провайдеров субпроцесса (мост под `ILanguageFeaturesService`). */
     private readonly languageFeatures: LanguageFeaturesCustomer;
-    /** Вызовы inline-прокси с одним запросом — одним RPC (см. `provideInlineCompletions`). */
-    private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
-        IInlineCompletionRequest,
-        readonly ICoreInlineCompletionItem[]
-    >((handles, req, token) => this.requestInlineCompletionsBatch(handles, req, token), []);
-    /** Вызовы folding-прокси с одним запросом — одним RPC (см. `provideFoldingRanges`). */
-    private readonly foldingBatcher = new ProviderRequestBatcher<IFoldingRequest, readonly IFoldingRegion[]>(
-        (handles, req) => this.requestFoldingBatch(handles, req),
-        [],
-    );
-    /** Вызовы completion-прокси с одним запросом — одним RPC (см. `provideCompletionItems`). */
-    private readonly completionBatcher = new ProviderRequestBatcher<ICompletionRequest, ICoreCompletionResult>(
-        (handles, req) => this.requestCompletionBatch(handles, req),
-        EMPTY_COMPLETION_RESULT,
-    );
-
     public constructor(
         editorOptions: IEditorOptionsService,
         commandService: ICommandService,
@@ -669,7 +636,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
             ),
         );
-        this.languageFeatures = this.register(new LanguageFeaturesCustomer());
+        this.languageFeatures = this.register(new LanguageFeaturesCustomer(this.options, this.logger));
         this.documents = new DocumentsCustomer({
             willSaveTimeoutMs: this.options.willSaveTimeoutMs,
             openDocumentsProvider: options.openDocumentsProvider,
@@ -1101,463 +1068,62 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.documents.didCloseTextDocument(uri);
     }
 
-    /**
-     * Запрашивает у completion-провайдера субпроцесса `handle` элементы
-     * автодополнения для позиции курсора (`languages.provideCompletionItems`).
-     * Пустой результат, если субпроцесса нет, документ слишком большой или
-     * расширение не ответило за `completionTimeoutMs`. Зовёт его прокси из
-     * реестра ядра (`LanguageFeaturesAdapter`); вызовы прокси с одним запросом
-     * уходят одним RPC (`ProviderRequestBatcher` — полный текст документа не
-     * множится на число провайдеров).
-     */
+    // ─── Языковые фичи (см. LanguageFeaturesCustomer) ──────────────────────────
+
     public provideCompletionItems(handle: number, req: ICompletionRequest): Promise<ICoreCompletionResult> {
-        return this.completionBatcher.call(handle, req);
+        return this.languageFeatures.provideCompletionItems(handle, req);
     }
 
-    private async requestCompletionBatch(
-        handles: readonly number[],
-        req: ICompletionRequest,
-    ): Promise<readonly ICoreCompletionResult[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping completion: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            // Stryker disable next-line ArrayDeclaration: см. v8 ignore выше — ветку юнит не достаёт
-            return [];
-        }
-        /* v8 ignore stop */
-        return requestCompletionItems(
-            (method, params) => rpc.request(method, params),
-            {
-                handles,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                line: req.line,
-                character: req.character,
-                ...(req.triggerKind !== undefined ? { triggerKind: req.triggerKind } : {}),
-                ...(req.triggerCharacter !== undefined ? { triggerCharacter: req.triggerCharacter } : {}),
-            },
-            this.options.completionTimeoutMs,
-        );
+    public resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
+        return this.languageFeatures.resolveCompletionItem(id);
     }
 
-    /**
-     * Догружает detail/documentation/additionalTextEdits пункта автодополнения
-     * (`languages.resolveCompletionItem`). У стокового LSP-стека это ЕДИНСТВЕННЫЙ
-     * путь к описанию и авто-импорту: `typescript-language-server` присылает их
-     * не в списке, а по запросу выбранного пункта. `null` — резолвить нечего или
-     * расширение не ответило за `completionTimeoutMs`. `id` уникален сквозь
-     * провайдеров: кэш субпроцесса сам знает, чей это пункт.
-     */
-    public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. requestCompletionBatch — без канала прокси уже сняты из реестра
-        if (rpc === null) return null;
-        return requestResolveCompletionItem(
-            (method, params) => rpc.request(method, params),
-            id,
-            this.options.completionTimeoutMs,
-        );
-    }
-
-    /**
-     * Запрашивает у inline-провайдера субпроцесса `handle` подсказки для позиции
-     * каретки (`languages.provideInlineCompletions`). Возвращает `[]`, если
-     * субпроцесса нет, документ слишком большой или расширение не ответило за
-     * отпущенный срок. Зовёт его прокси из
-     * реестра ядра (`LanguageFeaturesAdapter`); вызовы с одним запросом уходят
-     * одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
-     *
-     * Срок берётся из САМОГО запроса (`req.timeoutMs` —
-     * `editor.inlineSuggest.requestTimeout`), и только в его отсутствие — из
-     * `inlineCompletionTimeoutMs` хоста. Асимметрия с остальным семейством
-     * таймаутов осознанная: остальные фиксируются при создании хоста, а этот
-     * человек правит в settings.json и ждёт эффекта без перезапуска.
-     */
     public provideInlineCompletions(
         handle: number,
         req: IInlineCompletionRequest,
         token: ICancellationToken = CancellationTokenNone,
     ): Promise<readonly ICoreInlineCompletionItem[]> {
-        return this.inlineCompletionsBatcher.call(handle, req, token);
+        return this.languageFeatures.provideInlineCompletions(handle, req, token);
     }
 
-    private async requestInlineCompletionsBatch(
-        handles: readonly number[],
-        req: IInlineCompletionRequest,
-        token: ICancellationToken | undefined,
-    ): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
-        // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration: 8 МБ снапшот неподъёмен юнитом, см. v8 ignore
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping inline completion: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return [];
-        }
-        // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,ObjectLiteral,OptionalChaining,ArrayDeclaration
-        /* v8 ignore stop */
-        return requestInlineCompletions(
-            (method, params, cancellation) => rpc.request(method, params, cancellation),
-            {
-                handles,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                line: req.line,
-                character: req.character,
-                triggerKind: req.triggerKind,
-            },
-            req.timeoutMs ?? this.options.inlineCompletionTimeoutMs,
-            token,
-        );
-    }
-
-    /**
-     * Отдаёт области сворачивания folding-провайдера субпроцесса `handle` для
-     * документа (`languages.provideFoldingRanges`). Пустой массив, если
-     * субпроцесса нет, документ слишком большой или расширение не ответило за
-     * `foldingTimeoutMs` — ядро в этом случае остаётся на indentation-фолдах.
-     * Зовёт его прокси из реестра ядра (`LanguageFeaturesAdapter`); вызовы с
-     * одним запросом уходят одним RPC (`ProviderRequestBatcher`).
-     */
     public provideFoldingRanges(handle: number, req: IFoldingRequest): Promise<readonly IFoldingRegion[]> {
-        return this.foldingBatcher.call(handle, req);
+        return this.languageFeatures.provideFoldingRanges(handle, req);
     }
 
-    private async requestFoldingBatch(
-        handles: readonly number[],
-        req: IFoldingRequest,
-    ): Promise<readonly (readonly IFoldingRegion[])[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping folding: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return [];
-        }
-        /* v8 ignore stop */
-        return requestFoldingRanges(
-            (method, params) => rpc.request(method, params),
-            {
-                handles,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-            },
-            this.options.foldingTimeoutMs,
-        );
+    public provideDefinition(handle: number, req: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideDefinition(handle, req);
     }
 
-    /**
-     * Запрашивает у definition-провайдера субпроцесса `handle` цели для позиции
-     * курсора (`languages.provideDefinition`). Возвращает `[]`, если субпроцесса
-     * нет, документ слишком большой или расширение не ответило за
-     * `definitionTimeoutMs`. Зовёт его прокси из реестра ядра
-     * (`LanguageFeaturesAdapter`).
-     */
-    public async provideDefinition(
-        handle: number,
-        req: IDefinitionRequest,
-    ): Promise<readonly ICoreDefinitionLocation[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping definition: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return [];
-        }
-        return requestDefinition(
-            (method, params) => rpc.request(method, params),
-            {
-                handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                line: req.line,
-                character: req.character,
-            },
-            this.options.definitionTimeoutMs,
-        );
+    public provideHover(handle: number, req: IHoverRequest): Promise<ICoreHover | undefined> {
+        return this.languageFeatures.provideHover(handle, req);
     }
 
-    /**
-     * Запрашивает у hover-провайдера субпроцесса `handle` hover для позиции
-     * курсора (`languages.provideHover`). Возвращает `undefined`, если
-     * субпроцесса нет, документ слишком большой или расширение не ответило за
-     * `hoverTimeoutMs`. Зовёт его прокси, который `LanguageFeaturesAdapter`
-     * держит в реестре ядра.
-     */
-    public async provideHover(handle: number, req: IHoverRequest): Promise<ICoreHover | undefined> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return undefined;
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping hover: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return undefined;
-        }
-        return requestHover(
-            (method, params) => rpc.request(method, params),
-            {
-                handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                line: req.line,
-                character: req.character,
-            },
-            this.options.hoverTimeoutMs,
-        );
+    public provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
+        return this.languageFeatures.provideReferences(handle, req);
     }
 
-    /**
-     * Запрашивает у references-провайдера субпроцесса `handle` ссылки на символ
-     * под курсором (`languages.provideReferences`). Возвращает `[]`, если
-     * субпроцесса нет, документ слишком большой или расширение не ответило за
-     * `referencesTimeoutMs`. Зовёт его прокси из реестра ядра
-     * (`LanguageFeaturesAdapter`).
-     */
-    public async provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping references: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return [];
-        }
-        return requestReferences(
-            (method, params) => rpc.request(method, params),
-            {
-                handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                line: req.line,
-                character: req.character,
-                includeDeclaration: req.includeDeclaration,
-            },
-            this.options.referencesTimeoutMs,
-        );
+    public provideSignatureHelp(handle: number, req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
+        return this.languageFeatures.provideSignatureHelp(handle, req);
     }
 
-    /**
-     * Запрашивает у провайдера подсказки параметров `handle` подсказку для
-     * позиции каретки (`languages.provideSignatureHelp`). `null`, если
-     * субпроцесса нет, документ слишком большой или расширение не ответило за
-     * `signatureHelpTimeoutMs`. Зовёт его прокси из реестра ядра
-     * (`LanguageFeaturesAdapter`).
-     */
-    public async provideSignatureHelp(handle: number, req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return null;
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping signature help: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return null;
-        }
-        return requestSignatureHelp(
-            (method, params) => rpc.request(method, params),
-            {
-                handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                line: req.line,
-                character: req.character,
-                triggerKind: req.triggerKind,
-                // Оба спреда — про чистоту payload'а: `undefined`-ключи всё равно
-                // выбрасывает JSON-транспорт RPC, поэтому за границей канала
-                // разницы не видно (потому и Stryker disable).
-                // Stryker disable next-line ConditionalExpression: см. выше
-                ...(req.triggerCharacter === undefined ? {} : { triggerCharacter: req.triggerCharacter }),
-                isRetrigger: req.isRetrigger,
-                // Stryker disable next-line ConditionalExpression: см. выше
-                ...(req.activeSignatureHelp === undefined ? {} : { activeSignatureHelp: req.activeSignatureHelp }),
-            },
-            this.options.signatureHelpTimeoutMs,
-        );
+    public provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {
+        return this.languageFeatures.provideFormattingEdits(handle, req);
     }
 
-    /**
-     * Запрашивает у провайдера форматирования `handle` правки документа (без
-     * `req.range` — документный провайдер) или диапазона (с ним — range-провайдер)
-     * — `languages.provideFormattingEdits`. Пустой массив — менять нечего,
-     * субпроцесса нет, документ слишком большой или таймаут `formattingTimeoutMs`
-     * (молчаливый no-op). «Нет форматтера» решает ядро по реестру. Зовёт его
-     * прокси из реестра ядра (`LanguageFeaturesAdapter`).
-     */
-    public async provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping formatting: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return [];
-        }
-        return requestFormattingEdits(
-            (method, params) => rpc.request(method, params),
-            {
-                handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                tabSize: req.tabSize,
-                insertSpaces: req.insertSpaces,
-                // Спред — про чистоту payload'а: `undefined`-ключи всё равно
-                // выбрасывает JSON-транспорт RPC, поэтому за границей канала
-                // разницы не видно.
-                // Stryker disable next-line ConditionalExpression: см. выше
-                ...(req.range === undefined
-                    ? {}
-                    : {
-                          range: {
-                              startLine: req.range.start.line,
-                              startCharacter: req.range.start.character,
-                              endLine: req.range.end.line,
-                              endCharacter: req.range.end.character,
-                          },
-                      }),
-            },
-            this.options.formattingTimeoutMs,
-        );
+    public provideCodeActions(handle: number, req: ICodeActionRequest): Promise<readonly ICoreCodeAction[]> {
+        return this.languageFeatures.provideCodeActions(handle, req);
     }
 
-    /**
-     * Запрашивает у code-action-провайдера `handle` действия для диапазона
-     * (`languages.provideCodeActions`). Пустой массив — действий не нашлось,
-     * субпроцесса нет, документ слишком большой или таймаут. Зовёт его прокси из
-     * реестра ядра (`LanguageFeaturesAdapter`).
-     */
-    public async provideCodeActions(handle: number, req: ICodeActionRequest): Promise<readonly ICoreCodeAction[]> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: `rpc` обнуляется только в resetSubprocessState, который тем же блоком снимает регистрации, а с ними и прокси в реестре — пара «канала нет, а прокси зовут» недостижима; проверка стоит защитой от обращения к мёртвому каналу
-        if (rpc === null) return [];
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping code actions: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return [];
-        }
-        return requestCodeActions(
-            (method, params) => rpc.request(method, params),
-            {
-                handle,
-                uri: req.uri,
-                languageId: req.languageId,
-                text: req.text,
-                range: {
-                    startLine: req.range.start.line,
-                    startCharacter: req.range.start.character,
-                    endLine: req.range.end.line,
-                    endCharacter: req.range.end.character,
-                },
-                // Спред — про чистоту payload'а: `undefined`-ключи всё равно
-                // выбрасывает JSON-транспорт RPC.
-                // Stryker disable next-line ConditionalExpression: см. выше
-                ...(req.only === undefined ? {} : { only: req.only }),
-            },
-            this.options.codeActionsTimeoutMs,
-        );
+    public applyCodeAction(id: string): Promise<boolean> {
+        return this.languageFeatures.applyCodeAction(id);
     }
 
-    /**
-     * Просит субпроцесс применить закэшированное действие
-     * (`languages.applyCodeAction`): ленивый resolve + правки через
-     * `workspace.applyEdit` + команда действия — всё на его стороне. `false` —
-     * субпроцесса нет, действие протухло, правки не легли или таймаут
-     * `applyCodeActionTimeoutMs`. `id` уникален сквозь провайдеров: кэш
-     * субпроцесса сам знает, чьё это действие.
-     */
-    public async applyCodeAction(id: string): Promise<boolean> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
-        if (rpc === null) return false;
-        return requestApplyCodeAction(
-            (method, params) => rpc.request(method, params),
-            id,
-            this.options.applyCodeActionTimeoutMs,
-        );
+    public prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
+        return this.languageFeatures.prepareRename(handle, req);
     }
 
-    /**
-     * Спрашивает у rename-провайдера `handle` текущее имя символа в позиции
-     * каретки (`languages.prepareRename`). `null` — субпроцесса нет, документ
-     * слишком большой, провайдеру сказать нечего или он не ответил за
-     * `prepareRenameTimeoutMs`; ядро в этом случае спрашивает следующего
-     * провайдера, а в конце добирает слово под кареткой само.
-     */
-    public async prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
-        if (rpc === null) return null;
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping prepare rename: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return null;
-        }
-        return requestPrepareRename(
-            (method, params) => rpc.request(method, params),
-            { handle, ...renameTarget(req) },
-            this.options.prepareRenameTimeoutMs,
-        );
-    }
-
-    /**
-     * Просит rename-провайдера `handle` переименовать символ под кареткой
-     * (`languages.provideRenameEdits`): вызов провайдера и правки существующим
-     * `workspace.applyEdit` — всё на стороне субпроцесса. Отказ С СООБЩЕНИЕМ,
-     * если субпроцесса нет, документ слишком большой или расширение не
-     * ответило за `renameTimeoutMs`: человек ввёл имя и обязан узнать, что
-     * ничего не произошло.
-     */
-    public async provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
-        const rpc = this.rpc;
-        // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
-        if (rpc === null) return { applied: false, error: "Rename failed" };
-        if (req.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping rename: document too large", {
-                uri: req.uri,
-                length: req.text.length,
-            });
-            return { applied: false, error: "Document too large to rename" };
-        }
-        return requestRename(
-            (method, params) => rpc.request(method, params),
-            { handle, ...renameTarget(req), newName },
-            this.options.renameTimeoutMs,
-        );
+    public provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
+        return this.languageFeatures.provideRenameEdits(handle, req, newName);
     }
 
     // ─── Языковые провайдеры (мост под ILanguageFeaturesService) ──────────────
@@ -1809,25 +1375,4 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         await subprocess.shutdown(this.options.shutdownTimeoutMs);
         this.exitingProcess = null;
     }
-}
-
-/**
- * Общая часть параметров обеих rename-ручек: документ и позиция каретки.
- * `prepareRename` и `provideRenameEdits` спрашивают об одном и том же месте,
- * и расходятся только новым именем.
- */
-function renameTarget(req: IRenameRequest): {
-    uri: string;
-    languageId: string;
-    text: string;
-    line: number;
-    character: number;
-} {
-    return {
-        uri: req.uri,
-        languageId: req.languageId,
-        text: req.text,
-        line: req.line,
-        character: req.character,
-    };
 }
