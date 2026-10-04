@@ -161,8 +161,8 @@ import { PREFERENCES_ACTIONS } from "./contrib/preferences/browser/preferencesAc
 import { QUICK_ACCESS_ACTIONS } from "./contrib/quickaccess/browser/quickOpenActions.ts";
 import { QuickOpenServiceDIToken } from "./contrib/quickaccess/browser/quickOpenService.ts";
 import { REFERENCES_ACTIONS } from "./contrib/references/browser/referencesActions.ts";
-import { RENAME_ACTIONS } from "./contrib/rename/browser/renameActions.ts";
 import { ReferencesComponentDIToken } from "./contrib/references/browser/referencesComponent.ts";
+import { RENAME_ACTIONS } from "./contrib/rename/browser/renameActions.ts";
 import { ChangesComponentDIToken } from "./contrib/scm/browser/changesComponent.ts";
 import { GIT_MENU_SUBMENUS } from "./contrib/scm/browser/gitMenus.ts";
 import { GraphViewComponentDIToken } from "./contrib/scm/browser/graphViewComponent.ts";
