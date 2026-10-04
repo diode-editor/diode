@@ -292,7 +292,6 @@ export class EditorComponent extends Component {
         // по новому числу строк.
         this.editorViewState.scrollTop = Math.min(scrollTop, Math.max(0, this.editorViewState.getViewLineCount() - 1));
         this.editorViewState.scrollLeft = scrollLeft;
-        this.editor.markDirty();
     }
 
     /**

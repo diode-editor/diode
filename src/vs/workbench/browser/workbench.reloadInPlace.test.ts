@@ -42,6 +42,21 @@ describe("Workbench — перечитка с диска на месте", () =>
         expect(editor.viewState.selections).toEqual([createCursorSelection(1, 2)]);
     });
 
+    it("вьюпорт переживает перечитку, а за концом укоротившегося файла прижимается к последней строке", () => {
+        ws.writeFile("a.txt", Array.from({ length: 100 }, (_, i) => `line${String(i)}`).join("\n"));
+        h.workbench.openFile(ws.path("a.txt"));
+        const editor = h.activeEditor();
+        editor.viewState.scrollTop = 40;
+
+        ws.writeFile("a.txt", Array.from({ length: 100 }, (_, i) => `row${String(i)}`).join("\n"));
+        editor.revertToDisk();
+        expect(editor.viewState.scrollTop).toBe(40);
+
+        ws.writeFile("a.txt", Array.from({ length: 10 }, (_, i) => `short${String(i)}`).join("\n"));
+        editor.revertToDisk();
+        expect(editor.viewState.scrollTop).toBe(9);
+    });
+
     it("отступ пере-детектится по новому содержимому", () => {
         h.workbench.openFile(ws.path("a.txt"));
         const editor = h.activeEditor();

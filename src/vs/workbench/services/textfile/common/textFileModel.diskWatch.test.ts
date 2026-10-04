@@ -6,7 +6,9 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { createInsertEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
+import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 /** Fake watcher: records the onChange callback per path so tests fire it by hand. */
 class FakeFileWatcher implements IFileWatcher {
@@ -272,11 +274,14 @@ describe("TextFileModel — external change detection", () => {
         });
 
         it("меняет текст в том же документе: версия растёт, история отмены забыта", () => {
-            const controller = createEditorPane();
+            const undoRedo = new UndoRedoService();
+            const controller = createEditorPane({ undoRedoService: undoRedo });
             const fp = writeFile("same.txt", "disk\n");
             controller.openFile(Uri.file(fp));
             const document = controller.model.document;
-            controller.viewState.type("edit ");
+            controller.applyExternalEdits([createInsertEdit(0, 0, "edit ")], "edit");
+            expect(controller.model.undoManager.canUndo).toBe(true);
+            expect(undoRedo.peekUndo(controller.undoContext)).toBeDefined();
             const versionBefore = document.versionId;
 
             writeFileExternally(fp, "fresh\n");
@@ -284,7 +289,9 @@ describe("TextFileModel — external change detection", () => {
 
             expect(controller.model.document).toBe(document);
             expect(document.versionId).toBeGreaterThan(versionBefore);
+            // История забыта в обоих местах: в движке документа и в общем бакете.
             expect(controller.model.undoManager.canUndo).toBe(false);
+            expect(undoRedo.peekUndo(controller.undoContext)).toBeUndefined();
             controller.dispose();
         });
 
@@ -302,6 +309,17 @@ describe("TextFileModel — external change detection", () => {
 
             // По одному событию, и оба — после того как буфер снова «сохранён».
             expect(seen).toEqual(["content:false", "eol:false"]);
+            controller.dispose();
+        });
+
+        it("правки безымянного буфера (без единой перечитки) доходят до подписчиков", () => {
+            const controller = createEditorPane();
+            let events = 0;
+            controller.model.onDidChangeContent(() => events++);
+
+            controller.applyExternalEdits([createInsertEdit(0, 0, "x")], "edit");
+
+            expect(events).toBe(1);
             controller.dispose();
         });
 
