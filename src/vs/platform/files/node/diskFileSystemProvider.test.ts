@@ -182,6 +182,20 @@ describe("DiskFileSystemProvider", () => {
         expect(isFileOperationError(missing, FileOperationResult.NotFound)).toBe(true);
     });
 
+    it("rename между файловыми системами (EXDEV) — копирование и удаление", async () => {
+        fs.mkdirSync(path.join(dir, "src", "sub"), { recursive: true });
+        fs.writeFileSync(path.join(dir, "src", "sub", "x"), "x");
+        const exdev = Object.assign(new Error("EXDEV: cross-device link not permitted"), { code: "EXDEV" });
+        vi.spyOn(fs.promises, "rename").mockRejectedValueOnce(exdev);
+        await provider.rename(at("src"), at("dst"), { overwrite: false });
+        expect(fs.readFileSync(path.join(dir, "dst", "sub", "x"), "utf-8")).toBe("x");
+        expect(fs.existsSync(path.join(dir, "src"))).toBe(false);
+
+        vi.spyOn(fs.promises, "rename").mockRejectedValueOnce(Object.assign(new Error("EBUSY"), { code: "EBUSY" }));
+        await expect(provider.rename(at("dst"), at("again"), { overwrite: false })).rejects.toThrow("EBUSY");
+        expect(fs.existsSync(path.join(dir, "dst"))).toBe(true);
+    });
+
     it("коды ОС переводятся в общий словарь, прочие ошибки — как есть", () => {
         const uri = at("x");
         const cases: [string, FileOperationResult][] = [

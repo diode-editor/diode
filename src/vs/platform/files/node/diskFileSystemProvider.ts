@@ -92,7 +92,16 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
 
     public async rename(source: Uri, target: Uri, options: { readonly overwrite: boolean }): Promise<void> {
         if (!options.overwrite) await assertAbsent(target);
-        await guard(source, () => fs.promises.rename(source.fsPath, target.fsPath));
+        await guard(source, async () => {
+            try {
+                await fs.promises.rename(source.fsPath, target.fsPath);
+            } catch (e) {
+                // Между файловыми системами rename не умеет — копируем и удаляем.
+                if ((e as NodeJS.ErrnoException).code !== "EXDEV") throw e;
+                await fs.promises.cp(source.fsPath, target.fsPath, { recursive: true });
+                await fs.promises.rm(source.fsPath, { recursive: true });
+            }
+        });
     }
 
     public async copy(source: Uri, target: Uri, options: { readonly overwrite: boolean }): Promise<void> {

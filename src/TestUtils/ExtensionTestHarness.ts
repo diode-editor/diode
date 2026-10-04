@@ -52,7 +52,7 @@ import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDe
 import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColorResolver.ts";
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
-import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/node/workspaceEditService.ts";
+import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { getDefinitions } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { provideInlineCompletions as provideInlineCompletionsFrom } from "../vs/workbench/contrib/inlineCompletions/browser/provideInlineCompletions.ts";
@@ -77,6 +77,7 @@ import type { IExtensionStorageHomes } from "../vs/workbench/services/extensions
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 import type { IWorkspaceScanner } from "../vs/workbench/services/extensions/node/workspaceContainsActivation.ts";
 
+import { diskFileService } from "./diskFileService.ts";
 import { createTestContextMenuService } from "./testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 
@@ -348,6 +349,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         new TrashService(),
         configurationService,
         new BulkEditBuffers(group),
+        diskFileService(),
     );
     const adapter = new EditorOptionsServiceAdapter(group, workspaceEditService);
     const commandRegistry = new CommandRegistry();

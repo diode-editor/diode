@@ -159,4 +159,50 @@ describe("UndoRedoService — отказ шага", () => {
         expect(await service.undo(CTX)).toBe(false);
         expect(older.undo).not.toHaveBeenCalled();
     });
+
+    it("асинхронный ответ canUndo: пока шаг спрашивал диск, сверху лёг новый — не трогаем ни тот, ни другой", async () => {
+        const service = new UndoRedoService();
+        const asking = makeElement("Edit");
+        let answer!: (can: boolean) => void;
+        asking.el.canUndo = () => new Promise<boolean>((resolve) => (answer = resolve));
+        service.pushElement(asking.el, CTX);
+
+        const pending = service.undo(CTX);
+        const newer = makeElement("Move");
+        service.pushElement(newer.el, CTX);
+        answer(true);
+
+        expect(await pending).toBe(false);
+        expect(asking.undo).not.toHaveBeenCalled();
+        expect(newer.undo).not.toHaveBeenCalled();
+        expect(service.peekUndo(CTX)).toBe(newer.el);
+    });
+
+    it("асинхронный ответ canRedo: сдвинутый стек повтора — шаг не повторяется", async () => {
+        const service = new UndoRedoService();
+        const asking = makeElement("Edit");
+        let answer!: (can: boolean) => void;
+        asking.el.canRedo = () => new Promise<boolean>((resolve) => (answer = resolve));
+        service.pushElement(asking.el, CTX);
+        await service.undo(CTX);
+
+        const pending = service.redo(CTX);
+        const other = makeElement("Move");
+        service.pushElement(other.el, CTX);
+        await service.undo(CTX); // other уходит в стек повтора поверх asking
+        answer(true);
+
+        expect(await pending).toBe(false);
+        expect(asking.redo).not.toHaveBeenCalled();
+    });
+
+    it("асинхронный ответ canUndo: разрешено — шаг откатывается", async () => {
+        const service = new UndoRedoService();
+        const asking = makeElement("Edit");
+        asking.el.canUndo = () => Promise.resolve(true);
+        service.pushElement(asking.el, CTX);
+
+        expect(await service.undo(CTX)).toBe(true);
+        expect(asking.undo).toHaveBeenCalledOnce();
+    });
 });

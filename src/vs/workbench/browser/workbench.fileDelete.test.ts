@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -50,7 +50,7 @@ describe("fileOperations.deleteFile command", () => {
         h.testApp.render();
     }
 
-    it("deletes the specified file after confirmation", () => {
+    it("deletes the specified file after confirmation", async () => {
         const filePath = ws.path("alpha.txt");
         expect(fs.existsSync(filePath)).toBe(true);
 
@@ -58,7 +58,9 @@ describe("fileOperations.deleteFile command", () => {
         h.testApp.render();
         confirmDelete();
 
-        expect(fs.existsSync(filePath)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(filePath)).toBe(false);
+        });
     });
 
     it("asks for confirmation and does not delete until confirmed", () => {
@@ -72,7 +74,7 @@ describe("fileOperations.deleteFile command", () => {
         expect(fs.existsSync(filePath)).toBe(true);
     });
 
-    it("does not delete other files when deleting one", () => {
+    it("does not delete other files when deleting one", async () => {
         const alpha = ws.path("alpha.txt");
         const beta = ws.path("beta.txt");
 
@@ -80,7 +82,9 @@ describe("fileOperations.deleteFile command", () => {
         h.testApp.render();
         confirmDelete();
 
-        expect(fs.existsSync(alpha)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(alpha)).toBe(false);
+        });
         expect(fs.existsSync(beta)).toBe(true);
     });
 
@@ -90,7 +94,9 @@ describe("fileOperations.deleteFile command", () => {
         h.commands.execute("fileOperations.deleteFile", filePath);
         h.testApp.render();
         confirmDelete();
-        expect(fs.existsSync(filePath)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(filePath)).toBe(false);
+        });
 
         await h.commands.execute("fileOperations.undo");
         h.testApp.render();
@@ -144,7 +150,7 @@ describe("Delete key in the file tree", () => {
         h.testApp.render();
     }
 
-    it("pressing Delete deletes the file selected in the focused tree after confirmation", () => {
+    it("pressing Delete deletes the file selected in the focused tree after confirmation", async () => {
         const alpha = ws.path("alpha.txt");
         const beta = ws.path("beta.txt");
 
@@ -158,11 +164,13 @@ describe("Delete key in the file tree", () => {
         expect(fs.existsSync(alpha)).toBe(true); // not deleted until confirmed
         confirmDelete();
 
-        expect(fs.existsSync(alpha)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(alpha)).toBe(false);
+        });
         expect(fs.existsSync(beta)).toBe(true);
     });
 
-    it("pressing Delete deletes the file the cursor was moved to", () => {
+    it("pressing Delete deletes the file the cursor was moved to", async () => {
         const alpha = ws.path("alpha.txt");
         const beta = ws.path("beta.txt");
 
@@ -176,7 +184,9 @@ describe("Delete key in the file tree", () => {
         confirmDelete();
 
         expect(fs.existsSync(alpha)).toBe(true);
-        expect(fs.existsSync(beta)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(beta)).toBe(false);
+        });
     });
 
     it("does not delete tree files when the tree is not focused", () => {
@@ -256,7 +266,7 @@ describe("File tree context menu — right-click opens context menu", () => {
         expect(h.testApp.backend.screenToString()).toContain("Delete");
     });
 
-    it("selecting Delete closes the menu and opens a confirmation, then deletes", () => {
+    it("selecting Delete closes the menu and opens a confirmation, then deletes", async () => {
         const tree = getTreeElement();
         tree.focus();
         h.testApp.render();
@@ -279,7 +289,9 @@ describe("File tree context menu — right-click opens context menu", () => {
 
         h.testApp.sendKey("Enter"); // confirm "Move to Trash"
         h.testApp.render();
-        expect(fs.existsSync(alpha)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(alpha)).toBe(false);
+        });
     });
 
     it("right-clicking a second file replaces the existing context menu", () => {

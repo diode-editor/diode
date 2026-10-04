@@ -160,7 +160,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return true;
     }
 
-    public applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): boolean {
+    public async applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): Promise<boolean> {
         // Пустой список — мусорный запрос: вакуумный успех пустого edit'а
         // субпроцесс отвечает сам, не отправляя RPC. Здесь ничего не применено —
         // врать `true` нельзя.

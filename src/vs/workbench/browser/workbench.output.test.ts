@@ -31,7 +31,7 @@ import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 import { WorkbenchStateServiceDIToken } from "./workbenchStateService.ts";
 /** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
-const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 const TOGGLE_OUTPUT = "workbench.action.output.toggleOutput";
 

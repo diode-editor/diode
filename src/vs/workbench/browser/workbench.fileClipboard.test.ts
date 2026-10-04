@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { Offset, Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -36,35 +36,35 @@ describe("File explorer copy/cut/paste commands", () => {
         ws.dispose();
     });
 
-    it("copies a file into a folder, leaving the original", () => {
+    it("copies a file into a folder, leaving the original", async () => {
         h.testApp.sendKey("ArrowDown"); // cursor on a.txt
         h.commands.execute("fileOperations.copy");
         h.testApp.sendKey("ArrowUp"); // cursor on target/
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
 
         expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
         expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
     });
 
-    it("cuts a file into a folder, removing the original and clearing the clipboard", () => {
+    it("cuts a file into a folder, removing the original and clearing the clipboard", async () => {
         h.testApp.sendKey("ArrowDown"); // cursor on a.txt
         h.commands.execute("fileOperations.cut");
         h.testApp.sendKey("ArrowUp"); // cursor on target/
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
 
         expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
         expect(fs.existsSync(ws.path("a.txt"))).toBe(false);
 
         // Pasting again is a no-op because the cut cleared the clipboard.
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
         expect(fs.existsSync(path.join(ws.dir, "target", "a copy.txt"))).toBe(false);
     });
 
-    it("auto-renames when pasting a copy alongside the original", () => {
+    it("auto-renames when pasting a copy alongside the original", async () => {
         h.testApp.sendKey("ArrowDown"); // cursor on a.txt
         h.commands.execute("fileOperations.copy");
         // cursor stays on a.txt → target dir is the workspace root, where a.txt already exists
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
 
         expect(fs.existsSync(ws.path("a copy.txt"))).toBe(true);
     });
@@ -113,7 +113,7 @@ describe("File explorer context menu — clipboard entries", () => {
         h.testApp.render();
     }
 
-    it("Copy entry puts the clicked file on the clipboard", () => {
+    it("Copy entry puts the clicked file on the clipboard", async () => {
         rightClickRow(1); // a.txt
         h.testApp.sendKey("ArrowDown"); // New Folder
         h.testApp.sendKey("ArrowDown"); // Copy
@@ -122,12 +122,12 @@ describe("File explorer context menu — clipboard entries", () => {
         expect(h.testApp.querySelector("PopupMenuElement")).toBeNull();
 
         // Курсор остался на a.txt → вставка в корень с авто-переименованием.
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
         expect(fs.existsSync(ws.path("a copy.txt"))).toBe(true);
         expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
     });
 
-    it("Cut entry moves the file on the next paste", () => {
+    it("Cut entry moves the file on the next paste", async () => {
         rightClickRow(1); // a.txt
         h.testApp.sendKey("ArrowDown"); // New Folder
         h.testApp.sendKey("ArrowDown"); // Copy
@@ -137,13 +137,13 @@ describe("File explorer context menu — clipboard entries", () => {
 
         // Фокус вернулся на дерево после закрытия меню — стрелка двигает курсор на target/.
         h.testApp.sendKey("ArrowUp");
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
 
         expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
         expect(fs.existsSync(ws.path("a.txt"))).toBe(false);
     });
 
-    it("Paste entry appears for a non-empty clipboard and pastes into the clicked folder", () => {
+    it("Paste entry appears for a non-empty clipboard and pastes into the clicked folder", async () => {
         h.testApp.sendKey("ArrowDown"); // a.txt
         h.commands.execute("fileOperations.copy");
 
@@ -156,7 +156,10 @@ describe("File explorer context menu — clipboard entries", () => {
         h.testApp.sendKey("Enter");
         h.testApp.render();
 
-        expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
+        // Пункт меню исполняет вставку без ожидания — запись на диск догоняем.
+        await vi.waitFor(() => {
+            expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
+        });
         expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
     });
 
