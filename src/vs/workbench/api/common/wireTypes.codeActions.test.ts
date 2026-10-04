@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { type IRequestOptions, TimeoutError } from "./rpcEndpoint.ts";
 import { parseWireCodeActions, requestApplyCodeAction, requestCodeActions } from "./wireTypes.ts";
 
 // Wire-слой code actions: provide — список (мусор, null и таймаут — []) и
@@ -13,6 +14,18 @@ const PARAMS = {
 };
 
 const ITEM = { id: "1.0", title: "Fix", kind: "quickfix", isPreferred: true };
+
+/**
+ * Субпроцесс, который не отвечает, за транспортом, который держит срок, как
+ * `RpcEndpoint.request`: по истечении `options.timeoutMs` — `TimeoutError`.
+ */
+function hanging(method: string, _params: unknown, options: IRequestOptions): Promise<unknown> {
+    return new Promise((_resolve, reject) => {
+        setTimeout(() => {
+            reject(new TimeoutError(method, options.timeoutMs ?? 0));
+        }, options.timeoutMs);
+    });
+}
 
 describe("parseWireCodeActions", () => {
     it("валидные элементы проходят, опциональные поля не выдумываются, мусор отбрасывается поштучно", () => {
@@ -38,8 +51,9 @@ describe("requestCodeActions", () => {
         expect(await requestCodeActions(() => Promise.resolve(null), PARAMS, 1000)).toEqual([]);
         expect(await requestCodeActions(() => Promise.resolve([ITEM]), PARAMS, 1000)).toEqual([ITEM]);
         expect(await requestCodeActions(() => Promise.resolve({ items: [ITEM] }), PARAMS, 1000)).toEqual([]);
-        const never = new Promise<unknown>(() => undefined);
-        expect(await requestCodeActions(() => never, PARAMS, 10)).toEqual([]);
+        const request = vi.fn(hanging);
+        expect(await requestCodeActions(request, PARAMS, 10)).toEqual([]);
+        expect(request).toHaveBeenCalledWith("languages.provideCodeActions", PARAMS, { timeoutMs: 10 });
     });
 
     it("параметры уезжают методом languages.provideCodeActions как есть", async () => {
@@ -75,7 +89,8 @@ describe("requestApplyCodeAction", () => {
 
         expect(await requestApplyCodeAction(() => Promise.resolve(false), "3.1", 1000)).toBe(false);
         expect(await requestApplyCodeAction(() => Promise.resolve("true"), "3.1", 1000)).toBe(false);
-        const never = new Promise<unknown>(() => undefined);
-        expect(await requestApplyCodeAction(() => never, "3.1", 10)).toBe(false);
+        const request = vi.fn(hanging);
+        expect(await requestApplyCodeAction(request, "3.1", 10)).toBe(false);
+        expect(request).toHaveBeenCalledWith("languages.applyCodeAction", { id: "3.1" }, { timeoutMs: 10 });
     });
 });

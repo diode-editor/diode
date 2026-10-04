@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createRange } from "../../../editor/common/core/iRange.ts";
 
+import { type IRequestOptions, TimeoutError } from "./rpcEndpoint.ts";
 import { parseWireDefinitionLocations, requestDefinition, wireToCoreDefinitionLocations } from "./wireTypes.ts";
 
 const RANGE = { startLine: 2, startCharacter: 4, endLine: 2, endCharacter: 9 };
@@ -13,6 +14,18 @@ const PARAMS = {
     line: 0,
     character: 6,
 };
+
+/**
+ * Субпроцесс, который не отвечает, за транспортом, который держит срок, как
+ * `RpcEndpoint.request`: по истечении `options.timeoutMs` — `TimeoutError`.
+ */
+function hanging(method: string, _params: unknown, options: IRequestOptions): Promise<unknown> {
+    return new Promise((_resolve, reject) => {
+        setTimeout(() => {
+            reject(new TimeoutError(method, options.timeoutMs ?? 0));
+        }, options.timeoutMs);
+    });
+}
 
 describe("wireTypes — parseWireDefinitionLocations", () => {
     it("не-массив и невалидные элементы отбрасываются, валидные остаются", () => {
@@ -53,7 +66,9 @@ describe("wireTypes — requestDefinition", () => {
     });
 
     it("таймаут → пустой результат (go-to-definition не блокирует UI)", async () => {
-        const result = await requestDefinition(() => new Promise(() => undefined), PARAMS, 5);
+        const request = vi.fn(hanging);
+        const result = await requestDefinition(request, PARAMS, 5);
+        expect(request).toHaveBeenCalledWith("languages.provideDefinition", PARAMS, { timeoutMs: 5 });
         expect(result).toEqual([]);
     });
 

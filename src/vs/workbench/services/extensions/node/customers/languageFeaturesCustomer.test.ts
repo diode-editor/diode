@@ -3,28 +3,33 @@ import { describe, expect, it, vi } from "vitest";
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
+import { DEFAULT_REQUEST_TIMEOUTS, type RequestTimeouts } from "../requestPolicy.ts";
 
 import { LanguageFeaturesCustomer } from "./languageFeaturesCustomer.ts";
 
-const TIMEOUTS = {
-    completionTimeoutMs: 100,
-    inlineCompletionTimeoutMs: 100,
-    foldingTimeoutMs: 100,
-    definitionTimeoutMs: 100,
-    hoverTimeoutMs: 100,
-    referencesTimeoutMs: 100,
-    signatureHelpTimeoutMs: 100,
-    formattingTimeoutMs: 100,
-    codeActionsTimeoutMs: 100,
-    applyCodeActionTimeoutMs: 100,
-    prepareRenameTimeoutMs: 100,
-    renameTimeoutMs: 100,
+// Короткие сроки: висящий ответ в этих тестах не должен держать прогон.
+/** Разные сроки у каждого метода: перепутанный ключ таблицы виден в опциях запроса. */
+const TIMEOUTS: RequestTimeouts = {
+    ...DEFAULT_REQUEST_TIMEOUTS,
+    "languages.provideCompletionItems": 101,
+    "languages.resolveCompletionItem": 102,
+    "languages.provideInlineCompletions": 103,
+    "languages.provideFoldingRanges": 104,
+    "languages.provideDefinition": 105,
+    "languages.provideHover": 106,
+    "languages.provideReferences": 107,
+    "languages.provideSignatureHelp": 108,
+    "languages.provideFormattingEdits": 109,
+    "languages.provideCodeActions": 110,
+    "languages.applyCodeAction": 111,
+    "languages.prepareRename": 112,
+    "languages.provideRenameEdits": 113,
 };
 const HOVER = { handle: 1, kind: "hover", selector: [{ language: "typescript" }] };
 const COMPLETION = { handle: 2, kind: "completion", selector: [], triggerCharacters: ["."] };
 
 function setup() {
-    const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true);
+    const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
     const changed = vi.fn();
     customer.onProvidersChanged(changed);
     const [a, b] = createInProcessChannelPair();
@@ -175,21 +180,32 @@ const UNSYNCED = "file:///unsynced.ts";
 
 function setupWithSync() {
     const asked: string[] = [];
-    const customer = new LanguageFeaturesCustomer(TIMEOUTS, (uri) => {
-        asked.push(uri);
-        return uri === SYNCED;
-    });
+    const customer = new LanguageFeaturesCustomer(
+        TIMEOUTS,
+        (uri) => {
+            asked.push(uri);
+            return uri === SYNCED;
+        },
+        undefined,
+    );
     const [a, b] = createInProcessChannelPair();
     const peer = new RpcEndpoint(b);
-    customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+    const hostRpc = new RpcEndpoint(a);
+    // Опции запроса (срок) видны только на стороне хоста.
+    const sent = vi.spyOn(hostRpc, "request");
+    customer.attach({ rpc: hostRpc, logger: undefined });
     const requested: { method: string; params: Record<string, unknown> }[] = [];
-    for (const { method } of REQUEST_CASES) {
+    for (const method of [
+        ...REQUEST_CASES.map((c) => c.method),
+        "languages.resolveCompletionItem",
+        "languages.applyCodeAction",
+    ]) {
         peer.handleRequest(method, (params) => {
             requested.push({ method, params: params as Record<string, unknown> });
             return null;
         });
     }
-    return { customer, requested, asked };
+    return { customer, requested, asked, sent };
 }
 
 // Без it.each: имена-параметры мутационный раннер может не найти по фильтру имени.
@@ -212,5 +228,18 @@ describe("LanguageFeaturesCustomer — запросы только по синх
             expect(params, method).toMatchObject({ uri: SYNCED, version: 7 });
             expect(params, method).not.toHaveProperty("text");
         }
+    });
+
+    it("срок ответа каждого запроса — из таблицы по его методу (резолв и применение — свои ключи)", async () => {
+        const h = setupWithSync();
+        for (const c of REQUEST_CASES) await c.call(h.customer, SYNCED);
+        await h.customer.resolveCompletionItem("item-1");
+        await h.customer.applyCodeAction("action-1");
+        const seen = h.sent.mock.calls.map(([method, , options]) => [method, options?.timeoutMs]);
+        expect(seen).toEqual(
+            [...REQUEST_CASES.map((c) => c.method), "languages.resolveCompletionItem", "languages.applyCodeAction"].map(
+                (method) => [method, TIMEOUTS[method as keyof RequestTimeouts]],
+            ),
+        );
     });
 });

@@ -102,6 +102,7 @@ import {
     resolveExtensionStoragePaths,
 } from "./extensionStoragePaths.ts";
 import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
+import { DEFAULT_REQUEST_TIMEOUTS, type RequestTimeouts } from "./requestPolicy.ts";
 import {
     createNodeWorkspaceScanner,
     type IWorkspaceContainsResult,
@@ -154,86 +155,6 @@ export interface IExtensionHostOptions {
      * Тайм-аут на graceful shutdown через `host.shutdown` перед `SIGTERM`. Default: 1500.
      */
     readonly shutdownTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ участника will-save (`workspace.willSaveTextDocument`), мс.
-     * По истечении сохранение продолжается без правок расширения. Default: 1500.
-     */
-    readonly willSaveTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ провайдеров автодополнения
-     * (`languages.provideCompletionItems`), мс. По истечении completion-UI
-     * показывает пустой список. Default: 1500.
-     */
-    readonly completionTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ inline-completion-провайдеров
-     * (`languages.provideInlineCompletions`), мс. По истечении призрачная
-     * подсказка просто не показывается. Default: 5000 — щедрее completion:
-     * за провайдером может стоять холодный LLM-бэкенд.
-     */
-    readonly inlineCompletionTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ провайдеров областей сворачивания
-     * (`languages.provideFoldingRanges`), мс. По истечении ядро откатывается на
-     * indentation-фолды. Default: 1500.
-     */
-    readonly foldingTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ definition-провайдеров (`languages.provideDefinition`),
-     * мс. По истечении Go to Definition остаётся no-op. Default: 5000 — щедрее
-     * остальных: холодный language server индексирует проект секундами.
-     */
-    readonly definitionTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ hover-провайдеров (`languages.provideHover`), мс. По
-     * истечении hover-попап не открывается. Default: 5000 — как definition:
-     * запрос идёт к тому же холодному language server'у.
-     */
-    readonly hoverTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ references-провайдеров (`languages.provideReferences`),
-     * мс. По истечении панель Find All References остаётся пустой. Default:
-     * 5000 — как definition/hover: тот же холодный language server, а поиск
-     * ссылок по проекту у него ещё и дороже одиночного перехода.
-     */
-    readonly referencesTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ провайдеров подсказки параметров
-     * (`languages.provideSignatureHelp`), мс. По истечении попап не
-     * открывается. Default: 5000 — как hover: тот же холодный language server.
-     */
-    readonly signatureHelpTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ провайдеров форматирования
-     * (`languages.provideFormattingEdits`), мс. По истечении команда молча
-     * ничего не меняет. Default: 5000 — тот же холодный language server, а
-     * формат целого документа дороже точечных запросов.
-     */
-    readonly formattingTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ code-action-провайдеров
-     * (`languages.provideCodeActions`), мс. Default: 5000 — тот же холодный
-     * language server.
-     */
-    readonly codeActionsTimeoutMs?: number;
-    /**
-     * Тайм-аут на ответ `languages.prepareRename`, мс. По истечении ядро
-     * считает, что провайдеру сказать нечего, и добирает имя словом под
-     * кареткой. Default: 5000 — тот же холодный language server.
-     */
-    readonly prepareRenameTimeoutMs?: number;
-    /**
-     * Тайм-аут применения переименования (`languages.provideRenameEdits`), мс.
-     * Default: 10000 — как у applyCodeAction: внутри ЕЩЁ два круга RPC (rename
-     * до сервера и `workspace.applyEdit` обратно до хоста).
-     */
-    readonly renameTimeoutMs?: number;
-    /**
-     * Тайм-аут применения code action (`languages.applyCodeAction`), мс.
-     * Default: 10000 — внутри живут ЕЩЁ два круга RPC: ленивый
-     * codeAction/resolve до сервера и `workspace.applyEdit` обратно до хоста.
-     */
-    readonly applyCodeActionTimeoutMs?: number;
     /**
      * Логгер для lifecycle-событий host'а (канал `extensions.host`). Подканалы
      * `extensions.host.rpc` / `.stdout` / `.stderr` берутся из {@link logService}, если передан.
@@ -375,6 +296,12 @@ export interface IExtensionHostOptions {
      */
     readonly workspaceContainsTimeoutMs?: number;
     /**
+     * Сроки ответа субпроцесса на pull-запросы, мс, по методу провода —
+     * поверх {@link DEFAULT_REQUEST_TIMEOUTS} (тесты укорачивают). Истёкший срок
+     * отменяет запрос и даёт пустой результат.
+     */
+    readonly requestTimeouts?: Partial<RequestTimeouts>;
+    /**
      * Порог синхронизации документа с субпроцессом, в символах: документ
      * больше — для расширений не существует (ни зеркала, ни провайдеров, ни
      * will-save). Default: {@link MAX_SYNCED_DOCUMENT_CHARS} (50 Mi, как у VS Code).
@@ -407,26 +334,7 @@ export interface IExtensionHostOptions {
  */
 export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly options: Required<
-        Pick<
-            IExtensionHostOptions,
-            | "spawnArgs"
-            | "readyTimeoutMs"
-            | "shutdownTimeoutMs"
-            | "willSaveTimeoutMs"
-            | "completionTimeoutMs"
-            | "inlineCompletionTimeoutMs"
-            | "foldingTimeoutMs"
-            | "definitionTimeoutMs"
-            | "hoverTimeoutMs"
-            | "referencesTimeoutMs"
-            | "signatureHelpTimeoutMs"
-            | "formattingTimeoutMs"
-            | "codeActionsTimeoutMs"
-            | "prepareRenameTimeoutMs"
-            | "renameTimeoutMs"
-            | "applyCodeActionTimeoutMs"
-            | "workspaceContainsTimeoutMs"
-        >
+        Pick<IExtensionHostOptions, "spawnArgs" | "readyTimeoutMs" | "shutdownTimeoutMs" | "workspaceContainsTimeoutMs">
     >;
     private readonly logger: ILogger | undefined;
     private readonly rpcLogger: ILogger | undefined;
@@ -508,19 +416,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             spawnArgs: options.spawnArgs ?? defaultSpawnArgs,
             readyTimeoutMs: options.readyTimeoutMs ?? 5000,
             shutdownTimeoutMs: options.shutdownTimeoutMs ?? 1500,
-            willSaveTimeoutMs: options.willSaveTimeoutMs ?? 1500,
-            completionTimeoutMs: options.completionTimeoutMs ?? 1500,
-            inlineCompletionTimeoutMs: options.inlineCompletionTimeoutMs ?? 5000,
-            foldingTimeoutMs: options.foldingTimeoutMs ?? 1500,
-            definitionTimeoutMs: options.definitionTimeoutMs ?? 5000,
-            hoverTimeoutMs: options.hoverTimeoutMs ?? 5000,
-            referencesTimeoutMs: options.referencesTimeoutMs ?? 5000,
-            signatureHelpTimeoutMs: options.signatureHelpTimeoutMs ?? 5000,
-            formattingTimeoutMs: options.formattingTimeoutMs ?? 5000,
-            codeActionsTimeoutMs: options.codeActionsTimeoutMs ?? 5000,
-            prepareRenameTimeoutMs: options.prepareRenameTimeoutMs ?? 5000,
-            renameTimeoutMs: options.renameTimeoutMs ?? 10000,
-            applyCodeActionTimeoutMs: options.applyCodeActionTimeoutMs ?? 10000,
             workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs ?? 7000,
         };
         this.logger = options.logger;
@@ -535,11 +430,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
             ),
         );
+        const requestTimeouts: RequestTimeouts = { ...DEFAULT_REQUEST_TIMEOUTS, ...options.requestTimeouts };
         this.languageFeatures = this.register(
-            new LanguageFeaturesCustomer(this.options, (uri) => this.documents.isSynced(uri)),
+            new LanguageFeaturesCustomer(requestTimeouts, (uri) => this.documents.isSynced(uri), this.logger),
         );
         this.documents = new DocumentsCustomer({
-            willSaveTimeoutMs: this.options.willSaveTimeoutMs,
+            willSaveTimeoutMs: requestTimeouts["workspace.willSaveTextDocument"],
             openDocumentsProvider: options.openDocumentsProvider,
             maxSyncedDocumentChars: options.maxSyncedDocumentChars ?? MAX_SYNCED_DOCUMENT_CHARS,
             logger: this.logger,

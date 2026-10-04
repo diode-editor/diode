@@ -132,7 +132,9 @@ describe("ExtensionHost — inline completions (in-process)", () => {
     });
 
     it("истёкший таймаут отменяет запрос у субпроцесса", async () => {
-        const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, { inlineCompletionTimeoutMs: 20 });
+        const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
+            requestTimeouts: { "languages.provideInlineCompletions": 20 },
+        });
         const [a, b] = createInProcessChannelPair();
         const hostRpc = new RpcEndpoint(a);
         const peer = new RpcEndpoint(b);

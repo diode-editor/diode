@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IRenameRequest } from "../../../../editor/common/languages/iRenameSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -41,13 +42,15 @@ function makeHost(
     host: ExtensionHost;
     peer: RpcEndpoint;
     warnings: { message: string; payload: unknown }[];
+    debugs: string[];
 } {
     const warnings: { message: string; payload: unknown }[] = [];
+    const debugs: string[] = [];
     const logger = {
         info: () => undefined,
         warn: (message: string, payload: unknown) => warnings.push({ message, payload }),
         error: () => undefined,
-        debug: () => undefined,
+        debug: (message: string) => debugs.push(message),
         trace: () => undefined,
     } as unknown as ILogger;
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
@@ -60,7 +63,7 @@ function makeHost(
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
     if (open) host.didOpenTextDocument(DOCUMENT);
-    return { host, peer, warnings };
+    return { host, peer, warnings, debugs };
 }
 
 const REQUEST: IRenameRequest = {
@@ -181,14 +184,31 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
     });
 
     it("по истечении таймаута prepare отвечает null, применение — отказом С сообщением", async () => {
-        const { host, peer } = makeHost({ prepareRenameTimeoutMs: 10, renameTimeoutMs: 10 });
-        peer.handleRequest("languages.prepareRename", () => new Promise(() => undefined));
-        peer.handleRequest("languages.provideRenameEdits", () => new Promise(() => undefined));
+        const { host, peer, warnings, debugs } = makeHost({
+            requestTimeouts: { "languages.prepareRename": 10, "languages.provideRenameEdits": 10 },
+        });
+        const tokens: ICancellationToken[] = [];
+        const hang = (_params: unknown, token: ICancellationToken): Promise<never> => {
+            tokens.push(token);
+            return new Promise<never>(() => undefined);
+        };
+        peer.handleRequest("languages.prepareRename", hang);
+        peer.handleRequest("languages.provideRenameEdits", hang);
 
         expect(await host.prepareRename(0, REQUEST)).toBeNull();
         expect(await host.provideRenameEdits(0, REQUEST, "renamed")).toEqual({
             applied: false,
             error: "Rename timed out",
+        });
+        // Истёкший срок — debug с методом, не warn.
+        expect(debugs).toEqual([
+            'request "languages.prepareRename" timed out after 10ms',
+            'request "languages.provideRenameEdits" timed out after 10ms',
+        ]);
+        expect(warnings).toEqual([]);
+        // Оба провайдера узнают, что ответа больше не ждут (`$/cancelRequest`).
+        await vi.waitFor(() => {
+            expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true, true]);
         });
     });
 });

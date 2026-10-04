@@ -1,4 +1,4 @@
-import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
+import { type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import type { CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
@@ -22,6 +22,8 @@ import type {
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
+
+import type { IRequestOptions } from "./rpcEndpoint.ts";
 
 /**
  * Wire-форма правки save-участника (subprocess → host). Либо замена текста в
@@ -123,27 +125,25 @@ export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
     );
 }
 
-/** Маркер «ответ не пришёл вовремя» для {@link raceWithTimeout}. */
-const TIMED_OUT = Symbol("timeout");
+/**
+ * Отправка запроса субпроцессу (обычно `rpc.request`): срок ответа и отмену
+ * несёт транспорт — истёкший срок отменяет запрос на второй стороне и
+ * отклоняет промис `TimeoutError`. Голая функция — чтобы логику запросов можно
+ * было юнит-тестировать через {@link InProcessChannelPair} без форка.
+ */
+export type RequestFn = (method: string, params: unknown, options: IRequestOptions) => Promise<unknown>;
+
+/** Маркер «запрос не удался» (истёк срок, отказ RPC) для {@link settle}. */
+const FAILED = Symbol("failed");
 
 /**
- * Общий гонщик RPC-ответа с таймаутом для всех pull-запросов к субпроцессу
- * (will-save, completion, resolve, folding, definition): расширение не отвечает
- * или отвечает ошибкой — вызывающий получает {@link TIMED_OUT} и откатывается на
- * пустой результат, а UI никогда не блокируется навсегда.
+ * Общий исход pull-запроса к субпроцессу: расширение не ответило в срок или
+ * ответило отказом — вызывающий получает {@link FAILED} и откатывается на
+ * пустой результат, UI никогда не блокируется навсегда. Сам сбой пишет в лог
+ * тот, кто дал {@link RequestFn}.
  */
-async function raceWithTimeout(pending: Promise<unknown>, timeoutMs: number): Promise<unknown> {
-    let timer!: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
-        timer = setTimeout(() => {
-            resolve(TIMED_OUT);
-        }, timeoutMs);
-    });
-    try {
-        return await Promise.race([pending.catch(() => TIMED_OUT), timeout]);
-    } finally {
-        clearTimeout(timer);
-    }
+async function settle(pending: Promise<unknown>): Promise<unknown> {
+    return pending.catch(() => FAILED);
 }
 
 /**
@@ -154,12 +154,12 @@ async function raceWithTimeout(pending: Promise<unknown>, timeoutMs: number): Pr
  * {@link InProcessChannelPair} без форка subprocess'а.
  */
 export async function requestWillSaveEdits(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireWillSaveParams,
     timeoutMs: number,
 ): Promise<ISaveEdit[]> {
-    const outcome = await raceWithTimeout(request("workspace.willSaveTextDocument", params), timeoutMs);
-    if (outcome === TIMED_OUT) return [];
+    // Сбой (FAILED) парсер сам превращает в «правок нет».
+    const outcome = await settle(request("workspace.willSaveTextDocument", params, { timeoutMs }));
     return wireToSaveEdits(parseWireTextEdits(outcome));
 }
 
@@ -633,11 +633,11 @@ export function wireToCoreCompletionItems(wire: readonly WireCompletionItem[]): 
  * {@link InProcessChannelPair} без форка subprocess'а (как {@link requestWillSaveEdits}).
  */
 export async function requestCompletionItems(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireCompletionParams,
     timeoutMs: number,
 ): Promise<ICoreCompletionResult[]> {
-    const outcome = await raceWithTimeout(request("languages.provideCompletionItems", params), timeoutMs);
+    const outcome = await settle(request("languages.provideCompletionItems", params, { timeoutMs }));
     // Не-массив (таймаут, сбой, чужая форма) — пусто у всех; недостающий
     // элемент массива — пусто у своего провайдера.
     const results = Array.isArray(outcome) ? outcome : undefined;
@@ -653,12 +653,12 @@ export async function requestCompletionItems(
  * провайдер без resolve: попап просто останется с тем, что уже есть.
  */
 export async function requestResolveCompletionItem(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     id: string,
     timeoutMs: number,
 ): Promise<ICoreResolvedCompletion | null> {
-    const outcome = await raceWithTimeout(request("languages.resolveCompletionItem", { id }), timeoutMs);
-    if (outcome === TIMED_OUT) return null;
+    // Сбой (FAILED) — не объект, парсер отдаёт «резолвить нечего».
+    const outcome = await settle(request("languages.resolveCompletionItem", { id }, { timeoutMs }));
     return parseWireResolvedCompletionItem(outcome);
 }
 
@@ -752,38 +752,23 @@ export function wireToCoreInlineCompletionItems(
  * {@link InProcessChannelPair} без форка subprocess'а (как {@link requestCompletionItems}).
  */
 export async function requestInlineCompletions(
-    request: (method: string, params: unknown, token?: ICancellationToken) => Promise<unknown>,
+    request: RequestFn,
     params: IWireInlineCompletionParams,
     timeoutMs: number,
     token?: ICancellationToken,
 ): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
-    // Свой источник поверх токена ядра: истёкший таймаут — такой же устаревший
-    // запрос, как отмена «сверху», и провайдер обязан узнать об обоих (иначе
-    // зависший LLM-вызов считает в пустоту до конца жизни субпроцесса).
-    const source = new CancellationTokenSource();
-    const subscription = token?.onCancellationRequested(() => {
-        source.cancel();
-    });
-    try {
-        const outcome = await raceWithTimeout(
-            request("languages.provideInlineCompletions", params, source.token),
-            timeoutMs,
-        );
-        if (outcome === TIMED_OUT) {
-            source.cancel();
-            return params.handles.map(() => []);
-        }
-        // Не-массив (сбой, чужая форма) — пусто у всех; недостающий элемент
-        // массива — пусто у своего провайдера.
-        const results = Array.isArray(outcome) ? outcome : undefined;
-        return params.handles.map((_handle, index) =>
-            wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(results?.[index])),
-        );
-    } finally {
-        subscription?.dispose();
-        // Stryker disable next-line CallExpression: уборка — источник этого запроса больше никому не виден
-        source.dispose();
-    }
+    // Отмена «сверху» и истёкший срок доходят до провайдера одинаково —
+    // транспорт отменяет запрос (иначе зависший LLM-вызов считал бы в пустоту
+    // до конца жизни субпроцесса).
+    const outcome = await settle(
+        request("languages.provideInlineCompletions", params, { timeoutMs, ...(token === undefined ? {} : { token }) }),
+    );
+    // Не-массив (сбой, чужая форма) — пусто у всех; недостающий элемент
+    // массива — пусто у своего провайдера.
+    const results = Array.isArray(outcome) ? outcome : undefined;
+    return params.handles.map((_handle, index) =>
+        wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(results?.[index])),
+    );
 }
 
 // ─── Folding (#87) ───────────────────────────────────────────────────────────
@@ -863,11 +848,11 @@ export function wireToCoreFoldingRegions(wire: readonly WireFoldingRange[]): IFo
  * через {@link InProcessChannelPair} без форка subprocess'а.
  */
 export async function requestFoldingRanges(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireFoldingParams,
     timeoutMs: number,
 ): Promise<IFoldingRegion[][]> {
-    const outcome = await raceWithTimeout(request("languages.provideFoldingRanges", params), timeoutMs);
+    const outcome = await settle(request("languages.provideFoldingRanges", params, { timeoutMs }));
     // Не-массив (таймаут, сбой, чужая форма) — пусто у всех; недостающий
     // элемент массива — пусто у своего провайдера.
     const results = Array.isArray(outcome) ? outcome : undefined;
@@ -939,12 +924,12 @@ export function wireToCoreDefinitionLocations(wire: readonly WireDefinitionLocat
  * {@link InProcessChannelPair} без форка subprocess'а.
  */
 export async function requestDefinition(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireDefinitionParams,
     timeoutMs: number,
 ): Promise<ICoreDefinitionLocation[]> {
-    const outcome = await raceWithTimeout(request("languages.provideDefinition", params), timeoutMs);
-    if (outcome === TIMED_OUT) return [];
+    // Сбой (FAILED) — не массив, парсер отдаёт «целей нет».
+    const outcome = await settle(request("languages.provideDefinition", params, { timeoutMs }));
     return wireToCoreDefinitionLocations(parseWireDefinitionLocations(outcome));
 }
 
@@ -1013,13 +998,13 @@ export function wireToCoreHover(hover: WireHover): ICoreHover {
  * {@link InProcessChannelPair} без форка subprocess'а.
  */
 export async function requestHover(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireHoverParams,
     timeoutMs: number,
 ): Promise<ICoreHover | undefined> {
-    const outcome = await raceWithTimeout(request("languages.provideHover", params), timeoutMs);
+    const outcome = await settle(request("languages.provideHover", params, { timeoutMs }));
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не hover, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === TIMED_OUT) return undefined;
+    if (outcome === FAILED) return undefined;
     const hover = parseWireHover(outcome);
     return hover === null ? undefined : wireToCoreHover(hover);
 }
@@ -1230,13 +1215,13 @@ export function wireToCoreReferences(wire: readonly WireReference[]): ICoreRefer
  * юнит-тестов через {@link InProcessChannelPair} без форка subprocess'а.
  */
 export async function requestReferences(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireReferenceParams,
     timeoutMs: number,
 ): Promise<ICoreReference[]> {
-    const outcome = await raceWithTimeout(request("languages.provideReferences", params), timeoutMs);
+    const outcome = await settle(request("languages.provideReferences", params, { timeoutMs }));
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === TIMED_OUT) return [];
+    if (outcome === FAILED) return [];
     return wireToCoreReferences(parseWireReferences(outcome));
 }
 
@@ -1386,13 +1371,13 @@ function nonEmptyString(raw: unknown): string | null {
  * юнит-тестов через {@link InProcessChannelPair} без форка subprocess'а.
  */
 export async function requestSignatureHelp(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireSignatureHelpParams,
     timeoutMs: number,
 ): Promise<ICoreSignatureHelp | null> {
-    const outcome = await raceWithTimeout(request("languages.provideSignatureHelp", params), timeoutMs);
+    const outcome = await settle(request("languages.provideSignatureHelp", params, { timeoutMs }));
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не объект с `signatures`, поэтому разбор ниже вернул бы тот же `null`; ранний выход только называет причину
-    if (outcome === TIMED_OUT) return null;
+    if (outcome === FAILED) return null;
     return parseWireSignatureHelp(outcome);
 }
 
@@ -1428,13 +1413,13 @@ export interface IWireFormattingParams {
  * форматтера» из-за медленного сервера нельзя).
  */
 export async function requestFormattingEdits(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireFormattingParams,
     timeoutMs: number,
 ): Promise<readonly ITextEdit[]> {
-    const outcome = await raceWithTimeout(request("languages.provideFormattingEdits", params), timeoutMs);
+    const outcome = await settle(request("languages.provideFormattingEdits", params, { timeoutMs }));
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === TIMED_OUT) return [];
+    if (outcome === FAILED) return [];
     return parseWireEditorEdits(outcome).map((edit) =>
         createTextEdit(
             createRange(edit.range.startLine, edit.range.startCharacter, edit.range.endLine, edit.range.endCharacter),
@@ -1503,13 +1488,13 @@ export function parseWireCodeActions(raw: unknown): WireCodeAction[] {
  * пустой массив — действий нет либо таймаут/битый ответ.
  */
 export async function requestCodeActions(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireCodeActionParams,
     timeoutMs: number,
 ): Promise<readonly WireCodeAction[]> {
-    const outcome = await raceWithTimeout(request("languages.provideCodeActions", params), timeoutMs);
+    const outcome = await settle(request("languages.provideCodeActions", params, { timeoutMs }));
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не массив, поэтому разбор ниже вернул бы тот же пустой результат; ранний выход только называет причину
-    if (outcome === TIMED_OUT) return [];
+    if (outcome === FAILED) return [];
     return parseWireCodeActions(outcome);
 }
 
@@ -1518,12 +1503,8 @@ export async function requestCodeActions(
  * резолв + правки существующим `workspace.applyEdit` + команда действия — всё
  * на стороне субпроцесса. `false` — таймаут, не-boolean ответ или честный отказ.
  */
-export async function requestApplyCodeAction(
-    request: (method: string, params: unknown) => Promise<unknown>,
-    id: string,
-    timeoutMs: number,
-): Promise<boolean> {
-    const outcome = await raceWithTimeout(request("languages.applyCodeAction", { id }), timeoutMs);
+export async function requestApplyCodeAction(request: RequestFn, id: string, timeoutMs: number): Promise<boolean> {
+    const outcome = await settle(request("languages.applyCodeAction", { id }, { timeoutMs }));
     return outcome === true;
 }
 
@@ -1590,13 +1571,13 @@ export function parseWireRenamePrepare(raw: unknown): ICoreRenameLocation | null
  * сервера не за что, а слово под кареткой ядро доберёт само.
  */
 export async function requestPrepareRename(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWirePrepareRenameParams,
     timeoutMs: number,
 ): Promise<ICoreRenameLocation | null> {
-    const outcome = await raceWithTimeout(request("languages.prepareRename", params), timeoutMs);
+    const outcome = await settle(request("languages.prepareRename", params, { timeoutMs }));
     // Stryker disable next-line ConditionalExpression: маркер таймаута — не объект с полями ответа, поэтому разбор ниже вернул бы тот же `null`; ранний выход только называет причину
-    if (outcome === TIMED_OUT) return null;
+    if (outcome === FAILED) return null;
     return parseWireRenamePrepare(outcome);
 }
 
@@ -1608,12 +1589,12 @@ export async function requestPrepareRename(
  * результата).
  */
 export async function requestRename(
-    request: (method: string, params: unknown) => Promise<unknown>,
+    request: RequestFn,
     params: IWireRenameParams,
     timeoutMs: number,
 ): Promise<ICoreRenameResult> {
-    const outcome = await raceWithTimeout(request("languages.provideRenameEdits", params), timeoutMs);
-    if (outcome === TIMED_OUT) return { applied: false, error: "Rename timed out" };
+    const outcome = await settle(request("languages.provideRenameEdits", params, { timeoutMs }));
+    if (outcome === FAILED) return { applied: false, error: "Rename timed out" };
     if (typeof outcome !== "object" || outcome === null) return { applied: false, error: "Rename failed" };
     const obj = outcome as Record<string, unknown>;
     if (obj.applied === true) return { applied: true };

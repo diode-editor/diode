@@ -30,6 +30,7 @@ import type {
     ISignatureHelpRequest,
 } from "../../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IFoldingRegion } from "../../../../../editor/contrib/folding/iFoldingRegion.ts";
+import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import {
     type IWireLanguageProviderRegistration,
@@ -51,27 +52,10 @@ import {
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
-import type { IExtensionHostOptions } from "../extensionHost.ts";
+import { loggingRequest, type RequestTimeouts } from "../requestPolicy.ts";
 
 /** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
 const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
-
-/** Таймауты запросов к провайдерам (см. одноимённые опции хоста). */
-export type LanguageFeaturesTimeouts = Pick<
-    Required<IExtensionHostOptions>,
-    | "completionTimeoutMs"
-    | "inlineCompletionTimeoutMs"
-    | "foldingTimeoutMs"
-    | "definitionTimeoutMs"
-    | "hoverTimeoutMs"
-    | "referencesTimeoutMs"
-    | "signatureHelpTimeoutMs"
-    | "formattingTimeoutMs"
-    | "codeActionsTimeoutMs"
-    | "applyCodeActionTimeoutMs"
-    | "prepareRenameTimeoutMs"
-    | "renameTimeoutMs"
->;
 
 /**
  * Языковые провайдеры расширений (мост под `ILanguageFeaturesService`):
@@ -109,8 +93,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      *   запросы текста не везут, и по несинхронизированному отвечать не по чему
      */
     public constructor(
-        private readonly timeouts: LanguageFeaturesTimeouts,
+        private readonly timeouts: RequestTimeouts,
         private readonly isSynced: (uri: string) => boolean,
+        private readonly logger: ILogger | undefined,
     ) {
         super();
     }
@@ -127,7 +112,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Запрашивает у completion-провайдера субпроцесса `handle` элементы
      * автодополнения для позиции курсора (`languages.provideCompletionItems`).
      * Пустой результат, если субпроцесса нет, документ субпроцессу не синхронизирован или
-     * расширение не ответило за `completionTimeoutMs`. Зовёт его прокси из
+     * расширение не ответило за отведённый срок. Зовёт его прокси из
      * реестра ядра (`LanguageFeaturesAdapter`); вызовы прокси с одним запросом
      * уходят одним RPC (`ProviderRequestBatcher`).
      */
@@ -145,7 +130,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return [];
         return requestCompletionItems(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handles,
                 uri: req.uri,
@@ -160,7 +145,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.triggerCharacter !== undefined ? { triggerCharacter: req.triggerCharacter } : {}),
             },
-            this.timeouts.completionTimeoutMs,
+            this.timeouts["languages.provideCompletionItems"],
         );
     }
 
@@ -169,7 +154,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * (`languages.resolveCompletionItem`). У стокового LSP-стека это ЕДИНСТВЕННЫЙ
      * путь к описанию и авто-импорту: `typescript-language-server` присылает их
      * не в списке, а по запросу выбранного пункта. `null` — резолвить нечего или
-     * расширение не ответило за `completionTimeoutMs`. `id` уникален сквозь
+     * расширение не ответило за отведённый срок. `id` уникален сквозь
      * провайдеров: кэш субпроцесса сам знает, чей это пункт.
      */
     public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
@@ -177,9 +162,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Stryker disable next-line ConditionalExpression: см. requestCompletionBatch — без канала прокси уже сняты из реестра
         if (rpc === null) return null;
         return requestResolveCompletionItem(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             id,
-            this.timeouts.completionTimeoutMs,
+            this.timeouts["languages.resolveCompletionItem"],
         );
     }
 
@@ -193,7 +178,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      *
      * Срок берётся из САМОГО запроса (`req.timeoutMs` —
      * `editor.inlineSuggest.requestTimeout`), и только в его отсутствие — из
-     * `inlineCompletionTimeoutMs` хоста. Асимметрия с остальным семейством
+     * отведённый срок хоста. Асимметрия с остальным семейством
      * таймаутов осознанная: остальные фиксируются при создании хоста, а этот
      * человек правит в settings.json и ждёт эффекта без перезапуска.
      */
@@ -216,7 +201,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return [];
         return requestInlineCompletions(
-            (method, params, cancellation) => rpc.request(method, params, cancellation),
+            loggingRequest(rpc, this.logger),
             {
                 handles,
                 uri: req.uri,
@@ -226,7 +211,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 character: req.character,
                 triggerKind: req.triggerKind,
             },
-            req.timeoutMs ?? this.timeouts.inlineCompletionTimeoutMs,
+            req.timeoutMs ?? this.timeouts["languages.provideInlineCompletions"],
             token,
         );
     }
@@ -235,7 +220,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Отдаёт области сворачивания folding-провайдера субпроцесса `handle` для
      * документа (`languages.provideFoldingRanges`). Пустой массив, если
      * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * `foldingTimeoutMs` — ядро в этом случае остаётся на indentation-фолдах.
+     * отведённый срок — ядро в этом случае остаётся на indentation-фолдах.
      * Зовёт его прокси из реестра ядра (`LanguageFeaturesAdapter`); вызовы с
      * одним запросом уходят одним RPC (`ProviderRequestBatcher`).
      */
@@ -253,14 +238,14 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return [];
         return requestFoldingRanges(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handles,
                 uri: req.uri,
                 languageId: req.languageId,
                 version: req.versionId,
             },
-            this.timeouts.foldingTimeoutMs,
+            this.timeouts["languages.provideFoldingRanges"],
         );
     }
 
@@ -268,7 +253,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Запрашивает у definition-провайдера субпроцесса `handle` цели для позиции
      * курсора (`languages.provideDefinition`). Возвращает `[]`, если субпроцесса
      * нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * `definitionTimeoutMs`. Зовёт его прокси из реестра ядра
+     * отведённый срок. Зовёт его прокси из реестра ядра
      * (`LanguageFeaturesAdapter`).
      */
     public async provideDefinition(
@@ -281,7 +266,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return [];
         return requestDefinition(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handle,
                 uri: req.uri,
@@ -290,7 +275,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 line: req.line,
                 character: req.character,
             },
-            this.timeouts.definitionTimeoutMs,
+            this.timeouts["languages.provideDefinition"],
         );
     }
 
@@ -298,7 +283,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Запрашивает у hover-провайдера субпроцесса `handle` hover для позиции
      * курсора (`languages.provideHover`). Возвращает `undefined`, если
      * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * `hoverTimeoutMs`. Зовёт его прокси, который `LanguageFeaturesAdapter`
+     * отведённый срок. Зовёт его прокси, который `LanguageFeaturesAdapter`
      * держит в реестре ядра.
      */
     public async provideHover(handle: number, req: IHoverRequest): Promise<ICoreHover | undefined> {
@@ -308,7 +293,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return undefined;
         return requestHover(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handle,
                 uri: req.uri,
@@ -317,7 +302,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 line: req.line,
                 character: req.character,
             },
-            this.timeouts.hoverTimeoutMs,
+            this.timeouts["languages.provideHover"],
         );
     }
 
@@ -325,7 +310,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Запрашивает у references-провайдера субпроцесса `handle` ссылки на символ
      * под курсором (`languages.provideReferences`). Возвращает `[]`, если
      * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * `referencesTimeoutMs`. Зовёт его прокси из реестра ядра
+     * отведённый срок. Зовёт его прокси из реестра ядра
      * (`LanguageFeaturesAdapter`).
      */
     public async provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
@@ -335,7 +320,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return [];
         return requestReferences(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handle,
                 uri: req.uri,
@@ -345,7 +330,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 character: req.character,
                 includeDeclaration: req.includeDeclaration,
             },
-            this.timeouts.referencesTimeoutMs,
+            this.timeouts["languages.provideReferences"],
         );
     }
 
@@ -353,7 +338,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Запрашивает у провайдера подсказки параметров `handle` подсказку для
      * позиции каретки (`languages.provideSignatureHelp`). `null`, если
      * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * `signatureHelpTimeoutMs`. Зовёт его прокси из реестра ядра
+     * отведённый срок. Зовёт его прокси из реестра ядра
      * (`LanguageFeaturesAdapter`).
      */
     public async provideSignatureHelp(handle: number, req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
@@ -363,7 +348,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return null;
         return requestSignatureHelp(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handle,
                 uri: req.uri,
@@ -381,7 +366,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.activeSignatureHelp === undefined ? {} : { activeSignatureHelp: req.activeSignatureHelp }),
             },
-            this.timeouts.signatureHelpTimeoutMs,
+            this.timeouts["languages.provideSignatureHelp"],
         );
     }
 
@@ -389,7 +374,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Запрашивает у провайдера форматирования `handle` правки документа (без
      * `req.range` — документный провайдер) или диапазона (с ним — range-провайдер)
      * — `languages.provideFormattingEdits`. Пустой массив — менять нечего,
-     * субпроцесса нет, документ субпроцессу не синхронизирован или таймаут `formattingTimeoutMs`
+     * субпроцесса нет, документ субпроцессу не синхронизирован или таймаут отведённый срок
      * (молчаливый no-op). «Нет форматтера» решает ядро по реестру. Зовёт его
      * прокси из реестра ядра (`LanguageFeaturesAdapter`).
      */
@@ -400,7 +385,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return [];
         return requestFormattingEdits(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handle,
                 uri: req.uri,
@@ -423,7 +408,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                           },
                       }),
             },
-            this.timeouts.formattingTimeoutMs,
+            this.timeouts["languages.provideFormattingEdits"],
         );
     }
 
@@ -440,7 +425,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return [];
         return requestCodeActions(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             {
                 handle,
                 uri: req.uri,
@@ -457,7 +442,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.only === undefined ? {} : { only: req.only }),
             },
-            this.timeouts.codeActionsTimeoutMs,
+            this.timeouts["languages.provideCodeActions"],
         );
     }
 
@@ -466,25 +451,21 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * (`languages.applyCodeAction`): ленивый resolve + правки через
      * `workspace.applyEdit` + команда действия — всё на его стороне. `false` —
      * субпроцесса нет, действие протухло, правки не легли или таймаут
-     * `applyCodeActionTimeoutMs`. `id` уникален сквозь провайдеров: кэш
+     * отведённый срок. `id` уникален сквозь провайдеров: кэш
      * субпроцесса сам знает, чьё это действие.
      */
     public async applyCodeAction(id: string): Promise<boolean> {
         const rpc = this.rpc;
         // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
         if (rpc === null) return false;
-        return requestApplyCodeAction(
-            (method, params) => rpc.request(method, params),
-            id,
-            this.timeouts.applyCodeActionTimeoutMs,
-        );
+        return requestApplyCodeAction(loggingRequest(rpc, this.logger), id, this.timeouts["languages.applyCodeAction"]);
     }
 
     /**
      * Спрашивает у rename-провайдера `handle` текущее имя символа в позиции
      * каретки (`languages.prepareRename`). `null` — субпроцесса нет, документ
      * не синхронизирован, провайдеру сказать нечего или он не ответил за
-     * `prepareRenameTimeoutMs`; ядро в этом случае спрашивает следующего
+     * отведённый срок; ядро в этом случае спрашивает следующего
      * провайдера, а в конце добирает слово под кареткой само.
      */
     public async prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
@@ -494,9 +475,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // Документ, которого субпроцесс не держит, — пусто без RPC.
         if (!this.isSynced(req.uri)) return null;
         return requestPrepareRename(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             { handle, ...renameTarget(req) },
-            this.timeouts.prepareRenameTimeoutMs,
+            this.timeouts["languages.prepareRename"],
         );
     }
 
@@ -505,7 +486,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * (`languages.provideRenameEdits`): вызов провайдера и правки существующим
      * `workspace.applyEdit` — всё на стороне субпроцесса. Отказ С СООБЩЕНИЕМ,
      * если субпроцесса нет, документ субпроцессу не синхронизирован или расширение не
-     * ответило за `renameTimeoutMs`: человек ввёл имя и обязан узнать, что
+     * ответило за отведённый срок: человек ввёл имя и обязан узнать, что
      * ничего не произошло.
      */
     public async provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
@@ -517,9 +498,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             return { applied: false, error: "The document is not available to language extensions" };
         }
         return requestRename(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.logger),
             { handle, ...renameTarget(req), newName },
-            this.timeouts.renameTimeoutMs,
+            this.timeouts["languages.provideRenameEdits"],
         );
     }
 

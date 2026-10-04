@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks, settle } from "../../../../../TestUtils/timing.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { ISignatureHelpRequest } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -58,7 +59,9 @@ function requestOf(patch: Partial<ISignatureHelpRequest> = {}): ISignatureHelpRe
 function makeHost(
     options: {
         warn?: ILogger["warn"];
-        signatureHelpTimeoutMs?: number;
+        debug?: ILogger["debug"];
+        /** Срок ответа `languages.provideSignatureHelp`, мс (`requestTimeouts`). */
+        timeoutMs?: number;
         maxSyncedDocumentChars?: number;
         /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
         open?: boolean;
@@ -68,14 +71,19 @@ function makeHost(
     peer: RpcEndpoint;
 } {
     const logger =
-        options.warn === undefined
+        options.warn === undefined && options.debug === undefined
             ? undefined
-            : ({ warn: options.warn, info: () => undefined, error: () => undefined } as unknown as ILogger);
+            : ({
+                  warn: options.warn ?? (() => undefined),
+                  debug: options.debug ?? (() => undefined),
+                  info: () => undefined,
+                  error: () => undefined,
+              } as unknown as ILogger);
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         ...(logger === undefined ? {} : { logger }),
-        ...(options.signatureHelpTimeoutMs === undefined
+        ...(options.timeoutMs === undefined
             ? {}
-            : { signatureHelpTimeoutMs: options.signatureHelpTimeoutMs }),
+            : { requestTimeouts: { "languages.provideSignatureHelp": options.timeoutMs } }),
         ...(options.maxSyncedDocumentChars === undefined
             ? {}
             : { maxSyncedDocumentChars: options.maxSyncedDocumentChars }),
@@ -211,22 +219,33 @@ describe("ExtensionHost — подсказка параметров по handle 
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолт таймаута — 5000 мс: тот же холодный language server, что у hover", () => {
-        const { host } = makeHost();
-        // Читаем разрешённую опцию, а не ждём вживую: реальное ожидание в
-        // мутационном прогоне стоит полсекунды на каждом покрывающем мутанте.
-        expect(
-            (host as unknown as { options: { signatureHelpTimeoutMs: number } }).options.signatureHelpTimeoutMs,
-        ).toBe(5000);
+    it("дефолт таймаута — 5000 мс: тот же холодный language server, что у hover", async () => {
+        const { host, peer } = makeHost();
+        const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
+        const request = vi.spyOn(hostRpc, "request");
+        peer.handleRequest("languages.provideSignatureHelp", () => null);
+        // Срок уезжает транспорту с запросом, а не ждётся вживую: реальное
+        // ожидание в мутационном прогоне стоит секунды на каждом мутанте.
+        await host.provideSignatureHelp(0, requestOf());
+        expect(request).toHaveBeenCalledWith("languages.provideSignatureHelp", expect.anything(), { timeoutMs: 5000 });
     });
 
-    it("по истечении таймаута ответ отбрасывается", async () => {
-        const { host, peer } = makeHost({ signatureHelpTimeoutMs: 5 });
-        peer.handleRequest("languages.provideSignatureHelp", async () => {
+    it("по истечении таймаута ответ отбрасывается, а запрос у субпроцесса отменяется", async () => {
+        const debug = vi.fn();
+        const { host, peer } = makeHost({ timeoutMs: 5, debug });
+        let seen: ICancellationToken | undefined;
+        peer.handleRequest("languages.provideSignatureHelp", async (_params, token) => {
+            seen = token;
             await settle(200);
             return HELP;
         });
 
         expect(await host.provideSignatureHelp(0, requestOf())).toBeNull();
+        // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
+        expect(debug).toHaveBeenCalledWith('request "languages.provideSignatureHelp" timed out after 5ms');
+        // Провайдер узнаёт, что ответа больше не ждут (`$/cancelRequest`).
+        await vi.waitFor(() => {
+            expect(seen?.isCancellationRequested).toBe(true);
+        });
     });
 });

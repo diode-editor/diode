@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createRange } from "../../../editor/common/core/iRange.ts";
 
+import { type IRequestOptions, TimeoutError } from "./rpcEndpoint.ts";
 import { parseWireReferences, requestReferences, wireToCoreReferences } from "./wireTypes.ts";
 
 const RANGE = { startLine: 7, startCharacter: 4, endLine: 7, endCharacter: 9 };
@@ -14,6 +15,18 @@ const PARAMS = {
     character: 6,
     includeDeclaration: true,
 };
+
+/**
+ * Субпроцесс, который не отвечает, за транспортом, который держит срок, как
+ * `RpcEndpoint.request`: по истечении `options.timeoutMs` — `TimeoutError`.
+ */
+function hanging(method: string, _params: unknown, options: IRequestOptions): Promise<unknown> {
+    return new Promise((_resolve, reject) => {
+        setTimeout(() => {
+            reject(new TimeoutError(method, options.timeoutMs ?? 0));
+        }, options.timeoutMs);
+    });
+}
 
 describe("wireTypes — parseWireReferences", () => {
     it("не-массив и невалидные элементы отбрасываются, валидные остаются", () => {
@@ -83,7 +96,9 @@ describe("wireTypes — requestReferences", () => {
     });
 
     it("таймаут → пустой результат (панель просто останется пустой)", async () => {
-        expect(await requestReferences(() => new Promise(() => undefined), PARAMS, 5)).toEqual([]);
+        const request = vi.fn(hanging);
+        expect(await requestReferences(request, PARAMS, 5)).toEqual([]);
+        expect(request).toHaveBeenCalledWith("languages.provideReferences", PARAMS, { timeoutMs: 5 });
     });
 
     it("ошибка RPC → пустой результат", async () => {

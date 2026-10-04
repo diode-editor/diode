@@ -9,6 +9,7 @@ import {
 } from "../../../../api/common/wireTypes.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
+import { loggingRequest } from "../requestPolicy.ts";
 
 /**
  * Порог синхронизации документа с субпроцессом, в символах (как
@@ -89,7 +90,7 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         if (!live?.willSaveSubscribed || !live.synced.has(snapshot.uri)) return [];
         const rpc = live.rpc;
         return requestWillSaveEdits(
-            (method, params) => rpc.request(method, params),
+            loggingRequest(rpc, this.options.logger),
             {
                 uri: snapshot.uri,
                 languageId: snapshot.languageId,
