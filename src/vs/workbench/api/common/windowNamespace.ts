@@ -3,7 +3,6 @@ import type * as vscode from "vscode";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     ColorThemeKind,
@@ -30,6 +29,7 @@ import {
     parseWireSelectionChangeKind,
     parseWireSelections,
     serializeDecorationRenderOptions,
+    type WireOutputLevel,
 } from "./wireTypes.ts";
 
 /**
@@ -740,11 +740,11 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         // docs/TODO/LSP.md).
         createOutputChannel: (name: string): vscode.OutputChannel => {
             const channel = "extensions." + slugifyChannelName(name);
-            const send = (level: string, value: string): void => {
+            const send = (level: WireOutputLevel, value: string): void => {
                 rpc.notify("output.append", { channel, label: name, level, value });
             };
             const logEntry =
-                (level: string) =>
+                (level: WireOutputLevel) =>
                 (value: unknown): void => {
                     send(level, typeof value === "string" ? value : JSON.stringify(value));
                 };

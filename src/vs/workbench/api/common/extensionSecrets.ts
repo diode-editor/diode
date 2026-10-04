@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { EventEmitter } from "./vscodeTypes.ts";
 import { parseWireSecretKeys, parseWireSecretRef, parseWireSecretValue } from "./wireTypes.ts";
 
@@ -28,7 +28,7 @@ export interface IExtensionSecretsFactory {
  * слушатели у каждого расширения свои, поэтому обработчик регистрируется здесь
  * один раз и разводит событие по id.
  */
-export function createExtensionSecretsFactory(rpc: RpcEndpoint): IExtensionSecretsFactory {
+export function createExtensionSecretsFactory(rpc: SubprocessRpc): IExtensionSecretsFactory {
     const emitters = new Map<string, EventEmitter<vscode.SecretStorageChangeEvent>>();
 
     rpc.handleNotification("secrets.changed", (params) => {

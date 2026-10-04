@@ -23,7 +23,7 @@ export class EnvCustomer implements IExtensionHostCustomer {
         );
         store.add(
             rpc.handleRequest("env.clipboard.writeText", async (params): Promise<null> => {
-                const { text } = params as { text?: unknown };
+                const { text }: { text?: unknown } = params;
                 // Не-строку в буфер не кладём: расширение прислало не то, что обещает
                 // тип, и затирать этим настоящее содержимое буфера нельзя.
                 if (typeof text === "string") await this.clipboard?.writeText(text);
@@ -32,7 +32,7 @@ export class EnvCustomer implements IExtensionHostCustomer {
         );
         store.add(
             rpc.handleRequest("env.openExternal", async (params): Promise<{ opened: boolean }> => {
-                const { uri } = params as { uri?: unknown };
+                const { uri }: { uri?: unknown } = params;
                 if (typeof uri !== "string" || uri === "") return { opened: false };
                 return { opened: (await this.externalOpener?.open(uri)) ?? false };
             }),

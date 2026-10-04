@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { EventEmitter, ExtensionKind, Uri } from "./vscodeTypes.ts";
 import { type IWireExtensionDescription, parseWireExtensionActivated, parseWireExtensionCatalog } from "./wireTypes.ts";
 
@@ -39,7 +39,7 @@ const ACTIVATE_NOT_IMPLEMENTED =
     "extension.activate() is not implemented in Diode: activation is driven by the host. " +
     "Extensions that are already active return their exports.";
 
-export function createExtensionsNamespace(rpc: RpcEndpoint): IExtensionsNamespace {
+export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamespace {
     const exportsById = new Map<string, unknown>();
     /**
      * Последний каталог от хоста в порядке, в котором его прислали. Объекты

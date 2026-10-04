@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
+import type { HostRpc, SubprocessRpc } from "./extHostProtocol.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
 import { RpcEndpoint } from "./rpcEndpoint.ts";
 
@@ -15,12 +16,12 @@ const microtasks = async (turns = 4): Promise<void> => {
  */
 function createBridge(getActiveTextEditor?: () => vscode.TextEditor | undefined): {
     commands: ReturnType<typeof buildCommandsNamespace>;
-    host: RpcEndpoint;
+    host: HostRpc;
     dispose: () => void;
 } {
     const [chSub, chHost] = createInProcessChannelPair();
-    const sub = new RpcEndpoint(chSub);
-    const host = new RpcEndpoint(chHost);
+    const sub: SubprocessRpc = new RpcEndpoint(chSub);
+    const host: HostRpc = new RpcEndpoint(chHost);
     const commands = buildCommandsNamespace(sub, getActiveTextEditor);
     return {
         commands,
@@ -130,7 +131,8 @@ describe("CommandsNamespace (subprocess)", () => {
             return "ok";
         });
 
-        const result = await host.request("commands.executeCommand", { id: "ext.noargs" });
+        // Намеренно без `args`: проверяем защиту получателя от неполного провода.
+        const result = await host.request("commands.executeCommand", { id: "ext.noargs" } as never);
 
         expect(result).toBe("ok");
         expect(seen).toEqual([[]]);
@@ -139,13 +141,15 @@ describe("CommandsNamespace (subprocess)", () => {
 
     it("host → subprocess: некорректные params (не объект) → reject", async () => {
         const { host, dispose } = createBridge();
-        await expect(host.request("commands.executeCommand", 42)).rejects.toThrow(/must be an object/);
+        // Намеренный мусор вместо параметров.
+        await expect(host.request("commands.executeCommand", 42 as never)).rejects.toThrow(/must be an object/);
         dispose();
     });
 
     it("host → subprocess: пустой id → reject", async () => {
         const { host, dispose } = createBridge();
-        await expect(host.request("commands.executeCommand", { id: "" })).rejects.toThrow(/non-empty string/);
+        // Намеренно кривые параметры: пустой id и без `args`.
+        await expect(host.request("commands.executeCommand", { id: "" } as never)).rejects.toThrow(/non-empty string/);
         dispose();
     });
 

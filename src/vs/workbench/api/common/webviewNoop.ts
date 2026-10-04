@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
@@ -32,7 +32,7 @@ const OUTPUT_LABEL = "Extensions";
  * вышло. Главное — первым, а не в хвосте: строка Output обрезается шириной
  * панели, и «не поддерживается» обязано быть видно без горизонтальной прокрутки.
  */
-function reportUnsupported(rpc: RpcEndpoint, member: string, id: string): void {
+function reportUnsupported(rpc: SubprocessRpc, member: string, id: string): void {
     rpc.notify("output.append", {
         channel: OUTPUT_CHANNEL,
         label: OUTPUT_LABEL,
@@ -131,7 +131,7 @@ function createInertPanel(viewType: string, title: string): IInertWebviewPanel {
     };
 }
 
-export function createWebviewNoopMembers(rpc: RpcEndpoint): IWebviewNoopMembers {
+export function createWebviewNoopMembers(rpc: SubprocessRpc): IWebviewNoopMembers {
     return {
         createWebviewPanel: (viewType: string, title: string): IInertWebviewPanel => {
             reportUnsupported(rpc, "createWebviewPanel", viewType);

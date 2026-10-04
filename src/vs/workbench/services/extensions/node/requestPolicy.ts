@@ -1,5 +1,6 @@
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
-import { type RpcEndpoint, TimeoutError } from "../../../api/common/rpcEndpoint.ts";
+import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
+import { TimeoutError } from "../../../api/common/rpcEndpoint.ts";
 import type { RequestFn } from "../../../api/common/wireTypes.ts";
 
 /**
@@ -38,7 +39,7 @@ export type RequestTimeouts = Readonly<Record<TimedRequestMethod, number>>;
  * (её стек расширения доезжает целиком). Сам исход вызывающий получает
  * отклонением, как от `rpc.request`.
  */
-export function loggingRequest(rpc: RpcEndpoint, logger: ILogger | undefined): RequestFn {
+export function loggingRequest(rpc: HostRpc, logger: ILogger | undefined): RequestFn {
     return (method, params, options) =>
         rpc.request(method, params, options).catch((error: unknown) => {
             if (error instanceof TimeoutError) {

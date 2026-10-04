@@ -129,7 +129,7 @@ export function runExtensionHostSubprocess(): void {
         await rpc.request("memento.update", { extensionId, shared, value });
     };
 
-    rpc.handleRequest("host.activateExtension", async (params): Promise<unknown> => {
+    rpc.handleRequest("host.activateExtension", async (params): Promise<null> => {
         const { id, mainPath, source, filename, moduleType, extensionPath, storage, memento } =
             parseActivateParams(params);
         if (extensions.has(id)) {
@@ -189,7 +189,7 @@ export function runExtensionHostSubprocess(): void {
         return null;
     });
 
-    rpc.handleRequest("host.deactivateExtension", async (params): Promise<unknown> => {
+    rpc.handleRequest("host.deactivateExtension", async (params): Promise<null> => {
         const id = parseExtensionId(params);
         const active = extensions.get(id);
         if (active === undefined) return null;
@@ -203,7 +203,7 @@ export function runExtensionHostSubprocess(): void {
     // Канал здесь не закрываем: ответ на запрос уходит ПОСЛЕ обработчика, и
     // закрытый RPC его бы проглотил — родитель ждал бы свой тайм-аут впустую.
     // Выход доводит родитель (SIGTERM сразу по ответу) или `disconnect`.
-    rpc.handleRequest("host.shutdown", async (): Promise<unknown> => {
+    rpc.handleRequest("host.shutdown", async (): Promise<null> => {
         await deactivateAll();
         return null;
     });

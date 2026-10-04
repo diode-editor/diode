@@ -1087,7 +1087,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * хоста при смене папки, как reload окна у vscode).
      */
     private installMementoHandlers(rpc: HostRpc): void {
-        rpc.handleRequest("memento.update", (params): unknown => {
+        rpc.handleRequest("memento.update", (params): null => {
             const update = parseWireMementoUpdate(params);
             if (update === null) throw new Error("memento.update: malformed params");
             const { extensionId, shared, value } = update;

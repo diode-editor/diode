@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { type IWireMessageItem, parseWireShowMessageResult, type WireMessageSeverity } from "./wireTypes.ts";
 
 /**
@@ -77,7 +77,7 @@ export function toWireMessageItem(item: string | vscode.MessageItem): IWireMessa
     return { title: item.title, isCloseAffordance: item.isCloseAffordance === true };
 }
 
-export function createMessageApi(rpc: RpcEndpoint): IMessageApi {
+export function createMessageApi(rpc: SubprocessRpc): IMessageApi {
     const show = async (
         severity: WireMessageSeverity,
         // `unknown`, а не `string`: типы есть только у наших вызовов, а расширение

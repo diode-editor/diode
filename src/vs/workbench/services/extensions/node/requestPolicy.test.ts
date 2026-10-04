@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
-import { type IRequestOptions, type RpcEndpoint, TimeoutError } from "../../../api/common/rpcEndpoint.ts";
+import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
+import { type IRequestOptions, TimeoutError } from "../../../api/common/rpcEndpoint.ts";
 
 import { DEFAULT_REQUEST_TIMEOUTS, loggingRequest } from "./requestPolicy.ts";
 
@@ -16,7 +17,7 @@ function rpcAnswering(answer: () => Promise<unknown>) {
             calls.push({ method, params, options });
             return answer();
         },
-    } as unknown as RpcEndpoint;
+    } as unknown as HostRpc;
     return { rpc, calls };
 }
 

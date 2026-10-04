@@ -28,7 +28,9 @@
    `RpcEndpoint` субпроцесса, warn на исключение провайдера.
 4. [~] Карта протокола: generic `RpcEndpoint<TOut, TIn>`, `extHostProtocol.ts`
    по группам методов (`languages.*`, `workspace.*`, `editor.*`,
-   `diagnostics.*` — сделано); затем убрать untyped-дефолт.
+   `diagnostics.*`, `window.*`, `commands.*`, `secrets.*`, `env.*`,
+   `output.*`, `extensions.*`, `host.*`, `memento.*` — сделано, карта полна);
+   осталось убрать untyped-дефолт (`WithUntyped`).
 
 ## Не делаем
 

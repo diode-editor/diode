@@ -59,7 +59,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         // overviewRulerColor делает тип gutter change-bar'ом.
         store.add(
             rpc.handleNotification("window.createTextEditorDecorationType", (params) => {
-                const p = params as { key?: unknown; options?: unknown };
+                const p: { key?: unknown; options?: unknown } = params;
                 // Stryker disable next-line ConditionalExpression: тип с нечисловым ключом ненаблюдаем — до него не доберётся setDecorations, у которого свой гард ключа
                 if (typeof p.key !== "number") return;
                 // Не-объект в options полей не несёт — тип без gutter-цвета.
@@ -70,7 +70,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         // Тип снят — гасим его декорации во всех файлах и пере-push.
         store.add(
             rpc.handleNotification("window.disposeTextEditorDecorationType", (params) => {
-                const p = params as { key?: unknown };
+                const p: { key?: unknown } = params;
                 // Stryker disable next-line ConditionalExpression: снятие нечислового ключа — no-op: такого ключа нет ни в реестре, ни в наборах файлов
                 if (typeof p.key !== "number") return;
                 decorations.disposeType(p.key);
@@ -89,7 +89,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         // цвета/бейджа = снятие) и пере-push всего набора в дерево.
         store.add(
             rpc.handleNotification("window.fileDecorationsChanged", (params) => {
-                const p = params as { decorations?: unknown };
+                const p: { decorations?: unknown } = params;
                 decorations.mergeFileDecorations(parseWireFileDecorations(p.decorations));
             }),
         );
