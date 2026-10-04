@@ -50,6 +50,17 @@ export interface ISpawnSelfAsRoleOptions {
     readonly spec?: ISelfSpawnSpec;
     /** Окружение ребёнка до флага роли; по умолчанию `process.env`. */
     readonly env?: NodeJS.ProcessEnv;
+    /**
+     * Запустить ребёнка лидером СВОЕЙ группы процессов (posix). Нужно роли, чьи
+     * дети плодят своих детей: сигнал выключения тогда адресуется группе и
+     * достаёт внуков — языковые серверы, которые поднимают сами расширения.
+     * Без этого внук переживает выход редактора и остаётся сиротой.
+     *
+     * Плата: ребёнок больше не получает SIGINT вместе с терминалом, и снять его
+     * обязан владелец — через свой протокол прощания. На Windows групп
+     * процессов нет, флаг там значения не имеет.
+     */
+    readonly ownProcessGroup?: boolean;
 }
 
 /**
@@ -63,5 +74,7 @@ export function spawnSelfAsRole(role: SelfProcessRole, options: ISpawnSelfAsRole
     return spawn(spec.command, spec.args, {
         stdio: ["ignore", options.stdout ?? "ignore", options.stderr, "ipc"],
         env: { ...(options.env ?? process.env), [role]: "1" },
+        // Stryker disable next-line ConditionalExpression,StringLiteral: на posix-раннере `platform !== "win32"` всегда истинно — мутант эквивалентен; ветку win32 закрывает e2e на windows
+        detached: options.ownProcessGroup === true && process.platform !== "win32",
     });
 }

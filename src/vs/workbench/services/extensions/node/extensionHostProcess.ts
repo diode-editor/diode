@@ -65,7 +65,16 @@ export class ExtensionHostProcess {
             stdout,
             stderr,
         });
-        const child = spawnSelfAsRole("DIODE_EXTENSION_HOST", { stdout, stderr, spec, env: spec.env });
+        // `ownProcessGroup` — чтобы сигнал выключения доставал ВНУКОВ: языковые
+        // серверы поднимает не хост, а сами расширения (jdtls, gopls, …), и
+        // сигнал прямому ребёнку их не касается. См. `killTree` ниже.
+        const child = spawnSelfAsRole("DIODE_EXTENSION_HOST", {
+            stdout,
+            stderr,
+            spec,
+            env: spec.env,
+            ownProcessGroup: true,
+        });
         // Правила самофорка (error через `on`, error без exit — тоже конец,
         // слушатели на stdio) исполняет guard.
         this.guard = new GuardedChildProcess(child, { label: "extension-host", logger: this.logger });
@@ -122,19 +131,11 @@ export class ExtensionHostProcess {
             // ignore
         }
         if (child.exitCode === null && !child.killed) {
-            try {
-                child.kill("SIGTERM");
-            } catch {
-                // ignore
-            }
+            this.killTree("SIGTERM");
             await Promise.race([exit, sleep(500)]);
         }
         if (child.exitCode === null && !child.killed) {
-            try {
-                child.kill("SIGKILL");
-            } catch {
-                // ignore
-            }
+            this.killTree("SIGKILL");
             await Promise.race([exit, sleep(500)]);
         }
         this.dispose();
@@ -146,8 +147,41 @@ export class ExtensionHostProcess {
      * вернёт false, так что отдельной проверки «а жив ли он» не нужно.
      */
     public kill(): void {
-        this.child.kill("SIGKILL");
+        this.killTree("SIGKILL");
     }
+
+    /**
+     * Снимает ребёнка ВМЕСТЕ с его потомством. Субпроцесс запущен `detached`,
+     * то есть он — лидер своей группы процессов, и отрицательный pid адресует
+     * сигнал всей группе: внуки (языковые серверы расширений) уходят вместе с
+     * ним, а не остаются сиротами.
+     *
+     * Группы может уже не быть (все вышли сами) — это не ошибка. На Windows
+     * групп процессов нет, там остаётся только прямой `kill`.
+     */
+    private killTree(signal: NodeJS.Signals): void {
+        const pid = this.child.pid;
+        if (pid !== undefined && process.platform !== "win32") {
+            try {
+                process.kill(-pid, signal);
+                return;
+            } catch (err) {
+                // Группы нет (ESRCH) — ребёнок с внуками уже вышли. Иное —
+                // пробуем прямой kill ниже, чтобы не оставить ребёнка живым.
+                if (isNoSuchProcess(err)) return;
+                this.logger?.warn("group kill failed, falling back to direct kill", err);
+            }
+        }
+        try {
+            this.child.kill(signal);
+        } catch {
+            // ignore
+        }
+    }
+}
+
+function isNoSuchProcess(err: unknown): boolean {
+    return (err as NodeJS.ErrnoException | null)?.code === "ESRCH";
 }
 
 /**

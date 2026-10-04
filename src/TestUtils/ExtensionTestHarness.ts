@@ -474,17 +474,20 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     }
 
     const dispose = async (): Promise<void> => {
-        host.dispose();
-        // ExtensionHost.dispose стартует асинхронный shutdownSubprocess(); ждём
-        // короткое окно, чтобы дать ему успеть отправить host.shutdown и
-        // дочерний процесс корректно завершился.
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Ждём ФАКТИЧЕСКОГО выхода субпроцесса, а не фиксированное окно: пока он
+        // жив, он пишет в `tmpDir` (globalStorage расширений), и снос каталога
+        // из-под живого писателя либо падает, либо каталог воскресает его же
+        // `mkdir`. Прежние 100 мс были заведомо меньше таймаута вежливого
+        // прощания — отсюда гигабайты `diode-ext-*` в os.tmpdir().
+        await host.shutdown();
         groupComponent.dispose();
         group.dispose();
         try {
             fs.rmSync(tmpDir, { recursive: true, force: true });
-        } catch {
-            // ignore
+        } catch (err) {
+            // Не роняем тест (каталог временный, прогон уже прошёл), но и не
+            // молчим: проглоченная ошибка здесь годами копила мусор незаметно.
+            console.warn(`[ExtensionTestHarness] не удалось снести ${tmpDir}:`, err);
         }
     };
 
