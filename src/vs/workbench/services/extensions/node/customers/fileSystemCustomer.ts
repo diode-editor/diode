@@ -5,8 +5,8 @@ import { matchGlob } from "../../../../../base/common/glob.ts";
 import { Disposable, DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
 import type { ITreeFileChange } from "../../../../../platform/files/common/iTreeFileWatcher.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IExtensionFileWatcher } from "../../../../api/common/iExtensionFileWatcher.ts";
-import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import {
     type IWireWatcherCreate,
     type IWireWatcherEvent,
@@ -30,7 +30,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
      * Текущий спавн: канал к провайдерам и схемы его `TextDocumentContentProvider`'ов;
      * `null` — спавна нет. Схемы содержимого уходят вместе со спавном.
      */
-    private live: { readonly rpc: RpcEndpoint; textContentSchemes: readonly string[] } | null = null;
+    private live: { readonly rpc: HostRpc; textContentSchemes: readonly string[] } | null = null;
     private fileSystemSchemesValue: readonly string[] = [];
     private readonly onFileSystemProvidersChangedEmitter = this.register(new Emitter<void>());
     private readonly onDidChangeProvidedFileEmitter = this.register(new Emitter<readonly Uri[]>());
@@ -115,7 +115,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         // обязана перечитаться (`TextDocumentContentProvider.onDidChange`).
         store.add(
             rpc.handleNotification("workspace.textDocumentContentChanged", (params) => {
-                const uri = (params as { uri?: unknown }).uri;
+                const uri: unknown = params.uri;
                 if (typeof uri !== "string") return;
                 this.onDidChangeTextContentEmitter.fire(Uri.parse(uri));
             }),
@@ -124,7 +124,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         // (для git: — сдвинулся HEAD/индекс): потребители сбрасывают кэш.
         store.add(
             rpc.handleNotification("workspace.fs.didChangeFile", (params) => {
-                const p = params as { uris?: unknown };
+                const p: { uris?: unknown } = params;
                 const raw = Array.isArray(p.uris) ? p.uris.filter((u): u is string => typeof u === "string") : [];
                 if (raw.length === 0) return;
                 this.onDidChangeProvidedFileEmitter.fire(raw.map((u) => Uri.parse(u)));

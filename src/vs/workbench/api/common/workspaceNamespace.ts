@@ -33,6 +33,7 @@ import {
     type IWireReadFileResult,
     type IWireTextContentResult,
     type IWireWorkspaceEditOp,
+    type IWireWorkspaceFolder,
     parseWireDocumentChangedEvent,
     parseWireDocumentSyncSnapshot,
     parseWireWatcherEvents,
@@ -221,13 +222,6 @@ interface IWorkspaceFolder {
     readonly index: number;
 }
 
-/** Wire-форма папки (host → subprocess). */
-interface IWireWorkspaceFolder {
-    readonly uri: string;
-    readonly name: string;
-    readonly index: number;
-}
-
 /**
  * `vscode.workspace` на стороне subprocess.
  *
@@ -270,7 +264,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     });
 
     rpc.handleRequest("workspace.fs.readFile", async (params): Promise<IWireReadFileResult> => {
-        const p = params as { uri?: unknown };
+        const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string") throw new Error("workspace.fs.readFile: uri must be a string");
         const uri = Uri.parse(p.uri);
         const provider = fsProviders.get(uri.scheme);
@@ -296,7 +290,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     rpc.handleRequest(
         "workspace.provideTextDocumentContent",
         async (params, cancellation): Promise<IWireTextContentResult> => {
-            const p = params as { uri?: unknown };
+            const p: { uri?: unknown } = params;
             if (typeof p.uri !== "string") {
                 throw new Error("workspace.provideTextDocumentContent: uri must be a string");
             }
@@ -401,14 +395,14 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     // onDidCloseTextDocument (сервер получает LSP didClose и снова didOpen при
     // повторном открытии — люфт из docs/TODO/LSP.md закрыт).
     rpc.handleNotification("editor.didClose", (params) => {
-        const p = params as { uri?: unknown };
+        const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string" || p.uri === "") return;
         const doc = documentSync.close(Uri.parse(p.uri));
         if (doc !== null) onDidCloseTextDocumentEmitter.fire(doc as unknown as vscode.TextDocument);
     });
 
     rpc.handleNotification("workspace.initialize", (params) => {
-        const p = params as { configuration?: unknown; workspaceFolders?: IWireWorkspaceFolder[] };
+        const p: { configuration?: unknown; workspaceFolders?: readonly IWireWorkspaceFolder[] } = params;
         configStore.setData(p.configuration);
         workspaceFolders = (p.workspaceFolders ?? []).map((f) => ({
             uri: Uri.parse(f.uri),
@@ -418,7 +412,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     });
 
     rpc.handleNotification("workspace.configurationChanged", (params) => {
-        const p = params as { configuration?: unknown; affectedKeys?: string[] };
+        const p: { configuration?: unknown; affectedKeys?: readonly string[] } = params;
         configStore.setData(p.configuration);
         const affectedKeys = p.affectedKeys ?? [];
         onDidChangeConfigurationEmitter.fire({
@@ -432,7 +426,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     // запроса; фаерим onWillSaveTextDocument, собираем waitUntil-thenable'ы (по
     // одному per-listener таймауту), сериализуем полученные TextEdit[].
     rpc.handleRequest("workspace.willSaveTextDocument", async (params): Promise<WireTextEdit[]> => {
-        const p = params as IWireWillSaveParams;
+        const p: IWireWillSaveParams = params;
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
         doc.applyMeta({
@@ -474,7 +468,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
 
     // Хост сообщил о состоявшемся сохранении — фаерим onDidSaveTextDocument.
     rpc.handleNotification("workspace.didSaveTextDocument", (params) => {
-        const p = params as { uri?: unknown; languageId?: unknown };
+        const p: { uri?: unknown; languageId?: unknown } = params;
         if (typeof p.uri !== "string") return;
         const doc = registry.upsertMeta({
             uri: p.uri,
@@ -641,7 +635,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             // успех, как у VS Code: применять нечего, но и отказа нет.
             if (ops.length === 0) return Promise.resolve(true);
             const params: IWireApplyWorkspaceEditParams = { ops };
-            return rpc.request("workspace.applyEdit", params) as Promise<boolean>;
+            return rpc.request("workspace.applyEdit", params);
         },
         // Файл ВНЕ папок воркспейса — `undefined`, как в эталоне («Returns
         // `undefined` when the given uri doesn't match any workspace folder»).

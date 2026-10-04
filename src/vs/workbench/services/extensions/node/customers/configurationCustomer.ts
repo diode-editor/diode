@@ -1,5 +1,5 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
-import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import type { IExtensionHostConfigProvider } from "../extensionHost.ts";
 
@@ -11,7 +11,7 @@ import type { IExtensionHostConfigProvider } from "../extensionHost.ts";
  */
 export class ConfigurationCustomer implements IExtensionHostCustomer {
     /** Канал текущего спавна; `null` — спавна нет. */
-    private rpc: RpcEndpoint | null = null;
+    private rpc: HostRpc | null = null;
 
     public constructor(private readonly configuration: IExtensionHostConfigProvider) {}
 

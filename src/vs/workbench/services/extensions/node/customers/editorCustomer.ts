@@ -1,8 +1,13 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorLayoutService } from "../../../../api/common/iEditorLayoutService.ts";
-import type { IEditorOptionsPatch, IEditorOptionsService } from "../../../../api/common/iEditorOptionsService.ts";
-import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
+import type {
+    IEditorOptionsPatch,
+    IEditorOptionsService,
+    IEditorOptionsState,
+} from "../../../../api/common/iEditorOptionsService.ts";
 import {
+    type IWireShowTextDocumentResult,
     parseWireApplyWorkspaceEditParams,
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
@@ -21,7 +26,7 @@ import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common
  */
 export class EditorCustomer implements IExtensionHostCustomer {
     /** Канал текущего спавна; `null` — спавна нет. */
-    private rpc: RpcEndpoint | null = null;
+    private rpc: HostRpc | null = null;
 
     public constructor(
         private readonly editorOptions: IEditorOptionsService,
@@ -43,14 +48,14 @@ export class EditorCustomer implements IExtensionHostCustomer {
         this.rpc = rpc;
         const store = new DisposableStore();
         store.add(
-            rpc.handleRequest("editor.setOptions", (params): unknown => {
+            rpc.handleRequest("editor.setOptions", (params): null => {
                 const patch = sanitizeOptionsPatch(params);
                 this.editorOptions.setActiveEditorOptions(patch);
                 return null;
             }),
         );
         store.add(
-            rpc.handleRequest("editor.getOptions", (): unknown => {
+            rpc.handleRequest("editor.getOptions", (): IEditorOptionsState | null => {
                 return this.editorOptions.getActiveEditorOptions();
             }),
         );
@@ -59,7 +64,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
         // но обрабатывается в порядке прихода (до последующего executeCommand).
         store.add(
             rpc.handleNotification("editor.setSelection", (params): void => {
-                const p = params as { uri?: unknown; selections?: unknown; groupId?: unknown };
+                const p: { uri?: unknown; selections?: unknown; groupId?: unknown } = params;
                 if (typeof p.uri !== "string") return;
                 this.editorOptions.setActiveEditorSelections(
                     p.uri,
@@ -70,8 +75,8 @@ export class EditorCustomer implements IExtensionHostCustomer {
         );
         // Сабпроцесс просит применить правки `TextEditor.edit` одним undoable-батчем.
         store.add(
-            rpc.handleRequest("editor.applyEdit", (params): unknown => {
-                const p = params as { uri?: unknown; edits?: unknown };
+            rpc.handleRequest("editor.applyEdit", (params): boolean => {
+                const p: { uri?: unknown; edits?: unknown } = params;
                 if (typeof p.uri !== "string") return false;
                 return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits));
             }),
@@ -80,7 +85,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
         // текстовые правки по ресурсам плюс файловые операции, all-or-nothing
         // по валидации. Мусор в параметрах — честный `false`, а не частичный edit.
         store.add(
-            rpc.handleRequest("workspace.applyEdit", async (params): Promise<unknown> => {
+            rpc.handleRequest("workspace.applyEdit", async (params): Promise<boolean> => {
                 const ops = parseWireApplyWorkspaceEditParams(params);
                 if (ops === null) return false;
                 return this.editorOptions.applyWorkspaceEdit(ops);
@@ -99,7 +104,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
         // ответ уезжает ПОСЛЕ layoutChanged (flush перед reply) — после `await`
         // расширение видит свежий `tabGroups`.
         store.add(
-            rpc.handleRequest("editor.showTextDocument", async (params): Promise<unknown> => {
+            rpc.handleRequest("editor.showTextDocument", async (params): Promise<IWireShowTextDocumentResult> => {
                 const parsed = parseWireShowTextDocumentParams(params);
                 if (parsed === null) throw new Error("editor.showTextDocument: malformed params");
                 const result = await this.editorLayout.showTextDocument(parsed);
@@ -108,7 +113,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
             }),
         );
         store.add(
-            rpc.handleRequest("editor.closeTabs", async (params): Promise<unknown> => {
+            rpc.handleRequest("editor.closeTabs", async (params): Promise<boolean> => {
                 const parsed = parseWireCloseTabsParams(params);
                 if (parsed === null) throw new Error("editor.closeTabs: malformed params");
                 const result = await this.editorLayout.closeTabs(parsed);
@@ -117,7 +122,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
             }),
         );
         store.add(
-            rpc.handleRequest("editor.closeGroups", async (params): Promise<unknown> => {
+            rpc.handleRequest("editor.closeGroups", async (params): Promise<boolean> => {
                 const parsed = parseWireCloseGroupsParams(params);
                 if (parsed === null) throw new Error("editor.closeGroups: malformed params");
                 const result = await this.editorLayout.closeGroups(parsed);

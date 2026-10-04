@@ -21,6 +21,7 @@ import type {
     SignatureHelpTriggerKind,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
+import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
 import type { IHostToSubprocess, WithUntyped } from "./extHostProtocol.ts";
@@ -56,6 +57,43 @@ export interface IWireWillSaveParams {
     readonly eol: number;
     /** Кодировка дискового представления (id из SUPPORTED_ENCODINGS, напр. "windows1251"). */
     readonly encoding?: string;
+}
+
+/** Параметры `workspace.didSaveTextDocument` (host → subprocess): что сохранено. */
+export interface IWireDidSaveParams {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId: string;
+}
+
+/**
+ * Подписки субпроцесса (`workspace.updateSubscriptions`, subprocess → host):
+ * есть ли слушатели will/did-save и document sync — без них хост не гоняет RPC.
+ */
+export interface IWireSubscriptions {
+    readonly willSave: boolean;
+    readonly didSave: boolean;
+    readonly documentSync: boolean;
+}
+
+/** Папка воркспейса в проводе (host → subprocess). */
+export interface IWireWorkspaceFolder {
+    /** Ресурс папки как `uri.toString()`. */
+    readonly uri: string;
+    readonly name: string;
+    readonly index: number;
+}
+
+/** Семя `workspace.initialize` (host → subprocess): слои настроек и папки воркспейса. */
+export interface IWireWorkspaceInitialize {
+    readonly configuration: IConfigurationData;
+    readonly workspaceFolders: readonly IWireWorkspaceFolder[];
+}
+
+/** Смена настроек `workspace.configurationChanged` (host → subprocess): новые слои и изменившиеся ключи. */
+export interface IWireConfigurationChanged {
+    readonly configuration: IConfigurationData;
+    readonly affectedKeys: readonly string[];
 }
 
 function isFiniteNumber(v: unknown): v is number {
@@ -172,6 +210,15 @@ export async function requestWillSaveEdits(
 }
 
 // ─── Document sync (зеркало документа: снапшот на открытии, дальше правки) ──
+
+/**
+ * Параметры, адресующие один ресурс (`uri.toString()`): `editor.didClose`,
+ * `workspace.fs.readFile`, `workspace.provideTextDocumentContent`,
+ * `workspace.textDocumentContentChanged`.
+ */
+export interface IWireUriParams {
+    readonly uri: string;
+}
 
 /**
  * Полный снапшот документа host → subprocess: `editor.didOpen` и flush
@@ -1869,6 +1916,20 @@ export interface IWireApplyEditParams {
 export interface IWireSetSelectionParams {
     readonly uri: string;
     readonly selections: readonly IWireSelection[];
+    /** Группа редактора (`TextEditor` адресуется парой группа + документ). */
+    readonly groupId: number;
+}
+
+/**
+ * Параметры `editor.setOptions` (subprocess → host): нормализованный патч
+ * `TextEditor.options` и адрес редактора. `indentSize` — алиас `tabSize`.
+ */
+export interface IWireSetEditorOptionsParams {
+    readonly tabSize?: number;
+    readonly insertSpaces?: boolean;
+    readonly indentSize?: number;
+    readonly uri: string;
+    readonly groupId: number;
 }
 
 export function parseWireSelection(raw: unknown): IWireSelection | null {
@@ -2095,6 +2156,8 @@ export interface IWireSetDecorations {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly ranges: readonly IRange[];
+    /** Группа редактора; хост пока красит ресурс во всех группах и поле не читает. */
+    readonly groupId: number;
 }
 
 /** Одна изменившаяся файловая декорация (`window.fileDecorationsChanged`). */
@@ -2257,6 +2320,16 @@ export function parseWireTextContentResult(raw: unknown): string | null {
     return content;
 }
 
+/** Схемы провайдеров (`workspace.*ProvidersChanged`, subprocess → host). */
+export interface IWireSchemes {
+    readonly schemes: readonly string[];
+}
+
+/** Ресурсы провайдера ФС, изменившиеся снаружи (`workspace.fs.didChangeFile`, subprocess → host). */
+export interface IWireChangedFiles {
+    readonly uris: readonly string[];
+}
+
 /** Разбирает список схем из `workspace.*ProvidersChanged`; чужие элементы отбрасывает. */
 export function parseWireSchemes(raw: unknown): string[] {
     const schemes = (raw as { schemes?: unknown } | null)?.schemes;
@@ -2304,6 +2377,11 @@ export function parseWireWatcherCreate(raw: unknown): IWireWatcherCreate | null 
         ignoreChangeEvents: p.ignoreChangeEvents === true,
         ignoreDeleteEvents: p.ignoreDeleteEvents === true,
     };
+}
+
+/** Снятие watcher'а (`workspace.watcher.dispose`, subprocess → host). */
+export interface IWireWatcherDispose {
+    readonly id: number;
 }
 
 /** Разбирает `workspace.watcher.dispose`; `null` — параметры структурно чужие. */

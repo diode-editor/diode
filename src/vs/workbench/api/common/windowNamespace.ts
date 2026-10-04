@@ -22,6 +22,7 @@ import {
     type IWireEditorLayout,
     type IWireFileDecoration,
     type IWireSelection,
+    type IWireShowTextDocumentResult,
     type IWireTabGroupSnapshot,
     type IWireTabSnapshot,
     parseWireColorTheme,
@@ -189,7 +190,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     }
 
     rpc.handleNotification("editor.activeEditorChanged", (params) => {
-        const meta = params as {
+        const meta: {
             uri: string | null;
             languageId?: string | null;
             isDirty?: boolean;
@@ -197,7 +198,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             eol?: number | null;
             selection?: IWireSelection | null;
             groupId?: number | null;
-        };
+        } = params;
         activeEditorUri = meta.uri;
         activeEditorGroupId = typeof meta.groupId === "number" ? meta.groupId : null;
         activeSelections = meta.selection == null ? [] : [meta.selection];
@@ -221,7 +222,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     // Слушателей активного редактора не трогаем: активный редактор не сменился
     // (иначе пришёл бы `editor.activeEditorChanged`).
     rpc.handleNotification("editor.selectionChanged", (params) => {
-        const p = params as { uri?: unknown; selections?: unknown; groupId?: unknown; kind?: unknown };
+        const p: { uri?: unknown; selections?: unknown; groupId?: unknown; kind?: unknown } = params;
         if (typeof p.uri !== "string") return;
         const selections = parseWireSelections(p.selections);
         const groupId = typeof p.groupId === "number" ? p.groupId : effectiveActiveGroupId();
@@ -535,7 +536,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 return rpc.request("editor.applyEdit", {
                     uri: document.uri.toString(),
                     edits,
-                }) as Promise<boolean>;
+                });
             },
             // Применение набора декораций (`vscode.TextEditor.setDecorations`):
             // резолвим числовой ключ типа и шлём диапазоны хосту. Пустой набор
@@ -963,7 +964,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                         groupId: (tab as unknown as { _diodeGroupId: number })._diodeGroupId,
                         uri: (tab as unknown as { _diodeUri: string })._diodeUri,
                     }));
-                    return rpc.request("editor.closeTabs", { tabs }) as Promise<boolean>;
+                    return rpc.request("editor.closeTabs", { tabs });
                 }
                 const groupIds = (items as vscode.TabGroup[]).map((group) => {
                     // Снимок несёт viewColumn числом, у vscode.TabGroup это enum ViewColumn —
@@ -972,7 +973,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     const snapshot = layout.groups.find((g) => g.viewColumn === column);
                     return snapshot?.groupId ?? -1;
                 });
-                return rpc.request("editor.closeGroups", { groupIds }) as Promise<boolean>;
+                return rpc.request("editor.closeGroups", { groupIds });
             },
         } as unknown as vscode.TabGroups,
 
@@ -1019,11 +1020,11 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                       }
                     : {}),
             };
-            return (
-                rpc.request("editor.showTextDocument", params) as Promise<
-                    { uri: string; groupId: number } | null | undefined
-                >
-            ).then((result) => {
+            const shown: Promise<IWireShowTextDocumentResult | null | undefined> = rpc.request(
+                "editor.showTextDocument",
+                params,
+            );
+            return shown.then((result) => {
                 // Защитный фолбэк (харнессы со стаб-RPC отвечают undefined):
                 // без ответа собираем редактор по тому же uri, который и просили
                 // показать, в активной группе — `getEditorFor` мемоизирует по

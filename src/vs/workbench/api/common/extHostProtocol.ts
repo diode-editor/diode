@@ -1,10 +1,22 @@
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
+import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
 import type { IRpcProtocol, IUntypedProtocol, RpcEndpoint } from "./rpcEndpoint.ts";
 import type {
+    IWireApplyEditParams,
+    IWireApplyWorkspaceEditParams,
+    IWireChangedFiles,
+    IWireCloseGroupsParams,
+    IWireCloseTabsParams,
     IWireCodeActionParams,
     IWireCompletionParams,
+    IWireConfigurationChanged,
     IWireDefinitionParams,
+    IWireDiagnosticsPublish,
+    IWireDidSaveParams,
+    IWireDocumentChangedEvent,
+    IWireDocumentSyncSnapshot,
+    IWireEditorLayout,
     IWireFoldingParams,
     IWireFormattingParams,
     IWireHoverParams,
@@ -12,9 +24,24 @@ import type {
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
     IWirePrepareRenameParams,
+    IWireReadFileResult,
     IWireReferenceParams,
     IWireRenameParams,
+    IWireSchemes,
+    IWireSetDecorations,
+    IWireSetEditorOptionsParams,
+    IWireSetSelectionParams,
+    IWireShowTextDocumentParams,
+    IWireShowTextDocumentResult,
     IWireSignatureHelpParams,
+    IWireSubscriptions,
+    IWireTextContentResult,
+    IWireUriParams,
+    IWireWatcherCreate,
+    IWireWatcherDispose,
+    IWireWatcherEvents,
+    IWireWillSaveParams,
+    IWireWorkspaceInitialize,
     WireCodeAction,
     WireCompletionResult,
     WireDefinitionLocation,
@@ -66,16 +93,56 @@ export interface IHostToSubprocess {
         readonly "languages.applyCodeAction": readonly [{ readonly id: string }, boolean];
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];
         readonly "languages.provideRenameEdits": readonly [IWireRenameParams, WireRenameResult];
+
+        readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
+        readonly "workspace.provideTextDocumentContent": readonly [IWireUriParams, IWireTextContentResult];
+        readonly "workspace.willSaveTextDocument": readonly [IWireWillSaveParams, WireTextEdit[]];
     };
-    readonly notifications: object;
+    readonly notifications: {
+        readonly "workspace.initialize": IWireWorkspaceInitialize;
+        readonly "workspace.configurationChanged": IWireConfigurationChanged;
+        readonly "workspace.didSaveTextDocument": IWireDidSaveParams;
+        readonly "workspace.watcher.events": IWireWatcherEvents;
+
+        readonly "editor.didOpen": IWireDocumentSyncSnapshot;
+        /** Правки дельтой либо полный снапшот (flush — замена содержимого целиком). */
+        readonly "editor.didChange": IWireDocumentChangedEvent | IWireDocumentSyncSnapshot;
+        readonly "editor.didClose": IWireUriParams;
+        readonly "editor.activeEditorChanged": IActiveEditorMeta;
+        readonly "editor.selectionChanged": IActiveEditorSelections;
+        readonly "editor.layoutChanged": IWireEditorLayout;
+    };
 }
 
 /** Запросы и нотификации субпроцесса к хосту. */
 export interface ISubprocessToHost {
-    readonly requests: object;
+    readonly requests: {
+        readonly "workspace.applyEdit": readonly [IWireApplyWorkspaceEditParams, boolean];
+
+        readonly "editor.setOptions": readonly [IWireSetEditorOptionsParams, null];
+        /** Обработчик есть, отправителя пока нет: субпроцесс читает опции из своего прокси. */
+        readonly "editor.getOptions": readonly [undefined, IEditorOptionsState | null];
+        readonly "editor.applyEdit": readonly [IWireApplyEditParams, boolean];
+        readonly "editor.showTextDocument": readonly [IWireShowTextDocumentParams, IWireShowTextDocumentResult];
+        readonly "editor.closeTabs": readonly [IWireCloseTabsParams, boolean];
+        readonly "editor.closeGroups": readonly [IWireCloseGroupsParams, boolean];
+    };
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
+
+        readonly "workspace.fileSystemProvidersChanged": IWireSchemes;
+        readonly "workspace.fs.didChangeFile": IWireChangedFiles;
+        readonly "workspace.textDocumentContentProvidersChanged": IWireSchemes;
+        readonly "workspace.textDocumentContentChanged": IWireUriParams;
+        readonly "workspace.watcher.create": IWireWatcherCreate;
+        readonly "workspace.watcher.dispose": IWireWatcherDispose;
+        readonly "workspace.updateSubscriptions": IWireSubscriptions;
+
+        readonly "editor.setSelection": IWireSetSelectionParams;
+        readonly "editor.setDecorations": IWireSetDecorations;
+
+        readonly "diagnostics.publish": IWireDiagnosticsPublish;
     };
 }
 

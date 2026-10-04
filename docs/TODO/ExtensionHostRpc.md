@@ -27,7 +27,8 @@
 3. [x] Токены отмены в субпроцессе (#518) вместо `neverCancelledToken`, логгер у
    `RpcEndpoint` субпроцесса, warn на исключение провайдера.
 4. [~] Карта протокола: generic `RpcEndpoint<TOut, TIn>`, `extHostProtocol.ts`
-   по группам методов (`languages.*` — сделано); затем убрать untyped-дефолт.
+   по группам методов (`languages.*`, `workspace.*`, `editor.*`,
+   `diagnostics.*` — сделано); затем убрать untyped-дефолт.
 
 ## Не делаем
 

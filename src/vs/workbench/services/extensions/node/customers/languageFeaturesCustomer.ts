@@ -31,7 +31,7 @@ import type {
 } from "../../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IFoldingRegion } from "../../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
-import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import {
     type IWireLanguageProviderRegistration,
     parseWireLanguageProviderRegistration,
@@ -71,7 +71,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     /** Состав провайдеров изменился: регистрация, снятие или смерть субпроцесса. */
     public readonly onProvidersChanged = this.onProvidersChangedEmitter.event;
     /** Канал текущего спавна; `null` — спавна нет. */
-    private rpc: RpcEndpoint | null = null;
+    private rpc: HostRpc | null = null;
     /** Вызовы inline-прокси с одним запросом — одним RPC (см. `provideInlineCompletions`). */
     private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
         IInlineCompletionRequest,
