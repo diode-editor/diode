@@ -26,10 +26,12 @@ import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common
  * спавн субпроцесса.
  */
 export class FileSystemCustomer extends Disposable implements IExtensionHostCustomer {
-    private rpc: RpcEndpoint | null = null;
+    /**
+     * Текущий спавн: канал к провайдерам и схемы его `TextDocumentContentProvider`'ов;
+     * `null` — спавна нет. Схемы содержимого уходят вместе со спавном.
+     */
+    private live: { readonly rpc: RpcEndpoint; textContentSchemes: readonly string[] } | null = null;
     private fileSystemSchemesValue: readonly string[] = [];
-    // Stryker disable next-line ArrayDeclaration: до первого объявления субпроцесса схем нет; мутант подставляет схему-заглушку, которую ни одно расширение не регистрирует
-    private textContentSchemesValue: readonly string[] = [];
     private readonly onFileSystemProvidersChangedEmitter = this.register(new Emitter<void>());
     private readonly onDidChangeProvidedFileEmitter = this.register(new Emitter<readonly Uri[]>());
     private readonly onDidChangeTextContentEmitter = this.register(new Emitter<Uri>());
@@ -56,8 +58,8 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
      * это пережить (для гуттера «git-расширения нет» — штатная ситуация).
      */
     public async readProvidedFile(uri: Uri): Promise<Uint8Array> {
-        const rpc = this.rpc;
-        if (rpc === null) throw new Error("extension host is not running");
+        const rpc = this.live?.rpc;
+        if (rpc === undefined) throw new Error("extension host is not running");
         return parseWireReadFileResult(await rpc.request("workspace.fs.readFile", { uri: uri.toString() }));
     }
 
@@ -68,7 +70,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
      * поэтому спрашивать надо в момент открытия ресурса, а не один раз.
      */
     public hasTextContentProvider(scheme: string): boolean {
-        return this.textContentSchemesValue.includes(scheme);
+        return this.live?.textContentSchemes.includes(scheme) === true;
     }
 
     /**
@@ -78,15 +80,17 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
      * показать её человеку.
      */
     public async provideTextDocumentContent(uri: Uri): Promise<string | null> {
-        const rpc = this.rpc;
-        if (rpc === null) throw new Error("extension host is not running");
+        const rpc = this.live?.rpc;
+        if (rpc === undefined) throw new Error("extension host is not running");
         return parseWireTextContentResult(
             await rpc.request("workspace.provideTextDocumentContent", { uri: uri.toString() }),
         );
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
-        this.rpc = rpc;
+        // Stryker disable next-line ArrayDeclaration: до первого объявления субпроцесса схем нет; мутант подставляет схему-заглушку, которую ни одно расширение не регистрирует
+        const live = { rpc, textContentSchemes: [] as readonly string[] };
+        this.live = live;
         const store = new DisposableStore();
         /** Живые watcher'ы субпроцесса по id; уходят вместе со спавном. */
         const watchers = store.add(new DisposableMap<number>());
@@ -104,7 +108,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         // чтение. По ним ядро открывает read-only вкладки недисковых ресурсов.
         store.add(
             rpc.handleNotification("workspace.textDocumentContentProvidersChanged", (params) => {
-                this.textContentSchemesValue = parseWireSchemes(params);
+                live.textContentSchemes = parseWireSchemes(params);
             }),
         );
         // Провайдер объявил, что содержимое ресурса изменилось — открытая вкладка
@@ -154,9 +158,16 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 watchers.deleteAndDispose(id);
             }),
         );
+        // Объявленное субпроцессом умирает вместе с ним: провайдеры схем, которые
+        // он держал, отвечать больше не будут. Схемы ФС снимаются с событием —
+        // по нему адаптер убирает хост из реестра ядра (иначе `git:` указывал бы
+        // на мёртвый субпроцесс до его оживления).
         store.add({
             dispose: () => {
-                this.rpc = null;
+                this.live = null;
+                if (this.fileSystemSchemesValue.length === 0) return;
+                this.fileSystemSchemesValue = [];
+                this.onFileSystemProvidersChangedEmitter.fire();
             },
         });
         return store;

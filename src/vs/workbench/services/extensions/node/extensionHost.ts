@@ -643,10 +643,6 @@ export class ExtensionHost extends Disposable {
      * между собой, а состав каталога от фазы не зависит.
      */
     private readonly registrations = new Map<string, IExtensionRegistration>();
-    /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
-    /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
-    /** Схемы, для которых субпроцесс держит TextDocumentContentProvider'ы (`jdt:`, `class:`). */
-    // Stryker disable next-line ArrayDeclaration: начальный список наблюдаем только через `hasTextContentProvider(scheme)`, а мутант подкладывает в него строку, которая схемой ресурса не бывает — отличить её от пустого списка нечем
     /**
      * Языковые провайдеры субпроцесса, переехавшие в реестр ядра (`languages.register`),
      * по handle. Потребитель — `LanguageFeaturesAdapter`.
