@@ -1,7 +1,7 @@
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**

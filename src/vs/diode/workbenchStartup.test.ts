@@ -20,7 +20,7 @@ import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iW
 import { DiffEditorPane2 } from "../workbench/browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../workbench/browser/parts/editor/textEditorPane.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
-import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../workbench/services/editor/common/editorService.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
 

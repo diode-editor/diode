@@ -6,7 +6,7 @@ import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutterChangeDecoration.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { lightPlusTheme } from "../../services/themes/common/themes/lightPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
@@ -25,10 +25,10 @@ function fakeEditor(uri: Uri) {
     };
 }
 
-function fakeGroup(editors: ReturnType<typeof fakeEditor>[]): EditorService {
+function fakeGroup(editors: ReturnType<typeof fakeEditor>[]): IEditorService {
     return {
         getEditors: () => editors,
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
 }
 
 describe("EditorDecorationsServiceAdapter", () => {
@@ -46,7 +46,7 @@ describe("EditorDecorationsServiceAdapter", () => {
 
     it("сверяет ресурсы, а не сырые строки: канонизацию даёт Uri", () => {
         // Ненормализованный путь не долетает сюда: `path.resolve` стоит в единственной
-        // точке подъёма (`EditorService.openFile`), а сюда ресурс приходит уже
+        // точке подъёма (`IEditorService.openFile`), а сюда ресурс приходит уже
         // каноничным — субпроцесс шлёт `document.uri.toString()`.
         const match = fakeEditor(Uri.file(path.resolve("/proj/./sub/../a.ts")));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match]));

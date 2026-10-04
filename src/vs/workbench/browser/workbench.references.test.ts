@@ -13,7 +13,7 @@ import type { ICoreReference, IReferenceRequest } from "../../editor/common/lang
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";

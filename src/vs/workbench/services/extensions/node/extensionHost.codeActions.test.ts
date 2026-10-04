@@ -22,8 +22,8 @@ import {
     organizeImportsAction,
     quickFixAction,
 } from "../../../contrib/codeAction/browser/codeActionActions.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 // Code actions end-to-end с настоящим субпроцессом (#196): настоящая команда
 // через commandRegistry → codeActionSource → RPC → провайдер фикстуры →

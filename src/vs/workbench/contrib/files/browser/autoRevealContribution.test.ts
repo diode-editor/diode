@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 
 import { AutoRevealContribution } from "./autoRevealContribution.ts";
 import type { ExplorerService } from "./explorerService.ts";
@@ -39,7 +39,7 @@ function setup(): { editor: FakeEditorService; explorer: FakeExplorerService; co
     const editor = new FakeEditorService();
     const explorer = new FakeExplorerService();
     const contribution = new AutoRevealContribution(
-        editor as unknown as EditorService,
+        editor as unknown as IEditorService,
         explorer as unknown as ExplorerService,
     );
     return { editor, explorer, contribution };

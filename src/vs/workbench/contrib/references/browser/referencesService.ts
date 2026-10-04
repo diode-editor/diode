@@ -10,8 +10,8 @@ import type { IWorkspaceContextService } from "../../../../platform/workspace/co
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import {
     type TextFileModelService,
     TextFileModelServiceDIToken,
@@ -52,7 +52,7 @@ export class ReferencesService {
 
     public constructor(
         private readonly component: ReferencesComponent,
-        private readonly group: EditorService,
+        private readonly group: IEditorService,
         models: TextFileModelService,
         private readonly workspaceContext: IWorkspaceContextService,
         providers: IFileService,

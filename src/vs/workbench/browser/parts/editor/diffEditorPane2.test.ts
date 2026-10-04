@@ -20,8 +20,8 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import { diffPaneRecipe, openDiffPair, refreshDiffSnapshots } from "../../../contrib/diff/browser/openDiffPair.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 import type { WorkbenchComponent } from "../../workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../../workbenchComponent.ts";
@@ -491,7 +491,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
 describe("Workbench — дифф v2", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
-    let editors: EditorService;
+    let editors: IEditorService;
     let app: TestApp;
     let container: ReturnType<typeof createTestContainer>["container"];
     /** Управляемый git-стаб: контент HEAD и ручной фаер onDidChangeFile (US-31). */

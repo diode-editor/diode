@@ -9,13 +9,11 @@ import type { WorkspaceId } from "../../platform/workspace/common/iWorkspaceCont
 import type { IEditorGroupSnapshot, IEditorGroupsState, ISerializedEditor } from "../common/stateKeys.ts";
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
 import type { EditorGroup } from "../services/editor/browser/editorGroupModel.ts";
-import {
-    type EditorGroupsService,
-    EditorGroupsServiceDIToken,
-} from "../services/editor/browser/editorGroupsService.ts";
 import { TEXT_EDITOR_PANE_TYPE_ID } from "../services/editor/browser/editorPaneFactory.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../services/editor/common/editorGroupsService.ts";
+import { EditorGroupsServiceDIToken } from "../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 
@@ -52,7 +50,7 @@ export interface IEditorGroupsLayoutView {
  * Персистентность открытых редакторов (headless, без `view`): снимает полосу
  * групп (файлы и активную вкладку каждой, ось, доли, активную группу) в
  * {@link IStateService} и реплеит при старте (см. docs/arch/State.md).
- * Write-through — подписки на `EditorService.onActiveEditorChanged` /
+ * Write-through — подписки на `IEditorService.onActiveEditorChanged` /
  * `onDidGroupsChange` + хук layout-изменений от view-части (ставит
  * `WorkbenchComponent`).
  *
@@ -71,8 +69,8 @@ export class WorkbenchStateService extends Disposable {
 
     public constructor(
         private readonly state: IStateService,
-        private readonly editorGroup: EditorService,
-        private readonly groups: EditorGroupsService,
+        private readonly editorGroup: IEditorService,
+        private readonly groups: IEditorGroupsService,
     ) {
         super();
         this.register(
@@ -120,7 +118,7 @@ export class WorkbenchStateService extends Disposable {
 
     /**
      * Восстанавливает полосу групп: реплеит вкладки каждой группы по их
-     * записям через фабрики вкладок (`EditorService.openSerializedEditor`),
+     * записям через фабрики вкладок (`IEditorService.openSerializedEditor`),
      * активирует сохранённые вкладки и группу, применяет ось и доли. Вкладки,
      * которые повторить уже нельзя (файл удалён, вида нет в этой сборке),
      * пропущены, опустевшие группы схлопнуты, а группы сверх вместимости

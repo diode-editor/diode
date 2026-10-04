@@ -37,8 +37,8 @@ import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinp
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
-import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/browser/editorGroupsService.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
 import {
     ExtensionHost,

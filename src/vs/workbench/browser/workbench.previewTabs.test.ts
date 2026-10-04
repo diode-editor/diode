@@ -6,7 +6,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { Uri } from "../../base/common/uri.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 /**
  * Режим предпросмотра вкладок сквозь весь workbench: настоящее дерево Explorer,

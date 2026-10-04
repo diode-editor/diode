@@ -8,8 +8,8 @@ import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
-import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IEditorLayoutService } from "../common/iEditorLayoutService.ts";
 import type {
     IWireCloseGroupsParams,
@@ -28,7 +28,7 @@ const VIEW_COLUMN_ACTIVE = -1;
 const VIEW_COLUMN_BESIDE = -2;
 
 /**
- * Реализация {@link IEditorLayoutService} поверх полосы групп `EditorService`:
+ * Реализация {@link IEditorLayoutService} поверх полосы групп `IEditorService`:
  * снимки для `editor.layoutChanged` (коалесинг per-microtask), исполнение
  * `showTextDocument` (семантика `ViewColumn`: Active/Beside/1..9 с догоняющим
  * созданием хвостовых групп — AS-5) и закрытий из `window.tabGroups`.
@@ -39,8 +39,8 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private pendingLayout = false;
 
     public constructor(
-        private readonly editors: EditorService,
-        private readonly groups: EditorGroupsService,
+        private readonly editors: IEditorService,
+        private readonly groups: IEditorGroupsService,
     ) {
         super();
         this.register(

@@ -5,9 +5,9 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
+import type { IGroupsChangeEvent } from "../common/editorGroupsService.ts";
 
 import type { EditorGroup } from "./editorGroupModel.ts";
-import type { IGroupsChangeEvent } from "./editorGroupsService.ts";
 import { EditorGroupsService } from "./editorGroupsService.ts";
 
 /**

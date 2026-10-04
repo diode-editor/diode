@@ -8,7 +8,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { KeybindingsEditorPane } from "../contrib/preferences/browser/keybindingsEditorPane.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 describe("Workbench — Preferences commands", () => {
     let ws: ITempWorkspace;

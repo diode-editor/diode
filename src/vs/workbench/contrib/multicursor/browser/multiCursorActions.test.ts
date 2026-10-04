@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestActiveEditorService } from "../../../../../TestUtils/testActiveEditorService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
+import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { createCursorSelection, createSelection } from "../../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -17,7 +20,8 @@ import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybin
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorService } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
@@ -26,20 +30,9 @@ import { MULTI_CURSOR_ACTIONS } from "./multiCursorActions.ts";
 let ws: ITempWorkspace;
 
 function openEditor(content: string) {
-    const service = new EditorService(
-        new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
-        new TokenizationRegistry(),
-        NULL_TOKEN_STYLE_RESOLVER,
-        NULL_LANGUAGE_SERVICE,
-        NULL_CONFIGURATION_SERVICE,
-        new UndoRedoService(),
-        NULL_FILE_WATCHER,
-        createTestEditorContextMenuController(),
-        NULL_LOG_SERVICE,
-    );
-    service.openFile(ws.writeFile("doc.txt", content));
-    const editor = service.getActiveEditor();
-    if (editor === null) throw new Error("no active editor");
+    const editor = createEditorPane();
+    editor.openFile(Uri.file(ws.writeFile("doc.txt", content)));
+    const service = createTestActiveEditorService(editor);
 
     const commands = new CommandRegistry();
     const keybindings = new KeybindingRegistry();
@@ -130,8 +123,11 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
     });
 
     it("без активного редактора все команды — тихий no-op", () => {
-        const { commands, service } = openEditor("foo\nfoo");
-        service.editorGroups.activeGroup.closeTab(0);
+        const commands = new CommandRegistry();
+        const keybindings = new KeybindingRegistry();
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => createTestActiveEditorService(null));
+        for (const action of MULTI_CURSOR_ACTIONS) registerAction(commands, keybindings, accessor, action);
         for (const action of MULTI_CURSOR_ACTIONS) {
             expect(() => commands.execute(action.id)).not.toThrow();
         }

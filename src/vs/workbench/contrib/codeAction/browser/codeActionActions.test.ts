@@ -12,7 +12,8 @@ import {
     QuickInputServiceDIToken,
 } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
-import { type EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 import {
@@ -75,7 +76,7 @@ function makeSetup(
     }
     const group = {
         getActiveEditor: () => editor,
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
     const notices: string[] = [];
     const statusBar = {
         addEntry: (entry: { id: string; text: string }) => {

@@ -9,7 +9,8 @@ import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/servic
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { type EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
@@ -83,7 +84,7 @@ function makeSetup(
     }
     const group = {
         getActiveEditor: () => active,
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
     const notices: string[] = [];
     const statusBar = {
         addEntry: (entry: { id: string; text: string }) => {

@@ -4,8 +4,8 @@ import type { ServiceAccessor } from "../../../platform/instantiation/common/diC
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../platform/keybinding/common/keybindingResolver.ts";
 import { ModifierReleaseArmoryDIToken } from "../../../platform/keybinding/common/modifierReleaseArmory.ts";
-import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
 import { resolveTabTarget } from "./editorTabTarget.ts";
 import { editorTabIsPreview, editorTabTargetArg } from "./menuContexts.ts";

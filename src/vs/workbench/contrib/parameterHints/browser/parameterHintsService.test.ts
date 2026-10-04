@@ -19,7 +19,7 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKey } from "../../../../platform/contextkey/common/contextKeys.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 import { CompletionServiceDIToken } from "../../suggest/browser/completionService.ts";
 

@@ -1,24 +1,12 @@
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
-import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
+import type { IEditorGroupsService, IGroupsChangeEvent } from "../common/editorGroupsService.ts";
 
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
-
-export const EditorGroupsServiceDIToken = token<EditorGroupsService>("EditorGroupsService");
-
-/** Событие изменения полосы групп (для view-слоя и host-адаптеров). */
-export interface IGroupsChangeEvent {
-    readonly kind: "added" | "removed" | "moved";
-    readonly group: EditorGroup;
-    /** Позиция группы в полосе (для added/moved — новая). */
-    readonly index: number;
-    /** Группа-источник сплита (view-слой делит её долю пополам). */
-    readonly source?: EditorGroup;
-}
 
 /**
  * Полоса групп редакторов — аналог upstream `IEditorGroupsService`, но
@@ -34,7 +22,7 @@ export interface IGroupsChangeEvent {
  * Порядок событий — контракт: {@link onDidChangeEditors} → фокус →
  * {@link onDidChangeActivePane} → {@link onDidActiveGroupChange}.
  */
-export class EditorGroupsService extends Disposable {
+export class EditorGroupsService extends Disposable implements IEditorGroupsService {
     public static dependencies = [ILogServiceDIToken] as const;
 
     /** Полоса групп в порядке ViewColumn − 1; без сплитов — ровно одна. */

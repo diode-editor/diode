@@ -9,7 +9,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { DefinitionProvider } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { HistoryServiceDIToken } from "../../../services/history/browser/historyService.ts";
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";

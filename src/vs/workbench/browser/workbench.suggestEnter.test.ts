@@ -5,7 +5,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import type { ICoreCompletionItem } from "../../editor/common/languages/iCompletionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 /**
  * Регрессия: попап автодополнения, переживший несловесный символ, крал Enter.

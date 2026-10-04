@@ -4,7 +4,7 @@ import { parseChord, parseKeybinding } from "../../../platform/keybinding/common
 import { EXPLORER_VIEWLET_ID } from "../../contrib/files/browser/explorerComponent.ts";
 import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
 import { PROBLEMS_VIEW_ID, ProblemsComponentDIToken } from "../../contrib/markers/browser/problemsComponent.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 import { LayoutServiceDIToken } from "../../services/layout/browser/layoutService.ts";
 import { CLOSE_PANEL_COMMAND_ID } from "../parts/panel/panelComponent.ts";
 import { PanelServiceDIToken } from "../parts/panel/panelService.ts";

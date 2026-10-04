@@ -16,8 +16,8 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { bindActiveEditor } from "../../../services/editor/browser/activeEditorBinding.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { CompletionService } from "../../suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../../suggest/browser/completionService.ts";
 
@@ -59,7 +59,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         LanguageFeaturesServiceDIToken,
     ] as const;
 
-    private readonly group: EditorService;
+    private readonly group: IEditorService;
     private readonly completionService: CompletionService;
     private readonly configuration: IConfigurationService;
     private readonly languageFeatures: ILanguageFeaturesService;
@@ -84,7 +84,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     private suppressAutoTriggerOnce = false;
 
     public constructor(
-        group: EditorService,
+        group: IEditorService,
         completionService: CompletionService,
         configuration: IConfigurationService,
         languageFeatures: ILanguageFeaturesService,

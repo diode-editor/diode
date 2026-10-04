@@ -8,8 +8,8 @@ import { settle } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import type { IEditorPane } from "./parts/editor/iEditorPane.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
@@ -56,7 +56,7 @@ describe("Workbench — панель не-текстового вида во в�
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
-    let editors: EditorService;
+    let editors: IEditorService;
     let testApp: TestApp;
 
     beforeEach(async () => {

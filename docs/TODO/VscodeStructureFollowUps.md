@@ -18,6 +18,27 @@
   `*ComponentDIToken` (workbench). Нужна развязка — в upstream editor-contrib
   работают с одним `ICodeEditor`, а не с сервисом групп.
 
+  Разрез сервиса по ролям сделан (E1): полоса групп — `IEditorGroupsService`,
+  «редакторы» — `IEditorService`, оба интерфейса в `services/editor/common/`;
+  модели — `TextFileModelService`, сборка вкладки — `TextEditorPaneBuilder`,
+  `editor.*`-настройки — `TextEditorConfiguration`. Фичам, переезжающим в
+  `editor/contrib`, остаётся опереться на роль «активный редактор» (аналог
+  `ICodeEditorService`), а не на весь `IEditorService`.
+
+  Хвосты E1 (не блокируют):
+  - тестовые подделки `as unknown as IEditorService` (40 мест в тестах
+    адаптеров, completion, inline, references, keyboardDoctor…) — переводить на
+    типизированные фейки узких ролей постепенно, по образцу
+    `createTestActiveEditorService` (`TestUtils/testActiveEditorService.ts`;
+    восемь тестов команд уже на нём, `editorActions.test.ts` — нет: Alt+Z
+    проверяется через `editorConfiguration` настоящего сервиса);
+  - `IEditorService.getOpenFilePaths` в production никто не зовёт (персист
+    сессии ходит через рецепты вкладок) — держится ради тестов;
+  - detached-панель (Output) получает `editor.*` только при создании:
+    live-reload и Alt+Z ходят по вкладкам и сторонам диффов (так было и до E1);
+  - хуки `canAddGroupHook`/`focusGroupContentHook` переехали на
+    `EditorGroupsService` как есть — форма порта за E5.
+
   Языковой блокер снят (G2): провайдеры фич живут в реестре ядра
   `editor/common/services/languageFeatures.ts` (`ILanguageFeaturesService`,
   скоринг селекторов — `editor/common/languageSelector.ts`), а не в полях-швах

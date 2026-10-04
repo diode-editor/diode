@@ -16,8 +16,9 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
+import { EditorServiceDIToken } from "../common/editorService.ts";
 
-import { EditorService, EditorServiceDIToken } from "./editorService.ts";
+import { EditorService } from "./editorService.ts";
 
 /**
  * Сплит и копия в группу повторяют вкладку по её рецепту (фабрика вкладок

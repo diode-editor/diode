@@ -7,7 +7,7 @@ import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 

@@ -11,8 +11,8 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { WorkbenchComponent } from "../../../browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../../../browser/workbenchComponent.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { openDiffPair } from "./openDiffPair.ts";
 
@@ -25,7 +25,7 @@ import { openDiffPair } from "./openDiffPair.ts";
 describe("openDiffPair", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
-    let editors: EditorService;
+    let editors: IEditorService;
     let app: TestApp;
     let container: ReturnType<typeof createTestContainer>["container"];
 

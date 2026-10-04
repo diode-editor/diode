@@ -1,8 +1,8 @@
 import { Disposable } from "../../base/common/lifecycle.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../common/iWorkbenchContribution.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import type { NotificationService } from "../services/notification/browser/notificationService.ts";
 import { NotificationServiceDIToken } from "../services/notification/browser/notificationService.ts";
 
@@ -12,10 +12,10 @@ export const OpenFailureNotificationContributionDIToken =
 
 /**
  * Показывает человеку, почему ресурс не открылся. Единственный потребитель
- * {@link EditorService.onDidFailOpen}.
+ * {@link IEditorService.onDidFailOpen}.
  *
  * Отдельная проводка, а не зависимость сервиса редакторов от сообщений: открыть
- * ресурс `EditorService` обязан, а решать, как об этом рассказать, — нет
+ * ресурс `IEditorService` обязан, а решать, как об этом рассказать, — нет
  * (ровно так же у него разведены `canAddGroupHook` и остальные хуки).
  *
  * Молчать здесь нельзя. Промахивается открытие на недисковых ресурсах — `jdt:`
@@ -26,7 +26,7 @@ export const OpenFailureNotificationContributionDIToken =
 export class OpenFailureNotificationContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [EditorServiceDIToken, NotificationServiceDIToken] as const;
 
-    public constructor(editors: EditorService, notifications: NotificationService) {
+    public constructor(editors: IEditorService, notifications: NotificationService) {
         super();
         this.register(
             editors.onDidFailOpen(({ uri, reason }) => {

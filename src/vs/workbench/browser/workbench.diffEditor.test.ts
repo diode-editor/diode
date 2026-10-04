@@ -14,8 +14,8 @@ import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../platf
 import { FileService } from "../../platform/files/common/fileService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import { COMPARE_NOTICE_MS, openDiffWithHead } from "../contrib/scm/browser/compareWithHeadAction.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import { StatusBarServiceDIToken } from "../services/statusbar/common/statusBarService.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
@@ -34,7 +34,7 @@ describe("Workbench — вкладка diff", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
-    let editors: EditorService;
+    let editors: IEditorService;
     let testApp: TestApp;
     let container: ReturnType<typeof createTestContainer>["container"];
 

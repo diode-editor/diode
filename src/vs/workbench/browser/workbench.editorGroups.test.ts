@@ -8,7 +8,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import { EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";

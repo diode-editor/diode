@@ -8,7 +8,7 @@ import { createRange } from "../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../editor/common/core/iTextEdit.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 const TOGGLE_READONLY = "workbench.action.files.toggleActiveEditorReadonlyInSession";
 

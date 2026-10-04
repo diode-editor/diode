@@ -10,7 +10,7 @@ import { Uri } from "../../base/common/uri.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import type { DefinitionProvider } from "../../editor/common/languages/iDefinitionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 /** Файл из 40 строк — чтобы порог значимости (10 строк) было чем перешагнуть. */
 const lines = (prefix: string): string => Array.from({ length: 40 }, (_, i) => `${prefix} ${String(i)}`).join("\n");

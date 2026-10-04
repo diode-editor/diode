@@ -9,8 +9,8 @@ import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../ed
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { BulkEdit, BulkEditOperation } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
-import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type {
     IActiveEditorMeta,
     IActiveEditorSelections,
@@ -26,13 +26,13 @@ import {
 } from "../common/wireTypes.ts";
 
 /**
- * Реализация {@link IEditorOptionsService} поверх {@link EditorService}.
+ * Реализация {@link IEditorOptionsService} поверх {@link IEditorService}.
  * Живёт в слое Extensions (Workbench ничего не должен знать про host).
  */
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
-    private readonly group: EditorService;
+    private readonly group: IEditorService;
     /** Полоса групп: группа вкладки и её колонка для меты, адресация по `groupId`. */
-    private readonly groups: EditorGroupsService;
+    private readonly groups: IEditorGroupsService;
     /**
      * Исполнитель `workspace.applyEdit`: правки по закрытым файлам и файловые
      * операции живут в ядре (node), а не здесь — адаптер только переводит
@@ -59,7 +59,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
      */
     private pendingSelectionSource: CursorChangeSource | undefined;
 
-    public constructor(group: EditorService, groups: EditorGroupsService, workspaceEdits: IBulkEditService) {
+    public constructor(group: IEditorService, groups: IEditorGroupsService, workspaceEdits: IBulkEditService) {
         this.group = group;
         this.groups = groups;
         this.workspaceEdits = workspaceEdits;

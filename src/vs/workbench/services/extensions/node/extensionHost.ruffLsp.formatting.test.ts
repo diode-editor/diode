@@ -17,8 +17,8 @@ import { registerAction } from "../../../../platform/actions/common/commandActio
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatDocumentAction } from "../../../contrib/format/browser/formatActions.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 // Формат Python поверх СТОКОВОГО стека: настоящий ruff.vsix + вшитый
 // `ruff server` (documentFormatting и rangeFormatting регистрируются

@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { createTestActiveEditorService } from "../../../../TestUtils/testActiveEditorService.ts";
 import { createTestConfigurationService } from "../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
+import { createEditorPane } from "../../../../TestUtils/TextEditorPaneFactory.ts";
+import { Uri } from "../../../base/common/uri.ts";
 import { createCursorSelection, createSelection } from "../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -20,7 +23,8 @@ import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindi
 import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
-import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorService } from "../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 
@@ -40,27 +44,10 @@ function memoryClipboard(initial = ""): IClipboard {
 
 let ws: ITempWorkspace;
 
-function createGroup(): EditorService {
-    const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-    return new EditorService(
-        themeService,
-        new TokenizationRegistry(),
-        NULL_TOKEN_STYLE_RESOLVER,
-        NULL_LANGUAGE_SERVICE,
-        createTestConfigurationService(),
-        new UndoRedoService(),
-        NULL_FILE_WATCHER,
-        createTestEditorContextMenuController(),
-        NULL_LOG_SERVICE,
-    );
-}
-
 function openEditor(content: string, clipboard: IClipboard, emptySelectionClipboard = true) {
-    const ctrl = createGroup();
-    const filePath = ws.writeFile("doc.txt", content);
-    ctrl.openFile(filePath);
-    const editor = ctrl.getActiveEditor();
-    if (editor === null) throw new Error("no active editor");
+    const editor = createEditorPane();
+    editor.openFile(Uri.file(ws.writeFile("doc.txt", content)));
+    const ctrl = createTestActiveEditorService(editor);
 
     const commands = new CommandRegistry();
     const accessor = new Container();
@@ -98,7 +85,7 @@ describe("clipboardCopyAction", () => {
 
     it("без открытой панели буфер обмена не трогает", async () => {
         const clipboard = memoryClipboard("прежнее");
-        const ctrl = createGroup(); // ни одной открытой вкладки
+        const ctrl = createTestActiveEditorService(null); // ни одной открытой вкладки
         const commands = new CommandRegistry();
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
@@ -135,11 +122,9 @@ describe("clipboardCopyAction", () => {
 
     it("настройка не задана вовсе — действует дефолт true, строка копируется", async () => {
         const clipboard = memoryClipboard();
-        const ctrl = createGroup();
-        const filePath = ws.writeFile("doc.txt", "hello world");
-        ctrl.openFile(filePath);
-        const editor = ctrl.getActiveEditor();
-        if (editor === null) throw new Error("no active editor");
+        const editor = createEditorPane();
+        editor.openFile(Uri.file(ws.writeFile("doc.txt", "hello world")));
+        const ctrl = createTestActiveEditorService(editor);
         editor.viewState.selections = [createCursorSelection(0, 3)];
         const commands = new CommandRegistry();
         const accessor = new Container();
@@ -376,7 +361,7 @@ describe("copy→paste round-trip via OscClipboard (internal register)", () => {
 
 describe("clipboard actions without an active editor", () => {
     it("are safe no-ops", async () => {
-        const ctrl = createGroup();
+        const ctrl = createTestActiveEditorService(null);
         const clipboard = memoryClipboard("data");
         const commands = new CommandRegistry();
         const accessor = new Container();

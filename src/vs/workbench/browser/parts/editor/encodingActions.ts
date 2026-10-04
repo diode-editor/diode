@@ -4,7 +4,7 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**

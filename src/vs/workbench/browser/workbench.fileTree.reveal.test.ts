@@ -11,7 +11,7 @@ import type { CommandRegistry } from "../../platform/commands/common/commandRegi
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
@@ -146,7 +146,7 @@ describe("reveal active file in explorer", () => {
         await ctx.workbench.activate();
         ctx.testApp.render();
 
-        const editorGroup = (ctx.workbench as unknown as { editorService: EditorService }).editorService;
+        const editorGroup = (ctx.workbench as unknown as { editorService: IEditorService }).editorService;
         expect(editorGroup.getActiveEditor()).toBeNull();
         expect(() => ctx.commands.execute("workbench.files.action.showActiveFileInExplorer")).not.toThrow();
         // Sidebar stays as-is (visible by default), nothing is revealed.

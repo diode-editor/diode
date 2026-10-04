@@ -5,7 +5,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../../TestUtils/Ap
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
 /**
  * Команды закрытия из контекст-меню вкладки. Цель приходит адресом

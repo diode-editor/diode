@@ -21,7 +21,7 @@ import type { ContextKey } from "../../../../platform/contextkey/common/contextK
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { CompletionService } from "../../suggest/browser/completionService.ts";
 
 import { computeIndentationLessThanTabSize, InlineCompletionsService } from "./inlineCompletionsService.ts";
@@ -133,7 +133,7 @@ function makeEditor(lineContent: string, character: number): FakeEditor {
 }
 
 interface FakeGroup {
-    group: EditorService;
+    group: IEditorService;
     setActiveEditor: (editor: TextEditorPane | null) => void;
     /** Смена активного БЕЗ события — окно между закрытием вкладки и событием. */
     setActiveEditorSilently: (editor: TextEditorPane | null) => void;
@@ -145,7 +145,7 @@ type FakeInlineSource =
     | undefined;
 
 /** Источник фейковой группы — в реестр сервиса его кладёт {@link makeService}. */
-const sources = new WeakMap<EditorService, FakeInlineSource>();
+const sources = new WeakMap<IEditorService, FakeInlineSource>();
 
 function makeGroup(editor: TextEditorPane | null, source: FakeInlineSource): FakeGroup {
     let active = editor;
@@ -156,7 +156,7 @@ function makeGroup(editor: TextEditorPane | null, source: FakeInlineSource): Fak
             listeners.push(l);
             return { dispose: () => listeners.splice(listeners.indexOf(l), 1) };
         },
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
     sources.set(group, source);
     return {
         group,
@@ -188,7 +188,7 @@ interface ServiceOptions {
 const APP_SCHEMAS = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
 
 function makeService(
-    group: EditorService,
+    group: IEditorService,
     options: ServiceOptions = {},
 ): InlineCompletionsService & { firePopupClose: () => void } {
     const closeListeners: (() => void)[] = [];

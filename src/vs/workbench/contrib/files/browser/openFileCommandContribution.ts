@@ -4,8 +4,9 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
-import type { IOpenUriOptions } from "../../../services/editor/browser/editorService.ts";
-import { EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IOpenUriOptions } from "../../../services/editor/common/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 export const OpenFileCommandContributionDIToken = token<OpenFileCommandContribution>("OpenFileCommandContribution");
 
@@ -20,7 +21,7 @@ export class OpenFileCommandContribution extends Disposable implements IWorkbenc
 
     public constructor(
         commands: CommandRegistry,
-        private readonly editorService: EditorService,
+        private readonly editorService: IEditorService,
         private readonly contextKeys: WorkbenchContextKeys,
     ) {
         super();

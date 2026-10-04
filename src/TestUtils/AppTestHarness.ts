@@ -15,7 +15,7 @@ import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts
 import type { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEditorPane.ts";
 import type { WorkbenchComponent } from "../vs/workbench/browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../vs/workbench/browser/workbenchComponent.ts";
-import { EditorServiceDIToken } from "../vs/workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../vs/workbench/services/editor/common/editorService.ts";
 import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/themeTokens.ts";
 
 import { TestApp } from "./TestApp.ts";

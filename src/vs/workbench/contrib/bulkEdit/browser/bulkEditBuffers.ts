@@ -1,6 +1,6 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
 import type { BulkEditTarget, IBulkEditBuffers } from "../common/iBulkEditBuffers.ts";
 
@@ -15,10 +15,10 @@ import type { BulkEditTarget, IBulkEditBuffers } from "../common/iBulkEditBuffer
  * файл разъехались бы, — поэтому она честно отвечает `"read-only"`.
  */
 export class BulkEditBuffers implements IBulkEditBuffers {
-    private readonly editors: EditorService;
+    private readonly editors: IEditorService;
     private readonly models: TextFileModelService;
 
-    public constructor(editors: EditorService, models: TextFileModelService) {
+    public constructor(editors: IEditorService, models: TextFileModelService) {
         this.editors = editors;
         this.models = models;
     }

@@ -12,7 +12,7 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ICommentRule } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 /**
  * Команды комментирования (VS Code `editor/contrib/comment`): id, бинды и

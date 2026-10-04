@@ -8,8 +8,8 @@ import {
     EditorStateCancellationTokenSource,
     EditorStateFlag,
 } from "../../../browser/parts/editor/editorStateCancellation.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 
@@ -32,7 +32,7 @@ export class DefinitionService {
     private readonly latest = new LatestRequest();
 
     public constructor(
-        private readonly group: EditorService,
+        private readonly group: IEditorService,
         private readonly jumps: IJumpRecorder,
         private readonly languageFeatures: ILanguageFeaturesService,
     ) {}

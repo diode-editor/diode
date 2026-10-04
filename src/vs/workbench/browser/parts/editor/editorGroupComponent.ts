@@ -9,8 +9,8 @@ import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
-import type { EditorGroupsService } from "../../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 import type { EditorTitleMenuContext } from "../../actions/menuContexts.ts";
 import { Component } from "../../component.ts";
@@ -27,10 +27,10 @@ import { TextEditorPane } from "./textEditorPane.ts";
  * тёзок, иконки, маркер изменённости, активная вкладка). Пустой слот занимает
  * филлер, крашеный editor.background; у пустой группы он focusable — «фокус в
  * группе» существует и без вкладок (US-4/47). Клики по табам возвращаются в
- * группу (`activateTab`; крестик — `EditorService.closeEditor` с координатой
+ * группу (`activateTab`; крестик — `IEditorService.closeEditor` с координатой
  * группы, confirm-флоу решает сервис). Любой фокус
  * внутри поддерева группы (клик в текст, таб, филлер) капчурится и делает
- * группу активной ({@link EditorService.notifyGroupFocused}).
+ * группу активной ({@link IEditorGroupsService.notifyGroupFocused}).
  *
  * Не DI-сервис: инстансы создаёт {@link EditorPartComponent} — по контролу на
  * группу полосы.
@@ -47,9 +47,9 @@ export class EditorGroupComponent extends Component {
 
     public constructor(
         public readonly group: EditorGroup,
-        private readonly editorService: EditorService,
+        private readonly editorService: IEditorService,
         private readonly contextMenuService: ContextMenuService,
-        private readonly groups: EditorGroupsService,
+        private readonly groups: IEditorGroupsService,
     ) {
         super();
         this.view = new OverlayHostElement();

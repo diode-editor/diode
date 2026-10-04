@@ -9,7 +9,7 @@ import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 

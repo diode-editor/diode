@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { WorkbenchContextKeys } from "../../../browser/workbenchContextKeys.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 
 import { OpenFileCommandContribution } from "./openFileCommandContribution.ts";
 
@@ -29,7 +29,7 @@ describe("OpenFileCommandContribution", () => {
         const contextKeys = new FakeContextKeys();
         new OpenFileCommandContribution(
             commands,
-            editorService as unknown as EditorService,
+            editorService as unknown as IEditorService,
             contextKeys as unknown as WorkbenchContextKeys,
         );
 
@@ -44,7 +44,7 @@ describe("OpenFileCommandContribution", () => {
         const editorService = new FakeEditorService();
         new OpenFileCommandContribution(
             commands,
-            editorService as unknown as EditorService,
+            editorService as unknown as IEditorService,
             new FakeContextKeys() as unknown as WorkbenchContextKeys,
         );
 
@@ -58,7 +58,7 @@ describe("OpenFileCommandContribution", () => {
         const editorService = new FakeEditorService();
         new OpenFileCommandContribution(
             commands,
-            editorService as unknown as EditorService,
+            editorService as unknown as IEditorService,
             new FakeContextKeys() as unknown as WorkbenchContextKeys,
         );
 
@@ -72,7 +72,7 @@ describe("OpenFileCommandContribution", () => {
         const commands = new CommandRegistry();
         new OpenFileCommandContribution(
             commands,
-            new FakeEditorService() as unknown as EditorService,
+            new FakeEditorService() as unknown as IEditorService,
             new FakeContextKeys() as unknown as WorkbenchContextKeys,
         );
 
