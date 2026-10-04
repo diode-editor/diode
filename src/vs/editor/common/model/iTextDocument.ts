@@ -3,7 +3,7 @@ import type { EndOfLine } from "../core/endOfLine.ts";
 import type { IRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 
-import type { IDocumentContentChange } from "./iDocumentContentChange.ts";
+import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
 
 export interface IApplyEditsResult {
@@ -57,6 +57,13 @@ export interface ITextDocument {
      * in document order.
      */
     onDidChangeContent(listener: (change: IDocumentContentChange) => void): IDisposable;
+
+    /**
+     * Одно батч-событие на `applyEdits`/`setText` с точными правками — после
+     * всех событий {@link onDidChangeContent} того же батча. Для зеркал
+     * документа (синхронизация с extension host'ом), которым мало границ строк.
+     */
+    onDidChangeModelContent(listener: (event: IModelContentChangedEvent) => void): IDisposable;
 
     /** Notifies of a language change made via {@link setLanguage}. */
     onDidChangeLanguage(listener: (change: IDocumentLanguageChange) => void): IDisposable;
