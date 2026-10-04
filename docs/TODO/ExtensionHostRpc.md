@@ -1,6 +1,6 @@
 # RPC extension host'а: ошибки, отмена, таймауты, карта методов (G4)
 
-Статус: `[~]` в работе.
+Статус: `[x]` сделано (#513, #515, #518, #519, #520, #522 и закрывающий PR карты).
 
 Транспорт `RpcEndpoint` (request/response/notification, `$/cancelRequest`)
 устроен нормально, плохо то, что над ним: ошибка через провод теряет `name`,
@@ -26,11 +26,10 @@
    ошибка и таймаут логируются раздельно.
 3. [x] Токены отмены в субпроцессе (#518) вместо `neverCancelledToken`, логгер у
    `RpcEndpoint` субпроцесса, warn на исключение провайдера.
-4. [~] Карта протокола: generic `RpcEndpoint<TOut, TIn>`, `extHostProtocol.ts`
-   по группам методов (`languages.*`, `workspace.*`, `editor.*`,
-   `diagnostics.*`, `window.*`, `commands.*`, `secrets.*`, `env.*`,
-   `output.*`, `extensions.*`, `host.*`, `memento.*` — сделано, карта полна);
-   осталось убрать untyped-дефолт (`WithUntyped`).
+4. [x] Карта протокола (#519, #520, #522 и закрывающий PR): generic `RpcEndpoint<TOut, TIn>`,
+   `extHostProtocol.ts` со всеми группами методов, алиасы `HostRpc`/`SubprocessRpc`
+   без нетипизированного остатка; нотификация без обработчика — warn раз на метод,
+   повторный `handleRequest` — `BugIndicatingError`.
 
 ## Не делаем
 

@@ -1,7 +1,7 @@
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
-import type { IRpcProtocol, IUntypedProtocol, RpcEndpoint } from "./rpcEndpoint.ts";
+import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type {
     IWireActivateExtensionParams,
     IWireApplyEditParams,
@@ -101,8 +101,8 @@ import type {
  * проходит `parseWire*`.
  *
  * Карта описывает все методы провода, кроме служебного `$/cancelRequest`
- * (его ведёт сам `RpcEndpoint`). Нетипизированный остаток ({@link WithUntyped})
- * пока оставлен у endpoint'ов и уходит следующим шагом.
+ * (его ведёт сам `RpcEndpoint`). Метод вне карты не скомпилируется: новый
+ * метод провода начинается с записи здесь.
  */
 
 /** Запросы и нотификации хоста к субпроцессу. */
@@ -233,18 +233,8 @@ export interface ISubprocessToHost {
     };
 }
 
-/**
- * Протокол с картой плюс нетипизированный остаток: известные методы проверяются,
- * прочие (ещё не перенесённые в карту группы) — как раньше. Уходит, когда
- * карта станет полной.
- */
-export interface WithUntyped<P extends IRpcProtocol> {
-    readonly requests: P["requests"] & IUntypedProtocol["requests"];
-    readonly notifications: P["notifications"] & IUntypedProtocol["notifications"];
-}
-
 /** RPC хоста: шлёт {@link IHostToSubprocess}, принимает {@link ISubprocessToHost}. */
-export type HostRpc = RpcEndpoint<WithUntyped<IHostToSubprocess>, WithUntyped<ISubprocessToHost>>;
+export type HostRpc = RpcEndpoint<IHostToSubprocess, ISubprocessToHost>;
 
 /** RPC субпроцесса: зеркало {@link HostRpc}. */
-export type SubprocessRpc = RpcEndpoint<WithUntyped<ISubprocessToHost>, WithUntyped<IHostToSubprocess>>;
+export type SubprocessRpc = RpcEndpoint<ISubprocessToHost, IHostToSubprocess>;

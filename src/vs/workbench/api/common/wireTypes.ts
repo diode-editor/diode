@@ -24,7 +24,7 @@ import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contri
 import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
 import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
 
-import type { IHostToSubprocess, WithUntyped } from "./extHostProtocol.ts";
+import type { IHostToSubprocess } from "./extHostProtocol.ts";
 import type { IRequestOptions, RequestMethod, RequestParams } from "./rpcEndpoint.ts";
 
 /**
@@ -171,7 +171,7 @@ export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
  * было юнит-тестировать через {@link InProcessChannelPair} без форка.
  */
 /** Запросы хоста к субпроцессу (см. `extHostProtocol.ts`). */
-type HostToSubprocess = WithUntyped<IHostToSubprocess>;
+type HostToSubprocess = IHostToSubprocess;
 
 export type RequestFn = <K extends RequestMethod<HostToSubprocess>>(
     method: K,
