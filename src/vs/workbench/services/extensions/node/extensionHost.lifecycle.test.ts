@@ -90,8 +90,9 @@ class FakeEditorOptions implements IEditorOptionsService {
     public options: IEditorOptionsState | null = { tabSize: 4, insertSpaces: true };
     public lastPatch: IEditorOptionsPatch | null = null;
     public filePath: string | null = "/active.ts";
-    private cb: ((meta: IActiveEditorMeta) => void) | null = null;
-    private selectionCb: ((selections: IActiveEditorSelections) => void) | null = null;
+    /** Все живые подписчики — как у настоящего события: лишние на респавне видны. */
+    public readonly activeEditorListeners: ((meta: IActiveEditorMeta) => void)[] = [];
+    private readonly selectionListeners: ((selections: IActiveEditorSelections) => void)[] = [];
 
     public getActiveEditorOptions(): IEditorOptionsState | null {
         return this.options;
@@ -113,20 +114,10 @@ class FakeEditorOptions implements IEditorOptionsService {
         };
     }
     public onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable {
-        this.cb = cb;
-        return {
-            dispose: (): void => {
-                this.cb = null;
-            },
-        };
+        return subscribe(this.activeEditorListeners, cb);
     }
     public onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable {
-        this.selectionCb = cb;
-        return {
-            dispose: (): void => {
-                this.selectionCb = null;
-            },
-        };
+        return subscribe(this.selectionListeners, cb);
     }
     public setActiveEditorSelections(): void {}
     public applyActiveEditorEdits(): boolean {
@@ -136,18 +127,30 @@ class FakeEditorOptions implements IEditorOptionsService {
         return false;
     }
     public fireSelectionChanged(selections: IActiveEditorSelections): void {
-        this.selectionCb?.(selections);
+        for (const listener of [...this.selectionListeners]) listener(selections);
     }
     public fireActiveEditorChanged(p: string | null): void {
-        this.cb?.({
+        const meta: IActiveEditorMeta = {
             uri: p === null ? null : Uri.file(p).toString(),
             languageId: null,
             isDirty: false,
             encoding: null,
             eol: null,
             selection: null,
-        });
+        };
+        for (const listener of [...this.activeEditorListeners]) listener(meta);
     }
+}
+
+/** Подписка на массив слушателей; dispose снимает ровно её. */
+function subscribe<T>(listeners: T[], listener: T): IDisposable {
+    listeners.push(listener);
+    return {
+        dispose: (): void => {
+            const index = listeners.indexOf(listener);
+            if (index >= 0) listeners.splice(index, 1);
+        },
+    };
 }
 
 const spawnArgs = () => ({ command: "node", args: ["host.js"] });
@@ -819,6 +822,102 @@ function activated(child: FakeChild, id: string): boolean {
 const DEATH_WARNING = "extension host subprocess died — resetting host state";
 
 describe("ExtensionHost — смерть субпроцесса", () => {
+    it("подписки спавна на ядро снимаются: после респавна слушатель один, мертвецу не пишут", async () => {
+        const child = new FakeChild();
+        const editorOptions = new FakeEditorOptions();
+        const host = spawnReadyHost(child, editorOptions);
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        expect(editorOptions.activeEditorListeners).toHaveLength(1);
+
+        child.simulateExit(1);
+        expect(editorOptions.activeEditorListeners).toHaveLength(0);
+
+        const next = armNextChild();
+        await host.activateByEvent("*");
+        expect(editorOptions.activeEditorListeners).toHaveLength(1);
+
+        const sentBefore = child.sent.length;
+        editorOptions.fireActiveEditorChanged("/other.ts");
+
+        expect(child.sent).toHaveLength(sentBefore);
+        expect(
+            next.sent.filter((m) => m.kind === "notif" && m.method === "editor.activeEditorChanged").at(-1),
+        ).toMatchObject({ params: { uri: Uri.file("/other.ts").toString() } });
+        host.dispose();
+    });
+
+    it("смерть снимает watcher'ы расширений: дерево ядра не слушается за мертвеца", async () => {
+        const child = new FakeChild();
+        const watched: string[] = [];
+        const disposed: string[] = [];
+        const fileWatcher = {
+            watch: (base: string) => {
+                watched.push(base);
+                return { dispose: () => disposed.push(base) };
+            },
+        };
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { fileWatcher });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        child.receiveFromHostPeer({
+            kind: "notif",
+            method: "workspace.watcher.create",
+            params: { id: 1, base: "/repo", pattern: "**" },
+        });
+        await waitUntil(() => watched.length > 0);
+        expect(disposed).toEqual([]);
+
+        child.simulateExit(1);
+
+        expect(disposed).toEqual(["/repo"]);
+        host.dispose();
+    });
+
+    it("активация, оборванная смертью, не теряется: расширение встаёт на следующем событии", async () => {
+        const child = new FakeChild();
+        child.autoRespond = false;
+        const logger = makeLogger();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
+        host.registerExtension(makeReg("ext.a", "/a.js"));
+        const hanging = host.activateByEvent("*");
+        await waitUntil(() => activated(child, "ext.a"));
+
+        child.simulateExit(1);
+        await hanging;
+
+        expect(host.hasExtension("ext.a")).toBe(false);
+        expect(logger.error).not.toHaveBeenCalled();
+        expect(logger.warn).toHaveBeenCalledWith(
+            'activation of "ext.a" interrupted by extension host death — will retry',
+        );
+        const next = armNextChild();
+        await host.activateByEvent("onLanguage:python");
+
+        expect(activated(next, "ext.a")).toBe(true);
+        expect(host.hasExtension("ext.a")).toBe(true);
+        host.dispose();
+    });
+
+    it("снятое за время оборванной активации расширение не оживает, соседнее — оживает (и без логгера)", async () => {
+        const child = new FakeChild();
+        child.autoRespond = false;
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        const registration = host.registerExtension(makeReg("ext.a", "/a.js"));
+        host.registerExtension(makeReg("ext.b", "/b.js"));
+        const hanging = host.activateByEvent("*");
+        await waitUntil(() => activated(child, "ext.a") && activated(child, "ext.b"));
+
+        registration.dispose();
+        child.simulateExit(1);
+        await hanging;
+
+        const next = armNextChild();
+        await host.activateByEvent("*");
+
+        expect(activated(next, "ext.a")).toBe(false);
+        expect(activated(next, "ext.b")).toBe(true);
+        host.dispose();
+    });
+
     it("умерший субпроцесс гасит расширения, а следующее ЛЮБОЕ событие поднимает их заново", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
@@ -1435,6 +1534,34 @@ function makeConfigProvider() {
     };
     return { provider, fire: (keys: readonly string[]) => cb?.(keys) };
 }
+
+describe("ExtensionHost — семена handshake", () => {
+    it("после ready и до первой активации уходят ровно эти нотификации и ровно в этом порядке", async () => {
+        const child = new FakeChild();
+        const opened = { uri: Uri.file("/repo/a.ts").toString(), languageId: "typescript", version: 1, text: "a" };
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: makeConfigProvider().provider,
+            openDocumentsProvider: () => [opened],
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        const firstActivation = child.sent.findIndex((m) => m.kind === "req" && m.method === "host.activateExtension");
+        const seeds = child.sent
+            .slice(0, firstActivation)
+            .map((m) => (m.kind === "notif" ? m.method : `${m.kind}:${(m as { method?: string }).method ?? ""}`));
+        // Порядок — контракт: расширение читает конфигурацию, раскладку, активный
+        // редактор, тему, каталог и открытые документы уже в activate().
+        expect(seeds).toEqual([
+            "workspace.initialize",
+            "editor.layoutChanged",
+            "editor.activeEditorChanged",
+            "window.themeChanged",
+            "extensions.catalog",
+            "editor.didOpen",
+        ]);
+        host.dispose();
+    });
+});
 
 describe("ExtensionHost — WP3 config/window bridge", () => {
     it("pushes workspace.initialize after ready and re-pushes on config change", async () => {
