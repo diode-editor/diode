@@ -5,15 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 import type { ISaveEdit } from "./iSaveParticipant.ts";
+import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
 // Композиция save-участников (#196, хвост): участники исполняются
 // последовательно, каждый получает СВЕЖИЙ снапшот (правки предыдущего уже в
 // буфере), зависший режется таймаутом, сбойный пропускается — запись на диск
 // происходит в любом случае.
 
-describe("TextFileModel — композиция save-участников", () => {
+describe("TextFileSaveParticipant — композиция save-участников", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -36,7 +38,7 @@ describe("TextFileModel — композиция save-участников", () 
         controller.openFile(Uri.file(fp));
 
         const seenTexts: string[] = [];
-        controller.saveParticipants = () => [
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             (snapshot) => {
                 seenTexts.push(snapshot.text);
                 return Promise.resolve([insertAtStart("1")]);
@@ -45,7 +47,7 @@ describe("TextFileModel — композиция save-участников", () 
                 seenTexts.push(snapshot.text);
                 return Promise.resolve([insertAtStart("2")]);
             },
-        ];
+        ]);
 
         await controller.save();
 
@@ -61,7 +63,7 @@ describe("TextFileModel — композиция save-участников", () 
         controller.openFile(Uri.file(fp));
 
         const versions: number[] = [];
-        controller.saveParticipants = () => [
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             (snapshot) => {
                 versions.push(snapshot.versionId);
                 return Promise.resolve([insertAtStart("x")]);
@@ -70,7 +72,7 @@ describe("TextFileModel — композиция save-участников", () 
                 versions.push(snapshot.versionId);
                 return Promise.resolve([]);
             },
-        ];
+        ]);
 
         await controller.save();
 
@@ -84,13 +86,13 @@ describe("TextFileModel — композиция save-участников", () 
         const fp = ws.writeFile("err.txt", "base");
         controller.openFile(Uri.file(fp));
 
-        controller.saveParticipants = () => [
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             () => Promise.reject(new Error("boom")),
             // Отказ не-Error значением — тоже пропуск, а не крах save.
             // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
             () => Promise.reject("nope"),
             () => Promise.resolve([insertAtStart("ok:")]),
-        ];
+        ]);
 
         const outcome = await controller.save();
 
@@ -107,13 +109,13 @@ describe("TextFileModel — композиция save-участников", () 
             controller.openFile(Uri.file(fp));
 
             let secondRan = false;
-            controller.saveParticipants = () => [
+            controller.model.saveParticipant = new TextFileSaveParticipant(() => [
                 () => new Promise<ISaveEdit[]>(() => undefined), // никогда не резолвится
                 () => {
                     secondRan = true;
                     return Promise.resolve([insertAtStart("2:")]);
                 },
-            ];
+            ]);
 
             const savePromise = controller.save();
             // До таймаута запись не происходит — участник ещё «думает».
@@ -138,7 +140,10 @@ describe("TextFileModel — композиция save-участников", () 
             const fp = ws.writeFile("timers.txt", "x");
             controller.openFile(Uri.file(fp));
 
-            controller.saveParticipants = () => [() => Promise.resolve([]), () => Promise.reject(new Error("boom"))];
+            controller.model.saveParticipant = new TextFileSaveParticipant(() => [
+                () => Promise.resolve([]),
+                () => Promise.reject(new Error("boom")),
+            ]);
 
             await controller.save();
 
@@ -156,15 +161,63 @@ describe("TextFileModel — композиция save-участников", () 
         controller.openFile(Uri.file(fp));
 
         let calls = 0;
-        controller.saveParticipants = () => {
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => {
             calls++;
             return [];
-        };
+        });
 
         await controller.save();
         await controller.save();
 
         expect(calls).toBe(2);
+        controller.dispose();
+    });
+    it("клампит диапазоны правок к границам документа", async () => {
+        const controller = createEditorPane();
+        const fp = ws.writeFile("clamp.txt", "ab\ncd");
+        controller.openFile(Uri.file(fp));
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
+            () =>
+                Promise.resolve<ISaveEdit[]>([
+                    // line/char за верхней границей → (последняя строка, её длина)
+                    {
+                        kind: "text",
+                        range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } },
+                        text: "A",
+                    },
+                    // отрицательные line/char → (0, 0)
+                    {
+                        kind: "text",
+                        range: { start: { line: -1, character: -1 }, end: { line: -1, character: -1 } },
+                        text: "B",
+                    },
+                    // в границах → без изменений позиции
+                    {
+                        kind: "text",
+                        range: { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } },
+                        text: "C",
+                    },
+                ]),
+        ]);
+
+        await controller.save();
+
+        expect(fs.readFileSync(fp, "utf-8")).toBe("BaCb\ncdA");
+        controller.dispose();
+    });
+
+    it("правки участников — один шаг отмены с меткой пайплайна", async () => {
+        const undoRedoService = new UndoRedoService();
+        const controller = createEditorPane({ undoRedoService });
+        const fp = ws.writeFile("undo.txt", "x");
+        controller.openFile(Uri.file(fp));
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [
+            () => Promise.resolve([insertAtStart("1"), insertAtStart("2")]),
+        ]);
+
+        await controller.save();
+
+        expect(undoRedoService.peekUndo(controller.model.undoContext)?.label).toBe("editorconfig: pre-save");
         controller.dispose();
     });
 });

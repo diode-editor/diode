@@ -149,18 +149,6 @@ export class TextEditorPane extends Disposable implements IEditorPane {
         return this.model.onDidSaveDocument;
     }
 
-    public set fileWatcher(watcher: IFileWatcher | null) {
-        this.model.fileWatcher = watcher;
-    }
-
-    public get saveParticipants(): (() => readonly SaveParticipant[]) | undefined {
-        return this.model.saveParticipants;
-    }
-
-    public set saveParticipants(provider: (() => readonly SaveParticipant[]) | undefined) {
-        this.model.saveParticipants = provider;
-    }
-
     public get foldingRangeSource(): FoldingRangeSource | undefined {
         return this.component.foldingRangeSource;
     }

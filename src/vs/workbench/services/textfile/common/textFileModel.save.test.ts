@@ -8,6 +8,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 
 import type { ISaveEdit, SaveParticipant } from "./iSaveParticipant.ts";
+import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
 describe("TextFileModel — save participant", () => {
     let ws: ITempWorkspace;
@@ -25,10 +26,7 @@ describe("TextFileModel — save participant", () => {
     }
 
     function setParticipant(controller: TextEditorPane, participant: SaveParticipant): void {
-        const provider = (): SaveParticipant[] => [participant];
-        controller.saveParticipants = provider;
-        // Пара геттер/сеттер панели — сквозной проброс в модель.
-        expect(controller.saveParticipants).toBe(provider);
+        controller.model.saveParticipant = new TextFileSaveParticipant(() => [participant]);
     }
 
     it("применяет текстовые правки участника перед записью", async () => {
@@ -45,39 +43,6 @@ describe("TextFileModel — save participant", () => {
         await controller.save();
 
         expect(fs.readFileSync(fp, "utf-8")).toBe("abc\n");
-        controller.dispose();
-    });
-
-    it("клампит диапазоны правок к границам документа", async () => {
-        const controller = createEditorPane();
-        const fp = writeFile("clamp.txt", "ab\ncd");
-        controller.openFile(Uri.file(fp));
-        setParticipant(controller, () =>
-            Promise.resolve<ISaveEdit[]>([
-                // line/char за верхней границей → (последняя строка, её длина)
-                {
-                    kind: "text",
-                    range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } },
-                    text: "A",
-                },
-                // отрицательные line/char → (0, 0)
-                {
-                    kind: "text",
-                    range: { start: { line: -1, character: -1 }, end: { line: -1, character: -1 } },
-                    text: "B",
-                },
-                // в границах → без изменений позиции
-                {
-                    kind: "text",
-                    range: { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } },
-                    text: "C",
-                },
-            ]),
-        );
-
-        await controller.save();
-
-        expect(fs.readFileSync(fp, "utf-8")).toBe("BaCb\ncdA");
         controller.dispose();
     });
 

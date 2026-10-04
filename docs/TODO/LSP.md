@@ -155,8 +155,9 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSave` (boolean).
 Дефолты выключены — поведение сохранения не меняется.
 
-- Композиция: `TextFileModel.saveParticipants` — ПРОВАЙДЕР списка участников,
-  читается в момент save (живые настройки); `EditorService.collectSaveParticipants`
+- Композиция: `TextFileSaveParticipant` (один на все модели, держит
+  `EditorService`) берёт список участников у провайдера в момент save (живые
+  настройки); `EditorService.collectSaveParticipants`
   собирает порядок VS Code: code actions → формат → will-save расширений
   (editorconfig). Каждый участник видит свежий снапшот — предыдущий уже правил
   буфер (`workspace.applyEdit` из субпроцесса прилетает прямо во время await).
@@ -166,11 +167,11 @@ diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSa
   `apply` всех вернувшихся действий по порядку; формат — по свежему тексту, с
   отбросом устаревшего ответа и схлопыванием каретки (общий хвост
   `applyFormattingEdits` с командой Format Document).
-- Таймаут: 5000 мс НА участника в модели (`SAVE_PARTICIPANT_TIMEOUT_MS`) —
+- Таймаут: 5000 мс НА участника (`SAVE_PARTICIPANT_TIMEOUT_MS` в `textFileSaveParticipant.ts`) —
   зависший пропускается, сохраняем как есть (как VS Code); сбойный тоже.
   Нижележащие RPC ограничены своими таймаутами (5000/10000 мс).
 - Гейты: герметичный контракт — `editorService.onSave.test.ts` +
-  `onSaveParticipants.test.ts` + `textFileModel.saveParticipants.test.ts`;
+  `onSaveParticipants.test.ts` + `textFileSaveParticipant.test.ts`;
   стоковый стек — `extensionHost.ruffLsp.onSave.test.ts` (fixAll чинит F401 и
   формат на диске за один Ctrl+S).
 - Люфты v1: порядок kinds — порядок ключей настройки (VS Code сортирует
