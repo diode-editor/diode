@@ -22,32 +22,12 @@ import {
     WorkbenchContributionsRegistryDIToken,
 } from "../common/workbenchContributionsRegistry.ts";
 import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareActions.ts";
-import { ExtensionsComponentDIToken } from "../contrib/extensions/browser/extensionsComponent.ts";
 import { ExplorerComponent, ExplorerComponentDIToken } from "../contrib/files/browser/explorerComponent.ts";
 import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
 import { FileOperationsService, FileOperationsServiceDIToken } from "../contrib/files/browser/fileOperationsService.ts";
-import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
-import { FindServiceDIToken } from "../contrib/find/browser/findService.ts";
-import { HoverComponentDIToken } from "../contrib/hover/browser/hoverComponent.ts";
-import { HoverServiceDIToken } from "../contrib/hover/browser/hoverService.ts";
-import { InlineCompletionsServiceDIToken } from "../contrib/inlineCompletions/browser/inlineCompletionsService.ts";
-import { KeyboardDoctorComponentDIToken } from "../contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts";
-import { DiagnosticsServiceDIToken } from "../contrib/markers/browser/diagnosticsService.ts";
-import { ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
-import { OutputComponentDIToken } from "../contrib/output/browser/outputComponent.ts";
-import { ParameterHintsComponentDIToken } from "../contrib/parameterHints/browser/parameterHintsComponent.ts";
-import { ParameterHintsServiceDIToken } from "../contrib/parameterHints/browser/parameterHintsService.ts";
-import { KeybindingRecorderComponentDIToken } from "../contrib/preferences/browser/keybindingRecorderComponent.ts";
-import { QuickOpenServiceDIToken } from "../contrib/quickaccess/browser/quickOpenService.ts";
-import { ReferencesComponentDIToken } from "../contrib/references/browser/referencesComponent.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
-import { GraphViewComponentDIToken } from "../contrib/scm/browser/graphViewComponent.ts";
-import { ScmRepoStateServiceDIToken } from "../contrib/scm/browser/repoStateService.ts";
 import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
 import { SearchComponent, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
-import { CompletionServiceDIToken } from "../contrib/suggest/browser/completionService.ts";
-import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestComponent.ts";
-import { TerminalPanelComponentDIToken } from "../contrib/terminal/browser/terminalPanelComponent.ts";
 import { type TerminalService, TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { DialogService } from "../services/dialogs/browser/dialogService.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
@@ -189,80 +169,44 @@ export class WorkbenchComponent extends Component {
         // папок является этот компонент (см. setWorkspaceFolder), все остальные
         // читают IWorkspaceContextService.
         this.workspaceContext = accessor.get(WorkspaceContextServiceDIToken);
-        // Explorer-кластер: сервис (корень СВОЕГО дерева/провайдер/reveal) и
-        // компонент (дерево + контекст-меню). WorkbenchComponent владеет их жизнью.
-        this.explorerService = this.register(accessor.get(ExplorerServiceDIToken));
-        this.explorerComponent = this.register(accessor.get(ExplorerComponentDIToken));
-        // Search-кластер: сервис поиска (spawn rg) внутри компонента; сам компонент —
-        // ещё один вьюлет сайдбара (регистрируется в setWorkspaceFolder).
-        this.searchComponent = this.register(accessor.get(SearchComponentDIToken));
-        // Магазин расширений: ещё один вьюлет сайдбара. Каталог читается лениво,
-        // при первом показе (`focus`), — старт в сеть не ходит.
-        this.register(accessor.get(ExtensionsComponentDIToken));
-        // References: ещё один вьюлет сайдбара, наполняется по Find All References.
-        this.register(accessor.get(ReferencesComponentDIToken));
+        // Реестр workbench-contributions (агрегатор — `workbench.common.main.ts`):
+        // фич-компоненты и их сервисы — фаза `blockStartup`, прямо здесь, после
+        // прикрепления корневой view (хост оверлеев) и до setWorkspaceFolder
+        // бутстрапа; фич-проводка — по фазам жизненного цикла, синхронно в
+        // момент перехода: `ready` наступает в mount(), `eventually` — после
+        // первого кадра (workbenchStartup). Реестр владеет их жизнью.
+        const contributionsRegistry = this.register(accessor.get(WorkbenchContributionsRegistryDIToken));
+        contributionsRegistry.instantiateByPhase("blockStartup");
+        this.register(
+            lifecycleService.onDidChangePhase((phase) => {
+                contributionsRegistry.instantiateByPhase(phase);
+            }),
+        );
+        // Ссылки на фичи, которые корень ещё дёргает сам (setWorkspaceFolder,
+        // activate, restore) — владеет ими реестр, здесь только кэш DI.
+        this.explorerService = accessor.get(ExplorerServiceDIToken);
+        this.explorerComponent = accessor.get(ExplorerComponentDIToken);
+        this.searchComponent = accessor.get(SearchComponentDIToken);
+        this.changesComponent = accessor.get(ChangesComponentDIToken);
+        this.scmInputComponent = accessor.get(ScmInputComponentDIToken);
+        this.terminalService = accessor.get(TerminalServiceDIToken);
         // Клавиатурный диспатчер: WorkbenchComponent владеет его жизнью и подключает
         // view-хук модальных оверлеев (хук контекст-ключей замыкает на себя
         // WorkbenchContextKeys) — сам сервис про view ничего не знает.
         this.dispatcher = this.register(accessor.get(KeybindingDispatcherDIToken));
         this.dispatcher.hasKeyboardCapturingOverlay = () => this.view.overlayLayer.hasKeyboardCapturingOverlay();
         // QuickInput-кластер: файловый индекс, общий виджет-компонент (host
-        // прикрепляется ниже, после постройки view), InputBox/list-pick сервис и
-        // Quick Open поверх них. WorkbenchComponent владеет их жизнью.
+        // прикрепляется ниже, после постройки view) и InputBox/list-pick сервис.
+        // WorkbenchComponent владеет их жизнью.
         this.fileSearchService = this.register(accessor.get(FileSearchServiceDIToken));
         const quickInputComponent = this.register(accessor.get(QuickInputComponentDIToken));
         this.quickInput = accessor.get(QuickInputServiceDIToken);
-        this.register(accessor.get(QuickOpenServiceDIToken));
         // Файловые операции (Workbench-сервис): промпт имени/пути — QuickInputService
         // (шов IExplorerInputPrompt замкнут в DI).
         this.fileOperations = accessor.get(FileOperationsServiceDIToken);
-        // Find/Suggest-кластер: компоненты владеют виджетами и overlay-сессиями
-        // (хост берут у LayoutService сами), сервисы — логикой
-        // поиска/автодополнения. WorkbenchComponent владеет их жизнью.
-        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит CompletionService строкой ниже) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
-        this.register(accessor.get(SuggestComponentDIToken));
-        this.register(accessor.get(CompletionServiceDIToken));
-        // Hover-пара — тот же паттерн: компонент владеет попапом, сервис — логикой.
-        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит HoverService строкой ниже) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
-        this.register(accessor.get(HoverComponentDIToken));
-        // Stryker disable next-line CallExpression: сервис всё равно резолвится (его держит WorkbenchContextKeys) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
-        this.register(accessor.get(HoverServiceDIToken));
-        // Подсказка параметров — третья пара того же вида.
-        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит ParameterHintsService строкой ниже) — register() тут только передаёт владение жизнью, что юнитом не наблюдается
-        this.register(accessor.get(ParameterHintsComponentDIToken));
-        // Stryker disable next-line CallExpression: как и hover-сервис, он резолвится через WorkbenchContextKeys — register() лишь передаёт владение жизнью
-        this.register(accessor.get(ParameterHintsServiceDIToken));
-        // Призрачные подсказки: сервис без компонента — рисует прямо в редакторе
-        // (TextEditorPane.setGhostText), попапов и overlay-сессий у него нет.
-        // Stryker disable next-line CallExpression: резолвится и через WorkbenchContextKeys — register() лишь передаёт владение жизнью
-        this.register(accessor.get(InlineCompletionsServiceDIToken));
-        // Stryker disable next-line CallExpression: компонент всё равно резолвится (его держит FindService строкой ниже) — register() тут только передаёт владение жизнью
-        this.register(accessor.get(FindComponentDIToken));
-        this.register(accessor.get(FindServiceDIToken));
         this.statusBarComponent = this.register(statusBarComponent);
-        // Panel-кластер: диагностики (headless), реестр вкладок панели, Problems и
-        // терминал. Порядок резолва задаёт порядок табов: PROBLEMS регистрирует
-        // ProblemsComponent, TERMINAL — TerminalService.
-        this.register(accessor.get(DiagnosticsServiceDIToken));
-        this.register(accessor.get(ProblemsComponentDIToken));
-        // Порядок резолва = порядок табов панели: PROBLEMS · OUTPUT · TERMINAL.
-        this.register(accessor.get(OutputComponentDIToken));
-        // ChangesComponent — секция CHANGES контейнера Source Control; резолв
-        // подтягивает ScmChangesService, чья команда `diode.scm.publishChanges`
-        // регистрируется до активации git-расширения, публикующего в неё набор.
-        this.changesComponent = this.register(accessor.get(ChangesComponentDIToken));
-        // Секция GRAPH того же контейнера (+ ScmGraphService с командой
-        // `diode.scm.publishLog`); view записывается в реестр ViewsService здесь,
-        // контейнер собирается в setWorkspaceFolder.
-        this.register(accessor.get(GraphViewComponentDIToken));
-        // Commit input box — header контейнера Source Control.
-        this.scmInputComponent = this.register(accessor.get(ScmInputComponentDIToken));
-        // Repo-state (ветка/remotes/merge-rebase → when-ключи git*): команда
-        // diode.scm.publishRepoState должна существовать до активации расширения.
-        this.register(accessor.get(ScmRepoStateServiceDIToken));
-        this.terminalService = this.register(accessor.get(TerminalServiceDIToken));
+        // Реестр вкладок нижней панели; вкладки — контейнеры фич (см. mount()).
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
-        this.register(accessor.get(TerminalPanelComponentDIToken));
         // Layout-логика (сайдбар/панель + персист layout'а) и контекст-ключи
         // workbench'а (фокус/сервисы → ContextKeyService; замыкают хук
         // dispatcher.updateContextKeys). Сам layout-элемент и корневую view
@@ -270,16 +214,6 @@ export class WorkbenchComponent extends Component {
         this.sidebarService = accessor.get(SidebarServiceDIToken);
         this.viewsService = accessor.get(ViewsServiceDIToken);
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
-        // Реестр workbench-contributions: фич-проводка вынесена в самодостаточные
-        // contribution-классы (статус-бар и пр.). Реестр инстанцирует их по фазам
-        // жизненного цикла, синхронно в момент перехода: `ready` наступает в
-        // mount(), `eventually` — после первого кадра (workbenchStartup).
-        const contributionsRegistry = this.register(accessor.get(WorkbenchContributionsRegistryDIToken));
-        this.register(
-            lifecycleService.onDidChangePhase((phase) => {
-                contributionsRegistry.instantiateByPhase(phase);
-            }),
-        );
 
         this.workbenchLayout = new WorkbenchLayoutElement();
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
@@ -312,12 +246,6 @@ export class WorkbenchComponent extends Component {
         // модального сообщения по центру — тот же слой.
         this.notificationsComponent = this.register(accessor.get(NotificationsComponentDIToken));
         this.notificationsComponent.attachHost(this.view);
-        // Рекордер комбинаций вкладки Keyboard Shortcuts и Keyboard Doctor —
-        // модальные оверлеи того же слоя; хост берут у LayoutService сами.
-        // Stryker disable next-line CallExpression: без строки рекордер резолвится лениво — первой же командой записи; register() тут только передаёт владение жизнью, что юнитом не наблюдается
-        this.register(accessor.get(KeybindingRecorderComponentDIToken));
-        // Stryker disable next-line CallExpression: то же — доктор резолвится лениво командой запуска, register() лишь передаёт владение жизнью
-        this.register(accessor.get(KeyboardDoctorComponentDIToken));
         for (const action of builtinActions) {
             // Мак-дельты (таблица macKeybindings.ts) — поверх объявленных биндов.
             this.register(registerAction(commands, keybindings, accessor, withMacKeybindings(action)));

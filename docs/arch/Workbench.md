@@ -211,7 +211,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 | `workbench/browser/actions/builtinActions.ts`, `searchActions.ts`, `menuContributions.ts` | команды и меню фич | `<FEATURE>_ACTIONS` у фич + агрегатор | F2 |
 | `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
 | `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
-| `workbench/browser/workbenchComponent.ts`, `workbenchContributions.ts` | владение фич-компонентами, список contribution'ов; агрегатора `workbench.common.main.ts` ещё нет | агрегатор, фаза `blockStartup`; храповик направления в `check-layers.mjs`, контейнеры у владельцев и хост оверлеев через `LayoutService` уже сделаны | E4 |
+| `workbench/browser/workbenchComponent.ts` | ссылки на фичи в `setWorkspaceFolder`/`activate`/restore | подписки фич на смену папки и открытие стора воркспейса, explorer как `IActivatable` (PR5); храповик направления, контейнеры у владельцев, хост оверлеев через `LayoutService`, фаза `blockStartup` и агрегатор `workbench.common.main.ts` уже сделаны | E4 |
 | `workbench/common/configuration/{scm,terminal,explorer,files,search}Configuration.ts` | узлы настроек фич | `contrib/<f>/common/` вместе с переездом `CONFIGURATION_CONTRIBUTIONS` в агрегатор | H6, необязательно |
 | `src/vs/diode/modules/workbenchModule.ts` | DI-биндинги фич | дескриптор фичи `contrib/<f>/browser/<f>.contribution.ts` | H6/C5, необязательно, после F2, E4 и F3 |
 | `contrib/diff/browser/compareActions.ts` | команды ревизий scm; из-за них цикл diff ↔ scm | `contrib/scm` | H6, необязательно |
@@ -232,10 +232,20 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 **Реестр + фазы.** `WorkbenchContributionsRegistry.instantiateByPhase(phase)`
 инстанцирует по фазе через DI (`accessor.get(token)` — авто-инжект
 `static dependencies` + кэш-синглтон) и забирает владение (`register`), поэтому
-dispose реестра сматывает все contribution'ы. Фаза contribution'а — это фаза
-жизненного цикла (`LifecyclePhase` из `services/lifecycle/common/lifecyclePhase.ts`):
-корень подписан на `LifecycleService.onDidChangePhase` и зовёт
-`instantiateByPhase` синхронно на каждый переход. Две фазы с contribution'ами:
+dispose реестра сматывает все contribution'ы. Три фазы с contribution'ами:
+- **`blockStartup`** (≈ vscode `WorkbenchPhase.BlockStartup`) — корень прогоняет
+  её сам, в конструкторе, сразу после `LayoutService.attachRoot` (хост оверлеев)
+  и до `setWorkspaceFolder` бутстрапа и старта extension host'а. Здесь живут
+  фич-компоненты и их сервисы: Explorer, Search, магазин, References, Quick Open,
+  пары suggest/hover/parameterHints, inline completions, find, диагностики,
+  Problems, Output, Source Control (команды, на которые публикует git-расширение,
+  обязаны существовать до его активации), терминал, рекордер и Keyboard Doctor.
+  Порядок вкладок и вьюлетов от порядка записей не зависит (`order` контейнеров),
+  порядок overlay-сессий suggest/hover/parameterHints — зависит.
+- остальные две — фазы жизненного цикла (`LifecyclePhase` из
+  `services/lifecycle/common/lifecyclePhase.ts`): корень подписан на
+  `LifecycleService.onDidChangePhase` и зовёт `instantiateByPhase` синхронно на
+  каждый переход:
 - **`ready`** — в `WorkbenchComponent.mount()`, который сам двигает фазу (view
   построена, лёгкие сервисы готовы; ≈ vscode `WorkbenchPhase.BlockRestore`; между
   конструктором и mount ни один редактор не открывается → перенос проводки из
@@ -245,10 +255,11 @@ dispose реестра сматывает все contribution'ы. Фаза contr
   `app.run()` красит отложенно) — для тяжёлой/отложенной работы. Здесь же
   стартует фоновый прогрев грамматик (`main.ts`, по `onDidChangePhase`).
 
-**Регистрация — явный массив** `WORKBENCH_CONTRIBUTIONS` (`workbenchContributions.ts`,
-зеркало `builtinActions`, без import-side-effect самрегистрации): пара
-`{ token, phase }`. Новую фич-проводку добавляем сюда + биндим класс в
-`Modules/WorkbenchModule.ts`, а не строкой в конструктор корня.
+**Регистрация — явный массив** `WORKBENCH_CONTRIBUTIONS` в агрегаторе
+`src/vs/workbench/workbench.common.main.ts` (зеркало `builtinActions`, без
+import-side-effect саморегистрации): пара `{ token, phase }`. Новую фичу или
+проводку добавляем сюда + биндим класс в `src/vs/diode/modules/workbenchModule.ts`,
+а не строкой в конструктор корня.
 
 **Правило под наш DI** (ленив по токену, без Delayed-прокси): тяжёлые сервисы НЕ
 класть в `static dependencies` — иначе они сконструируются в момент прогона фазы.
@@ -1046,11 +1057,12 @@ hide-toggle (`isHiddenByDefault`). См.
     (`DialogService`/`QuickInputComponent`/`TabSwitcherComponent`/`NotificationsComponent`
     `attachHost(BodyElement)`, `LayoutService.attachLayout`, `WorkbenchContextKeys.attachView`), вешает
     листенеры `KeybindingDispatcher` и фокус-хуки, регистрирует список
-    `builtinActions` одним циклом. Фич-проводка (autoReveal, live-reload темы,
-    контекст-меню редактора, команда `workbench.openFile`, статус-бар) вынесена в
-    workbench-contribution'ы — корень лишь прогоняет их по фазам `LifecycleService`
-    через реестр (`ready` — в `mount()`, `eventually` — после первого кадра; см.
-    «Workbench-contributions»). Выхода в корне нет:
+    `builtinActions` одним циклом. Фич-компоненты и их сервисы он не резолвит —
+    их инстанцирует реестр contribution'ов в фазе `blockStartup` (в конструкторе
+    корня); фич-проводка (autoReveal, live-reload темы, контекст-меню редактора,
+    команда `workbench.openFile`, статус-бар) — те же contribution'ы по фазам
+    `LifecycleService` (`ready` — в `mount()`, `eventually` — после первого кадра;
+    см. «Workbench-contributions»). Выхода в корне нет:
     `quitAction` и `reloadWindowAction` ведут прощание через `LifecycleService`
     (см. «Жизненный цикл»). Тему
     кладёт в корневой var-scope (`applyThemeVars` по `onThemeChange`) — единственная

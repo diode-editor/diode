@@ -54,6 +54,31 @@ describe("WorkbenchContributionsRegistry", () => {
         expect(resolved).toEqual([readyToken, eventuallyToken]);
     });
 
+    it("blockStartup — своя пачка в порядке записей, переходы жизненного цикла её не трогают", () => {
+        const firstToken = { id: "first" } as Token<IWorkbenchContribution>;
+        const secondToken = { id: "second" } as Token<IWorkbenchContribution>;
+        const readyToken = { id: "ready" } as Token<IWorkbenchContribution>;
+        const { accessor, resolved } = fakeAccessor(
+            new Map<Token<unknown>, unknown>([
+                [firstToken, new FakeContribution()],
+                [secondToken, new FakeContribution()],
+                [readyToken, new FakeContribution()],
+            ]),
+        );
+        const registry = new WorkbenchContributionsRegistry(accessor, [
+            { token: firstToken, phase: "blockStartup" },
+            { token: readyToken, phase: "ready" },
+            { token: secondToken, phase: "blockStartup" },
+        ]);
+
+        registry.instantiateByPhase("blockStartup");
+        expect(resolved).toEqual([firstToken, secondToken]);
+
+        registry.instantiateByPhase("starting");
+        registry.instantiateByPhase("ready");
+        expect(resolved).toEqual([firstToken, secondToken, readyToken]);
+    });
+
     it("пустая фаза ничего не резолвит", () => {
         const readyToken = { id: "restored" } as Token<IWorkbenchContribution>;
         const { accessor, resolved } = fakeAccessor(

@@ -76,7 +76,6 @@ import {
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WORKBENCH_CONTEXT_KEY_CONTRIBUTORS } from "../../workbench/browser/workbenchContextKeyContributors.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
-import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/browser/workbenchContributions.ts";
 import { WorkbenchStateService, WorkbenchStateServiceDIToken } from "../../workbench/browser/workbenchStateService.ts";
 import {
     WorkbenchContributionsDIToken,
@@ -283,6 +282,7 @@ import {
     TerminalEnvStatusContribution,
     TerminalEnvStatusContributionDIToken,
 } from "../../workbench/services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
+import { WORKBENCH_CONTRIBUTIONS } from "../../workbench/workbench.common.main.ts";
 
 /** Фабрики вкладок из contrib — по одной на вид вкладки (см. `IEditorPaneFactory`). */
 const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
