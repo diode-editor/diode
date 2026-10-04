@@ -1,4 +1,5 @@
 import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
+import { BugIndicatingError } from "../../../base/common/errors.ts";
 import {
     type SerializedError,
     transformErrorForSerialization,
@@ -138,6 +139,8 @@ export class RpcEndpoint<
     private readonly earlyCancellations = new Set<number>();
     private readonly requestHandlers = new Map<string, IRequestHandler>();
     private readonly notificationHandlers = new Map<string, INotificationHandler>();
+    /** Нотификации без обработчика, о которых уже предупредили (раз на метод). */
+    private readonly unknownNotifications = new Set<string>();
     private nextRequestId = 1;
     private disposed = false;
 
@@ -220,6 +223,10 @@ export class RpcEndpoint<
             token: ICancellationToken,
         ) => RequestResult<TIn, K> | Promise<RequestResult<TIn, K>>,
     ): IDisposable {
+        // Второй обработчик молча вытеснил бы первый — у запроса один ответчик.
+        if (this.requestHandlers.has(method)) {
+            throw new BugIndicatingError(`request handler for "${method}" is already registered`);
+        }
         this.requestHandlers.set(method, handler as IRequestHandler);
         return {
             dispose: (): void => {
@@ -398,7 +405,15 @@ export class RpcEndpoint<
 
     private handleNotificationMessage(message: INotificationMessage): void {
         const handler = this.notificationHandlers.get(message.method);
-        if (handler === undefined) return;
+        if (handler === undefined) {
+            // Нотификация без обработчика — расхождение сторон протокола; поток
+            // таких сообщений не должен топить лог, поэтому — раз на метод.
+            if (!this.unknownNotifications.has(message.method)) {
+                this.unknownNotifications.add(message.method);
+                this.logger?.warn(`no handler for notification "${message.method}"`);
+            }
+            return;
+        }
         try {
             handler(message.params);
         } catch (err) {

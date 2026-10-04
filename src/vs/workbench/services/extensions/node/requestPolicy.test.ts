@@ -26,19 +26,21 @@ describe("loggingRequest", () => {
         const logger = spyLogger();
         const { rpc, calls } = rpcAnswering(() => Promise.resolve("ok"));
         const request = loggingRequest(rpc, logger as unknown as ILogger);
-        await expect(request("test.method", { a: 1 }, { timeoutMs: 7 })).resolves.toBe("ok");
-        expect(calls).toEqual([{ method: "test.method", params: { a: 1 }, options: { timeoutMs: 7 } }]);
+        await expect(request("workspace.fs.readFile", { uri: "file:///a" }, { timeoutMs: 7 })).resolves.toBe("ok");
+        expect(calls).toEqual([
+            { method: "workspace.fs.readFile", params: { uri: "file:///a" }, options: { timeoutMs: 7 } },
+        ]);
         expect(logger.debug).not.toHaveBeenCalled();
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("истёкший срок — debug с текстом таймаута, отказ пробрасывается", async () => {
         const logger = spyLogger();
-        const timeout = new TimeoutError("test.method", 5);
+        const timeout = new TimeoutError("workspace.fs.readFile", 5);
         const { rpc } = rpcAnswering(() => Promise.reject(timeout));
         const request = loggingRequest(rpc, logger as unknown as ILogger);
-        await expect(request("test.method", {}, {})).rejects.toBe(timeout);
-        expect(logger.debug).toHaveBeenCalledWith('request "test.method" timed out after 5ms');
+        await expect(request("workspace.fs.readFile", { uri: "file:///a" }, {})).rejects.toBe(timeout);
+        expect(logger.debug).toHaveBeenCalledWith('request "workspace.fs.readFile" timed out after 5ms');
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
@@ -47,16 +49,20 @@ describe("loggingRequest", () => {
         const failure = new Error("provider crashed");
         const { rpc } = rpcAnswering(() => Promise.reject(failure));
         const request = loggingRequest(rpc, logger as unknown as ILogger);
-        await expect(request("test.method", {}, {})).rejects.toBe(failure);
-        expect(logger.warn).toHaveBeenCalledWith('request "test.method" failed', failure);
+        await expect(request("workspace.fs.readFile", { uri: "file:///a" }, {})).rejects.toBe(failure);
+        expect(logger.warn).toHaveBeenCalledWith('request "workspace.fs.readFile" failed', failure);
         expect(logger.debug).not.toHaveBeenCalled();
     });
 
     it("без логгера отказы просто пробрасываются", async () => {
-        const { rpc } = rpcAnswering(() => Promise.reject(new TimeoutError("m", 1)));
-        await expect(loggingRequest(rpc, undefined)("m", {}, {})).rejects.toBeInstanceOf(TimeoutError);
+        const { rpc } = rpcAnswering(() => Promise.reject(new TimeoutError("workspace.fs.readFile", 1)));
+        await expect(
+            loggingRequest(rpc, undefined)("workspace.fs.readFile", { uri: "file:///a" }, {}),
+        ).rejects.toBeInstanceOf(TimeoutError);
         const { rpc: failing } = rpcAnswering(() => Promise.reject(new Error("x")));
-        await expect(loggingRequest(failing, undefined)("m", {}, {})).rejects.toThrow("x");
+        await expect(
+            loggingRequest(failing, undefined)("workspace.fs.readFile", { uri: "file:///a" }, {}),
+        ).rejects.toThrow("x");
     });
 });
 

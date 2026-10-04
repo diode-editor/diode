@@ -164,7 +164,7 @@ describe("ExtensionHostProcess — выключение", () => {
 
         await subprocess.shutdown(10);
 
-        await expect(subprocess.rpc.request("host.ping")).rejects.toThrow("RpcEndpoint disposed");
+        await expect(subprocess.rpc.request("host.shutdown")).rejects.toThrow("RpcEndpoint disposed");
     });
 
     it("kill добивает ребёнка SIGKILL синхронно", () => {

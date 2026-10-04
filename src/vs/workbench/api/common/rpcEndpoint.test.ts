@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { BugIndicatingError } from "../../../base/common/errors.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
@@ -158,14 +159,47 @@ describe("RpcEndpoint", () => {
         chB.dispose();
     });
 
-    it("disposing a superseded request subscription keeps the live handler (line 86 false branch)", async () => {
+    it("второй обработчик того же запроса — ошибка, первый остаётся", async () => {
+        const { a, b, dispose } = createEndpointPair();
+        b.handleRequest("m", () => "first");
+        expect(() => b.handleRequest("m", () => "second")).toThrow(BugIndicatingError);
+        expect(() => b.handleRequest("m", () => "second")).toThrow('request handler for "m" is already registered');
+        expect(await a.request("m")).toBe("first");
+        dispose();
+    });
+
+    it("повторный dispose снятой подписки не снимает нового обработчика", async () => {
         const { a, b, dispose } = createEndpointPair();
         const firstSub = b.handleRequest("m", () => "first");
-        b.handleRequest("m", () => "second"); // overwrites "first" in the map
-        // Disposing the superseded subscription must be a no-op: get("m") === second !== first.
+        firstSub.dispose();
+        b.handleRequest("m", () => "second");
         firstSub.dispose();
         expect(await a.request("m")).toBe("second");
         dispose();
+    });
+
+    it("нотификация без обработчика — warn один раз на метод", async () => {
+        const warn = vi.fn();
+        const [ca, cb] = createInProcessChannelPair();
+        const a = new RpcEndpoint(ca);
+        const b = new RpcEndpoint(cb, {
+            trace: vi.fn(),
+            debug: vi.fn(),
+            info: vi.fn(),
+            warn,
+            error: vi.fn(),
+            isEnabled: () => true,
+        });
+        a.notify("ghost", 1);
+        a.notify("ghost", 2);
+        a.notify("other", 3);
+        await microtasks();
+        expect(warn.mock.calls).toEqual([
+            ['no handler for notification "ghost"'],
+            ['no handler for notification "other"'],
+        ]);
+        a.dispose();
+        b.dispose();
     });
 
     it("disposing a superseded notification subscription keeps the live handler (line 97 false branch)", async () => {
