@@ -72,6 +72,22 @@ describe("Workbench — Save As", () => {
         expect(labels.some((l) => l.includes("renamed.md"))).toBe(true);
     });
 
+    it("Save As в собственный путь сохраняет без вопроса о перезаписи", async () => {
+        const alphaPath = ws.path("alpha.txt");
+        h.commands.execute("workbench.openFile", alphaPath);
+        h.testApp.render();
+        h.activeEditor().viewState.type("X");
+        h.commands.execute("workbench.action.files.saveAs");
+        h.testApp.render();
+
+        openInputBox(h.testApp).setQuery(alphaPath);
+        h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(fs.readFileSync(alphaPath, "utf-8")).toBe("XAlpha content");
+        });
+        expect(h.container.get(DialogServiceDIToken).getOpenConfirmDialog()).toBeNull();
+    });
+
     it("prompts before overwriting a different existing file", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         h.testApp.render();
