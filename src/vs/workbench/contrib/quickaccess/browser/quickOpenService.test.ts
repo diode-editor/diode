@@ -25,11 +25,8 @@ import { QuickInputComponent } from "../../../browser/parts/quickinput/quickInpu
 import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
-import type {
-    FileSearchEntry,
-    FileSearchResult,
-    FileSearchService,
-} from "../../../services/search/node/fileSearchService.ts";
+import type { FileSearchEntry, FileSearchResult } from "../../../services/search/common/fileSearch.ts";
+import type { FileSearchService } from "../../../services/search/node/fileSearchService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { QuickAccessRegistry } from "../common/quickAccessRegistry.ts";

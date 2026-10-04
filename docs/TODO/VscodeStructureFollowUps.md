@@ -51,9 +51,11 @@
   сессий (сейчас слой рисует их в порядке `createSession`), см. H1.
 - [ ] **Single-process исключения env-оси** (`EXCEPTIONS` в
   `scripts/check-layers.mjs`): «browser»-сторона напрямую зовёт node-сервисы
-  (`services/search/node`, `services/terminalEnvironment/node`,
-  `contrib/bulkEdit/node`) — у vscode тут RPC-фасады (`IFileService` и т.п.).
-  Сближение — интерфейсные швы в common + node-реализации за DI.
+  (`services/terminalEnvironment/node`, `contrib/bulkEdit/node`) — у vscode тут
+  RPC-фасады (`IFileService` и т.п.). Сближение — интерфейсные швы в common +
+  node-реализации за DI. Образец — `IFileSearchService` (H4 PR0): порт и типы в
+  `services/search/common/fileSearch.ts`, реализация в `search/node`, три записи
+  `search/node` из EXCEPTIONS сняты.
 - [ ] **`defaultStyles` → `editorElement`** (value-импорт unthemed-дефолтов):
   либо unthemed-дефолты редактора в platform, либо `getEditorStyles` в
   `editor/browser`.

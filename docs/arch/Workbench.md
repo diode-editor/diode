@@ -517,7 +517,8 @@ hide-toggle (`isHiddenByDefault`). См.
     по хукам `onShow(refresh)`/`onHide`; пункт — `QuickAccessItem` с колбэком
     `accept` (пункт без `accept` — информационный хинт, пикер не закрывает).
     Встроенные провайдеры: `FilesQuickAccessProvider` (`""` — дефолтный:
-    фоновый индекс `FileSearchService`, `debounceQuery`, live-refresh по
+    фоновый индекс за портом `IFileSearchService` (`services/search/common/fileSearch.ts`;
+    реализация — `search/node/fileSearchService.ts`), `debounceQuery`, live-refresh по
     `onIndexChanged` с сохранением курсора, `file:line[:col]`-суффикс через
     `QuickOpenParsing`), `CommandsQuickAccessProvider` (`>`:
     `CommandRegistry.listCommands` + шорткаты из
