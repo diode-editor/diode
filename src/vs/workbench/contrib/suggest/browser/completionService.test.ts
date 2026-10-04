@@ -162,8 +162,7 @@ function makeGroup(
         onActiveEditorChanged: () => ({ dispose: () => {} }),
         completionSource: source,
         completionTriggerCharacters: [],
-        editorCount: all.length,
-        getEditor: (i: number) => all[i] ?? null,
+        getEditors: () => all,
     } as unknown as EditorService;
 }
 
@@ -1145,22 +1144,6 @@ describe("CompletionService", () => {
         expect(source).toHaveBeenCalledWith(expect.objectContaining({ uri: "untitled:Untitled-1" }));
     });
 
-    it("word-based пропускает несуществующий (null) редактор группы", async () => {
-        const fake = makeEditor("", 0, "alpha beta");
-        const group = {
-            getActiveEditor: () => fake.editor,
-            onActiveEditorChanged: () => ({ dispose: () => {} }),
-            completionSource: undefined,
-            completionTriggerCharacters: [],
-            editorCount: 2, // но getEditor(1) === null
-            getEditor: (i: number) => (i === 0 ? fake.editor : null),
-        } as unknown as EditorService;
-        const { service, component, body } = createService(group);
-        TestApp.create(body, new Size(80, 24));
-        await service.trigger();
-        expect(component.view.items.map((i) => i.label)).toEqual(["alpha", "beta"]);
-    });
-
     it("accept без активного редактора (после close) — no-op", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
@@ -1328,8 +1311,7 @@ describe("CompletionService", () => {
             },
             completionSource: vi.fn(() => Promise.resolve(completionResult(ITEMS))),
             completionTriggerCharacters: [],
-            editorCount: 1,
-            getEditor: (i: number) => (i === 0 ? fake.editor : null),
+            getEditors: () => [fake.editor],
         } as unknown as EditorService;
         const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
@@ -1347,8 +1329,7 @@ describe("CompletionService", () => {
             onActiveEditorChanged: () => ({ dispose: () => {} }),
             completionSource: undefined,
             completionTriggerCharacters: [],
-            editorCount: 1,
-            getEditor: () => fake.editor,
+            getEditors: () => [fake.editor],
         } as unknown as EditorService;
         const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
@@ -1410,8 +1391,7 @@ describe("CompletionService", () => {
             onActiveEditorChanged: () => ({ dispose: () => {} }),
             completionSource: vi.fn(() => Promise.resolve(completionResult(ITEMS))),
             completionTriggerCharacters: [],
-            editorCount: 1,
-            getEditor: () => fake.editor,
+            getEditors: () => [fake.editor],
         } as unknown as EditorService;
         const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));

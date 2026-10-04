@@ -516,16 +516,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     }
 
     /**
-     * Word-based элементы из текста всех открытых редакторов группы, без
+     * Word-based элементы из текста всех открытых редакторов (всех групп), без
      * дублей с элементами провайдеров. Большие файлы отсекаются внутри
      * {@link collectWordCompletions}.
      */
     private wordItems(prefix: string, extensionItems: readonly ICoreCompletionItem[]): ICoreCompletionItem[] {
-        const texts: string[] = [];
-        for (let i = 0; i < this.group.editorCount; i++) {
-            const editor = this.group.getEditor(i);
-            if (editor !== null) texts.push(editor.getText());
-        }
+        const texts = this.group.getEditors().map((editor) => editor.getText());
         const existing = new Set(extensionItems.map((item) => item.label));
         return collectWordCompletions(texts, prefix)
             .filter((word) => !existing.has(word))

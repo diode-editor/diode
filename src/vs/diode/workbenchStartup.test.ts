@@ -192,7 +192,7 @@ describe("startWorkbench", () => {
 
         expect(startup.preloaded).toEqual([[]]);
         expect(workspaceFolders(startup)).toEqual([]);
-        expect(startup.container.get(EditorServiceDIToken).getPanes()).toEqual([]);
+        expect(startup.container.get(EditorServiceDIToken).activeGroup.getPanes()).toEqual([]);
     });
 
     it("папка без файлов: греет то, что восстановит сессия (у тестового стора — ничего)", async () => {
@@ -209,7 +209,8 @@ describe("startWorkbench", () => {
         const b = ws.path("b.ts");
         let opened = -1;
         startup.log.push = (entry: string): number => {
-            if (entry === "preloadGrammars") opened = startup.container.get(EditorServiceDIToken).getPanes().length;
+            if (entry === "preloadGrammars")
+                opened = startup.container.get(EditorServiceDIToken).activeGroup.getPanes().length;
             return Array.prototype.push.call(startup.log, entry);
         };
 
@@ -217,7 +218,7 @@ describe("startWorkbench", () => {
 
         expect(opened).toBe(0);
         expect(startup.preloaded).toEqual([[b, a]]);
-        const panes = startup.container.get(EditorServiceDIToken).getPanes();
+        const panes = startup.container.get(EditorServiceDIToken).activeGroup.getPanes();
         expect(panes.map((p) => (p as TextEditorPane).uri.fsPath)).toEqual([b, a]);
         const active = startup.container.get(EditorServiceDIToken).getActiveEditor();
         expect(active?.uri.fsPath).toBe(a);
@@ -261,7 +262,7 @@ describe("startWorkbench", () => {
         function openPaths(startup: IStartup): string[] {
             return startup.container
                 .get(EditorServiceDIToken)
-                .getPanes()
+                .activeGroup.getPanes()
                 .map((p) => (p as TextEditorPane).uri.fsPath);
         }
 
@@ -300,7 +301,7 @@ describe("startWorkbench", () => {
             await startup.run({ ...NO_TARGETS, folder: ws.dir, diff: { original: a, modified: b } });
 
             expect(startup.preloaded).toEqual([[a, b]]);
-            expect(startup.container.get(EditorServiceDIToken).getPanes()).toHaveLength(1);
+            expect(startup.container.get(EditorServiceDIToken).activeGroup.getPanes()).toHaveLength(1);
         });
 
         it("у пустого окна сессии нет, даже если прошлое пустое окно что-то открывало", async () => {
@@ -322,7 +323,7 @@ describe("startWorkbench", () => {
         await startup.run({ ...NO_TARGETS, folder: ws.dir, files: [{ path: a }], diff: { original: a, modified: b } });
 
         expect(startup.preloaded).toEqual([[a, b]]);
-        const panes = startup.container.get(EditorServiceDIToken).getPanes();
+        const panes = startup.container.get(EditorServiceDIToken).activeGroup.getPanes();
         expect(panes).toHaveLength(1);
         expect(panes[0]).toBeInstanceOf(DiffEditorPane2);
     });

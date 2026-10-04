@@ -48,7 +48,7 @@ describe("Команды сравнения файлов", () => {
     function diffPanes() {
         return h.container
             .get(EditorServiceDIToken)
-            .getPanes()
+            .activeGroup.getPanes()
             .filter((p) => p instanceof DiffEditorPane2);
     }
 
@@ -286,20 +286,20 @@ describe("Команды сравнения файлов", () => {
             expect(h.testApp.backend.screenToString()).toContain("DEV");
 
             // Повторный вызов той же ревизии — та же вкладка, не дубль.
-            const countBefore = editors.editorCount;
+            const countBefore = editors.activeGroup.editorCount;
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             // Активная вкладка — снимок; команда гейтится текстовым РЕДАКТИРУЕМЫМ
             // файлом? Нет: снимок тоже TextEditorPane — вернёмся в исходный файл.
             h.testApp.sendKey("Escape");
-            editors.activateTab(0);
+            editors.activeGroup.activateTab(0);
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             h.testApp.sendKey("Enter");
             await settle(50);
-            expect(editors.editorCount).toBe(countBefore);
+            expect(editors.activeGroup.editorCount).toBe(countBefore);
         });
 
         it("Open File at Revision: провайдер оригинала бросил — нотис «no version in git»", async () => {
@@ -309,7 +309,7 @@ describe("Команды сравнения файлов", () => {
             });
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
-            const countBefore = h.container.get(EditorServiceDIToken).editorCount;
+            const countBefore = h.container.get(EditorServiceDIToken).activeGroup.editorCount;
 
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
@@ -319,7 +319,7 @@ describe("Команды сравнения файлов", () => {
             h.testApp.render();
 
             expect(h.testApp.backend.screenToString()).toContain("no version in git");
-            expect(h.container.get(EditorServiceDIToken).editorCount).toBe(countBefore);
+            expect(h.container.get(EditorServiceDIToken).activeGroup.editorCount).toBe(countBefore);
         });
 
         it("Open File at Revision: файла нет на ревизии — нотис, вкладки нет", async () => {
@@ -331,7 +331,7 @@ describe("Команды сравнения файлов", () => {
             });
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
-            const countBefore = h.container.get(EditorServiceDIToken).editorCount;
+            const countBefore = h.container.get(EditorServiceDIToken).activeGroup.editorCount;
 
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
@@ -341,7 +341,7 @@ describe("Команды сравнения файлов", () => {
             h.testApp.render();
 
             expect(h.testApp.backend.screenToString()).toContain("does not exist on dev");
-            expect(h.container.get(EditorServiceDIToken).editorCount).toBe(countBefore);
+            expect(h.container.get(EditorServiceDIToken).activeGroup.editorCount).toBe(countBefore);
         });
     });
 
@@ -355,7 +355,7 @@ describe("Команды сравнения файлов", () => {
             await settle(10);
 
             expect(diffPanes()).toHaveLength(0);
-            expect(h.container.get(EditorServiceDIToken).editorCount).toBe(0);
+            expect(h.container.get(EditorServiceDIToken).activeGroup.editorCount).toBe(0);
         });
 
         it("selectForCompare без пути не взводит ключ, compareFiles без пути — no-op", async () => {

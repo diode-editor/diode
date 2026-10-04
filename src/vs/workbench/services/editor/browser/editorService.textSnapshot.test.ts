@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -54,7 +54,7 @@ describe("EditorService.openTextSnapshot", () => {
         expect(pane.viewState.document.languageId).toBe("typescript");
         // Обычная вкладка: в группе, активна. Сравнение ссылок — `===`, не
         // `toBe` (диф-принтер vitest на TUI-объектах валит воркер по памяти).
-        expect(service.editorCount).toBe(1);
+        expect(service.activeGroup.editorCount).toBe(1);
         expect(service.getActiveTabPane() === pane).toBe(true);
         service.dispose();
     });
@@ -85,9 +85,26 @@ describe("EditorService.openTextSnapshot", () => {
             label: "a.ts (dev)",
         });
 
-        expect(service.editorCount).toBe(1);
+        expect(service.activeGroup.editorCount).toBe(1);
         expect(second.getText()).toBe("new\n");
         expect(second.readOnly).toBe(true);
+        service.dispose();
+    });
+
+    it("повторный вызов с focus: false активирует вкладку, не забирая фокус", () => {
+        const service = createEditorService();
+        const first = service.openTextSnapshot(REVISION_URI, { text: "a\n", languageId: "plaintext", label: "a" });
+        const otherUri = Uri.from({ scheme: "git", path: "/repo/b.ts", query: '{"path":"/repo/b.ts","ref":"dev"}' });
+        service.openTextSnapshot(otherUri, { text: "b\n", languageId: "plaintext", label: "b" });
+        const focused = vi.spyOn(first, "focusEditor");
+
+        service.openTextSnapshot(REVISION_URI, { text: "a\n", languageId: "plaintext", label: "a", focus: false });
+
+        expect(service.getActiveTabPane() === first).toBe(true);
+        expect(focused).not.toHaveBeenCalled();
+
+        service.openTextSnapshot(REVISION_URI, { text: "a\n", languageId: "plaintext", label: "a" });
+        expect(focused).toHaveBeenCalled();
         service.dispose();
     });
 
@@ -98,7 +115,7 @@ describe("EditorService.openTextSnapshot", () => {
         const mainUri = Uri.from({ scheme: "git", path: "/repo/a.ts", query: '{"path":"/repo/a.ts","ref":"main"}' });
         service.openTextSnapshot(mainUri, { text: "main\n", languageId: "plaintext", label: "a.ts (main)" });
 
-        expect(service.editorCount).toBe(2);
+        expect(service.activeGroup.editorCount).toBe(2);
         service.dispose();
     });
 });
@@ -113,7 +130,7 @@ describe("TextFileModel.openFile — гейт схемы", () => {
         // ЛЮБОГО открытия уносил бы весь редактор через unhandled rejection.
         await expect(service.openUri(REVISION_URI)).resolves.toBeUndefined();
 
-        expect(service.editorCount).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(['git: no content provider is registered for the "git:" scheme']);
         service.dispose();
     });

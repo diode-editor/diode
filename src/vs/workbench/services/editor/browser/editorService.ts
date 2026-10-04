@@ -801,16 +801,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.onDidGroupsChangeEmitter.fire(event);
     }
 
-    /** Позиция активной вкладки активной группы. */
-    public get activeIndex(): number {
-        return this.activeGroupValue.activeIndex;
-    }
-
-    /** Число вкладок активной группы. */
-    public get editorCount(): number {
-        return this.activeGroupValue.editorCount;
-    }
-
     // ─── Панели: generic-поверхность для группы и вкладок ─────────────────────
 
     /**
@@ -853,15 +843,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             if (active?.getAncestorPath().includes(pane.view) === true) return pane;
         }
         return null;
-    }
-
-    public getPane(index: number): IEditorPane | null {
-        return this.activeGroupValue.getPane(index);
-    }
-
-    /** Открытые панели активной группы в позиционном порядке вкладок. */
-    public getPanes(): readonly IEditorPane[] {
-        return this.activeGroupValue.getPanes();
     }
 
     /**
@@ -963,7 +944,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия — панель по этому ресурсу заводит только этот метод
             if (existing !== null) {
                 /* v8 ignore stop */
-                this.activateTab(existingIndex, { focus });
+                group.activateTab(existingIndex, { focus });
                 return existing;
             }
         }
@@ -972,12 +953,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         group.insertPane(editor);
         group.activateTab(group.editorCount - 1, { focus });
         return editor;
-    }
-
-    /** Текстовый редактор по позиции вкладки; `null`, если там панель другого вида. */
-    public getEditor(index: number): TextEditorPane | null {
-        const pane = this.getPane(index);
-        return pane instanceof TextEditorPane ? pane : null;
     }
 
     /** Открытые текстовые редакторы ВСЕХ групп — без панелей других видов. */
@@ -1377,26 +1352,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 this.fireEditorsChanged();
             }),
         );
-    }
-
-    /** Переключение вкладки активной группы (порядок событий — контракт группы). */
-    public activateTab(index: number, options: { focus?: boolean; mru?: boolean } = {}): void {
-        this.activeGroupValue.activateTab(index, options);
-    }
-
-    /** MRU-переключение вкладок активной группы (Ctrl+Tab / Ctrl+Shift+Tab). */
-    public cycleMru(direction: 1 | -1): void {
-        this.activeGroupValue.cycleMru(direction);
-    }
-
-    /** Завершает серию Ctrl+Tab активной группы (по отпусканию Ctrl). */
-    public endMruCycle(): void {
-        this.activeGroupValue.endMruCycle();
-    }
-
-    /** Снимок MRU-порядка активной группы (mru[0] — самый недавний). */
-    public getMruOrder(): IEditorPane[] {
-        return this.activeGroupValue.getMruOrder();
     }
 
     /**

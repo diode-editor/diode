@@ -182,7 +182,7 @@ describe("EditorGroupComponent", () => {
             service.openFile(writeFile("a.ts", "a"));
             service.openFile(writeFile("b.ts", "b"));
 
-            service.activateTab(0);
+            service.activeGroup.activateTab(0);
 
             expect(contentSlot(component)).toBe(service.getActiveEditor()!.view);
         });
@@ -231,7 +231,7 @@ describe("EditorGroupComponent", () => {
 
             expect(tabStrip(component).activeIndex).toBe(1);
 
-            service.activateTab(0);
+            service.activeGroup.activateTab(0);
             expect(tabStrip(component).activeIndex).toBe(0);
         });
     });
@@ -293,7 +293,7 @@ describe("EditorGroupComponent", () => {
 
             tabStrip(component).onTabActivate?.(0);
 
-            expect(service.activeIndex).toBe(0);
+            expect(service.activeGroup.activeIndex).toBe(0);
         });
 
         it("onTabClose closes the clicked tab", () => {
@@ -303,7 +303,7 @@ describe("EditorGroupComponent", () => {
 
             tabStrip(component).onTabClose?.(0);
 
-            expect(service.editorCount).toBe(1);
+            expect(service.activeGroup.editorCount).toBe(1);
             expect(service.getActiveEditor()?.fileName).toBe("b.ts");
         });
 
@@ -318,7 +318,7 @@ describe("EditorGroupComponent", () => {
             // Not closed — waiting on the user; the asked-about tab is brought forward.
             expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
             expect(tabLabels(component)).toEqual(["a.ts", "b.ts"]);
-            expect(service.activeIndex).toBe(0);
+            expect(service.activeGroup.activeIndex).toBe(0);
 
             dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
             await new Promise((resolve) => setTimeout(resolve, 0));

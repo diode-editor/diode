@@ -188,14 +188,14 @@ describe("WorkbenchStateService", () => {
 
             make().restoreOpenEditors();
 
-            expect(editors.editorCount).toBe(0);
+            expect(editors.activeGroup.editorCount).toBe(0);
             expect(editors.groups.length).toBe(1);
         });
 
         it("пустой снимок — ничего не делает", () => {
             make().restoreOpenEditors();
 
-            expect(editors.editorCount).toBe(0);
+            expect(editors.activeGroup.editorCount).toBe(0);
         });
 
         it("рестор открывает без фокуса и кончается снимком фактической полосы", () => {

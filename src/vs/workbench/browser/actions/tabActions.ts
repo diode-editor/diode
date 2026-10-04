@@ -21,10 +21,10 @@ const TAB_SWITCHER_WEIGHT = KeybindingWeight.WorkbenchContrib;
  * «hold-сессии».
  */
 function cycleMruStep(accessor: ServiceAccessor, direction: 1 | -1): void {
-    const group = accessor.get(EditorServiceDIToken);
-    group.cycleMru(direction);
+    const editors = accessor.get(EditorServiceDIToken);
+    editors.activeGroup.cycleMru(direction);
     accessor.get(ModifierReleaseArmoryDIToken).armOnHoldRelease(() => {
-        group.endMruCycle();
+        editors.activeGroup.endMruCycle();
     });
 }
 
@@ -124,7 +124,7 @@ export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
     keybinding: parseKeybinding("ctrl+6"),
     when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
-        const group = accessor.get(EditorServiceDIToken);
+        const group = accessor.get(EditorServiceDIToken).activeGroup;
         group.cycleMru(1);
         group.endMruCycle();
     },

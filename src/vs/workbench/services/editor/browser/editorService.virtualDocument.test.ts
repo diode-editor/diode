@@ -101,11 +101,11 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         const pane = service.getActiveTabPane();
         expect(pane?.uri.toString()).toBe(Uri.parse(JDT_URI_RAW).toString());
-        expect(service.getEditor(0)?.getText()).toBe("public class StringUtils {}\n");
+        expect(service.getEditors()[0]?.getText()).toBe("public class StringUtils {}\n");
         // Метка — basename «пути» ресурса: у jdt: он честный, с расширением.
-        expect(service.getEditor(0)?.label).toBe("StringUtils.java");
-        expect(service.getEditor(0)?.readOnly).toBe(true);
-        expect(service.getEditor(0)?.viewState.document.languageId).toBe("java");
+        expect(service.getEditors()[0]?.label).toBe("StringUtils.java");
+        expect(service.getEditors()[0]?.readOnly).toBe(true);
+        expect(service.getEditors()[0]?.viewState.document.languageId).toBe("java");
         service.dispose();
     });
 
@@ -115,7 +115,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("demo:///scratch"));
 
-        expect(service.getEditor(0)?.viewState.document.languageId).toBe("plaintext");
+        expect(service.getEditors()[0]?.viewState.document.languageId).toBe("plaintext");
         service.dispose();
     });
 
@@ -126,14 +126,14 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         const uri = Uri.parse("demo:///a");
         await service.openUri(uri);
         service.openFile("/tmp/other.txt");
-        expect(service.editorCount).toBe(2);
+        expect(service.activeGroup.editorCount).toBe(2);
 
         // Синхронность важна навигации: Go Back открывает ресурс и ТУТ ЖЕ ведёт
         // каретку — между этими двумя шагами тика нет.
         void service.openUri(uri);
 
-        expect(service.activeIndex).toBe(0);
-        expect(service.editorCount).toBe(2);
+        expect(service.activeGroup.activeIndex).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(2);
         expect(provide).toHaveBeenCalledTimes(1);
         service.dispose();
     });
@@ -145,7 +145,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await expect(service.openUri(Uri.parse("jdt:///Foo.java"))).resolves.toBeUndefined();
 
-        expect(service.editorCount).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(0);
         expect(failures).toHaveLength(1);
         expect(failures[0].reason).toContain('no content provider is registered for the "jdt:" scheme');
         service.dispose();
@@ -159,7 +159,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("class:///Foo.class"));
 
-        expect(service.editorCount).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(['no content provider is registered for the "class:" scheme']);
         service.dispose();
     });
@@ -174,7 +174,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await expect(service.openUri(Uri.parse("jdt:///Foo.java"))).resolves.toBeUndefined();
 
-        expect(service.editorCount).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(["java/classFileContents timed out"]);
         service.dispose();
     });
@@ -201,7 +201,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("jdt:///Foo.java"));
 
-        expect(service.editorCount).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(['the "jdt:" content provider returned no content']);
         service.dispose();
     });
@@ -221,7 +221,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         // Ни одного await: вкладка обязана быть уже здесь, иначе сломались бы
         // все сайты, которые открывают файл и сразу двигают каретку.
-        expect(service.editorCount).toBe(1);
+        expect(service.activeGroup.editorCount).toBe(1);
         service.dispose();
     });
 
@@ -248,7 +248,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("jdt:///Foo.java"));
 
-        const viewState = service.getEditor(0)!.viewState;
+        const viewState = service.getEditors()[0].viewState;
         expect(viewState.wordWrap).toBe("bounded");
         expect(viewState.wordWrapColumn).toBe(40);
         expect(viewState.cursorSurroundingLines).toBe(5);
@@ -341,7 +341,7 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(service.getEditor(0)?.getText()).toBe("v2\n");
+            expect(service.getEditors()[0]?.getText()).toBe("v2\n");
             service.dispose();
         });
 
@@ -366,8 +366,8 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(service.getEditor(0)?.getText()).toBe("a v2\n");
-            expect(service.getEditor(1)?.getText()).toBe("b v1\n");
+            expect(service.getEditors()[0]?.getText()).toBe("a v2\n");
+            expect(service.getEditors()[1]?.getText()).toBe("b v1\n");
             // Файловая вкладка рядом — не цель освежения, и освежение не споткнулось о неё.
             expect(errors).toEqual([]);
             service.dispose();
@@ -401,7 +401,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.refreshVirtualDocument(Uri.parse("demo:///never-opened"));
             await Promise.resolve();
 
-            expect(service.editorCount).toBe(0);
+            expect(service.activeGroup.editorCount).toBe(0);
             expect(provide).not.toHaveBeenCalled();
             service.dispose();
         });
@@ -420,7 +420,7 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(service.getEditor(0)?.getText()).toBe("v1\n");
+            expect(service.getEditors()[0]?.getText()).toBe("v1\n");
             service.dispose();
         });
 
@@ -437,7 +437,7 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(service.getEditor(0)?.getText()).toBe("v1\n");
+            expect(service.getEditors()[0]?.getText()).toBe("v1\n");
             service.dispose();
         });
 
@@ -455,7 +455,7 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(service.getEditor(0)?.getText()).toBe("v1\n");
+            expect(service.getEditors()[0]?.getText()).toBe("v1\n");
             // «Нечего освежать» — штатный ответ провайдера, а не сбой: в лог
             // ничего не уходит (иначе `null` доехал бы до заливки текста).
             expect(logged).toEqual([]);
@@ -481,7 +481,7 @@ describe("EditorService.openUri — фокус при открытии неди�
             // держится `preserveFocus` у `showTextDocument`. Прежний редактор
             // при смене вкладки уходит из дерева, поэтому «фокус не взяли»
             // видно как отсутствие сфокусированного элемента вовсе.
-            expect(editors.editorCount).toBe(2);
+            expect(editors.activeGroup.editorCount).toBe(2);
             expect(editors.getActiveTabPane()?.uri.scheme).toBe("demo");
             expect(h.testApp.focusedElement).toBeNull();
         } finally {

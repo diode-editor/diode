@@ -552,7 +552,7 @@ describe("Workbench — Output: потребители, которым нужн�
         await Promise.resolve();
 
         expect(h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).not.toBeNull();
-        expect(editorService.editorCount).toBe(1);
+        expect(editorService.activeGroup.editorCount).toBe(1);
     });
 
     it("Ctrl+S при фокусе в Output сохраняет вкладку, а не уводит в Save As", async () => {
@@ -656,7 +656,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
         h.commands.execute(TOGGLE_OUTPUT);
 
         const editorService = h.container.get(EditorServiceDIToken);
-        expect(editorService.editorCount).toBe(1);
+        expect(editorService.activeGroup.editorCount).toBe(1);
         expect(editorService.getEditors()[0].fileName).toBe("alpha.txt");
     });
 

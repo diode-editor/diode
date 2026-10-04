@@ -27,8 +27,7 @@ function fakeEditor(uri: Uri) {
 
 function fakeGroup(editors: ReturnType<typeof fakeEditor>[]): EditorService {
     return {
-        editorCount: editors.length,
-        getEditor: (i: number) => editors[i] ?? null,
+        getEditors: () => editors,
     } as unknown as EditorService;
 }
 
@@ -62,18 +61,6 @@ describe("EditorDecorationsServiceAdapter", () => {
             { range: createRange(0, 0, 0, 0), color: 1 },
         ]);
         expect(untitled.received).toEqual([]);
-    });
-
-    it("пустой слот группы (getEditor === null) пропускается", () => {
-        // editorCount > фактического числа редакторов → getEditor(1) === null.
-        const group = {
-            editorCount: 2,
-            getEditor: (i: number) => (i === 0 ? fakeEditor(Uri.file("/proj/a.ts")) : null),
-        };
-        const adapter = new EditorDecorationsServiceAdapter(group as unknown as EditorService);
-        expect(() => {
-            adapter.setGutterChangeDecorations(Uri.file("/proj/a.ts").toString(), []);
-        }).not.toThrow();
     });
 });
 

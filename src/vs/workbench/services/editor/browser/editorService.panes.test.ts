@@ -91,9 +91,9 @@ describe("EditorService — панели не-текстового вида", ()
 
         service.openPane(pane);
 
-        expect(service.editorCount).toBe(1);
+        expect(service.activeGroup.editorCount).toBe(1);
         expect(service.getActivePane()).toBe(pane);
-        expect(service.getPanes()).toEqual([pane]);
+        expect(service.activeGroup.getPanes()).toEqual([pane]);
         expect(service.displayName(pane)).toBe("/diff");
     });
 
@@ -121,8 +121,8 @@ describe("EditorService — панели не-текстового вида", ()
         const duplicate = new FakePane(fakeUri("diff"));
         service.openPane(duplicate);
 
-        expect(service.editorCount).toBe(2);
-        expect(service.activeIndex).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(2);
+        expect(service.activeGroup.activeIndex).toBe(0);
         // Лишнюю панель обязаны утилизировать, иначе она утечёт.
         expect(duplicate.disposed).toBe(true);
     });
@@ -134,7 +134,7 @@ describe("EditorService — панели не-текстового вида", ()
 
         service.activeGroup.closeTab(0);
 
-        expect(service.editorCount).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(0);
         expect(pane.disposed).toBe(true);
         expect(service.getActivePane()).toBeNull();
     });
@@ -160,7 +160,6 @@ describe("EditorService — сужение текстовой поверхнос
 
         expect(service.getActivePane()).toBe(pane);
         expect(service.getActiveEditor()).toBeNull();
-        expect(service.getEditor(0)).toBeNull();
         expect(service.getEditors()).toEqual([]);
     });
 
@@ -199,13 +198,13 @@ describe("EditorService — смешанная группа", () => {
     it("вкладки обоих видов живут рядом и переключаются", () => {
         const { ws, service, pane } = openMixed();
         try {
-            expect(service.editorCount).toBe(2);
+            expect(service.activeGroup.editorCount).toBe(2);
             expect(service.getActivePane()).toBe(pane);
 
-            service.activateTab(0);
+            service.activeGroup.activateTab(0);
 
             expect(service.getActiveEditor()?.uri.fsPath).toBe(ws.path("a.ts"));
-            expect(service.getPanes()).toHaveLength(2);
+            expect(service.activeGroup.getPanes()).toHaveLength(2);
         } finally {
             service.dispose();
             ws.dispose();
@@ -215,11 +214,11 @@ describe("EditorService — смешанная группа", () => {
     it("MRU видит обе вкладки", () => {
         const { ws, service, pane } = openMixed();
         try {
-            service.activateTab(0);
-            service.cycleMru(1);
+            service.activeGroup.activateTab(0);
+            service.activeGroup.cycleMru(1);
 
             expect(service.getActivePane()).toBe(pane);
-            expect(service.getMruOrder()).toHaveLength(2);
+            expect(service.activeGroup.getMruOrder()).toHaveLength(2);
         } finally {
             service.dispose();
             ws.dispose();
@@ -233,7 +232,7 @@ describe("EditorService — смешанная группа", () => {
             expect(service.getOpenFilePaths()).toEqual([ws.path("a.ts")]);
             expect(service.collectDirty()).toEqual([]);
 
-            service.activateTab(0);
+            service.activeGroup.activateTab(0);
             service.getActiveEditor()?.viewState.type("X");
 
             expect(service.collectDirty().map((item) => item.name)).toEqual(["a.ts"]);

@@ -54,10 +54,9 @@ describe("EditorService.openDetached", () => {
 
         service.openDetached(OUTPUT_URI, "log");
 
-        expect(service.editorCount).toBe(0);
+        expect(service.activeGroup.editorCount).toBe(0);
         expect(service.getEditors()).toHaveLength(0);
         expect(service.getOpenFilePaths()).toHaveLength(0);
-        expect(service.getEditor(0)).toBeNull();
         service.dispose();
     });
 
@@ -77,7 +76,7 @@ describe("EditorService.openDetached", () => {
         // только когда пользователь реально работает в панели.
         const service = createEditorService();
         service.newUntitled({ focus: false });
-        const tab = service.getEditor(0);
+        const tab = service.getEditors()[0];
 
         service.openDetached(OUTPUT_URI, "log");
 

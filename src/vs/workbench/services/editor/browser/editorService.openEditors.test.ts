@@ -66,7 +66,7 @@ describe("EditorService — список открытых редакторов �
 
         expect(labels(ctrl)).toEqual(["c.ts", "b.ts", "a.ts"]);
 
-        ctrl.activateTab(0);
+        ctrl.activeGroup.activateTab(0);
 
         expect(labels(ctrl)).toEqual(["a.ts", "c.ts", "b.ts"]);
     });
@@ -109,7 +109,7 @@ describe("EditorService — список открытых редакторов �
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
-        const first = ctrl.getPanes()[0];
+        const first = ctrl.activeGroup.getPanes()[0];
 
         ctrl.revealPane(first);
 
@@ -134,7 +134,7 @@ describe("EditorService — список открытых редакторов �
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
-        const closed = ctrl.getPanes()[0];
+        const closed = ctrl.activeGroup.getPanes()[0];
         ctrl.activeGroup.closeTab(0);
         const activeBefore = ctrl.activeGroup.activePane;
 

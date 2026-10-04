@@ -18,9 +18,8 @@ export class EditorDecorationsServiceAdapter implements IEditorDecorationsServic
     }
 
     public setGutterChangeDecorations(uri: string, decorations: readonly IGutterChangeDecoration[]): void {
-        for (let i = 0; i < this.group.editorCount; i++) {
-            const editor = this.group.getEditor(i);
-            if (editor === null) continue;
+        // Все группы: тот же файл в соседнем сплите — тоже его вкладка.
+        for (const editor of this.group.getEditors()) {
             if (editor.uri.toString() === uri) {
                 editor.setGutterChangeDecorations(decorations);
             }
