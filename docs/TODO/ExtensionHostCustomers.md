@@ -31,9 +31,9 @@
 4. [x] window-customer (#491): progress, statusBar, output, diagnostics, quickInput,
    messages — handle'ы и их очистка уезжают в attach/dispose.
 5. [x] decorations + тема (#494).
-6. [~] filesystem-customer (FS-схемы, text-content, watcher'ы); отдельным
+6. [x] filesystem-customer (#497) (FS-схемы, text-content, watcher'ы); отдельным
    коммитом — сброс объявленных схем на смерти с событием.
-7. [ ] commands (прокси на спавн, заглушки-активаторы долгоживущие).
+7. [~] commands (прокси на спавн, заглушки-активаторы долгоживущие).
 8. [ ] editor + configuration.
 9. [ ] documents (save, sync, семя didOpen).
 10. [ ] language features; удалить опустевший `resetSubprocessState`, доки.
