@@ -68,3 +68,10 @@ export const hideInlineSuggestAction: CommandAction = {
         accessor.get(InlineCompletionsServiceDIToken).hide();
     },
 };
+
+/** Экшены призрачных подсказок. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const INLINE_COMPLETIONS_ACTIONS: readonly CommandAction[] = [
+    triggerInlineSuggestAction,
+    commitInlineSuggestAction,
+    hideInlineSuggestAction,
+];

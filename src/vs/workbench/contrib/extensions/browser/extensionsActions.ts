@@ -60,3 +60,6 @@ export const refreshExtensionsAction: CommandAction = {
             );
     },
 };
+
+/** Экшены магазина расширений. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const EXTENSIONS_ACTIONS: readonly CommandAction[] = [showExtensionsAction, refreshExtensionsAction];

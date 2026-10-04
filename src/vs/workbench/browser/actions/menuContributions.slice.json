@@ -1,0 +1,367 @@
+{
+    "EditorContext": {
+        "1_clipboard": [
+            "editor.action.clipboardCopyAction",
+            "editor.action.clipboardCutAction",
+            "editor.action.clipboardPasteAction"
+        ],
+        "2_undo": [
+            "undo"
+        ]
+    },
+    "EditorTitleContext": {
+        "1_close": [
+            "workbench.action.closeActiveEditor",
+            "workbench.action.closeOtherEditors",
+            "workbench.action.closeEditorsToTheRight",
+            "workbench.action.closeUnmodifiedEditors",
+            "workbench.action.closeAllEditors"
+        ],
+        "2_split": [
+            "workbench.action.splitEditorRight",
+            "workbench.action.splitEditorDown"
+        ],
+        "3_copypath": [
+            "fileOperations.copyPath",
+            "fileOperations.copyRelativePath"
+        ],
+        "4_reveal": [
+            "workbench.files.action.showActiveFileInExplorer"
+        ]
+    },
+    "ExplorerContext": {
+        "1_new": [
+            "explorer.newFile",
+            "explorer.newFolder"
+        ],
+        "2_clipboard": [
+            "fileOperations.copy",
+            "fileOperations.cut",
+            "fileOperations.paste"
+        ],
+        "3_compare": [
+            "selectForCompare",
+            "compareFiles"
+        ],
+        "3_copypath": [
+            "fileOperations.copyPath",
+            "fileOperations.copyRelativePath"
+        ],
+        "4_modify": [
+            "fileOperations.rename",
+            "fileOperations.deleteFile"
+        ],
+        "5_refresh": [
+            "workbench.files.action.refreshFilesExplorer"
+        ]
+    },
+    "GitBranchMenu": {
+        "1_integrate": [
+            "git.merge",
+            "git.mergeAbort",
+            "git.rebase",
+            "git.rebaseAbort"
+        ],
+        "2_branch": [
+            "git.branch",
+            "git.branchFrom",
+            "git.renameBranch",
+            "git.deleteBranch",
+            "git.deleteRemoteBranch"
+        ]
+    },
+    "GitChangesMenu": {
+        "1_changes": [
+            "git.stageAll",
+            "git.unstageAll",
+            "git.cleanAll"
+        ]
+    },
+    "GitCommitMenu": {
+        "1_commit": [
+            "git.commit",
+            "git.commitAmend"
+        ],
+        "2_staged": [
+            "git.commitStaged",
+            "git.commitStagedAmend"
+        ],
+        "3_all": [
+            "git.commitAll",
+            "git.commitAllAmend"
+        ],
+        "5_undo": [
+            "git.undoCommit"
+        ]
+    },
+    "GitPullPushMenu": {
+        "1_sync": [
+            "git.sync",
+            "git.syncRebase"
+        ],
+        "2_pull": [
+            "git.pull",
+            "git.pullRebase",
+            "git.pullFrom"
+        ],
+        "3_push": [
+            "git.push",
+            "git.pushForce",
+            "git.pushTo",
+            "git.pushWithTags"
+        ],
+        "4_fetch": [
+            "git.fetch",
+            "git.fetchPrune",
+            "git.fetchAll"
+        ]
+    },
+    "GitRemotesMenu": {
+        "1_remote": [
+            "git.addRemote",
+            "git.removeRemote"
+        ]
+    },
+    "GitStashMenu": {
+        "1_push": [
+            "git.stash",
+            "git.stashIncludeUntracked",
+            "git.stashStaged"
+        ],
+        "2_apply": [
+            "git.stashApplyLatest",
+            "git.stashApply",
+            "git.stashPopLatest",
+            "git.stashPop"
+        ],
+        "3_drop": [
+            "git.stashDrop",
+            "git.stashDropAll"
+        ]
+    },
+    "GitTagsMenu": {
+        "1_tags": [
+            "git.createTag",
+            "git.deleteTag",
+            "git.deleteRemoteTag"
+        ]
+    },
+    "MenubarEditMenu": {
+        "1_undo": [
+            "undo",
+            "redo"
+        ],
+        "2_clipboard": [
+            "editor.action.clipboardCutAction",
+            "editor.action.clipboardCopyAction",
+            "editor.action.clipboardPasteAction"
+        ],
+        "3_find": [
+            "actions.find",
+            "editor.action.nextMatchFindAction",
+            "editor.action.previousMatchFindAction"
+        ],
+        "4_comment": [
+            "editor.action.commentLine",
+            "editor.action.blockComment"
+        ]
+    },
+    "MenubarFileMenu": {
+        "1_new": [
+            "workbench.action.files.newUntitledFile",
+            "explorer.newFile",
+            "explorer.newFolder"
+        ],
+        "2_open": [
+            "workbench.action.files.openFile",
+            "workbench.action.files.openFolder"
+        ],
+        "3_save": [
+            "workbench.action.files.save",
+            "workbench.action.files.saveAs"
+        ],
+        "4_preferences": [
+            "workbench.action.openSettings",
+            "workbench.action.openGlobalKeybindings",
+            "workbench.action.openGlobalKeybindingsFile"
+        ],
+        "5_close": [
+            "workbench.action.closeActiveEditor"
+        ],
+        "5_quit": [
+            "workbench.action.reloadWindow",
+            "workbench.action.quit"
+        ]
+    },
+    "MenubarGoMenu": {
+        "0_history_nav": [
+            "workbench.action.navigateBack",
+            "workbench.action.navigateForward"
+        ],
+        "1_goto": [
+            "workbench.action.quickOpen",
+            "workbench.action.gotoLine"
+        ],
+        "2_editors": [
+            "workbench.action.nextEditor",
+            "workbench.action.previousEditor",
+            "workbench.action.nextEditorInGroup",
+            "workbench.action.openPreviousRecentlyUsedEditorInGroup",
+            "workbench.action.previousEditorInGroup"
+        ]
+    },
+    "MenubarHelpMenu": {
+        "1_about": [
+            "workbench.action.showAboutDialog"
+        ]
+    },
+    "MenubarMainMenu": {
+        "": [
+            "submenu:MenubarFileMenu",
+            "submenu:MenubarEditMenu",
+            "submenu:MenubarSelectionMenu",
+            "submenu:MenubarViewMenu",
+            "submenu:MenubarGoMenu",
+            "submenu:MenubarHelpMenu"
+        ]
+    },
+    "MenubarSelectionMenu": {
+        "1_select": [
+            "editor.action.selectAll"
+        ],
+        "2_expand": [
+            "cursorWordRightSelect"
+        ],
+        "2_line": [
+            "editor.action.copyLinesUpAction",
+            "editor.action.copyLinesDownAction",
+            "editor.action.moveLinesUpAction",
+            "editor.action.moveLinesDownAction",
+            "editor.action.duplicateSelection"
+        ],
+        "3_multi": [
+            "editor.action.insertCursorAbove",
+            "editor.action.insertCursorBelow",
+            "editor.action.insertCursorAtEndOfEachLineSelected"
+        ],
+        "4_find": [
+            "editor.action.addSelectionToNextFindMatch",
+            "editor.action.addSelectionToPreviousFindMatch",
+            "editor.action.moveSelectionToNextFindMatch",
+            "editor.action.moveSelectionToPreviousFindMatch",
+            "editor.action.selectHighlights"
+        ]
+    },
+    "MenubarViewMenu": {
+        "1_palette": [
+            "workbench.action.showCommands",
+            "workbench.action.showAllEditors"
+        ],
+        "2_theme": [
+            "workbench.action.selectTheme"
+        ],
+        "3_views": [
+            "workbench.view.explorer",
+            "workbench.view.search",
+            "workbench.view.scm",
+            "workbench.view.extensions",
+            "workbench.view.references",
+            "workbench.actions.view.problems",
+            "workbench.action.output.toggleOutput",
+            "workbench.action.terminal.toggleTerminal",
+            "workbench.action.toggleSidebarVisibility",
+            "workbench.action.togglePanel"
+        ],
+        "4_sidebar": [
+            "workbench.action.increaseSidebarWidth",
+            "workbench.action.decreaseSidebarWidth",
+            "workbench.action.resetSidebarWidth"
+        ],
+        "5_editor": [
+            "editor.action.toggleWordWrap"
+        ]
+    },
+    "ScmContext": {
+        "1_open": [
+            "scm.action.openFile",
+            "scm.action.openChanges"
+        ],
+        "2_stage": [
+            "git.stage",
+            "git.unstage"
+        ],
+        "3_discard": [
+            "git.clean"
+        ]
+    },
+    "ScmGraphContext": {
+        "1_checkout": [
+            "git.graph.checkoutDetached"
+        ],
+        "2_branch": [
+            "git.graph.branch"
+        ],
+        "3_tag": [
+            "git.graph.createTag"
+        ],
+        "4_modify": [
+            "git.graph.cherryPick",
+            "git.graph.revert"
+        ],
+        "5_reset": [
+            "git.graph.reset"
+        ],
+        "9_copy": [
+            "git.graph.copyCommitId",
+            "git.graph.copyCommitMessage"
+        ]
+    },
+    "ScmResourceGroupContext": {
+        "1_actions": [
+            "git.stage",
+            "git.unstage",
+            "git.clean"
+        ]
+    },
+    "ViewTitle": {
+        "1_actions": [
+            "scm.graph.loadMore"
+        ],
+        "1_view": [
+            "search.action.viewAsList",
+            "scm.action.viewAsTree",
+            "search.action.viewAsTree",
+            "scm.action.viewAsList"
+        ],
+        "2_git_top": [
+            "git.pull",
+            "git.push",
+            "git.checkout",
+            "git.fetch"
+        ],
+        "3_git_menus": [
+            "submenu:GitCommitMenu",
+            "submenu:GitChangesMenu",
+            "submenu:GitPullPushMenu",
+            "submenu:GitBranchMenu",
+            "submenu:GitRemotesMenu",
+            "submenu:GitStashMenu",
+            "submenu:GitTagsMenu"
+        ],
+        "9_footer": [
+            "git.showOutput"
+        ],
+        "navigation": [
+            "explorer.newFile",
+            "search.action.collapseSearchResults",
+            "search.action.expandSearchResults",
+            "scm.graph.refresh",
+            "extensions.refresh",
+            "references-view.collapseAll",
+            "references-view.expandAll",
+            "explorer.newFolder",
+            "references-view.clear",
+            "workbench.files.action.refreshFilesExplorer"
+        ]
+    }
+}

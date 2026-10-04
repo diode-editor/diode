@@ -26,3 +26,6 @@ export const keyboardDoctorAction: CommandAction = {
         await accessor.get(ClipboardDIToken).writeText(report);
     },
 };
+
+/** Экшены Keyboard Doctor. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const KEYBOARD_DOCTOR_ACTIONS: readonly CommandAction[] = [keyboardDoctorAction];
