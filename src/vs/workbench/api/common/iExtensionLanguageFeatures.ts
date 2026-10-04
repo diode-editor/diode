@@ -10,6 +10,7 @@ import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type { IFoldingRequest } from "../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
@@ -17,6 +18,7 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 
 import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
 
@@ -42,4 +44,5 @@ export interface IExtensionLanguageFeaturesBridge {
     provideFormattingEdits(handle: number, request: IFormattingRequest): Promise<readonly ITextEdit[]>;
     provideCodeActions(handle: number, request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
     applyCodeAction(id: string): Promise<boolean>;
+    provideFoldingRanges(handle: number, request: IFoldingRequest): Promise<readonly IFoldingRegion[]>;
 }

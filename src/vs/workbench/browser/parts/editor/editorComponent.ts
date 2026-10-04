@@ -8,8 +8,9 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
-import type { FoldingRangeSource } from "../../../../editor/common/languages/iFoldingSource.ts";
+import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
@@ -24,6 +25,7 @@ import type { WordWrapMode } from "../../../../editor/common/viewModel/editorVie
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
+import { provideFoldingRanges } from "../../../../editor/contrib/folding/syntaxRangeProvider.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type {
@@ -92,10 +94,11 @@ export class EditorComponent extends Component {
     private indentConfiguration: IIndentConfiguration = {};
     private foldingRecomputeScheduled = false;
     /**
-     * Источник провайдерских областей сворачивания (host/харнесс подключает сюда
-     * `languages.provideFoldingRanges`). Undefined ⇒ только indentation-фолды.
+     * Реестр folding-провайдеров (`ILanguageFeaturesService.foldingRangeProvider`):
+     * их области мержатся поверх indentation-фолдов. Нет подошедших документу
+     * провайдеров (или реестр не передан — пустой) ⇒ только indentation-фолды.
      */
-    private foldingRangeSourceValue?: FoldingRangeSource;
+    private readonly foldingProviders: LanguageFeatureRegistry<FoldingRangeProvider>;
     /** Токен темы, которым красится фон редактора; см. {@link backgroundToken}. */
     private backgroundTokenValue: WorkbenchColorKey = DEFAULT_BACKGROUND_TOKEN;
     /**
@@ -136,19 +139,6 @@ export class EditorComponent extends Component {
     }
     /** Текущая подписка на view-state; перевешивается при его пересоздании. */
     private viewStateCursorSubscription?: IDisposable;
-
-    public get foldingRangeSource(): FoldingRangeSource | undefined {
-        return this.foldingRangeSourceValue;
-    }
-
-    /**
-     * Подключает провайдерский folding-источник. Переустановка пере-считывает
-     * области (extension host мог активироваться уже после открытия файла).
-     */
-    public set foldingRangeSource(source: FoldingRangeSource | undefined) {
-        this.foldingRangeSourceValue = source;
-        this.recomputeFoldingRegions();
-    }
 
     /**
      * Подписка на смену курсора/выделения (движение каретки, набор, мышь,
@@ -199,8 +189,10 @@ export class EditorComponent extends Component {
         tokenStyleResolver: ITokenStyleResolver,
         model: TextFileModel,
         languageConfiguration: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
+        foldingProviders = new LanguageFeatureRegistry<FoldingRangeProvider>(),
     ) {
         super();
+        this.foldingProviders = foldingProviders;
 
         this.model = model;
         this.tokenizationRegistry = tokenizationRegistry;
@@ -262,6 +254,14 @@ export class EditorComponent extends Component {
         this.register(
             tokenizationRegistry.onDidChange((languageId) => {
                 if (languageId === this.model.languageId) this.applyTokenizer();
+            }),
+        );
+        // Состав folding-провайдеров изменился (расширение активировалось уже
+        // после открытия файла, второй провайдер, снятие) — пересчитываем
+        // области на каждую регистрацию, а не только на переходе «нет ↔ есть».
+        this.register(
+            foldingProviders.onDidChange(() => {
+                this.recomputeFoldingRegions();
             }),
         );
         this.register({
@@ -674,26 +674,26 @@ export class EditorComponent extends Component {
         const indentation = computeIndentationFolds(this.model.document, this.editorViewState.tabSize);
         this.applyFoldingRegions(indentation, collapsedStarts);
 
-        const source = this.foldingRangeSourceValue;
-        if (source === undefined) return;
-
-        // A later recompute (after an edit or a provider re-registration)
-        // supersedes this in-flight request, so a stale async answer never
-        // clobbers fresh state.
+        // Every recompute (an edit, a provider registered or removed) supersedes
+        // the in-flight request — including the one that finds no providers
+        // left: a late answer from a removed provider must not come back. A
+        // failed/timed-out provider answers "no regions" inside
+        // provideFoldingRanges — indentation folds stand.
         const ticket = this.foldingRequest.start();
-        void source({
+        const providers = this.foldingProviders.ordered(this.model);
+        // Stryker disable next-line ConditionalExpression: with no providers the aggregator answers [] and the branch below returns the same way — the guard only spares a full-text snapshot
+        if (providers.length === 0) return;
+
+        void provideFoldingRanges(providers, {
             uri: this.model.uri.toString(),
             languageId: this.model.languageId,
             text: this.model.document.getText(),
-        })
-            .then((providerRegions) => {
-                if (ticket.isStale()) return;
-                if (providerRegions.length === 0) return; // nothing to merge, indentation stays
-                this.applyFoldingRegions(mergeFoldingRegions(indentation, providerRegions), collapsedStarts);
-            })
-            .catch(() => {
-                // Provider failed/timed out: indentation folds already applied stand.
-            });
+        }).then((providerRegions) => {
+            if (ticket.isStale()) return;
+            // Stryker disable next-line ConditionalExpression: merging an empty set re-applies the indentation folds already applied above — the guard only skips that no-op
+            if (providerRegions.length === 0) return; // nothing to merge, indentation stays
+            this.applyFoldingRegions(mergeFoldingRegions(indentation, providerRegions), collapsedStarts);
+        });
     }
 
     /** Start lines of regions currently collapsed in the view state. */

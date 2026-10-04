@@ -1,3 +1,5 @@
+import type { LanguageFeatureRegistry } from "../vs/editor/common/languageFeatureRegistry.ts";
+import type { FoldingRangeProvider } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
@@ -17,6 +19,8 @@ export interface IEditorPaneOverrides {
     readonly languageService?: ILanguageService;
     readonly themeService?: ThemeService;
     readonly undoRedoService?: UndoRedoService;
+    /** Реестр folding-провайдеров (как `ILanguageFeaturesService.foldingRangeProvider`). */
+    readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
 }
 
 /**
@@ -34,6 +38,8 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         overrides.registry ?? new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         model,
+        undefined,
+        overrides.foldingProviders,
     );
     return new TextEditorPane(model, component);
 }

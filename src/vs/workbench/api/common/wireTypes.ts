@@ -742,6 +742,11 @@ export interface WireFoldingRange {
 
 /** Параметры запроса folding (host → subprocess). */
 export interface IWireFoldingParams {
+    /**
+     * Провайдеры, выбранные ядром по селектору, в порядке реестра — пачкой
+     * (`ProviderRequestBatcher`); ответ — массив областей, выровненный по ним.
+     */
+    readonly handles: readonly number[];
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
@@ -801,10 +806,12 @@ export async function requestFoldingRanges(
     request: (method: string, params: unknown) => Promise<unknown>,
     params: IWireFoldingParams,
     timeoutMs: number,
-): Promise<IFoldingRegion[]> {
+): Promise<IFoldingRegion[][]> {
     const outcome = await raceWithTimeout(request("languages.provideFoldingRanges", params), timeoutMs);
-    if (outcome === TIMED_OUT) return [];
-    return wireToCoreFoldingRegions(parseWireFoldingRanges(outcome));
+    // Не-массив (таймаут, сбой, чужая форма) — пусто у всех; недостающий
+    // элемент массива — пусто у своего провайдера.
+    const results = Array.isArray(outcome) ? outcome : undefined;
+    return params.handles.map((_handle, index) => wireToCoreFoldingRegions(parseWireFoldingRanges(results?.[index])));
 }
 
 // ─── Definition (LSP) ────────────────────────────────────────────────────────
@@ -972,6 +979,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "formatting",
     "rangeFormatting",
     "codeActions",
+    "folding",
 ] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 

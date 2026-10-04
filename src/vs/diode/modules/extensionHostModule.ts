@@ -306,17 +306,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
 
-        // Folding: провайдеры расширений (languages.provideFoldingRanges)
-        // подключаются как источник областей сворачивания группы (читает
-        // EditorComponent при пересчёте, мержит поверх indentation-фолдов).
-        group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
-        // Когда folding-провайдер появляется (расширение активировалось после
-        // открытия файла) — пере-подключаем источник, что триггерит пересчёт
-        // фолдов уже открытых редакторов (иначе области не подъедут до правки).
-        host.onFoldingProvidersChanged(() => {
-            group.foldingRangeSource = (req) => host.provideFoldingRanges(req);
-        });
-
         // Прощание (выход, перезагрузка окна, выход по инспектору) — один путь:
         // сперва вежливо, с `deactivate()` расширений, а что не успело выйти за
         // общий тайм-аут — сигналом в синхронной фазе (перезагрузка дальше

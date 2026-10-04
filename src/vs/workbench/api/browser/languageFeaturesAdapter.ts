@@ -101,6 +101,10 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideCodeActions: (request) => this.bridge.provideCodeActions(handle, request),
                 applyCodeAction: (id) => this.bridge.applyCodeAction(id),
             }),
+        folding: ({ handle, selector }) =>
+            this.languageFeatures.foldingRangeProvider.register(selector, {
+                provideFoldingRanges: (request) => this.bridge.provideFoldingRanges(handle, request),
+            }),
     };
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {

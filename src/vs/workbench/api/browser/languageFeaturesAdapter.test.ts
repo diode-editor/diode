@@ -51,6 +51,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         ),
         provideCodeActions: vi.fn((handle: number) => Promise.resolve([{ id: `${String(handle)}.0`, title: "fix" }])),
         applyCodeAction: vi.fn(() => Promise.resolve(true)),
+        provideFoldingRanges: vi.fn((handle: number) =>
+            Promise.resolve([{ startLine: handle, endLine: handle + 2, isCollapsed: false }]),
+        ),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -189,6 +192,18 @@ describe("LanguageFeaturesAdapter", () => {
         expect(await codeActions.applyCodeAction("3.0")).toBe(true);
         expect(bridge.applyCodeAction).toHaveBeenCalledWith("3.0");
         expect(features.codeActionProvider.ordered(MD)[0].providedCodeActionKinds).toEqual([]);
+    });
+
+    it("folding — прокси в реестре folding-провайдеров, зовёт хост со своим handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "folding", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const request = { uri: REQUEST.uri, languageId: "typescript", text: "x" };
+
+        const [folding] = features.foldingRangeProvider.ordered(TS);
+        expect(await folding.provideFoldingRanges(request)).toEqual([{ startLine: 5, endLine: 7, isCollapsed: false }]);
+        expect(bridge.provideFoldingRanges).toHaveBeenCalledWith(5, request);
     });
 
     it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {

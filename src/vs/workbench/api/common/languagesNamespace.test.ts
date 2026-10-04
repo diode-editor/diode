@@ -227,34 +227,28 @@ describe("LanguagesNamespace", () => {
         ]);
     });
 
-    it("registerFoldingRangeProvider сохраняет регистрацию и сигналит subscription", () => {
+    it("registerFoldingRangeProvider объявляет провайдера ядру, dispose снимает один раз", () => {
         const { ctx, stub } = makeCtx();
-        const { languages, foldingRegistrations } = createLanguagesNamespace(ctx);
+        const { languages } = createLanguagesNamespace(ctx);
         const provider = { provideFoldingRanges: () => [] } as never;
         const d1 = languages.registerFoldingRangeProvider(["csharp"], provider);
-        const d2 = languages.registerFoldingRangeProvider(["typescript"], provider);
-        expect(foldingRegistrations).toHaveLength(2);
-        // Только переход 0→1 шлёт notif (второй провайдер не шлёт).
-        const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
-        expect(subs).toHaveLength(1);
-        expect(subs[0].params).toEqual({
-            hasFoldingProviders: true,
-            hasInlineCompletionProviders: false,
-        });
+        languages.registerFoldingRangeProvider(["typescript"], provider);
+        expect(stub.notifies.filter((n) => n.method === "languages.register").map((n) => n.params)).toEqual([
+            { handle: 0, kind: "folding", selector: [{ language: "csharp" }] },
+            { handle: 1, kind: "folding", selector: [{ language: "typescript" }] },
+        ]);
 
-        d1.dispose(); // ещё остаётся d2 — notif нет
-        expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toHaveLength(1);
-        d1.dispose(); // повторный dispose безопасен (idx < 0)
-        d2.dispose(); // 1→0 — notif {false}
-        expect(foldingRegistrations).toHaveLength(0);
-        const after = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
-        expect(after[1].params).toEqual({
-            hasFoldingProviders: false,
-            hasInlineCompletionProviders: false,
-        });
+        d1.dispose();
+        d1.dispose(); // повторный dispose безопасен
+        expect(stub.notifies.filter((n) => n.method === "languages.unregister").map((n) => n.params)).toEqual([
+            { handle: 0 },
+        ]);
+        // Бит folding в updateSubscriptions больше не ездит.
+        const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
+        expect(subs.map((n) => n.params)).not.toContainEqual(expect.objectContaining({ hasFoldingProviders: true }));
     });
 
-    it("provideFoldingRanges: провайдер вернул не массив → пропускается", async () => {
+    it("provideFoldingRanges: ответ выровнен по handles; не массив → пустой список", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerFoldingRangeProvider(["csharp"], {
@@ -272,23 +266,28 @@ describe("LanguagesNamespace", () => {
         // ExtHostTextDocument без languageId остаётся csharp по предыдущему upsert? Нет —
         // тут первый upsert, поэтому явно даём languageId для матча селектора.
         const result = await stub.callRequest("languages.provideFoldingRanges", {
+            handles: [0, 1],
             uri: Uri.file("/proj/Program.cs").toString(),
             languageId: "csharp",
         });
-        expect(result).toEqual([{ start: 1, end: 2 }]);
+        expect(result).toEqual([[], [{ start: 1, end: 2 }]]);
     });
 
-    it("provideFoldingRanges: без languageId/text — дефолты, без матча селектора", async () => {
+    it("provideFoldingRanges: неизвестный и чужой формы handle — пустые, без handles — []", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
+        let asked = 0;
         languages.registerFoldingRangeProvider(["csharp"], {
-            provideFoldingRanges: () => [{ start: 0, end: 3 }],
+            provideFoldingRanges: () => {
+                asked++;
+                return [{ start: 0, end: 3 }];
+            },
         } as never);
-        // uri без languageId → документ plaintext → селектор csharp не матчит → [].
-        const result = await stub.callRequest("languages.provideFoldingRanges", {
-            uri: Uri.file("/proj/Program.txt").toString(),
-        });
-        expect(result).toEqual([]);
+        const uri = Uri.file("/proj/Program.txt").toString();
+
+        expect(await stub.callRequest("languages.provideFoldingRanges", { handles: [7, "0"], uri })).toEqual([[], []]);
+        expect(await stub.callRequest("languages.provideFoldingRanges", { uri })).toEqual([]);
+        expect(asked).toBe(0);
     });
 
     it("provide*-запрос идёт через documentSync: didOpen ДО вызова провайдера, обгон текста — didChange от старого", async () => {
@@ -315,22 +314,37 @@ describe("LanguagesNamespace", () => {
         } as never);
 
         const uri = Uri.file("/proj/Program.cs").toString();
-        await stub.callRequest("languages.provideFoldingRanges", { uri, languageId: "csharp", text: "a" });
+        await stub.callRequest("languages.provideFoldingRanges", {
+            handles: [0],
+            uri,
+            languageId: "csharp",
+            text: "a",
+        });
         expect(log).toEqual(["open:a", "provider"]);
 
         // Тот же текст — тихо, без события.
         log.length = 0;
-        await stub.callRequest("languages.provideFoldingRanges", { uri, languageId: "csharp", text: "a" });
+        await stub.callRequest("languages.provideFoldingRanges", {
+            handles: [0],
+            uri,
+            languageId: "csharp",
+            text: "a",
+        });
         expect(log).toEqual(["provider"]);
 
         // Запрос обогнал didChange: полноправная правка с диапазоном по СТАРОМУ
         // тексту ("a" → длина 1, конец 0:1), провайдер — после события.
         log.length = 0;
-        await stub.callRequest("languages.provideFoldingRanges", { uri, languageId: "csharp", text: "ab\ncdd" });
+        await stub.callRequest("languages.provideFoldingRanges", {
+            handles: [0],
+            uri,
+            languageId: "csharp",
+            text: "ab\ncdd",
+        });
         expect(log).toEqual(["change:1:0.1", "provider"]);
     });
 
-    it("provideFoldingRanges вызывает только матчащие провайдеры и сериализует области", async () => {
+    it("provideFoldingRanges зовёт провайдеров присланных handle и сериализует области", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerFoldingRangeProvider(["csharp"], {
@@ -339,19 +353,22 @@ describe("LanguagesNamespace", () => {
                 { start: 5, end: 9 },
             ],
         } as never);
-        // Провайдер другого языка не должен сработать.
+        // Провайдер, которого ядро не прислало, не должен сработать.
         languages.registerFoldingRangeProvider(["typescript"], {
             provideFoldingRanges: () => [{ start: 100, end: 200 }],
         } as never);
 
         const result = await stub.callRequest("languages.provideFoldingRanges", {
+            handles: [0],
             uri: Uri.file("/proj/Program.cs").toString(),
             languageId: "csharp",
             text: "/* #region */\n\n\n/* #endregion */\n\n\n\n\n\n\n",
         });
         expect(result).toEqual([
-            { start: 0, end: 3, kind: 3 },
-            { start: 5, end: 9 },
+            [
+                { start: 0, end: 3, kind: 3 },
+                { start: 5, end: 9 },
+            ],
         ]);
     });
 
@@ -367,10 +384,11 @@ describe("LanguagesNamespace", () => {
             provideFoldingRanges: () => [{ start: 1, end: 2 }],
         } as never);
         const result = await stub.callRequest("languages.provideFoldingRanges", {
+            handles: [0, 1],
             uri: Uri.file("/proj/Program.cs").toString(),
             languageId: "csharp",
             text: "a\nb\nc\n",
         });
-        expect(result).toEqual([{ start: 1, end: 2 }]);
+        expect(result).toEqual([[], [{ start: 1, end: 2 }]]);
     });
 });

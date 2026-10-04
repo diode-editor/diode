@@ -3,6 +3,7 @@ import type { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
 import type { CompletionItemProvider } from "../languages/iCompletionSource.ts";
 import type { DefinitionProvider } from "../languages/iDefinitionSource.ts";
+import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
     DocumentRangeFormattingEditProvider,
@@ -29,6 +30,7 @@ export interface ILanguageFeaturesService {
     readonly documentFormattingEditProvider: LanguageFeatureRegistry<DocumentFormattingEditProvider>;
     readonly documentRangeFormattingEditProvider: LanguageFeatureRegistry<DocumentRangeFormattingEditProvider>;
     readonly codeActionProvider: LanguageFeatureRegistry<CodeActionProvider>;
+    readonly foldingRangeProvider: LanguageFeatureRegistry<FoldingRangeProvider>;
 }
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
