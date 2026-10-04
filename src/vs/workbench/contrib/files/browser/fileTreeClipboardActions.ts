@@ -52,7 +52,7 @@ export const filePasteAction: CommandAction = {
     when: "listFocus",
     menus: [{ menuId: MenuId.ExplorerContext, group: "2_clipboard", order: 30, visible: explorerCanPaste }],
     run(accessor) {
-        accessor.get(FileOperationsServiceDIToken).paste();
+        return accessor.get(FileOperationsServiceDIToken).paste();
     },
 };
 

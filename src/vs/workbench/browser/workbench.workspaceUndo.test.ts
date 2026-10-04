@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -36,8 +36,10 @@ describe("Explorer undo/redo of file operations", () => {
         h.testApp.sendKey("ArrowDown"); // a.txt
         h.commands.execute("fileOperations.cut");
         h.testApp.sendKey("ArrowUp"); // target/
-        h.commands.execute("fileOperations.paste");
-        expect(fs.existsSync(ws.path("target/a.txt"))).toBe(true);
+        await h.commands.execute("fileOperations.paste");
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("target/a.txt"))).toBe(true);
+        });
         expect(fs.existsSync(ws.path("a.txt"))).toBe(false);
 
         h.commands.execute("fileOperations.undo");
@@ -45,7 +47,9 @@ describe("Explorer undo/redo of file operations", () => {
 
         // Move undo is not destructive → no dialog, file is back at its original place.
         expect(h.testApp.querySelector("#confirmDialog")).toBeNull();
-        expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
+        });
         expect(fs.existsSync(ws.path("target/a.txt"))).toBe(false);
     });
 
@@ -53,9 +57,11 @@ describe("Explorer undo/redo of file operations", () => {
         h.testApp.sendKey("ArrowDown"); // a.txt
         h.commands.execute("fileOperations.copy");
         h.testApp.sendKey("ArrowUp"); // target/
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
         const copy = ws.path("target/a.txt");
-        expect(fs.existsSync(copy)).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(copy)).toBe(true);
+        });
 
         h.commands.execute("fileOperations.undo");
         h.testApp.render();
@@ -66,9 +72,9 @@ describe("Explorer undo/redo of file operations", () => {
 
         h.testApp.sendKey("ArrowLeft"); // focus the confirm ("Yes") button
         h.testApp.sendKey("Enter");
-        await flush();
-
-        expect(fs.existsSync(copy)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(copy)).toBe(false);
+        });
         expect(fs.existsSync(ws.path("a.txt"))).toBe(true); // original untouched
     });
 
@@ -76,15 +82,17 @@ describe("Explorer undo/redo of file operations", () => {
         h.testApp.sendKey("ArrowDown"); // a.txt
         h.commands.execute("fileOperations.cut");
         h.testApp.sendKey("ArrowUp"); // target/
-        h.commands.execute("fileOperations.paste");
+        await h.commands.execute("fileOperations.paste");
 
         h.commands.execute("fileOperations.undo");
-        await flush();
-        expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
+        });
 
         h.commands.execute("fileOperations.redo");
-        await flush();
-        expect(fs.existsSync(ws.path("target/a.txt"))).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("target/a.txt"))).toBe(true);
+        });
         expect(fs.existsSync(ws.path("a.txt"))).toBe(false);
     });
 });

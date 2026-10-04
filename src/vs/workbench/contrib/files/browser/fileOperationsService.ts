@@ -29,8 +29,8 @@ import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
+import { WorkspaceEditService, WorkspaceEditServiceDIToken } from "../../bulkEdit/browser/workspaceEditService.ts";
 import type { ResourceFileEdit } from "../../bulkEdit/common/workspaceEdit.ts";
-import { WorkspaceEditService, WorkspaceEditServiceDIToken } from "../../bulkEdit/node/workspaceEditService.ts";
 
 import type { ExplorerService } from "./explorerService.ts";
 import { ExplorerServiceDIToken } from "./explorerService.ts";
@@ -128,17 +128,19 @@ export class FileOperationsService {
     }
 
     /** Вставляет содержимое файлового буфера в каталог под курсором дерева. */
-    public paste(): void {
+    public async paste(): Promise<void> {
         const targetDir = this.explorer.getPasteTargetDir();
         if (!targetDir) return;
         const entry = this.fileClipboard.read();
         if (!entry) return;
-        this.workspaceEditService.applyFileEdits(
+        // Буфер «вырезать» чистим сразу, до записи на диск: повторный Ctrl+V,
+        // пока первая вставка идёт, не должен переносить те же пути второй раз.
+        if (entry.mode === "cut") this.fileClipboard.clear();
+        await this.workspaceEditService.applyFileEdits(
             buildPasteEdits(entry, targetDir),
             entry.mode === "cut" ? "Move" : "Paste",
         );
-        if (entry.mode === "cut") this.fileClipboard.clear();
-        void this.explorer.refresh();
+        await this.explorer.refresh();
     }
 
     /** Удаление файла: подтверждение (всегда — если безвозвратно) + запись в историю отмены. */
@@ -147,14 +149,14 @@ export class FileOperationsService {
         const confirmDelete = this.configurationService.get("explorer.confirmDelete");
         const name = path.basename(filePath);
 
-        const doDelete = (): void => {
-            this.workspaceEditService.applyFileEdits([{ kind: "delete", from: filePath }], "Delete");
-            void this.explorer.refresh();
+        const doDelete = async (): Promise<void> => {
+            await this.workspaceEditService.applyFileEdits([{ kind: "delete", from: filePath }], "Delete");
+            await this.explorer.refresh();
         };
 
         // Безвозвратное удаление подтверждаем всегда (необратимо); удаление в корзину — по настройке.
         if (willTrash && !confirmDelete) {
-            doDelete();
+            void doDelete();
             return;
         }
         this.dialogService.showConfirmDialog(
@@ -175,7 +177,7 @@ export class FileOperationsService {
                       warning: true,
                       defaultButton: "cancel",
                   },
-            { onConfirm: doDelete },
+            { onConfirm: () => void doDelete() },
         );
     }
 
@@ -253,7 +255,7 @@ export class FileOperationsService {
         if (name === undefined) return;
 
         const resolved = path.resolve(targetDir, name.trim());
-        this.workspaceEditService.applyFileEdits(
+        await this.workspaceEditService.applyFileEdits(
             [{ kind: "create", to: resolved, directory: kind === "folder" }],
             kind === "file" ? "New File" : "New Folder",
         );
@@ -295,7 +297,7 @@ export class FileOperationsService {
         const trimmed = name.trim();
         if (trimmed === oldName) return; // имя не изменилось — ничего не делаем
         const resolved = path.resolve(parentDir, trimmed);
-        this.workspaceEditService.applyFileEdits([{ kind: "rename", from: filePath, to: resolved }], "Rename");
+        await this.workspaceEditService.applyFileEdits([{ kind: "rename", from: filePath, to: resolved }], "Rename");
         await this.explorer.refresh();
         await this.explorer.revealPath(resolved);
     }

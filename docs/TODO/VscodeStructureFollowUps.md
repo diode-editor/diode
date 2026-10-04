@@ -42,8 +42,9 @@
   сессий (сейчас слой рисует их в порядке `createSession`), см. H1.
 - [ ] **Single-process исключения env-оси** (`EXCEPTIONS` в
   `scripts/check-layers.mjs`): «browser»-сторона напрямую зовёт node-сервисы
-  (`services/search/node`, `services/terminalEnvironment/node`,
-  `contrib/bulkEdit/node`) — у vscode тут RPC-фасады (`IFileService` и т.п.).
+  (`services/search/node`, `services/terminalEnvironment/node`) — у vscode тут
+  RPC-фасады (`IFileService` и т.п.). `contrib/bulkEdit/node` снят: исполнитель
+  правок переехал в browser поверх `IFileService` ([FileService](FileService.md), PR 3).
   Сближение — интерфейсные швы в common + node-реализации за DI.
 - [ ] **`defaultStyles` → `editorElement`** (value-импорт unthemed-дефолтов):
   либо unthemed-дефолты редактора в platform, либо `getEditorStyles` в

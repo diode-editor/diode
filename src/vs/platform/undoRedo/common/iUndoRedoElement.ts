@@ -24,10 +24,13 @@ export interface IUndoRedoElement {
      * могли набрать текст в одном из них, и тогда откат снял бы не ту правку.
      * `false` здесь — честный отказ: {@link IUndoRedoElement.undo} не зовётся,
      * шаг остаётся в стеке (см. `UndoRedoService.undo`).
+     *
+     * Промис — когда для ответа надо сходить на диск (шаг правил закрытый
+     * файл: откатывать можно, только если на диске ровно записанное).
      */
-    canUndo?(): boolean;
+    canUndo?(): boolean | Promise<boolean>;
     /** То же для повтора. */
-    canRedo?(): boolean;
+    canRedo?(): boolean | Promise<boolean>;
     undo(): void | Promise<void>;
     redo(): void | Promise<void>;
 }

@@ -19,7 +19,7 @@ import type { IBulkEditService } from "../../../contrib/bulkEdit/common/iBulkEdi
 
 import { ExtensionHost } from "./extensionHost.ts";
 /** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
-const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 class FakeOptionsService implements IEditorOptionsService {
     public state: IEditorOptionsState | null = { tabSize: 4, insertSpaces: true };
@@ -47,8 +47,8 @@ class FakeOptionsService implements IEditorOptionsService {
     public applyActiveEditorEdits(): boolean {
         return false;
     }
-    public applyWorkspaceEdit(): boolean {
-        return false;
+    public applyWorkspaceEdit(): Promise<boolean> {
+        return Promise.resolve(false);
     }
 }
 

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
@@ -84,7 +84,9 @@ describe.skipIf(process.platform !== "linux")("Delete confirmations — explorer
         ctx.testApp.render();
 
         expect(ctx.testApp.querySelector("#confirmDialog")).toBeNull();
-        expect(fs.existsSync(alpha)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(alpha)).toBe(false);
+        });
         ctx.workbench.dispose();
     });
 
@@ -130,7 +132,9 @@ describe.skipIf(process.platform !== "linux")("Delete confirmations — explorer
         ctx.testApp.sendKey("Enter"); // дефолтная кнопка — "Move to Trash"
         ctx.testApp.render();
 
-        expect(fs.existsSync(alpha)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(alpha)).toBe(false);
+        });
         // Enter, подтвердивший диалог, не должен «протечь» вернувшемуся в фокус дереву
         // и активировать (открыть в редакторе) только что удалённый файл.
         expect(ctx.testApp.focusedElement).toBe(ctx.testApp.querySelector("TreeViewElement"));
@@ -169,7 +173,9 @@ describe("Delete confirmations — permanent delete (no trash)", () => {
         ctx.testApp.sendKey("Enter");
         ctx.testApp.render();
 
-        expect(fs.existsSync(alpha)).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(alpha)).toBe(false);
+        });
 
         // Безвозвратное удаление не отменяемо — undo ничего не возвращает.
         ctx.commands.execute("fileOperations.undo");
@@ -199,7 +205,9 @@ describe.skipIf(process.platform !== "linux")("Workspace undo — confirmation e
         ctx.commands.execute("fileOperations.copy");
         ctx.testApp.sendKey("ArrowUp"); // target/
         ctx.commands.execute("fileOperations.paste");
-        expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
+        });
 
         ctx.commands.execute("fileOperations.undo");
         ctx.testApp.render();

@@ -53,7 +53,9 @@ describe("Workbench — Rename", () => {
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
 
-        expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
+        });
         expect(fs.readFileSync(ws.path("new.txt"), "utf-8")).toBe("hi");
     });
 
@@ -67,7 +69,9 @@ describe("Workbench — Rename", () => {
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
 
-        expect(fs.existsSync(ws.path("dir"))).toBe(false);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("dir"))).toBe(false);
+        });
         expect(fs.readFileSync(path.join(ws.dir, "renamed", "inside.txt"), "utf-8")).toBe("x");
     });
 
@@ -149,7 +153,9 @@ describe("Workbench — Rename", () => {
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
 
-        expect(fs.existsSync(ws.path("picked.txt"))).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("picked.txt"))).toBe(true);
+        });
     });
 
     it("does nothing when neither an argument nor a selection is available", async () => {
@@ -216,7 +222,9 @@ describe("Workbench — Rename via context menu", () => {
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
 
-        expect(fs.existsSync(ws.path("beta.txt"))).toBe(true);
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("beta.txt"))).toBe(true);
+        });
         expect(fs.existsSync(ws.path("alpha.txt"))).toBe(false);
     });
 });

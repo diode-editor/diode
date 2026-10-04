@@ -8,7 +8,7 @@ import type { IActiveEditorSelections } from "../common/iEditorOptionsService.ts
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 /** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
-const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => false };
+const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 // Продюсер поля `kind` у `editor.selectionChanged` — «кто и по какому жесту его
 // шлёт». Источник снимается СИНХРОННО в обработчике, а нотификация уезжает

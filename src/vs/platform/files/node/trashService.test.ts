@@ -43,18 +43,18 @@ function writeFile(name: string, content = "secret"): string {
 
 // Бэкенд freedesktop поддерживается только на Linux.
 describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () => {
-    it("reports availability and creates the trash dirs", () => {
+    it("reports availability and creates the trash dirs", async () => {
         const trash = new TrashService();
         expect(trash.isAvailable()).toBe(true);
         expect(fs.existsSync(path.join(dataHome, "Trash", "files"))).toBe(true);
         expect(fs.existsSync(path.join(dataHome, "Trash", "info"))).toBe(true);
     });
 
-    it("moves a file into Trash/files and writes a .trashinfo", () => {
+    it("moves a file into Trash/files and writes a .trashinfo", async () => {
         const trash = new TrashService();
         const src = writeFile("pass.txt", "hunter2");
 
-        const entry = trash.trash(src);
+        const entry = await trash.trash(src);
 
         expect(fs.existsSync(src)).toBe(false);
         expect(fs.readFileSync(entry.trashedPath, "utf8")).toBe("hunter2");
@@ -65,12 +65,12 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
         expect(info).toMatch(/DeletionDate=\d{4}-\d{2}-\d{2}T/);
     });
 
-    it("restores a trashed file to its original path and clears the info", () => {
+    it("restores a trashed file to its original path and clears the info", async () => {
         const trash = new TrashService();
         const src = writeFile("note.md", "data");
-        const entry = trash.trash(src);
+        const entry = await trash.trash(src);
 
-        const restored = trash.restore(entry);
+        const restored = await trash.restore(entry);
 
         expect(restored).toBe(src);
         expect(fs.readFileSync(src, "utf8")).toBe("data");
@@ -78,28 +78,28 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
         expect(fs.existsSync(entry.infoPath)).toBe(false);
     });
 
-    it("auto-renames when a same-named file is already in the trash", () => {
+    it("auto-renames when a same-named file is already in the trash", async () => {
         const trash = new TrashService();
-        const e1 = trash.trash(writeFile("dup.txt", "one"));
-        const e2 = trash.trash(writeFile("dup.txt", "two"));
+        const e1 = await trash.trash(writeFile("dup.txt", "one"));
+        const e2 = await trash.trash(writeFile("dup.txt", "two"));
         expect(e1.trashedPath).not.toBe(e2.trashedPath);
         expect(fs.readFileSync(e1.trashedPath, "utf8")).toBe("one");
         expect(fs.readFileSync(e2.trashedPath, "utf8")).toBe("two");
     });
 
-    it("restores next to the original when the original path is occupied", () => {
+    it("restores next to the original when the original path is occupied", async () => {
         const trash = new TrashService();
         const src = writeFile("x.txt", "old");
-        const entry = trash.trash(src);
+        const entry = await trash.trash(src);
         fs.writeFileSync(src, "new"); // что-то заняло путь
 
-        const restored = trash.restore(entry);
+        const restored = await trash.restore(entry);
         expect(restored).not.toBe(src);
         expect(fs.existsSync(src)).toBe(true);
         expect(fs.readFileSync(restored, "utf8")).toBe("old");
     });
 
-    it("falls back to ~/.local/share when XDG_DATA_HOME is not set", () => {
+    it("falls back to ~/.local/share when XDG_DATA_HOME is not set", async () => {
         delete process.env.XDG_DATA_HOME;
         // Домашний каталог подменяем у `os.homedir`, а не через `process.env.HOME`:
         // в worker-потоке (пул `threads`, так гоняет Stryker) правка env до libuv
@@ -113,7 +113,7 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
         expect(fs.existsSync(path.join(home, ".local", "share", "Trash", "files"))).toBe(true);
     });
 
-    it("reports unavailable when the trash directories cannot be created", () => {
+    it("reports unavailable when the trash directories cannot be created", async () => {
         const blocker = path.join(tmpDir, "blocker");
         fs.writeFileSync(blocker, ""); // файл на месте каталога → mkdir упадёт
         process.env.XDG_DATA_HOME = path.join(blocker, "data");
@@ -121,19 +121,19 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
         expect(new TrashService().isAvailable()).toBe(false);
     });
 
-    it("trash() throws when the trash is unavailable", () => {
+    it("trash() throws when the trash is unavailable", async () => {
         const blocker = path.join(tmpDir, "blocker");
         fs.writeFileSync(blocker, "");
         process.env.XDG_DATA_HOME = path.join(blocker, "data");
 
         const src = writeFile("doomed.txt");
-        expect(() => new TrashService().trash(src)).toThrow();
+        await expect(new TrashService().trash(src)).rejects.toThrow();
         expect(fs.existsSync(src)).toBe(true); // файл не тронут
     });
 });
 
 describe("TrashService — platform gate", () => {
-    it("is unavailable on non-linux platforms", () => {
+    it("is unavailable on non-linux platforms", async () => {
         const original = Object.getOwnPropertyDescriptor(process, "platform")!;
         Object.defineProperty(process, "platform", { value: "darwin" });
         try {
