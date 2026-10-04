@@ -3,7 +3,7 @@ import {
     CancellationTokenSource,
     type ICancellationToken,
 } from "../../../../base/common/cancellation.ts";
-import { Emitter, type Event } from "../../../../base/common/event.ts";
+import { type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -64,8 +64,6 @@ import {
     type IWireShowMessageRequest,
     type IWireStatusBarItem,
     type IWireValidationMessage,
-    parseWireLanguageProviderRegistration,
-    parseWireLanguageProviderUnregistration,
     parseWireMementoUpdate,
     requestApplyCodeAction,
     requestCodeActions,
@@ -136,6 +134,7 @@ import { DocumentsCustomer, MAX_WILL_SAVE_TEXT_BYTES } from "./customers/documen
 import { EditorCustomer } from "./customers/editorCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
+import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
@@ -615,12 +614,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * между собой, а состав каталога от фазы не зависит.
      */
     private readonly registrations = new Map<string, IExtensionRegistration>();
-    /**
-     * Языковые провайдеры субпроцесса, переехавшие в реестр ядра (`languages.register`),
-     * по handle. Потребитель — `LanguageFeaturesAdapter`.
-     */
-    private readonly languageProviders = new Map<number, IWireLanguageProviderRegistration>();
-    private readonly onLanguageProvidersChangedEmitter = this.register(new Emitter<void>());
+    /** Реестр языковых провайдеров субпроцесса (мост под `ILanguageFeaturesService`). */
+    private readonly languageFeatures: LanguageFeaturesCustomer;
     /** Вызовы inline-прокси с одним запросом — одним RPC (см. `provideInlineCompletions`). */
     private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
         IInlineCompletionRequest,
@@ -674,6 +669,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
             ),
         );
+        this.languageFeatures = this.register(new LanguageFeaturesCustomer());
         this.documents = new DocumentsCustomer({
             willSaveTimeoutMs: this.options.willSaveTimeoutMs,
             openDocumentsProvider: options.openDocumentsProvider,
@@ -696,6 +692,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.decorations,
             this.editor,
             this.documents,
+            this.languageFeatures,
             ...(this.configurationCustomer === undefined ? [] : [this.configurationCustomer]),
             new WindowCustomer({
                 diagnosticsSink: options.diagnosticsSink,
@@ -1570,14 +1567,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * Потребитель — адаптер, регистрирующий их прокси в реестре ядра.
      */
     public getLanguageProviders(): readonly IWireLanguageProviderRegistration[] {
-        return [...this.languageProviders.values()];
+        return this.languageFeatures.getProviders();
     }
 
     /** Состав провайдеров изменился: регистрация, снятие или смерть субпроцесса. */
-    public readonly onLanguageProvidersChanged = this.onLanguageProvidersChangedEmitter.event;
-
-    private fireLanguageProvidersChanged(): void {
-        this.onLanguageProvidersChangedEmitter.fire();
+    public get onLanguageProvidersChanged(): Event<void> {
+        return this.languageFeatures.onProvidersChanged;
     }
 
     // ─── Провайдеры ФС и содержимого расширений (см. FileSystemCustomer) ──────
@@ -1724,21 +1719,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // attach и уходит вместе со spawnStore.
         for (const customer of this.customers) spawnStore.add(customer.attach({ rpc, logger: this.logger }));
         this.installMementoHandlers(rpc);
-        // Языковые провайдеры, переехавшие в реестр ядра: субпроцесс объявляет
-        // каждого с handle и селектором, ядро само решает, кого спрашивать.
-        rpc.handleNotification("languages.register", (params) => {
-            const registration = parseWireLanguageProviderRegistration(params);
-            // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` до события — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
-            if (registration === null) return;
-            this.languageProviders.set(registration.handle, registration);
-            this.fireLanguageProvidersChanged();
-        });
-        rpc.handleNotification("languages.unregister", (params) => {
-            const unregistration = parseWireLanguageProviderUnregistration(params);
-            // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` до события — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
-            if (unregistration === null || !this.languageProviders.delete(unregistration.handle)) return;
-            this.fireLanguageProvidersChanged();
-        });
     }
 
     /**
@@ -1781,12 +1761,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.rpc = null;
         this.process = null;
         this.readyPromise = null;
-        // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из
-        // реестра ядра, и запросы к мёртвым handle не уйдут.
-        if (this.languageProviders.size > 0) {
-            this.languageProviders.clear();
-            this.fireLanguageProvidersChanged();
-        }
     }
 
     /**
