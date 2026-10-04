@@ -10,11 +10,10 @@
 
 ## Как устроено
 
-Проводка — калька hover: seam `iSignatureHelpSource` → RPC
-`languages.provideSignatureHelp` (таймаут 5000 мс) →
-`EditorService.signatureHelpSource`. В отличие от hover/references ответы
-провайдеров **не склеиваются**: обходим совпавших по селектору по очереди и
-берём первый непустой — так предписывает vscode API («called sequentially until
+Проводка — калька hover: реестр `ILanguageFeaturesService.signatureHelpProvider`
+→ прокси по handle → RPC `languages.provideSignatureHelp` (таймаут 5000 мс). В
+отличие от hover/references ответы провайдеров **не склеиваются**: обходим
+подошедших документу по очереди (в порядке реестра) и берём первый непустой — так предписывает vscode API («called sequentially until
 a provider returns a valid result»), и иначе было бы нечего делать с двумя
 разными `activeParameter`.
 
@@ -28,8 +27,9 @@ a provider returns a valid result»), и иначе было бы нечего �
 **Триггер-символы объявляет сервер, а не ядро.** `typescript-language-server`
 отдаёт `triggerCharacters: ["(", ",", "<"]` и `retriggerCharacters: [")"]`;
 клиент передаёт их в регистрацию (объектом-метаданными, если ретриггеры есть, и
-rest-строками иначе — поддержаны обе перегрузки), а ядро читает их из
-`languages.updateSubscriptions` — тот же канал, что у `.` автодополнения.
+rest-строками иначе — поддержаны обе перегрузки), они едут метаданными
+регистрации, и ядро берёт их у провайдеров, подошедших документу, — так же, как
+`.` автодополнения.
 Поэтому `<` у дженериков работает бесплатно, а хардкод скобок в ядре не нужен.
 
 **Как подсказка живёт при наборе.** `ParameterHintsService` слушает те же

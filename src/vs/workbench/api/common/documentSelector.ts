@@ -1,38 +1,18 @@
 import type * as vscode from "vscode";
 
-import { matchGlob } from "../../../base/common/glob.ts";
+import { score } from "../../../editor/common/languageSelector.ts";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IWireLanguageFilter } from "./wireTypes.ts";
 
 /**
- * Матчинг `vscode.DocumentSelector` против документа (subprocess-side, WP8).
- *
- * Минимальная реализация `languages.match`: поддерживает строковый селектор
- * (сахар для `{ language }`), `DocumentFilter { language?, scheme?, pattern? }`
- * и массив (any-match). `pattern` — мини-glob по абсолютному пути
- * ({@link matchGlob}), которого достаточно для editorconfig-подобных селекторов.
+ * `languages.match` (upstream `ExtHostLanguages.match` → `score`): насколько
+ * селектор расширения подходит документу — 10 точное совпадение, 5 по `*`,
+ * 0 не подходит. Считает общий с ядром `editor/common/languageSelector.score`
+ * по DTO селектора, так что субпроцесс и реестр ядра не расходятся в матчинге.
  */
-export function matchDocumentSelector(selector: vscode.DocumentSelector, doc: ExtHostTextDocument): boolean {
-    if (Array.isArray(selector)) {
-        return selector.some((s) => matchDocumentSelector(s as vscode.DocumentSelector, doc));
-    }
-    if (typeof selector === "string") {
-        return matchLanguage(selector, doc);
-    }
-    return matchFilter(selector as vscode.DocumentFilter, doc);
-}
-
-function matchLanguage(language: string, doc: ExtHostTextDocument): boolean {
-    return language === "*" || language === doc.languageId;
-}
-
-function matchFilter(filter: vscode.DocumentFilter, doc: ExtHostTextDocument): boolean {
-    if (filter.language !== undefined && !matchLanguage(filter.language, doc)) return false;
-    if (filter.scheme !== undefined && filter.scheme !== "*" && filter.scheme !== doc.uri.scheme) return false;
-    if (typeof filter.pattern === "string" && !matchGlob(filter.pattern, doc.uri.fsPath)) return false;
-    // Хотя бы одно ограничение должно присутствовать (пустой фильтр не матчит).
-    return filter.language !== undefined || filter.scheme !== undefined || filter.pattern !== undefined;
+export function scoreDocumentSelector(selector: vscode.DocumentSelector, doc: ExtHostTextDocument): number {
+    return score(toWireLanguageFilters(selector), doc.uri, doc.languageId);
 }
 
 /**

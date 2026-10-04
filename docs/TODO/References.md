@@ -10,8 +10,8 @@ F4/Shift+F4 обходят ссылки, не уводя фокус из ред�
 
 ## Как устроено
 
-Проводка — калька definition: seam `iReferenceSource` → RPC
-`languages.provideReferences` (таймаут 5000 мс) → `EditorService.referenceSource`.
+Проводка — калька definition: реестр `ILanguageFeaturesService.referenceProvider`
+→ прокси по handle → RPC `languages.provideReferences` (таймаут 5000 мс).
 Ответ `textDocument/references` — это `Location[]`, форма совпадает с
 definition-целью до байта, поэтому новых value-классов в стабе не потребовалось:
 конвертер стокового `vscode-languageclient` строит тот же `new code.Location(...)`.
