@@ -58,7 +58,6 @@ import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../ap
 import type { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
-    type IWireClipboardText,
     type IWireColorTheme,
     type IWireDocumentSyncSnapshot,
     type IWireExtensionCatalog,
@@ -67,7 +66,6 @@ import {
     type IWireInputBoxResult,
     type IWireQuickPickRequest,
     type IWireQuickPickResult,
-    type IWireSecretRef,
     type IWireShowMessageRequest,
     type IWireShowMessageResult,
     type IWireStatusBarItem,
@@ -94,9 +92,6 @@ import {
     parseWireQuickPickRequest,
     parseWireReadFileResult,
     parseWireSchemes,
-    parseWireSecretKeysRequest,
-    parseWireSecretRef,
-    parseWireSecretWrite,
     parseWireSelections,
     parseWireShowMessageRequest,
     parseWireShowTextDocumentParams,
@@ -168,7 +163,10 @@ export interface IProgressSink {
 
 import type { IExternalOpener } from "../../externalOpener/common/iExternalOpener.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
+import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
 
+import { EnvCustomer } from "./customers/envCustomer.ts";
+import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
 
@@ -621,6 +619,8 @@ export class ExtensionHost extends Disposable {
      * шлющих в мёртвый канал.
      */
     private spawnStore = new DisposableStore();
+    /** Поверхности API, вынесенные из хоста (G1); подключаются на каждый спавн. */
+    private readonly customers: readonly IExtensionHostCustomer[];
     private hostDisposed = false;
     /** Прощание с субпроцессом, начатое {@link dispose}: его ждёт {@link shutdown}. */
     private shutdownDone: Promise<void> = Promise.resolve();
@@ -646,8 +646,6 @@ export class ExtensionHost extends Disposable {
     private readonly statusBarItemSink: IStatusBarItemSink | undefined;
     private readonly quickInputSink: IQuickInputSink | undefined;
     private readonly notificationSink: INotificationSink | undefined;
-    private readonly clipboard: IClipboard | undefined;
-    private readonly externalOpener: IExternalOpener | undefined;
     /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
     private readonly activeProgressHandles = new Set<number>();
     /**
@@ -666,8 +664,6 @@ export class ExtensionHost extends Disposable {
     private readonly fileWatcher: IExtensionFileWatcher;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
     private readonly storageHomes: () => IExtensionStorageHomes;
-    /** Хранилище секретов расширений (`ExtensionContext.secrets`). */
-    private readonly secrets: IExtensionSecretStore;
     /** Хранилище memento расширений (`globalState` / `workspaceState`). */
     private readonly extensionState: IExtensionStateStore;
     /**
@@ -754,7 +750,6 @@ export class ExtensionHost extends Disposable {
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
         this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
-        this.secrets = options.secrets ?? createInMemoryExtensionSecretStore();
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
         this.diagnosticsSink = options.diagnosticsSink;
@@ -763,8 +758,10 @@ export class ExtensionHost extends Disposable {
         this.statusBarItemSink = options.statusBarItemSink;
         this.quickInputSink = options.quickInputSink;
         this.notificationSink = options.notificationSink;
-        this.clipboard = options.clipboard;
-        this.externalOpener = options.externalOpener;
+        this.customers = [
+            new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
+            new EnvCustomer(options.clipboard, options.externalOpener),
+        ];
         // Смена темы → пере-резолв держимых декораций в обе поверхности + новая
         // тема расширениям (`window.onDidChangeActiveColorTheme`).
         this.register(
@@ -1926,7 +1923,9 @@ export class ExtensionHost extends Disposable {
 
     private installHostHandlers(rpc: RpcEndpoint): void {
         const spawnStore = this.spawnStore;
-        this.installSecretHandlers(rpc);
+        // Поверхности, вынесенные в customers: их состояние спавна живёт в
+        // attach и уходит вместе со spawnStore.
+        for (const customer of this.customers) spawnStore.add(customer.attach({ rpc, logger: this.logger }));
         this.installMementoHandlers(rpc);
         rpc.handleRequest("editor.setOptions", (params): unknown => {
             const patch = sanitizeOptionsPatch(params);
@@ -2260,22 +2259,6 @@ export class ExtensionHost extends Disposable {
             this.activeMessageHandles.delete(handle);
             return { index: index ?? null };
         });
-        // ─── env: буфер обмена и внешние ссылки ──────────────────────────────
-        rpc.handleRequest("env.clipboard.readText", async (): Promise<IWireClipboardText> => {
-            return { text: (await this.clipboard?.readText()) ?? "" };
-        });
-        rpc.handleRequest("env.clipboard.writeText", async (params): Promise<null> => {
-            const { text } = params as { text?: unknown };
-            // Не-строку в буфер не кладём: расширение прислало не то, что обещает
-            // тип, и затирать этим настоящее содержимое буфера нельзя.
-            if (typeof text === "string") await this.clipboard?.writeText(text);
-            return null;
-        });
-        rpc.handleRequest("env.openExternal", async (params): Promise<{ opened: boolean }> => {
-            const { uri } = params as { uri?: unknown };
-            if (typeof uri !== "string" || uri === "") return { opened: false };
-            return { opened: (await this.externalOpener?.open(uri)) ?? false };
-        });
         // ─── Decorations bridge (Chunk 4) ────────────────────────────────────
         // Субпроцесс завёл тип декорации. Регистрируем его форму: наличие
         // overviewRulerColor делает тип gutter change-bar'ом.
@@ -2390,16 +2373,6 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * `ExtensionContext.secrets`: субпроцесс не хранит ничего сам, а ходит сюда
-     * запросами — хранилище знает только хост (он владеет user-data).
-     *
-     * Ни одна из этих веток НЕ логируется: в параметрах едет значение секрета, и
-     * даже пара «расширение + ключ» рядом с ним в логе — уже утечка. Ошибки
-     * формы отдаём исключением (RPC превратит его в reject у расширения),
-     * ошибки самого хранилища — его собственным `onError` (туда уходят путь и
-     * причина, но никогда значение).
-     */
-    /**
      * `ExtensionContext.globalState` / `workspaceState`: субпроцесс держит
      * словарь у себя (синхронные `get`/`keys`), а каждый `update` присылает его
      * сюда целиком. Запись `workspaceState` из воркспейса, отличного от того, в
@@ -2419,34 +2392,6 @@ export class ExtensionHost extends Disposable {
                 return null;
             }
             this.extensionState.set(extensionId, shared, value);
-            return null;
-        });
-    }
-
-    private installSecretHandlers(rpc: RpcEndpoint): void {
-        rpc.handleRequest("secrets.keys", (params): unknown => {
-            const extensionId = parseWireSecretKeysRequest(params);
-            if (extensionId === null) throw new Error("secrets.keys: extensionId must be a non-empty string");
-            return { keys: [...this.secrets.keys(extensionId)] };
-        });
-        rpc.handleRequest("secrets.get", (params): unknown => {
-            const ref = requireSecretRef(params, "secrets.get");
-            // `null`, а не отсутствие поля: `undefined` через JSON не ездит.
-            return { value: this.secrets.get(ref.extensionId, ref.key) ?? null };
-        });
-        rpc.handleRequest("secrets.store", (params): unknown => {
-            const write = parseWireSecretWrite(params);
-            if (write === null) throw new Error("secrets.store: expected { extensionId, key, value } of strings");
-            this.secrets.store(write.extensionId, write.key, write.value);
-            rpc.notify("secrets.changed", { extensionId: write.extensionId, key: write.key });
-            return null;
-        });
-        rpc.handleRequest("secrets.delete", (params): unknown => {
-            const ref = requireSecretRef(params, "secrets.delete");
-            this.secrets.delete(ref.extensionId, ref.key);
-            // Событие — и на удаление: в эталоне `onDidChange` описывает факт
-            // изменения секрета, а не только его появление.
-            rpc.notify("secrets.changed", { extensionId: ref.extensionId, key: ref.key });
             return null;
         });
     }
@@ -2585,16 +2530,6 @@ export class ExtensionHost extends Disposable {
         await subprocess.shutdown(this.options.shutdownTimeoutMs);
         this.exitingProcess = null;
     }
-}
-
-/**
- * Адрес секрета из параметров запроса или исключение. Сообщение НЕ содержит
- * самих параметров: в соседнем поле того же объекта ездит значение секрета.
- */
-function requireSecretRef(raw: unknown, method: string): IWireSecretRef {
-    const ref = parseWireSecretRef(raw);
-    if (ref === null) throw new Error(`${method}: expected { extensionId, key } of non-empty strings`);
-    return ref;
 }
 
 function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {

@@ -24,9 +24,9 @@
    watcher'ы расширений снимаются на смерти, канал мертвеца закрывается, а
    оборванная смертью активация возвращается к оживлению. Тест на точную
    последовательность семян handshake — страховка для переносов ниже.
-2. [~] `ExtensionHostProcess` — spawn/ready/shutdown/kill/stdio отдельно от хоста
+2. [x] `ExtensionHostProcess` (#484) — spawn/ready/shutdown/kill/stdio отдельно от хоста
    (аналог `LocalProcessExtensionHost`).
-3. [ ] Контракт `IExtensionHostCustomer` + первые customers без состояния
+3. [~] Контракт `IExtensionHostCustomer` + первые customers без состояния
    (secrets, env: clipboard/openExternal).
 4. [ ] window-customer: progress, statusBar, output, diagnostics, quickInput,
    messages — handle'ы и их очистка уезжают в attach/dispose.
