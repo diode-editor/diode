@@ -19,3 +19,13 @@ export function isSeaBinary(): boolean {
         return false;
     }
 }
+
+/**
+ * Байты SEA-ассета по имени (`node:sea.getAsset`). Только внутри SEA-бинаря —
+ * вне его `node:sea` недоступен, и вызов бросает.
+ */
+export function readSeaAsset(name: string): ArrayBuffer {
+    const req = createRequire("file:///");
+    const sea = req("node:sea") as { getAsset(key: string): ArrayBuffer };
+    return sea.getAsset(name);
+}

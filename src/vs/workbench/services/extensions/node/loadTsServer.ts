@@ -1,13 +1,8 @@
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
-import { DIODE_VERSION } from "../../../../base/common/version.ts";
 import { extractBundleToCache } from "../../../../base/node/assets/extractBundleToCache.ts";
-import { entryDir } from "../../../../base/node/assets/packagedRuntime.ts";
-import { userCacheDir } from "../../../../base/node/cachePaths.ts";
-import { isSeaBinary } from "../../../../base/node/isSea.ts";
+import { packagedAssetCacheDir, readPackagedAsset } from "../../../../base/node/assets/packagedAsset.ts";
 
 /** Имя SEA-ассета / файла рядом с main.js (лок-степ с scripts/pack-ts-server.mjs и build-*). */
 const ASSET_NAME = "ts-server.bundle";
@@ -91,32 +86,7 @@ function computeTarget(): ITsServerPaths | null {
 /** Байты бандла + целевой каталог кэша; `null` — packaged-бандла нет (dev). */
 function bundleSource(): IBundleSource | null {
     if (cachedSource !== undefined) return cachedSource;
-    const bundle = readBundleBytes();
-    if (bundle === null) {
-        cachedSource = null;
-        return cachedSource;
-    }
-    const digest = createHash("sha256").update(bundle).digest("hex").slice(0, 12);
-    cachedSource = {
-        bundle,
-        cacheDir: path.join(userCacheDir(), "ts-server", `${DIODE_VERSION}-${digest}`),
-    };
+    const bundle = readPackagedAsset(ASSET_NAME);
+    cachedSource = bundle === null ? null : { bundle, cacheDir: packagedAssetCacheDir("ts-server", bundle) };
     return cachedSource;
-}
-
-function readBundleBytes(): Uint8Array | null {
-    if (isSeaBinary()) {
-        // `node:sea` доступен только через require внутри SEA-сборки (статический
-        // ESM-импорт падает) — тот же паттерн, что isSea.ts/loadRipgrep.ts.
-        const seaRequire = createRequire("file:///");
-        const sea = seaRequire("node:sea") as { getAsset(key: string): ArrayBuffer };
-        return new Uint8Array(sea.getAsset(ASSET_NAME));
-    }
-    // Self-extract: бандл лежит файлом рядом с main.js (build-selfextract.mjs).
-    const dir = entryDir();
-    if (dir !== null) {
-        const bundlePath = path.join(dir, ASSET_NAME);
-        if (existsSync(bundlePath)) return readFileSync(bundlePath);
-    }
-    return null;
 }

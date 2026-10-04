@@ -75,10 +75,9 @@ public readonly onDidChange = this.onDidChangeEmitter.event;
 ## Common/Assets/
 Унифицированный доступ к статическим ассетам (грамматики, `onig.wasm`, манифесты builtin-расширений) через один интерфейс `IAssetAccess` над виртуальными POSIX-путями — потребители не знают, откуда физически читаются файлы. Две реализации: `BundleAssetAccess` (in-memory mini-archive) и `FsAssetAccess` (dev, mapping `virtualPrefix → fsRoot`). `CompositeAssetAccess` — longest-prefix роутер, склеивающий builtin- и user-ассеты в одно адресное пространство. Сборка bundle — `scripts/pack-assets.mjs`.
 
-Три вида употребления ассетов:
+Два вида употребления ассетов:
 - **in-memory** (`diode.bundle`) — читается целиком, файлы наружу не пишутся (грамматики, код builtin-расширений);
-- **extract-to-tmp** (`rg.bundle`, `node-pty.bundle`) — распаковка в `os.tmpdir()` при первом использовании (`loadRipgrep`/`loadNodePty`; инвалидация по размеру ассета);
-- **extract-to-cache** (`ts-server.bundle`) — распаковка в XDG-кэш (`cachePaths.userCacheDir()` → `~/.cache/diode/...`), переживает ребут; примитив — `base/node/assets/extractBundleToCache.ts`: версионированный ключ `<version>-<sha256>`, mkdir-lock как мьютекс, публикация атомарным rename с `.diode-ready` (схема self-extract-стаба), ожидание чужого лока с таймаутом. Потребитель — `loadTsServer.ts` (вшитый language-сервер).
+- **extract-to-cache** (`rg.bundle`, `node-pty.bundle`, `ts-server.bundle`) — распаковка в XDG-кэш при первом использовании (переживает ребут). Чтение байтов — `base/node/assets/packagedAsset.ts` `readPackagedAsset(name)`: SEA → `node:sea.getAsset`, self-extract → файл рядом с `main.js`, dev → `null` (потребитель берёт node_modules). Каталог — `packagedAssetCacheDir(kind, bytes)` = `<userCacheDir>/<kind>/<version>-<sha256[0:12]>` (ключ по содержимому, не по размеру). Распаковка — `extractBundleToCache` / `extractBundleToCacheSync` (`base/node/assets/extractBundleToCache.ts`): mkdir-lock как мьютекс, публикация атомарным rename с `.diode-ready` (схема self-extract-стаба), ожидание чужого лока с таймаутом, `executable` — какие файлы получить `0o755` до публикации. Потребители — `loadRipgrep.ts` (sync: спавн из синхронного `search()`), `loadNodePty.ts` (sync: PTY в конструкторе сессии), `loadTsServer.ts` (async, вшитый language-сервер).
 
 `createDefaultAssetAccess()` выбирает источник **одного и того же** `diode.bundle` по убыванию приоритета:
 1. **SEA** — бандл внутри бинаря, `node:sea.getAsset("diode.bundle")`;
