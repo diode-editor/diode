@@ -58,6 +58,12 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideFoldingRanges: vi.fn((handle: number) =>
             Promise.resolve([{ startLine: handle, endLine: handle + 2, isCollapsed: false }]),
         ),
+        prepareRename: vi.fn((handle: number) =>
+            Promise.resolve({ kind: "name" as const, name: `symbol${String(handle)}` }),
+        ),
+        provideRenameEdits: vi.fn((handle: number, _request: unknown, newName: string) =>
+            Promise.resolve({ applied: newName === `ok${String(handle)}` }),
+        ),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -112,6 +118,22 @@ describe("LanguageFeaturesAdapter", () => {
             { uri: "file:///ref5.ts", range: createRange(0, 0, 0, 1) },
         ]);
         expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest);
+    });
+
+    it("rename — прокси в своём реестре: обе ручки зовут хост со своим handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 9, kind: "rename", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.renameProvider.ordered(TS);
+        expect(await provider.prepareRename(REQUEST)).toEqual({ kind: "name", name: "symbol9" });
+        expect(bridge.prepareRename).toHaveBeenCalledWith(9, REQUEST);
+
+        expect(await provider.provideRenameEdits(REQUEST, "ok9")).toEqual({ applied: true });
+        expect(bridge.provideRenameEdits).toHaveBeenCalledWith(9, REQUEST, "ok9");
+        // Новое имя доезжает дословно: чужое имя провайдер не применяет.
+        expect(await provider.provideRenameEdits(REQUEST, "other")).toEqual({ applied: false });
     });
 
     it("signatureHelp: триггеры из метаданных регистрации, без метаданных — пустые", async () => {
