@@ -97,7 +97,7 @@ describe("SuggestComponent — позиция попапа у каретки", (
         component.openAt({ screenX: 10, screenY: 5, preferBelow: true });
         app.render();
         // Сдвигаем сессию мимо компонента — пере-анкор обязан вернуть попап.
-        (component as unknown as { session: { setAnchor(a: unknown): void } }).session.setAnchor({
+        (component as unknown as { overlay: { setAnchor(a: unknown): void } }).overlay.setAnchor({
             screenX: 30,
             screenY: 15,
             preferBelow: true,
