@@ -111,3 +111,15 @@ export const hideSuggestWidgetAction: CommandAction = {
         accessor.get(CompletionServiceDIToken).hide();
     },
 };
+
+/** Экшены suggest-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const SUGGEST_ACTIONS: readonly CommandAction[] = [
+    triggerSuggestAction,
+    selectNextSuggestionAction,
+    selectPrevSuggestionAction,
+    selectNextPageSuggestionAction,
+    selectPrevPageSuggestionAction,
+    acceptSelectedSuggestionAction,
+    hideSuggestWidgetAction,
+    toggleSuggestionDetailsAction,
+];

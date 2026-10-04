@@ -57,3 +57,6 @@ export const newTerminalAction: CommandAction = {
         accessor.get(WorkbenchContextKeysDIToken).update();
     },
 };
+
+/** Экшены интегрированного терминала. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const TERMINAL_ACTIONS: readonly CommandAction[] = [toggleTerminalAction, newTerminalAction];

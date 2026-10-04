@@ -102,3 +102,10 @@ export const openKeybindingsFileAction: CommandAction = {
         return openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).keybindingsResource, "[]\n");
     },
 };
+
+/** Экшены настроек и вкладки Keyboard Shortcuts. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const PREFERENCES_ACTIONS: readonly CommandAction[] = [
+    openSettingsAction,
+    openKeybindingsAction,
+    openKeybindingsFileAction,
+];

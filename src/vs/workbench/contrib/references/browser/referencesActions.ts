@@ -144,3 +144,14 @@ export const expandReferencesAction: CommandAction = {
         accessor.get(ReferencesComponentDIToken).expandAll();
     },
 };
+
+/** Экшены Find All References и панели ссылок. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const REFERENCES_ACTIONS: readonly CommandAction[] = [
+    findAllReferencesAction,
+    showReferencesAction,
+    nextReferenceAction,
+    previousReferenceAction,
+    clearReferencesAction,
+    collapseReferencesAction,
+    expandReferencesAction,
+];

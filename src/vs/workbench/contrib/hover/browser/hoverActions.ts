@@ -45,3 +45,6 @@ export const hideHoverAction: CommandAction = {
         accessor.get(HoverServiceDIToken).close();
     },
 };
+
+/** Экшены hover-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const HOVER_ACTIONS: readonly CommandAction[] = [showHoverAction, hideHoverAction];

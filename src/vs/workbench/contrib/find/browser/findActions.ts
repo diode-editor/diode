@@ -66,3 +66,11 @@ export const closeFindWidgetAction: CommandAction = {
         accessor.get(FindServiceDIToken).close();
     },
 };
+
+/** Экшены find-виджета. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const FIND_ACTIONS: readonly CommandAction[] = [
+    findAction,
+    nextMatchAction,
+    previousMatchAction,
+    closeFindWidgetAction,
+];

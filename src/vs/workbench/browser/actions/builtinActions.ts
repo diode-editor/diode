@@ -1,122 +1,21 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import {
-    compareFilesAction,
-    compareFileWithAction,
-    compareNewUntitledTextFilesAction,
-    compareWithClipboardAction,
-    compareWithRevisionAction,
-    compareWithSavedAction,
-    openFileAtRevisionAction,
-    revertDiffHunkAction,
-    selectForCompareAction,
-    toggleInlineViewAction,
-} from "../../contrib/diff/browser/compareActions.ts";
-import { refreshExtensionsAction, showExtensionsAction } from "../../contrib/extensions/browser/extensionsActions.ts";
-import {
-    fileOpenAction,
-    fileOpenFolderAction,
-    fileSaveAction,
-    fileSaveAsAction,
-    newUntitledFileAction,
-    toggleActiveEditorReadonlyInSessionAction,
-} from "../../contrib/files/browser/fileActions.ts";
-import {
-    fileDeleteAction,
-    fileRedoAction,
-    fileRenameAction,
-    fileUndoAction,
-    refreshExplorerAction,
-} from "../../contrib/files/browser/fileTreeActions.ts";
-import {
-    fileCopyAction,
-    fileCopyPathAction,
-    fileCopyRelativePathAction,
-    fileCutAction,
-    filePasteAction,
-} from "../../contrib/files/browser/fileTreeClipboardActions.ts";
-import { explorerNewFileAction, explorerNewFolderAction } from "../../contrib/files/browser/fileTreeCreateActions.ts";
-import {
-    closeFindWidgetAction,
-    findAction,
-    nextMatchAction,
-    previousMatchAction,
-} from "../../contrib/find/browser/findActions.ts";
-import {
-    revealDefinitionAction,
-    revealDefinitionAsideAction,
-} from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
-import { hideHoverAction, showHoverAction } from "../../contrib/hover/browser/hoverActions.ts";
-import {
-    commitInlineSuggestAction,
-    hideInlineSuggestAction,
-    triggerInlineSuggestAction,
-} from "../../contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
-import { keyboardDoctorAction } from "../../contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
-import { toggleOutputAction } from "../../contrib/output/browser/outputActions.ts";
-import {
-    closeParameterHintsAction,
-    showNextParameterHintAction,
-    showPrevParameterHintAction,
-    triggerParameterHintsAction,
-} from "../../contrib/parameterHints/browser/parameterHintsActions.ts";
-import {
-    openKeybindingsAction,
-    openKeybindingsFileAction,
-    openSettingsAction,
-} from "../../contrib/preferences/browser/preferencesActions.ts";
-import {
-    gotoLineAction,
-    quickOpenAction,
-    showAllEditorsAction,
-    showCommandsAction,
-} from "../../contrib/quickaccess/browser/quickOpenActions.ts";
-import {
-    clearReferencesAction,
-    collapseReferencesAction,
-    expandReferencesAction,
-    findAllReferencesAction,
-    nextReferenceAction,
-    previousReferenceAction,
-    showReferencesAction,
-} from "../../contrib/references/browser/referencesActions.ts";
-import { BRANCH_ACTIONS } from "../../contrib/scm/browser/branchActions.ts";
-import {
-    scmFocusChangesAction,
-    scmFocusInputAction,
-    scmOpenChangesAction,
-    scmOpenFileAction,
-    scmViewAsListAction,
-    scmViewAsTreeAction,
-    showScmAction,
-} from "../../contrib/scm/browser/changesActions.ts";
-import { COMMIT_ACTIONS } from "../../contrib/scm/browser/commitActions.ts";
-import { compareWithHeadAction } from "../../contrib/scm/browser/compareWithHeadAction.ts";
-import { gitMutating } from "../../contrib/scm/browser/gitProgress.ts";
-import { GRAPH_VIEW_ACTIONS } from "../../contrib/scm/browser/graphActions.ts";
-import { GRAPH_COMMIT_ACTIONS } from "../../contrib/scm/browser/graphCommitActions.ts";
-import { gitShowOutputAction, REMOTE_TAG_ACTIONS } from "../../contrib/scm/browser/remoteTagActions.ts";
-import {
-    gitCleanAction,
-    gitCleanAllAction,
-    gitStageAction,
-    gitStageAllAction,
-    gitUnstageAction,
-    gitUnstageAllAction,
-} from "../../contrib/scm/browser/stagingActions.ts";
-import { STASH_ACTIONS } from "../../contrib/scm/browser/stashActions.ts";
-import { SYNC_ACTIONS } from "../../contrib/scm/browser/syncActions.ts";
-import {
-    acceptSelectedSuggestionAction,
-    hideSuggestWidgetAction,
-    selectNextPageSuggestionAction,
-    selectNextSuggestionAction,
-    selectPrevPageSuggestionAction,
-    selectPrevSuggestionAction,
-    toggleSuggestionDetailsAction,
-    triggerSuggestAction,
-} from "../../contrib/suggest/browser/suggestActions.ts";
-import { newTerminalAction, toggleTerminalAction } from "../../contrib/terminal/browser/terminalActions.ts";
-import { selectThemeAction } from "../../contrib/themes/browser/themeActions.ts";
+import { COMPARE_ACTIONS } from "../../contrib/diff/browser/compareActions.ts";
+import { EXTENSIONS_ACTIONS } from "../../contrib/extensions/browser/extensionsActions.ts";
+import { FILES_ACTIONS } from "../../contrib/files/browser/filesActions.ts";
+import { FIND_ACTIONS } from "../../contrib/find/browser/findActions.ts";
+import { GOTO_DEFINITION_ACTIONS } from "../../contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
+import { HOVER_ACTIONS } from "../../contrib/hover/browser/hoverActions.ts";
+import { INLINE_COMPLETIONS_ACTIONS } from "../../contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
+import { KEYBOARD_DOCTOR_ACTIONS } from "../../contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
+import { OUTPUT_ACTIONS } from "../../contrib/output/browser/outputActions.ts";
+import { PARAMETER_HINTS_ACTIONS } from "../../contrib/parameterHints/browser/parameterHintsActions.ts";
+import { PREFERENCES_ACTIONS } from "../../contrib/preferences/browser/preferencesActions.ts";
+import { QUICK_ACCESS_ACTIONS } from "../../contrib/quickaccess/browser/quickOpenActions.ts";
+import { REFERENCES_ACTIONS } from "../../contrib/references/browser/referencesActions.ts";
+import { SCM_ACTIONS } from "../../contrib/scm/browser/scmActions.ts";
+import { SUGGEST_ACTIONS } from "../../contrib/suggest/browser/suggestActions.ts";
+import { TERMINAL_ACTIONS } from "../../contrib/terminal/browser/terminalActions.ts";
+import { THEME_ACTIONS } from "../../contrib/themes/browser/themeActions.ts";
 
 import { quitAction, reloadWindowAction, showAboutDialogAction } from "./appActions.ts";
 import { clipboardCopyAction, clipboardCutAction, clipboardPasteAction } from "./clipboardActions.ts";
@@ -265,31 +164,16 @@ import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whites
  * обратный порядок массива его не меняет.
  */
 export const builtinActions: readonly CommandAction[] = [
-    // App
-    fileSaveAction,
-    fileSaveAsAction,
-    newUntitledFileAction,
-    fileOpenAction,
-    fileOpenFolderAction,
-    toggleActiveEditorReadonlyInSessionAction,
-    openSettingsAction,
-    openKeybindingsAction,
-    openKeybindingsFileAction,
-    keyboardDoctorAction,
+    ...FILES_ACTIONS,
+    ...PREFERENCES_ACTIONS,
+    ...KEYBOARD_DOCTOR_ACTIONS,
     showAboutDialogAction,
     reloadWindowAction,
     quitAction,
-
-    // Quick Open / пикеры (этап 8: run-обработчики живут в самих экшенах)
-    quickOpenAction,
-    showCommandsAction,
-    showAllEditorsAction,
-    gotoLineAction,
-    selectThemeAction,
+    ...QUICK_ACCESS_ACTIONS,
+    ...THEME_ACTIONS,
     changeEncodingAction,
     changeEolAction,
-
-    // Cursor movement
     cursorLeftAction,
     cursorLeftSelectAction,
     cursorRightAction,
@@ -319,11 +203,7 @@ export const builtinActions: readonly CommandAction[] = [
     scrollLineUpAction,
     scrollLineDownAction,
     toggleWordWrapAction,
-
-    // Multi-cursor
     ...MULTI_CURSOR_ACTIONS,
-
-    // Editing
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -334,24 +214,16 @@ export const builtinActions: readonly CommandAction[] = [
     selectAllAction,
     indentLinesAction,
     outdentLinesAction,
-
-    // Line operations (дубль/перенос/удаление строк)
     copyLinesUpAction,
     copyLinesDownAction,
     moveLinesUpAction,
     moveLinesDownAction,
     duplicateSelectionAction,
     deleteLinesAction,
-
-    // Comments (токены — из language configuration активного языка)
     ...COMMENT_ACTIONS,
-
-    // End of line
     convertToLfAction,
     convertToCrlfAction,
     toggleEolAction,
-
-    // Folding
     foldAction,
     unfoldAction,
     toggleFoldAction,
@@ -362,56 +234,27 @@ export const builtinActions: readonly CommandAction[] = [
     ...foldLevelActions,
     gotoNextFoldAction,
     gotoPreviousFoldAction,
-
-    // Whitespace
     trimTrailingWhitespaceAction,
     insertFinalNewLineAction,
-    triggerSuggestAction,
-
-    // Language features (провайдеры расширений через extension host)
-    revealDefinitionAction,
-    revealDefinitionAsideAction,
-    showHoverAction,
-    triggerParameterHintsAction,
+    ...SUGGEST_ACTIONS,
+    ...GOTO_DEFINITION_ACTIONS,
+    ...HOVER_ACTIONS,
+    ...PARAMETER_HINTS_ACTIONS,
     formatDocumentAction,
     formatSelectionAction,
     organizeImportsAction,
     fixAllAction,
     quickFixAction,
-
-    // Clipboard
     clipboardCopyAction,
     clipboardCutAction,
     clipboardPasteAction,
-
-    // Context menu (Shift+F10)
     showEditorContextMenuAction,
-
-    // Explorer file operations (Workbench/Actions поверх Explorer/FileOperations-сервисов)
-    fileDeleteAction,
-    fileRenameAction,
-    refreshExplorerAction,
-    fileUndoAction,
-    fileRedoAction,
-    fileCopyAction,
-    fileCutAction,
-    filePasteAction,
-    fileCopyPathAction,
-    fileCopyRelativePathAction,
-    explorerNewFileAction,
-    explorerNewFolderAction,
-
-    // List
     listFocusPageDownAction,
     listFocusPageUpAction,
     listFocusFirstAction,
     listFocusLastAction,
-
-    // Навигационная история (Go Back / Go Forward)
     navigateBackAction,
     navigateForwardAction,
-
-    // Tabs
     nextEditorAction,
     nextEditorInGroupAction,
     previousEditorAction,
@@ -419,11 +262,7 @@ export const builtinActions: readonly CommandAction[] = [
     openPreviousRecentlyUsedEditorInGroupAction,
     closeActiveEditorAction,
     ...TAB_CLOSE_ACTIONS,
-
-    // Editor groups (сплиты)
     ...EDITOR_GROUP_ACTIONS,
-
-    // Input widget
     inputCursorLeftAction,
     inputCursorRightAction,
     inputCursorHomeAction,
@@ -446,30 +285,8 @@ export const builtinActions: readonly CommandAction[] = [
     inputPasteAction,
     inputUndoAction,
     inputRedoAction,
-
-    // Find / Suggest / попапы над редактором (run-обработчики — поверх
-    // FindService/CompletionService/…; старшинство на общих клавишах — веса).
-    findAction,
-    nextMatchAction,
-    previousMatchAction,
-    closeFindWidgetAction,
-    triggerInlineSuggestAction,
-    commitInlineSuggestAction,
-    hideInlineSuggestAction,
-    selectNextSuggestionAction,
-    selectPrevSuggestionAction,
-    selectNextPageSuggestionAction,
-    selectPrevPageSuggestionAction,
-    acceptSelectedSuggestionAction,
-    hideSuggestWidgetAction,
-    toggleSuggestionDetailsAction,
-    hideHoverAction,
-    closeParameterHintsAction,
-    showNextParameterHintAction,
-    showPrevParameterHintAction,
-
-    // Layout / Panel / Terminal (run-обработчики поверх LayoutService/
-    // PanelService/TerminalService).
+    ...FIND_ACTIONS,
+    ...INLINE_COMPLETIONS_ACTIONS,
     toggleSidebarAction,
     showExplorerAction,
     showSearchAction,
@@ -488,66 +305,12 @@ export const builtinActions: readonly CommandAction[] = [
     togglePanelAction,
     closePanelAction,
     toggleProblemsAction,
-    toggleOutputAction,
-    toggleTerminalAction,
-    newTerminalAction,
-
-    // Сообщения (тосты над статус-баром)
+    ...OUTPUT_ACTIONS,
+    ...TERMINAL_ACTIONS,
     clearNotificationsAction,
     focusNotificationAction,
-
-    // Сравнение файлов (семейство diff, docs/TODO/DiffViewer.md)
-    compareWithSavedAction,
-    compareWithClipboardAction,
-    compareFileWithAction,
-    compareNewUntitledTextFilesAction,
-    selectForCompareAction,
-    compareFilesAction,
-    compareWithRevisionAction,
-    openFileAtRevisionAction,
-    revertDiffHunkAction,
-    toggleInlineViewAction,
-
-    // SCM
-    compareWithHeadAction,
-    showScmAction,
-    scmOpenFileAction,
-    scmOpenChangesAction,
-    scmViewAsTreeAction,
-    scmViewAsListAction,
-    scmFocusInputAction,
-    scmFocusChangesAction,
-    gitShowOutputAction,
-
-    // Магазин расширений (docs/TODO/ExtensionsView.md)
-    showExtensionsAction,
-    refreshExtensionsAction,
-
-    // Find All References и панель ссылок (docs/TODO/References.md)
-    findAllReferencesAction,
-    showReferencesAction,
-    nextReferenceAction,
-    previousReferenceAction,
-    clearReferencesAction,
-    collapseReferencesAction,
-    expandReferencesAction,
-    // Всё, что мутирует репозиторий (или гоняет git по нашей команде), гасится
-    // на время уже идущей операции — `enablement: !gitOperationInProgress`.
-    // В VS Code это поле у каждой команды манифеста; у нас — один список, чтобы
-    // не расходился с тем, что реально ходит через транспортные швы.
-    ...[
-        ...GRAPH_VIEW_ACTIONS,
-        ...GRAPH_COMMIT_ACTIONS,
-        gitStageAction,
-        gitUnstageAction,
-        gitStageAllAction,
-        gitUnstageAllAction,
-        gitCleanAction,
-        gitCleanAllAction,
-        ...COMMIT_ACTIONS,
-        ...SYNC_ACTIONS,
-        ...BRANCH_ACTIONS,
-        ...STASH_ACTIONS,
-        ...REMOTE_TAG_ACTIONS,
-    ].map(gitMutating),
+    ...COMPARE_ACTIONS,
+    ...SCM_ACTIONS,
+    ...EXTENSIONS_ACTIONS,
+    ...REFERENCES_ACTIONS,
 ];
