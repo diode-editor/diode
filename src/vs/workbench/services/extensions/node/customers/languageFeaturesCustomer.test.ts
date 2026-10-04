@@ -289,6 +289,7 @@ describe("LanguageFeaturesCustomer — запросы только по синх
     });
 });
 
+/** Плоский диапазон правок (`IWireEditorEdit`, G5 C2); языковые ответы едут `CORE_RANGE`. */
 const RANGE = { startLine: 2, startCharacter: 4, endLine: 2, endCharacter: 9 };
 const CORE_RANGE = { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } };
 
@@ -320,9 +321,9 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
     it("пачечные ответы выровнены по провайдерам: недостающий элемент — пусто у своего", async () => {
         const h = setupAnswering({
             "languages.provideCompletionItems": () => [
-                { items: [{ label: "a", insertText: "a", range: RANGE }], isIncomplete: true },
+                { items: [{ label: "a", insertText: "a", range: CORE_RANGE }], isIncomplete: true },
             ],
-            "languages.provideInlineCompletions": () => [[{ insertText: "x", range: RANGE }]],
+            "languages.provideInlineCompletions": () => [[{ insertText: "x", range: CORE_RANGE }]],
             "languages.provideFoldingRanges": () => [
                 [
                     { start: 1, end: 4, kind: 3 },
@@ -354,9 +355,9 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
                 detail: "d",
                 additionalEdits: [{ range: RANGE, text: "import x\n" }],
             }),
-            "languages.provideDefinition": () => [{ uri: "file:///b.ts", range: RANGE }],
-            "languages.provideHover": () => ({ contents: ["**x**"], range: RANGE }),
-            "languages.provideReferences": () => [{ uri: "file:///c.ts", range: RANGE }],
+            "languages.provideDefinition": () => [{ uri: "file:///b.ts", range: CORE_RANGE }],
+            "languages.provideHover": () => ({ contents: ["**x**"], range: CORE_RANGE }),
+            "languages.provideReferences": () => [{ uri: "file:///c.ts", range: CORE_RANGE }],
             "languages.provideSignatureHelp": () => ({
                 signatures: [{ label: "f(a)", parameters: [] }],
                 activeSignature: 0,

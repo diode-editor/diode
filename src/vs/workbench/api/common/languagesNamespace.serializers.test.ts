@@ -4,7 +4,7 @@ import type * as vscode from "vscode";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
-import { createLanguagesNamespace } from "./languagesNamespace.ts";
+import { createLanguagesNamespace, serializeRange } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CodeAction, CodeActionKind, CompletionItem, Range, TextEdit } from "./vscodeTypes.ts";
@@ -17,6 +17,9 @@ import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const URI = "file:///proj/main.ts";
 const TARGET = "file:///proj/target.ts";
+/** Диапазон языкового ответа на проводе — core `IRange`. */
+const RANGE = { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } };
+/** Диапазон правки — пока плоский `IWireEditorEdit` (G5, C2). */
 const WIRE_RANGE = { startLine: 0, startCharacter: 1, endLine: 0, endCharacter: 2 };
 
 function setup(): { languages: typeof vscode.languages; stub: IStubRpc } {
@@ -41,6 +44,56 @@ function rangeWith(line: number): Range {
     return new Range(line, 1, 0, 2);
 }
 
+describe("languagesNamespace — serializeRange", () => {
+    it("Range расширения — в core IRange из чистых объектов, без прототипа Position", () => {
+        const range = serializeRange(new Range(1, 2, 3, 4));
+        expect(range).toStrictEqual({ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } });
+    });
+
+    it("чужой утиный Range (другой бандл, лишние поля) принимается по форме", () => {
+        const foreign = {
+            start: { line: 0, character: 1, extra: true },
+            end: { line: 0, character: 2 },
+            isEmpty: false,
+        };
+        expect(serializeRange(foreign)).toStrictEqual(RANGE);
+    });
+
+    it("перевёрнутый диапазон разворачивается: по строке и по символу в одной строке", () => {
+        expect(serializeRange({ start: { line: 3, character: 0 }, end: { line: 1, character: 5 } })).toStrictEqual({
+            start: { line: 1, character: 5 },
+            end: { line: 3, character: 0 },
+        });
+        expect(serializeRange({ start: { line: 0, character: 2 }, end: { line: 0, character: 1 } })).toStrictEqual(
+            RANGE,
+        );
+    });
+
+    it("схлопнутый диапазон остаётся как есть", () => {
+        const point = { line: 2, character: 3 };
+        expect(serializeRange({ start: point, end: point })).toStrictEqual({ start: point, end: point });
+    });
+
+    it("NaN и ±Infinity в любой из четырёх координат — null", () => {
+        for (const bad of [NaN, Infinity, -Infinity]) {
+            expect(serializeRange({ start: { line: bad, character: 0 }, end: { line: 0, character: 0 } })).toBeNull();
+            expect(serializeRange({ start: { line: 0, character: bad }, end: { line: 0, character: 0 } })).toBeNull();
+            expect(serializeRange({ start: { line: 0, character: 0 }, end: { line: bad, character: 0 } })).toBeNull();
+            expect(serializeRange({ start: { line: 0, character: 0 }, end: { line: 0, character: bad } })).toBeNull();
+        }
+    });
+
+    it("чужая форма — null: не объект, нет start/end, плоский провод, координата строкой", () => {
+        expect(serializeRange(null)).toBeNull();
+        expect(serializeRange(undefined)).toBeNull();
+        expect(serializeRange(5)).toBeNull();
+        expect(serializeRange({ end: { line: 0, character: 0 } })).toBeNull();
+        expect(serializeRange({ start: { line: 0, character: 0 } })).toBeNull();
+        expect(serializeRange(WIRE_RANGE)).toBeNull();
+        expect(serializeRange({ start: { line: "0", character: 0 }, end: { line: 0, character: 0 } })).toBeNull();
+    });
+});
+
 describe("languagesNamespace — диапазоны: координаты только конечные числа", () => {
     it("definition и references: цель с NaN/Infinity в диапазоне или пустым uri отбрасывается", async () => {
         const { languages, stub } = setup();
@@ -58,7 +111,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         languages.registerReferenceProvider("typescript", {
             provideReferences: () => items as unknown as vscode.Location[],
         });
-        const expected = [{ uri: TARGET, range: WIRE_RANGE }];
+        const expected = [{ uri: TARGET, range: RANGE }];
         expect(await stub.callRequest("languages.provideDefinition", { ...POSITION, handle: 0 })).toEqual(expected);
         expect(
             await stub.callRequest("languages.provideReferences", { ...POSITION, handle: 1, includeDeclaration: true }),
@@ -95,7 +148,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         expect(result.items.map(({ label, kind, range }) => ({ label, kind, range }))).toEqual([
             { label: "broken", kind: undefined, range: undefined },
             { label: "infinite", kind: undefined, range: undefined },
-            { label: "ok", kind: 2, range: WIRE_RANGE },
+            { label: "ok", kind: 2, range: RANGE },
         ]);
         expect(Object.keys(result.items[0])).not.toContain("kind");
     });
@@ -230,7 +283,7 @@ describe("languagesNamespace — code actions: вид — только стро�
         const result = (await stub.callRequest("languages.provideCodeActions", {
             ...DOC,
             handle: 0,
-            range: WIRE_RANGE,
+            range: RANGE,
         })) as Record<string, unknown>[];
         expect(result.map(({ title, kind }) => ({ title, kind }))).toEqual([
             { title: "broken", kind: undefined },

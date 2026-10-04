@@ -112,7 +112,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
             provideDocumentRangeFormattingEdits: provide,
         } as unknown as vscode.DocumentRangeFormattingEditProvider); // 2
-        const selection = { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 };
+        const selection = { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } };
 
         // Снятый handle и handle чужого вида не будят и синхронизацию документа.
         const stale = "file:///proj/stale.ts";
@@ -153,7 +153,7 @@ describe("LanguagesNamespace — провайдеры форматировани
 
         const result = await stub.callRequest(
             "languages.provideFormattingEdits",
-            requestParams({ range: { startLine: 1, startCharacter: 2, endLine: 2, endCharacter: 4 } }),
+            requestParams({ range: { start: { line: 1, character: 2 }, end: { line: 2, character: 4 } } }),
         );
         expect(result).toEqual([
             { range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 5 }, text: "x" },
@@ -241,7 +241,7 @@ describe("LanguagesNamespace — провайдеры форматировани
             // Полный диапазон за документный запрос ядро шлёт тем же range-запросом.
             await stub.callRequest(
                 "languages.provideFormattingEdits",
-                requestParams({ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 } }),
+                requestParams({ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } } }),
             );
 
             expect(errors).toHaveLength(1);
@@ -263,7 +263,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(
             await stub.callRequest(
                 "languages.provideFormattingEdits",
-                requestParams({ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 } }),
+                requestParams({ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } } }),
             ),
         ).toEqual([]);
     });
@@ -300,7 +300,7 @@ describe("LanguagesNamespace — провайдеры форматировани
             version: 2,
             changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "//\n" }],
         });
-        const selection = { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 5 };
+        const selection = { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } };
         const unknown = "file:///proj/unknown.ts";
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {

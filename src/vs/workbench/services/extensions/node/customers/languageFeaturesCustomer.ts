@@ -39,12 +39,7 @@ import {
     type IWirePositionParams,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
-    wireToCoreCompletionItems,
-    wireToCoreDefinitionLocations,
     wireToCoreFoldingRegions,
-    wireToCoreHover,
-    wireToCoreInlineCompletionItems,
-    wireToCoreReferences,
     wireToCoreRenameLocation,
     wireToCoreResolvedCompletion,
     wireToCoreTextEdits,
@@ -157,11 +152,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
         // Ответ выровнен по `handles`; недостающий элемент (пустой ответ,
         // обход пачки прерван отменой) — пусто у своего провайдера.
-        return handles.map((_handle, index): ICoreCompletionResult => {
-            const result = results.at(index);
-            if (result === undefined) return EMPTY_COMPLETION_RESULT;
-            return { items: wireToCoreCompletionItems(result.items), isIncomplete: result.isIncomplete };
-        });
+        return handles.map((_handle, index) => results.at(index) ?? EMPTY_COMPLETION_RESULT);
     }
 
     /**
@@ -218,7 +209,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             { timeoutMs: req.timeoutMs, token },
         );
         // Недостающий элемент ответа — пусто у своего провайдера.
-        return handles.map((_handle, index) => wireToCoreInlineCompletionItems(results.at(index) ?? []));
+        return handles.map((_handle, index) => results.at(index) ?? []);
     }
 
     /**
@@ -262,7 +253,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         handle: number,
         req: IDefinitionRequest,
     ): Promise<readonly ICoreDefinitionLocation[]> {
-        const locations = await this.request(
+        return this.request(
             "languages.provideDefinition",
             {
                 handle,
@@ -270,7 +261,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             },
             [],
         );
-        return wireToCoreDefinitionLocations(locations);
     }
 
     /**
@@ -289,7 +279,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             },
             null,
         );
-        return hover === null ? undefined : wireToCoreHover(hover);
+        return hover ?? undefined;
     }
 
     /**
@@ -300,7 +290,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * (`LanguageFeaturesAdapter`).
      */
     public async provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
-        const references = await this.request(
+        return this.request(
             "languages.provideReferences",
             {
                 handle,
@@ -309,7 +299,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             },
             [],
         );
-        return wireToCoreReferences(references);
     }
 
     /**
@@ -361,16 +350,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // выбрасывает JSON-транспорт RPC, поэтому за границей канала
                 // разницы не видно.
                 // Stryker disable next-line ConditionalExpression: см. выше
-                ...(req.range === undefined
-                    ? {}
-                    : {
-                          range: {
-                              startLine: req.range.start.line,
-                              startCharacter: req.range.start.character,
-                              endLine: req.range.end.line,
-                              endCharacter: req.range.end.character,
-                          },
-                      }),
+                ...(req.range === undefined ? {} : { range: req.range }),
             },
             [],
         );
@@ -391,12 +371,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 uri: req.uri,
                 languageId: req.languageId,
                 version: req.versionId,
-                range: {
-                    startLine: req.range.start.line,
-                    startCharacter: req.range.start.character,
-                    endLine: req.range.end.line,
-                    endCharacter: req.range.end.character,
-                },
+                range: req.range,
                 // Спред — про чистоту payload'а: `undefined`-ключи всё равно
                 // выбрасывает JSON-транспорт RPC.
                 // Stryker disable next-line ConditionalExpression: см. выше

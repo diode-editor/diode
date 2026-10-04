@@ -50,7 +50,7 @@ function location(uri: string, line: number): vscode.Location {
 }
 
 function wireLocation(uri: string, line: number): unknown {
-    return { uri, range: { startLine: line, startCharacter: 2, endLine: line, endCharacter: 7 } };
+    return { uri, range: { start: { line: line, character: 2 }, end: { line: line, character: 7 } } };
 }
 
 describe("LanguagesNamespace — registerReferenceProvider", () => {

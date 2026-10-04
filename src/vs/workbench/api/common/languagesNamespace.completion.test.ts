@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ICoreCompletionResult } from "../../../editor/common/languages/iCompletionSource.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -7,7 +8,7 @@ import { createLanguagesNamespace, stripSnippetPlaceholders } from "./languagesN
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CompletionItem, CompletionList, MarkdownString, Range, SnippetString, TextEdit } from "./vscodeTypes.ts";
-import type { WireCompletionResult, WireResolvedCompletionItem } from "./wireTypes.ts";
+import type { WireResolvedCompletionItem } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const REQ = {
@@ -70,7 +71,7 @@ describe("LanguagesNamespace — completion: сериализация полей
             provideCompletionItems: () => [item],
         } as never);
 
-        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
 
         expect(result.items[0]).toMatchObject({
             label: "getTime",
@@ -91,7 +92,7 @@ describe("LanguagesNamespace — completion: сериализация полей
             provideCompletionItems: () => new CompletionList([new CompletionItem("getTime")], true),
         } as never);
 
-        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
         expect(result.isIncomplete).toBe(true);
     });
 
@@ -135,7 +136,7 @@ describe("LanguagesNamespace — completion: сериализация полей
                 ...REQ,
                 line: 3,
                 character: 2,
-            })) as WireCompletionResult[];
+            })) as ICoreCompletionResult[];
             return result.items.map((item) => item.id);
         };
         const first = await ids();
@@ -208,7 +209,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerCompletionItemProvider({ language: "typescript" }, provider as never);
-        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
         return { id: result.items[0].id!, stub };
     }
 
@@ -310,7 +311,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
             provideCompletionItems: () => [item],
         } as never);
 
-        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
         expect(result.items[0].labelDetail).toBeUndefined();
         expect(result.items[0].labelDescription).toBeUndefined();
     });
@@ -343,7 +344,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
             },
         } as never);
 
-        const [first] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as WireCompletionResult[];
+        const [first] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
         await stub.callRequest("languages.provideCompletionItems", REQ);
         await stub.callRequest("languages.provideCompletionItems", REQ);
 

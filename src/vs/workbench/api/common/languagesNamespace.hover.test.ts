@@ -120,7 +120,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         expect(ctx.registry.get(Uri.parse(URI))?.getText()).toBe("const a = b;\n");
         expect(result).toEqual({
             contents: ["```ts\nconst a: number\n```"],
-            range: { startLine: 0, startCharacter: 6, endLine: 0, endCharacter: 7 },
+            range: { start: { line: 0, character: 6 }, end: { line: 0, character: 7 } },
         });
     });
 

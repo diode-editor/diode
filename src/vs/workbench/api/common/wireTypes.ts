@@ -6,14 +6,8 @@ import { createRange, type IRange } from "../../../editor/common/core/iRange.ts"
 import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type {
     CompletionTriggerKind,
-    ICoreCompletionItem,
-    ICoreCompletionResult,
     ICoreResolvedCompletion,
 } from "../../../editor/common/languages/iCompletionSource.ts";
-import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
-import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
-import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
-import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreRenameLocation, ICoreRenameResult } from "../../../editor/common/languages/iRenameSource.ts";
 import type {
     ICoreParameterInfo,
@@ -414,48 +408,16 @@ export function reviveWireUri(raw: unknown): Uri | null {
 
 // ─── Completion (WP8) ────────────────────────────────────────────────────────
 
-/** Wire-форма диапазона (0-based, прямой маппинг на `IRange`). */
+/**
+ * Плоская wire-форма диапазона (0-based, прямой маппинг на `IRange`) — у правок
+ * (`IWireEditorEdit`) и изменений документа. Языковые запросы и ответы несут
+ * core `IRange`; остаток переедет на него в G5 C2.
+ */
 export interface IWireRange {
     readonly startLine: number;
     readonly startCharacter: number;
     readonly endLine: number;
     readonly endCharacter: number;
-}
-
-/**
- * Wire-форма элемента автодополнения (subprocess → host). `insertText` уже
- * нормализован хостом-сериализатором (fallback на `label`).
- */
-export interface WireCompletionItem {
-    readonly label: string;
-    readonly insertText: string;
-    /**
-     * Ключ элемента в кэше субпроцесса (`"<cacheId>.<index>"`) для
-     * `languages.resolveCompletionItem`. Нет id — пункт нерезолвимый
-     * (word-based, провайдер без `resolveCompletionItem`).
-     */
-    readonly id?: string;
-    /** `labelDetails.detail` — сигнатура рядом с лейблом (`(a: string): void`). */
-    readonly labelDetail?: string;
-    /** `labelDetails.description` — источник (модуль авто-импорта). */
-    readonly labelDescription?: string;
-    readonly kind?: number;
-    readonly detail?: string;
-    readonly documentation?: string;
-    readonly command?: { readonly command: string; readonly arguments?: readonly unknown[] };
-    readonly range?: IWireRange;
-    readonly sortText?: string;
-    readonly filterText?: string;
-}
-
-/**
- * Ответ на `languages.provideCompletionItems`. `isIncomplete` доезжает из
- * `CompletionList` провайдера: у tsserver список почти всегда неполный, и
- * добор символа обязан перезапросить сервер, а не фильтровать локально.
- */
-export interface WireCompletionResult {
-    readonly items: readonly WireCompletionItem[];
-    readonly isIncomplete: boolean;
 }
 
 /** Ответ на `languages.resolveCompletionItem` — догруженные поля пункта. */
@@ -545,79 +507,12 @@ export function wireToCoreResolvedCompletion(wire: WireResolvedCompletionItem): 
     };
 }
 
-/** Переводит wire-элементы в core-элементы ({@link ICoreCompletionItem}). */
-export function wireToCoreCompletionItems(wire: readonly WireCompletionItem[]): ICoreCompletionItem[] {
-    return wire.map((item) => ({
-        label: item.label,
-        insertText: item.insertText,
-        ...(item.id !== undefined ? { id: item.id } : {}),
-        ...(item.labelDetail !== undefined ? { labelDetail: item.labelDetail } : {}),
-        ...(item.labelDescription !== undefined ? { labelDescription: item.labelDescription } : {}),
-        ...(item.kind !== undefined ? { kind: item.kind } : {}),
-        ...(item.detail !== undefined ? { detail: item.detail } : {}),
-        ...(item.documentation !== undefined ? { documentation: item.documentation } : {}),
-        ...(item.command !== undefined
-            ? {
-                  command: {
-                      command: item.command.command,
-                      ...(item.command.arguments !== undefined ? { arguments: item.command.arguments } : {}),
-                  },
-              }
-            : {}),
-        ...(item.range !== undefined
-            ? {
-                  range: createRange(
-                      item.range.startLine,
-                      item.range.startCharacter,
-                      item.range.endLine,
-                      item.range.endCharacter,
-                  ),
-              }
-            : {}),
-        ...(item.sortText !== undefined ? { sortText: item.sortText } : {}),
-        ...(item.filterText !== undefined ? { filterText: item.filterText } : {}),
-    }));
-}
-
 // ─── Inline completions (ghost text) ─────────────────────────────────────────
-
-/**
- * Wire-форма пункта инлайн-подсказки (subprocess → host). `insertText` уже
- * нормализован субпроцессом: `SnippetString` сериализуется текстом со стрипом
- * плейсхолдеров.
- */
-export interface WireInlineCompletionItem {
-    readonly insertText: string;
-    /** Гейт показа: заменяемый текст — префикс `filterText ?? insertText`. */
-    readonly filterText?: string;
-    /** Заменяемый диапазон (по d.ts — в пределах одной строки). */
-    readonly range?: IWireRange;
-}
 
 /** Параметры запроса inline completions (host → subprocess); запрос пачечный. */
 export interface IWireInlineCompletionParams extends IWirePositionParams, IWireProviderHandles {
     /** `InlineCompletionTriggerKind`: 0 — Invoke, 1 — Automatic. */
     readonly triggerKind: number;
-}
-
-/** Переводит wire-пункты в core-пункты ({@link ICoreInlineCompletionItem}). */
-export function wireToCoreInlineCompletionItems(
-    wire: readonly WireInlineCompletionItem[],
-): ICoreInlineCompletionItem[] {
-    return wire.map((item) => ({
-        insertText: item.insertText,
-        ...(item.filterText !== undefined ? { filterText: item.filterText } : {}),
-        ...(item.range !== undefined
-            ? {
-                  range: createRange(
-                      item.range.startLine,
-                      item.range.startCharacter,
-                      item.range.endLine,
-                      item.range.endCharacter,
-                  ),
-              }
-            : {}),
-    }));
 }
 
 // ─── Folding (#87) ───────────────────────────────────────────────────────────
@@ -655,61 +550,13 @@ export function wireToCoreFoldingRegions(wire: readonly WireFoldingRange[]): IFo
 
 // ─── Definition (LSP) ────────────────────────────────────────────────────────
 
-/**
- * Wire-форма одной цели definition (subprocess → host). `uri` — цель прыжка
- * (может отличаться от запрошенного ресурса), `range` — прицельный диапазон
- * символа (у `LocationLink` хост-сериализатор берёт `targetSelectionRange ??
- * targetRange`).
- */
-export interface WireDefinitionLocation {
-    readonly uri: string;
-    readonly range: IWireRange;
-}
-
 /** Параметры запроса definition (host → subprocess): документ, позиция, провайдер. */
 export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
 
-/** Переводит wire-цели в core-цели ({@link ICoreDefinitionLocation}). */
-export function wireToCoreDefinitionLocations(wire: readonly WireDefinitionLocation[]): ICoreDefinitionLocation[] {
-    return wire.map((loc) => ({
-        uri: loc.uri,
-        range: createRange(loc.range.startLine, loc.range.startCharacter, loc.range.endLine, loc.range.endCharacter),
-    }));
-}
-
 // ─── Hover (LSP) ─────────────────────────────────────────────────────────────
-
-/**
- * Wire-форма ответа одного hover-провайдера (subprocess → host). `contents` —
- * блоки сырого markdown (хост-сериализатор уже нормализовал
- * `MarkdownString`/строку/`{language, value}` в строки); разметку стрипает
- * UI-потребитель, протокол её не трогает.
- */
-export interface WireHover {
-    readonly contents: readonly string[];
-    /** Диапазон символа под позицией; провайдер может его не сообщать. */
-    readonly range?: IWireRange;
-}
 
 /** Параметры запроса hover (host → subprocess) — форма definition-запроса. */
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
-
-/** Переводит wire-hover в core-hover ({@link ICoreHover}). */
-export function wireToCoreHover(hover: WireHover): ICoreHover {
-    return {
-        contents: hover.contents,
-        ...(hover.range === undefined
-            ? {}
-            : {
-                  range: createRange(
-                      hover.range.startLine,
-                      hover.range.startCharacter,
-                      hover.range.endLine,
-                      hover.range.endCharacter,
-                  ),
-              }),
-    };
-}
 
 // ─── Регистрации языковых провайдеров ────────────────────────────────────────
 
@@ -851,29 +698,11 @@ export function parseWireLanguageProviderUnregistration(raw: unknown): IWireLang
 // ─── References (LSP) ────────────────────────────────────────────────────────
 
 /**
- * Wire-форма одной ссылки на символ (subprocess → host). Форма совпадает с
- * definition-целью, но ссылок в ответе много и все они равноправны — ни одна не
- * «главная».
- */
-export interface WireReference {
-    readonly uri: string;
-    readonly range: IWireRange;
-}
-
-/**
  * Параметры запроса references (host → subprocess) — форма definition-запроса
  * плюс LSP-контекст `includeDeclaration`.
  */
 export interface IWireReferenceParams extends IWirePositionParams, IWireProviderHandle {
     readonly includeDeclaration: boolean;
-}
-
-/** Переводит wire-ссылки в core-ссылки ({@link ICoreReference}). */
-export function wireToCoreReferences(wire: readonly WireReference[]): ICoreReference[] {
-    return wire.map((ref) => ({
-        uri: ref.uri,
-        range: createRange(ref.range.startLine, ref.range.startCharacter, ref.range.endLine, ref.range.endCharacter),
-    }));
 }
 
 // ─── Signature Help (LSP) ────────────────────────────────────────────────────
@@ -907,7 +736,7 @@ export interface IWireFormattingParams extends IWireDocumentParams {
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
     /** Диапазон Format Selection; отсутствие поля — весь документ. */
-    readonly range?: IWireRange;
+    readonly range?: IRange;
 }
 
 /**
@@ -931,7 +760,7 @@ export function wireToCoreTextEdits(wire: readonly IWireEditorEdit[]): ITextEdit
  * с `range` — так провайдер получает те же объекты, что публиковал сервер.
  */
 export interface IWireCodeActionParams extends IWireDocumentParams, IWireProviderHandle {
-    readonly range: IWireRange;
+    readonly range: IRange;
     /** LSP `CodeActionContext.only` (`source.organizeImports` и т.п.). */
     readonly only?: string;
 }

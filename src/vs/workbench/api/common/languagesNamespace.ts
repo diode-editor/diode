@@ -2,6 +2,13 @@ import type * as vscode from "vscode";
 
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { isCancellationError } from "../../../base/common/errorSerialization.ts";
+import { comparePositions, createPosition } from "../../../editor/common/core/iPosition.ts";
+import type { IRange } from "../../../editor/common/core/iRange.ts";
+import type { ICoreCompletionItem, ICoreCompletionResult } from "../../../editor/common/languages/iCompletionSource.ts";
+import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
+import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,
@@ -43,15 +50,9 @@ import type {
     IWireSignatureHelpParams,
     Received,
     WireCodeAction,
-    WireCompletionItem,
-    WireCompletionResult,
-    WireDefinitionLocation,
     WireFoldingRange,
-    WireHover,
-    WireInlineCompletionItem,
     WireLanguageFeatureKind,
     WireMarker,
-    WireReference,
     WireRenamePrepare,
     WireRenameResult,
     WireResolvedCompletionItem,
@@ -217,11 +218,14 @@ function isFiniteNumber(raw: unknown): raw is number {
 }
 
 /**
- * Сериализует `vscode.Range` (утиный тип) в wire-диапазон; `null`, если форма
- * чужая или координата не конечное число (`Position` расширения клампит к нулю,
- * но `NaN` пропускает). Хост диапазоны ответа не перепроверяет.
+ * Сериализует `vscode.Range` (утиный тип — подойдёт и `Range` чужого бандла) в
+ * core-диапазон провода ({@link IRange}); `null`, если форма чужая или
+ * координата не конечное число (`Position` расширения клампит к нулю, но `NaN`
+ * пропускает). Перевёрнутый диапазон разворачивается: инвариант `start <= end`
+ * `vscode.Range` держит конструктором, а утиный объект — нет. Хост диапазоны
+ * ответа не перепроверяет.
  */
-export function serializeDefinitionRange(raw: unknown): WireDefinitionLocation["range"] | null {
+export function serializeRange(raw: unknown): IRange | null {
     if (typeof raw !== "object" || raw === null) return null;
     const r = raw as { start?: { line?: unknown; character?: unknown }; end?: { line?: unknown; character?: unknown } };
     const { start, end } = r;
@@ -235,11 +239,29 @@ export function serializeDefinitionRange(raw: unknown): WireDefinitionLocation["
     ) {
         return null;
     }
+    const from = createPosition(start.line, start.character);
+    const to = createPosition(end.line, end.character);
+    // Stryker disable next-line EqualityOperator: на равных границах обе ветки дают один и тот же диапазон
+    return comparePositions(from, to) <= 0 ? { start: from, end: to } : { start: to, end: from };
+}
+
+/** Диапазон провода (параметры запроса хоста, свой сериализованный) → `vscode.Range` для провайдера. */
+function toVscodeRange(range: IRange): Range {
+    return new Range(range.start.line, range.start.character, range.end.line, range.end.character);
+}
+
+/**
+ * Плоская форма {@link serializeRange} для правок текста (`IWireEditorEdit`,
+ * `WireTextEdit`), которые ещё ездят с `startLine/…` (G5, C2).
+ */
+export function serializeDefinitionRange(raw: unknown): IWireEditorEdit["range"] | null {
+    const range = serializeRange(raw);
+    if (range === null) return null;
     return {
-        startLine: start.line,
-        startCharacter: start.character,
-        endLine: end.line,
-        endCharacter: end.character,
+        startLine: range.start.line,
+        startCharacter: range.start.character,
+        endLine: range.end.line,
+        endCharacter: range.end.character,
     };
 }
 
@@ -249,7 +271,7 @@ export function serializeDefinitionRange(raw: unknown): WireDefinitionLocation["
  * targetSelectionRange? }` — прицельный диапазон `targetSelectionRange ??
  * targetRange`). `null` — форма не распознана (drop+skip).
  */
-function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | null {
+function serializeDefinitionLocation(item: unknown): ICoreDefinitionLocation | null {
     if (typeof item !== "object" || item === null) return null;
     const link = item as { targetUri?: unknown; targetRange?: unknown; targetSelectionRange?: unknown };
     if (link.targetUri != null) {
@@ -261,9 +283,9 @@ function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | nu
 }
 
 /** Цель с диапазоном; `null` — диапазон чужой формы или uri пустой (прыгать некуда). */
-function serializeLocation(rawUri: unknown, rawRange: unknown): WireDefinitionLocation | null {
+function serializeLocation(rawUri: unknown, rawRange: unknown): ICoreDefinitionLocation | null {
     const uri = uriText(rawUri);
-    const range = serializeDefinitionRange(rawRange);
+    const range = serializeRange(rawRange);
     return range === null || uri === "" ? null : { uri, range };
 }
 
@@ -282,14 +304,12 @@ function serializeRenamePrepare(raw: unknown, doc: ExtHostTextDocument): WireRen
     // Голый `Range` от `{range, placeholder}` отличает наличие поля `range`:
     // у самого Range его нет.
     const rangeSource = holder.range === undefined ? raw : holder.range;
-    const range = serializeDefinitionRange(rangeSource);
+    const range = serializeRange(rangeSource);
     if (range === null) return null;
     if (typeof holder.placeholder === "string" && holder.placeholder !== "") {
         return { placeholder: holder.placeholder };
     }
-    const text = doc.getText(
-        new Range(new Position(range.startLine, range.startCharacter), new Position(range.endLine, range.endCharacter)),
-    );
+    const text = doc.getText(toVscodeRange(range));
     // Пустой диапазон не даёт имени: отвечаем «сказать нечего», и слово под
     // кареткой доберёт ядро.
     return text === "" ? null : { placeholder: text };
@@ -535,7 +555,7 @@ function readDocumentationText(doc: unknown): string | undefined {
 }
 
 /** Читает диапазон замены (`Range` или `{ replacing, inserting }`). */
-function readRange(item: vscode.CompletionItem): WireCompletionItem["range"] {
+function readRange(item: vscode.CompletionItem): IRange | undefined {
     const raw = (item as { range?: unknown }).range;
     if (raw === undefined || raw === null) return undefined;
     const range =
@@ -545,14 +565,14 @@ function readRange(item: vscode.CompletionItem): WireCompletionItem["range"] {
               ? (raw as { replacing: Range }).replacing
               : undefined;
     if (range === undefined) return undefined;
-    return serializeDefinitionRange(range) ?? undefined;
+    return serializeRange(range) ?? undefined;
 }
 
 /**
  * Сериализует `vscode.CompletionItem` в wire-форму (subprocess → host).
  * `id` — ключ элемента в кэше ответа, по нему host потом просит resolve.
  */
-function serializeCompletionItem(item: vscode.CompletionItem, id: string): WireCompletionItem | null {
+function serializeCompletionItem(item: vscode.CompletionItem, id: string): ICoreCompletionItem | null {
     const label = readLabel(item);
     if (label === undefined || label === "") return null;
     const labelDetails = readLabelDetails(item);
@@ -771,7 +791,7 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest(
         "languages.provideDefinition",
-        async (params, cancellation): Promise<WireDefinitionLocation[]> => {
+        async (params, cancellation): Promise<ICoreDefinitionLocation[]> => {
             const p: Received<IWireDefinitionParams> = params;
             // Провайдер мог сняться, пока запрос летел: отвечаем «целей нет».
             const reg = definitionProviders.get(p.handle ?? -1);
@@ -789,7 +809,7 @@ export function createLanguagesNamespace(
                 // Сбойный провайдер = «целей нет»: `result` остаётся неприсвоенным,
                 // и сериализация ниже его отбрасывает.
             }
-            const locations: WireDefinitionLocation[] = [];
+            const locations: ICoreDefinitionLocation[] = [];
             for (const item of Array.isArray(result) ? result : [result]) {
                 const wire = serializeDefinitionLocation(item);
                 if (wire !== null) locations.push(wire);
@@ -798,7 +818,7 @@ export function createLanguagesNamespace(
         },
     );
 
-    rpc.handleRequest("languages.provideHover", async (params, cancellation): Promise<WireHover | null> => {
+    rpc.handleRequest("languages.provideHover", async (params, cancellation): Promise<ICoreHover | null> => {
         const p: Received<IWireHoverParams> = params;
         // Провайдер мог сняться, пока запрос летел: отвечаем «hover'а нет».
         const reg = hoverProviders.get(p.handle ?? -1);
@@ -819,7 +839,7 @@ export function createLanguagesNamespace(
         if (result == null) return null;
         const contents = serializeHoverContents((result as { contents?: unknown }).contents);
         if (contents.length === 0) return null;
-        const range = serializeDefinitionRange((result as { range?: unknown }).range);
+        const range = serializeRange((result as { range?: unknown }).range);
         return { contents, ...(range === null ? {} : { range }) };
     });
 
@@ -859,7 +879,7 @@ export function createLanguagesNamespace(
         },
     );
 
-    rpc.handleRequest("languages.provideReferences", async (params, cancellation): Promise<WireReference[]> => {
+    rpc.handleRequest("languages.provideReferences", async (params, cancellation): Promise<ICoreReference[]> => {
         const p: Received<IWireReferenceParams> = params;
         // Провайдер мог сняться, пока запрос летел: отвечаем «ссылок нет».
         const reg = referenceProviders.get(p.handle ?? -1);
@@ -881,7 +901,7 @@ export function createLanguagesNamespace(
         // References — всегда массив (`ProviderResult<Location[]>`), в
         // отличие от definition с его одиночной формой.
         if (!Array.isArray(result)) return [];
-        const references: WireReference[] = [];
+        const references: ICoreReference[] = [];
         for (const item of result) {
             const wire = serializeDefinitionLocation(item);
             if (wire !== null) references.push(wire);
@@ -983,7 +1003,7 @@ export function createLanguagesNamespace(
         } else {
             const reg = rangeFormattingProviders.get(handle);
             if (reg !== undefined) {
-                const selection = new Range(range.startLine, range.startCharacter, range.endLine, range.endCharacter);
+                const selection = toVscodeRange(range);
                 format = (doc, options, token) =>
                     reg.provider.provideDocumentRangeFormattingEdits(doc, selection, options, token);
             }
@@ -1028,7 +1048,7 @@ export function createLanguagesNamespace(
         if (reg === undefined) return [];
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
-        const range = new Range(p.range.startLine, p.range.startCharacter, p.range.endLine, p.range.endCharacter);
+        const range = toVscodeRange(p.range);
         const only = typeof p.only === "string" ? new CodeActionKind(p.only) : undefined;
         const context: vscode.CodeActionContext = {
             triggerKind: CodeActionTriggerKind.Invoke,
@@ -1133,7 +1153,7 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest(
         "languages.provideCompletionItems",
-        async (params, cancellation): Promise<WireCompletionResult[]> => {
+        async (params, cancellation): Promise<ICoreCompletionResult[]> => {
             const p: Received<IWireCompletionParams> = params;
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return [];
@@ -1146,7 +1166,7 @@ export function createLanguagesNamespace(
             // Одно ведро кэша на пачку: id пунктов уникальны сквозь всех провайдеров.
             const cacheId = nextCacheId++;
             const cached: ICachedCompletion[] = [];
-            const results: WireCompletionResult[] = [];
+            const results: ICoreCompletionResult[] = [];
             // Провайдеров — в присланном ядром порядке; ответ выровнен по `handles`.
             // Снятый, пока запрос летел, или чужой handle — пустой результат.
             for (const handle of Array.isArray(p.handles) ? p.handles : []) {
@@ -1160,7 +1180,7 @@ export function createLanguagesNamespace(
                     results.push({ items: [], isIncomplete: false });
                     continue;
                 }
-                const items: WireCompletionItem[] = [];
+                const items: ICoreCompletionItem[] = [];
                 let result: unknown;
                 try {
                     result = await callWithVscodeToken(cancellation, (token) =>
@@ -1237,7 +1257,7 @@ export function createLanguagesNamespace(
      * сниппет-синтаксис не попал ни в превью, ни в буфер). `null` — форма чужая
      * или текст пуст (drop+skip).
      */
-    function serializeInlineCompletionItem(item: unknown): WireInlineCompletionItem | null {
+    function serializeInlineCompletionItem(item: unknown): ICoreInlineCompletionItem | null {
         // Клауза typeof — защитная: не-объект без .insertText отсеет следующий
         // гард (примитив со строковым insertText невозможен) — её мутанты
         // эквивалентны. null отсекается по-настоящему (доступ к полю бросил бы).
@@ -1253,7 +1273,7 @@ export function createLanguagesNamespace(
             return null;
         }
         if (insertText === "") return null;
-        const range = serializeDefinitionRange(obj.range);
+        const range = serializeRange(obj.range);
         return {
             insertText,
             ...(typeof obj.filterText === "string" ? { filterText: obj.filterText } : {}),
@@ -1263,7 +1283,7 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest(
         "languages.provideInlineCompletions",
-        async (params, cancellation): Promise<WireInlineCompletionItem[][]> => {
+        async (params, cancellation): Promise<ICoreInlineCompletionItem[][]> => {
             const p: Received<IWireInlineCompletionParams> = params;
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return [];
@@ -1282,10 +1302,10 @@ export function createLanguagesNamespace(
 
             // Провайдеров — в присланном ядром порядке; ответ выровнен по
             // `handles`. Снятый, пока запрос летел, или чужой handle — пусто.
-            const results: WireInlineCompletionItem[][] = [];
+            const results: ICoreInlineCompletionItem[][] = [];
             try {
                 for (const handle of Array.isArray(p.handles) ? p.handles : []) {
-                    const items: WireInlineCompletionItem[] = [];
+                    const items: ICoreInlineCompletionItem[] = [];
                     results.push(items);
                     // Отмена останавливает и обход пачки: спрашивать следующего
                     // провайдера про снапшот, который уже никому не нужен, — та
