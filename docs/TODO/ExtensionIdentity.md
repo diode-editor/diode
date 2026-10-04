@@ -1,6 +1,6 @@
 # Идентичность расширения в extension host'е (G7)
 
-Статус: `[~]` — PR1 (инфраструктура) и PR2 (составные id) сделаны, PR3–PR4 впереди.
+Статус: `[~]` — PR1 (инфраструктура), PR2 (составные id) и PR3 (логи провайдеров) сделаны, PR4 (необязательный) впереди.
 
 В субпроцессе extension host'а один объект `vscode` на все расширения, поэтому
 ни один вызов API не знает, какое расширение его сделало. Отсюда коллизии
@@ -37,11 +37,14 @@
   e2e `gotoDefinition`/`inlineCompletionCancel`/`statusBarExtension`. Скрытые
   пользователем пункты статус-бара со старыми id осиротели — их придётся
   скрыть заново.
-- [ ] PR3. Владелец в регистрациях и логах провайдеров: `owner` в
-  `registerByHandle`, `reportProviderFailure(method, err, owner?)` →
-  `[ext-host] [<id>] <method> failed`; лог в `runActionCommand` вместо
-  `catch {}`; владелец в локальных командах (`commandsNamespace.ts`) для лога
-  сбоя команды.
+- [x] PR3. Владелец в регистрациях и логах провайдеров: `owner` в
+  `registerByHandle` (и в кэше completion-resolve), `reportProviderFailure` →
+  `[ext-host] [<id>] <method> failed` (без владельца — как прежде); упавшая
+  команда code action — в stderr вместо `catch {}`; предупреждение
+  `registerTextEditorCommand` без редактора — с id. Своего лога сбоя команды в
+  субпроцессе нет (сбой едет хосту ответом RPC, `CommandRegistry` пишет его
+  без id — по проводу владелец хосту не нужен). Попутно закрыты пункты
+  диагностик и уборки из списка ниже.
 - [ ] PR4 (опционально). Атрибуция по стеку тем же индексом:
   `unhandledRejection`/`setUnexpectedErrorHandler`, `console.*` расширения →
   канал `extensions.host.<id>`.
@@ -58,12 +61,13 @@
 
 ## Попутно найдено (вне G7)
 
-- `languages.createDiagnosticCollection`: owner `"ext:" + (name ?? "diagnostics")`
-  без уникализации — одноимённые коллекции затирают маркеры друг друга
-  (эталон уникализирует имя).
-- `DiagnosticCollection.dispose` не убирает store из `diagnosticStores` —
-  утечка и мёртвый store в контексте code actions.
-- Output-канал с именем «Host» получает id `extensions.host` — тот же, что у
-  логгера хоста.
-- Ошибки `dispose` подписок и `deactivate()` при выключении глотаются без имени
-  расширения (`extensionHostSubprocess.ts`).
+- [x] `languages.createDiagnosticCollection`: owner `"ext:" + (name ?? "diagnostics")`
+  без уникализации — одноимённые коллекции затирали маркеры друг друга.
+  Теперь `ext:<id>:<имя>` + `#N` на повтор (PR3).
+- [x] `DiagnosticCollection.dispose` не убирал store из `diagnosticStores` —
+  утечка и мёртвый store в контексте code actions (PR3).
+- [x] Output-канал с именем «Host» получал id `extensions.host` — тот же, что у
+  логгера хоста. Теперь `extensions.<id>.host` (PR2); вызов мимо оверлея — по-прежнему.
+- [x] Ошибки `dispose` подписок и `deactivate()` при выключении глотались без
+  имени расширения (`extensionHostSubprocess.ts`). Теперь warn с id
+  (`extensionDeactivation.ts`, PR3).

@@ -2,6 +2,7 @@ import type * as vscode from "vscode";
 
 import { implementsApi } from "./apiSurface.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import type { ExtensionOwner } from "./vscodeHostContext.ts";
 import { DisposableImpl } from "./vscodeTypes.ts";
 
 type CommandHandler = (...args: unknown[]) => unknown;
@@ -18,10 +19,14 @@ type CommandHandler = (...args: unknown[]) => unknown;
  * - **host → subprocess**: когда ядро исполняет прокси-команду (напр. палитра
  *   запускает `EditorConfig.generate`), хост шлёт `request commands.executeCommand`,
  *   который мы обрабатываем ниже, гоняя локальный колбэк.
+ *
+ * `owner` — окружающий владелец (см. {@link ExtensionOwner}): id расширения,
+ * зарегистрировавшего команду, попадает в её предупреждения в stderr.
  */
 export function buildCommandsNamespace(
     rpc: SubprocessRpc,
     getActiveTextEditor?: () => vscode.TextEditor | undefined,
+    owner?: ExtensionOwner,
 ): typeof vscode.commands {
     const localCommands = new Map<string, CommandHandler>();
 
@@ -64,10 +69,14 @@ export function buildCommandsNamespace(
         callback: (editor: vscode.TextEditor, edit: vscode.TextEditorEdit, ...args: unknown[]) => void,
         thisArg?: unknown,
     ): vscode.Disposable => {
+        // Владелец — в момент регистрации: исполнение придёт много позже, когда
+        // окружающего владельца уже нет.
+        const extensionId = owner?.current;
+        const tag = extensionId === undefined ? "" : `[${extensionId}] `;
         return registerCommand(id, (...args: unknown[]): unknown => {
             const editor = getActiveTextEditor?.();
             if (editor === undefined) {
-                console.warn(`Cannot execute text editor command "${id}": no active text editor`);
+                console.warn(`${tag}Cannot execute text editor command "${id}": no active text editor`);
                 return undefined;
             }
             callback.call(thisArg, editor, noopTextEditorEdit, ...args);
