@@ -7,9 +7,10 @@ import { parseWireCodeActions, requestApplyCodeAction, requestCodeActions } from
 // строгий boolean apply.
 
 const PARAMS = {
+    handle: 1,
     uri: "file:///a.py",
     languageId: "python",
-    text: "x\n",
+    version: 1,
     range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 1 },
 };
 

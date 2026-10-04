@@ -8,7 +8,7 @@ import { requestFormattingEdits } from "./wireTypes.ts";
 
 const WIRE_EDIT = { range: { startLine: 0, startCharacter: 5, endLine: 1, endCharacter: 2 }, text: "x" };
 
-const PARAMS = { uri: "file:///a.ts", languageId: "typescript", text: "const a;\n", tabSize: 4, insertSpaces: true };
+const PARAMS = { handle: 1, uri: "file:///a.ts", languageId: "typescript", version: 1, tabSize: 4, insertSpaces: true };
 
 /**
  * Субпроцесс, который не отвечает, за транспортом, который держит срок, как

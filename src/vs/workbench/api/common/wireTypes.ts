@@ -5,6 +5,7 @@ import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import { createTextEdit, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type {
+    CompletionTriggerKind,
     ICoreCompletionItem,
     ICoreCompletionResult,
     ICoreResolvedCompletion,
@@ -523,19 +524,54 @@ export interface WireResolvedCompletionItem {
 }
 
 /**
- * Параметры запроса completion (host → subprocess). Запрос пачечный: `handles`
- * — провайдеры, которых ядро выбрало по селектору (в порядке реестра), ответ —
- * массив результатов, выровненный по ним (`ProviderRequestBatcher`).
+ * Документ запроса языковой фичи (host → subprocess) — общая база параметров
+ * всех `languages.provide*`. Текст не едет: субпроцесс берёт его из своего
+ * зеркала документов той версии, что указана в запросе.
+ *
+ * Тип — контракт отправителя (хоста). Получатель (субпроцесс) читает те же
+ * параметры как {@link Received} — всё, кроме `uri`, необязательно: по RPC
+ * приезжает то, что прислали.
  */
-export interface IWireCompletionParams {
-    readonly handles: readonly number[];
+export interface IWireDocumentParams {
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
     /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
     readonly version: number;
+}
+
+/** Документ и позиция (0-based) запроса языковой фичи. */
+export interface IWirePositionParams extends IWireDocumentParams {
     readonly line: number;
     readonly character: number;
+}
+
+/** Провайдер, выбранный ядром по селектору (см. `languages.register`): субпроцесс зовёт ровно его. */
+export interface IWireProviderHandle {
+    readonly handle: number;
+}
+
+/**
+ * Пачка провайдеров, выбранных ядром по селектору, в порядке реестра
+ * (`ProviderRequestBatcher`): ответ — массив, выровненный по `handles`.
+ */
+export interface IWireProviderHandles {
+    readonly handles: readonly number[];
+}
+
+/**
+ * Параметры запроса глазами получателя: обязательны только `uri` и поля `K`,
+ * остальное — что доехало по проводу, и дефолты получателя — не украшение, а
+ * обработка недоехавшего поля. Отправитель строит полный `T`.
+ */
+export type Received<T extends IWireDocumentParams, K extends keyof T = never> = Pick<T, "uri" | K> & Partial<T>;
+
+/** Параметры запроса completion (host → subprocess); запрос пачечный. */
+export interface IWireCompletionParams extends IWirePositionParams, IWireProviderHandles {
+    /** Чем спровоцирован запрос; по умолчанию `Invoke`. */
+    readonly triggerKind?: CompletionTriggerKind;
+    /** Символ-триггер, если запрос спровоцирован набором (`.`). */
+    readonly triggerCharacter?: string;
 }
 
 function parseWireRange(raw: unknown): IWireRange | undefined {
@@ -732,20 +768,8 @@ export interface WireInlineCompletionItem {
     readonly range?: IWireRange;
 }
 
-/** Параметры запроса inline completions (host → subprocess). */
-export interface IWireInlineCompletionParams {
-    /**
-     * Провайдеры, выбранные ядром по селектору, в порядке реестра — пачкой
-     * (`ProviderRequestBatcher`); ответ — массив пунктов, выровненный по ним.
-     */
-    readonly handles: readonly number[];
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version: number;
-    readonly line: number;
-    readonly character: number;
+/** Параметры запроса inline completions (host → subprocess); запрос пачечный. */
+export interface IWireInlineCompletionParams extends IWirePositionParams, IWireProviderHandles {
     /** `InlineCompletionTriggerKind`: 0 — Invoke, 1 — Automatic. */
     readonly triggerKind: number;
 }
@@ -839,19 +863,8 @@ export interface WireFoldingRange {
     readonly kind?: number;
 }
 
-/** Параметры запроса folding (host → subprocess). */
-export interface IWireFoldingParams {
-    /**
-     * Провайдеры, выбранные ядром по селектору, в порядке реестра — пачкой
-     * (`ProviderRequestBatcher`); ответ — массив областей, выровненный по ним.
-     */
-    readonly handles: readonly number[];
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version: number;
-}
+/** Параметры запроса folding (host → subprocess); запрос пачечный. */
+export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
 
 /** Валидирует одну wire-область folding; `null`, если форма не распознана. */
 function parseWireFoldingRange(raw: unknown): WireFoldingRange | null {
@@ -927,18 +940,8 @@ export interface WireDefinitionLocation {
     readonly range: IWireRange;
 }
 
-/** Параметры запроса definition (host → subprocess) — форма completion-запроса. */
-export interface IWireDefinitionParams {
-    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
-    readonly handle: number;
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version: number;
-    readonly line: number;
-    readonly character: number;
-}
+/** Параметры запроса definition (host → subprocess): документ, позиция, провайдер. */
+export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
 
 /** Валидирует одну wire-цель definition; `null`, если форма не распознана. */
 function parseWireDefinitionLocation(raw: unknown): WireDefinitionLocation | null {
@@ -1002,21 +1005,8 @@ export interface WireHover {
     readonly range?: IWireRange;
 }
 
-/**
- * Параметры запроса hover (host → subprocess) — форма definition-запроса плюс
- * `handle` провайдера: ядро само выбрало, кого спрашивать (см.
- * `languages.register`), субпроцесс зовёт ровно его.
- */
-export interface IWireHoverParams {
-    readonly handle: number;
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version: number;
-    readonly line: number;
-    readonly character: number;
-}
+/** Параметры запроса hover (host → subprocess) — форма definition-запроса. */
+export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 
 /** Валидирует wire-hover; `null`, если форма не распознана или контента нет. */
 export function parseWireHover(raw: unknown): WireHover | null {
@@ -1217,16 +1207,7 @@ export interface WireReference {
  * Параметры запроса references (host → subprocess) — форма definition-запроса
  * плюс LSP-контекст `includeDeclaration`.
  */
-export interface IWireReferenceParams {
-    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
-    readonly handle: number;
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version: number;
-    readonly line: number;
-    readonly character: number;
+export interface IWireReferenceParams extends IWirePositionParams, IWireProviderHandle {
     readonly includeDeclaration: boolean;
 }
 
@@ -1287,16 +1268,7 @@ export async function requestReferences(
  * hover-запроса добавлен LSP-контекст: чем спровоцирован запрос и что показано
  * сейчас (по нему сервер удерживает выбранную пользователем перегрузку).
  */
-export interface IWireSignatureHelpParams {
-    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
-    readonly handle: number;
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version: number;
-    readonly line: number;
-    readonly character: number;
+export interface IWireSignatureHelpParams extends IWirePositionParams, IWireProviderHandle {
     readonly triggerKind: SignatureHelpTriggerKind;
     readonly triggerCharacter?: string;
     readonly isRetrigger: boolean;
@@ -1443,16 +1415,12 @@ export async function requestSignatureHelp(
  * с `range` субпроцесс спрашивает range-провайдеры (Format Selection), без —
  * документные (Format Document).
  */
-export interface IWireFormattingParams {
+export interface IWireFormattingParams extends IWireDocumentParams {
     /**
      * Провайдер, выбранный ядром: с `range` — range-провайдер, без — документный
      * (см. `languages.register`, виды `formatting`/`rangeFormatting`).
      */
-    readonly handle?: number;
-    readonly uri: string;
-    readonly languageId?: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version?: number;
+    readonly handle: number;
     /** `vscode.FormattingOptions` активного редактора. */
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
@@ -1490,13 +1458,7 @@ export async function requestFormattingEdits(
  * НЕ едут: субпроцесс собирает их из своих DiagnosticCollection по пересечению
  * с `range` — так провайдер получает те же объекты, что публиковал сервер.
  */
-export interface IWireCodeActionParams {
-    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
-    readonly handle?: number;
-    readonly uri: string;
-    readonly languageId?: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version?: number;
+export interface IWireCodeActionParams extends IWireDocumentParams, IWireProviderHandle {
     readonly range: IWireRange;
     /** LSP `CodeActionContext.only` (`source.organizeImports` и т.п.). */
     readonly only?: string;
@@ -1566,20 +1528,10 @@ export async function requestApplyCodeAction(request: RequestFn, id: string, tim
 // ─── Rename (languages.registerRenameProvider) ───────────────────────────────
 
 /** Параметры `languages.prepareRename` (host → subprocess) — форма definition-запроса. */
-export interface IWirePrepareRenameParams {
-    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
-    readonly handle: number;
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-    /** Версия документа (`versionId` модели) на момент запроса: текст — из зеркала субпроцесса. */
-    readonly version: number;
-    readonly line: number;
-    readonly character: number;
-}
+export type IWirePrepareRenameParams = IWirePositionParams & IWireProviderHandle;
 
 /** Параметры `languages.provideRenameEdits` — то же плюс новое имя. */
-export interface IWireRenameParams extends IWirePrepareRenameParams {
+export interface IWireRenameParams extends IWirePositionParams, IWireProviderHandle {
     readonly newName: string;
 }
 
