@@ -127,6 +127,12 @@ describe("wireTypes — requestRename", () => {
         });
     });
 
+    it("нестроковая причина отказа отбрасывается, а не едет в UI как есть", async () => {
+        expect(await requestRename(() => Promise.resolve({ applied: false, error: 42 }), renameParams, 1000)).toEqual({
+            applied: false,
+        });
+    });
+
     it("`applied` не строгое `true` — отказ, а не успех", async () => {
         expect(await requestRename(() => Promise.resolve({ applied: "yes" }), renameParams, 1000)).toEqual({
             applied: false,
