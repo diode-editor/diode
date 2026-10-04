@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Uri } from "../../../base/common/uri.ts";
 import { type CursorChangeSource, withCursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
+import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { IActiveEditorSelections } from "../common/iEditorOptionsService.ts";
 
@@ -66,7 +67,7 @@ function liveGroup(): { group: EditorService; move: (character: number) => void 
 /** Двигает каретку внутри объявленного источника и возвращает то, что уехало. */
 async function notifiedFor(source: CursorChangeSource | undefined): Promise<IActiveEditorSelections> {
     const { group, move } = liveGroup();
-    const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
+    const adapter = createAdapter(group, NO_BULK_EDITS);
     const seen: IActiveEditorSelections[] = [];
     adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
     if (source === undefined) move(3);
@@ -77,6 +78,11 @@ async function notifiedFor(source: CursorChangeSource | undefined): Promise<IAct
     await Promise.resolve();
     expect(seen).toHaveLength(1);
     return seen[0];
+}
+
+/** Фейк сервиса редакторов отвечает и за полосу групп (groupOf/activeGroup/viewColumnOf). */
+function createAdapter(fake: EditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
+    return new EditorOptionsServiceAdapter(fake, fake as unknown as EditorGroupsService, workspaceEdits);
 }
 
 describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () => {
@@ -100,7 +106,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
 
     it("источник снимается синхронно: к моменту отложенного флаша область уже закрыта", async () => {
         const { group, move } = liveGroup();
-        const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
+        const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
         adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
 
@@ -115,7 +121,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
 
     it("в коалесенном тике побеждает ПОСЛЕДНИЙ источник — он же автор итоговых выделений", async () => {
         const { group, move } = liveGroup();
-        const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
+        const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
         adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
 
@@ -134,7 +140,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
 
     it("источник не протекает в следующий тик", async () => {
         const { group, move } = liveGroup();
-        const adapter = new EditorOptionsServiceAdapter(group, NO_BULK_EDITS);
+        const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
         adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
 

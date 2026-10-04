@@ -66,32 +66,32 @@ describe("Фабрика дифф-вкладки", () => {
 
         service().copyActiveEditorToGroup("next");
         await vi.waitFor(() => {
-            expect(service().groups.at(1)?.editorCount).toBe(1);
+            expect(service().editorGroups.groups.at(1)?.editorCount).toBe(1);
         });
 
-        expect(service().groups[0].editorCount).toBe(1);
-        expect(service().groups[1].activePane instanceof DiffEditorPane2).toBe(true);
+        expect(service().editorGroups.groups[0].editorCount).toBe(1);
+        expect(service().editorGroups.groups[1].activePane instanceof DiffEditorPane2).toBe(true);
     });
 
     it("повтор в группу ищет вкладку только там: дифф в соседней группе не мешает", async () => {
         const source = await openFilesDiff();
-        const right = service().newGroup("after", { focus: false })!;
+        const right = service().editorGroups.newGroup("after", { focus: false })!;
 
         await openDiffPair(h.container, files(), { group: right, focus: false });
 
         expect(right.editorCount).toBe(1);
         expect(right.activePane).not.toBe(source);
-        expect(service().groups[0].activePane).toBe(source);
+        expect(service().editorGroups.groups[0].activePane).toBe(source);
     });
 
     it("повтор в группу, где дифф уже открыт, активирует его без фокуса", async () => {
         const source = await openFilesDiff();
         service().openFile(ws.path("a.txt"));
 
-        await openDiffPair(h.container, files(), { group: service().activeGroup, focus: false });
+        await openDiffPair(h.container, files(), { group: service().editorGroups.activeGroup, focus: false });
 
-        expect(service().activeGroup.editorCount).toBe(2);
-        expect(service().activeGroup.activePane).toBe(source);
+        expect(service().editorGroups.activeGroup.editorCount).toBe(2);
+        expect(service().editorGroups.activeGroup.activePane).toBe(source);
         // Фокус был во вкладке a.txt, она ушла из дерева; в дифф его не ставили.
         expect(h.testApp.focusedElement).toBeNull();
     });
@@ -103,26 +103,26 @@ describe("Фабрика дифф-вкладки", () => {
         });
         await openDiffPair(h.container, clip("old"));
         const pane = service().getActiveTabPane() as DiffEditorPane2;
-        const right = service().newGroup("after", { focus: false })!;
+        const right = service().editorGroups.newGroup("after", { focus: false })!;
 
-        await openDiffPair(h.container, clip("new"), { group: service().groups[0], focus: false });
+        await openDiffPair(h.container, clip("new"), { group: service().editorGroups.groups[0], focus: false });
 
         // Та же вкладка, свежий текст; активная группа не сменилась.
-        expect(service().groups[0].editorCount).toBe(1);
+        expect(service().editorGroups.groups[0].editorCount).toBe(1);
         expect(pane.sidePanes()[0].getText()).toBe("new");
-        expect(service().activeGroup).toBe(right);
+        expect(service().editorGroups.activeGroup).toBe(right);
     });
 
     it("команда сравнения находит дифф в другой группе и делает её активной", async () => {
         const source = await openFilesDiff();
-        service().newGroup("after");
+        service().editorGroups.newGroup("after");
         service().openFile(ws.path("a.txt"));
         const focusedBefore = h.testApp.focusedElement;
 
         await openDiffPair(h.container, files());
 
-        expect(service().groups.length).toBe(2);
-        expect(service().activeGroup).toBe(service().groups[0]);
+        expect(service().editorGroups.groups.length).toBe(2);
+        expect(service().editorGroups.activeGroup).toBe(service().editorGroups.groups[0]);
         expect(service().getActiveTabPane()).toBe(source);
         // Фокус уехал в дифф — команда сравнения его показывает, а не только активирует.
         expect(h.testApp.focusedElement).not.toBeNull();

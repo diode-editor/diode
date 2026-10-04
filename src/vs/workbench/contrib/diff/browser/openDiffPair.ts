@@ -11,6 +11,7 @@ import type { DiffV2SideSource, IDiffEditorPane2Input } from "../../../browser/p
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice, TRANSIENT_NOTICE_MS } from "../../../services/statusbar/common/transientNotice.ts";
@@ -97,6 +98,7 @@ export async function openDiffPair(
     target?: IOpenDiffPairTarget,
 ): Promise<OpenDiffPairResult> {
     const editors = accessor.get(EditorServiceDIToken);
+    const groups = accessor.get(EditorGroupsServiceDIToken);
     const uri = pairUri(options);
 
     // Дедуп по идентичности пары — по ВСЕМ группам (вкладка могла остаться в
@@ -104,7 +106,7 @@ export async function openDiffPair(
     // повторный вызов (единственный способ «обновить» снимок) показал бы старое.
     // Повтор вкладки в заданную группу ищет только в ней: копия в соседней
     // группе — ровно то, что просили.
-    for (const group of target !== undefined ? [target.group] : editors.groups) {
+    for (const group of target !== undefined ? [target.group] : groups.groups) {
         const index = group.findPaneIndex(uri);
         if (index < 0) continue;
         const pane = group.getPane(index);
@@ -120,7 +122,7 @@ export async function openDiffPair(
         // capture-слушатель группы), так что мутанты строки ненаблюдаемы: явный
         // вызов держит порядок событий «группа, потом вкладка».
         // Stryker disable next-line ObjectLiteral,BooleanLiteral,ConditionalExpression,EqualityOperator,CallExpression: эквивалентны — см. выше
-        if (target === undefined) editors.focusGroup(group.id, { focus: false });
+        if (target === undefined) groups.focusGroup(group.id, { focus: false });
         group.activateTab(index, { focus: target === undefined || target.focus });
         return "opened";
     }

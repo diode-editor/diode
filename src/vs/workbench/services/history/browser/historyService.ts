@@ -25,10 +25,8 @@ export interface IHistoryEditorGroup {
     getPanes(): readonly { readonly uri: Uri }[];
 }
 
-/** Поставщик редакторов и групп для {@link HistoryService}. */
+/** Поставщик редакторов для {@link HistoryService}. */
 export interface IHistoryEditorSource {
-    readonly activeGroup: IHistoryEditorGroup;
-    readonly groups: readonly IHistoryEditorGroup[];
     getActiveEditor(): IHistoryEditor | null;
     openUri(uri: Uri, options?: { focus?: boolean }): void;
     /**
@@ -38,7 +36,6 @@ export interface IHistoryEditorSource {
      * всё равно не сможет.
      */
     canRestore(uri: Uri): boolean;
-    focusGroup(id: number, options?: { focus?: boolean }): void;
     onActiveEditorChanged(listener: (editor: IHistoryEditor | null) => void): IDisposable;
     onDidChangeActiveEditorSelection(listener: (editor: IHistoryEditor) => void): IDisposable;
 }
@@ -74,6 +71,15 @@ export const NULL_JUMP_RECORDER: IJumpRecorder = {
 
 // Stryker disable StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой, подменить её нечем наблюдаемым
 export const HistoryEditorSourceDIToken = token<IHistoryEditorSource>("HistoryEditorSource");
+
+/** Полоса групп глазами {@link HistoryService}: запись помнит группу и возвращает в неё. */
+export interface IHistoryGroupsSource {
+    readonly activeGroup: IHistoryEditorGroup;
+    readonly groups: readonly IHistoryEditorGroup[];
+    focusGroup(id: number, options?: { focus?: boolean }): void;
+}
+
+export const HistoryGroupsSourceDIToken = token<IHistoryGroupsSource>("HistoryGroupsSource");
 export const HistoryServiceDIToken = token<HistoryService>("HistoryService");
 export const JumpRecorderDIToken = token<IJumpRecorder>("JumpRecorder");
 // Stryker restore StringLiteral
@@ -121,7 +127,7 @@ const SIGNIFICANT_LINE_DISTANCE = 10;
  * группу); группа запоминается в записи и восстанавливается перед открытием.
  */
 export class HistoryService extends Disposable implements IWorkbenchContribution, IJumpRecorder {
-    public static dependencies = [HistoryEditorSourceDIToken] as const;
+    public static dependencies = [HistoryEditorSourceDIToken, HistoryGroupsSourceDIToken] as const;
 
     private readonly entries: IHistoryEntry[] = [];
     /** Указатель на текущую запись; `-1`, пока стек пуст. */
@@ -129,7 +135,10 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
     /** Пока true, неявные продюсеры молчат: это мы сами двигаем каретку. */
     private suspended = false;
 
-    public constructor(private readonly source: IHistoryEditorSource) {
+    public constructor(
+        private readonly source: IHistoryEditorSource,
+        private readonly groups: IHistoryGroupsSource,
+    ) {
         super();
 
         this.register(
@@ -232,8 +241,8 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
     private restore(entry: IHistoryEntry): void {
         this.suspended = true;
         try {
-            if (entry.groupId !== this.source.activeGroup.id && this.groupExists(entry.groupId)) {
-                this.source.focusGroup(entry.groupId);
+            if (entry.groupId !== this.groups.activeGroup.id && this.groupExists(entry.groupId)) {
+                this.groups.focusGroup(entry.groupId);
             }
             this.source.openUri(entry.uri, { focus: true });
             const editor = this.source.getActiveEditor();
@@ -249,7 +258,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
                 uri: entry.uri,
                 line: editor.primaryCursorLine,
                 character: editor.primaryCursorColumn,
-                groupId: this.source.activeGroup.id,
+                groupId: this.groups.activeGroup.id,
             };
         } finally {
             this.suspended = false;
@@ -273,7 +282,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             uri: editor.uri,
             line: editor.primaryCursorLine,
             character: editor.primaryCursorColumn,
-            groupId: this.source.activeGroup.id,
+            groupId: this.groups.activeGroup.id,
         };
     }
 
@@ -357,12 +366,12 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
      */
     private isReachable(entry: IHistoryEntry): boolean {
         if (entry.uri.scheme === "file") return fs.existsSync(entry.uri.fsPath);
-        return this.source.groups.some((group) =>
+        return this.groups.groups.some((group) =>
             group.getPanes().some((pane) => pane.uri.toString() === entry.uri.toString()),
         );
     }
 
     private groupExists(id: number): boolean {
-        return this.source.groups.some((group) => group.id === id);
+        return this.groups.groups.some((group) => group.id === id);
     }
 }

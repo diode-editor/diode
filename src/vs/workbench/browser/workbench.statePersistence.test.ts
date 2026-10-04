@@ -62,7 +62,7 @@ describe("Workbench — session state persistence", () => {
         h1.workbench.openFile(ws.path("b.ts"));
         h1.workbench.openFile(ws.path("c.ts"));
         // Активной делаем среднюю вкладку.
-        h1.container.get(EditorServiceDIToken).activeGroup.activateTab(1);
+        h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(1);
         h1.workbench.workbenchLayout.setLeftPanelWidth(45);
         h1.workbench.workbenchLayout.setBottomPanelVisible(true);
         h1.workbench.workbenchLayout.setBottomPanelHeight(8);
@@ -76,7 +76,7 @@ describe("Workbench — session state persistence", () => {
 
         const group = h2.container.get(EditorServiceDIToken);
         expect(group.getOpenFilePaths()).toEqual([ws.path("a.ts"), ws.path("b.ts"), ws.path("c.ts")]);
-        expect(group.activeGroup.activeIndex).toBe(1);
+        expect(group.editorGroups.activeGroup.activeIndex).toBe(1);
         expect(h2.workbench.workbenchLayout.getLeftPanelWidth()).toBe(45);
         expect(h2.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
         expect(h2.workbench.workbenchLayout.getBottomPanelHeight()).toBe(8);
@@ -120,7 +120,7 @@ describe("Workbench — session state persistence", () => {
         h1.workbench.openFile(ws.path("c.ts")); // группа 2: b + c
         h1.commands.execute("workbench.action.increaseEditorWidth");
         h1.commands.execute("workbench.action.focusFirstEditorGroup");
-        h1.container.get(EditorServiceDIToken).activeGroup.activateTab(0); // группа 1: активна a
+        h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(0); // группа 1: активна a
         state1.flushSync();
         const weightsBefore = [
             ...(h1.workbench as unknown as { editorPartComponent: { weights: readonly number[] } }).editorPartComponent
@@ -138,13 +138,19 @@ describe("Workbench — session state persistence", () => {
         h2.workbench.restoreOpenEditors();
 
         const service = h2.container.get(EditorServiceDIToken);
-        expect(service.groups.length).toBe(2);
-        expect(service.groups[0].getPanes().map((p) => p.uri.fsPath)).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
-        expect(service.groups[1].getPanes().map((p) => p.uri.fsPath)).toEqual([ws.path("b.ts"), ws.path("c.ts")]);
-        expect(service.groups[0].activePane!.uri.fsPath).toBe(ws.path("a.ts"));
-        expect(service.groups[1].activePane!.uri.fsPath).toBe(ws.path("c.ts"));
+        expect(service.editorGroups.groups.length).toBe(2);
+        expect(service.editorGroups.groups[0].getPanes().map((p) => p.uri.fsPath)).toEqual([
+            ws.path("a.ts"),
+            ws.path("b.ts"),
+        ]);
+        expect(service.editorGroups.groups[1].getPanes().map((p) => p.uri.fsPath)).toEqual([
+            ws.path("b.ts"),
+            ws.path("c.ts"),
+        ]);
+        expect(service.editorGroups.groups[0].activePane!.uri.fsPath).toBe(ws.path("a.ts"));
+        expect(service.editorGroups.groups[1].activePane!.uri.fsPath).toBe(ws.path("c.ts"));
         // Активная группа — первая (как перед выходом).
-        expect(service.activeGroup === service.groups[0]).toBe(true);
+        expect(service.editorGroups.activeGroup === service.editorGroups.groups[0]).toBe(true);
         // Доли пережили рестарт (саш был сдвинут resize-командой).
         const part = (h2.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
             .editorPartComponent;
@@ -176,8 +182,8 @@ describe("Workbench — session state persistence", () => {
         h2.workbench.restoreOpenEditors();
 
         const service = h2.container.get(EditorServiceDIToken);
-        expect(service.groups.length).toBe(1);
-        expect(service.groups[0].getPanes().map((p) => p.uri.fsPath)).toEqual([ws.path("a.ts")]);
+        expect(service.editorGroups.groups.length).toBe(1);
+        expect(service.editorGroups.groups[0].getPanes().map((p) => p.uri.fsPath)).toEqual([ws.path("a.ts")]);
         h2.dispose();
     });
 
@@ -204,8 +210,11 @@ describe("Workbench — session state persistence", () => {
         h2.workbench.restoreOpenEditors();
 
         const service = h2.container.get(EditorServiceDIToken);
-        expect(service.groups.length).toBe(1);
-        expect(service.groups[0].getPanes().map((p) => p.uri.fsPath)).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
+        expect(service.editorGroups.groups.length).toBe(1);
+        expect(service.editorGroups.groups[0].getPanes().map((p) => p.uri.fsPath)).toEqual([
+            ws.path("a.ts"),
+            ws.path("b.ts"),
+        ]);
         h2.dispose();
     });
 
@@ -246,9 +255,9 @@ describe("Workbench — session state persistence", () => {
         h2.workbench.restoreOpenEditors();
 
         const service = h2.container.get(EditorServiceDIToken);
-        expect(service.groups.length).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
         expect(service.getOpenFilePaths()).toEqual([ws.path("a.ts"), ws.path("c.ts")]);
-        expect(service.activeGroup.activeIndex).toBe(1);
+        expect(service.editorGroups.activeGroup.activeIndex).toBe(1);
         h2.dispose();
     });
 
@@ -279,11 +288,14 @@ describe("Workbench — session state persistence", () => {
         h2.workbench.restoreOpenEditors();
 
         const service = h2.container.get(EditorServiceDIToken);
-        expect(service.groups.length).toBe(2);
+        expect(service.editorGroups.groups.length).toBe(2);
         // b.ts выпал; активной группы 2 стала ПЕРВАЯ уцелевшая вкладка, а не
         // последняя открытая.
-        expect(service.groups[1].getPanes().map((p) => p.uri.fsPath)).toEqual([ws.path("a.ts"), ws.path("c.ts")]);
-        expect(service.groups[1].activePane!.uri.fsPath).toBe(ws.path("a.ts"));
+        expect(service.editorGroups.groups[1].getPanes().map((p) => p.uri.fsPath)).toEqual([
+            ws.path("a.ts"),
+            ws.path("c.ts"),
+        ]);
+        expect(service.editorGroups.groups[1].activePane!.uri.fsPath).toBe(ws.path("a.ts"));
         // Потерянная доля добита единицей: после нормировки группа 2 шире первой.
         const part = (h2.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
             .editorPartComponent;
@@ -297,7 +309,7 @@ describe("Workbench — session state persistence", () => {
         h1.workbench.openFile(ws.path("a.ts"));
         h1.commands.execute("workbench.action.openGlobalKeybindings");
         h1.workbench.openFile(ws.path("b.ts"));
-        h1.container.get(EditorServiceDIToken).activeGroup.activateTab(1);
+        h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(1);
         // Для сборок без `editors` — только файлы; активная вкладка не файл.
         expect(state1.get(EDITOR_GROUPS_STATE)?.groups[0]).toMatchObject({
             files: [ws.path("a.ts"), ws.path("b.ts")],
@@ -314,12 +326,12 @@ describe("Workbench — session state persistence", () => {
         // Рестор фокус не трогает — его расставляет старт.
         expect(h2.testApp.focusedElement).toBe(focusedBefore);
         const service = h2.container.get(EditorServiceDIToken);
-        expect(service.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([
+        expect(service.editorGroups.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([
             Uri.file(ws.path("a.ts")).toString(),
             "keybindings:global",
             Uri.file(ws.path("b.ts")).toString(),
         ]);
-        expect(service.activeGroup.activePane?.uri.toString()).toBe("keybindings:global");
+        expect(service.editorGroups.activeGroup.activePane?.uri.toString()).toBe("keybindings:global");
         // Прогрев грамматик берёт только файлы.
         expect(h2.workbench.getOpenEditorsToRestore()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
         h2.dispose();
@@ -342,7 +354,7 @@ describe("Workbench — session state persistence", () => {
         const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: newState() });
         h2.workbench.restoreOpenEditors();
 
-        const group = h2.container.get(EditorServiceDIToken).activeGroup;
+        const group = h2.container.get(EditorServiceDIToken).editorGroups.activeGroup;
         await vi.waitFor(() => {
             expect(group.editorCount).toBe(1);
         });
@@ -381,9 +393,9 @@ describe("Workbench — session state persistence", () => {
         const service = h2.container.get(EditorServiceDIToken);
         // Вторая группа из одних неизвестных вкладок не поднялась вовсе; активной
         // вместо выпавшей стала первая уцелевшая.
-        expect(service.groups.length).toBe(1);
-        expect(service.activeGroup.getPanes().map((pane) => pane.uri.fsPath)).toEqual([ws.path("a.ts")]);
-        expect(service.activeGroup.activeIndex).toBe(0);
+        expect(service.editorGroups.groups.length).toBe(1);
+        expect(service.editorGroups.activeGroup.getPanes().map((pane) => pane.uri.fsPath)).toEqual([ws.path("a.ts")]);
+        expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
         h2.dispose();
     });
 

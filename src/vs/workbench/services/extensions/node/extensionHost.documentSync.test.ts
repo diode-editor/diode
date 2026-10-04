@@ -121,7 +121,7 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
         });
         try {
             await settle();
-            harness.group.activeGroup.closeTab(0);
+            harness.group.editorGroups.activeGroup.closeTab(0);
             await settle();
 
             const log = await dumpLog(harness);

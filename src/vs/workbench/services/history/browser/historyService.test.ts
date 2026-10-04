@@ -28,7 +28,7 @@ describe("HistoryService — стек навигации", () => {
     const beta = (): string => uri("beta.ts");
 
     /** Сервис создаётся после сида — чтобы проверять и подхват активного редактора. */
-    const createService = (): HistoryService => new HistoryService(source);
+    const createService = (): HistoryService => new HistoryService(source, source);
 
     it("пустой стек: идти некуда, goBack/goForward — no-op", () => {
         const service = createService();

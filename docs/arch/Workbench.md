@@ -94,7 +94,7 @@ bootstrap-последовательность приложения (mount → a
 
 | Хук | Кто ставит | Куда уходит |
 |---|---|---|
-| `EditorService.canAddGroupHook`, `focusGroupContentHook` | `EditorPartComponent` | E1 (группы и полоса групп — одна сущность, как `EditorParts`) |
+| `EditorGroupsService.canAddGroupHook`, `focusGroupContentHook` | `EditorPartComponent` | E5 (порт view-части полосы вместо полей-хуков) |
 | `EditorService.onOpenFailed` | `OpenFailureNotificationContribution` | C1 (перевод `?:`-хуков на `Emitter`) |
 
 ### Late-init `attach*`
@@ -557,10 +557,10 @@ hide-toggle (`isHiddenByDefault`). См.
     структурно, биндинг в `Modules/WorkbenchModule.ts`),
     `OpenEditorsQuickAccessProvider` (`edt ` — открытые вкладки,
     `workbench.action.showAllEditors`, Ctrl+K Ctrl+P: список всех групп в
-    MRU-порядке через `EditorService.getOpenEditorsMru()`, переход —
+    MRU-порядке через `EditorGroupsService.getOpenEditorsMru()`, переход —
     `revealPane` через границу группы; fuzzy — тот же, что у файлов
     (`fuzzyMatchPrepared` + `BASENAME_BONUS`, раскладка совпадений по колонкам —
-    общий `pathMatchRanges.ts`); швы `IOpenEditorsSource` → `EditorService` и
+    общий `pathMatchRanges.ts`); швы `IOpenEditorsSource` → полоса групп + `EditorService` (метки) и
     `IWorkspaceRootSource` → `ExplorerService`, оба структурно). Соседний
     hold-оверлей Ctrl+Tab (`TabSwitcherComponent`) показывает тот же MRU, но
     без ввода — это разные поверхности над одной моделью.
@@ -867,30 +867,53 @@ hide-toggle (`isHiddenByDefault`). См.
     (экшены, Find/Completion, host-адаптеры, швы `IActiveEditorStatus`/
     `IDiagnosticsEditor`/`IMarkerRevealEditor`/`IGotoLineEditor` — выполняются
     структурно делегатами в модель/компонент).
-  - `Services/EditorService.ts` (этап 9b; со сплитов — фасад активной группы +
-    менеджер полосы, аналог IEditorService+IEditorGroupsService) — логика без
-    view. Пер-группная модель извлечена в `editorGroupModel.ts` (`EditorGroup`:
-    вкладки, активная, MRU-серии Ctrl+Tab, `insertPane`/`detachPane` без
-    dispose, пер-группный дедуп `findPaneIndex`; контракт порядка событий
-    `onDidChangeEditors` → фокус → `onDidChangeActivePane`). Сервис владеет
-    полосой (`groups`/`activeGroup`/`viewColumnOf`/`groupOf`), операциями
-    сплитов (`splitActiveGroup`/`newGroup`/`focusGroup`/`moveActiveEditorToGroup`/
-    `copyActiveEditorToGroup`/`joinTwoGroups`/`joinAllGroups`/`moveActiveGroup`;
-    сплит, копия и рестор сессии повторяют вкладку по **рецепту** фабрики её
-    вида — `IEditorPaneFactory` в `editorPaneFactory.ts`: `typeId` (upstream id
-    input'а), `describe(pane)` → plain-рецепт, `serialize`/`deserialize`,
-    `open(рецепт, {group, focus})`, `singleton` (сплит/копия не повторяют).
-    Текстовая фабрика — своя у сервиса (`{uri, viewState}` через
-    `openUri(uri, {group, viewState})`), фабрики contrib приходят списком
-    `EditorPaneFactoriesDIToken` (собирает `workbenchModule`; Keyboard Shortcuts —
+  - `services/editor/browser/editorGroupsService.ts` — `EditorGroupsService`
+    (DI; аналог upstream `IEditorGroupsService`, но headless — у upstream его
+    реализует view-часть `EditorPart`): полоса групп
+    (`groups`/`activeGroup`/`viewColumnOf`/`groupOf`), операции полосы
+    (`newGroup`/`focusGroup`/`notifyGroupFocused`/`moveActiveEditorToGroup`/
+    `joinTwoGroups`/`joinAllGroups`/`moveActiveGroup`, сторона «рядом» —
+    `sideGroup`), схлопывание опустевших групп, отказ по месту —
+    `canAddGroupHook` + лог. Пер-группная модель — `editorGroupModel.ts`
+    (`EditorGroup`: вкладки, активная, MRU-серии Ctrl+Tab,
+    `insertPane`/`detachPane` без dispose, пер-группный дедуп `findPaneIndex`;
+    контракт порядка событий `onDidChangeEditors` → фокус →
+    `onDidChangeActivePane`). Вкладок сам не создаёт: сплит
+    (`splitActiveGroup(fill)`) и открытие в группу (`openInGroup(group, fill)`,
+    `openInNeighborGroup`) получают колбэк «наполни группу» от
+    `EditorService` — новая группа активна ДО наполнения, `onDidActiveGroupChange`
+    уходит после. События: `onDidChangeEditors` (агрегат групп),
+    `onDidChangeActivePane` (активная вкладка полосы любого вида),
+    `onDidActiveGroupChange`, `onDidGroupsChange({kind: added|removed|moved})`,
+    `onDidChangeMruCycle` (агрегат серий Ctrl+Tab групп — снимок замороженного
+    MRU-списка с позицией цикла на каждом шаге, `null` на конце серии; питает
+    оверлей переключателя). Вкладки по позиции, `activateTab` и MRU-серия
+    (`cycleMru`/`endMruCycle`) — у самой группы (`activeGroup.*`); уход фокуса
+    в другую группу завершает серию прежней. `cycleEditor(±1)` — шаг по
+    ВИЗУАЛЬНОМУ порядку вкладок всей полосы с заворотом (VS Code
+    `nextEditor`/`previousEditor`, Ctrl+PgDn/PgUp) — без hold-сессии, каждый
+    шаг коммитится в MRU сразу; `getOpenEditorsMru`/`revealPane` — пикер
+    открытых редакторов.
+  - `Services/EditorService.ts` (этап 9b; аналог `IEditorService`) — логика
+    «редакторов» без view поверх полосы (`editorGroups` — тот же
+    `EditorGroupsService` из DI): активный редактор (`getActivePane`/
+    `getActiveEditor`/`getActiveTabPane`), все редакторы (`getEditors()` —
+    все группы), открытие (`openFile`/`openUri` — `{group:"beside"}` — Open to
+    the Side, `openPane`, `openTextSnapshot`, `openDetached`, `newUntitled`).
+    Сплит и копия в группу (`splitActiveGroup`/`copyActiveEditorToGroup`)
+    остаются здесь: они, как и рестор сессии, повторяют вкладку по
+    **рецепту** фабрики её вида — `IEditorPaneFactory` в `editorPaneFactory.ts`:
+    `typeId` (upstream id input'а), `describe(pane)` → plain-рецепт,
+    `serialize`/`deserialize`, `open(рецепт, {group, focus})`, `singleton`
+    (сплит/копия не повторяют). Текстовая фабрика — своя у сервиса
+    (`{uri, viewState}` через `openUri(uri, {group, viewState})`), фабрики
+    contrib приходят списком `EditorPaneFactoriesDIToken` (собирает
+    `workbenchModule`; Keyboard Shortcuts —
     `contrib/preferences/browser/keybindingsEditorPaneFactory.ts`, дифф —
     `contrib/diff/browser/diffEditorPaneFactory.ts`, рецепт — спеки сторон
-    `openDiffPair`);
-    отказ по месту — `canAddGroupHook` + лог), схлопыванием опустевших групп,
-    моделями (`textFileModels` — `TextFileModelService` из DI: одна
-    `TextFileModel` на ресурс, вкладка владеет ref-count-ссылкой; вью вкладки
-    собирает `TextEditorPaneBuilder`), `openFile`/`openUri` (`{group:"beside"}` —
-    Open to the Side), `newUntitled`, `displayName`/`suggestedSaveName`,
+    `openDiffPair`). Модели — `textFileModels` (`TextFileModelService` из DI:
+    одна `TextFileModel` на ресурс, вкладка владеет ref-count-ссылкой); вью
+    вкладки собирает `TextEditorPaneBuilder`; `displayName`/`suggestedSaveName`;
     применение `editor.*`-настроек (`TextEditorConfiguration`,
     `textEditorConfiguration.ts`, не DI-сервис: сервис держит его как
     `editorConfiguration` и отдаёт колбэком список поверхностей — вкладки и стороны
@@ -907,20 +930,12 @@ hide-toggle (`isHiddenByDefault`). См.
     закрывает, только если сохранилось всё (`"no-file"` у untitled — вето),
     Don't Save закрывает, Cancel обрывает серию; перед вопросом вкладка
     активируется, повторный запрос по той же панели присоединяется к открытому
-    диалогу. События: `onActiveEditorChanged`
-    (смена вкладки активной группы ЛИБО активной группы), `onEditorSaved`,
-    `onDidChangeEditors` (агрегат групп), `onDidActiveGroupChange`,
-    `onDidGroupsChange({kind: added|removed|moved})`, `onDidChangeMruCycle`
-    (агрегат серий Ctrl+Tab групп — снимок замороженного MRU-списка с позицией
-    цикла на каждом шаге, `null` на конце серии; питает оверлей переключателя).
-    Вкладочного фасада активной группы у сервиса нет: вкладки по позиции,
-    `activateTab` и MRU-серия Ctrl+Tab (`cycleMru`/`endMruCycle`) — у самой
-    группы (`activeGroup.*`); кому нужны все редакторы — `getEditors()` (все
-    группы). Переключение вкладок: MRU-серия — по группе
-    (уход фокуса в другую группу завершает серию прежней), `cycleEditor(±1)` —
-    шаг по ВИЗУАЛЬНОМУ порядку вкладок всей полосы с заворотом (VS Code
-    `nextEditor`/`previousEditor`, Ctrl+PgDn/PgUp) — без hold-сессии, каждый
-    шаг коммитится в MRU сразу.
+    диалогу. События: `onActiveEditorChanged` (сужение
+    `EditorGroupsService.onDidChangeActivePane` до текста: смена вкладки
+    активной группы ЛИБО активной группы), `onEditorSaved`, `onDidChangeEditors`
+    (агрегат групп + detached-панели и сохранения). Порядок на границе
+    сервисов — вкладки → активный редактор → активная группа
+    (`editorGroupsService.test.ts`).
   - `parts/editor/editorPartComponent.ts` — часть «область редактора» (аналог
     `EditorPart`): владеет `tuidom/ui/editorpart/EditorPartElement` (полоса N
     вью + N−1 сашей, нормированные веса, min-клампы 20×5, максимизация,
@@ -946,7 +961,7 @@ hide-toggle (`isHiddenByDefault`). См.
     поверх редактора висит MRU-список вкладок текущей группы с подсветкой
     позиции цикла (метки `computeTabLabels`, иконки, маркер изменённости;
     скользящее окно `maxVisibleItems`); гаснет по концу серии. Компонент чисто
-    реактивный поверх `EditorService.onDidChangeMruCycle` (+ страховка
+    реактивный поверх `EditorGroupsService.onDidChangeMruCycle` (+ страховка
     `onDidActiveGroupChange`), команды про него не знают; overlay-сессия —
     passthrough без фокуса и без гашения глобальных биндов, хост — late-init
     шов `attachHost(BodyElement)`. Элемент — композиция `QuickPickFrameElement`

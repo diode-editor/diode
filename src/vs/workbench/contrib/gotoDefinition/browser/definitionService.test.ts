@@ -99,7 +99,7 @@ describe("DefinitionService — Go to Definition", () => {
         await flushMicrotasks(10);
 
         // Цель — в группе справа; исходная группа не тронута.
-        const groups = group().groups;
+        const groups = group().editorGroups.groups;
         expect(groups.length).toBe(2);
         expect(groups[0].activePane?.uri.toString()).toBe(mainUri);
         expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);

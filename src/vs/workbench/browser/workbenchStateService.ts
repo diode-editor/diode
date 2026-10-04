@@ -9,6 +9,10 @@ import type { WorkspaceId } from "../../platform/workspace/common/iWorkspaceCont
 import type { IEditorGroupSnapshot, IEditorGroupsState, ISerializedEditor } from "../common/stateKeys.ts";
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
 import type { EditorGroup } from "../services/editor/browser/editorGroupModel.ts";
+import {
+    type EditorGroupsService,
+    EditorGroupsServiceDIToken,
+} from "../services/editor/browser/editorGroupsService.ts";
 import { TEXT_EDITOR_PANE_TYPE_ID } from "../services/editor/browser/editorPaneFactory.ts";
 import type { EditorService } from "../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
@@ -59,7 +63,7 @@ export interface IEditorGroupsLayoutView {
  * швом к `WorkbenchLayoutElement`.
  */
 export class WorkbenchStateService extends Disposable {
-    public static dependencies = [StateServiceDIToken, EditorServiceDIToken] as const;
+    public static dependencies = [StateServiceDIToken, EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
 
     private layoutView: IEditorGroupsLayoutView | null = null;
     /** Взведён на время рестора: реплей открытий не должен перезаписывать снимок. */
@@ -68,6 +72,7 @@ export class WorkbenchStateService extends Disposable {
     public constructor(
         private readonly state: IStateService,
         private readonly editorGroup: EditorService,
+        private readonly groups: EditorGroupsService,
     ) {
         super();
         this.register(
@@ -77,7 +82,7 @@ export class WorkbenchStateService extends Disposable {
         );
         // Сплит/схлопывание/перестановка групп — тоже часть снимка.
         this.register(
-            this.editorGroup.onDidGroupsChange(() => {
+            this.groups.onDidGroupsChange(() => {
                 this.captureOpenEditors();
             }),
         );
@@ -131,16 +136,17 @@ export class WorkbenchStateService extends Disposable {
             for (const [index, group] of snapshot.groups.entries()) {
                 // Отказ по месту при рассинхроне с canFit даёт null — вкладки
                 // группы дольются в текущую (деградация того же смысла).
-                if (index > 0) this.editorGroup.newGroup("after", { focus: false });
-                const target = { group: this.editorGroup.activeGroup, focus: false };
+                // Stryker disable next-line StringLiteral: позиция "" ведёт себя как "after" — эквивалентен
+                if (index > 0) this.groups.newGroup("after", { focus: false });
+                const target = { group: this.groups.activeGroup, focus: false };
                 for (const editor of group.editors) this.editorGroup.openSerializedEditor(editor, target);
                 // Повторное открытие уже открытой вкладки её активирует. Без
                 // сохранённой активной — первая, как у свежей группы.
                 this.editorGroup.openSerializedEditor(group.active ?? group.editors[0], target);
             }
-            const groups = this.editorGroup.groups;
+            const groups = this.groups.groups;
             const activeIndex = Math.min(Math.max(0, snapshot.activeGroup), groups.length - 1);
-            this.editorGroup.focusGroup({ index: activeIndex }, { focus: false });
+            this.groups.focusGroup({ index: activeIndex }, { focus: false });
             this.layoutView?.applyPersistedLayout(snapshot.orientation, snapshot.weights);
         } finally {
             this.restoring = false;
@@ -152,18 +158,18 @@ export class WorkbenchStateService extends Disposable {
     /** Снимает полосу групп + плоский legacy-снимок активной группы в стор. */
     public captureOpenEditors(): void {
         if (this.restoring) return;
-        const groups = this.editorGroup.groups;
+        const groups = this.groups.groups;
         const snapshots = groups.map((group) => this.snapshotGroup(group));
         const state: IEditorGroupsState = {
             orientation: this.layoutView?.orientation ?? "columns",
             groups: snapshots,
             weights: this.layoutView?.weights ?? snapshots.map(() => 1 / Math.max(1, snapshots.length)),
-            activeGroup: groups.indexOf(this.editorGroup.activeGroup),
+            activeGroup: groups.indexOf(this.groups.activeGroup),
         };
         this.state.store(EDITOR_GROUPS_STATE, state);
 
         // Плоский legacy-снимок активной группы — совместимость со сборками до сплитов.
-        const activeSnapshot = this.snapshotGroup(this.editorGroup.activeGroup);
+        const activeSnapshot = this.snapshotGroup(this.groups.activeGroup);
         this.state.store(OPEN_EDITORS_STATE, {
             files: activeSnapshot.files,
             activeIndex: activeSnapshot.activeIndex,

@@ -1,5 +1,5 @@
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
 
 /** Вкладка, по которой работает команда: адрес из меню либо активная вкладка. */
 export interface TabTarget {
@@ -18,11 +18,11 @@ function hasTabAddress(args: readonly unknown[]): boolean {
  * `editorTabTargetArg`). `null`, если адреса нет или он больше не существует
  * (вызов с клавиатуры/из палитры либо вкладку успели закрыть).
  */
-export function resolveAddressedTab(service: EditorService, args: readonly unknown[]): TabTarget | null {
+export function resolveAddressedTab(groups: EditorGroupsService, args: readonly unknown[]): TabTarget | null {
     // Stryker disable next-line ConditionalExpression: проверка избыточна — ниже и поиск группы по id, и getPane отсеивают неадресные аргументы, возвращая тот же null
     if (!hasTabAddress(args)) return null;
     const [groupId, index] = args as [number, number];
-    const group = service.groups.find((candidate) => candidate.id === groupId);
+    const group = groups.groups.find((candidate) => candidate.id === groupId);
     if (group?.getPane(index) == null) return null;
     return { group, index };
 }
@@ -33,9 +33,9 @@ export function resolveAddressedTab(service: EditorService, args: readonly unkno
  * откатывается на активную вкладку: команда меню обязана либо сделать то, что
  * в нём написано, либо ничего.
  */
-export function resolveTabTarget(service: EditorService, args: readonly unknown[]): TabTarget | null {
-    if (hasTabAddress(args)) return resolveAddressedTab(service, args);
-    const group = service.activeGroup;
+export function resolveTabTarget(groups: EditorGroupsService, args: readonly unknown[]): TabTarget | null {
+    if (hasTabAddress(args)) return resolveAddressedTab(groups, args);
+    const group = groups.activeGroup;
     if (group.activeIndex < 0) return null;
     return { group, index: group.activeIndex };
 }

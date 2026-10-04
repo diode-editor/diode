@@ -54,7 +54,7 @@ describe("EditorService.openTextSnapshot", () => {
         expect(pane.viewState.document.languageId).toBe("typescript");
         // Обычная вкладка: в группе, активна. Сравнение ссылок — `===`, не
         // `toBe` (диф-принтер vitest на TUI-объектах валит воркер по памяти).
-        expect(service.activeGroup.editorCount).toBe(1);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         expect(service.getActiveTabPane() === pane).toBe(true);
         service.dispose();
     });
@@ -85,7 +85,7 @@ describe("EditorService.openTextSnapshot", () => {
             label: "a.ts (dev)",
         });
 
-        expect(service.activeGroup.editorCount).toBe(1);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         expect(second.getText()).toBe("new\n");
         expect(second.readOnly).toBe(true);
         service.dispose();
@@ -115,7 +115,7 @@ describe("EditorService.openTextSnapshot", () => {
         const mainUri = Uri.from({ scheme: "git", path: "/repo/a.ts", query: '{"path":"/repo/a.ts","ref":"main"}' });
         service.openTextSnapshot(mainUri, { text: "main\n", languageId: "plaintext", label: "a.ts (main)" });
 
-        expect(service.activeGroup.editorCount).toBe(2);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(2);
         service.dispose();
     });
 });
@@ -130,7 +130,7 @@ describe("TextFileModel.openFile — гейт схемы", () => {
         // ЛЮБОГО открытия уносил бы весь редактор через unhandled rejection.
         await expect(service.openUri(REVISION_URI)).resolves.toBeUndefined();
 
-        expect(service.activeGroup.editorCount).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(['git: no content provider is registered for the "git:" scheme']);
         service.dispose();
     });

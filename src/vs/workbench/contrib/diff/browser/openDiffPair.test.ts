@@ -71,7 +71,7 @@ describe("openDiffPair", () => {
 
         await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
 
-        const pane = editors.activeGroup.activePane;
+        const pane = editors.editorGroups.activeGroup.activePane;
         expect(pane instanceof DiffEditorPane2).toBe(true);
         for (const side of (pane as DiffEditorPane2).sidePanes()) expect(applied).toHaveBeenCalledWith(side);
     });
@@ -82,7 +82,7 @@ describe("openDiffPair", () => {
         await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
         await settle(10);
 
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
     });
 
     it("другая пара того же файла — отдельная вкладка (US-33)", async () => {
@@ -91,7 +91,7 @@ describe("openDiffPair", () => {
         await openDiffPair(container, { original: fileSide("same.txt"), modified: fileSide("b.txt") });
         await settle(10);
 
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(2);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(2);
     });
 
     it("перевёрнутая пара — другая вкладка: (лево, право) ≠ (право, лево)", async () => {
@@ -100,7 +100,7 @@ describe("openDiffPair", () => {
         await openDiffPair(container, { original: fileSide("b.txt"), modified: fileSide("a.txt") });
         await settle(10);
 
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(2);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(2);
     });
 
     it("текстовая сторона без uri (Clipboard) сравнивается с файлом", async () => {
@@ -126,10 +126,12 @@ describe("openDiffPair", () => {
         expect(result).toBe("opened");
         expect(app.backend.screenToString()).toContain("The files are identical");
         // Вкладка нормально закрывается и не ломает навигацию.
-        const pane = editors.activeGroup.getPanes().find((p) => p instanceof DiffEditorPane2);
+        const pane = editors.editorGroups.activeGroup.getPanes().find((p) => p instanceof DiffEditorPane2);
         expect(pane).toBeDefined();
-        editors.activeGroup.closeTab(editors.activeGroup.getPanes().indexOf(pane ?? editors.activeGroup.getPanes()[0]));
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
+        editors.editorGroups.activeGroup.closeTab(
+            editors.editorGroups.activeGroup.getPanes().indexOf(pane ?? editors.editorGroups.activeGroup.getPanes()[0]),
+        );
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
     });
 
     it("нечитаемая сторона с политикой error — отказ без вкладки", async () => {
@@ -140,7 +142,7 @@ describe("openDiffPair", () => {
         await settle(10);
 
         expect(result).toBe("unreadable");
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
     });
 
     it("нечитаемая сторона с политикой empty — дифф против пустого (US-10)", async () => {
@@ -177,7 +179,7 @@ describe("openDiffPair", () => {
         await settle(10);
 
         expect(result).toBe("opened");
-        const pane = editors.activeGroup.getPanes().find((p) => p instanceof DiffEditorPane2);
+        const pane = editors.editorGroups.activeGroup.getPanes().find((p) => p instanceof DiffEditorPane2);
         expect(pane?.uri.path.endsWith("a.txt")).toBe(true);
     });
 
@@ -199,7 +201,7 @@ describe("openDiffPair", () => {
         const { rmSync } = await import("node:fs");
         rmSync(ws.path("a.txt"));
         expect(await openDiffPair(container, spec)).toBe("unreadable");
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
     });
 
     it("текстовая сторона слева и нечитаемая справа — отказ без утечки", async () => {
@@ -209,7 +211,7 @@ describe("openDiffPair", () => {
         });
 
         expect(result).toBe("unreadable");
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
     });
 
     it("обе стороны — несуществующие файлы с политикой empty: язык по расширению пути", async () => {
@@ -262,7 +264,7 @@ describe("openDiffPair", () => {
         await settle(10);
         app.render();
 
-        expect(editors.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
         expect(app.backend.screenToString()).toMatch(/1-\s+two/u);
     });
 

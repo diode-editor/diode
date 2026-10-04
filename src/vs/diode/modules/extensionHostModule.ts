@@ -37,6 +37,7 @@ import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinp
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
+import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
 import {
@@ -125,7 +126,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Корни хранения расширений (`globalStorageUri`/`storageUri`/`logUri`, секреты) — из окружения.
         const environment = container.get(IEnvironmentServiceDIToken);
         const group = container.get(EditorServiceDIToken);
-        const adapter = new EditorOptionsServiceAdapter(group, container.get(WorkspaceEditServiceDIToken));
+        const adapter = new EditorOptionsServiceAdapter(
+            group,
+            container.get(EditorGroupsServiceDIToken),
+            container.get(WorkspaceEditServiceDIToken),
+        );
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
         const logService = container.get(ILogServiceDIToken);
         // Stryker disable StringLiteral,ObjectLiteral: имена каналов и их метки — подписи в селекторе Output, поведения логирования не задают
@@ -178,7 +183,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Полоса групп: снимки layoutChanged + showTextDocument/close для
         // window.tabGroups (владение — у хоста через register не оформляем:
         // адаптер живёт, пока жив модуль, как остальные адаптеры здесь).
-        const editorLayout = new EditorLayoutServiceAdapter(group);
+        const editorLayout = new EditorLayoutServiceAdapter(group, container.get(EditorGroupsServiceDIToken));
 
         // Слежение за деревом для `workspace.createFileSystemWatcher`: сам обход
         // ведёт ядро, excludes берутся из живой настройки `files.watcherExclude`.
@@ -279,7 +284,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
 
         // Document sync (LSP): didOpen на смену активного редактора, didChange на
         // правку его содержимого — стоковый vscode-languageclient видит живой буфер.
-        bindDocumentSync(group, host);
+        // Stryker disable next-line CallExpression: production-проводка модуля; поведение синхронизации закрыто тестами documentSyncAdapter и e2e
+        bindDocumentSync(group, container.get(EditorGroupsServiceDIToken), host);
 
         // Содержимое недисковых ресурсов: провайдеры расширений
         // (workspace.registerTextDocumentContentProvider) — источник текста для

@@ -50,8 +50,8 @@ describe("EditorDecorationsServiceAdapter — все группы", () => {
     it("декорации ресурса доходят до его вкладки в неактивной группе", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup(); // группа 2 — дубль a.ts
-        service.focusGroup({ index: 0 });
-        const inactive = service.groups[1].getPane(0);
+        service.editorGroups.focusGroup({ index: 0 });
+        const inactive = service.editorGroups.groups[1].getPane(0);
         expect(inactive instanceof TextEditorPane).toBe(true);
         const pushed = vi.spyOn(inactive as TextEditorPane, "setGutterChangeDecorations");
         const decorations = [{ range: createRange(1, 0, 1, 0), color: 0x123456 }];

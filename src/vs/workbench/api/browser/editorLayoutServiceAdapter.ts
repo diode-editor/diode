@@ -8,6 +8,7 @@ import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
+import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { IEditorLayoutService } from "../common/iEditorLayoutService.ts";
 import type {
@@ -37,15 +38,18 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private flushScheduled = false;
     private pendingLayout = false;
 
-    public constructor(private readonly editors: EditorService) {
+    public constructor(
+        private readonly editors: EditorService,
+        private readonly groups: EditorGroupsService,
+    ) {
         super();
         this.register(
-            editors.onDidGroupsChange(() => {
+            groups.onDidGroupsChange(() => {
                 this.scheduleLayoutPush();
             }),
         );
         this.register(
-            editors.onDidActiveGroupChange(() => {
+            groups.onDidActiveGroupChange(() => {
                 this.scheduleLayoutPush();
             }),
         );
@@ -58,7 +62,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     }
 
     public getLayoutSnapshot(): IWireEditorLayout {
-        const groups = this.editors.groups.map((group) => this.snapshotGroup(group));
+        const groups = this.groups.groups.map((group) => this.snapshotGroup(group));
         return { groups };
     }
 
@@ -74,19 +78,18 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     public async showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult> {
         const uri = Uri.parse(params.uri);
         const focus = params.preserveFocus !== true;
-        const previousActive = this.editors.activeGroup;
+        const previousActive = this.groups.activeGroup;
         const target = this.resolveTargetGroup(params.viewColumn ?? VIEW_COLUMN_ACTIVE);
 
         // Открытие в конкретной группе: активируем её (без фокуса при
-        // preserveFocus) и открываем ресурс фасадом — дедуп пер-группный.
-        if (target !== this.editors.activeGroup) {
-            this.editors.focusGroup(target.id, { focus: false });
-        }
+        // preserveFocus) и открываем ресурс фасадом — дедуп пер-группный. Уже
+        // активная группа — no-op полосы.
+        this.groups.focusGroup(target.id, { focus: false });
         // Ждём открытия: недисковый ресурс (`jdt:`) приезжает от провайдера
         // схемы обещанием, и выделение из `params` надо ставить уже в него.
         await this.editors.openUri(uri, { focus });
 
-        const opened = this.editors.activeGroup;
+        const opened = this.groups.activeGroup;
         const editor = opened.activePane;
         if (isTextEditorPane(editor) && params.selection !== undefined) {
             const s = params.selection;
@@ -105,10 +108,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         }
 
         // preserveFocus: документ открыт в целевой колонке, но активная группа
-        // (и фокус) остаются прежними — семантика VS Code.
-        if (!focus && this.editors.activeGroup !== previousActive) {
-            this.editors.focusGroup(previousActive.id, { focus: false });
-        }
+        // (и фокус) остаются прежними — семантика VS Code. Группа не менялась —
+        // no-op полосы.
+        if (!focus) this.groups.focusGroup(previousActive.id, { focus: false });
 
         // Ответ обязан уехать ПОСЛЕ layoutChanged — флашит хост перед reply.
         return Promise.resolve({
@@ -116,7 +118,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             uri: editor?.uri.toString() ?? params.uri,
             /* v8 ignore stop */
             groupId: opened.id,
-            viewColumn: this.editors.viewColumnOf(opened),
+            viewColumn: this.groups.viewColumnOf(opened),
         });
     }
 
@@ -129,7 +131,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     public async closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
         const targets: { group: EditorGroup; pane: IEditorPane }[] = [];
         for (const target of params.tabs) {
-            const group = this.editors.groups.find((candidate) => candidate.id === target.groupId);
+            const group = this.groups.groups.find((candidate) => candidate.id === target.groupId);
             if (group === undefined) continue;
             const pane = group.getPane(group.findPaneIndex(Uri.parse(target.uri)));
             if (pane !== null) targets.push({ group, pane });
@@ -150,7 +152,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     public async closeGroups(params: IWireCloseGroupsParams): Promise<boolean> {
         let allClosed = true;
         for (const groupId of params.groupIds) {
-            const group = this.editors.groups.find((candidate) => candidate.id === groupId);
+            const group = this.groups.groups.find((candidate) => candidate.id === groupId);
             if (group === undefined) continue;
             if (!(await this.editors.closeAllEditors(group))) allClosed = false;
         }
@@ -172,8 +174,8 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private snapshotGroup(group: EditorGroup): IWireTabGroupSnapshot {
         return {
             groupId: group.id,
-            viewColumn: this.editors.viewColumnOf(group),
-            isActive: group === this.editors.activeGroup,
+            viewColumn: this.groups.viewColumnOf(group),
+            isActive: group === this.groups.activeGroup,
             tabs: group.getPanes().map((pane) => this.snapshotTab(group, pane)),
         };
     }
@@ -216,25 +218,29 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
      * создание хвостовых групп (AS-5; отказ по месту оставляет последнюю).
      */
     private resolveTargetGroup(viewColumn: number): EditorGroup {
-        if (viewColumn === VIEW_COLUMN_ACTIVE) return this.editors.activeGroup;
+        if (viewColumn === VIEW_COLUMN_ACTIVE) return this.groups.activeGroup;
         if (viewColumn === VIEW_COLUMN_BESIDE) {
-            const index = this.editors.groups.indexOf(this.editors.activeGroup);
+            const index = this.groups.groups.indexOf(this.groups.activeGroup);
             return (
-                this.editors.groups.at(index + 1) ??
-                this.editors.newGroup("after", { focus: false }) ??
-                this.editors.activeGroup
+                this.groups.groups.at(index + 1) ??
+                // Любая позиция, кроме "before", — справа: пустая строка ведёт себя как "after".
+                // Stryker disable next-line StringLiteral: эквивалентен — см. выше
+                this.groups.newGroup("after", { focus: false }) ??
+                this.groups.activeGroup
             );
         }
         const wanted = Math.max(1, Math.floor(viewColumn));
-        while (this.editors.groups.length < wanted) {
-            const before = this.editors.groups.length;
-            this.editors.focusGroup({ index: before - 1 }, { focus: false });
-            if (this.editors.newGroup("after", { focus: false }) === null) break; // не влезло — фолбэк в край
+        while (this.groups.groups.length < wanted) {
+            const before = this.groups.groups.length;
+            this.groups.focusGroup({ index: before - 1 }, { focus: false });
+            // Stryker disable next-line StringLiteral: позиция "" ведёт себя как "after" — эквивалентен
+            if (this.groups.newGroup("after", { focus: false }) === null) break; // не влезло — фолбэк в край
             /* v8 ignore start -- защитный выход от зацикливания при неожиданном no-op */
-            if (this.editors.groups.length === before) break;
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: защитный выход — недостижим по той же причине
+            if (this.groups.groups.length === before) break;
             /* v8 ignore stop */
         }
-        return this.editors.groups[Math.min(wanted, this.editors.groups.length) - 1];
+        return this.groups.groups[Math.min(wanted, this.groups.groups.length) - 1];
     }
 }
 

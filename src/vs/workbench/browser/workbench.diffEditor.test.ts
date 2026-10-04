@@ -107,7 +107,7 @@ describe("Workbench — вкладка diff", () => {
         expect(pane?.isModified).toBe(true);
         expect(pane === null ? true : editors.needsCloseConfirm(pane)).toBe(false);
 
-        editors.activeGroup.closeTab(editors.activeGroup.activeIndex);
+        editors.editorGroups.activeGroup.closeTab(editors.editorGroups.activeGroup.activeIndex);
         testApp.render();
 
         expect(testApp.backend.screenToString()).not.toContain("↔ HEAD");
@@ -117,13 +117,13 @@ describe("Workbench — вкладка diff", () => {
         editBuffer();
         commands.execute(COMPARE);
         await settle(10);
-        const countAfterFirst = editors.activeGroup.editorCount;
+        const countAfterFirst = editors.editorGroups.activeGroup.editorCount;
 
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         commands.execute(COMPARE);
         await settle(10);
 
-        expect(editors.activeGroup.editorCount).toBe(countAfterFirst);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(countAfterFirst);
     });
 
     it("повторный вызов после новой правки показывает свежий снимок, а не устаревший", async () => {
@@ -134,7 +134,7 @@ describe("Workbench — вкладка diff", () => {
         expect(testApp.backend.screenToString()).toMatch(/2\+\s+XXbravo/u);
 
         // Возврат в редактор и вторая правка.
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         const editor = editors.getActiveEditor();
         editor?.goToPosition(1, 0);
         editor?.viewState.type("YY");
@@ -147,7 +147,9 @@ describe("Workbench — вкладка diff", () => {
         // Стороны живые: дифф показывает обе правки, а не только первую.
         expect(screen).toMatch(/2\+\s+YYXXbravo/u);
         // И по-прежнему ровно одна дифф-вкладка — обновили на месте, не завели вторую.
-        expect(editors.activeGroup.getPanes().filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(1);
+        expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(
+            1,
+        );
     });
 
     it("возврат на файл возвращает обычный редактор", async () => {
@@ -157,7 +159,7 @@ describe("Workbench — вкладка diff", () => {
         testApp.render();
         expect(testApp.backend.screenToString()).toContain("↔ HEAD");
 
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         testApp.render();
 
         const screen = testApp.backend.screenToString();
@@ -182,7 +184,7 @@ describe("Workbench — вкладка diff", () => {
         await settle(10);
         app.render();
 
-        expect(bareEditors.activeGroup.editorCount).toBe(1);
+        expect(bareEditors.editorGroups.activeGroup.editorCount).toBe(1);
         expect(app.backend.screenToString()).toContain("No changes to compare");
         bare.dispose();
     });
@@ -301,7 +303,7 @@ describe("Workbench — вкладка diff, отказы", () => {
         await settle(10);
         app.render();
 
-        expect(editors.activeGroup.editorCount).toBe(1);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(1);
         expect(app.backend.screenToString()).toContain("No changes to compare");
         workbench.dispose();
     });
@@ -372,7 +374,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         expect(screen).toMatch(/2-\s+bravo/u);
         expect(screen).toMatch(/2\+\s+BRAVO/u);
         // Инвариант прямого диффа: единственная вкладка — diode-diff, файл не открыт.
-        expect(editors.activeGroup.getPanes().map((p) => p.uri.scheme)).toEqual(["diode-diff"]);
+        expect(editors.editorGroups.activeGroup.getPanes().map((p) => p.uri.scheme)).toEqual(["diode-diff"]);
         workbench.dispose();
     });
 
@@ -410,7 +412,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         app.render();
 
         expect(result).toBe("no-original");
-        expect(editors.activeGroup.editorCount).toBe(0);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
         expect(app.backend.screenToString()).not.toContain("No changes to compare");
         workbench.dispose();
     });
@@ -493,13 +495,13 @@ describe("Workbench — вкладка diff, вырожденные случаи
         workbench.mount();
         bindApp(TestApp.create(workbench.view, new Size(80, 10)).app);
 
-        expect(editors.activeGroup.editorCount).toBe(0);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
         expect(() => {
             commands.execute(COMPARE);
         }).not.toThrow();
         await settle(10);
 
-        expect(editors.activeGroup.editorCount).toBe(0);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
         workbench.dispose();
         ws.dispose();
     });
@@ -525,7 +527,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
         commands.execute(COMPARE);
         await settle(10);
 
-        expect(editors.activeGroup.editorCount).toBe(1);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(1);
         // Для пользователя это то же «сравнивать не с чем», а не ошибка чтения.
         testApp.render();
         expect(testApp.backend.screenToString()).toContain("No changes to compare");
@@ -557,7 +559,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
         commands.execute(COMPARE);
         await settle(10);
 
-        expect(editors.activeGroup.editorCount).toBe(1);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(1);
         workbench.dispose();
         ws.dispose();
     });

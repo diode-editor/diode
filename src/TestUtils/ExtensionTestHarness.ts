@@ -343,7 +343,12 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         languageFeatures,
         diskFileService(),
     );
-    const groupComponent = new EditorGroupComponent(group.activeGroup, group, createTestContextMenuService());
+    const groupComponent = new EditorGroupComponent(
+        group.editorGroups.activeGroup,
+        group,
+        createTestContextMenuService(),
+        group.editorGroups,
+    );
 
     // Настоящий исполнитель `workspace.applyEdit` — зеркально extensionHostModule:
     // правки по закрытым файлам ложатся на диск, по открытым — в их буферы, и
@@ -355,7 +360,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         new BulkEditBuffers(group, group.textFileModels),
         diskFileService(),
     );
-    const adapter = new EditorOptionsServiceAdapter(group, workspaceEditService);
+    const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService);
     const commandRegistry = new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
     // `IWorkspaceFolderInfo.uri` — настоящий uri, как в extensionHostModule:
@@ -382,7 +387,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         onDidChange: () => ({ dispose: () => undefined }),
     };
     // Полоса групп — зеркально extensionHostModule (правило двух сим-точек).
-    const editorLayout = new EditorLayoutServiceAdapter(group);
+    const editorLayout = new EditorLayoutServiceAdapter(group, group.editorGroups);
     // Каталоги хранения расширений — зеркально extensionHostModule, но корни
     // внутри tmpDir харнесса: тест не должен писать в user-data машины.
     const storageHomes =
@@ -424,7 +429,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         host.didSaveTextDocument(meta);
     });
     // Document sync (LSP): продюсер didOpen/didChange — как в extensionHostModule.
-    bindDocumentSync(group, host);
+    bindDocumentSync(group, group.editorGroups, host);
     // Содержимое недисковых ресурсов (registerTextDocumentContentProvider) — как
     // в extensionHostModule: по нему открываются read-only вкладки `jdt:`/`class:`.
     group.virtualDocumentSource = {

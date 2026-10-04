@@ -4,7 +4,7 @@ import { registerAction } from "../../../platform/actions/common/commandAction.t
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
 
 import { keepEditorAction } from "./tabActions.ts";
 
@@ -26,7 +26,7 @@ function makeGroup(id: number, labels: string[], activeIndex: number): GroupStub
     return { id, activeIndex, panes: labels.map((label) => ({ label })), pinned: [] };
 }
 
-/** Фасад сервиса в объёме, который трогает `resolveTabTarget` + команда. */
+/** Полоса групп в объёме, который трогает `resolveTabTarget` + команда. */
 function serviceStub(groups: GroupStub[]) {
     const wrap = (group: GroupStub) => ({
         id: group.id,
@@ -45,7 +45,7 @@ function run(groups: GroupStub[], ...args: unknown[]): void {
     const commands = new CommandRegistry();
     const keybindings = new KeybindingRegistry();
     const accessor = new Container();
-    accessor.bind(EditorServiceDIToken, () => serviceStub(groups) as never);
+    accessor.bind(EditorGroupsServiceDIToken, () => serviceStub(groups) as never);
     registerAction(commands, keybindings, accessor, keepEditorAction);
     commands.execute(keepEditorAction.id, ...args);
 }

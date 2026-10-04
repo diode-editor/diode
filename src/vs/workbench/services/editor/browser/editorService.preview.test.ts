@@ -121,7 +121,7 @@ describe("EditorService — режим предпросмотра вкладок
     }
 
     function tabs(service: EditorService): string[] {
-        return service.activeGroup.getPanes().map((pane) => pane.label);
+        return service.editorGroups.activeGroup.getPanes().map((pane) => pane.label);
     }
 
     it("превью замещает превью: обход дерева не копит таб-строку", () => {
@@ -135,8 +135,8 @@ describe("EditorService — режим предпросмотра вкладок
 
         service.openFile(writeFile("c.ts"), { preview: true });
         expect(tabs(service)).toEqual(["c.ts"]);
-        expect(service.activeGroup.previewPane?.label).toBe("c.ts");
-        expect(service.activeGroup.activeIndex).toBe(0);
+        expect(service.editorGroups.activeGroup.previewPane?.label).toBe("c.ts");
+        expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
     });
 
     it("превью занимает СЛОТ прежнего, а не уезжает в конец полосы", () => {
@@ -149,7 +149,7 @@ describe("EditorService — режим предпросмотра вкладок
         service.openFile(writeFile("b.ts"), { preview: true });
 
         expect(tabs(service)).toEqual(["pinned.ts", "b.ts", "tail.ts"]);
-        expect(service.activeGroup.activeIndex).toBe(1);
+        expect(service.editorGroups.activeGroup.activeIndex).toBe(1);
     });
 
     it("открытие БЕЗ превью копит вкладки, как раньше", () => {
@@ -159,19 +159,19 @@ describe("EditorService — режим предпросмотра вкладок
         service.openFile(writeFile("b.ts"));
 
         expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
-        expect(service.activeGroup.previewPane).toBe(null);
+        expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
     it("постоянное открытие превью-вкладки её прикалывает", () => {
         const service = createEditorService();
         const a = writeFile("a.ts");
         service.openFile(a, { preview: true });
-        expect(service.activeGroup.previewPane?.label).toBe("a.ts");
+        expect(service.editorGroups.activeGroup.previewPane?.label).toBe("a.ts");
 
         // Ctrl+P по файлу, висящему предпросмотром.
         service.openFile(a);
 
-        expect(service.activeGroup.previewPane).toBe(null);
+        expect(service.editorGroups.activeGroup.previewPane).toBe(null);
         expect(tabs(service)).toEqual(["a.ts"]);
 
         // И следующее превью теперь встаёт рядом, а не замещает приколотую.
@@ -186,7 +186,7 @@ describe("EditorService — режим предпросмотра вкладок
 
         service.openFile(a, { preview: true });
 
-        expect(service.activeGroup.previewPane?.label).toBe("a.ts");
+        expect(service.editorGroups.activeGroup.previewPane?.label).toBe("a.ts");
     });
 
     it("правка прикалывает превью-вкладку, и следующее превью её не теряет", () => {
@@ -200,7 +200,7 @@ describe("EditorService — режим предпросмотра вкладок
         service.openFile(writeFile("b.ts"), { preview: true });
 
         expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
-        expect(service.activeGroup.previewPane?.label).toBe("b.ts");
+        expect(service.editorGroups.activeGroup.previewPane?.label).toBe("b.ts");
     });
 
     it("грязную вкладку замещение прикалывает, даже если защёлка её упустила", () => {
@@ -209,7 +209,7 @@ describe("EditorService — режим предпросмотра вкладок
         // что стоит между несохранёнными правками и замещением, — проверка
         // `isModified` в самом замещении.
         const service = createEditorService();
-        const group = service.activeGroup;
+        const group = service.editorGroups.activeGroup;
         const silent = makeSilentPane("/silent.ts");
         group.insertPane(silent, { preview: true });
         group.activateTab(0);
@@ -235,7 +235,7 @@ describe("EditorService — режим предпросмотра вкладок
         if (opened === null) throw new Error("вкладка не открылась");
         opened.pushUndo(opened.viewState.type("dirty"));
 
-        const second = service.newGroup("after");
+        const second = service.editorGroups.newGroup("after");
         if (second === null) throw new Error("вторая группа не создалась");
         const silent = makeSilentPane("/silent.ts");
         second.insertPane(silent, { preview: true });
@@ -252,48 +252,48 @@ describe("EditorService — режим предпросмотра вкладок
     it("сплит прикалывает вкладку-источник", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"), { preview: true });
-        const source = service.activeGroup;
+        const source = service.editorGroups.activeGroup;
 
         service.splitActiveGroup();
 
         expect(source.previewPane).toBe(null);
-        expect(service.activeGroup.previewPane).toBe(null);
+        expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
     it("копия вкладки в соседнюю группу прикалывает источник", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"), { preview: true });
-        const source = service.activeGroup;
-        service.newGroup("after");
-        service.focusGroup(source.id);
+        const source = service.editorGroups.activeGroup;
+        service.editorGroups.newGroup("after");
+        service.editorGroups.focusGroup(source.id);
 
         service.copyActiveEditorToGroup("next");
 
         expect(source.previewPane).toBe(null);
-        expect(service.activeGroup.previewPane).toBe(null);
+        expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
     it("перенос вкладки в соседнюю группу прикалывает её", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"), { preview: true });
-        const source = service.activeGroup;
+        const source = service.editorGroups.activeGroup;
 
-        service.moveActiveEditorToGroup("next");
+        service.editorGroups.moveActiveEditorToGroup("next");
 
-        expect(service.activeGroup === source).toBe(false);
-        expect(service.activeGroup.previewPane).toBe(null);
+        expect(service.editorGroups.activeGroup === source).toBe(false);
+        expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
     it("`group: beside` превьюит в соседней группе, не в активной", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"));
-        const source = service.activeGroup;
+        const source = service.editorGroups.activeGroup;
 
         service.openFile(writeFile("b.ts"), { group: "beside", preview: true });
 
         expect(source.previewPane).toBe(null);
-        expect(service.activeGroup === source).toBe(false);
-        expect(service.activeGroup.previewPane?.label).toBe("b.ts");
+        expect(service.editorGroups.activeGroup === source).toBe(false);
+        expect(service.editorGroups.activeGroup.previewPane?.label).toBe("b.ts");
     });
 
     describe("настройка workbench.editor.enablePreview", () => {
@@ -304,18 +304,18 @@ describe("EditorService — режим предпросмотра вкладок
             service.openFile(writeFile("b.ts"), { preview: true });
 
             expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
-            expect(service.activeGroup.previewPane).toBe(null);
+            expect(service.editorGroups.activeGroup.previewPane).toBe(null);
         });
 
         it("выключение на ходу прикалывает уже открытое превью", () => {
             const config = switchableConfig(true);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });
-            expect(service.activeGroup.previewPane?.label).toBe("a.ts");
+            expect(service.editorGroups.activeGroup.previewPane?.label).toBe("a.ts");
 
             config.set(false);
 
-            expect(service.activeGroup.previewPane).toBe(null);
+            expect(service.editorGroups.activeGroup.previewPane).toBe(null);
             service.openFile(writeFile("b.ts"), { preview: true });
             expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
         });
@@ -329,7 +329,7 @@ describe("EditorService — режим предпросмотра вкладок
 
             config.set(true);
 
-            expect(service.activeGroup.previewPane?.label).toBe("a.ts");
+            expect(service.editorGroups.activeGroup.previewPane?.label).toBe("a.ts");
             service.openFile(writeFile("b.ts"), { preview: true });
             expect(tabs(service)).toEqual(["b.ts"]);
         });
@@ -341,7 +341,7 @@ describe("EditorService — режим предпросмотра вкладок
 
             config.set(true);
 
-            expect(service.activeGroup.previewPane).toBe(null);
+            expect(service.editorGroups.activeGroup.previewPane).toBe(null);
             service.openFile(writeFile("b.ts"), { preview: true });
             expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
         });
@@ -350,8 +350,8 @@ describe("EditorService — режим предпросмотра вкладок
             const config = switchableConfig(true);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });
-            const withPreview = service.activeGroup;
-            const second = service.newGroup("after");
+            const withPreview = service.editorGroups.activeGroup;
+            const second = service.editorGroups.newGroup("after");
             if (second === null) throw new Error("вторая группа не создалась");
             service.openFile(writeFile("b.ts"), { group: second });
             let quietGroupEvents = 0;
@@ -369,9 +369,9 @@ describe("EditorService — режим предпросмотра вкладок
             const config = switchableConfig(true);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });
-            const first = service.activeGroup;
+            const first = service.editorGroups.activeGroup;
             service.openFile(writeFile("b.ts"), { group: "beside", preview: true });
-            const second = service.activeGroup;
+            const second = service.editorGroups.activeGroup;
             expect(first.previewPane?.label).toBe("a.ts");
             expect(second.previewPane?.label).toBe("b.ts");
 

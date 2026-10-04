@@ -47,7 +47,12 @@ function makeGroup(): {
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
     );
-    const groupComponent = new EditorGroupComponent(group.activeGroup, group, createTestContextMenuService());
+    const groupComponent = new EditorGroupComponent(
+        group.editorGroups.activeGroup,
+        group,
+        createTestContextMenuService(),
+        group.editorGroups,
+    );
     return { group, groupComponent, themeService };
 }
 
@@ -94,9 +99,9 @@ describe("FindService", () => {
         testApp.render();
 
         const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
-        const find = new FindService(component, group);
+        const find = new FindService(component, group, group.editorGroups);
         // Виджет единственной группы (создаётся лениво — здесь явно, для ассертов).
-        const widget = component.widgetFor(group.activeGroup.id)!;
+        const widget = component.widgetFor(group.editorGroups.activeGroup.id)!;
 
         // getActiveEditor() is non-null right after openFile.
         const editor = group.getActiveEditor()!;
@@ -127,7 +132,7 @@ describe("FindService", () => {
 
         // activateTab файрит onDidChangeActivePane безусловно; цель сессии не
         // изменилась — find обязан пережить событие.
-        group.activeGroup.activateTab(0);
+        group.editorGroups.activeGroup.activateTab(0);
 
         expect(find.isVisible()).toBe(true);
     });
@@ -374,20 +379,20 @@ describe("FindService", () => {
     it("isVisible() is false before the host view is attached", () => {
         const { group, themeService } = makeGroup();
         const component = new FindComponent(NO_GROUP_HOSTS);
-        const find = new FindService(component, group);
+        const find = new FindService(component, group, group.editorGroups);
         expect(find.isVisible()).toBe(false);
     });
 
     it("open() / hide() before the host view is attached are no-ops and do not throw", () => {
         const { group, themeService } = makeGroup();
         const component = new FindComponent(NO_GROUP_HOSTS);
-        const find = new FindService(component, group);
+        const find = new FindService(component, group, group.editorGroups);
         expect(() => {
             find.open();
         }).not.toThrow();
         expect(find.isVisible()).toBe(false);
         expect(() => {
-            component.widgetIfExists(group.activeGroup.id)?.hide();
+            component.widgetIfExists(group.editorGroups.activeGroup.id)?.hide();
         }).not.toThrow();
         expect(find.isVisible()).toBe(false);
     });
@@ -396,7 +401,7 @@ describe("FindService", () => {
         // Хоста нет — widgetFor вернёт null, навигация тихо выходит.
         const { group } = makeGroup();
         const component = new FindComponent(NO_GROUP_HOSTS);
-        const find = new FindService(component, group);
+        const find = new FindService(component, group, group.editorGroups);
 
         expect(() => {
             find.next();
@@ -435,14 +440,14 @@ describe("FindService", () => {
         body.setContent(groupComponent.view);
         TestApp.create(body, new Size(80, 24)).render();
         const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
-        const find = new FindService(component, group);
+        const find = new FindService(component, group, group.editorGroups);
 
         expect(() => {
             find.open();
         }).not.toThrow();
         expect(find.isVisible()).toBe(true);
         expect(() => {
-            typeQuery(component.widgetFor(group.activeGroup.id)!, "foo");
+            typeQuery(component.widgetFor(group.editorGroups.activeGroup.id)!, "foo");
         }).not.toThrow();
         // close() with no active editor must still hide the widget (skips cursor restore).
         expect(() => {

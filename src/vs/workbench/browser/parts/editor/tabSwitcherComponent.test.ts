@@ -8,6 +8,7 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
+import type { EditorGroupsService } from "../../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";
@@ -59,7 +60,7 @@ function stubEditorService(): {
 describe("TabSwitcherComponent — без прикреплённого хоста", () => {
     it("события серии до attachHost не открывают сессию и не падают", () => {
         const { service, fireCycle, fireActiveGroup } = stubEditorService();
-        const component = new TabSwitcherComponent(service);
+        const component = new TabSwitcherComponent(service, service as unknown as EditorGroupsService);
 
         expect(component.isOpen()).toBe(false);
         // Стабильный e2e-селектор оверлея (как editorGroup-<id> у групп).
@@ -81,7 +82,7 @@ describe("TabSwitcherComponent — без прикреплённого хост�
 describe("TabSwitcherComponent — overlay-сессия", () => {
     function withHost() {
         const { service, fireCycle, fireActiveGroup } = stubEditorService();
-        const component = new TabSwitcherComponent(service);
+        const component = new TabSwitcherComponent(service, service as unknown as EditorGroupsService);
         const body = new BodyElement();
         const testApp = TestApp.create(body, new Size(80, 24));
         component.attachHost(body);

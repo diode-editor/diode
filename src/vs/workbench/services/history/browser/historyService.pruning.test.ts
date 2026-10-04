@@ -21,7 +21,7 @@ describe("HistoryService — чистка стека и группы", () => {
             files: { "alpha.ts": "alpha\n", "beta.ts": "beta\n", "gamma.ts": "gamma\n" },
         });
         source = new FakeHistoryEditorSource();
-        service = new HistoryService(source);
+        service = new HistoryService(source, source);
     });
 
     afterEach(() => {
@@ -233,6 +233,17 @@ describe("HistoryService — чистка стека и группы", () => {
         service.goBack();
 
         expect(source.focusGroupCalls).toEqual([1]);
+        expect(source.caret()).toMatchObject({ uri: alpha(), line: 25 });
+    });
+
+    it("запись из той же группы восстанавливается без перефокусировки группы", () => {
+        source.open(alpha());
+        source.moveCaret(25);
+        source.open(beta());
+
+        service.goBack();
+
+        expect(source.focusGroupCalls).toEqual([]);
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 25 });
     });
 

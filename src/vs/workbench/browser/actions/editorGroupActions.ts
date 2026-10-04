@@ -4,6 +4,7 @@ import type { ServiceAccessor } from "../../../platform/instantiation/common/diC
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ILogServiceDIToken } from "../../../platform/log/common/iLogServiceDIToken.ts";
 import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.ts";
 
@@ -24,9 +25,9 @@ const GROUP_RESIZE_STEP = 3;
  */
 function ensureAxis(accessor: ServiceAccessor, wanted: "columns" | "rows"): boolean {
     const part = accessor.get(EditorPartComponentDIToken);
-    const service = accessor.get(EditorServiceDIToken);
+    const groups = accessor.get(EditorGroupsServiceDIToken);
     if (part.orientation === wanted) return true;
-    if (service.groups.length === 1) {
+    if (groups.groups.length === 1) {
         part.orientation = wanted;
         return true;
     }
@@ -51,26 +52,26 @@ function directionalSplit(
     // Stryker disable next-line ArrayDeclaration: значение по умолчанию нужно лишь для вызовов без аргументов, а адресом считается только пара чисел — любой другой список ведёт себя как пустой
     args: readonly unknown[] = [],
 ): void {
-    const service = accessor.get(EditorServiceDIToken);
-    const addressed = resolveAddressedTab(service, args);
+    const groups = accessor.get(EditorGroupsServiceDIToken);
+    const addressed = resolveAddressedTab(groups, args);
     if (addressed !== null) {
-        service.focusGroup(addressed.group.id, { focus: false });
+        groups.focusGroup(addressed.group.id, { focus: false });
         addressed.group.activateTab(addressed.index, { focus: false });
     }
     if (!ensureAxis(accessor, axis)) return;
-    service.splitActiveGroup({ position });
+    accessor.get(EditorServiceDIToken).splitActiveGroup({ position });
 }
 
 function directionalNewGroup(accessor: ServiceAccessor, axis: "columns" | "rows", position: "before" | "after"): void {
     if (!ensureAxis(accessor, axis)) return;
-    accessor.get(EditorServiceDIToken).newGroup(position);
+    accessor.get(EditorGroupsServiceDIToken).newGroup(position);
 }
 
 /** Фокус соседней группы вдоль оси полосы; поперёк оси — no-op (US-10). */
 function directionalFocus(accessor: ServiceAccessor, axis: "columns" | "rows", direction: "next" | "previous"): void {
     const part = accessor.get(EditorPartComponentDIToken);
     if (part.orientation !== axis) return;
-    accessor.get(EditorServiceDIToken).focusGroup({ direction });
+    accessor.get(EditorGroupsServiceDIToken).focusGroup({ direction });
 }
 
 // ─── Разбиение ────────────────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ function focusGroupByIndexAction(ordinal: string, index: number, withKeys: boole
               }
             : {}),
         run(accessor) {
-            accessor.get(EditorServiceDIToken).focusGroup({ index });
+            accessor.get(EditorGroupsServiceDIToken).focusGroup({ index });
         },
     };
 }
@@ -235,7 +236,7 @@ export const navigateEditorGroupsAction: CommandAction = {
     id: "workbench.action.navigateEditorGroups",
     title: "View: Navigate Between Editor Groups",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).focusGroup({ direction: "cycle" });
+        accessor.get(EditorGroupsServiceDIToken).focusGroup({ direction: "cycle" });
     },
 };
 
@@ -243,8 +244,8 @@ export const focusActiveEditorGroupAction: CommandAction = {
     id: "workbench.action.focusActiveEditorGroup",
     title: "View: Focus Active Editor Group",
     run(accessor) {
-        const service = accessor.get(EditorServiceDIToken);
-        service.focusGroup(service.activeGroup.id);
+        const groups = accessor.get(EditorGroupsServiceDIToken);
+        groups.focusGroup(groups.activeGroup.id);
     },
 };
 
@@ -258,7 +259,7 @@ export const moveEditorToNextGroupAction: CommandAction = {
     // Ctrl+K ←/→ заняты word-motion-фолбэками legacy — чорд с Alt (см. EditorGroups.md).
     keybindings: [parseChord("ctrl+k alt+right")],
     run(accessor) {
-        accessor.get(EditorServiceDIToken).moveActiveEditorToGroup("next");
+        accessor.get(EditorGroupsServiceDIToken).moveActiveEditorToGroup("next");
     },
 };
 
@@ -269,7 +270,9 @@ export const moveEditorToPreviousGroupAction: CommandAction = {
     keybinding: { keys: parseKeybinding("ctrl+alt+left"), when: EXTENDED_TIERS },
     keybindings: [parseChord("ctrl+k alt+left")],
     run(accessor) {
-        accessor.get(EditorServiceDIToken).moveActiveEditorToGroup("previous");
+        // Всё, что не "next", полоса читает как "previous": пустая строка — тот же шаг.
+        // Stryker disable next-line StringLiteral: эквивалентен — см. выше
+        accessor.get(EditorGroupsServiceDIToken).moveActiveEditorToGroup("previous");
     },
 };
 
@@ -296,7 +299,8 @@ export const moveActiveEditorGroupLeftAction: CommandAction = {
     title: "View: Move Editor Group Left",
     when: "multipleEditorGroups",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).moveActiveGroup("previous");
+        // Stryker disable next-line StringLiteral: всё, что не "next", полоса читает как "previous" — эквивалентен
+        accessor.get(EditorGroupsServiceDIToken).moveActiveGroup("previous");
     },
 };
 
@@ -305,7 +309,7 @@ export const moveActiveEditorGroupRightAction: CommandAction = {
     title: "View: Move Editor Group Right",
     when: "multipleEditorGroups",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).moveActiveGroup("next");
+        accessor.get(EditorGroupsServiceDIToken).moveActiveGroup("next");
     },
 };
 
@@ -314,7 +318,7 @@ export const joinTwoGroupsAction: CommandAction = {
     title: "View: Join Editor Group with Next Group",
     when: "multipleEditorGroups",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).joinTwoGroups();
+        accessor.get(EditorGroupsServiceDIToken).joinTwoGroups();
     },
 };
 
@@ -323,7 +327,7 @@ export const joinAllGroupsAction: CommandAction = {
     title: "View: Join All Editor Groups",
     when: "multipleEditorGroups",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).joinAllGroups();
+        accessor.get(EditorGroupsServiceDIToken).joinAllGroups();
     },
 };
 
@@ -331,7 +335,7 @@ export const editorLayoutSingleAction: CommandAction = {
     id: "workbench.action.editorLayoutSingle",
     title: "View: Single Column Editor Layout",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).joinAllGroups();
+        accessor.get(EditorGroupsServiceDIToken).joinAllGroups();
     },
 };
 
@@ -415,7 +419,7 @@ export const closeEditorsInGroupAction: CommandAction = {
     when: "editorGroupHasEditors",
     run(accessor) {
         const service = accessor.get(EditorServiceDIToken);
-        void service.closeAllEditors(service.activeGroup);
+        void service.closeAllEditors(accessor.get(EditorGroupsServiceDIToken).activeGroup);
     },
 };
 
@@ -425,7 +429,7 @@ export const closeEditorsAndGroupAction: CommandAction = {
     run(accessor) {
         // Схлопывание группы — следствие опустения; отдельного сноса не нужно.
         const service = accessor.get(EditorServiceDIToken);
-        void service.closeAllEditors(service.activeGroup);
+        void service.closeAllEditors(accessor.get(EditorGroupsServiceDIToken).activeGroup);
     },
 };
 
@@ -438,12 +442,13 @@ export const closeAllEditorsAction: CommandAction = {
     when: "editorGroupHasEditors",
     run(accessor) {
         const service = accessor.get(EditorServiceDIToken);
+        const groups = accessor.get(EditorGroupsServiceDIToken);
         void (async () => {
             // Идём по группам с вкладками (не по активной: она может быть пустой,
             // а пустая группа не схлопывается сама — уже-пустое не «опустело»).
             // Cancel в любом диалоге прерывает серию.
             for (;;) {
-                const group = service.groups.find((candidate) => candidate.editorCount > 0);
+                const group = groups.groups.find((candidate) => candidate.editorCount > 0);
                 if (group === undefined) return;
                 const done = await service.closeAllEditors(group);
                 if (!done) return;

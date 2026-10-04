@@ -82,7 +82,7 @@ describe("documentSyncAdapter", () => {
         service.splitActiveGroup();
         const uri = service.getActiveEditor()!.uri.toString();
 
-        bindDocumentSync(service, host);
+        bindDocumentSync(service, service.editorGroups, host);
         // Документ открыт в двух группах — один didOpen, не два.
         expect(opened).toEqual([uri]);
 
@@ -90,11 +90,11 @@ describe("documentSyncAdapter", () => {
         expect(changed).toEqual([uri]);
 
         // Закрытие дубля: документ жив в первой группе — didClose не шлётся.
-        service.activeGroup.closeTab(0);
+        service.editorGroups.activeGroup.closeTab(0);
         expect(closed).toEqual([]);
 
         // Закрытие последней вкладки документа — didClose.
-        service.activeGroup.closeTab(0);
+        service.editorGroups.activeGroup.closeTab(0);
         expect(closed).toEqual([uri]);
         expect(opened).toEqual([uri]); // повторных didOpen не было
     });
@@ -109,7 +109,7 @@ describe("documentSyncAdapter", () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
         editor.viewState.type("x");
-        bindDocumentSync(service, host);
+        bindDocumentSync(service, service.editorGroups, host);
         editor.viewState.type("y");
         const versionBefore = snapshots.at(-1)!.version;
 
@@ -124,7 +124,7 @@ describe("documentSyncAdapter", () => {
     it("bindDocumentSync: открытие нового файла после привязки даёт didOpen", () => {
         const { host, opened } = recordingHost();
         service.openFile(ws.path("a.ts"));
-        bindDocumentSync(service, host);
+        bindDocumentSync(service, service.editorGroups, host);
 
         service.openFile(ws.path("b.ts"));
         expect(opened).toHaveLength(2);

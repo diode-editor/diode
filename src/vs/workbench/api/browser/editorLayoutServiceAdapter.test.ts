@@ -55,7 +55,7 @@ describe("EditorLayoutServiceAdapter", () => {
             undefined,
             dialogs,
         );
-        adapter = new EditorLayoutServiceAdapter(service);
+        adapter = new EditorLayoutServiceAdapter(service, service.editorGroups);
     });
 
     afterEach(() => {
@@ -126,7 +126,7 @@ describe("EditorLayoutServiceAdapter", () => {
 
         const result = await adapter.showTextDocument({ uri: service.getActiveEditor()!.uri.toString() });
         expect(result.viewColumn).toBe(1);
-        expect(service.activeGroup.editorCount).toBe(1);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(1);
     });
 
     it("showTextDocument: Beside создаёт соседнюю группу; за сеткой — догоняющее создание (AS-5)", async () => {
@@ -135,18 +135,18 @@ describe("EditorLayoutServiceAdapter", () => {
 
         const beside = await adapter.showTextDocument({ uri: uriB, viewColumn: -2 });
         expect(beside.viewColumn).toBe(2);
-        expect(service.groups.length).toBe(2);
+        expect(service.editorGroups.groups.length).toBe(2);
 
         // ViewColumn.Three при двух группах — создаётся третья.
         const third = await adapter.showTextDocument({ uri: uriB, viewColumn: 3 });
         expect(third.viewColumn).toBe(3);
-        expect(service.groups.length).toBe(3);
+        expect(service.editorGroups.groups.length).toBe(3);
     });
 
     it("showTextDocument: preserveFocus не передаёт фокус, selection ставит каретку", async () => {
         ws.writeFile("long.ts", Array.from({ length: 20 }, (_, i) => `l${i}`).join("\n"));
         service.openFile(ws.path("a.ts"));
-        const before = service.activeGroup;
+        const before = service.editorGroups.activeGroup;
         // Сам фокус живёт в дереве контролов, которого у голого сервиса нет,
         // — здесь проверяем, что флаг доезжает до двери открытия. Что он там
         // делает, закрыто `editorService.virtualDocument.test.ts`.
@@ -159,7 +159,7 @@ describe("EditorLayoutServiceAdapter", () => {
         });
 
         expect(openUri).toHaveBeenCalledWith(expect.anything(), { focus: false });
-        expect(service.activeGroup === before).toBe(true);
+        expect(service.editorGroups.activeGroup === before).toBe(true);
         expect(service.getActiveEditor()!.viewState.selections[0].active).toEqual({ line: 5, character: 1 });
     });
 
@@ -186,12 +186,12 @@ describe("EditorLayoutServiceAdapter", () => {
     it("closeTabs закрывает чистую вкладку; умершая группа — идемпотентный успех", async () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
-        const group = service.activeGroup;
+        const group = service.editorGroups.activeGroup;
         const uri = group.activePane!.uri.toString();
 
         await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri }] })).resolves.toBe(true);
         // Группа схлопнулась; повторное закрытие — успех.
-        expect(service.groups.length).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
         await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri }] })).resolves.toBe(true);
     });
 
@@ -199,18 +199,18 @@ describe("EditorLayoutServiceAdapter", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         service.openFile(ws.path("b.ts"));
-        const group = service.activeGroup;
+        const group = service.editorGroups.activeGroup;
         expect(group.editorCount).toBe(2);
 
         await expect(adapter.closeGroups({ groupIds: [group.id] })).resolves.toBe(true);
-        expect(service.groups.length).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
     });
 
     it("closeTabs с несохранённой последней вкладкой ждёт ответа: Cancel — false, вкладка на месте", async () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
         editor.viewState.type("dirty");
-        const group = service.activeGroup;
+        const group = service.editorGroups.activeGroup;
 
         const closed = adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] });
         // Решение за пользователем: тот же диалог, что у Ctrl+W.
@@ -227,7 +227,7 @@ describe("EditorLayoutServiceAdapter", () => {
         dirty.viewState.type("dirty");
         service.openFile(ws.path("b.ts"));
         const clean = service.getActiveEditor()!;
-        const group = service.activeGroup;
+        const group = service.editorGroups.activeGroup;
 
         const closed = adapter.closeTabs({
             tabs: [
@@ -243,7 +243,7 @@ describe("EditorLayoutServiceAdapter", () => {
 
     it("closeTabs: uri, которого нет в группе, пропускается — идемпотентный успех", async () => {
         service.openFile(ws.path("a.ts"));
-        const group = service.activeGroup;
+        const group = service.editorGroups.activeGroup;
 
         await expect(
             adapter.closeTabs({ tabs: [{ groupId: group.id, uri: Uri.file(ws.path("b.ts")).toString() }] }),
@@ -251,28 +251,115 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(group.editorCount).toBe(1);
     });
 
+    describe("ViewColumn и фокус по полосе", () => {
+        /** Две группы: первая с a.ts, вторая (активная) с b.ts; фокусы содержимого групп — в журнал. */
+        function twoGroups() {
+            service.openFile(ws.path("a.ts"));
+            service.editorGroups.newGroup("after", { focus: false });
+            service.openFile(ws.path("b.ts"));
+            const [first, second] = service.editorGroups.groups;
+            const focused: number[] = [];
+            service.editorGroups.focusGroupContentHook = (group) =>
+                focused.push(service.editorGroups.viewColumnOf(group));
+            return { first, second, focused };
+        }
+
+        const uriOf = (name: string) => Uri.file(ws.path(name)).toString();
+
+        it("Active — активная группа, даже если она не первая", async () => {
+            const { second } = twoGroups();
+
+            const result = await adapter.showTextDocument({ uri: uriOf("a.ts"), viewColumn: -1 });
+
+            expect(result.viewColumn).toBe(2);
+            expect(second.editorCount).toBe(2);
+        });
+
+        it("существующая неактивная колонка — открытие в ней, без фокуса содержимого групп", async () => {
+            const { first, focused } = twoGroups();
+
+            const result = await adapter.showTextDocument({ uri: uriOf("b.ts"), viewColumn: 1 });
+
+            expect(result.viewColumn).toBe(1);
+            expect(first.getPanes().map((pane) => path.basename(pane.uri.path))).toEqual(["a.ts", "b.ts"]);
+            expect(service.editorGroups.activeGroup).toBe(first);
+            expect(focused).toEqual([]);
+        });
+
+        it("preserveFocus — активной остаётся прежняя группа, содержимое групп фокус не получает", async () => {
+            const { first, second, focused } = twoGroups();
+
+            await adapter.showTextDocument({ uri: uriOf("b.ts"), viewColumn: 1, preserveFocus: true });
+
+            expect(first.editorCount).toBe(2);
+            expect(service.editorGroups.activeGroup).toBe(second);
+            expect(focused).toEqual([]);
+        });
+
+        it("Beside с preserveFocus — новая группа справа, фокус содержимого не трогаем", async () => {
+            const { second, focused } = twoGroups();
+
+            const result = await adapter.showTextDocument({ uri: uriOf("a.ts"), viewColumn: -2, preserveFocus: true });
+
+            expect(result.viewColumn).toBe(3);
+            expect(service.editorGroups.activeGroup).toBe(second);
+            expect(focused).toEqual([]);
+        });
+
+        it("колонка за краем — хвостовые группы дозаводятся в конце полосы, не рядом с активной", async () => {
+            const { first, second, focused } = twoGroups();
+            service.editorGroups.focusGroup({ index: 0 }, { focus: false });
+
+            const result = await adapter.showTextDocument({ uri: uriOf("a.ts"), viewColumn: 4 });
+
+            expect(result.viewColumn).toBe(4);
+            expect(service.editorGroups.groups).toHaveLength(4);
+            expect(service.editorGroups.groups.slice(0, 2)).toEqual([first, second]);
+            expect(focused).toEqual([]);
+        });
+
+        it("снимок: активна ровно одна группа", () => {
+            twoGroups();
+
+            const layout = adapter.getLayoutSnapshot();
+
+            expect(layout.groups.map((group) => group.isActive)).toEqual([false, true]);
+        });
+
+        it("closeTabs адресует вкладку по группе: тот же файл в другой группе остаётся", async () => {
+            service.openFile(ws.path("a.ts"));
+            service.splitActiveGroup();
+            const [first, second] = service.editorGroups.groups;
+
+            await adapter.closeTabs({ tabs: [{ groupId: second.id, uri: uriOf("a.ts") }] });
+
+            expect(first.editorCount).toBe(1);
+            expect(service.editorGroups.groups).toEqual([first]);
+        });
+    });
+
     it("closeGroups: неизвестная группа пропускается — идемпотентный успех", async () => {
         service.openFile(ws.path("a.ts"));
 
         await expect(adapter.closeGroups({ groupIds: [999] })).resolves.toBe(true);
-        expect(service.groups.length).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
     });
 
     it("closeGroups: вето в одной группе не мешает закрыть другую, ответ — false", async () => {
         service.openFile(ws.path("a.ts"));
         service.getActiveEditor()!.viewState.type("dirty");
-        const first = service.activeGroup;
-        service.newGroup("after");
+        const first = service.editorGroups.activeGroup;
+        service.editorGroups.newGroup("after");
         service.openFile(ws.path("b.ts"));
-        const second = service.activeGroup;
-        expect(service.groups.length).toBe(2);
+        const second = service.editorGroups.activeGroup;
+        expect(service.editorGroups.groups.length).toBe(2);
 
         const closed = adapter.closeGroups({ groupIds: [first.id, second.id] });
         dialogs.getOpenConfirmSaveDialog()?.onCancel?.();
 
         await expect(closed).resolves.toBe(false);
         expect(first.editorCount).toBe(1);
-        expect(service.groups).toEqual([first]);
+        expect(service.editorGroups.groups).toEqual([first]);
     });
 
     it("снимок: дифф-вкладка несёт kind=diff и uri сторон (если они есть)", () => {
@@ -318,27 +405,27 @@ describe("EditorLayoutServiceAdapter", () => {
 
     it("showTextDocument: Beside при нехватке места — фолбэк в активную группу", async () => {
         service.openFile(ws.path("a.ts"));
-        service.canAddGroupHook = () => false;
+        service.editorGroups.canAddGroupHook = () => false;
 
         const result = await adapter.showTextDocument({
             uri: Uri.file(ws.path("b.ts")).toString(),
             viewColumn: -2,
         });
         expect(result.viewColumn).toBe(1);
-        expect(service.groups.length).toBe(1);
-        expect(service.activeGroup.editorCount).toBe(2);
+        expect(service.editorGroups.groups.length).toBe(1);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(2);
     });
 
     it("showTextDocument: ViewColumn за краем при нехватке места — открытие в последней группе", async () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
-        service.canAddGroupHook = () => false;
+        service.editorGroups.canAddGroupHook = () => false;
 
         const result = await adapter.showTextDocument({
             uri: Uri.file(ws.path("b.ts")).toString(),
             viewColumn: 5,
         });
         expect(result.viewColumn).toBe(2);
-        expect(service.groups.length).toBe(2);
+        expect(service.editorGroups.groups.length).toBe(2);
     });
 });

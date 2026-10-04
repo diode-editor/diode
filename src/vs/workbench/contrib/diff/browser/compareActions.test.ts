@@ -13,6 +13,7 @@ import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboa
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
+import type { EditorGroupsService } from "../../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../scm/browser/commandOriginalResourceProvider.ts";
 import { QUERY_COMMAND } from "../../scm/browser/syncActions.ts";
@@ -24,6 +25,17 @@ import { resetSelectedForCompare } from "./compareActions.ts";
  * над openDiffPair, поэтому здесь проверяется именно выбор сторон и вход
  * (пикеры, меню, буфер обмена), а механика вкладки — в openDiffPair.test.ts.
  */
+
+/** Журнал фокусов содержимого групп (view-хук полосы оборачивается, не заменяется). */
+function recordGroupFocus(groups: EditorGroupsService): number[] {
+    const focused: number[] = [];
+    const viewHook = groups.focusGroupContentHook;
+    groups.focusGroupContentHook = (group) => {
+        focused.push(groups.viewColumnOf(group));
+        viewHook?.(group);
+    };
+    return focused;
+}
 
 describe("Команды сравнения файлов", () => {
     let ws: ITempWorkspace;
@@ -48,7 +60,7 @@ describe("Команды сравнения файлов", () => {
     function diffPanes() {
         return h.container
             .get(EditorServiceDIToken)
-            .activeGroup.getPanes()
+            .editorGroups.activeGroup.getPanes()
             .filter((p) => p instanceof DiffEditorPane2);
     }
 
@@ -286,20 +298,20 @@ describe("Команды сравнения файлов", () => {
             expect(h.testApp.backend.screenToString()).toContain("DEV");
 
             // Повторный вызов той же ревизии — та же вкладка, не дубль.
-            const countBefore = editors.activeGroup.editorCount;
+            const countBefore = editors.editorGroups.activeGroup.editorCount;
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             // Активная вкладка — снимок; команда гейтится текстовым РЕДАКТИРУЕМЫМ
             // файлом? Нет: снимок тоже TextEditorPane — вернёмся в исходный файл.
             h.testApp.sendKey("Escape");
-            editors.activeGroup.activateTab(0);
+            editors.editorGroups.activeGroup.activateTab(0);
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
             h.testApp.sendKey("Enter");
             await settle(50);
-            expect(editors.activeGroup.editorCount).toBe(countBefore);
+            expect(editors.editorGroups.activeGroup.editorCount).toBe(countBefore);
         });
 
         it("Open File at Revision: провайдер оригинала бросил — нотис «no version in git»", async () => {
@@ -309,7 +321,7 @@ describe("Команды сравнения файлов", () => {
             });
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
-            const countBefore = h.container.get(EditorServiceDIToken).activeGroup.editorCount;
+            const countBefore = h.container.get(EditorServiceDIToken).editorGroups.activeGroup.editorCount;
 
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
@@ -319,7 +331,7 @@ describe("Команды сравнения файлов", () => {
             h.testApp.render();
 
             expect(h.testApp.backend.screenToString()).toContain("no version in git");
-            expect(h.container.get(EditorServiceDIToken).activeGroup.editorCount).toBe(countBefore);
+            expect(h.container.get(EditorServiceDIToken).editorGroups.activeGroup.editorCount).toBe(countBefore);
         });
 
         it("Open File at Revision: файла нет на ревизии — нотис, вкладки нет", async () => {
@@ -331,7 +343,7 @@ describe("Команды сравнения файлов", () => {
             });
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
-            const countBefore = h.container.get(EditorServiceDIToken).activeGroup.editorCount;
+            const countBefore = h.container.get(EditorServiceDIToken).editorGroups.activeGroup.editorCount;
 
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
@@ -341,7 +353,7 @@ describe("Команды сравнения файлов", () => {
             h.testApp.render();
 
             expect(h.testApp.backend.screenToString()).toContain("does not exist on dev");
-            expect(h.container.get(EditorServiceDIToken).activeGroup.editorCount).toBe(countBefore);
+            expect(h.container.get(EditorServiceDIToken).editorGroups.activeGroup.editorCount).toBe(countBefore);
         });
     });
 
@@ -355,7 +367,7 @@ describe("Команды сравнения файлов", () => {
             await settle(10);
 
             expect(diffPanes()).toHaveLength(0);
-            expect(h.container.get(EditorServiceDIToken).activeGroup.editorCount).toBe(0);
+            expect(h.container.get(EditorServiceDIToken).editorGroups.activeGroup.editorCount).toBe(0);
         });
 
         it("selectForCompare без пути не взводит ключ, compareFiles без пути — no-op", async () => {
@@ -552,7 +564,8 @@ describe("Команды сравнения файлов", () => {
             const editors = h.container.get(EditorServiceDIToken);
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
-            expect(editors.groups).toHaveLength(1);
+            expect(editors.editorGroups.groups).toHaveLength(1);
+            const focusedGroups = recordGroupFocus(editors.editorGroups);
 
             h.commands.execute(
                 "vscode.diff",
@@ -563,17 +576,38 @@ describe("Команды сравнения файлов", () => {
             );
             await settleUntilDiff();
 
-            expect(editors.groups).toHaveLength(2);
-            expect(editors.activeGroup.getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
+            expect(editors.editorGroups.groups).toHaveLength(2);
+            expect(editors.editorGroups.activeGroup.getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
+            // Колонку готовит без фокуса содержимого: фокус получит сам дифф.
+            expect(focusedGroups).toEqual([]);
+        });
+
+        it("4-й аргумент viewColumn за краем полосы — новая группа справа", async () => {
+            const editors = h.container.get(EditorServiceDIToken);
+            h.commands.execute("workbench.openFile", ws.path("a.txt"));
+            await settle(0);
+
+            h.commands.execute(
+                "vscode.diff",
+                Uri.file(ws.path("a.txt")).toString(),
+                Uri.file(ws.path("b.txt")).toString(),
+                "",
+                3,
+            );
+            await settleUntilDiff();
+
+            expect(editors.editorGroups.groups).toHaveLength(2);
+            expect(editors.editorGroups.groups[1].getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
         });
 
         it("4-й аргумент viewColumn числом целится в существующую колонку", async () => {
             const editors = h.container.get(EditorServiceDIToken);
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
-            editors.newGroup("after", { focus: false });
-            editors.focusGroup({ index: 0 }, { focus: false });
-            expect(editors.groups).toHaveLength(2);
+            editors.editorGroups.newGroup("after", { focus: false });
+            editors.editorGroups.focusGroup({ index: 0 }, { focus: false });
+            expect(editors.editorGroups.groups).toHaveLength(2);
+            const focusedGroups = recordGroupFocus(editors.editorGroups);
 
             h.commands.execute(
                 "vscode.diff",
@@ -584,8 +618,9 @@ describe("Команды сравнения файлов", () => {
             );
             await settleUntilDiff();
 
-            expect(editors.groups).toHaveLength(2);
-            expect(editors.groups[1].getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
+            expect(editors.editorGroups.groups).toHaveLength(2);
+            expect(editors.editorGroups.groups[1].getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
+            expect(focusedGroups).toEqual([]);
         });
 
         it("мусорные аргументы — тихий no-op", async () => {

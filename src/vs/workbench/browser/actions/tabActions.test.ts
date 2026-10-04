@@ -8,6 +8,7 @@ import {
     ModifierReleaseArmory,
     ModifierReleaseArmoryDIToken,
 } from "../../../platform/keybinding/common/modifierReleaseArmory.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 import {
@@ -56,6 +57,8 @@ function setupActionTest(group: GroupStub) {
     const accessor = new Container();
     const armory = new ModifierReleaseArmory();
     accessor.bind(EditorServiceDIToken, () => group as never);
+    // Стаб играет обе роли: полосу групп и закрытие с подтверждением.
+    accessor.bind(EditorGroupsServiceDIToken, () => group as never);
     accessor.bind(ModifierReleaseArmoryDIToken, () => armory);
     return { commands, keybindings, accessor, armory };
 }

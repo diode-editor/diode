@@ -6,7 +6,12 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
-import type { EditorService, IGroupsChangeEvent } from "../../../services/editor/browser/editorService.ts";
+import {
+    type EditorGroupsService,
+    EditorGroupsServiceDIToken,
+    type IGroupsChangeEvent,
+} from "../../../services/editor/browser/editorGroupsService.ts";
+import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { Component } from "../../component.ts";
 
@@ -18,14 +23,14 @@ export const EditorPartComponentDIToken = token<EditorPartComponent>("EditorPart
  * Часть «область редактора» (аналог `EditorPart` VS Code): владеет полосой
  * групповых контролов внутри {@link EditorPartElement} (веса, саши, ось,
  * максимизация) и держит по {@link EditorGroupComponent} на группу сервиса.
- * Синхронизируется по {@link EditorService.onDidGroupsChange}; политика долей —
+ * Синхронизируется по {@link EditorGroupsService.onDidGroupsChange}; политика долей —
  * здесь: сплит делит долю группы-источника пополам, схлопнутая группа отдаёт
  * долю остальным (нормировкой). Ставит сервису view-хуки: `canAddGroupHook`
  * (влезет ли ещё группа — отказ в сплите на узком терминале) и
  * `focusGroupContentHook` (фокус вкладки либо филлера пустой группы).
  */
 export class EditorPartComponent extends Component {
-    public static dependencies = [EditorServiceDIToken, ContextMenuServiceDIToken] as const;
+    public static dependencies = [EditorServiceDIToken, ContextMenuServiceDIToken, EditorGroupsServiceDIToken] as const;
 
     public readonly view: EditorPartElement;
     private readonly groupComponents = new Map<GroupId, EditorGroupComponent>();
@@ -40,6 +45,7 @@ export class EditorPartComponent extends Component {
     public constructor(
         private readonly editorService: EditorService,
         private readonly contextMenuService: ContextMenuService,
+        private readonly groups: EditorGroupsService,
     ) {
         super();
         this.view = new EditorPartElement();
@@ -48,18 +54,18 @@ export class EditorPartComponent extends Component {
             this.onDidChangeGroupLayout?.();
         };
         this.register(
-            editorService.onDidGroupsChange((event) => {
+            groups.onDidGroupsChange((event) => {
                 this.syncGroups(event);
             }),
         );
-        editorService.canAddGroupHook = () => this.view.canFit(this.editorService.groups.length + 1);
-        editorService.focusGroupContentHook = (group) => {
+        groups.canAddGroupHook = () => this.view.canFit(this.groups.groups.length + 1);
+        groups.focusGroupContentHook = (group) => {
             this.groupComponents.get(group.id)?.focusContent();
         };
         // Максимизация следует за активной группой: работать в невидимой группе
         // нельзя, поэтому смена активной перемаксимизирует полосу на неё.
         this.register(
-            editorService.onDidActiveGroupChange(() => {
+            groups.onDidActiveGroupChange(() => {
                 if (this.view.maximizedIndex !== null) {
                     this.view.maximizedIndex = this.activeGroupIndex();
                 }
@@ -122,7 +128,7 @@ export class EditorPartComponent extends Component {
     }
 
     private activeGroupIndex(): number {
-        return this.editorService.groups.indexOf(this.editorService.activeGroup);
+        return this.groups.groups.indexOf(this.groups.activeGroup);
     }
 
     /** OverlayHost конкретной группы (find-виджет группы); `null` — группы нет. */
@@ -136,7 +142,7 @@ export class EditorPartComponent extends Component {
      * без события (первичная сборка) — поровну.
      */
     private syncGroups(event: IGroupsChangeEvent | null): void {
-        const groups = this.editorService.groups;
+        const groups = this.groups.groups;
         // Прежние доли по id — из элемента (там же живут результаты drag'а).
         const previousWeights = new Map<GroupId, number>();
         // Элемент нормирует weights к числу views, а currentOrder — подмножество
@@ -157,7 +163,7 @@ export class EditorPartComponent extends Component {
             if (!this.groupComponents.has(group.id)) {
                 this.groupComponents.set(
                     group.id,
-                    new EditorGroupComponent(group, this.editorService, this.contextMenuService),
+                    new EditorGroupComponent(group, this.editorService, this.contextMenuService, this.groups),
                 );
             }
         }

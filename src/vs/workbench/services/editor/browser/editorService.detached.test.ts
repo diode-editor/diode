@@ -54,7 +54,7 @@ describe("EditorService.openDetached", () => {
 
         service.openDetached(OUTPUT_URI, "log");
 
-        expect(service.activeGroup.editorCount).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         expect(service.getEditors()).toHaveLength(0);
         expect(service.getOpenFilePaths()).toHaveLength(0);
         service.dispose();

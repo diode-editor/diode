@@ -127,7 +127,12 @@ function createHarness(): Harness {
         commands,
         contributions: TAB_MENU_ACTIONS.flatMap(menuItemsOfAction),
     });
-    const component = new EditorGroupComponent(service.activeGroup, service, contextMenuService);
+    const component = new EditorGroupComponent(
+        service.editorGroups.activeGroup,
+        service,
+        contextMenuService,
+        service.editorGroups,
+    );
     const app = TestApp.createWithContent(component.view, SCREEN);
     app.render();
 
@@ -166,7 +171,7 @@ function createHarness(): Harness {
             strip()
                 .getItemElements()
                 .map((item) => item.getLabel()),
-        activeIndex: () => service.activeGroup.activeIndex,
+        activeIndex: () => service.editorGroups.activeGroup.activeIndex,
     };
 }
 

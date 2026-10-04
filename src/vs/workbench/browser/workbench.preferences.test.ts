@@ -73,11 +73,11 @@ describe("Workbench — Preferences commands", () => {
         it("повторное openGlobalKeybindings переключает на открытую вкладку, а не плодит вторую", () => {
             const editorService = h.container.get(EditorServiceDIToken);
             h.commands.execute("workbench.action.openGlobalKeybindings");
-            const openedCount = editorService.activeGroup.getPanes().length;
+            const openedCount = editorService.editorGroups.activeGroup.getPanes().length;
 
             h.commands.execute("workbench.action.openGlobalKeybindings");
 
-            expect(editorService.activeGroup.getPanes().length).toBe(openedCount);
+            expect(editorService.editorGroups.activeGroup.getPanes().length).toBe(openedCount);
         });
 
         it("does not overwrite an existing settings.json", async () => {

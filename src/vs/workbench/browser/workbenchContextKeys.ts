@@ -16,8 +16,10 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import {
+    type EditorGroupsService,
+    EditorGroupsServiceDIToken,
+} from "../services/editor/browser/editorGroupsService.ts";
 import type { FocusTracker } from "../services/focus/browser/focusTracker.ts";
 import { FocusTrackerDIToken } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
@@ -48,7 +50,7 @@ export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("Workbenc
 export class WorkbenchContextKeys extends Disposable {
     public static dependencies = [
         ContextKeyServiceDIToken,
-        EditorServiceDIToken,
+        EditorGroupsServiceDIToken,
         KeybindingDispatcherDIToken,
         HistoryServiceDIToken,
         FocusTrackerDIToken,
@@ -62,7 +64,7 @@ export class WorkbenchContextKeys extends Disposable {
 
     public constructor(
         private readonly contextKeys: ContextKeyService,
-        private readonly editorService: EditorService,
+        private readonly groups: EditorGroupsService,
         private readonly dispatcher: KeybindingDispatcher,
         private readonly historyService: HistoryService,
         private readonly focusTracker: FocusTracker,
@@ -93,7 +95,7 @@ export class WorkbenchContextKeys extends Disposable {
 
     public update(): void {
         const active = this.activeElement();
-        const editorCount = this.editorService.activeGroup.editorCount;
+        const editorCount = this.groups.activeGroup.editorCount;
 
         this.contextKeys.set("textInputFocus", active instanceof EditorElement);
         // Исторически шире, чем textInputFocus: сюда попадала и рисованная
@@ -122,14 +124,14 @@ export class WorkbenchContextKeys extends Disposable {
         this.contextKeys.set("listFocus", active instanceof TreeViewElement || active instanceof ListViewElement);
         this.contextKeys.set("editorGroupHasEditors", editorCount > 0);
         this.contextKeys.set("editorTabsMultiple", editorCount > 1);
-        this.contextKeys.set("multipleEditorGroups", this.editorService.groups.length > 1);
+        this.contextKeys.set("multipleEditorGroups", this.groups.groups.length > 1);
         this.contextKeys.set("canNavigateBack", this.historyService.canGoBack);
         this.contextKeys.set("canNavigateForward", this.historyService.canGoForward);
         this.contextKeys.set("activeEditorGroupEmpty", editorCount === 0);
-        this.contextKeys.set("activeEditorGroupIndex", this.editorService.viewColumnOf(this.editorService.activeGroup));
+        this.contextKeys.set("activeEditorGroupIndex", this.groups.viewColumnOf(this.groups.activeGroup));
         this.contextKeys.set(
             "activeEditorGroupLast",
-            this.editorService.activeGroup === this.editorService.groups[this.editorService.groups.length - 1],
+            this.groups.activeGroup === this.groups.groups[this.groups.groups.length - 1],
         );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         // Ключи фич — у самих фич (IContextKeyContributor), тайминг тот же.

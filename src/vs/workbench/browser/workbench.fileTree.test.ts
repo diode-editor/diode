@@ -49,7 +49,7 @@ describe("FileTree opens file in editor", () => {
 
         // File should now be open in the editor group
         const editorGroupCtrl = (workbench as unknown as { editorService: EditorService }).editorService;
-        expect(editorGroupCtrl.activeGroup.editorCount).toBe(1);
+        expect(editorGroupCtrl.editorGroups.activeGroup.editorCount).toBe(1);
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("hello.txt");
     });
 
@@ -71,7 +71,7 @@ describe("FileTree opens file in editor", () => {
         // Обход дерева не копит таб-строку: вкладка-предпросмотр в группе одна,
         // и следующее превью занимает её слот (`workbench.editor.enablePreview`).
         const editorGroupCtrl = (workbench as unknown as { editorService: EditorService }).editorService;
-        expect(editorGroupCtrl.activeGroup.editorCount).toBe(1);
+        expect(editorGroupCtrl.editorGroups.activeGroup.editorCount).toBe(1);
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("notes.md");
     });
 

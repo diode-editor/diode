@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
@@ -18,7 +19,10 @@ describe("EditorLayoutServiceAdapter — вкладка чужого вида", 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-layout-unknown-", files: { "a.ts": "alpha" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
-        adapter = new EditorLayoutServiceAdapter(h.container.get(EditorServiceDIToken));
+        adapter = new EditorLayoutServiceAdapter(
+            h.container.get(EditorServiceDIToken),
+            h.container.get(EditorGroupsServiceDIToken),
+        );
     });
 
     afterEach(() => {

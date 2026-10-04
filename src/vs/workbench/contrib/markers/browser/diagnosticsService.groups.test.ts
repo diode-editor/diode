@@ -67,8 +67,8 @@ describe("DiagnosticsService — все группы", () => {
     it("маркер ресурса доходит до его вкладки в неактивной группе", () => {
         editors.openFile(ws.path("a.ts"));
         editors.splitActiveGroup(); // группа 2 — дубль a.ts
-        editors.focusGroup({ index: 0 });
-        const inactive = editors.groups[1].getPane(0);
+        editors.editorGroups.focusGroup({ index: 0 });
+        const inactive = editors.editorGroups.groups[1].getPane(0);
         expect(inactive instanceof TextEditorPane).toBe(true);
         const pushed = vi.spyOn(inactive as TextEditorPane, "setMarkerDecorations");
 

@@ -104,6 +104,7 @@ describe("EditorOptionsServiceAdapter", () => {
             {
                 getActiveTabEditor: () => null,
             } as never,
+            {} as never,
             NO_BULK_EDITS,
         );
         expect(adapter.getActiveEditorOptions()).toBeNull();

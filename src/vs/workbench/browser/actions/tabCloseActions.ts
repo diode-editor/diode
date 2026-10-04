@@ -1,5 +1,6 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 import { resolveTabTarget } from "./editorTabTarget.ts";
@@ -25,7 +26,7 @@ export const closeOtherEditorsAction: CommandAction = {
     ],
     run(accessor, ...args) {
         const service = accessor.get(EditorServiceDIToken);
-        const target = resolveTabTarget(service, args);
+        const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
         // С хвоста: диалоги по несохранённым идут справа налево, как у Ctrl+K W.
         const panes = target.group
@@ -51,7 +52,7 @@ export const closeEditorsToTheRightAction: CommandAction = {
     ],
     run(accessor, ...args) {
         const service = accessor.get(EditorServiceDIToken);
-        const target = resolveTabTarget(service, args);
+        const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
         const panes = target.group
             .getPanes()
@@ -76,7 +77,7 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
     ],
     run(accessor, ...args) {
         const service = accessor.get(EditorServiceDIToken);
-        const target = resolveTabTarget(service, args);
+        const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
         // Ни одного диалога по построению: закрываем ровно то, что не изменено.
         // Отсюда же ненаблюдаемость порядка, и мутанта в развороте не убить: серия

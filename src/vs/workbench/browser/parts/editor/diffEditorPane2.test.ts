@@ -681,10 +681,10 @@ describe("Workbench — дифф v2", () => {
 
     it("команды без активного файла и без git — тихий no-op и нотис", async () => {
         // Без активного редактора (закрыть файл) — no-op.
-        editors.activeGroup.closeTab(editors.activeGroup.activeIndex);
+        editors.editorGroups.activeGroup.closeTab(editors.editorGroups.activeGroup.activeIndex);
         container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
-        expect(editors.activeGroup.editorCount).toBe(0);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
 
         // Файл есть, но провайдера оригинала нет — нотис.
         const bare = createTempWorkspace({ prefix: "diode-diffv2-bare-", files: { "b.txt": "x\n" } });
@@ -703,16 +703,16 @@ describe("Workbench — дифф v2", () => {
 
     it("вкладка закрывается без диалога (модель жива во вкладке файла), повтор обновляет на месте", async () => {
         await openV2();
-        const countAfterFirst = editors.activeGroup.editorCount;
+        const countAfterFirst = editors.editorGroups.activeGroup.editorCount;
 
         // Повторный вызов С АКТИВНОЙ дифф-вкладкой целится в её исходный файл.
         container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
-        expect(editors.activeGroup.editorCount).toBe(countAfterFirst);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(countAfterFirst);
 
         // Несохранённые правки живут в модели файла — дифф закрывается молча.
-        editors.activeGroup.closeTab(editors.activeGroup.activeIndex);
-        expect(editors.activeGroup.editorCount).toBe(countAfterFirst - 1);
+        editors.editorGroups.activeGroup.closeTab(editors.editorGroups.activeGroup.activeIndex);
+        expect(editors.editorGroups.activeGroup.editorCount).toBe(countAfterFirst - 1);
     });
 
     it("US-31: сдвиг HEAD (onDidChangeFile провайдера) освежает снимочную сторону сам", async () => {
@@ -765,7 +765,7 @@ describe("Workbench — дифф v2", () => {
         expect(app.backend.screenToString()).toContain("No change under the cursor");
 
         // Вне дифф-вкладки — тихий no-op.
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
         expect(fileEditor?.getText()).toContain("old line");
@@ -873,7 +873,7 @@ describe("Workbench — дифф v2", () => {
         const pane = await openV2();
         // Последняя активная сторона — original, но фокус ушёл во вкладку файла.
         pane.sidePanes()[0].component.focus();
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         await settle(5);
         const fileEditor = editors.getActiveTabEditor();
         expect(fileEditor).not.toBeNull();
@@ -908,7 +908,7 @@ describe("Workbench — дифф v2", () => {
         expect(pane.mode).toBe("side-by-side");
 
         // Вне дифф-вкладки — no-op.
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         container.get(CommandRegistryDIToken).execute("diode.diff.toggleInlineView");
         await settle(10);
         expect(pane.mode).toBe("side-by-side");
@@ -922,7 +922,7 @@ describe("Workbench — дифф v2", () => {
         (pane as DiffEditorPane2).sidePanes()[1].viewState.type("keepme");
 
         const dialogs = container.get(DialogServiceDIToken);
-        void editors.closeEditor(editors.activeGroup, editors.activeGroup.activeIndex);
+        void editors.closeEditor(editors.editorGroups.activeGroup, editors.editorGroups.activeGroup.activeIndex);
         await settle(10);
         app.render();
         // Диалог называет dirty-сторону.
@@ -935,27 +935,27 @@ describe("Workbench — дифф v2", () => {
         expect(editors.getActiveTabPane()).toBe(pane);
 
         // Don't Save — закрывает.
-        void editors.closeEditor(editors.activeGroup, editors.activeGroup.activeIndex);
+        void editors.closeEditor(editors.editorGroups.activeGroup, editors.editorGroups.activeGroup.activeIndex);
         await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
         await settle(10);
-        expect(editors.activeGroup.getPanes().includes(pane as DiffEditorPane2)).toBe(false);
+        expect(editors.editorGroups.activeGroup.getPanes().includes(pane as DiffEditorPane2)).toBe(false);
     });
 
     it("диалог закрытия диффа с file-стороной: Save пишет файл и закрывает вкладку", async () => {
         await openV2();
         // Файловая вкладка закрыта — dirty-модель живёт только в стороне диффа.
-        editors.activeGroup.closeTab(0);
+        editors.editorGroups.activeGroup.closeTab(0);
         const pane = editors.getActiveTabPane() as DiffEditorPane2;
         expect(editors.needsCloseConfirm(pane)).toBe(true);
 
         const dialogs = container.get(DialogServiceDIToken);
-        void editors.closeEditor(editors.activeGroup, editors.activeGroup.activeIndex);
+        void editors.closeEditor(editors.editorGroups.activeGroup, editors.editorGroups.activeGroup.activeIndex);
         await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onSave?.();
 
         await vi.waitFor(() => {
-            expect(editors.activeGroup.getPanes().includes(pane)).toBe(false);
+            expect(editors.editorGroups.activeGroup.getPanes().includes(pane)).toBe(false);
         });
         const { readFileSync } = await import("node:fs");
         expect(readFileSync(ws.path("a.txt"), "utf8")).toContain("XXold line");
@@ -972,13 +972,13 @@ describe("Workbench — дифф v2", () => {
         await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onCancel?.();
         await settle(10);
-        expect(editors.activeGroup.getPanes().includes(pane)).toBe(true);
+        expect(editors.editorGroups.activeGroup.getPanes().includes(pane)).toBe(true);
 
         container.get(CommandRegistryDIToken).execute("workbench.action.closeEditorsInGroup");
         await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
         await settle(10);
-        expect(editors.activeGroup.getPanes().includes(pane)).toBe(false);
+        expect(editors.editorGroups.activeGroup.getPanes().includes(pane)).toBe(false);
     });
 
     it("закрытие вкладки файла при открытом диффе — без диалога: правки живут в стороне", async () => {
@@ -986,11 +986,11 @@ describe("Workbench — дифф v2", () => {
 
         // Закрываем вкладку файла (индекс 0): модель dirty, но дифф-сторона
         // держит тот же документ — диалог не нужен.
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         const fileEditor = editors.getActiveTabEditor();
         expect(fileEditor?.isModified).toBe(true);
         expect(editors.needsCloseConfirm(fileEditor!)).toBe(false);
-        expect(await editors.closeEditor(editors.activeGroup, fileEditor!)).toBe(true);
+        expect(await editors.closeEditor(editors.editorGroups.activeGroup, fileEditor!)).toBe(true);
         expect(container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).toBeNull();
 
         // А дифф после этого — последняя поверхность документа: ему диалог нужен.
