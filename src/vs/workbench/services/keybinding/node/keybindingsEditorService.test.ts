@@ -249,7 +249,7 @@ describe("resetKeybinding", () => {
         expect(h.entryOf("test.save").source).toBe("default");
     });
 
-    it("возвращает дефолт, снятый unbind-правилом ещё на bootstrap — главный кейс леджера", async () => {
+    it("возвращает дефолт, снятый unbind-правилом ещё на bootstrap", async () => {
         const h = makeHarness(`[
     { "key": "ctrl+s", "command": "-test.save" }
 ]
@@ -265,7 +265,7 @@ describe("resetKeybinding", () => {
         expect(h.resolves("ctrl+s")).toBe("test.save");
     });
 
-    it("восстановленная после reset запись сохраняет args (снапшот леджера)", async () => {
+    it("восстановленная после reset запись сохраняет args", async () => {
         const h = makeHarness(`[
     { "key": "f6", "command": "-ext.withArgs" }
 ]
@@ -279,6 +279,27 @@ describe("resetKeybinding", () => {
         expect(result.ok).toBe(true);
         const res = h.registry.resolveKey({ ...parseChord("f6")[0] });
         expect(res.kind === "command" && res.args).toEqual({ verbose: true });
+    });
+
+    it("восстановленный дефолт возвращается на прежний приоритет, а не в конец реестра", async () => {
+        const h = makeHarness();
+        h.registry.register(parseChord("escape"), "test.first");
+        h.registry.register(parseChord("escape"), "test.second");
+        await h.service.removeKeybinding(h.entryOf("test.second"));
+        expect(h.resolves("escape")).toBe("test.first");
+
+        await h.service.resetKeybinding("test.second");
+
+        expect(h.resolves("escape")).toBe("test.second");
+        expect(h.registry.listBindings().map((entry) => entry.commandId)).toEqual(["test.first", "test.second"]);
+    });
+
+    it("user-бинд сильнее бинда расширения, даже если слой расширений пришёл позже", async () => {
+        const h = makeHarness();
+        await h.service.defineKeybinding("user.cmd", parseChord("f6"));
+        h.registry.setExtensionKeybindings([{ command: "ext.cmd", chord: parseChord("f6") }]);
+
+        expect(h.resolves("f6")).toBe("user.cmd");
     });
 
     it("reset команды без user-правил — no-op с ok", async () => {
@@ -308,17 +329,25 @@ describe("hasUserModifications", () => {
         expect(h.service.hasUserModifications("test.save")).toBe(true);
     });
 
-    it("true когда есть ТОЛЬКО добавленный биндинг (removedDefaults пуст)", async () => {
+    it("правило другой команды не считается правкой этой", () => {
         const h = makeHarness();
-        // Добавление без previous: added=[…], removedDefaults=[] — проверяет левую ветку ||.
+        h.service.applyUserKeybindings([
+            { key: "f6", command: "other.cmd" },
+            { key: "f7", command: "-other.cmd" },
+        ]);
+        expect(h.service.hasUserModifications("test.save")).toBe(false);
+        expect(h.service.hasUserModifications("other.cmd")).toBe(true);
+    });
+
+    it("true когда в файле есть правило команды", async () => {
+        const h = makeHarness();
         await h.service.defineKeybinding("brand.new", parseChord("f6"));
         expect(h.service.hasUserModifications("brand.new")).toBe(true);
     });
 
-    it("true когда снят ТОЛЬКО дефолт (added пуст) — правая ветка ||", async () => {
+    it("true когда в файле есть только снятие команды", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
-        // remove дефолта: removedDefaults=[…], added=[] — правая ветка ||.
         await h.service.removeKeybinding(h.entryOf("test.save"));
         expect(h.service.hasUserModifications("test.save")).toBe(true);
     });

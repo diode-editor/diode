@@ -328,10 +328,10 @@ export class WorkbenchComponent extends Component {
         // `vscode.diff` — программный вход с контрактом VS Code: без title,
         // мимо палитры; ext-host исполняет её по id через мост команд.
         this.register(registerVscodeDiffCommand(commands, accessor));
-        // Apply user keybindings AFTER all defaults so they take precedence (the registry
-        // resolves the last-registered matching binding) and so `-command` unbinds can remove defaults.
-        // Применяет их KeybindingsEditorService — он же владеет леджером эффектов
-        // user-правил (reset во вкладке шорткатов возвращает снятые дефолты).
+        // Слой user реестра: его бинды сильнее default и extension, а снятия
+        // (`-command`) убирают дефолты и бинды расширений — когда бы те ни
+        // зарегистрировались. Слоем владеет KeybindingsEditorService: правки во
+        // вкладке шорткатов пересобирают его из записанного keybindings.json.
         this.register(accessor.get(KeybindingsEditorServiceDIToken)).applyUserKeybindings(userKeybindings);
 
         // Главное меню строится ПОСЛЕ применения user keybindings: шорткаты

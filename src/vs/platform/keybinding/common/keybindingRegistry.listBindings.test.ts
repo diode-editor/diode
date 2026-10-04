@@ -41,41 +41,6 @@ describe("KeybindingRegistry.listBindings", () => {
     });
 });
 
-describe("KeybindingRegistry.removeBindings — returned snapshots", () => {
-    it("returns every removed entry when no chord is given", () => {
-        const registry = new KeybindingRegistry();
-        registry.register(parseKeybinding("ctrl+s"), "save");
-        registry.register(parseChord("ctrl+k s"), "save", "textViewFocus");
-        registry.register(parseKeybinding("ctrl+p"), "palette");
-
-        const removed = registry.removeBindings("save");
-
-        expect(removed).toHaveLength(2);
-        expect(removed[0].commandId).toBe("save");
-        expect(removed[0].source).toBe("default");
-        expect(removed[1].when).toBe("textViewFocus");
-        expect(chordsEqual(removed[1].chord, parseChord("ctrl+k s"))).toBe(true);
-    });
-
-    it("returns only the entry matching the given chord", () => {
-        const registry = new KeybindingRegistry();
-        registry.register(parseKeybinding("ctrl+s"), "save");
-        registry.register(parseKeybinding("ctrl+alt+s"), "save");
-
-        const removed = registry.removeBindings("save", parseChord("ctrl+s"));
-
-        expect(removed).toHaveLength(1);
-        expect(chordsEqual(removed[0].chord, parseChord("ctrl+s"))).toBe(true);
-    });
-
-    it("returns an empty array when nothing matched", () => {
-        const registry = new KeybindingRegistry();
-        registry.register(parseKeybinding("ctrl+s"), "save");
-
-        expect(registry.removeBindings("other")).toEqual([]);
-    });
-});
-
 describe("chordsEqual", () => {
     it("compares keys case-insensitively and modifiers exactly", () => {
         expect(

@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import {
     type IEnvironmentService,
@@ -10,6 +9,7 @@ import {
 } from "../../../../platform/environment/common/environment.ts";
 import type {
     IKeybindingEntrySnapshot,
+    IKeybindingLayerRule,
     KeybindingChord,
     KeybindingRegistry,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -20,6 +20,7 @@ import {
     serializeChord,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
+import { parseUserKeybindings } from "../../../../platform/keybinding/node/keybindingsService.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
@@ -27,24 +28,34 @@ import type { IKeybindingMutationResult, IKeybindingsEditorService } from "../co
 
 import { appendKeybindingRule, removeKeybindingRules } from "./keybindingsFileEditor.ts";
 
-/** Эффект добавленного user-правила: чем снять его из реестра при reset/replace. */
-interface IAppliedUserBinding {
-    readonly chord: KeybindingChord;
-    readonly disposable: IDisposable;
+/** Итог записи файла: при успехе — записанное содержимое. */
+type IKeybindingWriteResult =
+    | { readonly ok: true; readonly content: string }
+    | { readonly ok: false; readonly error: string };
+
+/** User-правило файла как правило слоя реестра: `key` разобран в комбинацию. */
+function toLayerRule(rule: IUserKeybindingRule): IKeybindingLayerRule {
+    return {
+        command: rule.command,
+        chord: rule.key === "" ? undefined : parseChord(rule.key),
+        when: rule.when,
+        args: rule.args,
+    };
 }
 
-/** Сессионный журнал эффектов user-правил одной команды. */
-interface ICommandLedger {
-    added: IAppliedUserBinding[];
-    /** Дефолты (и extension-записи), снятые user-правилами, — в порядке снятия. */
-    removedDefaults: IKeybindingEntrySnapshot[];
-}
-
-/** См. контракт {@link IKeybindingsEditorService}. */
+/**
+ * См. контракт {@link IKeybindingsEditorService}. Источник правды —
+ * `keybindings.json`: после каждой правки файла слой user реестра
+ * пересобирается из записанного содержимого целиком, поэтому журнала
+ * эффектов нет, а reset просто убирает правила из файла и не сдвигает
+ * приоритет восстановленных дефолтов.
+ */
 export class KeybindingsEditorService extends Disposable implements IKeybindingsEditorService {
     public static dependencies = [KeybindingRegistryDIToken, IEnvironmentServiceDIToken, ILogServiceDIToken] as const;
 
-    private readonly ledger = new Map<string, ICommandLedger>();
+    /** Действующие user-правила — содержимое `keybindings.json`. */
+    // Stryker disable next-line ArrayDeclaration: эквивалентный — посторонний элемент без command ни с одной командой не совпадёт
+    private rules: readonly IUserKeybindingRule[] = [];
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private readonly logger: ILogger;
     private readonly resource: string;
@@ -61,51 +72,14 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
     }
 
     public hasUserModifications(commandId: string): boolean {
-        const ledger = this.ledger.get(commandId);
-        if (ledger === undefined) return false;
-        // Stryker disable next-line EqualityOperator,ConditionalExpression: присутствующий леджер всегда содержит ≥1 запись (пустой удаляется в reset), поэтому `> 0` всегда истинно, а граница 0 недостижима — `>=0`/`<=0`/`true` эквивалентны.
-        return ledger.added.length > 0 || ledger.removedDefaults.length > 0;
+        return this.rules.some((rule) => rule.command === commandId || rule.command === `-${commandId}`);
     }
 
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
-    private emitDidChange(): void {
-        // Копия: слушатель может отписаться в обработчике.
-        this.onDidChangeEmitter.fire();
-    }
-
-    private ledgerFor(commandId: string): ICommandLedger {
-        let entry = this.ledger.get(commandId);
-        if (entry === undefined) {
-            entry = { added: [], removedDefaults: [] };
-            this.ledger.set(commandId, entry);
-        }
-        return entry;
-    }
-
     public applyUserKeybindings(rules: readonly IUserKeybindingRule[]): void {
-        for (const rule of rules) {
-            if (rule.command.startsWith("-")) {
-                const commandId = rule.command.slice(1);
-                const removed = this.keybindings.removeBindings(
-                    commandId,
-                    rule.key !== "" ? parseChord(rule.key) : undefined,
-                );
-                this.ledgerFor(commandId).removedDefaults.push(...removed);
-            } else {
-                this.registerUserBinding(rule.command, parseChord(rule.key), rule.when, rule.args);
-            }
-        }
-    }
-
-    private registerUserBinding(
-        commandId: string,
-        chord: KeybindingChord,
-        when: string | undefined,
-        args?: unknown,
-    ): void {
-        const disposable = this.register(this.keybindings.register(chord, commandId, when, "user", args));
-        this.ledgerFor(commandId).added.push({ chord, disposable });
+        this.rules = rules;
+        this.keybindings.setUserKeybindings(rules.map(toLayerRule));
     }
 
     public async defineKeybinding(
@@ -133,12 +107,7 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
             }
             return next;
         });
-        if (!result.ok) return result;
-
-        if (previous !== undefined) this.unregisterEntry(previous);
-        this.registerUserBinding(commandId, chord, when, args);
-        this.emitDidChange();
-        return result;
+        return this.applyWritten(result);
     }
 
     public async removeKeybinding(entry: IKeybindingEntrySnapshot): Promise<IKeybindingMutationResult> {
@@ -151,40 +120,22 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
                 command: `-${entry.commandId}`,
             });
         });
-        if (!result.ok) return result;
-
-        this.unregisterEntry(entry);
-        this.emitDidChange();
-        return result;
+        return this.applyWritten(result);
     }
 
     public async resetKeybinding(commandId: string): Promise<IKeybindingMutationResult> {
         const result = await this.mutateFile((content) =>
             removeKeybindingRules(content, (rule) => rule.command === commandId || rule.command === `-${commandId}`),
         );
-        if (!result.ok) return result;
-
-        const ledger = this.ledger.get(commandId);
-        if (ledger !== undefined) {
-            for (const applied of ledger.added) applied.disposable.dispose();
-            for (const removed of ledger.removedDefaults) {
-                this.keybindings.register(removed.chord, removed.commandId, removed.when, removed.source, removed.args);
-            }
-            this.ledger.delete(commandId);
-        }
-        this.emitDidChange();
-        return result;
+        return this.applyWritten(result);
     }
 
-    /** Снимает запись из реестра и приводит леджер в соответствие. */
-    private unregisterEntry(entry: IKeybindingEntrySnapshot): void {
-        const removed = this.keybindings.removeBindings(entry.commandId, entry.chord);
-        const ledger = this.ledgerFor(entry.commandId);
-        if (entry.source === "user") {
-            ledger.added = ledger.added.filter((applied) => !chordsEqual(applied.chord, entry.chord));
-        } else {
-            ledger.removedDefaults.push(...removed);
-        }
+    /** Записанный файл — новый слой user реестра. */
+    private applyWritten(written: IKeybindingWriteResult): IKeybindingMutationResult {
+        if (!written.ok) return written;
+        this.applyUserKeybindings(parseUserKeybindings(written.content, this.resource, this.logger));
+        this.onDidChangeEmitter.fire();
+        return { ok: true };
     }
 
     /** Предикат «то самое user-правило в файле»: команда + комбинация + when. */
@@ -201,13 +152,13 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
      * Правка файла: чтение (отсутствующий файл — пустой массив) → мутация →
      * запись с созданием каталога. Ошибка — результатом, не исключением.
      */
-    private async mutateFile(mutate: (content: string) => string): Promise<IKeybindingMutationResult> {
+    private async mutateFile(mutate: (content: string) => string): Promise<IKeybindingWriteResult> {
         try {
             const next = mutate(await this.readContent(this.resource));
             await fs.promises.mkdir(path.dirname(this.resource), { recursive: true });
             // Stryker disable next-line StringLiteral: кодировка записи — деталь I/O; наблюдаемого поведения тестам не даёт.
             await fs.promises.writeFile(this.resource, next, "utf-8");
-            return { ok: true };
+            return { ok: true, content: next };
         } catch (err) {
             /* v8 ignore start -- defensive: fs и jsonc бросают только Error */
             const message = err instanceof Error ? err.message : String(err);
