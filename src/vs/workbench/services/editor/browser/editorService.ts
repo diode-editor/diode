@@ -1166,12 +1166,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public refreshVirtualDocument(uri: Uri): void {
         const key = uri.toString();
+        // Вкладка недискового ресурса — текстовая и синтетическая по построению;
+        // обе проверки сужают тип, отличить их поведением нечем.
         const targets = this.allPanes()
+            // Stryker disable next-line MethodExpression: эквивалентен — см. выше
             .filter(isTextEditorPane)
             .flatMap((pane) =>
                 pane.uri.toString() === key &&
-                // Вкладка недискового ресурса синтетическая по построению; проверка
-                // сужает тип модели, отличить её поведением нечем.
                 // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
                 pane.model instanceof SyntheticTextModel
                     ? [pane.model]
