@@ -28,13 +28,13 @@ import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFolding
 import { provideFoldingRanges } from "../../../../editor/contrib/folding/syntaxRangeProvider.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
-import type { ITextFileEditTarget, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
+import type { BaseTextEditorModel, ITextEditTarget } from "../../../common/editor/textEditorModel.ts";
 import { Component } from "../../component.ts";
 
 /**
  * View-обвязка одной вью открытого файла: владеет `EditorElement` (+ его
  * view-state и токен-кешем) и скроллбаром ({@link view} — `ScrollBarDecorator`).
- * Модель ({@link TextFileModel}) приходит в конструктор и может делиться
+ * Модель ({@link BaseTextEditorModel}) приходит в конструктор и может делиться
  * несколькими компонентами (один документ в нескольких группах); компонент
  * подписывается на её события: пересоздание документа (перечитка с диска)
  * пересобирает view-state и `EditorElement`, смена языка / догрузившаяся
@@ -75,7 +75,7 @@ export class EditorComponent extends Component {
         return this.editorViewState;
     }
 
-    private readonly model: TextFileModel;
+    private readonly model: BaseTextEditorModel;
     private readonly tokenizationRegistry: TokenizationRegistry;
     private readonly tokenStyleResolver: ITokenStyleResolver;
     private readonly languageConfiguration: ILanguageConfigurationService;
@@ -111,10 +111,10 @@ export class EditorComponent extends Component {
     private componentDisposed = false;
     /**
      * Редактирующая поверхность этой вью, прикреплённая к модели (см.
-     * {@link TextFileModel.attachEditTarget}). Хранится, чтобы pane мог передать
+     * {@link BaseTextEditorModel.attachEditTarget}). Хранится, чтобы pane мог передать
      * её моделью как «действующую вью» (setEol, applyExternalEdits).
      */
-    private readonly editTargetValue: ITextFileEditTarget;
+    private readonly editTargetValue: ITextEditTarget;
     /**
      * Подписчики на смену курсора/выделения. Держим их здесь, а не на view-state:
      * при перечитке файла с диска view-state пересоздаётся, а подписчик (extension
@@ -130,7 +130,7 @@ export class EditorComponent extends Component {
     private readonly onDidTypeEmitter = new Emitter<string>();
 
     /** Редактирующая поверхность этой вью — для acting-view путей модели. */
-    public get editTarget(): ITextFileEditTarget {
+    public get editTarget(): ITextEditTarget {
         return this.editTargetValue;
     }
     /** Текущая подписка на view-state; перевешивается при его пересоздании. */
@@ -183,7 +183,7 @@ export class EditorComponent extends Component {
     public constructor(
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
-        model: TextFileModel,
+        model: BaseTextEditorModel,
         languageConfiguration: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
         foldingProviders = new LanguageFeatureRegistry<FoldingRangeProvider>(),
     ) {

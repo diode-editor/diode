@@ -8,6 +8,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 
 import type { ISaveEdit, SaveParticipant } from "./iSaveParticipant.ts";
+import type { TextFileModel } from "./textFileModel.ts";
 import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
 describe("TextFileModel — save participant", () => {
@@ -25,7 +26,7 @@ describe("TextFileModel — save participant", () => {
         return ws.writeFile(name, content);
     }
 
-    function setParticipant(controller: TextEditorPane, participant: SaveParticipant): void {
+    function setParticipant(controller: TextEditorPane<TextFileModel>, participant: SaveParticipant): void {
         controller.model.saveParticipant = new TextFileSaveParticipant(() => [participant]);
     }
 

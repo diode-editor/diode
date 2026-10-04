@@ -13,6 +13,7 @@ import type { PanelService } from "../../../browser/parts/panel/panelService.ts"
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import type { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { OUTPUT_LANGUAGE_ID, OUTPUT_URI_SCHEME, OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
@@ -42,7 +43,7 @@ export class OutputComponent extends Disposable {
     ] as const;
 
     /** Редактор канала; создаётся лениво — до открытия вкладки он не нужен. */
-    private pane: TextEditorPane | null = null;
+    private pane: TextEditorPane<SyntheticTextModel> | null = null;
     /** Канал, содержимое которого сейчас залито в редактор. */
     private loadedChannelId: string | null = null;
     /** Селектор канала в шапке панели; наполняется из submenu `switchOutput`. */
@@ -94,13 +95,13 @@ export class OutputComponent extends Disposable {
             }),
         );
         // Живой хвост: дописываем строку от имени владельца документа — read-only
-        // запрещает правки пользователя, но не владельца (см. appendOwnedContent).
+        // запрещает правки пользователя, но не владельца (см. SyntheticTextModel.appendContent).
         this.register(
             this.outputService.onDidAppendToActiveChannel((entry) => {
                 if (this.pane === null) return;
                 // Решаем ДО дописывания: после него «конец документа» уже другой.
                 const follow = this.shouldFollowTail(this.pane);
-                this.pane.model.appendOwnedContent(`${formatOutputLine(entry)}\n`);
+                this.pane.model.appendContent(`${formatOutputLine(entry)}\n`);
                 if (follow) this.revealLastLine(this.pane);
             }),
         );
@@ -130,7 +131,7 @@ export class OutputComponent extends Disposable {
         const pane = this.ensurePane();
         if (this.loadedChannelId !== channelId) {
             this.loadedChannelId = channelId;
-            pane.model.replaceOwnedContent(this.outputService.renderChannel(channelId));
+            pane.model.replaceContent(this.outputService.renderChannel(channelId));
         }
         this.revealLastLine(pane);
     }
@@ -155,7 +156,7 @@ export class OutputComponent extends Disposable {
         this.viewsService.setViewTitleWidget(OUTPUT_VIEW_ID, options.length > 0 ? this.selector : null);
     }
 
-    private ensurePane(): TextEditorPane {
+    private ensurePane(): TextEditorPane<SyntheticTextModel> {
         if (this.pane !== null) return this.pane;
         // Ресурс канала синтетический (`output:<id>`), как в VS Code: файла нет,
         // содержимое даёт сервис.
