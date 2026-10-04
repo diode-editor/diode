@@ -166,7 +166,8 @@ export interface IExtensionHostOptions {
     readonly rpcLogger?: ILogger;
     /**
      * Логгер для stdout subprocess'а (канал `extensions.host.stdout`). Если передан —
-     * stdio[1] переключается в `"pipe"`; иначе остаётся `"inherit"`.
+     * stdout читается построчно в лог; иначе закрыт (`"ignore"`) — наследовать его
+     * нельзя: терминал общий с редактором, печать попала бы в кадр.
      */
     readonly stdoutLogger?: ILogger;
     /**

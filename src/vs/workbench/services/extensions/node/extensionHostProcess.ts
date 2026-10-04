@@ -1,6 +1,7 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 
-import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
+import { GuardedChildProcess, splitLines } from "../../../../base/node/childProcessGuard.ts";
+import { selfSpawnArgs, spawnSelfAsRole } from "../../../../base/node/selfSpawnArgs.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
@@ -19,9 +20,9 @@ export interface IExtensionHostProcessOptions {
     readonly logger: ILogger | undefined;
     /** Трасса RPC-сообщений канала. */
     readonly rpcLogger: ILogger | undefined;
-    /** Куда пишется stdout ребёнка построчно; без логгера — `inherit`. */
+    /** Куда пишется stdout ребёнка построчно; без логгера поток закрыт (`ignore`). */
     readonly stdoutLogger: ILogger | undefined;
-    /** Куда пишется stderr ребёнка построчно; без логгера — `inherit`. */
+    /** Куда пишется stderr ребёнка построчно; без логгера поток закрыт (`ignore`). */
     readonly stderrLogger: ILogger | undefined;
 }
 
@@ -38,11 +39,13 @@ export interface IExtensionHostProcessOptions {
 export class ExtensionHostProcess {
     public readonly rpc: HostRpc;
     private readonly child: ChildProcess;
+    private readonly guard: GuardedChildProcess;
     private readonly channel: IpcMessageChannel;
     private readonly logger: ILogger | undefined;
 
     /**
-     * @param onExit ребёнок вышел — сам или по сигналу; зовётся один раз
+     * @param onExit ребёнок вышел — сам, по сигналу или не поднявшись (`error`
+     * без `exit`: тогда код и сигнал — `null`); зовётся один раз
      */
     public constructor(
         options: IExtensionHostProcessOptions,
@@ -51,36 +54,39 @@ export class ExtensionHostProcess {
         this.logger = options.logger;
         const spec = options.spawnArgs();
         const { stdoutLogger, stderrLogger } = options;
-        // Без логгера поток наследуется — ребёнок пишет прямо в наш stdout/stderr.
-        const stdio: ["ignore", "pipe" | "inherit", "pipe" | "inherit", "ipc"] = [
-            "ignore",
-            stdoutLogger !== undefined ? "pipe" : "inherit",
-            stderrLogger !== undefined ? "pipe" : "inherit",
-            "ipc",
-        ];
+        // Без логгера поток закрыт, а не наследуется: ребёнок делит терминал с
+        // редактором, и печать расширения или language-сервера попала бы в кадр.
+        const stdout = stdoutLogger !== undefined ? "pipe" : "ignore";
+        const stderr = stderrLogger !== undefined ? "pipe" : "ignore";
         // Stryker disable next-line StringLiteral,ObjectLiteral: текст и поля debug-лога поведения не задают
-        this.logger?.debug("spawning extension host subprocess", { command: spec.command, args: spec.args, stdio });
-        const child = spawn(spec.command, spec.args, {
-            stdio,
-            env: spec.env ?? { ...process.env, DIODE_EXTENSION_HOST: "1" },
+        this.logger?.debug("spawning extension host subprocess", {
+            command: spec.command,
+            args: spec.args,
+            stdout,
+            stderr,
         });
+        const child = spawnSelfAsRole("DIODE_EXTENSION_HOST", { stdout, stderr, spec, env: spec.env });
+        // Правила самофорка (error через `on`, error без exit — тоже конец,
+        // слушатели на stdio) исполняет guard.
+        this.guard = new GuardedChildProcess(child, { label: "extension-host", logger: this.logger });
         if (child.stdout !== null && stdoutLogger !== undefined) {
-            pipeStreamLines(child.stdout, (line) => {
-                stdoutLogger.info(line);
+            splitLines(child.stdout, (line) => {
+                if (line !== "") stdoutLogger.info(line);
             });
         }
         if (child.stderr !== null && stderrLogger !== undefined) {
-            pipeStreamLines(child.stderr, (line) => {
-                stderrLogger.warn(line);
+            splitLines(child.stderr, (line) => {
+                if (line !== "") stderrLogger.warn(line);
             });
         }
-        child.once("exit", (code, signal) => {
+        this.guard.onDidEnd((end) => {
+            // Неудачный спавн (EMFILE, ENOENT) — тоже конец: `exit` после него может
+            // не прийти вовсе, а владелец обязан сбросить состояние и поднять
+            // процесс заново на следующей активации.
             // Stryker disable next-line StringLiteral,ObjectLiteral: текст и поля лога поведения не задают
-            this.logger?.info("extension host subprocess exited", { code, signal });
-            onExit(code, signal);
-        });
-        child.once("error", (err) => {
-            this.logger?.error("extension host subprocess error", err);
+            if (end.error === undefined) this.logger?.info("extension host subprocess exited", end);
+            else this.logger?.error("extension host subprocess error", end.error);
+            onExit(end.code, end.signal);
         });
         this.child = child;
         this.channel = new IpcMessageChannel(child as unknown as IIpcEndpoint);
@@ -89,7 +95,7 @@ export class ExtensionHostProcess {
 
     /** Ждёт `host.ready`; отказ — ребёнок вышел раньше или не успел за `timeoutMs`. */
     public waitForReady(timeoutMs: number): Promise<void> {
-        return waitForReady(this.rpc, this.child, timeoutMs);
+        return waitForReady(this.rpc, this.guard, timeoutMs);
     }
 
     /**
@@ -152,7 +158,7 @@ export function defaultSpawnArgs(): IExtensionHostSpawnSpec {
     return selfSpawnArgs();
 }
 
-function waitForReady(rpc: HostRpc, child: ChildProcess, timeoutMs: number): Promise<void> {
+function waitForReady(rpc: HostRpc, guard: GuardedChildProcess, timeoutMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
         // Уборка ненаблюдаема ни в одной ветке: промис уже разрешён или
         // отклонён, и поздние `host.ready`/таймер/выход ребёнка в нём ничего не
@@ -163,11 +169,11 @@ function waitForReady(rpc: HostRpc, child: ChildProcess, timeoutMs: number): Pro
             cleanup();
             resolve();
         });
-        const onExit = (code: number | null): void => {
+        const ended = guard.onDidEnd((end) => {
             handle.dispose();
             cleanup();
-            reject(new Error(`extension host subprocess exited before ready (code ${String(code)})`));
-        };
+            reject(new Error(`extension host subprocess exited before ready (code ${String(end.code)})`));
+        });
         const timer = setTimeout(() => {
             handle.dispose();
             cleanup();
@@ -176,11 +182,10 @@ function waitForReady(rpc: HostRpc, child: ChildProcess, timeoutMs: number): Pro
         }, timeoutMs);
         // Stryker disable BlockStatement,StringLiteral,CallExpression: см. выше
         const cleanup = (): void => {
-            child.off("exit", onExit);
+            ended.dispose();
             clearTimeout(timer);
         };
         // Stryker restore BlockStatement,StringLiteral,CallExpression
-        child.once("exit", onExit);
     });
 }
 
@@ -205,31 +210,4 @@ function waitForExit(child: ChildProcess): Promise<void> {
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Линейно-буферизованная подписка на `Readable` (stdout/stderr subprocess'а).
- * Каждую полную непустую строку (`\n`-delimited) отдаёт `write`. Хвост без
- * `\n` сбрасывает при `end`.
- */
-function pipeStreamLines(stream: NodeJS.ReadableStream, write: (line: string) => void): void {
-    // Декодирует поток сам, а не по чанку: многобайтный символ, разрезанный
-    // между чанками, иначе превратился бы в мусор.
-    // Stryker disable next-line StringLiteral: пустая кодировка у Node — тот же utf8
-    stream.setEncoding("utf8");
-    let buffer = "";
-    stream.on("data", (chunk: string) => {
-        buffer += chunk;
-        let nl = buffer.indexOf("\n");
-        while (nl !== -1) {
-            const line = buffer.slice(0, nl);
-            buffer = buffer.slice(nl + 1);
-            if (line.length > 0) write(line);
-            nl = buffer.indexOf("\n");
-        }
-    });
-    // После `end` данных уже не будет — хвост отдаём, буфер больше не нужен.
-    stream.on("end", () => {
-        if (buffer.length > 0) write(buffer);
-    });
 }

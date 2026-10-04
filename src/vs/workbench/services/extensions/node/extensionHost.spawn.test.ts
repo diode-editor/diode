@@ -164,6 +164,31 @@ describe("ExtensionHost — SIGKILL escalation (lines 242-247)", () => {
     });
 });
 
+describe("ExtensionHost — неудачный спавн", () => {
+    it("error без exit (EMFILE) сбрасывает host: следующая активация поднимает процесс заново", async () => {
+        const broken = new FakeChild();
+        const healthy = new FakeChild();
+        spawnMock.mockReturnValueOnce(broken as never).mockReturnValueOnce(healthy as never);
+        const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE, {
+            spawnArgs: () => ({ command: "node", args: ["h.js"] }),
+            readyTimeoutMs: 60_000,
+        });
+        queueMicrotask(() => {
+            broken.emit("error", Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }));
+        });
+        // Первая активация падает вместе со спавном — не по минутному таймауту, а сразу.
+        await registerAndActivate(host, makeReg("ext.a")).catch(() => undefined);
+
+        queueMicrotask(() => {
+            healthy.emitReady();
+        });
+        await host.activateByEvent("*");
+
+        expect(spawnMock).toHaveBeenCalledTimes(2);
+        await host.shutdown();
+    });
+});
+
 describe("ExtensionHost — defaultSpawnArgs / detectIsSea (lines 268-290)", () => {
     it("derives command/args from process.execPath + main script when no spawnArgs is given", async () => {
         const child = new FakeChild();
