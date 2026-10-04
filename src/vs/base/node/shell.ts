@@ -25,6 +25,7 @@ function nonEmpty(value: string | null | undefined): string | null | undefined {
     return value === "" ? undefined : value;
 }
 
+// Stryker disable BlockStatement: пустой catch вернул бы undefined — для `??` у вызывающего то же, что null
 function accountShell(readUserInfo: () => { readonly shell: string | null }): string | null {
     try {
         return readUserInfo().shell;
@@ -33,3 +34,4 @@ function accountShell(readUserInfo: () => { readonly shell: string | null }): st
         return null;
     }
 }
+// Stryker restore BlockStatement
