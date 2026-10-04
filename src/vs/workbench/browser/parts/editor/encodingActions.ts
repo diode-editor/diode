@@ -1,11 +1,11 @@
-import { SUPPORTED_ENCODINGS } from "../../../editor/common/model/encoding.ts";
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import { CommandRegistryDIToken } from "../../../platform/commands/common/commandRegistry.ts";
-import { IFileServiceDIToken } from "../../../platform/files/common/files.ts";
-import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
+import { SUPPORTED_ENCODINGS } from "../../../../editor/common/model/encoding.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**
  * Encoding picker (VS Code `workbench.action.editor.changeEncoding`):

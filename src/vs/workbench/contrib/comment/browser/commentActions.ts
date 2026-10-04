@@ -1,18 +1,18 @@
-import { LanguageConfigurationServiceDIToken } from "../../../editor/common/languages/iLanguageConfigurationService.ts";
-import type { IUndoElement } from "../../../editor/common/model/iUndoElement.ts";
-import type { EditorViewState } from "../../../editor/common/viewModel/editorViewState.ts";
+import { LanguageConfigurationServiceDIToken } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
+import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import {
     addLineComment,
     removeLineComment,
     toggleBlockComment,
     toggleLineComment,
-} from "../../../editor/contrib/comment/commentCommands.ts";
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import type { ICommentRule } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
-import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+} from "../../../../editor/contrib/comment/commentCommands.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import type { ICommentRule } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 /**
  * Команды комментирования (VS Code `editor/contrib/comment`): id, бинды и

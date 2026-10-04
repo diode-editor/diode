@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Uri } from "../../../base/common/uri.ts";
-import { createRange } from "../../../editor/common/core/iRange.ts";
-import { createSelection } from "../../../editor/common/core/iSelection.ts";
-import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
-import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
-import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
-import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
-import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { type EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { type StatusBarService, StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
+import { Uri } from "../../../../base/common/uri.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { createSelection } from "../../../../editor/common/core/iSelection.ts";
+import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
+import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { type EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 

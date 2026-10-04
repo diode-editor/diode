@@ -208,7 +208,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 
 | Сегодня в центре | Что там | Куда уходит | Задача |
 |---|---|---|---|
-| `workbench/browser/actions/builtinActions.ts`, `searchActions.ts`, `menuContributions.ts` | команды и меню фич | `<FEATURE>_ACTIONS` у фич + агрегатор | F2 |
+| `workbench/browser/actions/builtinActions.ts`, `menuContributions.ts` | список массивов `<FEATURE>_ACTIONS` и деривация меню (сами команды фич уже в фичах) | агрегатор `workbench.common.main.ts` | F2 (после агрегатора E4) |
 | `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
 | `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
 | `workbench/browser/workbenchComponent.ts` | корень дерева Explorer и cwd терминала в `setWorkspaceFolder` | подписки explorer и терминала на смену папки, explorer как `IActivatable` — после того как путь папки перестанет терять регистр буквы диска (см. TODO); храповик направления, контейнеры у владельцев, хост оверлеев через `LayoutService`, фаза `blockStartup` и агрегатор `workbench.common.main.ts` уже сделаны | E4 |
@@ -1432,19 +1432,17 @@ hide-toggle (`isHiddenByDefault`). См.
   до неё уже не достаёт и проглотить клавишу не может — голый символ печатается
   в документ, который команда только что покинула. Отсюда `Ctrl+K Ctrl+B` у
   `navigateBack`, а не `Ctrl+K -`. Баг движка — в трекере (docs/TODO/README.md).
-- Экшены объявляются `CommandAction`/`registerAction` в `Workbench/Actions/`;
-  упорядоченный список — `builtinActions.ts`, регистрирует `WorkbenchComponent`
-  одним циклом. Из записей одной комбинации с проходящим `when` резолвер
-  берёт самую приоритетную: сначала **вес** правила (`CommandAction.weight` /
-  `ConditionalKeybinding.weight`, ступени `KeybindingWeight` в
-  `platform/keybinding/common/keybindingResolver.ts`, дефолт `EditorCore`),
-  при равном весе — позже зарегистрированное правило. Порядок в
-  `builtinActions.ts` поведения не держит: попапы над редактором и
-  tab-switcher перебивают базовые команды весами (find `EditorContrib`,
-  inline `+ 80`, suggest `+ 90`, hover `+ 92`, подсказка параметров `+ 93`,
-  стрелки tab-switcher `WorkbenchContrib`), а срез `builtinKeybindings.slice.test.ts`
-  фиксирует старшинство и проверяет, что обратный порядок массива его не
-  меняет.
+- **Регистрация команд — два рода, как у upstream.** Статическая команда —
+  `CommandAction` в массиве своей фичи: фича отдаёт один
+  `<FEATURE>_ACTIONS` (`contrib/scm/browser/scmActions.ts`, `contrib/find/browser/findActions.ts`, …),
+  `builtinActions.ts` разворачивает массивы фич, `WorkbenchComponent`
+  регистрирует их одним циклом `registerAction`. Команда, которая держит
+  состояние сервиса или появляется динамически, — `commands.register` в
+  сервисе или contribution (аналог `CommandsRegistry.registerCommand`).
+  Политика фичи над её командами живёт в фиче (`gitMutating` — в
+  `scmActions.ts`). Порядок в `builtinActions.ts` не держит ни кейбинды
+  (веса, см. ниже), ни меню: пункты групп меню сверяются срезом
+  `menuContributions.slice.test.ts`.
 - **`setContext`** — встроенная команда VS Code, которой РАСШИРЕНИЯ публикуют свои
   when-ключи. Регистрирует `SetContextCommandContribution` (`workbench/browser/`)
   без title: в палитре её быть не должно, это программный шов. Значение

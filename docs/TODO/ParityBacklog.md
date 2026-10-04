@@ -54,7 +54,7 @@ action failed».
 return false`. Файловые операции (create/rename/delete) субпроцесс отбивает ещё
 до RPC. Любое действие, трогающее второй файл («Add import from …», «Move to a
 new file», «Update imports»), честно отвечает `false`, а UI показывает
-`Code action failed: <title>` (`browser/actions/codeActionActions.ts:63,160`).
+`Code action failed: <title>` (`contrib/codeAction/browser/codeActionActions.ts:63,160`).
 Люфт зафиксирован в [LSP.md](LSP.md) (строка таблицы `workspace.applyEdit`).
 
 **Что сделать.**
@@ -194,7 +194,7 @@ Shortcuts. Поиск в Extensions view **оставлен подстрочны
   и нужен (tier врёт, см. выше). Такие гейты снимаем, бинд регистрируется
   безусловно — несколько биндов на команду норма VS Code.
 - `tier != 'legacy'` НА КАНОНИЧЕСКОМ бинде — **осознанное решение, НЕ ТРОГАТЬ.**
-  Образец — Search и SCM (`browser/actions/searchActions.ts:34-35`,
+  Образец — Search и SCM (`contrib/search/browser/searchActions.ts:34-35`,
   `contrib/scm/browser/changesActions.ts:28-29`): первичным идёт безусловный
   аккорд `ctrl+k f` / `ctrl+k g`, а канонический `Ctrl+Shift+F`/`Ctrl+Shift+G`
   объявлен только там, где терминал способен его передать. Смысл в комментарии

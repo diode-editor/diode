@@ -9,7 +9,7 @@ import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/servic
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { trimTrailingWhitespaceAction } from "../../../browser/actions/whitespaceActions.ts";
+import { trimTrailingWhitespaceAction } from "../../../contrib/linesOperations/browser/whitespaceActions.ts";
 import { EditorServiceDIToken } from "../../editor/browser/editorService.ts";
 
 describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {

@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { registerAction } from "../../../platform/actions/common/commandAction.ts";
-import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
-import { ContextKeyService } from "../../../platform/contextkey/common/contextKeyService.ts";
-import { Container, type ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
-import { formatKeybinding, KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { SEARCH_VIEWLET_ID } from "../../contrib/search/browser/searchComponent.ts";
-import { SearchComponentDIToken } from "../../contrib/search/browser/searchComponent.ts";
-import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
+import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { Container, type ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
 import {
     collapseSearchResultsAction,
@@ -20,6 +18,8 @@ import {
     showSearchAction,
     toggleSearchDetailsAction,
 } from "./searchActions.ts";
+import { SEARCH_VIEWLET_ID } from "./searchComponent.ts";
+import { SearchComponentDIToken } from "./searchComponent.ts";
 
 describe("showSearchAction", () => {
     it("is bound to the Search view id, the View menu, and Ctrl+Shift+F", () => {

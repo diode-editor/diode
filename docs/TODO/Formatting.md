@@ -16,7 +16,7 @@
 
 - команды `editor.action.formatDocument` (Shift+Alt+F, плюс досягаемый всюду
   чорд Ctrl+K Ctrl+E) и `editor.action.formatSelection` (Ctrl+K Ctrl+F) —
-  `browser/actions/formatActions.ts`, **обе видны в палитре** по запросу `format`;
+  `contrib/format/browser/formatActions.ts`, **обе видны в палитре** по запросу `format`;
 - `editor.formatOnSave` и `editor.codeActionsOnSave` как участники сохранения
   (`services/editor/browser/onSaveParticipants.ts`);
 - range-формат, устаревший ответ отбрасывается, правки одним undoable-батчем.

@@ -39,7 +39,7 @@
   `search.action.focusSearchFromResults`, ключи `searchInputBoxFocus`/
   `firstMatchFocus`).
 - **Сайдбар-своп** — `browser/parts/sidebar/sidebarService.ts`, команды
-  `browser/actions/searchActions.ts` + `showExplorerAction`.
+  `contrib/search/browser/searchActions.ts` + `showExplorerAction`.
 - e2e: сценарий `e2e/scenarios/searchInFiles.scenario.ts` (демо + скриншоты:
   «⋯»-меню, детали за «···», list/tree, поэтапный collapse, открытие на позиции)
   + функциональный `e2e/searchInFiles.functional.test.ts`.

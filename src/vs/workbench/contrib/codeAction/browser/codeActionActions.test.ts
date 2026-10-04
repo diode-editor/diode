@@ -1,16 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Uri } from "../../../base/common/uri.ts";
-import { createRange } from "../../../editor/common/core/iRange.ts";
-import type { ICodeActionRequest, ICoreCodeAction } from "../../../editor/common/languages/iCodeActionSource.ts";
-import { LanguageFeaturesServiceDIToken } from "../../../editor/common/services/languageFeatures.ts";
-import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
-import { Container } from "../../../platform/instantiation/common/diContainer.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import type { QuickPickItem } from "../../common/quickPickItem.ts";
-import { type EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
-import { type StatusBarService, StatusBarServiceDIToken } from "../../services/statusbar/common/statusBarService.ts";
-import { type QuickInputService, QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
+import { Uri } from "../../../../base/common/uri.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
+import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
+import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    type QuickInputService,
+    QuickInputServiceDIToken,
+} from "../../../browser/parts/quickinput/quickInputService.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import { type EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { fixAllAction, organizeImportsAction, quickFixAction } from "./codeActionActions.ts";
 

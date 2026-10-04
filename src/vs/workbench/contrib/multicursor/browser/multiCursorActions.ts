@@ -5,11 +5,11 @@ import {
     moveSelectionToNextFindMatch,
     moveSelectionToPreviousFindMatch,
     selectHighlights,
-} from "../../../editor/contrib/multicursor/multiCursorCommands.ts";
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+} from "../../../../editor/contrib/multicursor/multiCursorCommands.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 /**
  * Мультикурсор: команды, создающие и снимающие каретки.

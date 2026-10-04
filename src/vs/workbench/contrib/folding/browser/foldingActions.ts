@@ -1,6 +1,6 @@
-import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
-import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
 // Канонические Ctrl+Shift+[ / Ctrl+Shift+] недостижимы без extended keys (Ctrl+[
 // это сам ESC, а Shift с печатным символом в legacy-поток не попадает), поэтому
@@ -114,3 +114,17 @@ export const gotoPreviousFoldAction: CommandAction = {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.gotoPreviousFold();
     },
 };
+
+/** Экшены сворачивания. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const FOLDING_ACTIONS: readonly CommandAction[] = [
+    foldAction,
+    unfoldAction,
+    toggleFoldAction,
+    foldAllAction,
+    unfoldAllAction,
+    foldRecursivelyAction,
+    unfoldRecursivelyAction,
+    ...foldLevelActions,
+    gotoNextFoldAction,
+    gotoPreviousFoldAction,
+];
