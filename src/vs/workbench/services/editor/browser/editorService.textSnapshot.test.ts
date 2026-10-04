@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -88,6 +88,23 @@ describe("EditorService.openTextSnapshot", () => {
         expect(service.activeGroup.editorCount).toBe(1);
         expect(second.getText()).toBe("new\n");
         expect(second.readOnly).toBe(true);
+        service.dispose();
+    });
+
+    it("повторный вызов с focus: false активирует вкладку, не забирая фокус", () => {
+        const service = createEditorService();
+        const first = service.openTextSnapshot(REVISION_URI, { text: "a\n", languageId: "plaintext", label: "a" });
+        const otherUri = Uri.from({ scheme: "git", path: "/repo/b.ts", query: '{"path":"/repo/b.ts","ref":"dev"}' });
+        service.openTextSnapshot(otherUri, { text: "b\n", languageId: "plaintext", label: "b" });
+        const focused = vi.spyOn(first, "focusEditor");
+
+        service.openTextSnapshot(REVISION_URI, { text: "a\n", languageId: "plaintext", label: "a", focus: false });
+
+        expect(service.getActiveTabPane() === first).toBe(true);
+        expect(focused).not.toHaveBeenCalled();
+
+        service.openTextSnapshot(REVISION_URI, { text: "a\n", languageId: "plaintext", label: "a" });
+        expect(focused).toHaveBeenCalled();
         service.dispose();
     });
 

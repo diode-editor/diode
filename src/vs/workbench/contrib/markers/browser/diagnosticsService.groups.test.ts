@@ -34,7 +34,10 @@ describe("DiagnosticsService — все группы", () => {
     let service: DiagnosticsService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "diode-diagnostics-groups-", files: { "a.ts": "alpha\nbeta" } });
+        ws = createTempWorkspace({
+            prefix: "diode-diagnostics-groups-",
+            files: { "a.ts": "alpha\nbeta", "b.ts": "gamma" },
+        });
         editors = new EditorService(
             new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
             new TokenizationRegistry(),
@@ -74,5 +77,18 @@ describe("DiagnosticsService — все группы", () => {
         ]);
 
         expect(pushed).toHaveBeenCalledWith([{ range: createRange(1, 0, 1, 4), severity: MarkerSeverity.Error }]);
+    });
+
+    it("маркер ресурса не попадает во вкладки других ресурсов", () => {
+        editors.openFile(ws.path("a.ts"));
+        editors.openFile(ws.path("b.ts"));
+        const other = editors.getActiveEditor()!;
+        const pushed = vi.spyOn(other, "setMarkerDecorations");
+
+        markers.changeOne("lint", Uri.file(ws.path("a.ts")).toString(), [
+            { severity: MarkerSeverity.Error, range: createRange(0, 0, 0, 1), message: "x" },
+        ]);
+
+        expect(pushed).not.toHaveBeenCalled();
     });
 });
