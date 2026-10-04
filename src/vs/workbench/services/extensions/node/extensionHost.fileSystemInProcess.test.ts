@@ -134,7 +134,8 @@ describe("ExtensionHost — нотификации провайдеров ФС (
     });
 
     it("readProvidedFile без поднятого host'а отклоняется", async () => {
-        const { host } = makeHost();
+        // Спавн к хосту не подключался — канала к провайдерам нет.
+        const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
 
         await expect(host.readProvidedFile(Uri.parse("git:/a.ts"))).rejects.toThrow(/extension host is not running/);
     });

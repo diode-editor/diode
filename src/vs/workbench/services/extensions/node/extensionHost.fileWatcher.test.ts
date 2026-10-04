@@ -10,7 +10,8 @@ import type { IExtensionFileWatcher } from "../../../api/common/iExtensionFileWa
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
-import { ExtensionHost, isRecursiveWatchPattern, toWatcherEvents } from "./extensionHost.ts";
+import { isRecursiveWatchPattern, toWatcherEvents } from "./customers/fileSystemCustomer.ts";
+import { ExtensionHost } from "./extensionHost.ts";
 
 /**
  * In-process тест хендлеров `workspace.watcher.*`: вместо форка субпроцесса

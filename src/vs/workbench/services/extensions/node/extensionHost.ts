@@ -1,13 +1,10 @@
-import * as path from "node:path";
-
 import {
     CancellationTokenNone,
     CancellationTokenSource,
     type ICancellationToken,
 } from "../../../../base/common/cancellation.ts";
 import { renderCodicons } from "../../../../base/common/codicons.ts";
-import { Emitter } from "../../../../base/common/event.ts";
-import { matchGlob } from "../../../../base/common/glob.ts";
+import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
@@ -42,7 +39,6 @@ import type {
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { IConfigurationData } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import type { ITreeFileChange } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -69,8 +65,6 @@ import {
     type IWireShowMessageRequest,
     type IWireStatusBarItem,
     type IWireValidationMessage,
-    type IWireWatcherCreate,
-    type IWireWatcherEvent,
     parseWireApplyWorkspaceEditParams,
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
@@ -78,13 +72,8 @@ import {
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     parseWireMementoUpdate,
-    parseWireReadFileResult,
-    parseWireSchemes,
     parseWireSelections,
     parseWireShowTextDocumentParams,
-    parseWireTextContentResult,
-    parseWireWatcherCreate,
-    parseWireWatcherDispose,
     requestApplyCodeAction,
     requestCodeActions,
     requestCompletionItems,
@@ -150,6 +139,7 @@ import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts"
 
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
+import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
@@ -632,7 +622,8 @@ export class ExtensionHost extends Disposable {
     private readonly pendingDidChange = new Map<string, IWireDocumentSyncSnapshot>();
     private readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
     private readonly editorLayout: IEditorLayoutService;
-    private readonly fileWatcher: IExtensionFileWatcher;
+    /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
+    private readonly fileSystem: FileSystemCustomer;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
     private readonly storageHomes: () => IExtensionStorageHomes;
     /** Хранилище memento расширений (`globalState` / `workspaceState`). */
@@ -652,16 +643,6 @@ export class ExtensionHost extends Disposable {
      * между собой, а состав каталога от фазы не зависит.
      */
     private readonly registrations = new Map<string, IExtensionRegistration>();
-    /** Живые watcher'ы субпроцесса (`workspace.createFileSystemWatcher`) по id. */
-    private readonly fileWatchers = new Map<number, IDisposable>();
-    /** Схемы, для которых субпроцесс держит FileSystemProvider'ы. */
-    private fileSystemSchemesValue: readonly string[] = [];
-    private readonly onFileSystemProvidersChangedEmitter = this.register(new Emitter<void>());
-    private readonly onDidChangeProvidedFileEmitter = this.register(new Emitter<readonly Uri[]>());
-    /** Схемы, для которых субпроцесс держит TextDocumentContentProvider'ы (`jdt:`, `class:`). */
-    // Stryker disable next-line ArrayDeclaration: начальный список наблюдаем только через `hasTextContentProvider(scheme)`, а мутант подкладывает в него строку, которая схемой ресурса не бывает — отличить её от пустого списка нечем
-    private textContentSchemesValue: readonly string[] = [];
-    private readonly onDidChangeTextContentEmitter = this.register(new Emitter<Uri>());
     /**
      * Языковые провайдеры субпроцесса, переехавшие в реестр ядра (`languages.register`),
      * по handle. Потребитель — `LanguageFeaturesAdapter`.
@@ -725,13 +706,14 @@ export class ExtensionHost extends Disposable {
         );
         this.openDocumentsProvider = options.openDocumentsProvider;
         this.editorLayout = options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE;
-        this.fileWatcher = options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER;
+        this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
         this.customers = [
             new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
             new EnvCustomer(options.clipboard, options.externalOpener),
+            this.fileSystem,
             this.decorations,
             new WindowCustomer({
                 diagnosticsSink: options.diagnosticsSink,
@@ -1763,61 +1745,45 @@ export class ExtensionHost extends Disposable {
         this.onLanguageProvidersChangedEmitter.fire();
     }
 
-    // ─── Провайдеры ФС расширений (мост под IFileSystemProviderRegistry) ──────
+    // ─── Провайдеры ФС и содержимого расширений (см. FileSystemCustomer) ──────
 
     /**
      * Схемы, для которых субпроцесс держит `FileSystemProvider`. Потребитель —
      * адаптер, регистрирующий хост поставщиком этих схем в реестре ядра.
      */
     public getFileSystemSchemes(): readonly string[] {
-        return this.fileSystemSchemesValue;
+        return this.fileSystem.getFileSystemSchemes();
     }
 
     /** Набор схем изменился (расширение зарегистрировало/сняло провайдера). */
-    public readonly onFileSystemProvidersChanged = this.onFileSystemProvidersChangedEmitter.event;
+    public get onFileSystemProvidersChanged(): Event<void> {
+        return this.fileSystem.onFileSystemProvidersChanged;
+    }
 
-    /**
-     * Читает недисковый ресурс провайдером субпроцесса. Отклоняется, если host
-     * не поднят или провайдер схемы не зарегистрирован — потребитель обязан
-     * это пережить (для гуттера «git-расширения нет» — штатная ситуация).
-     */
-    public async readProvidedFile(uri: Uri): Promise<Uint8Array> {
-        const rpc = this.rpc;
-        if (rpc === null) throw new Error("extension host is not running");
-        return parseWireReadFileResult(await rpc.request("workspace.fs.readFile", { uri: uri.toString() }));
+    /** Читает недисковый ресурс провайдером субпроцесса (см. FileSystemCustomer). */
+    public readProvidedFile(uri: Uri): Promise<Uint8Array> {
+        return this.fileSystem.readProvidedFile(uri);
     }
 
     /** Содержимое ресурсов провайдера изменилось снаружи. */
-    public readonly onDidChangeProvidedFile = this.onDidChangeProvidedFileEmitter.event;
-
-    // ─── Провайдеры содержимого недисковых ресурсов (IVirtualDocumentSource) ──
-
-    /**
-     * Держит ли субпроцесс `TextDocumentContentProvider` для схемы. Ответ
-     * меняется по ходу жизни окна: расширение активируется асинхронно и
-     * регистрирует провайдера уже после того, как человек открыл первый файл, —
-     * поэтому спрашивать надо в момент открытия ресурса, а не один раз.
-     */
-    public hasTextContentProvider(scheme: string): boolean {
-        return this.textContentSchemesValue.includes(scheme);
+    public get onDidChangeProvidedFile(): Event<readonly Uri[]> {
+        return this.fileSystem.onDidChangeProvidedFile;
     }
 
-    /**
-     * Содержимое недискового ресурса от провайдера субпроцесса. `null` —
-     * провайдер отказался отдать ресурс. Отклоняется, если host не поднят,
-     * схема не зарегистрирована или провайдер бросил: ядру нужна причина, чтобы
-     * показать её человеку.
-     */
-    public async provideTextDocumentContent(uri: Uri): Promise<string | null> {
-        const rpc = this.rpc;
-        if (rpc === null) throw new Error("extension host is not running");
-        return parseWireTextContentResult(
-            await rpc.request("workspace.provideTextDocumentContent", { uri: uri.toString() }),
-        );
+    /** Держит ли субпроцесс `TextDocumentContentProvider` для схемы. */
+    public hasTextContentProvider(scheme: string): boolean {
+        return this.fileSystem.hasTextContentProvider(scheme);
+    }
+
+    /** Содержимое недискового ресурса от провайдера субпроцесса (см. FileSystemCustomer). */
+    public provideTextDocumentContent(uri: Uri): Promise<string | null> {
+        return this.fileSystem.provideTextDocumentContent(uri);
     }
 
     /** Провайдер объявил, что содержимое недискового ресурса изменилось. */
-    public readonly onDidChangeTextContent = this.onDidChangeTextContentEmitter.event;
+    public get onDidChangeTextContent(): Event<Uri> {
+        return this.fileSystem.onDidChangeTextContent;
+    }
 
     public hasExtension(id: string): boolean {
         return this.extensions.has(id);
@@ -1840,7 +1806,6 @@ export class ExtensionHost extends Disposable {
         // прокси, см. clearProxyCommands) — после dispose там висели бы записи,
         // которые уже некого поднимать.
         for (const id of [...this.commandActivationStubs.keys()]) this.disarmCommandActivation(id);
-        this.disposeFileWatchers();
         this.shutdownDone = this.shutdownSubprocess();
         super.dispose();
     }
@@ -1865,20 +1830,6 @@ export class ExtensionHost extends Disposable {
     public disposeNow(): void {
         this.dispose();
         this.exitingProcess?.kill();
-    }
-
-    /** Снимает один watcher субпроцесса (если он есть). */
-    private disposeFileWatcher(id: number): void {
-        const existing = this.fileWatchers.get(id);
-        if (existing === undefined) return;
-        existing.dispose();
-        this.fileWatchers.delete(id);
-    }
-
-    /** Снимает все watcher'ы: субпроцесс умер или host выключается. */
-    private disposeFileWatchers(): void {
-        for (const subscription of this.fileWatchers.values()) subscription.dispose();
-        this.fileWatchers.clear();
     }
 
     /**
@@ -2095,60 +2046,6 @@ export class ExtensionHost extends Disposable {
             if (unregistration === null || !this.languageProviders.delete(unregistration.handle)) return;
             this.fireLanguageProvidersChanged();
         });
-        // Субпроцесс объявляет схемы, для которых расширения зарегистрировали
-        // FileSystemProvider (у встроенного git — `git:`). Ядро по ним читает
-        // недисковые ресурсы через IFileSystemProviderRegistry.
-        rpc.handleNotification("workspace.fileSystemProvidersChanged", (params) => {
-            this.fileSystemSchemesValue = parseWireSchemes(params);
-            this.onFileSystemProvidersChangedEmitter.fire();
-        });
-        // То же для TextDocumentContentProvider'ов (`jdt:`/`class:` у redhat.java):
-        // это отдельный реестр — провайдер отдаёт текст, а не байты, и только на
-        // чтение. По ним ядро открывает read-only вкладки недисковых ресурсов.
-        rpc.handleNotification("workspace.textDocumentContentProvidersChanged", (params) => {
-            this.textContentSchemesValue = parseWireSchemes(params);
-        });
-        // Провайдер объявил, что содержимое ресурса изменилось — открытая вкладка
-        // обязана перечитаться (`TextDocumentContentProvider.onDidChange`).
-        rpc.handleNotification("workspace.textDocumentContentChanged", (params) => {
-            const uri = (params as { uri?: unknown }).uri;
-            if (typeof uri !== "string") return;
-            this.onDidChangeTextContentEmitter.fire(Uri.parse(uri));
-        });
-        // Провайдер расширения сообщил, что содержимое ресурсов изменилось
-        // (для git: — сдвинулся HEAD/индекс): потребители сбрасывают кэш.
-        rpc.handleNotification("workspace.fs.didChangeFile", (params) => {
-            const p = params as { uris?: unknown };
-            const raw = Array.isArray(p.uris) ? p.uris.filter((u): u is string => typeof u === "string") : [];
-            if (raw.length === 0) return;
-            const uris = raw.map((u) => Uri.parse(u));
-            this.onDidChangeProvidedFileEmitter.fire(uris);
-        });
-        // Файловые watcher'ы расширений (`workspace.createFileSystemWatcher`).
-        // Слежение за деревом ведёт ядро (оно владеет excludes и бюджетом
-        // inotify), а матчинг шаблона — здесь: субпроцессу уезжают только
-        // подошедшие события, а не весь поток по воркспейсу.
-        rpc.handleNotification("workspace.watcher.create", (params) => {
-            const request = parseWireWatcherCreate(params);
-            if (request === null) return;
-            // Повторный id — пересоздание: старую подписку роняем, иначе она
-            // осталась бы висеть без владельца.
-            this.disposeFileWatcher(request.id);
-            const subscription = this.fileWatcher.watch(
-                request.base,
-                isRecursiveWatchPattern(request.pattern),
-                (changes) => {
-                    const events = toWatcherEvents(request, changes);
-                    if (events.length > 0) rpc.notify("workspace.watcher.events", { id: request.id, events });
-                },
-            );
-            this.fileWatchers.set(request.id, subscription);
-        });
-        rpc.handleNotification("workspace.watcher.dispose", (params) => {
-            const id = parseWireWatcherDispose(params);
-            if (id === null) return;
-            this.disposeFileWatcher(id);
-        });
         const configuration = this.configuration;
         if (configuration !== undefined) {
             spawnStore.add(
@@ -2207,7 +2104,6 @@ export class ExtensionHost extends Disposable {
         // респавн добавлял бы новых поверх (и держал inotify-бюджет дерева).
         this.spawnStore.dispose();
         this.spawnStore = new DisposableStore();
-        this.disposeFileWatchers();
         this.rpc = null;
         this.process = null;
         this.readyPromise = null;
@@ -2334,36 +2230,4 @@ function parseCommandId(raw: unknown): string | null {
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as { id?: unknown };
     return typeof obj.id === "string" && obj.id !== "" ? obj.id : null;
-}
-
-/**
- * Рекурсивен ли watcher с таким шаблоном. Правило VS Code: `RelativePattern`
- * с простым `*` (или другим односегментным шаблоном) следит только за прямыми
- * детьми базы, а как только в шаблоне появляется `**` или разделитель — за
- * поддеревом. Именно на этом различии держится дешёвый watcher `.git`:
- * `new RelativePattern(dotGit, "*")` не тащит за собой `.git/objects`.
- */
-export function isRecursiveWatchPattern(pattern: string): boolean {
-    return pattern.includes("**") || pattern.includes("/");
-}
-
-/**
- * Фильтрует пачку изменений одного watcher'а и переводит её в wire-события:
- * отбрасывает то, что вне базы, не подошло шаблону или выключено флагами
- * `ignore*Events`. Путь матчится относительно базы в posix-форме — так шаблон
- * `RelativePattern` работает одинаково на всех платформах.
- */
-export function toWatcherEvents(request: IWireWatcherCreate, changes: readonly ITreeFileChange[]): IWireWatcherEvent[] {
-    const events: IWireWatcherEvent[] = [];
-    for (const change of changes) {
-        if (change.type === "created" && request.ignoreCreateEvents) continue;
-        if (change.type === "changed" && request.ignoreChangeEvents) continue;
-        if (change.type === "deleted" && request.ignoreDeleteEvents) continue;
-        const relative = path.relative(request.base, change.path);
-        // Вне базы (`..`) или сама база (пустой путь) — не наше событие.
-        if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) continue;
-        if (!matchGlob(request.pattern, relative.split(path.sep).join("/"))) continue;
-        events.push({ type: change.type, uri: Uri.file(change.path).toString() });
-    }
-    return events;
 }
