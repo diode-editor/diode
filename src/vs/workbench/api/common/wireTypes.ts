@@ -13,10 +13,7 @@ import type { ICoreDefinitionLocation } from "../../../editor/common/languages/i
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
-import type {
-    ICoreRenameLocation,
-    ICoreRenameResult,
-} from "../../../editor/common/languages/iRenameSource.ts";
+import type { ICoreRenameLocation, ICoreRenameResult } from "../../../editor/common/languages/iRenameSource.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,

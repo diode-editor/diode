@@ -13,6 +13,7 @@ import type {
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { InputBoxOptions, QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
+import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
@@ -51,8 +52,7 @@ describe("RenameService — Rename Symbol", () => {
         ws.dispose();
     });
 
-    const group = (): ReturnType<typeof h.container.get<typeof EditorServiceDIToken>> =>
-        h.container.get(EditorServiceDIToken);
+    const group = (): EditorService => h.container.get(EditorServiceDIToken);
 
     /**
      * Кладёт провайдера в реестр — как это делает адаптер. Селектор `"*"`, а
@@ -63,7 +63,8 @@ describe("RenameService — Rename Symbol", () => {
     function provider(impl: Partial<RenameProvider>): RenameProvider {
         const full: RenameProvider = {
             prepareRename: impl.prepareRename ?? ((): Promise<null> => Promise.resolve(null)),
-            provideRenameEdits: impl.provideRenameEdits ?? ((): Promise<ICoreRenameResult> => Promise.resolve({ applied: false })),
+            provideRenameEdits:
+                impl.provideRenameEdits ?? ((): Promise<ICoreRenameResult> => Promise.resolve({ applied: false })),
         };
         features.renameProvider.register("*", full);
         return full;
@@ -172,7 +173,7 @@ describe("RenameService — Rename Symbol", () => {
                 getText: () => "const value = 1;\n",
                 viewState: { selections: [{ active: { line: 99, character: 0 } }] },
             }),
-        } as unknown as ReturnType<typeof group>;
+        } as unknown as EditorService;
 
         await new RenameService(
             fakeGroup,
@@ -266,7 +267,7 @@ describe("RenameService — Rename Symbol", () => {
 
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         provider({ prepareRename: () => name("value"), provideRenameEdits });
-        const emptyGroup = { getActiveEditor: () => null } as unknown as ReturnType<typeof group>;
+        const emptyGroup = { getActiveEditor: () => null } as unknown as EditorService;
         await new RenameService(
             emptyGroup,
             { input: () => Promise.resolve("renamed") } as unknown as QuickInputService,

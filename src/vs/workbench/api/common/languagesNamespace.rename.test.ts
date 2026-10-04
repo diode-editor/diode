@@ -86,7 +86,10 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
             { language: "typescript" },
             {
                 provideRenameEdits: () => null,
-                prepareRename: () => ({ range: new Range(0, 6, 0, 11) as unknown as vscode.Range, placeholder: "value" }),
+                prepareRename: () => ({
+                    range: new Range(0, 6, 0, 11) as unknown as vscode.Range,
+                    placeholder: "value",
+                }),
             },
         );
 
@@ -174,7 +177,11 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
-            { provideRenameEdits: () => null, prepareRename: () => Promise.reject("not an identifier") },
+            {
+                provideRenameEdits: () => null,
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно, в т.ч. строкой
+                prepareRename: () => Promise.reject("not an identifier"),
+            },
         );
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -282,7 +289,10 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
-            { provideRenameEdits: () => Promise.reject("newName is a keyword") },
+            {
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно, в т.ч. строкой
+                provideRenameEdits: () => Promise.reject("newName is a keyword"),
+            },
         );
         languages.registerRenameProvider(
             { language: "typescript" },

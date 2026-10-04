@@ -30,8 +30,6 @@ import {
 import type {
     IWireCodeActionParams,
     IWireFormattingParams,
-    IWirePrepareRenameParams,
-    IWireRenameParams,
     IWireLanguageProviderMetadata,
     IWireSignatureHelpParams,
     WireCodeAction,
@@ -254,6 +252,23 @@ interface IWireDefinitionParams {
     readonly text?: string;
     readonly line?: number;
     readonly character?: number;
+}
+
+/**
+ * Wire-параметры обеих rename-ручек (host → subprocess), как их видит
+ * субпроцесс: поля необязательны — что приехало по проводу, тем и является
+ * (отправитель — `IWirePrepareRenameParams`/`IWireRenameParams` из wireTypes).
+ */
+interface IWireRenameRequestParams {
+    /** Провайдер, выбранный ядром по селектору (см. `languages.register`). */
+    readonly handle?: number;
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    readonly languageId?: string;
+    readonly text?: string;
+    readonly line?: number;
+    readonly character?: number;
+    readonly newName?: unknown;
 }
 
 /** Wire-параметры запроса hover (host → subprocess). */
@@ -1000,7 +1015,7 @@ export function createLanguagesNamespace(
      * `provideRenameEdits`) принимают одну и ту же форму параметров, поэтому
      * синхронизация документа живёт одним хелпером.
      */
-    function syncRenameTarget(p: IWirePrepareRenameParams): { doc: ExtHostTextDocument; position: Position } {
+    function syncRenameTarget(p: IWireRenameRequestParams): { doc: ExtHostTextDocument; position: Position } {
         const doc: ExtHostTextDocument = documentSync.sync({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
@@ -1011,7 +1026,7 @@ export function createLanguagesNamespace(
     }
 
     rpc.handleRequest("languages.prepareRename", async (params): Promise<WireRenamePrepare | null> => {
-        const p = params as IWirePrepareRenameParams;
+        const p = params as IWireRenameRequestParams;
         // Провайдер мог сняться, пока запрос летел: «сказать нечего».
         const reg = renameProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
@@ -1040,7 +1055,7 @@ export function createLanguagesNamespace(
     });
 
     rpc.handleRequest("languages.provideRenameEdits", async (params): Promise<WireRenameResult> => {
-        const p = params as IWireRenameParams;
+        const p = params as IWireRenameRequestParams;
         // Провайдер мог сняться, пока запрос летел: «правок нет».
         const reg = renameProviders.get(p.handle ?? -1);
         if (reg === undefined) return { applied: false };

@@ -330,7 +330,7 @@ formatOnPaste) отложены пользователем и ждут жало�
 
 Отдельный документ: [PreviewEditors.md](PreviewEditors.md).
 
-### [ ] `contributes.menus` и полное контекст-меню редактора (пункт 6)
+### [~] `contributes.menus` и полное контекст-меню редактора (пункт 6)
 
 **Симптом.** «Правая кнопка — надо затащить туда то, что тащит vscode:
 рефакторинги, go to, поиск референсов; может имеет смысл сделать интеграцию
@@ -361,6 +361,11 @@ bulk-edit всё равно будут отвечать «failed»), плюс н
    `view/title`, `commandPalette`, …) на наши `MenuId`, `group@order`, `when`,
    `alt`; неизвестный id — игнор с одной строкой в лог, а не падение.
 3. `contributes.submenus`.
+
+**Как идёт.** Стеком PR, чтобы не тащить один необъятный: (1) rename-провайдер
+(`languages.registerRenameProvider` через реестр ядра по handle + команда
+`editor.action.rename`/F2) — **сделано**; (2) состав `EditorContext` по
+эталону; (3) мост `contributes.menus`/`submenus`.
 
 Хвосты самого `MenuRegistry` (серые пункты попапа, `when`-фильтр палитры,
 `alt`/hide-toggle/вложенные подменю) ведутся в

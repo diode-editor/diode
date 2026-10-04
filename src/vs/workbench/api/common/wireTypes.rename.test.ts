@@ -53,7 +53,11 @@ describe("wireTypes — requestPrepareRename", () => {
     });
 
     it("отказ провайдера доезжает причиной", async () => {
-        const location = await requestPrepareRename(() => Promise.resolve({ rejectReason: "not an identifier" }), PARAMS, 1000);
+        const location = await requestPrepareRename(
+            () => Promise.resolve({ rejectReason: "not an identifier" }),
+            PARAMS,
+            1000,
+        );
         expect(location).toEqual({ kind: "reject", reason: "not an identifier" });
     });
 

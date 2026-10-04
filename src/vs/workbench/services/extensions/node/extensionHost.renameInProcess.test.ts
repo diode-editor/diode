@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { IRenameRequest } from "../../../../editor/common/languages/iRenameSource.ts";
-import type { ILogger } from "../../../../platform/log/common/log.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
@@ -32,9 +32,11 @@ const NOOP_COMMANDS = {
 /** Лимит текста запроса — общий `MAX_WILL_SAVE_TEXT_BYTES` хоста. */
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 
-function makeHost(
-    options: ConstructorParameters<typeof ExtensionHost>[2] = {},
-): { host: ExtensionHost; peer: RpcEndpoint; warnings: { message: string }[] } {
+function makeHost(options: ConstructorParameters<typeof ExtensionHost>[2] = {}): {
+    host: ExtensionHost;
+    peer: RpcEndpoint;
+    warnings: { message: string }[];
+} {
     const warnings: { message: string }[] = [];
     const logger = {
         info: () => undefined,
@@ -107,7 +109,10 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
             applied: false,
             error: "Document too large to rename",
         });
-        expect(warnings.map((w) => w.message)).toEqual(["skipping prepare rename: document too large", "skipping rename: document too large"]);
+        expect(warnings.map((w) => w.message)).toEqual([
+            "skipping prepare rename: document too large",
+            "skipping rename: document too large",
+        ]);
         expect(prepare).toHaveBeenCalledTimes(1);
         expect(rename).toHaveBeenCalledTimes(1);
     });

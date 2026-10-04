@@ -50,7 +50,9 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
             await settle();
             expect(result).toEqual({ applied: true });
             // Открытый документ правится через свой буфер…
-            expect(harness.group.getActiveEditor()?.getText()).toBe("const renamed = 1;\nconst other = value;\nkeyword\n");
+            expect(harness.group.getActiveEditor()?.getText()).toBe(
+                "const renamed = 1;\nconst other = value;\nkeyword\n",
+            );
             // …а ЗАКРЫТЫЙ соседний файл — записью на диск (bulk edit).
             expect(fs.readFileSync(neighbour, "utf8")).toBe("renamed here\n");
         } finally {

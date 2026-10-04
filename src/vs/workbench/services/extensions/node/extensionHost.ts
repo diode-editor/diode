@@ -1744,11 +1744,7 @@ export class ExtensionHost extends Disposable {
      * ответило за `renameTimeoutMs`: человек ввёл имя и обязан узнать, что
      * ничего не произошло.
      */
-    public async provideRenameEdits(
-        handle: number,
-        req: IRenameRequest,
-        newName: string,
-    ): Promise<ICoreRenameResult> {
+    public async provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
         const rpc = this.rpc;
         // Stryker disable next-line ConditionalExpression: см. provideCodeActions — без канала прокси уже сняты из реестра
         if (rpc === null) return { applied: false, error: "Rename failed" };

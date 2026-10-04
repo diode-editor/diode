@@ -29,7 +29,7 @@
 
 | поверхность | статус | члены |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 11/40 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 12/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 20/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 22/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
@@ -49,7 +49,7 @@
 
 ## vscode.languages
 
-🟡 **11/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
+🟡 **12/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
 регистрацию, но пока не дёргаются.
 
 | член | статус | комментарий |
@@ -59,6 +59,7 @@
 | `registerDefinitionProvider` | ✅ | |
 | `registerHoverProvider` | ✅ | несколько провайдеров конкатенируются |
 | `registerReferenceProvider` | ✅ | |
+| `registerRenameProvider` | ✅ | `prepareRename` (обе формы ответа) + правки по всем затронутым файлам одним шагом отмены; новое имя спрашивается полем ввода, а не inline-виджетом — своего виджета нет |
 | `registerSignatureHelpProvider` | ✅ | обе перегрузки регистрации |
 | `registerDocumentFormattingEditProvider` | ✅ | |
 | `registerDocumentRangeFormattingEditProvider` | ✅ | мульти-диапазонный `provideDocumentRangesFormattingEdits` не активен |
@@ -66,7 +67,7 @@
 | `registerFoldingRangeProvider` | ✅ | |
 | `createLanguageStatusItem` | 🟡 | держатель полей с честным dispose, в UI пока не проецируется |
 | `match` | ✅ | работает в рантайме (скоринг селекторов для языковых клиентов); декларация в `vscode.d.ts` ещё не поднята |
-| остальные `register*Provider` (20: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, color, onTypeFormatting, rename, selectionRange, semanticTokens ×2, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | регистрация принимается (no-op) — расширение не падает, провайдер не дёргается |
+| остальные `register*Provider` (19: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, color, onTypeFormatting, selectionRange, semanticTokens ×2, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | регистрация принимается (no-op) — расширение не падает, провайдер не дёргается |
 | `getLanguages`, `setTextDocumentLanguage`, `setLanguageConfiguration`, `onDidChangeDiagnostics`, `getDiagnostics`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
 ## vscode.workspace
