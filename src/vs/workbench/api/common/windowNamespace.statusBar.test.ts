@@ -12,8 +12,9 @@ import { createWindowNamespace } from "./windowNamespace.ts";
 import type { IWireStatusBarItem } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-function makeWindow(): { stub: IStubRpc; window: typeof vscode.window } {
+function makeWindow(): { stub: IStubRpc; window: typeof vscode.window; owner: ExtensionOwner } {
     const stub = makeStubRpc();
+    const owner = new ExtensionOwner();
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
@@ -21,9 +22,9 @@ function makeWindow(): { stub: IStubRpc; window: typeof vscode.window } {
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
-        owner: new ExtensionOwner(),
+        owner,
     };
-    return { stub, window: createWindowNamespace(ctx) };
+    return { stub, window: createWindowNamespace(ctx), owner };
 }
 
 /** Только сообщения статус-бара из журнала нотификаций стаба. */
@@ -304,5 +305,45 @@ describe("window.createStatusBarItem — состояние пункта в су
         item.show();
 
         expect(lastUpdate(stub).priority).toBeUndefined();
+    });
+
+    describe("id с владельцем — `<id расширения>.<id пункта>`, как asStatusBarItemIdentifier", () => {
+        it("явный id префиксуется владельцем — и в item.id, и в проводе", () => {
+            const { stub, window, owner } = makeWindow();
+            const item = owner.runAs("pub.ext", () => window.createStatusBarItem("my.item"));
+            item.show();
+
+            expect(item.id).toBe("pub.ext.my.item");
+            expect(lastUpdate(stub).id).toBe("pub.ext.my.item");
+        });
+
+        it("без имени — владелец и счётчик", () => {
+            const { window, owner } = makeWindow();
+            const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
+
+            expect(item.id).toBe("pub.ext.item-1");
+        });
+
+        it("владелец фиксируется при создании: имя, заданное позже и вне вызова, id не теряет", () => {
+            const { window, owner } = makeWindow();
+            const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
+            item.name = "Status Bar Demo";
+            expect(item.id).toBe("pub.ext.status-bar-demo");
+
+            owner.runAs("other.ext", () => {
+                item.name = "Renamed";
+            });
+            expect(item.id).toBe("pub.ext.renamed");
+        });
+
+        it("одинаковые имена у разных расширений дают разные id", () => {
+            const { window, owner } = makeWindow();
+            const a = owner.runAs("a.one", () => window.createStatusBarItem());
+            const b = owner.runAs("b.two", () => window.createStatusBarItem());
+            a.name = "Demo";
+            b.name = "Demo";
+
+            expect([a.id, b.id]).toEqual(["a.one.demo", "b.two.demo"]);
+        });
     });
 });

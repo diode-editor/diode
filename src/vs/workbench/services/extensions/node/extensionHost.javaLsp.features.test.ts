@@ -197,7 +197,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             () => Promise.resolve(statusBarItems.find((i) => i.text.includes("Java")) ?? null),
             60_000,
         );
-        expect(ready.id).toBe("java.serverStatus");
+        expect(ready.id).toBe("redhat.java.java.serverStatus");
         expect(ready.alignment).toBe("left");
     });
 

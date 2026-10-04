@@ -27,7 +27,8 @@ function makeAdapter() {
     return { adapter, registry, history, outputService, reveals };
 }
 
-const CH = "extensions.typescript-diode";
+/** Форма id канала расширения: `extensions.<id расширения>.<slug имени>`. */
+const CH = "extensions.diode.diode-lsp-typescript.typescript-diode";
 const LABEL = "TypeScript (Diode)";
 
 describe("ExtensionOutputAdapter", () => {

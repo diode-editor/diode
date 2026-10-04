@@ -46,7 +46,9 @@ export default defineScenario({
     // Канал фикстуры — user-биндом, а не палитрой: палитра уводит фокус.
     // Буквы F/E/S/V/G/H заняты мнемониками меню-бара, а O — префикс SS3
     // (`ESC O P` = F1), поэтому J.
-    userKeybindings: [{ key: "alt+j", command: "workbench.action.output.show.extensions.inline-ghost" }],
+    userKeybindings: [
+        { key: "alt+j", command: "workbench.action.output.show.extensions.test.inline-ghost.inline-ghost" },
+    ],
     async run(editor) {
         await editor.waitForText((t) => t.includes("Демо отмены"));
 

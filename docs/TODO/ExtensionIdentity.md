@@ -1,6 +1,6 @@
 # Идентичность расширения в extension host'е (G7)
 
-Статус: `[~]` — PR1 (инфраструктура) сделан, PR2–PR4 впереди.
+Статус: `[~]` — PR1 (инфраструктура) и PR2 (составные id) сделаны, PR3–PR4 впереди.
 
 В субпроцессе extension host'а один объект `vscode` на все расширения, поэтому
 ни один вызов API не знает, какое расширение его сделало. Отсюда коллизии
@@ -28,12 +28,15 @@
   `diode-vscode:api/<id>` по `parentURL`; индекс наполняется из
   `extensions.catalog` и в `host.activateExtension` до загрузки модуля.
   Общие фабрики владельца пока не читают.
-- [ ] PR2. Составные id output-каналов и пунктов статус-бара:
+- [x] PR2. Составные id output-каналов и пунктов статус-бара:
   `extensions.<owner>.<slug>` (`windowNamespace.ts`, `createOutputChannel`) и
   `<owner>.<id|slug|item-N>` (`createStatusBarItem`, как
-  `asStatusBarItemIdentifier` эталона). Тесты output/statusBar, e2e
-  `gotoDefinition`/`inlineCompletionCancel`, доки LSP.md и Logging.md;
-  осиротевшие скрытые пункты статус-бара — в описании PR.
+  `asStatusBarItemIdentifier` эталона; владелец фиксируется при создании, id
+  ленивый). Без владельца (вызов мимо оверлея) — прежние формы. Канал
+  расширения «Host» больше не сталкивается с логгером хоста `extensions.host`.
+  e2e `gotoDefinition`/`inlineCompletionCancel`/`statusBarExtension`. Скрытые
+  пользователем пункты статус-бара со старыми id осиротели — их придётся
+  скрыть заново.
 - [ ] PR3. Владелец в регистрациях и логах провайдеров: `owner` в
   `registerByHandle`, `reportProviderFailure(method, err, owner?)` →
   `[ext-host] [<id>] <method> failed`; лог в `runActionCommand` вместо

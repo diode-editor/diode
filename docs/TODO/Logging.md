@@ -15,7 +15,7 @@ Output UI, `createOutputChannel` для расширений) описано в 
 
 - [ ] **Phase 5 — Extension Host inner tracing**
   Внутри subprocess: пробросить `ILogger` в его `RpcEndpoint` (например, через стартовый `host.setLogLevel`-handshake), чтобы видеть исполнение handler'ов с той стороны.
-  Патч `console.*` внутри subprocess → IPC сообщение `host.log`, родитель кладёт в канал `extensions.host.<extensionId>`. Сейчас console.* в subprocess летит в pipe stdout/stderr и попадает в каналы `.stdout`/`.stderr` без атрибуции расширению. Тогда же вернуть `<extId>` в id каналов `createOutputChannel` (сейчас `extensions.<slug(name)>` — у subprocess-неймспейса нет per-call контекста расширения).
+  Патч `console.*` внутри subprocess → IPC сообщение `host.log`, родитель кладёт в канал `extensions.host.<extensionId>`. Сейчас console.* в subprocess летит в pipe stdout/stderr и попадает в каналы `.stdout`/`.stderr` без атрибуции расширению. `<extId>` в id каналов `createOutputChannel` уже есть (G7: `extensions.<extId>.<slug(name)>`, владелец — из оверлея API расширения).
 
 - [~] **Phase 6 — CLI flags**
   Уровни сделаны в форме эталона: `--log <level>` (для всех каналов) и

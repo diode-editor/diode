@@ -203,12 +203,12 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             });
 
             // Output-канал клиента — настоящий: строка о старте сервера доехала
-            // с label канала (селектор Output) и id вида extensions.<slug>.
+            // с label канала (селектор Output) и id вида extensions.<owner>.<slug>.
             const started = await until("строка о старте сервера в output-канале", () => {
                 const line = outputLines.find((l) => l.value.includes("language server started"));
                 return Promise.resolve(line ?? null);
             });
-            expect(started.channel).toBe("extensions.typescript-diode");
+            expect(started.channel).toBe("extensions.diode.diode-lsp-typescript.typescript-diode");
             expect(started.label).toBe("TypeScript (Diode)");
             expect(started.level).toBe("info");
 

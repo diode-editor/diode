@@ -122,10 +122,10 @@ describe("ExtensionStatusBarAdapter", () => {
 
     it("сменившийся id пересоздаёт запись, старая не остаётся", () => {
         const { bar, adapter } = makeAdapter();
-        adapter.update(wireItem({ id: "item-1" }));
-        adapter.update(wireItem({ id: "status-bar-demo", name: "Status Bar Demo" }));
+        adapter.update(wireItem({ id: "test.demo.item-1" }));
+        adapter.update(wireItem({ id: "test.demo.status-bar-demo", name: "Status Bar Demo" }));
 
-        expect(bar.entries().map((e) => e.id)).toEqual(["extensions.status-bar-demo"]);
+        expect(bar.entries().map((e) => e.id)).toEqual(["extensions.test.demo.status-bar-demo"]);
     });
 
     it("пункт без приоритета встаёт правее приоритетных своей стороны", () => {
