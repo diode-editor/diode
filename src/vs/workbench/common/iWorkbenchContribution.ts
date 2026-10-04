@@ -18,14 +18,21 @@ import type { LifecyclePhase } from "../services/lifecycle/common/lifecyclePhase
 export type IWorkbenchContribution = IDisposable;
 
 /**
- * Фаза жизненного цикла ({@link LifecyclePhase}), на которой инстанцируется
- * contribution — синхронно, в момент перехода `LifecycleService` в неё:
+ * Фаза, на которой инстанцируется contribution (аналог `WorkbenchPhase` VS Code):
+ * - `blockStartup` — в конструкторе `WorkbenchComponent`, сразу после
+ *   прикрепления корневой view (≈ vscode `WorkbenchPhase.BlockStartup`): фич-
+ *   компоненты и их сервисы, которые должны существовать до открытия папки и
+ *   до старта extension host'а (команды, на которые публикуют расширения;
+ *   контейнеры view, которые собирает `mount()`);
+ *
+ * дальше — синхронно, в момент перехода `LifecycleService` в фазу
+ * ({@link LifecyclePhase}):
  * - `ready` — в `WorkbenchComponent.mount()` (view построена, лёгкие сервисы
  *   готовы; ≈ vscode `WorkbenchPhase.BlockRestore`) — до открытия файлов;
  * - `eventually` — idle после первого кадра — для отложенной/тяжёлой работы,
  *   не влияющей на старт.
  */
-export type WorkbenchContributionPhase = Extract<LifecyclePhase, "ready" | "eventually">;
+export type WorkbenchContributionPhase = "blockStartup" | Extract<LifecyclePhase, "ready" | "eventually">;
 
 /** Запись в реестре: DI-токен contribution'а + его фаза. */
 export interface IWorkbenchContributionRegistration {

@@ -27,11 +27,11 @@
   `provideSignatureHelp`, `provideCompletions`, `provideInlineCompletions`
   переедут вместе со своими фичами.
 - [ ] **Направление ядро workbench → contrib** — храповик `DIRECTION_EXCEPTIONS`
-  в `scripts/check-layers.mjs`: 9 файлов ядра ещё импортируют фичи. Корень и
-  агрегатор (`workbenchComponent.ts`, `workbenchContributions.ts`) — E4
-  (саморегистрация контейнеров с `order` и хост оверлеев через
-  `LayoutService.mainContainer` — сделаны; фаза `blockStartup`, агрегатор
-  `workbench.common.main.ts`); `workbenchContextKeyContributors.ts` — F3;
+  в `scripts/check-layers.mjs`: 8 файлов ядра ещё импортируют фичи. Корень
+  (`workbenchComponent.ts`) — E4 PR5: ссылки на фичи в `setWorkspaceFolder`,
+  `activate` и restore (саморегистрация контейнеров с `order`, хост оверлеев
+  через `LayoutService.mainContainer`, фаза `blockStartup` и агрегатор
+  `workbench.common.main.ts` — сделаны); `workbenchContextKeyContributors.ts` — F3;
   `builtinActions.ts` и мелкие action-файлы — F2. Запись удаляет задача, которая
   её закрыла.
 - [ ] **`attachHost` у оверлеев `browser/parts` и `DialogService`** — quickInput,
