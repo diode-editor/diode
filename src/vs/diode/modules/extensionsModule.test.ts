@@ -8,7 +8,7 @@ import {
     ExtensionsEditorTargetDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionsComponent.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 
 import { extensionsModule } from "./extensionsModule.ts";
 import { createTestContainer } from "./testProfile.ts";

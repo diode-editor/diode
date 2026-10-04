@@ -10,12 +10,10 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup, GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
-import {
-    type EditorGroupsService,
-    EditorGroupsServiceDIToken,
-} from "../../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import type { FindComponent, FindWidget } from "./findComponent.ts";
 import { FindComponentDIToken } from "./findComponent.ts";
@@ -49,12 +47,12 @@ export class FindService extends Disposable implements IContextKeyContributor {
     public static dependencies = [FindComponentDIToken, EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
 
     private readonly component: FindComponent;
-    private readonly editorService: EditorService;
-    private readonly groups: EditorGroupsService;
+    private readonly editorService: IEditorService;
+    private readonly groups: IEditorGroupsService;
 
     private readonly sessions = new Map<GroupId, IFindSession>();
 
-    public constructor(component: FindComponent, editorService: EditorService, groups: EditorGroupsService) {
+    public constructor(component: FindComponent, editorService: IEditorService, groups: IEditorGroupsService) {
         super();
         this.component = component;
         this.editorService = editorService;

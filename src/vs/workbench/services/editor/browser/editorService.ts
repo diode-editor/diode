@@ -46,12 +46,15 @@ import type { TextFileModel } from "../../textfile/common/textFileModel.ts";
 import { TextFileModelService, TextFileModelServiceDIToken } from "../../textfile/common/textFileModelService.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
+import type { IEditorGroupsService } from "../common/editorGroupsService.ts";
+import { EditorGroupsServiceDIToken } from "../common/editorGroupsService.ts";
+import type { IEditorSavedMeta, IEditorService, IOpenUriOptions } from "../common/editorService.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
 import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
 import { EditorCloseHandler } from "./editorCloseHandler.ts";
 import type { EditorGroup } from "./editorGroupModel.ts";
-import { EditorGroupsService, EditorGroupsServiceDIToken } from "./editorGroupsService.ts";
+import { EditorGroupsService } from "./editorGroupsService.ts";
 import {
     createTextEditorPaneFactory,
     EditorPaneFactoriesDIToken,
@@ -67,29 +70,8 @@ import {
 import { TextEditorConfiguration } from "./textEditorConfiguration.ts";
 import { TextEditorPaneBuilder, TextEditorPaneBuilderDIToken } from "./textEditorPaneBuilder.ts";
 
-export const EditorServiceDIToken = token<EditorService>("EditorService");
-
 /** Настройка режима предпросмотра вкладок (`workbenchConfiguration`). */
 const PREVIEW_SETTING_KEY = "workbench.editor.enablePreview";
-
-/** Параметры {@link EditorService.openUri}. */
-export interface IOpenUriOptions {
-    readonly focus?: boolean;
-    /**
-     * Куда открыть: по умолчанию — активная группа; `"beside"` — соседняя справа
-     * (создаётся при отсутствии); группа — ровно в неё (повтор вкладки по рецепту).
-     */
-    readonly group?: "beside" | EditorGroup;
-    /** Каретка и скролл новой вкладки (у уже открытой вкладки не трогаются). */
-    readonly viewState?: ITextEditorViewState;
-    /**
-     * Открыть вкладкой-ПРЕДПРОСМОТРА: такая вкладка в группе одна, и следующее
-     * превью занимает её слот. Просят только те двери, где эталон тоже превьюит
-     * (дерево Explorer); остальные открывают постоянную вкладку. Гасится
-     * настройкой `workbench.editor.enablePreview`.
-     */
-    readonly preview?: boolean;
-}
 
 /**
  * Короткая причина отказа — для лога и для сообщения человеку. Стек здесь не
@@ -100,23 +82,16 @@ function describeError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-/** Метаданные сохранённого редактора для проекции в subprocess (did-save). */
-export interface IEditorSavedMeta {
-    /** Ресурс как `uri.toString()`. */
-    readonly uri: string;
-    readonly languageId: string;
-}
-
 /**
- * Логика группы редакторов без view (этап 9b Workbench-рефакторинга, аналог
- * `IEditorService`): владеет списком открытых пар {@link TextEditorPane}
- * (`TextFileModel` + `EditorComponent`), активной вкладкой и MRU-порядком
- * (Ctrl+Tab), открывает/закрывает ресурсы и применяет `editor.*`-настройки.
- * Про групповой контрол (`EditorGroupComponent`) не знает — тот подписан
- * на {@link onDidChangeEditors} и сам вставляет view активного редактора и
- * перерисовывает табы.
+ * «Редакторы» воркбенча без view — реализация {@link IEditorService} (аналог
+ * upstream `EditorService`): активный редактор, все редакторы, открытие и
+ * закрытие ресурсов поверх полосы групп ({@link IEditorGroupsService}).
+ * Модели — `TextFileModelService`, сборка вью вкладки — `TextEditorPaneBuilder`,
+ * `editor.*`-настройки — `TextEditorConfiguration`. Про групповой контрол
+ * (`EditorGroupComponent`) не знает — тот подписан на свою группу и сам
+ * вставляет view активного редактора и перерисовывает табы.
  */
-export class EditorService extends Disposable implements IShutdownParticipant, IActivatable {
+export class EditorService extends Disposable implements IEditorService, IShutdownParticipant, IActivatable {
     public static dependencies = [
         ThemeServiceDIToken,
         TokenizationRegistryDIToken,
@@ -141,7 +116,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * Полоса групп (аналог upstream `IEditorGroupsService`): группы, активная
      * группа, сплиты и перенос вкладок. Вкладочные операции — у самой группы.
      */
-    public readonly editorGroups: EditorGroupsService;
+    public readonly editorGroups: IEditorGroupsService;
     /**
      * Редакторы вне таб-строки (нижняя Panel: Output). Держим отдельным списком
      * именно затем, чтобы весь код вкладок — `getEditors`, `editorCount`,
@@ -273,7 +248,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // конструкторам хватает собранных из параметров выше.
         textFileModels?: TextFileModelService,
         paneBuilder?: TextEditorPaneBuilder,
-        editorGroups?: EditorGroupsService,
+        editorGroups?: IEditorGroupsService,
     ) {
         super();
         this.editorGroups = editorGroups ?? this.register(new EditorGroupsService(logService));

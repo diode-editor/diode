@@ -242,19 +242,18 @@ import {
     ThemeConfigContributionDIToken,
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
-import {
-    EditorGroupsService,
-    EditorGroupsServiceDIToken,
-} from "../../workbench/services/editor/browser/editorGroupsService.ts";
+import { EditorGroupsService } from "../../workbench/services/editor/browser/editorGroupsService.ts";
 import {
     EditorPaneFactoriesDIToken,
     type EditorPaneFactoryCtor,
 } from "../../workbench/services/editor/browser/editorPaneFactory.ts";
-import { EditorService, EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorService } from "../../workbench/services/editor/browser/editorService.ts";
 import {
     TextEditorPaneBuilder,
     TextEditorPaneBuilderDIToken,
 } from "../../workbench/services/editor/browser/textEditorPaneBuilder.ts";
+import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import {
     ExternalOpenerService,

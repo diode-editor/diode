@@ -8,7 +8,7 @@ import { LanguageFeaturesService } from "../../../../editor/common/services/lang
 import { type IFileService } from "../../../../platform/files/common/files.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { SidebarService } from "../../../browser/parts/sidebar/sidebarService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
 
 import type { IReferenceGroup } from "./referencePreview.ts";
@@ -49,7 +49,7 @@ interface IFakeEditorOptions {
     readonly openModels?: Record<string, string>;
 }
 
-function fakeGroup(opts: IFakeEditorOptions = {}): EditorService {
+function fakeGroup(opts: IFakeEditorOptions = {}): IEditorService {
     const [line, character] = opts.caret ?? [2, 15];
     const editor = {
         uri: Uri.file(MAIN),
@@ -64,13 +64,13 @@ function fakeGroup(opts: IFakeEditorOptions = {}): EditorService {
             const text = opts.openModels?.[uri.fsPath];
             return text === undefined ? null : { getText: () => text };
         },
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
     sources.set(group, opts.source);
     return group;
 }
 
 /** Провайдер ссылок фейковой группы — в реестр сервиса его кладёт {@link createService}. */
-const sources = new WeakMap<EditorService, IFakeEditorOptions["source"]>();
+const sources = new WeakMap<IEditorService, IFakeEditorOptions["source"]>();
 
 /**
  * Сервис над фейками; провайдер из `fakeGroup({ source })` регистрируется в
@@ -78,7 +78,7 @@ const sources = new WeakMap<EditorService, IFakeEditorOptions["source"]>();
  */
 function createService(
     component: ReferencesComponent,
-    group: EditorService,
+    group: IEditorService,
     workspace: IWorkspaceContextService,
     providers: IFileService,
     sidebar: SidebarService,

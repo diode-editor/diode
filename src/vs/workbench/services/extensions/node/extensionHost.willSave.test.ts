@@ -10,7 +10,7 @@ import { registerAction } from "../../../../platform/actions/common/commandActio
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { trimTrailingWhitespaceAction } from "../../../contrib/linesOperations/browser/whitespaceActions.ts";
-import { EditorServiceDIToken } from "../../editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
     it("применяет trim/insert-final-newline из участника к байтам на диске + undoable", async () => {

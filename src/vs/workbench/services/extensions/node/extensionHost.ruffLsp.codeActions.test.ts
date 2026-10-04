@@ -16,8 +16,8 @@ import { registerAction } from "../../../../platform/actions/common/commandActio
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { fixAllAction, organizeImportsAction } from "../../../contrib/codeAction/browser/codeActionActions.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 // Code actions поверх СТОКОВОГО стека (правило AGENTS): настоящий ruff.vsix +
 // настоящий bundled `ruff server`. Сервер отдаёт source-действия с точными

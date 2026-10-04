@@ -16,10 +16,8 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
-import {
-    type EditorGroupsService,
-    EditorGroupsServiceDIToken,
-} from "../services/editor/browser/editorGroupsService.ts";
+import type { IEditorGroupsService } from "../services/editor/common/editorGroupsService.ts";
+import { EditorGroupsServiceDIToken } from "../services/editor/common/editorGroupsService.ts";
 import type { FocusTracker } from "../services/focus/browser/focusTracker.ts";
 import { FocusTrackerDIToken } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
@@ -64,7 +62,7 @@ export class WorkbenchContextKeys extends Disposable {
 
     public constructor(
         private readonly contextKeys: ContextKeyService,
-        private readonly groups: EditorGroupsService,
+        private readonly groups: IEditorGroupsService,
         private readonly dispatcher: KeybindingDispatcher,
         private readonly historyService: HistoryService,
         private readonly focusTracker: FocusTracker,

@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestActiveEditorService } from "../../../../../TestUtils/testActiveEditorService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
+import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { createCursorSelection, createSelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { LanguageConfigurationServiceDIToken } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
@@ -28,7 +31,8 @@ import {
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorService } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
@@ -53,27 +57,10 @@ function fixedConfiguration(configuration: IResolvedLanguageConfiguration): ILan
     };
 }
 
-function createGroup(): EditorService {
-    const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-    return new EditorService(
-        themeService,
-        new TokenizationRegistry(),
-        NULL_TOKEN_STYLE_RESOLVER,
-        NULL_LANGUAGE_SERVICE,
-        NULL_CONFIGURATION_SERVICE,
-        new UndoRedoService(),
-        NULL_FILE_WATCHER,
-        createTestEditorContextMenuController(),
-        NULL_LOG_SERVICE,
-    );
-}
-
 function openEditor(content: string, languages: ILanguageConfigurationService = fixedConfiguration(TS_CONFIGURATION)) {
-    const ctrl = createGroup();
-    const filePath = ws.writeFile("doc.txt", content);
-    ctrl.openFile(filePath);
-    const editor = ctrl.getActiveEditor();
-    if (editor === null) throw new Error("no active editor");
+    const editor = createEditorPane();
+    editor.openFile(Uri.file(ws.writeFile("doc.txt", content)));
+    const ctrl = createTestActiveEditorService(editor);
 
     const commands = new CommandRegistry();
     const keybindings = new KeybindingRegistry();
@@ -154,7 +141,7 @@ describe("commentActions — исполнение над активным ред
     });
 
     it("без активного редактора — безопасный no-op", async () => {
-        const ctrl = createGroup();
+        const ctrl = createTestActiveEditorService(null);
         const commands = new CommandRegistry();
         const keybindings = new KeybindingRegistry();
         const accessor = new Container();

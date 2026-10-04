@@ -1,7 +1,7 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
 import { resolveTabTarget } from "./editorTabTarget.ts";
 import {

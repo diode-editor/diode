@@ -4,14 +4,14 @@ import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import type { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-
-import { type EditorService, EditorServiceDIToken } from "./editorService.ts";
+import type { IEditorService } from "../common/editorService.ts";
+import { EditorServiceDIToken } from "../common/editorService.ts";
 
 interface TestContext {
     testApp: TestApp;
     workbench: IAppHarness["workbench"];
     commandRegistry: CommandRegistry;
-    editorService: EditorService;
+    editorService: IEditorService;
 }
 
 function createTestContext(): TestContext {
@@ -24,7 +24,7 @@ function createTestContext(): TestContext {
     };
 }
 
-describe("EditorService focus management on tab close", () => {
+describe("IEditorService focus management on tab close", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -112,7 +112,7 @@ describe("EditorService focus management on tab close", () => {
     });
 });
 
-describe("EditorService auto-focus on file open", () => {
+describe("IEditorService auto-focus on file open", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {

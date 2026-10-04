@@ -4,8 +4,8 @@ import type { ServiceAccessor } from "../../../platform/instantiation/common/diC
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ILogServiceDIToken } from "../../../platform/log/common/iLogServiceDIToken.ts";
 import { ExplorerServiceDIToken } from "../../contrib/files/browser/explorerService.ts";
-import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.ts";
 
 import { resolveAddressedTab } from "./editorTabTarget.ts";

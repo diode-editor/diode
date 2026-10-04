@@ -7,7 +7,7 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { Container, type ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { SCM_VIEWLET_ID } from "../common/scmViews.ts";
 
 import {

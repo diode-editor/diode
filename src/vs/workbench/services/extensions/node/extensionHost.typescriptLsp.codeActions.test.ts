@@ -21,8 +21,8 @@ import { Container } from "../../../../platform/instantiation/common/diContainer
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { redoAction, undoAction } from "../../../browser/actions/editorEditActions.ts";
 import { organizeImportsAction } from "../../../contrib/codeAction/browser/codeActionActions.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 

@@ -9,7 +9,7 @@ import {
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 /**
  * Мультикурсор: команды, создающие и снимающие каретки.

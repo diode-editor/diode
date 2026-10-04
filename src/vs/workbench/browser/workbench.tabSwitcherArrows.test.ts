@@ -6,8 +6,8 @@ import {
     type ModifierReleaseArmory,
     ModifierReleaseArmoryDIToken,
 } from "../../platform/keybinding/common/modifierReleaseArmory.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
@@ -20,7 +20,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
     let h: IAppHarness;
     let switcher: TabSwitcherComponent;
     let armory: ModifierReleaseArmory;
-    let editorService: EditorService;
+    let editorService: IEditorService;
 
     beforeEach(() => {
         ws = createTempWorkspace({

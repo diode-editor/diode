@@ -5,8 +5,8 @@ import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/servic
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../../services/statusbar/common/transientNotice.ts";
@@ -36,7 +36,7 @@ export class RenameService {
     ] as const;
 
     public constructor(
-        private readonly group: EditorService,
+        private readonly group: IEditorService,
         private readonly quickInput: QuickInputService,
         private readonly statusBar: StatusBarService,
         private readonly languageFeatures: ILanguageFeaturesService,

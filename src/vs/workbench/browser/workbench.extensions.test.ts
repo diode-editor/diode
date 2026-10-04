@@ -16,7 +16,7 @@ import type {
     IExtensionsWorkbenchService,
 } from "../contrib/extensions/common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../contrib/extensions/common/extensionsWorkbench.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";

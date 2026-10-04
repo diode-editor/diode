@@ -28,8 +28,8 @@ import type { IStateService } from "../../../../platform/state/common/iStateServ
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { SUGGEST_DETAILS_VISIBLE_STATE } from "../../../common/stateKeys.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
@@ -78,7 +78,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     public autoSuggestDelayMs = 120;
 
     private readonly component: SuggestComponent;
-    private readonly group: EditorService;
+    private readonly group: IEditorService;
     private readonly commands: CommandRegistry;
     private readonly state: IStateService;
     private readonly languageFeatures: ILanguageFeaturesService;
@@ -120,7 +120,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
 
     public constructor(
         component: SuggestComponent,
-        group: EditorService,
+        group: IEditorService,
         commands: CommandRegistry,
         state: IStateService,
         focusTracker: FocusTracker,

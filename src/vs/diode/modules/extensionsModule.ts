@@ -13,7 +13,7 @@ import {
 } from "../../workbench/contrib/extensions/browser/extensionsComponent.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchService } from "../../workbench/contrib/extensions/node/extensionsWorkbenchService.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 
 export interface ExtensionsModuleContext {
     /** Версии сборки для матчинга `engines` (те же, что у CLI-установки). */

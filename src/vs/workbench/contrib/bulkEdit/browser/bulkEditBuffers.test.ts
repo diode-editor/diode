@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
 
 import { BulkEditBuffers } from "./bulkEditBuffers.ts";
@@ -39,13 +39,13 @@ function fakes({
     active?: IFakePane | null;
     rest?: IFakePane[];
     models?: Set<string>;
-} = {}): [EditorService, TextFileModelService] {
+} = {}): [IEditorService, TextFileModelService] {
     const editors = {
         getActiveTabEditor: () => active,
         // Активная вкладка идёт ПОСЛЕДНЕЙ: так видно, что адресат выбирается по
         // активности, а не «первым попавшимся».
         getEditors: () => (active === null ? rest : [...rest, active]),
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
     const registry = {
         get: (uri: Uri) => (models.has(uri.toString()) ? {} : null),
     } as unknown as TextFileModelService;

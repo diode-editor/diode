@@ -7,7 +7,8 @@ import {
     ModifierReleaseArmory,
     ModifierReleaseArmoryDIToken,
 } from "../../platform/keybinding/common/modifierReleaseArmory.ts";
-import { EditorService, EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 /**
  * Проверяет маршрутизацию keyup в Workbench: любое отпускание клавиши идёт в
@@ -18,7 +19,7 @@ import { EditorService, EditorServiceDIToken } from "../services/editor/browser/
 describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
-    let group: EditorService;
+    let group: IEditorService;
     let armory: ModifierReleaseArmory;
 
     beforeEach(async () => {

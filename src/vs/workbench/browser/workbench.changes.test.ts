@@ -14,8 +14,8 @@ import type { ChangesComponent } from "../contrib/scm/browser/changesComponent.t
 import { ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../contrib/scm/browser/changesService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
@@ -41,7 +41,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
-    let editors: EditorService;
+    let editors: IEditorService;
     let changes: ChangesComponent;
     let sidebar: SidebarService;
     let sideBg: number;

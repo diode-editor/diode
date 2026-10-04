@@ -10,7 +10,7 @@ import type { ServiceAccessor } from "../platform/instantiation/common/diContain
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
-import { EditorServiceDIToken } from "../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../workbench/services/editor/common/editorService.ts";
 import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
 import { registerExtensionMenus } from "../workbench/services/extensions/common/extensionMenuContributor.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";

@@ -5,7 +5,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { Uri } from "../../../../base/common/uri.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorPaneFactoriesDIToken } from "../../../services/editor/browser/editorPaneFactory.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { DIFF_EDITOR_PANE_TYPE_ID } from "./diffEditorPaneFactory.ts";
 import { type IOpenDiffPairOptions, openDiffPair } from "./openDiffPair.ts";

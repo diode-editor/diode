@@ -13,7 +13,7 @@ import type {
     IDefinitionRequest,
 } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
 

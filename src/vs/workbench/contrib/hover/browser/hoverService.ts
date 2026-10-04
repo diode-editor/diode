@@ -7,8 +7,8 @@ import type { IContextKeyContributor } from "../../../../platform/contextkey/com
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
@@ -71,7 +71,7 @@ export class HoverService extends Disposable implements IContextKeyContributor {
 
     public constructor(
         private readonly component: HoverComponent,
-        private readonly group: EditorService,
+        private readonly group: IEditorService,
         focusTracker: FocusTracker,
         private readonly languageFeatures: ILanguageFeaturesService,
     ) {

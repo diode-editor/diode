@@ -1,6 +1,6 @@
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
-import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 
@@ -21,7 +21,7 @@ export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDo
  * чтобы `workspace.textDocuments` был полон ДО активации расширений (стоковый
  * vscode-languageclient читает его на `start()`).
  */
-export function openDocumentSnapshots(group: EditorService): IWireDocumentSyncSnapshot[] {
+export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncSnapshot[] {
     const snapshots: IWireDocumentSyncSnapshot[] = [];
     const seen = new Set<BaseTextEditorModel>();
     for (const editor of group.getEditors()) {
@@ -41,7 +41,7 @@ export function openDocumentSnapshots(group: EditorService): IWireDocumentSyncSn
  * subprocess'а (см. `workspace.updateSubscriptions`), поэтому без LS-подобных
  * расширений RPC не гоняется.
  */
-export function bindDocumentSync(group: EditorService, groups: EditorGroupsService, host: IDocumentSyncTarget): void {
+export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsService, host: IDocumentSyncTarget): void {
     /** Живые подписки по модели; смерть последней вкладки снимает и шлёт didClose. */
     const tracked = new Map<BaseTextEditorModel, { dispose(): void }>();
 

@@ -6,13 +6,13 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
+import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
 import {
-    type EditorGroupsService,
     EditorGroupsServiceDIToken,
     type IGroupsChangeEvent,
-} from "../../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+} from "../../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { Component } from "../../component.ts";
 
 import { EditorGroupComponent } from "./editorGroupComponent.ts";
@@ -23,7 +23,7 @@ export const EditorPartComponentDIToken = token<EditorPartComponent>("EditorPart
  * Часть «область редактора» (аналог `EditorPart` VS Code): владеет полосой
  * групповых контролов внутри {@link EditorPartElement} (веса, саши, ось,
  * максимизация) и держит по {@link EditorGroupComponent} на группу сервиса.
- * Синхронизируется по {@link EditorGroupsService.onDidGroupsChange}; политика долей —
+ * Синхронизируется по {@link IEditorGroupsService.onDidGroupsChange}; политика долей —
  * здесь: сплит делит долю группы-источника пополам, схлопнутая группа отдаёт
  * долю остальным (нормировкой). Ставит сервису view-хуки: `canAddGroupHook`
  * (влезет ли ещё группа — отказ в сплите на узком терминале) и
@@ -43,9 +43,9 @@ export class EditorPartComponent extends Component {
     public onDidChangeGroupLayout?: () => void;
 
     public constructor(
-        private readonly editorService: EditorService,
+        private readonly editorService: IEditorService,
         private readonly contextMenuService: ContextMenuService,
-        private readonly groups: EditorGroupsService,
+        private readonly groups: IEditorGroupsService,
     ) {
         super();
         this.view = new EditorPartElement();

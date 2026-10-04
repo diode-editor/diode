@@ -13,19 +13,19 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
+import type { IEditorGroupsService } from "../common/editorGroupsService.ts";
 
-import type { EditorGroupsService } from "./editorGroupsService.ts";
 import { EditorService } from "./editorService.ts";
 
 /**
- * Граница двух сервисов: полоса групп (`EditorGroupsService`) и «редакторы»
+ * Граница двух сервисов: полоса групп (`IEditorGroupsService`) и «редакторы»
  * (`EditorService`). Порядок событий — контракт (`docs/arch/Workbench.md`):
  * вкладки → активный редактор → активная группа; ни одно не стреляет дважды.
  */
-describe("EditorGroupsService — события на границе с EditorService", () => {
+describe("IEditorGroupsService — события на границе с EditorService", () => {
     let ws: ITempWorkspace;
     let editors: EditorService;
-    let groups: EditorGroupsService;
+    let groups: IEditorGroupsService;
     let events: string[];
 
     beforeEach(() => {

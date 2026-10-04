@@ -9,9 +9,9 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
+import { EditorServiceDIToken } from "../common/editorService.ts";
 
 import type { EditorGroup } from "./editorGroupModel.ts";
-import { EditorServiceDIToken } from "./editorService.ts";
 
 /**
  * Закрытие вкладок с подтверждением — единая точка `EditorService.closeEditor`

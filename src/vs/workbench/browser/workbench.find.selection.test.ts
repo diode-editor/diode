@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import type { FindContext } from "./workbench.find.testUtils.ts";
 import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.ts";

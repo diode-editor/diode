@@ -9,7 +9,8 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
-import { type EditorService, EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
 import type { WorkbenchComponent } from "./workbenchComponent.ts";
@@ -231,7 +232,7 @@ describe("Workbench quit with save dialog", () => {
         expect(exitSpy).not.toHaveBeenCalled();
 
         // Tabs 1 and 2 disappear before we answer, so their snapshotted items are now stale.
-        const editorGroup = (workbench as unknown as { editorService: EditorService }).editorService;
+        const editorGroup = (workbench as unknown as { editorService: IEditorService }).editorService;
         editorGroup.editorGroups.activeGroup.closeTab(2);
         editorGroup.editorGroups.activeGroup.closeTab(1);
 

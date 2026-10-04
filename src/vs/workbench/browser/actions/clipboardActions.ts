@@ -5,7 +5,7 @@ import { ClipboardDIToken } from "../../../platform/clipboard/common/iClipboard.
 import { IConfigurationServiceDIToken } from "../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
 /** `editor.emptySelectionClipboard`: копирует ли Copy/Cut без выделения текущую строку. */
 function isEmptySelectionClipboardEnabled(accessor: ServiceAccessor): boolean {

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
 
 import type { WorkbenchComponent } from "./workbenchComponent.ts";
 
@@ -26,7 +26,7 @@ function createWorkspace(): ITempWorkspace {
 }
 
 function activeEditorText(workbench: WorkbenchComponent): string {
-    const group = (workbench as unknown as { editorService: EditorService }).editorService;
+    const group = (workbench as unknown as { editorService: IEditorService }).editorService;
     return group.getActiveEditor()?.getText() ?? "";
 }
 

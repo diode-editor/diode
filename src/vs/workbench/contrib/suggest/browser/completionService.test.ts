@@ -23,7 +23,7 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 
 import { CompletionService } from "./completionService.ts";
@@ -135,7 +135,7 @@ interface IFakeLanguageSeams {
 }
 
 /** Реестр с одним провайдером, читающим швы группы на каждый вызов. */
-function languageFeaturesOf(group: EditorService): LanguageFeaturesService {
+function languageFeaturesOf(group: IEditorService): LanguageFeaturesService {
     const seams = group as unknown as IFakeLanguageSeams;
     const languageFeatures = new LanguageFeaturesService();
     if (seams.completionSource === undefined && seams.completionResolver === undefined) return languageFeatures;
@@ -155,7 +155,7 @@ function makeGroup(
     editor: TextEditorPane,
     source: FakeCompletionSource,
     extraEditors: TextEditorPane[] = [],
-): EditorService {
+): IEditorService {
     const all = [editor, ...extraEditors];
     return {
         getActiveEditor: () => editor,
@@ -163,7 +163,7 @@ function makeGroup(
         completionSource: source,
         completionTriggerCharacters: [],
         getEditors: () => all,
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
 }
 
 /**
@@ -187,7 +187,7 @@ function makeStateService(): IStateService {
 
 /** Пара component+service с фейковым CommandRegistry (шпион `execute`). */
 function createService(
-    group: EditorService,
+    group: IEditorService,
     state: IStateService = makeStateService(),
 ): {
     service: CompletionService;
@@ -1104,7 +1104,7 @@ describe("CompletionService", () => {
             getActiveEditor: () => null,
             onActiveEditorChanged: () => ({ dispose: () => {} }),
             completionTriggerCharacters: [],
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
         await service.trigger();
@@ -1312,7 +1312,7 @@ describe("CompletionService", () => {
             completionSource: vi.fn(() => Promise.resolve(completionResult(ITEMS))),
             completionTriggerCharacters: [],
             getEditors: () => [fake.editor],
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
         await service.trigger();
@@ -1330,7 +1330,7 @@ describe("CompletionService", () => {
             completionSource: undefined,
             completionTriggerCharacters: [],
             getEditors: () => [fake.editor],
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
         ref = null; // активный редактор пропал
@@ -1392,7 +1392,7 @@ describe("CompletionService", () => {
             completionSource: vi.fn(() => Promise.resolve(completionResult(ITEMS))),
             completionTriggerCharacters: [],
             getEditors: () => [fake.editor],
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const { service, component, body } = createService(group);
         TestApp.create(body, new Size(80, 24));
         await service.trigger();

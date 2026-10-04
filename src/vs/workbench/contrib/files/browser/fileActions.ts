@@ -13,7 +13,7 @@ import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceD
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 

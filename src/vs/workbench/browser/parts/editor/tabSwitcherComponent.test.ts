@@ -8,8 +8,8 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
-import type { EditorGroupsService } from "../../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";
 import { TabSwitcherComponent } from "./tabSwitcherComponent.ts";
@@ -33,7 +33,7 @@ function makePane(label: string): IEditorPane {
 }
 
 function stubEditorService(): {
-    service: EditorService;
+    service: IEditorService;
     fireCycle: (state: MruCycleState | null) => void;
     fireActiveGroup: () => void;
 } {
@@ -49,7 +49,7 @@ function stubEditorService(): {
             return { dispose: () => {} };
         },
         displayName: (pane: IEditorPane) => pane.label,
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
     return {
         service,
         fireCycle: (state) => cycleListener?.(state),
@@ -60,7 +60,7 @@ function stubEditorService(): {
 describe("TabSwitcherComponent — без прикреплённого хоста", () => {
     it("события серии до attachHost не открывают сессию и не падают", () => {
         const { service, fireCycle, fireActiveGroup } = stubEditorService();
-        const component = new TabSwitcherComponent(service, service as unknown as EditorGroupsService);
+        const component = new TabSwitcherComponent(service, service as unknown as IEditorGroupsService);
 
         expect(component.isOpen()).toBe(false);
         // Стабильный e2e-селектор оверлея (как editorGroup-<id> у групп).
@@ -82,7 +82,7 @@ describe("TabSwitcherComponent — без прикреплённого хост�
 describe("TabSwitcherComponent — overlay-сессия", () => {
     function withHost() {
         const { service, fireCycle, fireActiveGroup } = stubEditorService();
-        const component = new TabSwitcherComponent(service, service as unknown as EditorGroupsService);
+        const component = new TabSwitcherComponent(service, service as unknown as IEditorGroupsService);
         const body = new BodyElement();
         const testApp = TestApp.create(body, new Size(80, 24));
         component.attachHost(body);

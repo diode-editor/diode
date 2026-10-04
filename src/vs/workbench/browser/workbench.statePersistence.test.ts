@@ -12,7 +12,7 @@ import { computeWorkspaceId } from "../../platform/workspace/common/workspaceId.
 import { EDITOR_GROUPS_STATE, OPEN_EDITORS_STATE } from "../common/stateKeys.ts";
 import { openDiffPair } from "../contrib/diff/browser/openDiffPair.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID, SCM_VIEWLET_ID } from "../contrib/scm/common/scmViews.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import type { PaneViewElement } from "./parts/views/paneViewElement.ts";

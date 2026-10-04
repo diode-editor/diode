@@ -7,12 +7,10 @@ import type { IContextKeyContributor } from "../../../../platform/contextkey/com
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
-import {
-    type EditorGroupsService,
-    EditorGroupsServiceDIToken,
-} from "../../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { Component } from "../../component.ts";
 
 import { computeTabLabels } from "./tabLabels.ts";
@@ -27,7 +25,7 @@ export const TabSwitcherComponentDIToken = token<TabSwitcherComponent>("TabSwitc
  * группы с подсветкой позиции цикла; отпускание Ctrl (или любой другой конец
  * серии) гасит список. Компонент чисто реактивный: командам и клавиатуре он
  * неизвестен — жизнью оверлея управляют события модели
- * ({@link EditorService.onDidChangeMruCycle}), которые файрит каждый шаг
+ * ({@link IEditorGroupsService.onDidChangeMruCycle}), которые файрит каждый шаг
  * {@link import("../../../services/editor/browser/editorGroupModel.ts").EditorGroup.cycleMru}
  * и любой конец серии.
  *
@@ -45,8 +43,8 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
     private session: OverlaySessionHandle | null = null;
 
     public constructor(
-        private readonly editorService: EditorService,
-        private readonly groups: EditorGroupsService,
+        private readonly editorService: IEditorService,
+        private readonly groups: IEditorGroupsService,
     ) {
         super();
         this.view = new TabSwitcherElement();

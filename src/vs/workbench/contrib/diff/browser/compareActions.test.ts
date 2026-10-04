@@ -13,8 +13,8 @@ import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboa
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
-import type { EditorGroupsService } from "../../../services/editor/browser/editorGroupsService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../scm/browser/commandOriginalResourceProvider.ts";
 import { QUERY_COMMAND } from "../../scm/browser/syncActions.ts";
 
@@ -27,7 +27,7 @@ import { resetSelectedForCompare } from "./compareActions.ts";
  */
 
 /** Журнал фокусов содержимого групп (view-хук полосы оборачивается, не заменяется). */
-function recordGroupFocus(groups: EditorGroupsService): number[] {
+function recordGroupFocus(groups: IEditorGroupsService): number[] {
     const focused: number[] = [];
     const viewHook = groups.focusGroupContentHook;
     groups.focusGroupContentHook = (group) => {

@@ -1,6 +1,6 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 // Канонические Ctrl+Shift+[ / Ctrl+Shift+] недостижимы без extended keys (Ctrl+[
 // это сам ESC, а Shift с печатным символом в legacy-поток не попадает), поэтому

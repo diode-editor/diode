@@ -14,8 +14,8 @@ import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.t
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { OUTPUT_LANGUAGE_ID, OUTPUT_URI_SCHEME, OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
 import type { OutputService } from "../../../services/output/common/outputService.ts";
 import { formatOutputLine, OutputServiceDIToken } from "../../../services/output/common/outputService.ts";
@@ -26,7 +26,7 @@ export const OutputComponentDIToken = token<OutputComponent>("OutputComponent");
 
 /**
  * View-владелец вкладки OUTPUT: держит ОДИН detached-редактор (см.
- * `EditorService.openDetached`) и переливает в него содержимое активного канала.
+ * `IEditorService.openDetached`) и переливает в него содержимое активного канала.
  * Как и в VS Code, контент Output — обычный read-only редактор над моделью с
  * языком `log`: выделение, копирование, Ctrl+F и подсветка достаются даром.
  *
@@ -54,7 +54,7 @@ export class OutputComponent extends Disposable {
         private readonly outputService: OutputService,
         private readonly panelService: PanelService,
         private readonly viewsService: ViewsService,
-        private readonly editorService: EditorService,
+        private readonly editorService: IEditorService,
         menuService: MenuService,
     ) {
         super();

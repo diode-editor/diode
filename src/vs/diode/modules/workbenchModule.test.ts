@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 

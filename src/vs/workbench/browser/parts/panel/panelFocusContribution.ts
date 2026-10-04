@@ -1,8 +1,8 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import type { PanelComponent } from "./panelComponent.ts";
 import { PanelComponentDIToken } from "./panelComponent.ts";
@@ -28,7 +28,7 @@ export class PanelFocusContribution extends Disposable implements IWorkbenchCont
     public constructor(
         panelService: PanelService,
         private readonly panelComponent: PanelComponent,
-        private readonly editorService: EditorService,
+        private readonly editorService: IEditorService,
     ) {
         super();
         this.register(

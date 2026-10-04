@@ -2,15 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
-import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../services/editor/common/editorService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 /** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 /**
- * Минимальный стаб EditorService — адаптер спрашивает у него **вкладку**
+ * Минимальный стаб IEditorService — адаптер спрашивает у него **вкладку**
  * (`getActiveTabEditor()`), а не focus-aware активный редактор: фокус в нижней
  * панели не должен подменять расширению `activeTextEditor`. Здесь нам нужен
  * случай «нет активного редактора».
@@ -24,16 +24,16 @@ const GROUP_SURFACE = {
     getEditors: () => [] as unknown[],
 };
 
-function groupWithNoActiveEditor(): EditorService {
+function groupWithNoActiveEditor(): IEditorService {
     return {
         ...GROUP_SURFACE,
         getActiveTabEditor: () => null,
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
 }
 
 /** Фейк сервиса редакторов отвечает и за полосу групп (groupOf/activeGroup/viewColumnOf). */
-function createAdapter(fake: EditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
-    return new EditorOptionsServiceAdapter(fake, fake as unknown as EditorGroupsService, workspaceEdits);
+function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
+    return new EditorOptionsServiceAdapter(fake, fake as unknown as IEditorGroupsService, workspaceEdits);
 }
 
 describe("EditorOptionsServiceAdapter", () => {
@@ -47,7 +47,7 @@ describe("EditorOptionsServiceAdapter", () => {
             getActiveTabEditor: () => ({
                 viewState: { tabSize: 4, insertSpaces: true },
             }),
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
         expect(adapter.getActiveEditorOptions()).toEqual({ tabSize: 4, insertSpaces: true });
     });
@@ -63,7 +63,7 @@ describe("EditorOptionsServiceAdapter", () => {
         const setIndentOptions = vi.fn();
         const group = {
             getActiveTabEditor: () => ({ setIndentOptions }),
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
         adapter.setActiveEditorOptions({ tabSize: 8 });
         expect(setIndentOptions).toHaveBeenCalledWith({ tabSize: 8 });
@@ -77,7 +77,7 @@ describe("EditorOptionsServiceAdapter", () => {
     it("getActiveEditorFilePath() отдаёт путь для file:-ресурса", () => {
         const group = {
             getActiveTabEditor: () => ({ uri: Uri.file("/a/b.ts"), languageId: "typescript", isModified: false }),
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         expect(createAdapter(group, NO_BULK_EDITS).getActiveEditorFilePath()).toBe("/a/b.ts");
     });
 
@@ -90,7 +90,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 languageId: "plaintext",
                 isModified: false,
             }),
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         expect(createAdapter(group, NO_BULK_EDITS).getActiveEditorFilePath()).toBeNull();
     });
 
@@ -106,7 +106,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 // У настоящей панели viewState есть всегда; без выделений — пустой список.
                 viewState: { selections: [] },
             }),
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         expect(createAdapter(withEditor, NO_BULK_EDITS).getActiveEditorMeta()).toEqual({
             uri: Uri.file("/a/b.ts").toString(),
             languageId: "typescript",
@@ -136,7 +136,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 registered = cb;
                 return groupDisposable;
             },
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
 
         const received: unknown[] = [];
@@ -192,7 +192,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 },
                 focusEditor: vi.fn(),
             }),
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
         adapter.setActiveEditorSelections(Uri.file("/other.ts").toString(), [
             { anchorLine: 0, anchorCharacter: 0, activeLine: 0, activeCharacter: 1 },
@@ -207,7 +207,7 @@ describe("EditorOptionsServiceAdapter", () => {
             model: { document: { lineCount: 3, getLineLength: () => 10 } },
             applyExternalEdits,
         };
-        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
 
         const edit = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" };
@@ -228,7 +228,7 @@ describe("EditorOptionsServiceAdapter", () => {
             model: { document: { lineCount: 3, getLineLength: () => 10 } },
             applyExternalEdits,
         };
-        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
 
         // Перекрытые правки документ применил бы по уже съеденному тексту —
@@ -247,7 +247,7 @@ describe("EditorOptionsServiceAdapter", () => {
             model: { document: { lineCount: 3, getLineLength: () => 10 } },
             applyExternalEdits: vi.fn(),
         };
-        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
         expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [])).toBe(false);
         // Без активного редактора — тихий no-op, а не исключение.
@@ -275,7 +275,7 @@ describe("EditorOptionsServiceAdapter", () => {
             focusEditor: vi.fn(),
             applyExternalEdits,
         };
-        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as EditorService;
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const uri = Uri.file("/a/b.ts").toString();
 
@@ -304,9 +304,9 @@ describe("EditorOptionsServiceAdapter", () => {
     /**
      * Группа с одним редактором, у которого присваивание `viewState.selections`
      * реально фаерит `onDidChangeActiveEditorSelection` — как в живом
-     * EditorService. Нужно, чтобы проверить эхо-гард на настоящем пути.
+     * IEditorService. Нужно, чтобы проверить эхо-гард на настоящем пути.
      */
-    function groupWithLiveSelections(): { group: EditorService; selections: () => unknown[] } {
+    function groupWithLiveSelections(): { group: IEditorService; selections: () => unknown[] } {
         const listeners: (() => void)[] = [];
         let current: unknown[] = [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }];
         const editor = {
@@ -337,7 +337,7 @@ describe("EditorOptionsServiceAdapter", () => {
                     },
                 };
             },
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         return { group, selections: () => current };
     }
 
@@ -451,7 +451,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 });
                 return { dispose: () => undefined };
             },
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
 
         expect(adapter.getActiveEditorMeta()).toMatchObject({ groupId: 7, viewColumn: 2 });
@@ -480,7 +480,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 eol: 1,
                 viewState: { selections: [] },
             }),
-        } as unknown as EditorService;
+        } as unknown as IEditorService;
         expect(createAdapter(group, NO_BULK_EDITS).getActiveEditorMeta().selection).toBeNull();
     });
 });

@@ -1,6 +1,6 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
-import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
 /**
  * Открывает контекстное меню редактора с клавиатуры (Shift+F10, как в VS Code),

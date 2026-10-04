@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
 
 import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 
@@ -108,8 +108,8 @@ describe("Workbench — Go to Line", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
-    function activeEditor(): EditorService {
-        return (h.workbench as unknown as { editorService: EditorService }).editorService;
+    function activeEditor(): IEditorService {
+        return (h.workbench as unknown as { editorService: IEditorService }).editorService;
     }
 
     beforeEach(async () => {
@@ -201,7 +201,7 @@ describe("Workbench — Go to Line", () => {
 
 /**
  * Пикер открытых редакторов целиком через живой Workbench: аккорд Ctrl+K Ctrl+P
- * → провайдер `edt ` → переключение вкладки. Проводку (DI-швы к EditorService и
+ * → провайдер `edt ` → переключение вкладки. Проводку (DI-швы к IEditorService и
  * ExplorerService, запись в QUICK_ACCESS_PROVIDERS, экшен с биндом) видит
  * только такой тест: юнит-тесты провайдера работают со своими фейками.
  */
@@ -209,8 +209,8 @@ describe("Workbench — пикер открытых редакторов (Ctrl+K
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
-    function editorService(): EditorService {
-        return (h.workbench as unknown as { editorService: EditorService }).editorService;
+    function editorService(): IEditorService {
+        return (h.workbench as unknown as { editorService: IEditorService }).editorService;
     }
 
     function picker(): QuickPickElement {

@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { Uri } from "../../../base/common/uri.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { BulkEdit } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
-import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
-import type { EditorService } from "../../services/editor/browser/editorService.ts";
+import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IWireWorkspaceEditOp } from "../common/wireTypes.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
@@ -28,7 +28,7 @@ function spyService(result = true): { service: IBulkEditService; calls: { edits:
     };
 }
 
-function emptyGroup(): EditorService {
+function emptyGroup(): IEditorService {
     return {
         groupOf: () => ({ id: 1 }),
         activeGroup: { id: 1 },
@@ -36,7 +36,7 @@ function emptyGroup(): EditorService {
         groups: [] as unknown[],
         getActiveTabEditor: () => null,
         getEditors: () => [] as unknown[],
-    } as unknown as EditorService;
+    } as unknown as IEditorService;
 }
 
 const A = Uri.file("/proj/a.ts");
@@ -44,8 +44,8 @@ const B = Uri.file("/proj/b.ts");
 const EDIT_A = { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "hi" };
 
 /** Фейк сервиса редакторов отвечает и за полосу групп (groupOf/activeGroup/viewColumnOf). */
-function createAdapter(fake: EditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
-    return new EditorOptionsServiceAdapter(fake, fake as unknown as EditorGroupsService, workspaceEdits);
+function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
+    return new EditorOptionsServiceAdapter(fake, fake as unknown as IEditorGroupsService, workspaceEdits);
 }
 
 describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {

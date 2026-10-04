@@ -4,8 +4,8 @@ import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/lan
 import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 export const LanguageFeatureContextKeysDIToken = token<LanguageFeatureContextKeys>("LanguageFeatureContextKeys");
 
@@ -28,7 +28,7 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
     public static dependencies = [EditorServiceDIToken, LanguageFeaturesServiceDIToken] as const;
 
     public constructor(
-        private readonly group: EditorService,
+        private readonly group: IEditorService,
         private readonly languageFeatures: ILanguageFeaturesService,
     ) {}
 

@@ -16,7 +16,8 @@ import { KeybindingRegistry, parseKeybinding } from "../../../platform/keybindin
 import { NULL_LOG_SERVICE } from "../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
-import { EditorService, EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
+import { EditorService } from "../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 

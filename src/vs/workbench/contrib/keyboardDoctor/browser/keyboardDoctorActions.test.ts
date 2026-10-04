@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { InMemoryClipboard } from "../../../../platform/clipboard/common/inMemoryClipboard.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
-import { type EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { keyboardDoctorAction } from "./keyboardDoctorActions.ts";
 import { type KeyboardDoctorComponent, KeyboardDoctorComponentDIToken } from "./keyboardDoctorComponent.ts";
@@ -35,7 +36,7 @@ function accessorWith(editor: { applied: string[] } | null) {
                                   editor.applied.push(`goTo ${String(line)}`);
                               },
                           },
-            }) as unknown as EditorService,
+            }) as unknown as IEditorService,
     );
     return { container, clipboard, untitled: () => untitled };
 }

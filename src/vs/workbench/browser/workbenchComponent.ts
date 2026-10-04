@@ -25,7 +25,8 @@ import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browse
 import { type TerminalService, TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { DialogService } from "../services/dialogs/browser/dialogService.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
-import { EditorService, EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingsEditorServiceDIToken } from "../services/keybinding/common/iKeybindingsEditorService.ts";
@@ -98,7 +99,7 @@ export class WorkbenchComponent extends Component {
     private readonly themeService: ThemeService;
     public readonly workbenchLayout: WorkbenchLayoutElement;
 
-    private editorService: EditorService;
+    private editorService: IEditorService;
     private editorPartComponent: EditorPartComponent;
     private dialogService: DialogService;
     private workspaceContext: WorkspaceContextService;
@@ -124,7 +125,7 @@ export class WorkbenchComponent extends Component {
     private mounted = false;
 
     public constructor(
-        editorService: EditorService,
+        editorService: IEditorService,
         commands: CommandRegistry,
         keybindings: KeybindingRegistry,
         accessor: ServiceAccessor,
@@ -151,7 +152,7 @@ export class WorkbenchComponent extends Component {
         lifecycleService.registerShutdownParticipant(editorService);
         this.editorService = this.register(editorService);
         // Editor-кластер: компонент группового контрола (tab strip + контент
-        // активного редактора) поверх EditorService.
+        // активного редактора) поверх IEditorService.
         this.editorPartComponent = this.register(accessor.get(EditorPartComponentDIToken));
         // Единственный источник правды о папках воркспейса: владельцем набора
         // папок является этот компонент (см. setWorkspaceFolder), все остальные
@@ -201,7 +202,7 @@ export class WorkbenchComponent extends Component {
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
         this.workbenchLayout.setBottomPanel(panelComponent.view);
         this.layoutService.attachLayout(this.workbenchLayout);
-        // Персист открытых редакторов (write-through подписан на EditorService
+        // Персист открытых редакторов (write-through подписан на IEditorService
         // внутри сервиса; layout персистит LayoutService через onDidChangeLayout).
         this.workbenchState = this.register(accessor.get(WorkbenchStateServiceDIToken));
         // Персист раскладки групп: срез view-части (ось/доли/вместимость) +
@@ -222,7 +223,7 @@ export class WorkbenchComponent extends Component {
         // Общий виджет QuickInput/QuickOpen живёт в overlay-слое корневой view.
         quickInputComponent.attachHost(this.view);
         // Оверлей серии Ctrl+Tab (MRU-список вкладок) — passthrough-сессия
-        // того же слоя; показ/скрытие ведут события EditorService.
+        // того же слоя; показ/скрытие ведут события IEditorService.
         this.register(accessor.get(TabSwitcherComponentDIToken)).attachHost(this.view);
         // Сообщения: стек тостов в правом нижнем углу (passthrough) и окно
         // модального сообщения по центру — тот же слой.

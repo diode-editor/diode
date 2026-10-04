@@ -11,7 +11,7 @@ import {
     KeybindingRecorderComponentDIToken,
 } from "../../workbench/contrib/preferences/browser/keybindingRecorderComponent.ts";
 import { KeybindingsEditorTargetDIToken } from "../../workbench/contrib/preferences/browser/keybindingsEditorPane.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { KeybindingsEditorServiceDIToken } from "../../workbench/services/keybinding/common/iKeybindingsEditorService.ts";
 import { KeybindingsEditorService } from "../../workbench/services/keybinding/node/keybindingsEditorService.ts";
 import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";

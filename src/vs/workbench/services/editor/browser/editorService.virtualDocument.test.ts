@@ -17,10 +17,11 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
+import { EditorServiceDIToken } from "../common/editorService.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
 import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
-import { EditorService, EditorServiceDIToken } from "./editorService.ts";
+import { EditorService } from "./editorService.ts";
 
 /**
  * Недисковые ресурсы в {@link EditorService.openUri}: Go to Definition в

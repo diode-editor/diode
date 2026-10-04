@@ -15,7 +15,7 @@
 
 Все DI-токены именуются по конвенции `{ServiceName}DIToken`:
 
-- `EditorServiceDIToken` — токен для `EditorService`
+- `EditorServiceDIToken` — токен для `IEditorService` (реализация — класс `EditorService`)
 - `TuiApplicationDIToken` — токен для `TuiApplication`
 - `WorkbenchComponentDIToken` — токен для `WorkbenchComponent`
 
@@ -36,7 +36,7 @@
 ```typescript
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 
-export const EditorServiceDIToken = token<EditorService>("EditorService");
+export const EditorServiceDIToken = token<IEditorService>("EditorService");
 ```
 
 ## Объявление зависимостей в классе

@@ -11,7 +11,7 @@ import {
     EditorStateCancellationTokenSource,
     EditorStateFlag,
 } from "../../../browser/parts/editor/editorStateCancellation.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../../services/statusbar/common/transientNotice.ts";
 

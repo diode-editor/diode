@@ -867,6 +867,17 @@ hide-toggle (`isHiddenByDefault`). См.
     (экшены, Find/Completion, host-адаптеры, швы `IActiveEditorStatus`/
     `IDiagnosticsEditor`/`IMarkerRevealEditor`/`IGotoLineEditor` — выполняются
     структурно делегатами в модель/компонент).
+  - **Ролевые интерфейсы — в `services/editor/common/`**: `IEditorService`
+    (`editorService.ts`, + `IOpenUriOptions`, `IEditorSavedMeta`) и
+    `IEditorGroupsService` (`editorGroupsService.ts`, + `IGroupsChangeEvent`);
+    токены `EditorServiceDIToken`/`EditorGroupsServiceDIToken` типизированы
+    интерфейсами, классы в `browser/` их реализуют. Типы панелей и групп
+    интерфейсы берут `import type` из browser (layers-check `import type` не
+    считает). Узкие швы фич (`IGotoLineEditorSource`, `IDiagnosticsEditorSource`,
+    …) остаются своими интерфейсами. Тестам команд над текущим буфером целый
+    сервис не нужен: `createTestActiveEditorService(editor)`
+    (`TestUtils/testActiveEditorService.ts`) — типизированный фейк роли
+    «активный редактор», члены вне роли бросают.
   - `services/editor/browser/editorGroupsService.ts` — `EditorGroupsService`
     (DI; аналог upstream `IEditorGroupsService`, но headless — у upstream его
     реализует view-часть `EditorPart`): полоса групп

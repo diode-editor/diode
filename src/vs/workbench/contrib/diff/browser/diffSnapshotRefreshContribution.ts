@@ -6,10 +6,8 @@ import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts"
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
-import {
-    type EditorGroupsService,
-    EditorGroupsServiceDIToken,
-} from "../../../services/editor/browser/editorGroupsService.ts";
+import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
 
 import { refreshDiffSnapshots } from "./openDiffPair.ts";
 
@@ -39,7 +37,7 @@ export class DiffSnapshotRefreshContribution extends Disposable implements IWork
     private refreshSeq = 0;
 
     public constructor(
-        private readonly groups: EditorGroupsService,
+        private readonly groups: IEditorGroupsService,
         private readonly providers: IFileService,
     ) {
         super();

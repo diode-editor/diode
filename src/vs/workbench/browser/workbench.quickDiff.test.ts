@@ -12,8 +12,8 @@ import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands
 import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../platform/files/common/files.ts";
 import { FileService } from "../../platform/files/common/fileService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
@@ -42,7 +42,7 @@ describe("Workbench — живой гуттер quick diff", () => {
     let testApp: TestApp;
     let filePath: string;
     let modifiedColor: number;
-    let editors: EditorService;
+    let editors: IEditorService;
 
     beforeEach(async () => {
         ws = createTempWorkspace({ prefix: "diode-quickdiff-", files: { "a.txt": ORIGINAL_TEXT } });

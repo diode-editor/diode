@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { createTestActiveEditorService } from "../../../../../TestUtils/testActiveEditorService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
+import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
@@ -16,7 +19,8 @@ import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybi
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { EditorService, EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorService } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
@@ -42,22 +46,9 @@ let ws: ITempWorkspace;
 const NESTED = "a\n  b\n    c\n  d";
 
 function openEditor(content: string) {
-    const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-    const ctrl = new EditorService(
-        themeService,
-        new TokenizationRegistry(),
-        NULL_TOKEN_STYLE_RESOLVER,
-        NULL_LANGUAGE_SERVICE,
-        NULL_CONFIGURATION_SERVICE,
-        new UndoRedoService(),
-        NULL_FILE_WATCHER,
-        createTestEditorContextMenuController(),
-        NULL_LOG_SERVICE,
-    );
-    const filePath = ws.writeFile("doc.txt", content);
-    ctrl.openFile(filePath);
-    const editor = ctrl.getActiveEditor();
-    if (editor === null) throw new Error("no active editor");
+    const editor = createEditorPane();
+    editor.openFile(Uri.file(ws.writeFile("doc.txt", content)));
+    const ctrl = createTestActiveEditorService(editor);
 
     const commands = new CommandRegistry();
     const keybindings = new KeybindingRegistry();

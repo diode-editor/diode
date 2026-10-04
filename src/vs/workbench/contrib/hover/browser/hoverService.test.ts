@@ -14,7 +14,7 @@ import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
 import { HoverComponentDIToken } from "./hoverComponent.ts";

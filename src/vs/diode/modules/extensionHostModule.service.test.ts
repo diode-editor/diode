@@ -11,7 +11,7 @@ import type { LogEntry } from "../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { LogService } from "../../platform/log/common/logService.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/browser/editorService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
 import { LanguageRegistry } from "../../workbench/services/language/common/languageRegistry.ts";
 

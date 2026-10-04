@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Uri } from "../../base/common/uri.ts";
 import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
+import type { IEditorService } from "../services/editor/common/editorService.ts";
 
 import { LanguageFeatureContextKeys } from "./languageFeatureContextKeys.ts";
 
@@ -26,7 +26,7 @@ function makeKeys(editor: unknown): {
 } {
     const keys = new ContextKeyService();
     const features = new LanguageFeaturesService();
-    const group = { getActiveEditor: () => editor } as unknown as EditorService;
+    const group = { getActiveEditor: () => editor } as unknown as IEditorService;
     const contributor = new LanguageFeatureContextKeys(group, features);
     return {
         keys,
