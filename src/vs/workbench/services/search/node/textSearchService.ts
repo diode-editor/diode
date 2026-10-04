@@ -87,7 +87,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
             }
         });
 
-        // Stryker disable next-line StringLiteral: пустая кодировка у Node — тот же utf8
+        // Stryker disable next-line StringLiteral,CallExpression: пустая кодировка у Node — тот же utf8, а без неё `+=` и так переводит Buffer в utf8-строку
         child.stderr.setEncoding("utf8");
         child.stderr.on("data", (chunk: string) => {
             stderr += chunk;
