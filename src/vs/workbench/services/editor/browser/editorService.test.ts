@@ -89,8 +89,8 @@ describe("EditorService", () => {
 
             ctrl.openFile(fp);
 
-            expect(ctrl.editorCount).toBe(1);
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.editorCount).toBe(1);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("hello.ts");
         });
 
@@ -102,8 +102,8 @@ describe("EditorService", () => {
             ctrl.openFile(fp1);
             ctrl.openFile(fp2);
 
-            expect(ctrl.editorCount).toBe(2);
-            expect(ctrl.activeIndex).toBe(1);
+            expect(ctrl.activeGroup.editorCount).toBe(2);
+            expect(ctrl.activeGroup.activeIndex).toBe(1);
         });
 
         it("switches to existing tab if file already open", () => {
@@ -114,8 +114,8 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("b.ts", "b"));
             ctrl.openFile(fp);
 
-            expect(ctrl.editorCount).toBe(2);
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.editorCount).toBe(2);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
         });
 
         it("opens two files with the same name from different directories as separate tabs", () => {
@@ -126,8 +126,8 @@ describe("EditorService", () => {
             ctrl.openFile(fp1);
             ctrl.openFile(fp2);
 
-            expect(ctrl.editorCount).toBe(2);
-            expect(ctrl.activeIndex).toBe(1);
+            expect(ctrl.activeGroup.editorCount).toBe(2);
+            expect(ctrl.activeGroup.activeIndex).toBe(1);
         });
     });
 
@@ -136,7 +136,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
 
             ctrl.newUntitled();
-            expect(ctrl.editorCount).toBe(1);
+            expect(ctrl.activeGroup.editorCount).toBe(1);
             expect(ctrl.getActiveEditor()?.absoluteFilePath).toBeNull();
             expect(ctrl.displayName(ctrl.getActiveEditor()!)).toBe("Untitled-1");
 
@@ -205,9 +205,9 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
 
-            ctrl.activateTab(0);
+            ctrl.activeGroup.activateTab(0);
 
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
 
@@ -215,9 +215,9 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
 
-            ctrl.activateTab(5);
+            ctrl.activeGroup.activateTab(5);
 
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
         });
     });
 
@@ -228,8 +228,8 @@ describe("EditorService", () => {
 
             ctrl.activeGroup.closeTab(0);
 
-            expect(ctrl.editorCount).toBe(0);
-            expect(ctrl.activeIndex).toBe(-1);
+            expect(ctrl.activeGroup.editorCount).toBe(0);
+            expect(ctrl.activeGroup.activeIndex).toBe(-1);
             expect(ctrl.getActiveEditor()).toBeNull();
         });
 
@@ -238,12 +238,12 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
             ctrl.openFile(writeFile("c.ts", "c"));
-            ctrl.activateTab(1);
+            ctrl.activeGroup.activateTab(1);
 
             ctrl.activeGroup.closeTab(1);
 
-            expect(ctrl.editorCount).toBe(2);
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.editorCount).toBe(2);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
 
@@ -254,8 +254,8 @@ describe("EditorService", () => {
 
             ctrl.activeGroup.closeTab(1);
 
-            expect(ctrl.editorCount).toBe(1);
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.editorCount).toBe(1);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
 
@@ -263,12 +263,12 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
-            ctrl.activateTab(1);
+            ctrl.activeGroup.activateTab(1);
 
             ctrl.activeGroup.closeTab(0);
 
-            expect(ctrl.editorCount).toBe(1);
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.editorCount).toBe(1);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("b.ts");
         });
     });
@@ -281,7 +281,7 @@ describe("EditorService", () => {
         }
 
         function mruNames(ctrl: EditorService): (string | null)[] {
-            return ctrl.getMruOrder().map((e) => ctrl.displayName(e));
+            return ctrl.activeGroup.getMruOrder().map((e) => ctrl.displayName(e));
         }
 
         it("Ctrl+Tab activates the previously used editor, not the next tab by position", () => {
@@ -289,21 +289,21 @@ describe("EditorService", () => {
             openThree(ctrl);
 
             // Active is c (last). MRU order is c, b, a → Ctrl+Tab picks b, not (wrap to) a.
-            ctrl.cycleMru(1);
+            ctrl.activeGroup.cycleMru(1);
 
             expect(ctrl.getActiveEditor()?.fileName).toBe("b.ts");
-            expect(ctrl.activeIndex).toBe(1);
+            expect(ctrl.activeGroup.activeIndex).toBe(1);
         });
 
         it("stepping deeper walks the frozen MRU stack instead of toggling two editors", () => {
             const ctrl = createEditorService();
             openThree(ctrl); // MRU: c, b, a
 
-            ctrl.cycleMru(1); // → b
+            ctrl.activeGroup.cycleMru(1); // → b
             expect(ctrl.getActiveEditor()?.fileName).toBe("b.ts");
-            ctrl.cycleMru(1); // → a (deeper, not back to c)
+            ctrl.activeGroup.cycleMru(1); // → a (deeper, not back to c)
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
-            ctrl.cycleMru(1); // → c (wrap around)
+            ctrl.activeGroup.cycleMru(1); // → c (wrap around)
             expect(ctrl.getActiveEditor()?.fileName).toBe("c.ts");
         });
 
@@ -312,7 +312,7 @@ describe("EditorService", () => {
             openThree(ctrl); // MRU: c, b, a, active c
 
             // From the top of the stack, going up wraps to the least-recent editor.
-            ctrl.cycleMru(-1);
+            ctrl.activeGroup.cycleMru(-1);
 
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
@@ -321,11 +321,11 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             openThree(ctrl); // MRU: c, b, a
 
-            ctrl.activateTab(0); // click a → MRU: a, c, b
+            ctrl.activeGroup.activateTab(0); // click a → MRU: a, c, b
             expect(mruNames(ctrl)).toEqual(["a.ts", "c.ts", "b.ts"]);
 
             // Now Ctrl+Tab from a goes to c (the next most-recent), not b (next tab).
-            ctrl.cycleMru(1);
+            ctrl.activeGroup.cycleMru(1);
             expect(ctrl.getActiveEditor()?.fileName).toBe("c.ts");
         });
 
@@ -333,11 +333,11 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             openThree(ctrl); // MRU: c, b, a
 
-            ctrl.cycleMru(1); // → b (not yet committed to MRU front)
+            ctrl.activeGroup.cycleMru(1); // → b (not yet committed to MRU front)
             // A normal activation (e.g. click) ends the cycle and commits.
-            ctrl.activateTab(1); // stay on b, but now commit → MRU: b, c, a
+            ctrl.activeGroup.activateTab(1); // stay on b, but now commit → MRU: b, c, a
 
-            ctrl.cycleMru(1); // fresh cycle from b → next most-recent is c
+            ctrl.activeGroup.cycleMru(1); // fresh cycle from b → next most-recent is c
             expect(ctrl.getActiveEditor()?.fileName).toBe("c.ts");
         });
 
@@ -346,18 +346,18 @@ describe("EditorService", () => {
             openThree(ctrl); // MRU: c, b, a
 
             // Press-release Ctrl+Tab: one step, then commit on release.
-            ctrl.cycleMru(1); // → b
-            ctrl.endMruCycle(); // release Ctrl → commit → MRU: b, c, a
+            ctrl.activeGroup.cycleMru(1); // → b
+            ctrl.activeGroup.endMruCycle(); // release Ctrl → commit → MRU: b, c, a
             expect(ctrl.getActiveEditor()?.fileName).toBe("b.ts");
             expect(mruNames(ctrl)).toEqual(["b.ts", "c.ts", "a.ts"]);
 
             // Next press-release toggles back to c, not deeper to a.
-            ctrl.cycleMru(1); // → c
-            ctrl.endMruCycle(); // MRU: c, b, a
+            ctrl.activeGroup.cycleMru(1); // → c
+            ctrl.activeGroup.endMruCycle(); // MRU: c, b, a
             expect(ctrl.getActiveEditor()?.fileName).toBe("c.ts");
 
-            ctrl.cycleMru(1); // → b again (toggle)
-            ctrl.endMruCycle();
+            ctrl.activeGroup.cycleMru(1); // → b again (toggle)
+            ctrl.activeGroup.endMruCycle();
             expect(ctrl.getActiveEditor()?.fileName).toBe("b.ts");
         });
 
@@ -366,9 +366,9 @@ describe("EditorService", () => {
             openThree(ctrl); // MRU: c, b, a
 
             // Ctrl held: repeated Tab without a release walks the frozen stack.
-            ctrl.cycleMru(1); // → b
-            ctrl.cycleMru(1); // → a
-            ctrl.endMruCycle(); // release Ctrl → commit a
+            ctrl.activeGroup.cycleMru(1); // → b
+            ctrl.activeGroup.cycleMru(1); // → a
+            ctrl.activeGroup.endMruCycle(); // release Ctrl → commit a
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
             expect(mruNames(ctrl)).toEqual(["a.ts", "c.ts", "b.ts"]);
         });
@@ -377,7 +377,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             openThree(ctrl); // MRU: c, b, a
 
-            ctrl.endMruCycle(); // nothing to commit
+            ctrl.activeGroup.endMruCycle(); // nothing to commit
             expect(mruNames(ctrl)).toEqual(["c.ts", "b.ts", "a.ts"]);
             expect(ctrl.getActiveEditor()?.fileName).toBe("c.ts");
         });
@@ -386,9 +386,9 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
 
-            ctrl.cycleMru(1);
+            ctrl.activeGroup.cycleMru(1);
 
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
 
@@ -401,7 +401,7 @@ describe("EditorService", () => {
             expect(mruNames(ctrl)).toEqual(["b.ts", "a.ts"]);
 
             // Cycling now only sees the two remaining editors.
-            ctrl.cycleMru(1);
+            ctrl.activeGroup.cycleMru(1);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
 
@@ -455,17 +455,6 @@ describe("EditorService", () => {
 
             expect(await item.save()).toBe(true);
             expect(fs.readFileSync(file, "utf8")).toBe("a\r\nb");
-        });
-    });
-
-    describe("getEditor", () => {
-        it("returns null for out-of-range indices", () => {
-            const ctrl = createEditorService();
-            ctrl.openFile(writeFile("a.ts", "a"));
-
-            expect(ctrl.getEditor(-1)).toBeNull();
-            expect(ctrl.getEditor(1)).toBeNull();
-            expect(ctrl.getEditor(0)).not.toBeNull();
         });
     });
 
@@ -563,7 +552,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
-            const [first, second] = [ctrl.getEditor(0)!, ctrl.getEditor(1)!];
+            const [first, second] = [ctrl.getEditors()[0], ctrl.getEditors()[1]];
             expect(first.viewState.wordWrap).toBe("off");
 
             ctrl.toggleWordWrap();
@@ -741,7 +730,7 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("a.ts", "const x = 1;"));
 
             // The file opened successfully through the language-resolved path.
-            expect(ctrl.editorCount).toBe(1);
+            expect(ctrl.activeGroup.editorCount).toBe(1);
             expect(ctrl.getActiveEditor()?.getText()).toBe("const x = 1;");
         });
     });
@@ -752,9 +741,9 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
 
-            ctrl.activateTab(0, { focus: false });
+            ctrl.activeGroup.activateTab(0, { focus: false });
 
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
     });
@@ -766,8 +755,8 @@ describe("EditorService", () => {
 
             ctrl.activeGroup.closeTab(99);
 
-            expect(ctrl.editorCount).toBe(1);
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.editorCount).toBe(1);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
         });
 
         it("closing a tab after the active one keeps the active index", () => {
@@ -775,13 +764,13 @@ describe("EditorService", () => {
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
             ctrl.openFile(writeFile("c.ts", "c"));
-            ctrl.activateTab(0);
+            ctrl.activeGroup.activateTab(0);
 
             // index 2 is after the active index 0 → active index is untouched.
             ctrl.activeGroup.closeTab(2);
 
-            expect(ctrl.editorCount).toBe(2);
-            expect(ctrl.activeIndex).toBe(0);
+            expect(ctrl.activeGroup.editorCount).toBe(2);
+            expect(ctrl.activeGroup.activeIndex).toBe(0);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
     });

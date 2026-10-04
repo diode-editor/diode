@@ -32,8 +32,8 @@ export interface IDiagnosticsEditor {
 
 /** Поставщик открытых редакторов для {@link DiagnosticsService}. */
 export interface IDiagnosticsEditorSource {
-    readonly editorCount: number;
-    getEditor(index: number): IDiagnosticsEditor | null;
+    /** Открытые редакторы ВСЕХ групп: маркеры ресурса нужны каждой его вкладке. */
+    getEditors(): readonly IDiagnosticsEditor[];
     getActiveEditor(): IDiagnosticsEditor | null;
     onActiveEditorChanged(listener: (editor: IDiagnosticsEditor | null) => void): IDisposable;
 }
@@ -149,14 +149,6 @@ export class DiagnosticsService extends Disposable {
     }
 
     private editorsForResource(resource: string): IDiagnosticsEditor[] {
-        const result: IDiagnosticsEditor[] = [];
-        for (let i = 0; i < this.editorSource.editorCount; i++) {
-            const editor = this.editorSource.getEditor(i);
-            /* v8 ignore start -- defensive: i is bounded by editorCount, so getEditor always returns an open editor */
-            if (editor === null) continue;
-            /* v8 ignore stop */
-            if (editor.uri.toString() === resource) result.push(editor);
-        }
-        return result;
+        return this.editorSource.getEditors().filter((editor) => editor.uri.toString() === resource);
     }
 }

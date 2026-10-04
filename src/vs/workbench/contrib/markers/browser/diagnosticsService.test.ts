@@ -59,12 +59,8 @@ class FakeEditorSource implements IDiagnosticsEditorSource {
     private active: FakeEditor | null = null;
     private listeners = new Set<(editor: IDiagnosticsEditor | null) => void>();
 
-    public get editorCount(): number {
-        return this.editors.length;
-    }
-
-    public getEditor(index: number): IDiagnosticsEditor | null {
-        return this.editors[index] ?? null;
+    public getEditors(): readonly IDiagnosticsEditor[] {
+        return this.editors;
     }
 
     public getActiveEditor(): IDiagnosticsEditor | null {

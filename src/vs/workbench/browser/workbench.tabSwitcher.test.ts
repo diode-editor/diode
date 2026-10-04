@@ -94,7 +94,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         armory.fireRelease("Control");
         h.testApp.render();
         expect(switcher.isOpen()).toBe(false);
-        expect(editorService.getMruOrder()[0]?.label).toBe("a.ts");
+        expect(editorService.activeGroup.getMruOrder()[0]?.label).toBe("a.ts");
         const frameAfter = h.testApp.backend.screenToString();
         expect(frameAfter).not.toMatch(/│\s*\S+ c\.ts.*│/);
     });
@@ -114,7 +114,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
 
         expect(switcher.isOpen()).toBe(false);
         expect(activeName()).toBe("b.ts");
-        expect(editorService.getMruOrder()[0]?.label).toBe("b.ts");
+        expect(editorService.activeGroup.getMruOrder()[0]?.label).toBe("b.ts");
     });
 
     it("повторный Ctrl+Tab серию не рвёт — цикл идёт вглубь с живым списком", () => {
@@ -151,7 +151,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
 
         // MRU-порядок при этом обновился (каждый шаг коммитится сразу): серия
         // Ctrl+Tab после визуального цикла начинает с него, а не со старого MRU.
-        expect(editorService.getMruOrder()[0]?.label).toBe("c.ts");
+        expect(editorService.activeGroup.getMruOrder()[0]?.label).toBe("c.ts");
     });
 
     it("Alt+PgDn/PgUp — дубли визуального цикла для терминалов, где Ctrl+PgDn занят", () => {

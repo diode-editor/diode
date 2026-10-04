@@ -49,7 +49,7 @@ describe("FileTree opens file in editor", () => {
 
         // File should now be open in the editor group
         const editorGroupCtrl = (workbench as unknown as { editorService: EditorService }).editorService;
-        expect(editorGroupCtrl.editorCount).toBe(1);
+        expect(editorGroupCtrl.activeGroup.editorCount).toBe(1);
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("hello.txt");
     });
 
@@ -69,7 +69,7 @@ describe("FileTree opens file in editor", () => {
         testApp.render();
 
         const editorGroupCtrl = (workbench as unknown as { editorService: EditorService }).editorService;
-        expect(editorGroupCtrl.editorCount).toBe(2);
+        expect(editorGroupCtrl.activeGroup.editorCount).toBe(2);
     });
 
     it("focus moves to editor after activating a file from the tree", () => {

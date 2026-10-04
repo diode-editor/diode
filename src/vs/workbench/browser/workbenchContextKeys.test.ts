@@ -41,7 +41,7 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
 
     const service = new WorkbenchContextKeys(
         contextKeys,
-        { editorCount: 0, groups: [], activeGroup: null, viewColumnOf: () => 1 } as unknown as EditorService,
+        { groups: [], activeGroup: { editorCount: 0 }, viewColumnOf: () => 1 } as unknown as EditorService,
         dispatcher as unknown as KeybindingDispatcher,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
         focusTracker,

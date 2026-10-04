@@ -175,7 +175,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         commands.execute(SHOW_SCM);
         await settle(0);
 
-        const panesBefore = editors.editorCount;
+        const panesBefore = editors.activeGroup.editorCount;
         activate("a.txt");
 
         const screen = await waitForScreen((s) => s.includes("a.txt ↔ HEAD"));
@@ -183,7 +183,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(screen).toMatch(/2-\s+bravo/u);
         expect(screen).toMatch(/2\+\s+XXbravo/u);
         // Ровно одна новая вкладка — дифф; файловая не открывалась (файл уже был открыт).
-        expect(editors.editorCount).toBe(panesBefore + 1);
+        expect(editors.activeGroup.editorCount).toBe(panesBefore + 1);
     });
 
     it("активация НЕоткрытого файла читает диск и открывает только дифф-вкладку", async () => {
@@ -197,7 +197,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         // Файловая вкладка b.txt не появилась — только a.txt из beforeEach и дифф.
         // fsPath не бросает на не-file схемах (дифф-вкладка несёт тот же путь) —
         // файловую вкладку отличаем схемой.
-        const panes = editors.getPanes();
+        const panes = editors.activeGroup.getPanes();
         expect(panes.filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(1);
         expect(panes.some((p) => p.uri.scheme === "file" && p.uri.fsPath === ws.path("nested/b.txt"))).toBe(false);
     });
@@ -221,7 +221,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(screen).toContain("brand new");
         expect(screen).not.toContain("↔ HEAD");
         expect(screen).not.toContain("No changes to compare");
-        expect(editors.getPanes().some((p) => p.uri.fsPath === ws.path("untracked.txt"))).toBe(true);
+        expect(editors.activeGroup.getPanes().some((p) => p.uri.fsPath === ws.path("untracked.txt"))).toBe(true);
     });
 
     it("scm.action.viewAsTree группирует по папкам, viewAsList возвращает пути", async () => {

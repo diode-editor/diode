@@ -107,7 +107,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
         await flushMicrotasks(10);
 
-        expect(group().editorCount).toBe(1);
+        expect(group().activeGroup.editorCount).toBe(1);
         expect(group().getActiveEditor()?.uri.scheme).toBe("file");
         // Каретка осталась на месте: чужие координаты в наш файл не уехали.
         expect(caret()).toMatchObject({ line: 0, character: 0 });
@@ -158,7 +158,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         await service().revealDefinition();
 
         expect(provide).toHaveBeenCalledTimes(1);
-        expect(group().editorCount).toBe(2);
+        expect(group().activeGroup.editorCount).toBe(2);
         expect(caret()).toMatchObject({ line: 2, character: 13 });
     });
 
@@ -175,7 +175,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(group().getActiveEditor()).toBeNull();
         await expect(service().revealDefinition()).resolves.toBeUndefined();
 
-        expect(group().editorCount).toBe(0);
+        expect(group().activeGroup.editorCount).toBe(0);
     });
 
     it("Ctrl+K F12 в недисковую цель открывает её в соседней группе", async () => {

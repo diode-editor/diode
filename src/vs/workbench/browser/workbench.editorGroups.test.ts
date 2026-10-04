@@ -161,8 +161,8 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[1].editorCount).toBe(2);
 
         h.commands.execute("workbench.action.focusFirstEditorGroup");
-        service().cycleMru(1);
-        service().endMruCycle();
+        service().activeGroup.cycleMru(1);
+        service().activeGroup.endMruCycle();
 
         // Активная группа не изменилась, вкладка сменилась внутри неё.
         expect(service().viewColumnOf(service().activeGroup)).toBe(1);
@@ -616,7 +616,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         );
         expect(service().groups.length).toBe(1);
         expect(service().groupOf(detached)).toBeNull();
-        expect(service().getPanes().includes(detached)).toBe(false);
+        expect(service().activeGroup.getPanes().includes(detached)).toBe(false);
     });
 
     it("контекст-ключи групп: multipleEditorGroups и activeEditorGroup*", () => {

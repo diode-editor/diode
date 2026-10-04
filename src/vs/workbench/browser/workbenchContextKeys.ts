@@ -93,7 +93,7 @@ export class WorkbenchContextKeys extends Disposable {
 
     public update(): void {
         const active = this.activeElement();
-        const editorCount = this.editorService.editorCount;
+        const editorCount = this.editorService.activeGroup.editorCount;
 
         this.contextKeys.set("textInputFocus", active instanceof EditorElement);
         // Исторически шире, чем textInputFocus: сюда попадала и рисованная

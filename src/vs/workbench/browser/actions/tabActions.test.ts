@@ -28,16 +28,12 @@ interface TabGroupStub {
     activeIndex: number;
     getPane: (index: number) => { isModified: boolean } | null;
     closeTab: (index: number) => void;
+    cycleMru?: (direction: 1 | -1) => void;
+    endMruCycle?: () => void;
 }
 
 interface GroupStub {
-    activeIndex: number;
-    editorCount: number;
-    activateTab: (index: number) => void;
-    cycleMru?: (direction: 1 | -1) => void;
     cycleEditor?: (direction: 1 | -1) => void;
-    endMruCycle?: () => void;
-    closeTab: (index: number) => void;
     /** Активная группа сервиса — цель команды, когда адреса в аргументах нет. */
     activeGroup?: TabGroupStub;
     /** Полоса групп — по ней резолвится явный адрес `(groupId, index)` из меню. */
@@ -68,11 +64,12 @@ describe("TabActions", () => {
     it("nextEditorInGroup steps forward through the MRU stack", () => {
         const cycleMru = vi.fn();
         const group: GroupStub = {
-            activeIndex: 2,
-            editorCount: 3,
-            activateTab: vi.fn(),
-            cycleMru,
-            closeTab: vi.fn(),
+            activeGroup: {
+                activeIndex: 0,
+                getPane: () => null,
+                closeTab: vi.fn(),
+                cycleMru,
+            },
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);
@@ -86,11 +83,12 @@ describe("TabActions", () => {
     it("previousEditorInGroup steps backward through the MRU stack", () => {
         const cycleMru = vi.fn();
         const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 3,
-            activateTab: vi.fn(),
-            cycleMru,
-            closeTab: vi.fn(),
+            activeGroup: {
+                activeIndex: 0,
+                getPane: () => null,
+                closeTab: vi.fn(),
+                cycleMru,
+            },
         };
 
         const { commands, keybindings, accessor } = setupActionTest(group);
@@ -121,12 +119,13 @@ describe("TabActions", () => {
         const cycleEditor = vi.fn();
         const endMruCycle = vi.fn();
         const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 3,
-            activateTab: vi.fn(),
             cycleEditor,
-            endMruCycle,
-            closeTab: vi.fn(),
+            activeGroup: {
+                activeIndex: 0,
+                getPane: () => null,
+                closeTab: vi.fn(),
+                endMruCycle,
+            },
         };
 
         const { commands, keybindings, accessor, armory } = setupActionTest(group);
@@ -149,12 +148,13 @@ describe("TabActions", () => {
     it("arms the trigger's hold modifier so releasing it commits the MRU cycle", () => {
         const endMruCycle = vi.fn();
         const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 3,
-            activateTab: vi.fn(),
-            cycleMru: vi.fn(),
-            endMruCycle,
-            closeTab: vi.fn(),
+            activeGroup: {
+                activeIndex: 0,
+                getPane: () => null,
+                closeTab: vi.fn(),
+                cycleMru: vi.fn(),
+                endMruCycle,
+            },
         };
 
         const { commands, keybindings, accessor, armory } = setupActionTest(group);
@@ -173,12 +173,13 @@ describe("TabActions", () => {
     it("does not arm a hold session when invoked without a modifier (e.g. from a menu)", () => {
         const endMruCycle = vi.fn();
         const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 3,
-            activateTab: vi.fn(),
-            cycleMru: vi.fn(),
-            endMruCycle,
-            closeTab: vi.fn(),
+            activeGroup: {
+                activeIndex: 0,
+                getPane: () => null,
+                closeTab: vi.fn(),
+                cycleMru: vi.fn(),
+                endMruCycle,
+            },
         };
 
         const { commands, keybindings, accessor, armory } = setupActionTest(group);
@@ -195,12 +196,13 @@ describe("TabActions", () => {
     it("openPreviousRecentlyUsedEditorInGroup toggles and commits the step immediately", () => {
         const calls: string[] = [];
         const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 3,
-            activateTab: vi.fn(),
-            cycleMru: (direction) => calls.push(`cycle:${String(direction)}`),
-            endMruCycle: () => calls.push("end"),
-            closeTab: vi.fn(),
+            activeGroup: {
+                activeIndex: 0,
+                getPane: () => null,
+                closeTab: vi.fn(),
+                cycleMru: (direction) => calls.push(`cycle:${String(direction)}`),
+                endMruCycle: () => calls.push("end"),
+            },
         };
 
         const { commands, keybindings, accessor, armory } = setupActionTest(group);
@@ -225,10 +227,6 @@ describe("TabActions", () => {
             getPane: () => ({ isModified: false }),
         };
         const group: GroupStub = {
-            activeIndex: 1,
-            editorCount: 3,
-            activateTab: vi.fn(),
-            closeTab: vi.fn(),
             activeGroup,
             closeEditor: closeEditorStub,
         };
@@ -257,10 +255,6 @@ describe("TabActions", () => {
             getPane: () => ({ isModified: false }),
         };
         const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 1,
-            activateTab: vi.fn(),
-            closeTab: vi.fn(),
             activeGroup,
             groups: [activeGroup, otherGroup],
             closeEditor: closeEditorStub,
@@ -285,10 +279,6 @@ describe("TabActions", () => {
             getPane: () => null,
         };
         const group: GroupStub = {
-            activeIndex: -1,
-            editorCount: 0,
-            activateTab: vi.fn(),
-            closeTab: vi.fn(),
             activeGroup,
             closeEditor: closeEditorStub,
         };
@@ -305,10 +295,6 @@ describe("TabActions", () => {
         const closeTab = vi.fn();
         const activeGroup: TabGroupStub = { id: 1, activeIndex: 0, closeTab, getPane: () => null };
         const group: GroupStub = {
-            activeIndex: 0,
-            editorCount: 0,
-            activateTab: vi.fn(),
-            closeTab: vi.fn(),
             activeGroup,
             closeEditor: closeEditorStub,
             groups: [activeGroup],

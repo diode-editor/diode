@@ -80,7 +80,7 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
         it("шаг назад идёт к предыдущей по позиции, с заворотом на последнюю", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
-            ctrl.activateTab(0);
+            ctrl.activeGroup.activateTab(0);
             ctrl.cycleEditor(-1);
             expect(activeName(ctrl)).toBe("c.ts");
         });
@@ -89,7 +89,7 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             const ctrl = createEditorService();
             openThree(ctrl);
             ctrl.cycleEditor(1); // → a
-            expect(ctrl.getMruOrder()[0]?.label).toBe("a.ts");
+            expect(ctrl.activeGroup.getMruOrder()[0]?.label).toBe("a.ts");
         });
 
         it("одна вкладка (и пустая полоса) — no-op", () => {
@@ -134,7 +134,7 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             ctrl.openFile(writeFile("b.ts"));
             ctrl.splitActiveGroup();
             ctrl.notifyGroupFocused(ctrl.groups[0]);
-            ctrl.activateTab(0); // g1:a — первая вкладка полосы
+            ctrl.activeGroup.activateTab(0); // g1:a — первая вкладка полосы
 
             ctrl.cycleEditor(-1);
 
@@ -170,7 +170,7 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             openThree(ctrl);
             const events = record(ctrl);
 
-            ctrl.cycleMru(1);
+            ctrl.activeGroup.cycleMru(1);
 
             expect(events).toHaveLength(1);
             expect(events[0]?.pointer).toBe(1);
@@ -183,8 +183,8 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             const events: (MruCycleState | null)[] = [];
             const subscription = ctrl.onDidChangeMruCycle((state) => events.push(state));
 
-            ctrl.cycleMru(1);
-            ctrl.endMruCycle();
+            ctrl.activeGroup.cycleMru(1);
+            ctrl.activeGroup.endMruCycle();
             expect(events[1]).toBeNull();
 
             const others: (MruCycleState | null)[] = [];
@@ -192,7 +192,7 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             subscription.dispose();
             // Повторный dispose безвреден и НЕ трогает чужие подписки.
             subscription.dispose();
-            ctrl.cycleMru(1);
+            ctrl.activeGroup.cycleMru(1);
             expect(events).toHaveLength(2);
             expect(others).toHaveLength(1);
         });
@@ -206,7 +206,7 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             ctrl.splitActiveGroup();
             // Активная группа — новая (g2) с [b]; докидываем вторую вкладку для цикла.
             ctrl.openFile(writeFile("c.ts"));
-            ctrl.cycleMru(1);
+            ctrl.activeGroup.cycleMru(1);
 
             expect(events.at(-1)).not.toBeNull();
             expect(events.at(-1)?.panes.map((pane) => pane.label)).toEqual(["c.ts", "b.ts"]);
@@ -219,7 +219,7 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             ctrl.notifyGroupFocused(ctrl.groups[0]);
             const events = record(ctrl);
 
-            ctrl.cycleMru(1); // серия в g1: c → b
+            ctrl.activeGroup.cycleMru(1); // серия в g1: c → b
             expect(events.at(-1)).not.toBeNull();
 
             ctrl.notifyGroupFocused(ctrl.groups[1]);
@@ -236,8 +236,8 @@ describe("EditorService — переключение вкладок (Ctrl+PgUp/P
             ctrl.notifyGroupFocused(ctrl.groups[0]);
             const events = record(ctrl);
 
-            ctrl.cycleMru(1); // серия в g1
-            ctrl.activateTab(0, { mru: true }); // остаёмся в серии, на первой вкладке полосы
+            ctrl.activeGroup.cycleMru(1); // серия в g1
+            ctrl.activeGroup.activateTab(0, { mru: true }); // остаёмся в серии, на первой вкладке полосы
             ctrl.cycleEditor(-1); // шаг назад через границу полосы — в g2
 
             // Кросс-групповой шаг завершил серию g1: последнее событие — null,

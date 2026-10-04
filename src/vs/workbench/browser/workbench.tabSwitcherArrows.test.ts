@@ -108,7 +108,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(activeName()).toBe("a.ts");
         // Выбранная стрелкой вкладка встала наверх MRU — ровно как если бы её
         // довели Tab'ом: следующая серия начинает отсчёт от неё.
-        expect(editorService.getMruOrder().map((pane) => pane.label)).toEqual(["a.ts", "c.ts", "b.ts"]);
+        expect(editorService.activeGroup.getMruOrder().map((pane) => pane.label)).toEqual(["a.ts", "c.ts", "b.ts"]);
 
         h.testApp.sendKey("Ctrl+Tab");
         armory.fireRelease("Control");
@@ -181,7 +181,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
 
         expect(switcher.isOpen()).toBe(false);
         expect(activeName()).toBe("a.ts");
-        expect(editorService.getMruOrder()[0]?.label).toBe("a.ts");
+        expect(editorService.activeGroup.getMruOrder()[0]?.label).toBe("a.ts");
     });
 
     it("после того как список погас, Ctrl+Вниз снова прокручивает редактор", () => {

@@ -875,7 +875,10 @@ hide-toggle (`isHiddenByDefault`). См.
     `onDidGroupsChange({kind: added|removed|moved})`, `onDidChangeMruCycle`
     (агрегат серий Ctrl+Tab групп — снимок замороженного MRU-списка с позицией
     цикла на каждом шаге, `null` на конце серии; питает оверлей переключателя).
-    Переключение вкладок: `cycleMru`/`endMruCycle` — MRU-серия Ctrl+Tab
+    Вкладочного фасада активной группы у сервиса нет: вкладки по позиции,
+    `activateTab` и MRU-серия Ctrl+Tab (`cycleMru`/`endMruCycle`) — у самой
+    группы (`activeGroup.*`); кому нужны все редакторы — `getEditors()` (все
+    группы). Переключение вкладок: MRU-серия — по группе
     (уход фокуса в другую группу завершает серию прежней), `cycleEditor(±1)` —
     шаг по ВИЗУАЛЬНОМУ порядку вкладок всей полосы с заворотом (VS Code
     `nextEditor`/`previousEditor`, Ctrl+PgDn/PgUp) — без hold-сессии, каждый
