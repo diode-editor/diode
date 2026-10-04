@@ -73,7 +73,7 @@ win32 — `%COMSPEC%` → `cmd.exe` (обнаружения PowerShell нет). 
 `error`), `dispose` — синхронный SIGKILL. Политику (рестарт, сброс состояния) решает владелец в слушателе
 `onDidEnd`. `splitLines(stream, onLine)` — общий построчный разбор потока. `spawnSelfAsRole(role, { stdout?,
 stderr })` — запуск себя в роли (`DIODE_FILE_WATCHER`, `DIODE_EXTENSION_HOST`): флаг роли в env, IPC-канал,
-stdio без `inherit` (типом). Пользователи — watcher-процесс (`SubprocessTreeWatcher`) и rg (`TextSearchService`).
+stdio без `inherit` (типом). Пользователи — watcher-процесс (`SubprocessTreeWatcher`) и разовый спавн rg в поиске по файлам (`services/search/node`).
 
 ## Вехи старта: `performance.ts`
 
