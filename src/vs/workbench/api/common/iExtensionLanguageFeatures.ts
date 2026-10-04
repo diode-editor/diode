@@ -20,6 +20,11 @@ import type {
 } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
 import type {
+    ICoreRenameLocation,
+    ICoreRenameResult,
+    IRenameRequest,
+} from "../../../editor/common/languages/iRenameSource.ts";
+import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -55,4 +60,7 @@ export interface IExtensionLanguageFeaturesBridge {
         request: IInlineCompletionRequest,
         token: ICancellationToken,
     ): Promise<readonly ICoreInlineCompletionItem[]>;
+    prepareRename(handle: number, request: IRenameRequest): Promise<ICoreRenameLocation | null>;
+    /** Правки накладывает сам субпроцесс (`workspace.applyEdit`) — сюда едет только исход. */
+    provideRenameEdits(handle: number, request: IRenameRequest, newName: string): Promise<ICoreRenameResult>;
 }

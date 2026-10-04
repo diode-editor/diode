@@ -30,6 +30,8 @@ import {
 import type {
     IWireCodeActionParams,
     IWireFormattingParams,
+    IWirePrepareRenameParams,
+    IWireRenameParams,
     IWireLanguageProviderMetadata,
     IWireSignatureHelpParams,
     WireCodeAction,
@@ -42,6 +44,8 @@ import type {
     WireLanguageFeatureKind,
     WireMarker,
     WireReference,
+    WireRenamePrepare,
+    WireRenameResult,
     WireResolvedCompletionItem,
     WireTextEdit,
 } from "./wireTypes.ts";
@@ -117,6 +121,12 @@ export interface IFoldingRegistration {
 export interface IDefinitionRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DefinitionProvider;
+}
+
+/** Зарегистрированный rename-провайдер. */
+export interface IRenameRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.RenameProvider;
 }
 
 /** Зарегистрированный hover-провайдер. */
@@ -311,6 +321,48 @@ function serializeDefinitionLocation(item: unknown): WireDefinitionLocation | nu
     if (loc.uri == null) return null;
     const range = serializeDefinitionRange(loc.range);
     return range === null ? null : { uri: uriText(loc.uri), range };
+}
+
+/**
+ * Сериализует ответ `prepareRename`: либо голый `Range`, либо
+ * `{ range, placeholder }`. Placeholder, которого провайдер не прислал,
+ * добирается текстом самого диапазона — ровно как обещает эталон («when
+ * omitted the text in the returned range is used»); подстановка живёт здесь,
+ * потому что документ есть только у субпроцесса. `null` — форма не распознана
+ * (ядро спросит следующего провайдера).
+ */
+function serializeRenamePrepare(raw: unknown, doc: ExtHostTextDocument): WireRenamePrepare | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const holder = raw as { range?: unknown; placeholder?: unknown };
+    // Голый `Range` от `{range, placeholder}` отличает наличие поля `range`:
+    // у самого Range его нет.
+    const rangeSource = holder.range === undefined ? raw : holder.range;
+    const range = serializeDefinitionRange(rangeSource);
+    if (range === null) return null;
+    if (typeof holder.placeholder === "string" && holder.placeholder !== "") {
+        return { placeholder: holder.placeholder };
+    }
+    const text = doc.getText(
+        new Range(
+            new Position(range.startLine, range.startCharacter),
+            new Position(range.endLine, range.endCharacter),
+        ) as unknown as vscode.Range,
+    );
+    // Пустой диапазон не даёт имени: отвечаем «сказать нечего», и слово под
+    // кареткой доберёт ядро.
+    return text === "" ? null : { placeholder: text };
+}
+
+/**
+ * Текст отклонения промиса провайдера для показа человеку. `Error` несёт
+ * `message`, но провайдер вправе отклонить промис чем угодно — включая строку
+ * и `undefined` (у отказа без причины остаётся родовое сообщение).
+ */
+function renameRejectReason(error: unknown): string {
+    if (typeof error === "string" && error !== "") return error;
+    const message = (error as { message?: unknown } | null | undefined)?.message;
+    if (typeof message === "string" && message !== "") return message;
+    return "Rename failed";
 }
 
 /**
@@ -724,6 +776,7 @@ export function createLanguagesNamespace(
     const codeActionProviders = new Map<number, ICodeActionRegistration>();
     const foldingProviders = new Map<number, IFoldingRegistration>();
     const inlineCompletionProviders = new Map<number, IInlineCompletionRegistration>();
+    const renameProviders = new Map<number, IRenameRegistration>();
     let nextProviderHandle = 0;
 
     /**
@@ -940,6 +993,82 @@ export function createLanguagesNamespace(
             if (wire !== null) references.push(wire);
         }
         return references;
+    });
+
+    /**
+     * Документ и позиция запроса rename. Обе ручки (`prepareRename` /
+     * `provideRenameEdits`) принимают одну и ту же форму параметров, поэтому
+     * синхронизация документа живёт одним хелпером.
+     */
+    function syncRenameTarget(p: IWirePrepareRenameParams): { doc: ExtHostTextDocument; position: Position } {
+        const doc: ExtHostTextDocument = documentSync.sync({
+            uri: p.uri,
+            // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
+            ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
+            text: p.text ?? "",
+        });
+        return { doc, position: new Position(p.line ?? 0, p.character ?? 0) };
+    }
+
+    rpc.handleRequest("languages.prepareRename", async (params): Promise<WireRenamePrepare | null> => {
+        const p = params as IWirePrepareRenameParams;
+        // Провайдер мог сняться, пока запрос летел: «сказать нечего».
+        const reg = renameProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
+        const prepare = reg.provider.prepareRename?.bind(reg.provider);
+        // Провайдер без `prepareRename` — не отказ: эталон в этом случае
+        // переименовывает слово под кареткой, а что считать словом — решает
+        // ядро (у него есть текст и своя классификация символов).
+        if (prepare === undefined) return null;
+        const { doc, position } = syncRenameTarget(p);
+        let result: unknown;
+        try {
+            result = await Promise.resolve(
+                prepare(
+                    doc as unknown as vscode.TextDocument,
+                    position as unknown as vscode.Position,
+                    neverCancelledToken(),
+                ),
+            );
+        } catch (error) {
+            // «Здесь переименовывать нельзя» эталон выражает именно отказом
+            // промиса — это ответ провайдера, а не сбой, и причина едет человеку.
+            return { rejectReason: renameRejectReason(error) };
+        }
+        if (result == null) return null;
+        return serializeRenamePrepare(result, doc);
+    });
+
+    rpc.handleRequest("languages.provideRenameEdits", async (params): Promise<WireRenameResult> => {
+        const p = params as IWireRenameParams;
+        // Провайдер мог сняться, пока запрос летел: «правок нет».
+        const reg = renameProviders.get(p.handle ?? -1);
+        if (reg === undefined) return { applied: false };
+        const { newName } = p;
+        if (typeof newName !== "string" || newName === "") {
+            return { applied: false, error: "Rename requires a new name" };
+        }
+        const { doc, position } = syncRenameTarget(p);
+        let edit: unknown;
+        try {
+            edit = await Promise.resolve(
+                reg.provider.provideRenameEdits(
+                    doc as unknown as vscode.TextDocument,
+                    position as unknown as vscode.Position,
+                    newName,
+                    neverCancelledToken(),
+                ),
+            );
+        } catch (error) {
+            // Отклонённый промис — штатный канал «имя невалидно» эталона («If
+            // the given name is not valid, the provider must return a rejected
+            // promise»): сообщение провайдера едет человеку.
+            return { applied: false, error: renameRejectReason(error) };
+        }
+        // Не-правки от провайдера («нет результата») — ядро спросит следующего.
+        if (!(edit instanceof WorkspaceEdit)) return { applied: false };
+        const ok = await codeActionDeps.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+        return ok ? { applied: true } : { applied: false, error: "Rename failed to apply edits" };
     });
 
     // Форматирование (#196): один RPC на оба вида — с `range` зовётся
@@ -1491,6 +1620,10 @@ export function createLanguagesNamespace(
             selector: vscode.DocumentSelector,
             provider: vscode.ReferenceProvider,
         ): vscode.Disposable => registerByHandle(referenceProviders, "references", selector, { selector, provider }),
+        registerRenameProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.RenameProvider,
+        ): vscode.Disposable => registerByHandle(renameProviders, "rename", selector, { selector, provider }),
 
         registerSignatureHelpProvider: (
             selector: vscode.DocumentSelector,
@@ -1548,7 +1681,6 @@ export function createLanguagesNamespace(
         registerDocumentLinkProvider: registerNoopProvider,
         registerColorProvider: registerNoopProvider,
         registerOnTypeFormattingEditProvider: registerNoopProvider,
-        registerRenameProvider: registerNoopProvider,
         registerSelectionRangeProvider: registerNoopProvider,
         registerDocumentSemanticTokensProvider: registerNoopProvider,
         registerDocumentRangeSemanticTokensProvider: registerNoopProvider,

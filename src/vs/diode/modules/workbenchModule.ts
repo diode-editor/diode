@@ -187,6 +187,7 @@ import {
     ReferencesService,
     ReferencesServiceDIToken,
 } from "../../workbench/contrib/references/browser/referencesService.ts";
+import { RenameService, RenameServiceDIToken } from "../../workbench/contrib/rename/browser/renameService.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
 import { CommandOriginalResourceProvider } from "../../workbench/contrib/scm/browser/commandOriginalResourceProvider.ts";
@@ -422,6 +423,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // (references-провайдеры реестра → текст строк → панель).
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
     container.bind(ReferencesServiceDIToken, ReferencesService);
+    // Rename Symbol: сервис поверх реестра rename-провайдеров (поле нового
+    // имени — quick input, правки накладывает провайдер через workspace.applyEdit).
+    container.bind(RenameServiceDIToken, RenameService);
     // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.
     // Он же IJumpRecorder — шов, которым сайты прыжков сообщают о переходе.
     container.bind(HistoryEditorSourceDIToken, () => container.get(EditorServiceDIToken));
