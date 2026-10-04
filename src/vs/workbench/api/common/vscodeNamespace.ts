@@ -7,6 +7,7 @@ import { UI_LOCALE } from "../../../platform/environment/common/uiLocale.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
+import type { IExtHostDisk } from "./extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
@@ -124,13 +125,14 @@ export interface IVscodeHost {
  * Все мутирующие действия проксируются хосту как RPC-запросы; прямой ссылки на
  * host-сервисы у `vscode`-неймспейса нет.
  */
-export function buildVscodeNamespace(rpc: RpcEndpoint): IVscodeHost {
+export function buildVscodeNamespace(rpc: RpcEndpoint, disk: IExtHostDisk): IVscodeHost {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc,
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk,
     };
 
     const window = createWindowNamespace(ctx);

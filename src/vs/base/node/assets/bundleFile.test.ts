@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { packBundle } from "../../common/assets/assetBundleFormat.ts";
+import { BundleAssetAccess } from "../../common/assets/bundleAssetAccess.ts";
 
-import { packBundle } from "./assetBundleFormat.ts";
-import { BundleAssetAccess } from "./bundleAssetAccess.ts";
 import { bundleFileExists, bundleFilePath, readBundleFile, tryReadBundleFile } from "./bundleFile.ts";
 
 const ONIG = new Uint8Array([0x00, 0x61, 0x73, 0x6d]);

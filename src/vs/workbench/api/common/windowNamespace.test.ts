@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
 import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
@@ -27,6 +28,7 @@ function makeCtx() {
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk: createNodeExtHostDisk(),
     };
     return { stub, ctx, window: createWindowNamespace(ctx) };
 }

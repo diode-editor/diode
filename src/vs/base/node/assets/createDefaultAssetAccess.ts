@@ -3,9 +3,9 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BundleAssetAccess } from "../../common/assets/bundleAssetAccess.ts";
-import { BUNDLE_FILE_NAME, tryReadBundleFile } from "../../common/assets/bundleFile.ts";
 import type { IAssetAccess } from "../../common/assets/iAssetAccess.ts";
 
+import { BUNDLE_FILE_NAME, tryReadBundleFile } from "./bundleFile.ts";
 import { FsAssetAccess } from "./fsAssetAccess.ts";
 import { entryDir } from "./packagedRuntime.ts";
 

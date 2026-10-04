@@ -1,4 +1,3 @@
-import * as nodeFs from "node:fs/promises";
 import * as path from "node:path";
 
 import { matchAnyGlob, matchGlob } from "../../../base/common/glob.ts";
@@ -6,14 +5,15 @@ import { matchAnyGlob, matchGlob } from "../../../base/common/glob.ts";
 /**
  * `vscode.workspace.findFiles` на стороне subprocess.
  *
- * Как и `workspace.fs`, идёт **прямо в `node:fs`**, а не через RPC: дерево живёт
+ * Как и `workspace.fs`, идёт **прямо на диск субпроцесса**, а не через RPC: дерево живёт
  * на той же машине, и обход в субпроцессе — не компромисс, а правильное место.
  * Главный цикл редактора уже однажды голодал из-за рекурсивного обхода
  * (`files.watcherExclude`, вынос watcher'а в отдельный процесс), а `redhat.java`
  * зовёт `findFiles` около десяти раз подряд на одной активации.
  *
  * Логика обхода отделена от ФС интерфейсом {@link IFindFilesScanner} — так
- * бюджет, исключения и матчинг проверяются на карте каталогов в памяти.
+ * бюджет, исключения и матчинг проверяются на карте каталогов в памяти;
+ * настоящая ФС — `createNodeFindFilesScanner` в `api/node/extHostDisk.ts`.
  */
 
 /** Запись каталога: имени и признака каталога обходу достаточно. */
@@ -132,22 +132,4 @@ export async function findFiles(
 function maxGlobDepth(glob: string): number {
     if (glob.includes("**")) return Number.POSITIVE_INFINITY;
     return glob.split("/").length - 1;
-}
-
-/**
- * {@link IFindFilesScanner} поверх настоящей ФС. Ошибки глотает по контракту
- * интерфейса; симлинки на каталоги не раскрываются (`Dirent.isDirectory()` у
- * симлинка ложный) — обход не зацикливается.
- */
-export function createNodeFindFilesScanner(): IFindFilesScanner {
-    return {
-        readDirectory: async (absolutePath: string): Promise<readonly IFindFilesEntry[]> => {
-            try {
-                const entries = await nodeFs.readdir(absolutePath, { withFileTypes: true });
-                return entries.map((entry) => ({ name: entry.name, isDirectory: entry.isDirectory() }));
-            } catch {
-                return [];
-            }
-        },
-    };
 }

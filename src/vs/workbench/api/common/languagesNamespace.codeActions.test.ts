@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace, type ICodeActionDeps } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
@@ -27,6 +29,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk: createNodeExtHostDisk(),
     };
     const appliedEdits: vscode.WorkspaceEdit[] = [];
     const executed: { command: string; args: unknown[] }[] = [];
@@ -453,6 +456,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
             registry,
             documentSync: new DocumentSyncTracker(registry),
             configStore: new WorkspaceConfigStore(),
+            disk: createNodeExtHostDisk(),
         });
         const withEdit = editAction("Fix", "quickfix");
         const withCommand = { title: "Bare", command: "test.bare" } as unknown as vscode.CodeAction;

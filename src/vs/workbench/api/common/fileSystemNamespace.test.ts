@@ -4,20 +4,20 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-    createFileSystemNamespace,
-    fileTypeFromStats,
-    SubprocessFileSystemProviders,
-    toFileSystemError,
-} from "./fileSystemNamespace.ts";
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
+import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { FileSystemError, FileType, Uri } from "./vscodeTypes.ts";
 
-const wfs = createFileSystemNamespace();
+/** Роутер поверх настоящего диска субпроцесса — так, как его собирает `workspaceNamespace`. */
+const disk = (): ReturnType<typeof createNodeExtHostDisk>["fs"] => createNodeExtHostDisk().fs;
+let wfs: ReturnType<typeof createFileSystemNamespace>;
 const uri = (p: string) => Uri.file(p) as never;
 
 let tmpDir: string;
 
 beforeEach(() => {
+    wfs = createFileSystemNamespace(disk());
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-wfs-"));
 });
 
@@ -77,40 +77,6 @@ describe("FileSystemNamespace — writeFile errors", () => {
         const asFile = path.join(tmpDir, "afile");
         fs.writeFileSync(asFile, "x");
         await expect(wfs.writeFile(uri(path.join(asFile, "child.txt")), Buffer.from("y"))).rejects.toThrow();
-    });
-});
-
-describe("fileTypeFromStats", () => {
-    const kind = (which: "file" | "dir" | "link" | "none") => ({
-        isFile: () => which === "file",
-        isDirectory: () => which === "dir",
-        isSymbolicLink: () => which === "link",
-    });
-    it("маппит File/Directory/SymbolicLink/Unknown", () => {
-        expect(fileTypeFromStats(kind("file"))).toBe(FileType.File);
-        expect(fileTypeFromStats(kind("dir"))).toBe(FileType.Directory);
-        expect(fileTypeFromStats(kind("link"))).toBe(FileType.SymbolicLink);
-        expect(fileTypeFromStats(kind("none"))).toBe(FileType.Unknown);
-    });
-});
-
-describe("toFileSystemError — маппинг errno", () => {
-    const u = uri("/x");
-    it("ENOENT → FileNotFound", () => {
-        expect(toFileSystemError({ code: "ENOENT" }, u)).toMatchObject({ code: "FileNotFound" });
-    });
-    it("EEXIST → FileExists", () => {
-        expect(toFileSystemError({ code: "EEXIST" }, u)).toMatchObject({ code: "FileExists" });
-    });
-    it("EACCES / EPERM → NoPermissions", () => {
-        expect(toFileSystemError({ code: "EACCES" }, u)).toMatchObject({ code: "NoPermissions" });
-        expect(toFileSystemError({ code: "EPERM" }, u)).toMatchObject({ code: "NoPermissions" });
-    });
-    it("неизвестный код и не-errno пробрасываются как есть", () => {
-        const other = new Error("boom");
-        expect(toFileSystemError(other, u)).toBe(other);
-        expect(toFileSystemError({ code: "EISDIR" }, u)).toEqual({ code: "EISDIR" });
-        expect(toFileSystemError(null, u)).toBeNull();
     });
 });
 
@@ -177,20 +143,20 @@ describe("SubprocessFileSystemProviders", () => {
     it("readFile уходит провайдеру зарегистрированной схемы", async () => {
         const providers = new SubprocessFileSystemProviders();
         providers.register("git", provider("оригинал") as never);
-        const ns = createFileSystemNamespace(providers);
+        const ns = createFileSystemNamespace(disk(), providers);
 
         expect(new TextDecoder().decode(await ns.readFile(gitUri))).toBe("оригинал");
     });
 
     it("незарегистрированная схема по-прежнему получает Unavailable", async () => {
-        const ns = createFileSystemNamespace(new SubprocessFileSystemProviders());
+        const ns = createFileSystemNamespace(disk(), new SubprocessFileSystemProviders());
         await expect(ns.readFile(gitUri)).rejects.toMatchObject({ code: "Unavailable" });
     });
 
     it("схема file идёт на диск даже при наличии провайдеров", async () => {
         const providers = new SubprocessFileSystemProviders();
         providers.register("git", provider("не отсюда") as never);
-        const ns = createFileSystemNamespace(providers);
+        const ns = createFileSystemNamespace(disk(), providers);
 
         const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diode-fsns-")), "real.txt");
         fs.writeFileSync(file, "с диска");
@@ -207,7 +173,7 @@ describe("SubprocessFileSystemProviders", () => {
     it("снятие регистрации освобождает схему", async () => {
         const providers = new SubprocessFileSystemProviders();
         providers.register("git", provider("a") as never).dispose();
-        const ns = createFileSystemNamespace(providers);
+        const ns = createFileSystemNamespace(disk(), providers);
 
         expect(providers.get("git")).toBeUndefined();
         await expect(ns.readFile(gitUri)).rejects.toMatchObject({ code: "Unavailable" });

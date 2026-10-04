@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
@@ -15,6 +17,7 @@ function makeLanguages(stub: IStubRpc = makeStubRpc()) {
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk: createNodeExtHostDisk(),
     };
     return { stub, languages: createLanguagesNamespace(ctx).languages };
 }

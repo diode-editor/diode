@@ -2,7 +2,7 @@ import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { createNodeFindFilesScanner, findFiles, type IFindFilesEntry, type IFindFilesScanner } from "./findFiles.ts";
+import { findFiles, type IFindFilesEntry, type IFindFilesScanner } from "./findFiles.ts";
 
 /**
  * Обход по карте каталогов в памяти: ключ — абсолютный путь, значение — записи.
@@ -218,19 +218,5 @@ describe("findFiles — границы результата", () => {
         );
         expect(found).toEqual(["pom.xml"]);
         expect(scanner.reads).toEqual([ROOT]);
-    });
-});
-
-describe("createNodeFindFilesScanner", () => {
-    it("читает настоящий каталог и различает файлы и папки", async () => {
-        const scanner = createNodeFindFilesScanner();
-        const entries = await scanner.readDirectory(path.resolve(import.meta.dirname));
-        const self = entries.find((e) => e.name === "findFiles.test.ts");
-        expect(self).toEqual({ name: "findFiles.test.ts", isDirectory: false });
-    });
-
-    it("недоступный каталог — пустой список, а не исключение", async () => {
-        const scanner = createNodeFindFilesScanner();
-        await expect(scanner.readDirectory(path.join(ROOT, "нет-такого-каталога"))).resolves.toEqual([]);
     });
 });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
+import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
+
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -30,6 +32,7 @@ function makeCtx(requestResult?: unknown) {
         registry,
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
+        disk: createNodeExtHostDisk(),
     };
     return { stub, registry, window: createWindowNamespace(ctx) };
 }

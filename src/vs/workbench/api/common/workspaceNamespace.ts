@@ -1,4 +1,3 @@
-import * as nodeFs from "node:fs/promises";
 import * as nodePath from "node:path";
 
 import type * as vscode from "vscode";
@@ -10,7 +9,7 @@ import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
-import { createNodeFindFilesScanner, findFiles as walkForFiles } from "./findFiles.ts";
+import { findFiles as walkForFiles } from "./findFiles.ts";
 import { stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
@@ -42,9 +41,6 @@ import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 /** Тайм-аут на один waitUntil-thenable участника will-save, мс. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
-
-/** Обход дерева для `findFiles` — один на субпроцесс (состояния у него нет). */
-const findFilesScanner = createNodeFindFilesScanner();
 
 /**
  * Базы, по которым идёт `findFiles`, и шаблон относительно каждой.
@@ -541,7 +537,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // из options побеждает BOM-сниф; неизвестный id по контракту vscode.d.ts
         // молча откатывается к дефолтному пути (BOM-сниф → utf-8). EOL для
         // эфемерного документа детектим из текста — как делает ядро.
-        const buffer = await nodeFs.readFile(uri.fsPath);
+        const buffer = await ctx.disk.readFile(uri.fsPath);
         const { text, encoding } = decodeBuffer(buffer, options?.encoding);
         return makeEphemeralDocument(uri, text, encoding) as unknown as vscode.TextDocument;
     }
@@ -573,8 +569,8 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             return registry.all() as unknown as readonly vscode.TextDocument[];
         },
 
-        // workspace.fs — локальный доступ к диску через node:fs (без RPC).
-        fs: createFileSystemNamespace(fsProviders),
+        // workspace.fs — локальный доступ к диску субпроцесса (без RPC).
+        fs: createFileSystemNamespace(ctx.disk.fs, fsProviders),
 
         registerFileSystemProvider: (scheme: string, provider: vscode.FileSystemProvider): vscode.Disposable => {
             const registration = fsProviders.register(scheme, provider);
@@ -668,7 +664,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             // нулевом остатке, а вторая проверка того же условия — лишний шов.
             for (const resolved of findFilesBases(include, workspaceFolders)) {
                 const relativePaths = await walkForFiles(
-                    findFilesScanner,
+                    ctx.disk.findFilesScanner,
                     {
                         base: resolved.base,
                         include: resolved.pattern,

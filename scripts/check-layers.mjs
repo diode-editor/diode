@@ -139,15 +139,8 @@ const ALLOWED_NODE_BUILTINS = new Set(["node:path"]);
  * docs/TODO/FileService.md, §8.
  */
 const NODE_IMPORT_DEBT = [
-    // Чтение бандла ассетов; оба импортёра — из base/node/assets → переезд туда (PR 6).
-    ["src/vs/base/common/assets/bundleFile.ts", "node:fs"],
     // Идентичность воркспейса — sha256 пути; вне файлового сервиса.
     ["src/vs/platform/workspace/common/workspaceId.ts", "node:crypto"],
-    // Extension host: vscode.workspace.fs / findFiles / openTextDocument прямо на диск
-    // из субпроцесса (как у эталона), раскладка → api/node (PR 6).
-    ["src/vs/workbench/api/common/fileSystemNamespace.ts", "node:fs/promises"],
-    ["src/vs/workbench/api/common/findFiles.ts", "node:fs/promises"],
-    ["src/vs/workbench/api/common/workspaceNamespace.ts", "node:fs/promises"],
     // Extension host: env.machineId и т.п.; вне файлового сервиса.
     ["src/vs/workbench/api/common/vscodeNamespace.ts", "node:crypto"],
     // Рестор вкладок и история навигации проверяют существование файла синхронно:
