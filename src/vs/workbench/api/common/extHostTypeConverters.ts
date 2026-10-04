@@ -177,6 +177,7 @@ export function serializeDecorationRenderOptions(options: unknown): SerializedDe
  * её `value`. Слепой `String()` дал бы здесь «[object Object]» в маркере.
  */
 function messageText(message: unknown): string {
+    // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный — без этой ветки строка уходит в последний `toString()`, а он у строки возвращает её саму; ветка — для типов и читателя
     if (typeof message === "string") return message;
     if (message === undefined || message === null) return "";
     if (typeof message === "object") {
@@ -463,6 +464,7 @@ export function stripSnippetPlaceholders(value: string): string {
             // `split(",", 1).join("")` вместо `[0]`: даёт первый вариант без ветки
             // «а вдруг массив пуст» (её не бывает, а покрытие требовало бы теста).
             .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) =>
+                // Stryker disable next-line StringLiteral: эквивалентный разделитель `join` — `split(…, 1)` всегда даёт ровно один элемент, склеивать нечего; подмена разделителя `split` закрыта тестом «${1|foo,bar|}»
                 choices.split(",", 1).join(""),
             )
             .replace(/\$\{\d+:([^}]*)\}/g, "$1")
@@ -596,7 +598,11 @@ export function serializeTextEdit(edit: unknown): IWireEditorEdit | null {
 export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | null {
     const start = (range as { start?: unknown }).start;
     const end = (range as { end?: unknown }).end;
+    // Клауза typeof — для сужения типа: не-число и так не проходит
+    // `Number.isFinite`, так что её подмена на `false` эквивалентна.
+    // Stryker disable next-line ConditionalExpression: см. выше
     if (typeof start !== "number" || !Number.isFinite(start)) return null;
+    // Stryker disable next-line ConditionalExpression: см. выше
     if (typeof end !== "number" || !Number.isFinite(end)) return null;
     const kind = (range as { kind?: unknown }).kind;
     return {

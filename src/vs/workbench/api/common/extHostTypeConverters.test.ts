@@ -4,9 +4,11 @@ import type * as vscode from "vscode";
 import {
     normalizeDecorationRanges,
     rangeFrom,
+    readDocumentation,
     serializeColor,
     serializeCompletionItem,
     serializeDecorationRenderOptions,
+    serializeFoldingRange,
     serializeTextEdit,
     serializeWillSaveTextEdit,
     serializeWorkspaceEdit,
@@ -111,6 +113,17 @@ describe("stripSnippetPlaceholders", () => {
         expect(stripSnippetPlaceholders("cost: \\$5")).toBe("cost: $5");
     });
 
+    it("многозначные индексы табстопов разбираются целиком", () => {
+        expect(stripSnippetPlaceholders("f(${10:x})")).toBe("f(x)");
+        expect(stripSnippetPlaceholders("f(${12})")).toBe("f()");
+        expect(stripSnippetPlaceholders("f($12)")).toBe("f()");
+        expect(stripSnippetPlaceholders("if ${10|a,b|} then")).toBe("if a then");
+    });
+
+    it("выбор из нескольких вариантов — первый вариант целиком", () => {
+        expect(stripSnippetPlaceholders("${1|foo,bar|}")).toBe("foo");
+    });
+
     it("пустой список вариантов не ломает разбор", () => {
         expect(stripSnippetPlaceholders("x${1||}y")).toBe("xy");
     });
@@ -130,6 +143,7 @@ describe("декорации", () => {
             expect(serializeColor(undefined)).toBeUndefined();
             expect(serializeColor(42)).toBeUndefined();
             expect(serializeColor({ nope: 1 })).toBeUndefined();
+            expect(serializeColor(null)).toBeUndefined();
         });
     });
 
@@ -157,6 +171,17 @@ describe("декорации", () => {
             expect(serializeDecorationRenderOptions(undefined)).toEqual({});
             expect(serializeDecorationRenderOptions(null)).toEqual({});
             expect(serializeDecorationRenderOptions({ isWholeLine: "yes" })).toEqual({});
+        });
+        it("отсутствующие и кривые поля — без ключа, а не ключом с undefined", () => {
+            expect(serializeDecorationRenderOptions({})).toStrictEqual({});
+            expect(
+                serializeDecorationRenderOptions({
+                    overviewRulerLane: "1",
+                    backgroundColor: 1,
+                    color: null,
+                    overviewRulerColor: { nope: 1 },
+                }),
+            ).toStrictEqual({});
         });
     });
 });
@@ -199,6 +224,14 @@ describe("toWireEditRange", () => {
         expect(toWireEditRange(new Position(2, 3))).toStrictEqual(point);
         const halfRange = { line: 2, character: 3, start: { line: 9, character: 9 } };
         expect(toWireEditRange(halfRange as unknown as vscode.Position)).toStrictEqual(point);
+    });
+
+    it("объект с end, но без start — тоже позиция, а не битый диапазон", () => {
+        const halfRange = { line: 2, character: 3, end: { line: 9, character: 9 } };
+        expect(toWireEditRange(halfRange as unknown as vscode.Position)).toStrictEqual({
+            start: { line: 2, character: 3 },
+            end: { line: 2, character: 3 },
+        });
     });
 
     it("битый диапазон — null", () => {
@@ -309,6 +342,70 @@ describe("serializeCompletionItem — диапазон замены", () => {
     });
 });
 
+describe("serializeCompletionItem — границы полей", () => {
+    function serialize(fields: Record<string, unknown>): unknown {
+        const item = new CompletionItem("x");
+        Object.assign(item, fields);
+        return serializeCompletionItem(item as unknown as vscode.CompletionItem, "1.0");
+    }
+
+    it("отсутствующие поля — без ключей, а не ключами с undefined", () => {
+        expect(serialize({})).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
+        expect(serialize({ label: { label: "x" } })).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
+    });
+
+    it("поля чужого типа — без ключей", () => {
+        expect(
+            serialize({
+                label: { label: "x", detail: 1, description: 2 },
+                detail: 3,
+                documentation: { value: 4 },
+                sortText: 5,
+                filterText: 6,
+            }),
+        ).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
+    });
+
+    it("label: null и CompletionItemLabel с нестроковым label — пункт отбрасывается", () => {
+        expect(serialize({ label: null })).toBeNull();
+        expect(serialize({ label: { label: 5 } })).toBeNull();
+    });
+
+    it("label, сменивший форму между чтениями (геттер), — без labelDetail, а не TypeError", () => {
+        for (const second of [null, undefined]) {
+            const item = new CompletionItem("x");
+            const reads: unknown[] = [{ label: "x" }, second];
+            Object.defineProperty(item, "label", { get: () => reads.shift() });
+            expect(serializeCompletionItem(item as unknown as vscode.CompletionItem, "1.0")).toStrictEqual({
+                label: "x",
+                insertText: "x",
+                id: "1.0",
+            });
+        }
+    });
+
+    it("insertText: null — вставляется label", () => {
+        expect(serialize({ insertText: null })).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
+    });
+
+    it("readDocumentation: null и MarkdownString с нестроковым value — undefined", () => {
+        const item = new CompletionItem("x");
+        (item as { documentation?: unknown }).documentation = null;
+        expect(readDocumentation(item as unknown as vscode.CompletionItem)).toBeUndefined();
+        (item as { documentation?: unknown }).documentation = { value: 1 };
+        expect(readDocumentation(item as unknown as vscode.CompletionItem)).toBeUndefined();
+    });
+});
+
+describe("serializeFoldingRange", () => {
+    it("не конечная граница (NaN, Infinity) — null", () => {
+        for (const bad of [NaN, Infinity]) {
+            expect(serializeFoldingRange({ start: bad, end: 1 } as vscode.FoldingRange)).toBeNull();
+            expect(serializeFoldingRange({ start: 0, end: bad } as vscode.FoldingRange)).toBeNull();
+        }
+    });
+});
+
 describe("правки текста", () => {
     it("serializeTextEdit: утиная правка → правка провода; диапазон разворачивается", () => {
         expect(serializeTextEdit({ range: REVERSED, newText: "x" })).toStrictEqual({ range: RANGE, text: "x" });
@@ -318,6 +415,8 @@ describe("правки текста", () => {
     it("serializeTextEdit: чужая форма — null", () => {
         expect(serializeTextEdit(null)).toBeNull();
         expect(serializeTextEdit("edit")).toBeNull();
+        // Функция с полями правки — не объект правки, хоть поля у неё и читаются.
+        expect(serializeTextEdit(Object.assign(() => undefined, { range: FOREIGN, newText: "x" }))).toBeNull();
         expect(serializeTextEdit({ range: SHAPELESS, newText: "x" })).toBeNull();
         expect(serializeTextEdit({ range: FOREIGN, newText: 1 })).toBeNull();
     });
