@@ -6,7 +6,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CodeAction, CodeActionKind, CompletionItem, Range, TextEdit } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
@@ -29,6 +29,7 @@ function setup(): { languages: typeof vscode.languages; stub: IStubRpc } {
         documentSync: new DocumentSyncTracker(registry, () => undefined),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: "greet(name)\n" });
     return { languages: createLanguagesNamespace(ctx).languages, stub };

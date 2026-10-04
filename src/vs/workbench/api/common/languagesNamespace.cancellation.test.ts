@@ -10,7 +10,7 @@ import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { RpcEndpoint, TimeoutError } from "./rpcEndpoint.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CancellationError, CodeAction } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
@@ -33,6 +33,7 @@ function makeCtx(rpc: SubprocessRpc): IVscodeHostContext {
         documentSync: new DocumentSyncTracker(registry, () => undefined),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     ctx.documentSync.open({ ...DOC, text: "a.b\n" });
     return ctx;

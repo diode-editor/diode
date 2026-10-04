@@ -9,7 +9,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CompletionItem, CompletionList, MarkdownString, Range, SnippetString, TextEdit } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
@@ -34,6 +34,7 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     ctx.documentSync.open({ uri: REQ.uri, languageId: REQ.languageId, version: REQ.version, text: "d." });
     return { ctx, stub };

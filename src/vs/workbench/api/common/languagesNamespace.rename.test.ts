@@ -6,7 +6,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace, type ICodeActionDeps } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { Position, Range, TextEdit, Uri, WorkspaceEdit } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
@@ -28,6 +28,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         documentSync: new DocumentSyncTracker(registry, () => undefined),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     const appliedEdits: vscode.WorkspaceEdit[] = [];
     const { languages } = createLanguagesNamespace(ctx, {

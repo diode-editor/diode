@@ -10,7 +10,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { RelativePattern, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
@@ -60,6 +60,7 @@ function makeWorkspace(
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     const workspace = createWorkspaceNamespace(ctx);
     stub.fire("workspace.initialize", {

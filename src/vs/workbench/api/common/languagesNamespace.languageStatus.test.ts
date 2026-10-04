@@ -5,7 +5,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import type { IVscodeHostContext } from "./vscodeHostContext.ts";
+import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 // Наивный language status item: в UI не проецируется, но обязан быть честным
@@ -20,6 +20,7 @@ function makeLanguages(): ReturnType<typeof createLanguagesNamespace>["languages
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
+        owner: new ExtensionOwner(),
     };
     return createLanguagesNamespace(ctx, {
         applyEdit: () => Promise.resolve(false),

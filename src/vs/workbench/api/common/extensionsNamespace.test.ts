@@ -36,6 +36,17 @@ describe("extensionsNamespace", () => {
         expect(extensions.getExtension("pub.two")?.isActive).toBe(false);
     });
 
+    it("onDidReceiveCatalog — каждый принятый каталог целиком, даже без смены состава", () => {
+        const stub = makeStubRpc();
+        const { onDidReceiveCatalog } = createExtensionsNamespace(stub.rpc);
+        const received: string[][] = [];
+        onDidReceiveCatalog((catalog) => received.push(catalog.map((d) => d.extensionPath)));
+        stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
+        stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
+        stub.fire("extensions.catalog", { что: "не то" });
+        expect(received).toEqual([["/ext/pub.one"], ["/ext/pub.one"]]);
+    });
+
     it("чужая форма каталога не трогает уже известный состав", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
