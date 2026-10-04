@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -58,12 +58,12 @@ describe("Workbench — save conflict (dirty-write protection)", () => {
         h.testApp.render();
 
         dialog()!.onConfirm?.();
-        await flushMicrotasks();
-        h.testApp.render();
 
-        const written = fs.readFileSync(filePath, "utf-8");
-        expect(written).not.toBe("external edit\n");
-        expect(written).toContain("X");
+        await vi.waitFor(() => {
+            const written = fs.readFileSync(filePath, "utf-8");
+            expect(written).not.toBe("external edit\n");
+            expect(written).toContain("X");
+        });
     });
 
     it("keeps the disk version when the user cancels", async () => {
@@ -86,6 +86,8 @@ describe("Workbench — save conflict (dirty-write protection)", () => {
         h.testApp.render();
 
         expect(dialog()).toBeNull();
-        expect(fs.readFileSync(filePath, "utf-8")).toContain("X");
+        await vi.waitFor(() => {
+            expect(fs.readFileSync(filePath, "utf-8")).toContain("X");
+        });
     });
 });

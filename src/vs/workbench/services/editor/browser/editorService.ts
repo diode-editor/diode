@@ -23,6 +23,8 @@ import { ContextMenuControllerDIToken } from "../../../../editor/contrib/context
 import { hasDocumentFormatter } from "../../../../editor/contrib/format/format.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
+import { FileService } from "../../../../platform/files/common/fileService.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { IFileWatcherDIToken } from "../../../../platform/files/common/iFileWatcherDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -127,6 +129,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         DialogServiceDIToken,
         EditorPaneFactoriesDIToken,
         LanguageFeaturesServiceDIToken,
+        IFileServiceDIToken,
     ] as const;
 
     /**
@@ -165,6 +168,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private wordWrapSessionOverride: "off" | "on" | null = null;
     private undoRedoService: UndoRedoService;
     private fileWatcher: IFileWatcher;
+    private readonly files: IFileService;
     private contextMenuController: ContextMenuController;
     private readonly logger: ILogger;
     /**
@@ -332,8 +336,13 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // документу). Дефолт — пустые: тестовым конструкторам без провайдеров
         // он не нужен.
         languageFeatures: ILanguageFeaturesService = new LanguageFeaturesService(),
+        // Запись моделей (save / saveAs). Дефолт — сервис без провайдеров:
+        // тестовым конструкторам, которые не сохраняют, диск не нужен, а
+        // сохранение в таком сервисе громко падает, а не пишет мимо.
+        files?: IFileService,
     ) {
         super();
+        this.files = files ?? this.register(new FileService());
         this.themeService = themeService;
         this.tokenizationRegistry = tokenizationRegistry;
         this.tokenStyleResolver = tokenStyleResolver;
@@ -916,7 +925,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public openDetached(uri: Uri, languageId: string): TextEditorPane {
         // Синтетический ресурс уникален по построению — модель мимо реестра.
-        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
         model.openSynthetic(uri, languageId);
         const editor = this.createPaneForModel(model);
@@ -1185,7 +1194,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         overrides: { languageId?: string; label?: string } = {},
     ): TextEditorPane {
         // Синтетический ресурс уникален по построению — модель мимо реестра.
-        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         // Stryker disable next-line CallExpression: обвязка модели у синтетического ресурса ненаблюдаема (диска нет: watcher не ставится, save отдаёт "no-file", onDidSave не стреляет) — держим её ради единообразия со всеми моделями сервиса
         this.wireModel(model);
         const languageId = overrides.languageId ?? this.languageService.getLanguageIdForResource(uri.path);
@@ -1256,7 +1265,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * работает штатно. Владение — у вызывающего (панель диффа).
      */
     public createUntitledModel(): TextFileModel {
-        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
         model.setUntitled(++this.untitledCounter);
         return model;
@@ -1283,7 +1292,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * началось с первой загрузки.
      */
     private createFileModel(uri: Uri): TextFileModel {
-        const model = new TextFileModel(this.languageService, this.undoRedoService);
+        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
         model.openFile(uri);
         return model;

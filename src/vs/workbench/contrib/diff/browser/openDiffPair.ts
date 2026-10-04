@@ -130,6 +130,7 @@ export async function openDiffPair(
     const pane = new DiffEditorPane2(
         accessor.get(LanguageServiceDIToken),
         accessor.get(UndoRedoServiceDIToken),
+        accessor.get(IFileServiceDIToken),
         accessor.get(TokenizationRegistryDIToken),
         accessor.get(TokenStyleResolverDIToken),
         // Персист тумблера US-22: новая вкладка рождается в выбранном режиме.

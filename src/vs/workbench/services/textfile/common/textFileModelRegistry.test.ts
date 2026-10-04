@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -19,7 +20,7 @@ describe("TextFileModelRegistry", () => {
         undoRedo = new UndoRedoService();
         created = [];
         registry = new TextFileModelRegistry((uri) => {
-            const model = new TextFileModel(NULL_LANGUAGE_SERVICE, undoRedo);
+            const model = new TextFileModel(NULL_LANGUAGE_SERVICE, undoRedo, diskFileService());
             model.openFile(uri);
             created.push(model);
             return model;

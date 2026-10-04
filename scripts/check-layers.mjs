@@ -156,8 +156,8 @@ const NODE_IMPORT_DEBT = [
     // открытый вопрос §12.3, до решения поведение не меняем.
     ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
     ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
-    // Explorer: операции, чтение каталогов и слежение — на IFileService/ITreeFileWatcher (PR 3).
-    // Загрузка и запись модели — последним (PR 4 — запись, PR 5 — загрузка).
+    // Модель пишет через IFileService (PR 4); загрузка с диска пока синхронная —
+    // переезжает вместе с асинхронным открытием (PR 5, §7.2).
     ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
 ];
 

@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
@@ -38,6 +39,11 @@ function openEditor(content: string) {
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        diskFileService(),
     );
     const filePath = ws.writeFile("doc.txt", content);
     ctrl.openFile(filePath);

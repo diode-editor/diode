@@ -23,6 +23,13 @@ import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import type { IUndoViewBinding, UndoStepToken } from "../../../../editor/common/model/undoManager.ts";
 import { UndoManager } from "../../../../editor/common/model/undoManager.ts";
+import {
+    etag,
+    FileOperationResult,
+    type IFileService,
+    type IFileStat,
+    isFileOperationError,
+} from "../../../../platform/files/common/files.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
@@ -40,6 +47,11 @@ export type SaveOutcome = "saved" | "conflict" | "no-file";
 interface IDiskStat {
     mtimeMs: number;
     size: number;
+}
+
+/** etag снимка в форме файлового сервиса (см. {@link etag}): гард записи. */
+function diskEtag(stat: IDiskStat): string {
+    return etag({ mtime: stat.mtimeMs, size: stat.size });
 }
 
 /** Источник непрозрачных ключей истории отмены (см. {@link TextFileModel.undoContext}). */
@@ -206,7 +218,7 @@ export class TextFileModel extends Disposable {
     /**
      * Пайплайн save-участников, общий для всех моделей владельца
      * (`EditorService`); модель прогоняет его перед записью — и в `save`, и в
-     * `saveAs`. Не задан ⇒ участников нет, save синхронен.
+     * `saveAs`. Не задан ⇒ участников нет.
      */
     public saveParticipant: TextFileSaveParticipant | null = null;
 
@@ -286,7 +298,16 @@ export class TextFileModel extends Disposable {
         return this.filePath;
     }
 
-    public constructor(languageService: ILanguageService, undoRedoService: UndoRedoService) {
+    /**
+     * @param files Запись на диск (save / saveAs) — через файловый сервис:
+     * атомарно, с гардом по etag и очередью записи на ресурс. Чтение пока
+     * синхронное, мимо сервиса (docs/TODO/FileService.md, PR 5).
+     */
+    public constructor(
+        languageService: ILanguageService,
+        undoRedoService: UndoRedoService,
+        private readonly files: IFileService,
+    ) {
         super();
 
         this.languageService = languageService;
@@ -525,12 +546,22 @@ export class TextFileModel extends Disposable {
             this.setDiskConflict(true);
             return "conflict";
         }
-        // Когда участников нет — до writeFileSync нет ни одного await, запись
-        // остаётся синхронной в текущем тике (вызовы save() без await работают).
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        fs.writeFileSync(this.filePath, encodeText(this.doc.serialize(), this.encodingValue));
-        this.diskStat = this.readDiskStat(this.filePath);
+        let written: IFileStat;
+        try {
+            written = await this.files.writeFile(this.uriValue, encodeText(this.doc.serialize(), this.encodingValue), {
+                atomic: true,
+                // Тот же гард, что выше, но в момент записи: пока работали
+                // участники, файл мог измениться снаружи.
+                etag: options?.overwrite === true || this.diskStat === null ? undefined : diskEtag(this.diskStat),
+            });
+        } catch (e) {
+            if (!isFileOperationError(e, FileOperationResult.ModifiedSince)) throw e;
+            this.setDiskConflict(true);
+            return "conflict";
+        }
+        this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.savedVersionId = this.doc.versionId;
         this.savedEol = this.doc.eol;
         this.setDiskConflict(false);
@@ -615,8 +646,12 @@ export class TextFileModel extends Disposable {
         this.uriValue = Uri.file(path.resolve(newPath));
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        fs.writeFileSync(newPath, encodeText(this.doc.serialize(), this.encodingValue));
-        this.diskStat = this.readDiskStat(newPath);
+        const written = await this.files.writeFile(
+            this.uriValue,
+            encodeText(this.doc.serialize(), this.encodingValue),
+            { atomic: true },
+        );
+        this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
         this.savedVersionId = this.doc.versionId;
         this.savedEol = this.doc.eol;

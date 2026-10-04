@@ -62,16 +62,20 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
 
     public async writeFile(resource: Uri, content: Uint8Array, options: IProviderWriteOptions): Promise<void> {
         const fsPath = resource.fsPath;
-        if (options.atomic && (await canReplaceAtomically(fsPath))) {
+        const replace = options.atomic ? await atomicReplacement(fsPath) : null;
+        if (replace !== null) {
             const temp = path.join(path.dirname(fsPath), `.${path.basename(fsPath)}.diode-${String(process.pid)}.tmp`);
             await guard(resource, async () => {
                 try {
                     await fs.promises.writeFile(temp, content);
+                    // Права заменяемого файла переезжают на новый: rename иначе
+                    // оставил бы права по umask (скрипт потерял бы +x).
+                    if (replace.mode !== undefined) await fs.promises.chmod(temp, replace.mode);
                     await fs.promises.rename(temp, fsPath);
                 } catch (e) {
                     // Падает до rename только запись соседа (её ошибка и всплывает),
                     // а сам rename поверх каталога сюда не доходит: каталог пишется
-                    // на месте (canReplaceAtomically) — исход уборки не наблюдаем.
+                    // на месте (atomicReplacement) — исход уборки не наблюдаем.
                     // Stryker disable next-line ObjectLiteral,BooleanLiteral: см. выше
                     await fs.promises.rm(temp, { force: true });
                     throw e;
@@ -110,14 +114,23 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
     }
 }
 
-/** Атомарно заменять можно обычный файл без лишних жёстких ссылок (или ещё не существующий). */
-async function canReplaceAtomically(fsPath: string): Promise<boolean> {
+/**
+ * Можно ли заменить файл атомарно (временный сосед + rename) и с какими правами.
+ * `null` — писать на месте: симлинк (rename заменил бы ссылку файлом), лишние
+ * жёсткие ссылки (они остались бы на старом содержимом) и чужой владелец
+ * (новый файл стал бы нашим). Файла ещё нет — заменять нечего, права по umask.
+ */
+async function atomicReplacement(fsPath: string): Promise<{ readonly mode?: number } | null> {
+    let stat: fs.Stats;
     try {
-        const stat = await fs.promises.lstat(fsPath);
-        return !stat.isSymbolicLink() && stat.nlink <= 1;
+        stat = await fs.promises.lstat(fsPath);
     } catch {
-        return true;
+        return {};
     }
+    if (stat.isSymbolicLink() || stat.nlink > 1) return null;
+    // Владелец есть только на POSIX; на Windows `getuid` нет.
+    if (process.getuid !== undefined && stat.uid !== process.getuid()) return null;
+    return { mode: stat.mode & 0o7777 };
 }
 
 async function assertAbsent(resource: Uri): Promise<void> {

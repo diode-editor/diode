@@ -1,7 +1,7 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
@@ -555,13 +555,15 @@ describe("Workbench — Output: потребители, которым нужн�
         expect(editorService.editorCount).toBe(1);
     });
 
-    it("Ctrl+S при фокусе в Output сохраняет вкладку, а не уводит в Save As", () => {
+    it("Ctrl+S при фокусе в Output сохраняет вкладку, а не уводит в Save As", async () => {
         const tab = h.container.get(EditorServiceDIToken).getEditors()[0];
         tab.viewState.type("X");
 
         h.commands.execute("workbench.action.files.save");
 
-        expect(tab.isModified).toBe(false);
+        await vi.waitFor(() => {
+            expect(tab.isModified).toBe(false);
+        });
     });
 
     it("персист активной вкладки переживает фокус в панели", () => {

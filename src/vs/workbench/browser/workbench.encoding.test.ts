@@ -163,7 +163,9 @@ describe("Workbench — Change File Encoding", () => {
         await pick(h, "Save with Encoding");
         await pick(h, "Cyrillic (Windows 1251)");
 
-        expect([...fs.readFileSync(filePath)]).toEqual([...iconv.encode("Ёлка\n", "windows1251")]);
+        await vi.waitFor(() => {
+            expect([...fs.readFileSync(filePath)]).toEqual([...iconv.encode("Ёлка\n", "windows1251")]);
+        });
         expect(h.activeEditor().encoding).toBe("windows1251");
     });
 
@@ -217,8 +219,9 @@ describe("Workbench — Change File Encoding", () => {
         expect(dialog).not.toBeNull();
 
         dialog!.onConfirm?.();
-        await flushMicrotasks();
-        expect([...fs.readFileSync(filePath)]).toEqual([...iconv.encode("Ёлка\n", "windows1251")]);
+        await vi.waitFor(() => {
+            expect([...fs.readFileSync(filePath)]).toEqual([...iconv.encode("Ёлка\n", "windows1251")]);
+        });
     });
 
     it("Escape на любом уровне ничего не меняет", async () => {

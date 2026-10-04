@@ -121,6 +121,46 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.readFileSync(path.join(dir, "target.txt"), "utf-8")).toBe("shared");
     });
 
+    it.skipIf(process.platform === "win32")(
+        "атомарная замена сохраняет права файла (скрипт не теряет +x)",
+        async () => {
+            const file = path.join(dir, "run.sh");
+            fs.writeFileSync(file, "old");
+            fs.chmodSync(file, 0o751);
+            await provider.writeFile(at("run.sh"), bytes("new"), { atomic: true });
+            expect(fs.statSync(file).mode & 0o7777).toBe(0o751);
+            expect(fs.readFileSync(file, "utf-8")).toBe("new");
+        },
+    );
+
+    it.skipIf(process.platform === "win32")(
+        "файл чужого владельца пишется на месте — владелец не меняется",
+        async () => {
+            const file = path.join(dir, "theirs.txt");
+            fs.writeFileSync(file, "old");
+            const { ino, uid } = fs.statSync(file);
+            vi.spyOn(process, "getuid").mockReturnValue(uid + 1);
+            await provider.writeFile(at("theirs.txt"), bytes("new"), { atomic: true });
+            expect(fs.statSync(file).ino).toBe(ino);
+            expect(fs.readFileSync(file, "utf-8")).toBe("new");
+        },
+    );
+
+    it("без понятия владельца (Windows: нет process.getuid) атомарная замена идёт", async () => {
+        const file = path.join(dir, "win.txt");
+        fs.writeFileSync(file, "old");
+        const { ino } = fs.statSync(file);
+        const getuid = Object.getOwnPropertyDescriptor(process, "getuid");
+        Object.defineProperty(process, "getuid", { value: undefined, configurable: true });
+        try {
+            await provider.writeFile(at("win.txt"), bytes("new"), { atomic: true });
+        } finally {
+            if (getuid) Object.defineProperty(process, "getuid", getuid);
+        }
+        expect(fs.statSync(file).ino).not.toBe(ino);
+        expect(fs.readFileSync(file, "utf-8")).toBe("new");
+    });
+
     it("упавшая атомарная запись убирает временного соседа и сообщает ошибку", async () => {
         fs.mkdirSync(path.join(dir, "d"));
         // Цель — каталог: rename файла поверх каталога падает.

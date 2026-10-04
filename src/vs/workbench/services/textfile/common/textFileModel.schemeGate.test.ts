@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
@@ -18,7 +19,7 @@ import { TextFileModel } from "./textFileModel.ts";
  */
 describe("TextFileModel.openFile — гейт схемы", () => {
     function make(): TextFileModel {
-        return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService());
+        return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
     }
 
     it("не-file uri отвергается с названной схемой", () => {

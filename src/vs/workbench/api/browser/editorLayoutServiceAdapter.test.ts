@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { diskFileService } from "../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../base/common/uri.ts";
@@ -291,6 +292,7 @@ describe("EditorLayoutServiceAdapter", () => {
             new DiffEditorPane2(
                 NULL_LANGUAGE_SERVICE,
                 new UndoRedoService(),
+                diskFileService(),
                 new TokenizationRegistry(),
                 NULL_TOKEN_STYLE_RESOLVER,
                 input,
