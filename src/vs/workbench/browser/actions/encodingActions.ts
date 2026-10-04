@@ -25,7 +25,9 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
     const editor = editorGroup.getActiveEditor();
     if (editor === null) return;
 
-    const canReopen = editor.absoluteFilePath !== null && (await accessor.get(IFileServiceDIToken).exists(editor.uri));
+    // Перечитывать есть что, только если файл на диске есть (у `untitled:` нет
+    // провайдера в файловом сервисе — exists для него ложь).
+    const canReopen = await accessor.get(IFileServiceDIToken).exists(editor.uri);
     // Read-only запрещает запись, но не перечитывание файла с диска — поэтому
     // команда остаётся доступной, а из режимов убирается только «Save with
     // Encoding» (VS Code ведёт себя так же). Если перечитывать нечего (буфер без
