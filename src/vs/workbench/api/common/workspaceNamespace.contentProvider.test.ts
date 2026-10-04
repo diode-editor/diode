@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
+import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -60,6 +61,23 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         const result = await stub.callRequest("workspace.provideTextDocumentContent", { uri: JDT });
 
         expect(result).toEqual({ content: "class Foo {}" });
+    });
+
+    it("отмена запроса хоста доходит до токена провайдера", async () => {
+        const { stub, workspace } = makeCtx();
+        let seen: vscode.CancellationToken | undefined;
+        workspace.registerTextDocumentContentProvider("jdt", {
+            provideTextDocumentContent: (_uri: vscode.Uri, token: vscode.CancellationToken) => {
+                seen = token;
+                return "x";
+            },
+        } as unknown as vscode.TextDocumentContentProvider);
+
+        const caller = new CancellationTokenSource();
+        caller.cancel();
+        await stub.callRequest("workspace.provideTextDocumentContent", { uri: JDT }, caller.token);
+
+        expect(seen?.isCancellationRequested).toBe(true);
     });
 
     it("провайдер отказался отдать ресурс — в ответе null, а не исключение", async () => {

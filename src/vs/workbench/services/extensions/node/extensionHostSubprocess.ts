@@ -17,6 +17,7 @@ import { createNodeExtHostDisk } from "../../../api/node/extHostDisk.ts";
 
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
 import { extensionRootPath } from "./iExtensionEntry.ts";
+import { createStderrLogger } from "./stderrLogger.ts";
 
 /**
  * Сообщения protocol host -> subprocess. RPC-методы:
@@ -111,7 +112,9 @@ export function runExtensionHostSubprocess(): void {
     });
 
     const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
-    const rpc = new RpcEndpoint(channel);
+    // Логгер — в stderr: сбой обработчика запроса (провайдер расширения упал)
+    // и запрос без обработчика видны в канале `extensions.host.stderr`.
+    const rpc = new RpcEndpoint(channel, createStderrLogger());
 
     const { configStore, extensionExports, secrets } = installVscodeStub(rpc);
 

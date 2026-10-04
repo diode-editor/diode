@@ -121,6 +121,31 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(provideCompletionItems.mock.calls[0][3]).toMatchObject({ triggerKind: 1, triggerCharacter: "." });
     });
 
+    it("позиция запроса доезжает до провайдера; id пунктов — ведро ответа и номер по порядку", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const provideCompletionItems = vi.fn((..._args: unknown[]) => [
+            new CompletionItem("a"),
+            new CompletionItem("b"),
+        ]);
+        languages.registerCompletionItemProvider({ language: "typescript" }, { provideCompletionItems } as never);
+
+        const ids = async (): Promise<(string | undefined)[]> => {
+            const [result] = (await stub.callRequest("languages.provideCompletionItems", {
+                ...REQ,
+                line: 3,
+                character: 2,
+            })) as WireCompletionResult[];
+            return result.items.map((item) => item.id);
+        };
+        const first = await ids();
+        const bucket = Number(first[0]?.split(".")[0]);
+        expect(first).toEqual([`${String(bucket)}.0`, `${String(bucket)}.1`]);
+        // Следующий ответ — следующее ведро.
+        expect(await ids()).toEqual([`${String(bucket + 1)}.0`, `${String(bucket + 1)}.1`]);
+        expect(provideCompletionItems.mock.calls[0][1]).toMatchObject({ line: 3, character: 2 });
+    });
+
     it("документ — из зеркала: провайдер видит текст didOpen и правок didChange", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
@@ -266,6 +291,14 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
             id,
         })) as WireResolvedCompletionItem;
         expect(resolved.detail).toBe("original detail");
+    });
+
+    it("resolve без detail/documentation/правок — пустой объект, без ключей-пустышек", async () => {
+        const { id, stub } = await completeOnce({
+            provideCompletionItems: () => [new CompletionItem("greet")],
+            resolveCompletionItem: () => new CompletionItem("greet"),
+        });
+        expect(await stub.callRequest("languages.resolveCompletionItem", { id })).toStrictEqual({});
     });
 
     it("лейбл-объект без сигнатуры не даёт пустых полей", async () => {

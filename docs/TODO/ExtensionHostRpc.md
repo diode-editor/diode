@@ -21,10 +21,10 @@
 1. [x] Формат ошибки (#513): `SerializedError`, `transformError{For,From}Serialization`,
    `CancellationError`/`isCancellationError` (`base/common/errorSerialization.ts`); `RpcEndpoint`
    переносит ошибку целиком.
-2. [~] Таймаут как отмена в транспорте: `request(…, { token, timeoutMs })`,
+2. [x] Таймаут как отмена (#515) в транспорте: `request(…, { token, timeoutMs })`,
    `raceWithTimeout` удаляется; таблица таймаутов вместо опций `*TimeoutMs`;
    ошибка и таймаут логируются раздельно.
-3. [ ] Токены отмены в субпроцессе вместо `neverCancelledToken`, логгер у
+3. [~] Токены отмены в субпроцессе вместо `neverCancelledToken`, логгер у
    `RpcEndpoint` субпроцесса, warn на исключение провайдера.
 4. [ ] Карта протокола: generic `RpcEndpoint<TOut, TIn>`, `extHostProtocol.ts`
    по группам методов; затем убрать untyped-дефолт.

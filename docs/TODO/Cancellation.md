@@ -18,15 +18,13 @@
 ## Осталось
 
 - [ ] **Токен до провайдера.** Билеты уже несут `token`, но до расширения он доезжает только у inline completions.
-  Нужно провести его по цепочке: 9 сигнатур `*Source` (`editor/common/languages/`) → `ExtensionHost.provide*` →
-  `rpc.request(method, params, token)` → общий `requestWithTimeout` в `wireTypes.ts` (собственный CTS поверх
-  токена ядра, отмена при таймауте; сейчас так устроен только `requestInlineCompletions`) → `languagesNamespace.ts`
-  (`toVscodeCancellationToken` вместо 11 `neverCancelledToken()`). Без этого tsserver и jdtls досчитывают
-  запросы, ответ на которые мы уже выбросили. **Делать после G4/G5** (типизация RPC и дескриптор
+  Вторая половина цепочки готова (G4): срок ответа отменяет запрос в транспорте (`request(…, { token, timeoutMs })`),
+  а субпроцесс отдаёт каждому провайдеру настоящий токен. Осталось провести токен ядра: 9 сигнатур `*Source`
+  (`editor/common/languages/`) → `ExtensionHost.provide*` → опция `token` у `request*` в `wireTypes.ts`. Пока
+  устаревший запрос отменяется только по сроку ответа. **Делать после G4/G5** (типизация RPC и дескриптор
   провайдера в wire-слое): иначе одну и ту же правку придётся вносить в 8 местах и потом переписывать.
   Обязательно проверить стоковый Java-сценарий (#367): `$/cancelRequest` у jdtls не должен ронять ответ на текущий
-  запрос. Затем обновить `docs/arch/Extensions.md` («токеном пользуются ТОЛЬКО inline completions») и люфты в
-  [Suggest.md](Suggest.md), [LSP.md](LSP.md).
+  запрос. Затем обновить люфты в [Suggest.md](Suggest.md), [LSP.md](LSP.md).
 - Не переводим, и это намеренно:
   - `diffSnapshotRefreshContribution.ts`: здесь latest-wins семантически неверен — нужно «доделать» или
     «слить пачки», а не «бросить старый». У него свой баг: новая пачка во время чтения бросает
