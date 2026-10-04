@@ -1125,8 +1125,9 @@ hide-toggle (`isHiddenByDefault`). См.
   - `Services/CompletionService.ts` — логика автодополнения (WP8): `trigger()`
     (провайдеры из реестра `ILanguageFeaturesService.completionProvider` + word-based
     fallback `collectWordCompletions` из всех открытых редакторов), сессия
-    попапа (живой `prefixRange`, re-filter по мере набора, авто-suggest по
-    эвристике «вставлен 1 word-символ» с задержкой `autoSuggestDelayMs`),
+    попапа (живой `prefixRange`, re-filter по событию каретки, авто-suggest и
+    триггер-символы по `onDidType` редактора — правка accept, undo и вставка
+    набором не считаются, — с задержкой `autoSuggestDelayMs`),
     accept (замена префикса/провайдерского range с догоном каретки;
     `item.command` исполняется напрямую через `CommandRegistry.execute` в
     микротаске), делегаторы select*/accept/hide для команд, `onFocusChanged`

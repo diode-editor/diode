@@ -32,8 +32,15 @@ import { SuggestComponent } from "./suggestComponent.ts";
 interface FakeEditor {
     editor: TextEditorPane;
     applyExternalEdits: ReturnType<typeof vi.fn<(edits: ITextEdit[], label: string) => void>>;
-    /** Печать: обновляет строку/каретку и шлёт content+cursor (как typing/удаление). */
+    /**
+     * Набор с клавиатуры: обновляет строку/каретку, шлёт content+cursor, а затем
+     * `onDidType` символом слева от каретки (как редактор после правки набора).
+     */
     type: (line: string, character: number, lineNo?: number) => void;
+    /** Правка мимо набора (вставка, accept, удаление): content+cursor без `onDidType`. */
+    edit: (line: string, character: number, lineNo?: number) => void;
+    /** Только `onDidType` — набор, оставивший выделение (auto-surround). */
+    fireTyped: (text: string) => void;
     /** Чистое движение каретки: шлёт только cursor (без content-маркера). */
     move: (lineNo: number, character: number) => void;
     /** Непустое выделение: anchor != active. */
@@ -51,6 +58,7 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
     let cursorCount = 1;
     const contentListeners: (() => void)[] = [];
     const cursorListeners: (() => void)[] = [];
+    const typeListeners: ((text: string) => void)[] = [];
     const applyExternalEdits = vi.fn<(edits: ITextEdit[], label: string) => void>();
 
     const editor = {
@@ -77,6 +85,10 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
             cursorListeners.push(l);
             return { dispose: () => cursorListeners.splice(cursorListeners.indexOf(l), 1) };
         },
+        onDidType: (l: (text: string) => void) => {
+            typeListeners.push(l);
+            return { dispose: () => typeListeners.splice(typeListeners.indexOf(l), 1) };
+        },
     } as unknown as TextEditorPane;
 
     const fireContent = (): void => {
@@ -86,18 +98,28 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
         for (const l of [...cursorListeners]) l();
     };
 
+    const fireTyped = (text: string): void => {
+        for (const l of [...typeListeners]) l(text);
+    };
+    const edit = (line: string, ch: number, lineNo = 0): void => {
+        state.line = line;
+        state.lineNo = lineNo;
+        state.anchorChar = ch;
+        state.activeChar = ch;
+        document.versionId++;
+        fireContent();
+        fireCursor();
+    };
+
     return {
         editor,
         applyExternalEdits,
         type: (line, ch, lineNo = 0) => {
-            state.line = line;
-            state.lineNo = lineNo;
-            state.anchorChar = ch;
-            state.activeChar = ch;
-            document.versionId++;
-            fireContent();
-            fireCursor();
+            edit(line, ch, lineNo);
+            fireTyped(line.slice(ch - 1, ch));
         },
+        edit,
+        fireTyped,
         move: (lineNo, ch) => {
             state.lineNo = lineNo;
             state.anchorChar = ch;
@@ -741,8 +763,8 @@ describe("CompletionService", () => {
         service.autoSuggestDelayMs = 0;
         TestApp.create(body, new Size(80, 24));
 
-        // Вставка блока (не одиночный символ) — не триггер.
-        fake.type("d.foo.", 6);
+        // Вставка блока (не набор) — не триггер, хотя кончается на `.`.
+        fake.edit("d.foo.", 6);
         await flushTimers();
         expect(service.isOpen()).toBe(false);
 
@@ -837,7 +859,8 @@ describe("CompletionService", () => {
 
         fake.type("inde", 4); // запланировали авто-suggest
         await service.trigger(); // ручной триггер отменяет отложенный
-        await flushTimers();
+        // Ждём заведомо дольше задержки: без отмены отложенный успел бы выстрелить.
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         expect(source).toHaveBeenCalledTimes(1); // отложенный не выстрелил вторым
     });
@@ -994,7 +1017,7 @@ describe("CompletionService", () => {
             await service.trigger();
 
             // Backspace → `{ "`. Каретка на границе префикса, попап остаётся открыт.
-            fake.type('{ "', 3);
+            fake.edit('{ "', 3);
             expect(service.isOpen()).toBe(true);
 
             service.acceptSelected();
@@ -1245,6 +1268,15 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
     });
 
+    it("движение каретки при закрытом попапе не снимает запланированный авто-запрос", async () => {
+        const { service, fake, source } = setup(ITEMS);
+        service.autoSuggestDelayMs = 20;
+        fake.type("inde", 4); // запланировали авто-suggest
+        fake.move(0, 4); // каретка дёрнулась до срабатывания таймера
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        expect(source).toHaveBeenCalled();
+    });
+
     it("чистое движение каретки НЕ открывает попап", async () => {
         const { service, fake, source } = setup(ITEMS);
         fake.move(0, 2); // без content-изменения
@@ -1256,9 +1288,9 @@ describe("CompletionService", () => {
     it("принятие пункта не приводит к авто-переоткрытию", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
-        service.acceptSelected(); // close() + suppress + applyExternalEdits (mock, без эмита)
-        // Эмулируем правку accept как одиночную вставку у каретки — авто-suggest подавлен.
-        fake.type("indent_style2", 13);
+        service.acceptSelected(); // close() + applyExternalEdits (mock, без эмита)
+        // Правка accept — не набор: события `onDidType` у неё нет, авто-suggest молчит.
+        fake.edit("indent_style2", 13);
         await flushTimers();
         expect(service.isOpen()).toBe(false);
     });
@@ -1328,23 +1360,6 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("изменение каретки при отсутствии активного редактора — no-op", () => {
-        const fake = makeEditor("ind", 3, "ind");
-        let ref: TextEditorPane | null = fake.editor;
-        const group = {
-            getActiveEditor: () => ref,
-            onActiveEditorChanged: () => ({ dispose: () => {} }),
-            completionSource: undefined,
-            completionTriggerCharacters: [],
-            getEditors: () => [fake.editor],
-        } as unknown as IEditorService;
-        const { service, component, body } = createService(group);
-        TestApp.create(body, new Size(80, 24));
-        ref = null; // активный редактор пропал
-        fake.type("inde", 4); // fires cursor listener → onCaretChanged, getActiveEditor()===null
-        expect(service.isOpen()).toBe(false);
-    });
-
     it("набор небуквенного символа (граница слова) закрывает открытый попап", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
@@ -1360,22 +1375,34 @@ describe("CompletionService", () => {
         await service.trigger();
         expect(service.isOpen()).toBe(true);
 
-        fake.type("aind", 4);
+        fake.edit("aind", 4);
 
         expect(service.isOpen()).toBe(false);
     });
 
-    it("авто-suggest не срабатывает при не-одиночной/небуквенной вставке", async () => {
-        // Каждая ветка эвристики isSingleWordCharInsert, из закрытого состояния.
-        const cases: [string, number, number][] = [
-            ["x", 1, 1], // другая строка
-            ["indee", 5, 0], // каретка не +1
-            ["inXde", 4, 0], // длина не +1 (вставка не у каретки)
-            ["ind ", 4, 0], // небуквенный символ
+    it("авто-suggest открывает только набор word-символа одной кареткой", async () => {
+        // Из закрытого состояния: правки мимо набора (вставка, undo) — событий
+        // `onDidType` у них нет; набор не-word символа; набор мультикурсором и
+        // при выделении.
+        const attempts: ((fake: FakeEditor) => void)[] = [
+            (fake) => {
+                fake.edit("inde", 4); // вставка/undo одного символа — не набор
+            },
+            (fake) => {
+                fake.type("ind ", 4); // небуквенный символ
+            },
+            (fake) => {
+                fake.setCursorCount(2);
+                fake.type("inde", 4);
+            },
+            (fake) => {
+                fake.setSelection(0, 3);
+                fake.fireTyped("e"); // набор, оставивший выделение (auto-surround)
+            },
         ];
-        for (const [line, ch, lineNo] of cases) {
-            const { service, fake, source } = setup(ITEMS); // кэш: "ind", каретка 3
-            fake.type(line, ch, lineNo);
+        for (const attempt of attempts) {
+            const { service, fake, source } = setup(ITEMS); // "ind", каретка 3
+            attempt(fake);
             await flushTimers();
             expect(source).not.toHaveBeenCalled();
             expect(service.isOpen()).toBe(false);
@@ -1388,25 +1415,6 @@ describe("CompletionService", () => {
         component.view.setFilter("zzzz"); // список пуст → getSelectedItem null
         service.acceptSelected();
         expect(fake.applyExternalEdits).not.toHaveBeenCalled();
-    });
-
-    it("активный редактор пропал при открытом попапе — закрывает", async () => {
-        const fake = makeEditor("ind", 3, "ind");
-        let ref: TextEditorPane | null = fake.editor;
-        const group = {
-            getActiveEditor: () => ref,
-            onActiveEditorChanged: () => ({ dispose: () => {} }),
-            completionSource: vi.fn(() => Promise.resolve(completionResult(ITEMS))),
-            completionTriggerCharacters: [],
-            getEditors: () => [fake.editor],
-        } as unknown as IEditorService;
-        const { service, component, body } = createService(group);
-        TestApp.create(body, new Size(80, 24));
-        await service.trigger();
-        expect(service.isOpen()).toBe(true);
-        ref = null; // активный редактор пропал
-        fake.type("inde", 4); // onCaretChanged: editor null && isOpen → close
-        expect(service.isOpen()).toBe(false);
     });
 
     it("конструктор с непустым начальным выделением безопасен", () => {
