@@ -1,9 +1,14 @@
 import type * as vscode from "vscode";
 
-import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
-
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import {
+    normalizeDecorationRanges,
+    serializeDecorationRenderOptions,
+    toVscodeSelection,
+    toWireEditRange,
+    toWireSelection,
+} from "./extHostTypeConverters.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -31,7 +36,6 @@ import {
     parseWireEditorLayout,
     parseWireSelectionChangeKind,
     parseWireSelections,
-    serializeDecorationRenderOptions,
     type WireOutputLevel,
 } from "./wireTypes.ts";
 
@@ -51,21 +55,6 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
         if (disposables !== undefined) disposables.push(disposable);
         return disposable;
     };
-}
-
-/** `vscode.Range` → core-диапазон провода ({@link IRange}) декорации. */
-function toWireRange(range: vscode.Range): IRange {
-    return createRange(range.start.line, range.start.character, range.end.line, range.end.character);
-}
-
-/** Диапазоны из `setDecorations` — либо голые Range, либо DecorationOptions с `.range`. */
-function normalizeDecorationRanges(
-    rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
-): IRange[] {
-    return rangesOrOptions.map((item) => {
-        const range = "range" in item ? item.range : item;
-        return toWireRange(range);
-    });
 }
 
 /** Никогда-не-отменённый токен для `provideFileDecoration` (host-мост не отменяет запросы). */
@@ -228,7 +217,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         const editor = getEditorFor(registry.getOrCreate(Uri.parse(p.uri)), groupId);
         const event: vscode.TextEditorSelectionChangeEvent = {
             textEditor: editor,
-            selections: selections.map(toSelection),
+            selections: selections.map(toVscodeSelection),
             // Числа провода — это и есть значения `TextEditorSelectionChangeKind`
             // (см. WireSelectionChangeKind); нераспознанный источник — `undefined`.
             kind: parseWireSelectionChangeKind(p.kind),
@@ -455,13 +444,6 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         return result;
     }
 
-    function toSelection(s: IWireSelection): vscode.Selection {
-        return new Selection(
-            new Position(s.anchorLine, s.anchorCharacter),
-            new Position(s.activeLine, s.activeCharacter),
-        );
-    }
-
     /** Выделения редактора (группа, документ): у активного — активные, у видимых — из снимка. */
     function editorSelections(groupId: number, uri: string): readonly IWireSelection[] {
         if (uri === activeEditorUri && groupId === effectiveActiveGroupId()) return activeSelections;
@@ -489,7 +471,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             if (primary === undefined) {
                 return new Selection(new Position(0, 0), new Position(0, 0));
             }
-            return toSelection(primary);
+            return toVscodeSelection(primary);
         };
         const editorData: vscode.TextEditor = {
             options: {},
@@ -507,7 +489,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             get selections(): readonly vscode.Selection[] {
                 const all = editorSelections(groupId, document.uri.toString());
                 if (all.length === 0) return [primarySelection()];
-                return all.map(toSelection);
+                return all.map(toVscodeSelection);
             },
             set selections(value: readonly vscode.Selection[]) {
                 pushSelections(document, groupId, value);
@@ -519,22 +501,31 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 _options?: { undoStopBefore: boolean; undoStopAfter: boolean },
             ): Thenable<boolean> => {
                 const edits: IWireEditorEdit[] = [];
+                // Правка с битым диапазоном выпадает (её отбросил бы и разбор
+                // хоста); выпали все — ответ `false`, как хост ответил бы на
+                // пустой батч, а не вакуумный успех пустого callback'а.
+                let dropped = false;
+                const push = (location: vscode.Position | vscode.Range, text: string): void => {
+                    const range = toWireEditRange(location);
+                    if (range === null) dropped = true;
+                    else edits.push({ range, text });
+                };
                 const builder: vscode.TextEditorEdit = {
                     replace: (location: vscode.Position | vscode.Range | vscode.Selection, value: string) => {
-                        edits.push({ range: toWireEditRange(location), text: value });
+                        push(location, value);
                     },
                     insert: (position: vscode.Position, value: string) => {
-                        edits.push({ range: toWireEditRange(position), text: value });
+                        push(position, value);
                     },
                     delete: (location: vscode.Range | vscode.Selection) => {
-                        edits.push({ range: toWireEditRange(location), text: "" });
+                        push(location, "");
                     },
                     setEndOfLine: () => {
                         /* смена EOL из edit() пока не поддержана (MVP #194) */
                     },
                 };
                 callback(builder);
-                if (edits.length === 0) return Promise.resolve(true);
+                if (edits.length === 0) return Promise.resolve(!dropped);
                 return rpc.request("editor.applyEdit", {
                     uri: document.uri.toString(),
                     edits,
@@ -1088,29 +1079,6 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     };
 
     return implementsApi<typeof vscode.window>()(windowNs);
-}
-
-/** `vscode.Selection` → wire (anchor/active, 0-based). */
-function toWireSelection(selection: vscode.Selection): IWireSelection {
-    return {
-        anchorLine: selection.anchor.line,
-        anchorCharacter: selection.anchor.character,
-        activeLine: selection.active.line,
-        activeCharacter: selection.active.character,
-    };
-}
-
-/**
- * Диапазон правки из `Range`/`Selection` (есть `start`/`end`) либо `Position`
- * (вставка в точку → пустой диапазон `pos..pos`).
- */
-function toWireEditRange(location: vscode.Range | vscode.Position): IRange {
-    const asRange = location as { start?: vscode.Position; end?: vscode.Position };
-    if (asRange.start !== undefined && asRange.end !== undefined) {
-        return createRange(asRange.start.line, asRange.start.character, asRange.end.line, asRange.end.character);
-    }
-    const pos = location as vscode.Position;
-    return createRange(pos.line, pos.character, pos.line, pos.character);
 }
 
 function normalizeTabSize(value: number | string): number {

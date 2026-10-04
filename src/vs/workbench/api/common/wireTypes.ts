@@ -1237,56 +1237,12 @@ export interface IWireFileDecorationsChanged {
     readonly decorations: readonly IWireFileDecoration[];
 }
 
-/**
- * Сериализует значение цвета опций декорации. `ThemeColor` (утиный тип — объект
- * со строковым `id`) → `{ $themeColor: id }`; CSS-строка остаётся как есть;
- * прочее (в т.ч. `undefined`) → `undefined`.
- */
-export function serializeColor(value: unknown): SerializedColor | undefined {
-    if (typeof value === "string") return value;
-    if (typeof value === "object" && value !== null && typeof (value as { id?: unknown }).id === "string") {
-        return { $themeColor: (value as { id: string }).id };
-    }
-    return undefined;
-}
-
 /** Извлекает id темы из сериализованного цвета; `undefined` для CSS-строк/пусто. */
 export function themeColorIdOf(value: SerializedColor | undefined): string | undefined {
     if (typeof value === "object" && typeof value.$themeColor === "string") {
         return value.$themeColor;
     }
     return undefined;
-}
-
-/**
- * Сериализует `vscode.DecorationRenderOptions` в {@link SerializedDecorationRenderOptions}.
- * Утиный тип `options` (без импорта типов vscode в этот shared-модуль): читаем
- * известные поля best-effort. `ThemeColor`-значения проходят через {@link serializeColor}.
- */
-export function serializeDecorationRenderOptions(options: unknown): SerializedDecorationRenderOptions {
-    const o = (typeof options === "object" && options !== null ? options : {}) as {
-        isWholeLine?: unknown;
-        overviewRulerLane?: unknown;
-        backgroundColor?: unknown;
-        color?: unknown;
-        overviewRulerColor?: unknown;
-    };
-    const result: {
-        isWholeLine?: boolean;
-        overviewRulerLane?: number;
-        backgroundColor?: SerializedColor;
-        color?: SerializedColor;
-        overviewRulerColor?: SerializedColor;
-    } = {};
-    if (typeof o.isWholeLine === "boolean") result.isWholeLine = o.isWholeLine;
-    if (typeof o.overviewRulerLane === "number") result.overviewRulerLane = o.overviewRulerLane;
-    const bg = serializeColor(o.backgroundColor);
-    if (bg !== undefined) result.backgroundColor = bg;
-    const color = serializeColor(o.color);
-    if (color !== undefined) result.color = color;
-    const overview = serializeColor(o.overviewRulerColor);
-    if (overview !== undefined) result.overviewRulerColor = overview;
-    return result;
 }
 
 /**

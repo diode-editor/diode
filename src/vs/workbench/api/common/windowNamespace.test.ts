@@ -325,6 +325,20 @@ describe("WindowNamespace", () => {
         ]);
     });
 
+    it("setDecorations: битый диапазон выпадает, перевёрнутый утиный разворачивается", () => {
+        const { stub, window } = makeCtx();
+        stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
+        const type = window.createTextEditorDecorationType({});
+        window.activeTextEditor!.setDecorations(type, [
+            new Range(NaN, 0, 0, 1),
+            { line: 0 },
+            { start: { line: 3, character: 1 }, end: { line: 2, character: 0 } },
+        ] as never);
+        expect((stub.notifies.at(-1)!.params as { ranges: unknown }).ranges).toEqual([
+            { start: { line: 2, character: 0 }, end: { line: 3, character: 1 } },
+        ]);
+    });
+
     it("setDecorations с неизвестным типом — no-op (нет notify)", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
@@ -536,6 +550,29 @@ describe("WindowNamespace — editor write (#194)", () => {
             /* ничего не пишем */
         });
         expect(ok).toBe(true);
+        expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
+    });
+
+    it("editor.edit: правка с битым диапазоном выпадает, перевёрнутый утиный разворачивается", () => {
+        const { stub, editor } = activeEditor();
+        void editor.edit((builder) => {
+            builder.replace(new Range(NaN, 0, 0, 1), "bad");
+            builder.delete({ start: { line: 1, character: 2 }, end: { line: 1, character: 0 } } as never);
+        });
+        const req = stub.requests.find((r) => r.method === "editor.applyEdit");
+        expect(req?.params).toEqual({
+            uri: URI,
+            edits: [{ range: { start: { line: 1, character: 0 }, end: { line: 1, character: 2 } }, text: "" }],
+        });
+    });
+
+    it("editor.edit: выпали ВСЕ правки — false без RPC (как хост ответил бы на пустой батч)", async () => {
+        const { stub, editor } = activeEditor();
+        const ok = await editor.edit((builder) => {
+            builder.replace(new Range(NaN, 0, 0, 1), "bad");
+            builder.delete({ start: 1, end: 2 } as never);
+        });
+        expect(ok).toBe(false);
         expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
     });
 

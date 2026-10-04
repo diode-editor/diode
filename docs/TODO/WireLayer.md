@@ -52,10 +52,14 @@ actions) описаны на проводе несколько раз: пара�
   `serializeDefinitionRange`, `wireToCoreTextEdits`,
   `wireToCoreResolvedCompletion` (+ `WireResolvedCompletionItem` — в карте
   `ICoreResolvedCompletion`) и `toTextEdit` адаптера workspace edit удалены.
-- [ ] D1. `api/common/extHostTypeConverters.ts`: сериализаторы из
+- [x] D1. `api/common/extHostTypeConverters.ts`: сериализаторы из
   `languagesNamespace.ts`, `windowNamespace.ts`, `workspaceNamespace.ts` и
   `serialize*` из `wireTypes.ts`; один `rangeFrom` (утиный, `Number.isFinite`,
-  нормализует `start <= end`).
+  нормализует `start <= end`) вместо `serializeRange` и копий на `createRange`
+  (маркер, workspace edit, `TextEditor.edit`, декорации). Битый диапазон
+  выпадает с элементом: маркер с `range` без `start`/`end` больше не роняет
+  `collection.set`; completion признаёт `Range` чужого бандла (утиный, не
+  `instanceof`). Каст `activeSignatureHelp` снят — `toVscodeSignatureHelp`.
 - [ ] D2. Host-only код из `api/common/wireTypes.ts` — в
   `services/extensions/node/` (`RequestFn`, `settle`, остаток `request*`,
   разбор декораций); при надобности — правило check-layers.

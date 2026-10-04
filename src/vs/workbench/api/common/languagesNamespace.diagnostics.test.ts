@@ -126,6 +126,30 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         });
     });
 
+    it("битый диапазон: set не бросает, маркер выпадает, соседи публикуются; перевёрнутый разворачивается", () => {
+        const { stub, languages } = makeLanguages();
+        const collection = languages.createDiagnosticCollection("lint");
+        const diags = [
+            { range: { line: 0 }, message: "без start/end" },
+            { range: new Range(NaN, 0, 0, 1), message: "NaN" },
+            { range: { start: { line: 2, character: 5 }, end: { line: 1, character: 0 } }, message: "ok" },
+        ] as unknown as vscode.Diagnostic[];
+
+        expect(() => {
+            collection.set(FILE as unknown as vscode.Uri, diags);
+        }).not.toThrow();
+
+        expect(published(stub)[0].markers).toEqual([
+            {
+                severity: 0,
+                range: { start: { line: 1, character: 0 }, end: { line: 2, character: 5 } },
+                message: "ok",
+            },
+        ]);
+        // Оригиналы в коллекции целы — их читают code actions.
+        expect(collection.get(FILE as unknown as vscode.Uri)).toHaveLength(3);
+    });
+
     it("не-строковый message: rich-форма отдаёт свой value, всё прочее — не «[object Object]»", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("rich");
