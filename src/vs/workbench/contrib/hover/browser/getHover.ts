@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type {
     ILanguageFeatureTarget,
     LanguageFeatureRegistry,
@@ -14,9 +15,10 @@ export async function getHovers(
     registry: LanguageFeatureRegistry<HoverProvider>,
     target: ILanguageFeatureTarget,
     request: IHoverRequest,
+    token: ICancellationToken,
 ): Promise<ICoreHover[]> {
     const results = await Promise.all(
-        registry.ordered(target).map((provider) => provider.provideHover(request).catch(() => undefined)),
+        registry.ordered(target).map((provider) => provider.provideHover(request, token).catch(() => undefined)),
     );
     return results.filter((hover) => hover !== undefined);
 }

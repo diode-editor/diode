@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks, settle } from "../../../../../TestUtils/timing.ts";
-import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { ISignatureHelpRequest } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -247,5 +247,25 @@ describe("ExtensionHost — подсказка параметров по handle 
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);
         });
+    });
+
+    it("отмена ядра доезжает до токена субпроцесса (provideSignatureHelp)", async () => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest("languages.provideSignatureHelp", (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host.provideSignatureHelp(0, requestOf(), source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
     });
 });

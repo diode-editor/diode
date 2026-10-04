@@ -65,21 +65,21 @@ export class LanguageFeaturesAdapter extends Disposable {
     > = {
         hover: ({ handle, selector }) =>
             this.languageFeatures.hoverProvider.register(selector, {
-                provideHover: (request) => this.bridge.provideHover(handle, request),
+                provideHover: (request, token) => this.bridge.provideHover(handle, request, token),
             }),
         definition: ({ handle, selector }) =>
             this.languageFeatures.definitionProvider.register(selector, {
-                provideDefinition: (request) => this.bridge.provideDefinition(handle, request),
+                provideDefinition: (request, token) => this.bridge.provideDefinition(handle, request, token),
             }),
         references: ({ handle, selector }) =>
             this.languageFeatures.referenceProvider.register(selector, {
-                provideReferences: (request) => this.bridge.provideReferences(handle, request),
+                provideReferences: (request, token) => this.bridge.provideReferences(handle, request, token),
             }),
         signatureHelp: ({ handle, selector, triggerCharacters = [], retriggerCharacters = [] }) =>
             this.languageFeatures.signatureHelpProvider.register(selector, {
                 triggerCharacters,
                 retriggerCharacters,
-                provideSignatureHelp: (request) => this.bridge.provideSignatureHelp(handle, request),
+                provideSignatureHelp: (request, token) => this.bridge.provideSignatureHelp(handle, request, token),
             }),
         completion: ({ handle, selector, triggerCharacters = [] }) =>
             this.languageFeatures.completionProvider.register(selector, {

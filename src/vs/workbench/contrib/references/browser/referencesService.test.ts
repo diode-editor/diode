@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { settle } from "../../../../../TestUtils/timing.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
-import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
+import type {
+    ICoreReference,
+    IReferenceRequest,
+    ReferenceProvider,
+} from "../../../../editor/common/languages/iReferenceSource.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { type IFileService } from "../../../../platform/files/common/files.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
@@ -42,7 +47,7 @@ interface IFakeEditorOptions {
     /** Позиция каретки: строка и колонка (0-based). */
     readonly caret?: [number, number];
     readonly text?: string;
-    readonly source?: (req: IReferenceRequest) => Promise<readonly ICoreReference[]>;
+    readonly source?: ReferenceProvider["provideReferences"];
     /** Активного редактора нет вовсе. */
     readonly noEditor?: boolean;
     /** Открытые модели: путь → текст (несохранённые правки). */
@@ -301,6 +306,28 @@ describe("ReferencesService — findReferences", () => {
 
         expect(panel.shown).toHaveLength(1);
         expect(panel.shown[0][0].matches[0].lineNumber).toBe(1);
+    });
+
+    it("Clear отменяет запрос и у провайдера", () => {
+        const tokens: ICancellationToken[] = [];
+        const service = createService(
+            fakeComponent().component,
+            fakeGroup({
+                source: (_request, token) => {
+                    tokens.push(token);
+                    return new Promise<readonly ICoreReference[]>(() => undefined);
+                },
+            }),
+            fakeWorkspace(),
+            fakeProviders({ [MAIN]: MAIN_TEXT }),
+            fakeSidebar().service,
+        );
+
+        void service.findReferences();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([false]);
+
+        service.clear();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
     it("нет активного редактора, нет источника, каретка не на слове — ничего не происходит", async () => {

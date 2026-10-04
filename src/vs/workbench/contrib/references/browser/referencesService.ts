@@ -87,15 +87,21 @@ export class ReferencesService {
         if (!isOnWord(text, caret.line, caret.character)) return;
 
         const ticket = this.latest.start();
-        const references = await getReferences(registry, editor, {
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            versionId: editor.model.document.versionId,
-            line: caret.line,
-            character: caret.character,
-            // VS Code показывает объявление первой строкой списка.
-            includeDeclaration: true,
-        });
+        const references = await getReferences(
+            registry,
+            editor,
+            {
+                uri: editor.uri.toString(),
+                languageId: editor.languageId,
+                versionId: editor.model.document.versionId,
+                line: caret.line,
+                character: caret.character,
+                // VS Code показывает объявление первой строкой списка.
+                includeDeclaration: true,
+            },
+            // Clear и повторный поиск отменяют запрос и у провайдера.
+            ticket.token,
+        );
         if (ticket.isStale()) return;
 
         // Корень — из IWorkspaceContextService; `folders.at(0)` здесь и есть видимое

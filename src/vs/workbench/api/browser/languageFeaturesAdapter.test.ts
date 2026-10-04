@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
@@ -98,8 +99,10 @@ describe("LanguageFeaturesAdapter", () => {
         new LanguageFeaturesAdapter(bridge, features);
 
         const [provider] = features.hoverProvider.ordered(TS);
-        expect(await provider.provideHover(REQUEST)).toEqual({ contents: ["handle 1"] });
-        expect(bridge.provideHover).toHaveBeenCalledWith(1, REQUEST);
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideHover(REQUEST, token)).toEqual({ contents: ["handle 1"] });
+        // Токен запроса доезжает до хоста — с ним и уходит отмена провайдеру расширения.
+        expect(bridge.provideHover).toHaveBeenCalledWith(1, REQUEST, token);
     });
 
     it("definition и references — прокси в своих реестрах, зовут хост со своим handle", async () => {
@@ -113,17 +116,18 @@ describe("LanguageFeaturesAdapter", () => {
         expect(features.hoverProvider.has(TS)).toBe(false);
 
         const [definition] = features.definitionProvider.ordered(TS);
-        expect(await definition.provideDefinition(REQUEST)).toEqual([
+        const token = new CancellationTokenSource().token;
+        expect(await definition.provideDefinition(REQUEST, token)).toEqual([
             { uri: "file:///def4.ts", range: createRange(0, 0, 0, 1) },
         ]);
-        expect(bridge.provideDefinition).toHaveBeenCalledWith(4, REQUEST);
+        expect(bridge.provideDefinition).toHaveBeenCalledWith(4, REQUEST, token);
 
         const referenceRequest = { ...REQUEST, includeDeclaration: true };
         const [references] = features.referenceProvider.ordered(TS);
-        expect(await references.provideReferences(referenceRequest)).toEqual([
+        expect(await references.provideReferences(referenceRequest, token)).toEqual([
             { uri: "file:///ref5.ts", range: createRange(0, 0, 0, 1) },
         ]);
-        expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest);
+        expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest, token);
     });
 
     it("rename — прокси в своём реестре: обе ручки зовут хост со своим handle", async () => {
@@ -161,8 +165,9 @@ describe("LanguageFeaturesAdapter", () => {
         expect(ts.triggerCharacters).toEqual(["("]);
         expect(ts.retriggerCharacters).toEqual([")"]);
         const request = { ...REQUEST, triggerKind: 1 as const, isRetrigger: false };
-        expect((await ts.provideSignatureHelp(request))?.signatures[0].label).toBe("sig 6");
-        expect(bridge.provideSignatureHelp).toHaveBeenCalledWith(6, request);
+        const token = new CancellationTokenSource().token;
+        expect((await ts.provideSignatureHelp(request, token))?.signatures[0].label).toBe("sig 6");
+        expect(bridge.provideSignatureHelp).toHaveBeenCalledWith(6, request, token);
 
         const [md] = features.signatureHelpProvider.ordered(MD);
         expect(md.triggerCharacters).toEqual([]);

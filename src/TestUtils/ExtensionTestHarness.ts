@@ -503,29 +503,43 @@ export function documentVersion(harness: IExtensionHarness, uri: string): number
     return editor.model.document.versionId;
 }
 
-export function provideHovers(harness: IExtensionHarness, request: IHoverRequest): Promise<ICoreHover[]> {
-    return getHovers(harness.languageFeatures.hoverProvider, targetOf(request), request);
+export function provideHovers(
+    harness: IExtensionHarness,
+    request: IHoverRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<ICoreHover[]> {
+    return getHovers(harness.languageFeatures.hoverProvider, targetOf(request), request, token);
 }
 
 /** Цели definition так, как их собирает `DefinitionService` (реестр харнесса). */
 export function provideDefinitions(
     harness: IExtensionHarness,
     request: IDefinitionRequest,
+    token: ICancellationToken = CancellationTokenNone,
 ): Promise<ICoreDefinitionLocation[]> {
-    return getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request);
+    return getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request, token);
 }
 
 /** Ссылки так, как их собирает `ReferencesService` (реестр харнесса). */
-export function provideReferences(harness: IExtensionHarness, request: IReferenceRequest): Promise<ICoreReference[]> {
-    return getReferences(harness.languageFeatures.referenceProvider, targetOf(request), request);
+export function provideReferences(
+    harness: IExtensionHarness,
+    request: IReferenceRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<ICoreReference[]> {
+    return getReferences(harness.languageFeatures.referenceProvider, targetOf(request), request, token);
 }
 
 /** Подсказка параметров так, как её собирает `ParameterHintsService` (реестр харнесса). */
 export function provideSignatureHelp(
     harness: IExtensionHarness,
     request: ISignatureHelpRequest,
+    token: ICancellationToken = CancellationTokenNone,
 ): Promise<ICoreSignatureHelp | null> {
-    return provideSignatureHelpFrom(harness.languageFeatures.signatureHelpProvider.ordered(targetOf(request)), request);
+    return provideSignatureHelpFrom(
+        harness.languageFeatures.signatureHelpProvider.ordered(targetOf(request)),
+        request,
+        token,
+    );
 }
 
 /**

@@ -44,10 +44,22 @@ export interface IExtensionLanguageFeaturesBridge {
     getLanguageProviders(): readonly IWireLanguageProviderRegistration[];
     /** Состав регистраций изменился (регистрация, снятие, смерть субпроцесса). */
     onLanguageProvidersChanged(cb: () => void): IDisposable;
-    provideHover(handle: number, request: IHoverRequest): Promise<ICoreHover | undefined>;
-    provideDefinition(handle: number, request: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]>;
-    provideReferences(handle: number, request: IReferenceRequest): Promise<readonly ICoreReference[]>;
-    provideSignatureHelp(handle: number, request: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null>;
+    provideHover(handle: number, request: IHoverRequest, token: ICancellationToken): Promise<ICoreHover | undefined>;
+    provideDefinition(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideReferences(
+        handle: number,
+        request: IReferenceRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreReference[]>;
+    provideSignatureHelp(
+        handle: number,
+        request: ISignatureHelpRequest,
+        token: ICancellationToken,
+    ): Promise<ICoreSignatureHelp | null>;
     provideCompletionItems(handle: number, request: ICompletionRequest): Promise<ICoreCompletionResult>;
     resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null>;
     /** С `request.range` — range-провайдер `handle`, без — документный. */

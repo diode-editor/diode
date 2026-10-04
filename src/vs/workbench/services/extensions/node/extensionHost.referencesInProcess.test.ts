@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { settle } from "../../../../../TestUtils/timing.ts";
-import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
+import { flushMicrotasks, settle } from "../../../../../TestUtils/timing.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -203,5 +203,45 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);
         });
+    });
+
+    it("отмена ядра доезжает до токена субпроцесса (provideReferences)", async () => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest("languages.provideReferences", (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host.provideReferences(0, requestOf(), source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
+    });
+
+    it("отмена ядра доезжает до токена субпроцесса (provideDefinition)", async () => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest("languages.provideDefinition", (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host.provideDefinition(0, requestOf(), source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
     });
 });

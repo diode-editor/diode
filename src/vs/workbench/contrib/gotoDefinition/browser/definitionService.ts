@@ -60,13 +60,19 @@ export class DefinitionService {
         // подписка лишь отменила бы уже никому не нужный токен.
         // Stryker disable BlockStatement: см. выше — мутант пустого finally
         try {
-            locations = await getDefinitions(this.languageFeatures.definitionProvider, editor, {
-                uri: editor.uri.toString(),
-                languageId: editor.languageId,
-                versionId: editor.model.document.versionId,
-                line: caret.line,
-                character: caret.character,
-            });
+            locations = await getDefinitions(
+                this.languageFeatures.definitionProvider,
+                editor,
+                {
+                    uri: editor.uri.toString(),
+                    languageId: editor.languageId,
+                    versionId: editor.model.document.versionId,
+                    line: caret.line,
+                    character: caret.character,
+                },
+                // Правка, уход каретки и повторный F12 отменяют запрос и у провайдера.
+                ticket.token,
+            );
         } finally {
             // Stryker disable next-line CallExpression: см. выше
             state.dispose();

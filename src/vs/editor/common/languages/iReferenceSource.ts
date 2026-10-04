@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
@@ -39,5 +40,10 @@ export interface ICoreReference {
  * туда `LanguageFeaturesAdapter`.
  */
 export interface ReferenceProvider {
-    provideReferences(request: IReferenceRequest): Promise<readonly ICoreReference[]>;
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
+     * закрытие попапа, правка или уход каретки) — отмена доезжает до провайдера
+     * расширения, и language-сервер бросает ненужную работу.
+     */
+    provideReferences(request: IReferenceRequest, token: ICancellationToken): Promise<readonly ICoreReference[]>;
 }
