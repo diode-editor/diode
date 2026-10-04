@@ -241,13 +241,13 @@ output-каналы, декорации, пункты статус-бара и �
 
 Активно 115 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
-(`TextDocument`) — про другое: там раскомментировано всё, но два члена ещё не реализованы
-в рантайме; помечена отдельно, потому что для автора расширения разницы нет.
+(`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
+заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.
 
 | тип | активно | не активно |
 | --- | :-: | --- |
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
-| `TextDocument` | 17/19 | `save`, `getWordRangeAtPosition` — объявлены в `vscode.d.ts`, но в субпроцессе отсутствуют: обращение бросает `TypeError`. Остальное рабочее, включая `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
+| `TextDocument` | 19/19 | — (класс документа проверяется компилятором: `implements vscode.TextDocument`). 🟡 `save` — всегда `false` («не сохранено»), у закрытого документа — отказ, как upstream: запроса «сохранить документ по uri» к хосту пока нет. `getWordRangeAtPosition` — дефолтное определение слова upstream (`DEFAULT_WORD_REGEXP`) либо регекс расширения; языковых word-definition (`wordPattern`) нет, регекс, матчащий пустую строку, — исключение. Рабочие и `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
 | `ExtensionContext` | 14/17 | `environmentVariableCollection`, `extension`, `languageModelAccessInformation`. Из активных: `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
 | `WorkspaceEdit` | 11/11 | — |

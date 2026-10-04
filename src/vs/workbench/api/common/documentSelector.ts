@@ -2,7 +2,6 @@ import type * as vscode from "vscode";
 
 import { score } from "../../../editor/common/languageSelector.ts";
 
-import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import type { IWireLanguageFilter } from "./wireTypes.ts";
 
 /**
@@ -11,7 +10,7 @@ import type { IWireLanguageFilter } from "./wireTypes.ts";
  * 0 не подходит. Считает общий с ядром `editor/common/languageSelector.score`
  * по DTO селектора, так что субпроцесс и реестр ядра не расходятся в матчинге.
  */
-export function scoreDocumentSelector(selector: vscode.DocumentSelector, doc: ExtHostTextDocument): number {
+export function scoreDocumentSelector(selector: vscode.DocumentSelector, doc: vscode.TextDocument): number {
     return score(toWireLanguageFilters(selector), doc.uri, doc.languageId);
 }
 

@@ -120,6 +120,8 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         expect(doc.getText()).toBe("class Foo {}\nsecond\n");
         expect(doc.uri.toString()).toBe(Uri.parse(JDT).toString());
         expect(doc.lineCount).toBe(3);
+        // Провайдер отдаёт текст, а не байты: кодировки исходника нет — utf8, как у эталона.
+        expect(doc.encoding).toBe("utf8");
     });
 
     it("openTextDocument: провайдер отказался — FileNotFound, а не чтение с диска", async () => {
