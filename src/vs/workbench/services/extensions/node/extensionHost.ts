@@ -68,7 +68,6 @@ import {
     type IWireDocumentSyncSnapshot,
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
-    parseWireMementoUpdate,
 } from "../../../api/common/wireTypes.ts";
 import type { IExternalOpener } from "../../externalOpener/common/iExternalOpener.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
@@ -101,6 +100,7 @@ import {
     type IExtensionStorageHomes,
     resolveExtensionStoragePaths,
 } from "./extensionStoragePaths.ts";
+import { parseWireMementoUpdate } from "./hostWireParsers.ts";
 import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
 import { DEFAULT_REQUEST_TIMEOUTS, type RequestTimeouts } from "./requestPolicy.ts";
 import {

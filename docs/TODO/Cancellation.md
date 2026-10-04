@@ -20,7 +20,7 @@
 - [ ] **Токен до провайдера.** Билеты уже несут `token`, но до расширения он доезжает только у inline completions.
   Вторая половина цепочки готова (G4): срок ответа отменяет запрос в транспорте (`request(…, { token, timeoutMs })`),
   а субпроцесс отдаёт каждому провайдеру настоящий токен. Осталось провести токен ядра: 9 сигнатур `*Source`
-  (`editor/common/languages/`) → `ExtensionHost.provide*` → опция `token` у `request*` в `wireTypes.ts`. Пока
+  (`editor/common/languages/`) → `ExtensionHost.provide*` → опция `token` у `LanguageFeaturesCustomer.request` (`RequestFn` — `services/extensions/node/hostRequests.ts`). Пока
   устаревший запрос отменяется только по сроку ответа. **Делать после G4/G5** (типизация RPC и дескриптор
   провайдера в wire-слое): иначе одну и ту же правку придётся вносить в 8 местах и потом переписывать.
   Обязательно проверить стоковый Java-сценарий (#367): `$/cancelRequest` у jdtls не должен ронять ответ на текущий

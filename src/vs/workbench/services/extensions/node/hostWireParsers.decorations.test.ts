@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "./wireTypes.ts";
+import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "./hostWireParsers.ts";
 
-describe("WireTypes — decorations serialization (Chunk 4)", () => {
+describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
     describe("themeColorIdOf", () => {
         it("извлекает id из { $themeColor }", () => {
             expect(themeColorIdOf({ $themeColor: "x" })).toBe("x");
@@ -10,6 +10,9 @@ describe("WireTypes — decorations serialization (Chunk 4)", () => {
         it("CSS-строка / undefined → undefined", () => {
             expect(themeColorIdOf("#fff")).toBeUndefined();
             expect(themeColorIdOf(undefined)).toBeUndefined();
+        });
+        it("нестроковый $themeColor → undefined (не значение как есть)", () => {
+            expect(themeColorIdOf({ $themeColor: 5 } as unknown as { $themeColor: string })).toBeUndefined();
         });
     });
 
@@ -49,6 +52,17 @@ describe("WireTypes — decorations serialization (Chunk 4)", () => {
         });
         it("не-массив → []", () => {
             expect(parseWireFileDecorations(null)).toEqual([]);
+        });
+        it("функция с uri — не декорация, отбрасывается", () => {
+            expect(parseWireFileDecorations([Object.assign(() => undefined, { uri: "file:///a" })])).toEqual([]);
+        });
+        it("кривые и отсутствующие опциональные поля — ключа нет вовсе", () => {
+            expect(
+                parseWireFileDecorations([
+                    { uri: "file:///a", badge: 5, colorId: 5, propagate: "да" },
+                    { uri: "file:///b" },
+                ]),
+            ).toStrictEqual([{ uri: "file:///a" }, { uri: "file:///b" }]);
         });
     });
 });

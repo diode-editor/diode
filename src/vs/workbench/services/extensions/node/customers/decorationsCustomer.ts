@@ -6,14 +6,9 @@ import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorDecorationsService } from "../../../../api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../../api/common/iThemeColorResolver.ts";
-import {
-    type IWireColorTheme,
-    parseDecorationRanges,
-    parseWireFileDecorations,
-    type SerializedDecorationRenderOptions,
-    themeColorIdOf,
-} from "../../../../api/common/wireTypes.ts";
+import type { IWireColorTheme, SerializedDecorationRenderOptions } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
+import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "../hostWireParsers.ts";
 
 /**
  * Декорации расширений (gutter change-bar'ы в редакторе и бейджи/цвета файлов

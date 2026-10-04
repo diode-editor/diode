@@ -2,13 +2,10 @@ import { DisposableStore, type IDisposable } from "../../../../../base/common/li
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IDocumentSyncTarget } from "../../../../api/common/iDocumentSyncTarget.ts";
-import {
-    type IWireDocumentChangedEvent,
-    type IWireDocumentSyncSnapshot,
-    requestWillSaveEdits,
-} from "../../../../api/common/wireTypes.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../../../../api/common/wireTypes.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
+import { requestWillSaveEdits } from "../hostRequests.ts";
 import { loggingRequest } from "../requestPolicy.ts";
 
 /**

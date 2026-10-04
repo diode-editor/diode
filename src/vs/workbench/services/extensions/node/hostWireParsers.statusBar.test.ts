@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireStatusBarItem, parseWireStatusBarItemDispose } from "./wireTypes.ts";
+import { parseWireStatusBarItem, parseWireStatusBarItemDispose } from "./hostWireParsers.ts";
 
 describe("parseWireStatusBarItem", () => {
     const valid = { handle: 1, id: "demo", alignment: "left", text: "Demo" };

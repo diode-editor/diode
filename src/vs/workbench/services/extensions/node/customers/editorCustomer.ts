@@ -6,16 +6,15 @@ import type {
     IEditorOptionsService,
     IEditorOptionsState,
 } from "../../../../api/common/iEditorOptionsService.ts";
+import { type IWireShowTextDocumentResult, parseWireSelections } from "../../../../api/common/wireTypes.ts";
+import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
-    type IWireShowTextDocumentResult,
     parseWireApplyWorkspaceEditParams,
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
     parseWireEditorEdits,
-    parseWireSelections,
     parseWireShowTextDocumentParams,
-} from "../../../../api/common/wireTypes.ts";
-import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
+} from "../hostWireParsers.ts";
 
 /**
  * Редакторы для расширений: опции и выделения активного редактора, правки

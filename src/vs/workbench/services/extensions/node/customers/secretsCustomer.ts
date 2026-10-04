@@ -3,12 +3,11 @@ import {
     type IWireSecretKeys,
     type IWireSecretRef,
     type IWireSecretValue,
-    parseWireSecretKeysRequest,
     parseWireSecretRef,
-    parseWireSecretWrite,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import type { IExtensionSecretStore } from "../extensionSecretsStore.ts";
+import { parseWireSecretKeysRequest, parseWireSecretWrite } from "../hostWireParsers.ts";
 
 /**
  * `ExtensionContext.secrets`: субпроцесс не хранит ничего сам, а ходит сюда

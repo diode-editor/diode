@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireApplyWorkspaceEditParams } from "./wireTypes.ts";
+import { parseWireApplyWorkspaceEditParams } from "./hostWireParsers.ts";
 
 // Парсер параметров `workspace.applyEdit` (subprocess → host). Мусор с провода
 // не должен превращаться в правку — и не должен ронять хендлер. Edit

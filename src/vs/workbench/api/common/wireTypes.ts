@@ -1,23 +1,13 @@
-import { type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import type { CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
-import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { CompletionTriggerKind } from "../../../editor/common/languages/iCompletionSource.ts";
-import type { ICoreRenameLocation, ICoreRenameResult } from "../../../editor/common/languages/iRenameSource.ts";
 import type {
-    ICoreParameterInfo,
-    ICoreSignature,
     ICoreSignatureHelp,
     SignatureHelpTriggerKind,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
-import { createFoldingRegion, type IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
-import type { ISaveEdit } from "../../services/textfile/common/iSaveParticipant.ts";
-
-import type { IHostToSubprocess } from "./extHostProtocol.ts";
-import type { IRequestOptions, RequestMethod, RequestParams, RequestResult } from "./rpcEndpoint.ts";
 
 /**
  * Wire-форма правки save-участника (subprocess → host). Либо замена текста в
@@ -78,51 +68,8 @@ export interface IWireConfigurationChanged {
     readonly affectedKeys: readonly string[];
 }
 
-function isFiniteNumber(v: unknown): v is number {
+export function isFiniteNumber(v: unknown): v is number {
     return typeof v === "number" && Number.isFinite(v);
-}
-
-/** Переводит wire-правки в core-правки ({@link ISaveEdit}). */
-export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
-    return wire.map((edit) =>
-        "setEndOfLine" in edit
-            ? { kind: "eol", eol: edit.setEndOfLine === 2 ? EndOfLine.CRLF : EndOfLine.LF }
-            : { kind: "text", range: edit.range, text: edit.text },
-    );
-}
-
-/**
- * Отправка запроса субпроцессу (обычно `rpc.request`): срок ответа и отмену
- * несёт транспорт — истёкший срок отменяет запрос на второй стороне и
- * отклоняет промис `TimeoutError`. Ответ типизирован картой протокола: его
- * форму гарантирует сериализатор субпроцесса, хост её не перепроверяет.
- * Голая функция — чтобы логику запросов можно было юнит-тестировать через
- * {@link InProcessChannelPair} без форка.
- */
-/** Запросы хоста к субпроцессу (см. `extHostProtocol.ts`). */
-type HostToSubprocess = IHostToSubprocess;
-
-export type RequestFn = <K extends RequestMethod<HostToSubprocess>>(
-    method: K,
-    params: RequestParams<HostToSubprocess, K>,
-    options: IRequestOptions,
-) => Promise<RequestResult<HostToSubprocess, K>>;
-
-/**
- * Запрашивает у subprocess'а правки will-save с таймаутом. Возвращает пустой
- * массив на таймаут или ошибку RPC — сохранение никогда не
- * блокируется навсегда и не портит данные. `request` — голая функция (обычно
- * `rpc.request`), чтобы логику можно было юнит-тестировать через
- * {@link InProcessChannelPair} без форка subprocess'а.
- */
-export async function requestWillSaveEdits(
-    request: RequestFn,
-    params: IWireWillSaveParams,
-    timeoutMs: number,
-): Promise<ISaveEdit[]> {
-    // Сбой запроса (истёк срок, отказ RPC) — «правок нет»; в лог его пишет тот, кто дал `request`.
-    const edits = await request("workspace.willSaveTextDocument", params, { timeoutMs }).catch(() => []);
-    return wireToSaveEdits(edits);
 }
 
 // ─── Document sync (зеркало документа: снапшот на открытии, дальше правки) ──
@@ -316,53 +263,14 @@ export interface IWireShowTextDocumentResult {
     readonly viewColumn: number;
 }
 
-/** Валидирует параметры `editor.showTextDocument`. */
-export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocumentParams | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.uri !== "string" || obj.uri === "") return null;
-    const selections = Array.isArray(obj.selection) ? null : obj.selection;
-    return {
-        uri: obj.uri,
-        ...(isFiniteNumber(obj.viewColumn) ? { viewColumn: obj.viewColumn } : {}),
-        ...(typeof obj.preserveFocus === "boolean" ? { preserveFocus: obj.preserveFocus } : {}),
-        ...(typeof selections === "object" && selections !== null
-            ? { selection: parseWireSelections([selections])[0] }
-            : {}),
-    };
-}
-
 /** Параметры `editor.closeTabs`: адресация вкладок парой (группа, ресурс). */
 export interface IWireCloseTabsParams {
     readonly tabs: readonly { readonly groupId: number; readonly uri: string }[];
 }
 
-/** Валидирует параметры `editor.closeTabs`. */
-export function parseWireCloseTabsParams(raw: unknown): IWireCloseTabsParams | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (!Array.isArray(obj.tabs)) return null;
-    const tabs: { groupId: number; uri: string }[] = [];
-    for (const rawTab of obj.tabs as unknown[]) {
-        if (typeof rawTab !== "object" || rawTab === null) return null;
-        const t = rawTab as Record<string, unknown>;
-        if (!isFiniteNumber(t.groupId) || typeof t.uri !== "string") return null;
-        tabs.push({ groupId: t.groupId, uri: t.uri });
-    }
-    return { tabs };
-}
-
 /** Параметры `editor.closeGroups`. */
 export interface IWireCloseGroupsParams {
     readonly groupIds: readonly number[];
-}
-
-/** Валидирует параметры `editor.closeGroups`. */
-export function parseWireCloseGroupsParams(raw: unknown): IWireCloseGroupsParams | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    if (!Array.isArray(obj.groupIds) || !(obj.groupIds as unknown[]).every((id) => isFiniteNumber(id))) return null;
-    return { groupIds: obj.groupIds as number[] };
 }
 
 /**
@@ -461,23 +369,6 @@ export interface WireFoldingRange {
 /** Параметры запроса folding (host → subprocess); запрос пачечный. */
 export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
 
-/**
- * Переводит wire-области в core-регионы ({@link IFoldingRegion}). Отбрасывает
- * вырожденные (`end <= start` — прятать нечего) и клампит `start` к нулю. `kind`
- * не переносится (модель ядра его не хранит). Регионы приходят несвёрнутыми —
- * состояние `isCollapsed` восстанавливает мерж по `startLine` в редакторе.
- */
-export function wireToCoreFoldingRegions(wire: readonly WireFoldingRange[]): IFoldingRegion[] {
-    const regions: IFoldingRegion[] = [];
-    for (const range of wire) {
-        const start = Math.max(0, Math.floor(range.start));
-        const end = Math.floor(range.end);
-        if (end <= start) continue;
-        regions.push(createFoldingRegion(start, end, false));
-    }
-    return regions;
-}
-
 // ─── Definition (LSP) ────────────────────────────────────────────────────────
 
 /** Параметры запроса definition (host → subprocess): документ, позиция, провайдер. */
@@ -552,77 +443,6 @@ export interface IWireLanguageProviderRegistration extends IWireLanguageProvider
 /** `languages.unregister`: провайдер снят (subprocess → host). */
 export interface IWireLanguageProviderUnregistration {
     readonly handle: number;
-}
-
-function isWireLanguageFeatureKind(value: unknown): value is WireLanguageFeatureKind {
-    return (WIRE_LANGUAGE_FEATURE_KINDS as readonly unknown[]).includes(value);
-}
-
-/** Валидирует один фильтр: поля чужого типа отбрасываются, а не роняют весь селектор. */
-function parseWireLanguageFilter(raw: unknown): IWireLanguageFilter | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    const pattern = obj.pattern;
-    let wirePattern: IWireLanguageFilter["pattern"];
-    if (typeof pattern === "string") {
-        wirePattern = pattern;
-    } else if (typeof pattern === "object" && pattern !== null) {
-        const relative = pattern as Record<string, unknown>;
-        if (typeof relative.base === "string" && typeof relative.pattern === "string") {
-            wirePattern = { base: relative.base, pattern: relative.pattern };
-        }
-    }
-    return {
-        ...(typeof obj.language === "string" ? { language: obj.language } : {}),
-        ...(typeof obj.scheme === "string" ? { scheme: obj.scheme } : {}),
-        ...(wirePattern === undefined ? {} : { pattern: wirePattern }),
-        ...(typeof obj.notebookType === "string" ? { notebookType: obj.notebookType } : {}),
-        ...(obj.exclusive === true ? { exclusive: true } : {}),
-    };
-}
-
-function isWireHandle(value: unknown): value is number {
-    return Number.isInteger(value);
-}
-
-/** Разбирает `languages.register`; `null` — форма не распознана (регистрация игнорируется). */
-export function parseWireLanguageProviderRegistration(raw: unknown): IWireLanguageProviderRegistration | null {
-    // У примитива поля читаются как undefined, и его отсеет проверка handle ниже.
-    if (raw === null || raw === undefined) return null;
-    const obj = raw as Record<string, unknown>;
-    if (!isWireHandle(obj.handle) || !isWireLanguageFeatureKind(obj.kind) || !Array.isArray(obj.selector)) {
-        return null;
-    }
-    const selector: IWireLanguageFilter[] = [];
-    for (const item of obj.selector) {
-        const filter = parseWireLanguageFilter(item);
-        if (filter !== null) selector.push(filter);
-    }
-    return {
-        handle: obj.handle,
-        kind: obj.kind,
-        selector,
-        ...(Array.isArray(obj.triggerCharacters)
-            ? { triggerCharacters: readWireCharacters(obj.triggerCharacters) }
-            : {}),
-        ...(Array.isArray(obj.retriggerCharacters)
-            ? { retriggerCharacters: readWireCharacters(obj.retriggerCharacters) }
-            : {}),
-        ...(Array.isArray(obj.providedCodeActionKinds)
-            ? { providedCodeActionKinds: readWireCharacters(obj.providedCodeActionKinds) }
-            : {}),
-    };
-}
-
-/** Символы-триггеры и виды действий: только непустые строки, мусор отбрасывается. */
-function readWireCharacters(raw: readonly unknown[]): string[] {
-    return raw.filter((item): item is string => typeof item === "string" && item !== "");
-}
-
-/** Разбирает `languages.unregister`; `null` — форма не распознана. */
-export function parseWireLanguageProviderUnregistration(raw: unknown): IWireLanguageProviderUnregistration | null {
-    const handle = (raw as Record<string, unknown> | null | undefined)?.handle;
-    return isWireHandle(handle) ? { handle } : null;
 }
 
 // ─── References (LSP) ────────────────────────────────────────────────────────
@@ -718,18 +538,6 @@ export interface WireRenameResult {
     readonly error?: string;
 }
 
-/**
- * Переводит ответ `prepareRename` в форму ядра. Отказ бьёт имя: провайдер,
- * сказавший «здесь нельзя», не должен открыть поле ввода из-за того, что
- * прислал заодно и placeholder. `null` — ни имени, ни причины: ядро спросит
- * следующего провайдера.
- */
-export function wireToCoreRenameLocation(wire: WireRenamePrepare): ICoreRenameLocation | null {
-    if (wire.rejectReason !== undefined) return { kind: "reject", reason: wire.rejectReason };
-    if (wire.placeholder !== undefined) return { kind: "name", name: wire.placeholder };
-    return null;
-}
-
 // ─── Progress (window.withProgress → статус-бар) ─────────────────────────────
 
 /** Параметры `window.progress.start` (subprocess → host). */
@@ -750,35 +558,6 @@ export interface IWireProgressReport {
 /** Параметры `window.progress.end`. */
 export interface IWireProgressEnd {
     readonly handle: number;
-}
-
-/** Валидирует `window.progress.start`; `null`, если конверт не распознан. */
-export function parseWireProgressStart(raw: unknown): IWireProgressStart | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.handle)) return null;
-    if (typeof p.title !== "string") return null;
-    return { handle: p.handle, title: p.title };
-}
-
-/** Валидирует `window.progress.report`; кривые message/increment отбрасываются по отдельности. */
-export function parseWireProgressReport(raw: unknown): IWireProgressReport | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.handle)) return null;
-    return {
-        handle: p.handle,
-        ...(typeof p.message === "string" ? { message: p.message } : {}),
-        ...(isFiniteNumber(p.increment) ? { increment: p.increment } : {}),
-    };
-}
-
-/** Валидирует `window.progress.end`; `null`, если конверт не распознан. */
-export function parseWireProgressEnd(raw: unknown): IWireProgressEnd | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.handle)) return null;
-    return { handle: p.handle };
 }
 
 // ─── Пункты статус-бара (window.createStatusBarItem → полоса) ────────────────
@@ -818,40 +597,10 @@ export interface IWireStatusBarItemDispose {
     readonly handle: number;
 }
 
-/** Валидирует `window.statusBarItem.update`; `null`, если конверт не распознан. */
-export function parseWireStatusBarItem(raw: unknown): IWireStatusBarItem | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.handle)) return null;
-    if (typeof p.id !== "string" || p.id === "") return null;
-    if (p.alignment !== "left" && p.alignment !== "right") return null;
-    if (typeof p.text !== "string") return null;
-    return {
-        handle: p.handle,
-        id: p.id,
-        alignment: p.alignment,
-        text: p.text,
-        ...(isFiniteNumber(p.priority) ? { priority: p.priority } : {}),
-        ...(typeof p.name === "string" && p.name !== "" ? { name: p.name } : {}),
-        ...(typeof p.command === "string" && p.command !== "" ? { command: p.command } : {}),
-        ...(Array.isArray(p.arguments) ? { arguments: p.arguments as readonly unknown[] } : {}),
-    };
-}
-
-/** Валидирует `window.statusBarItem.dispose`; `null`, если конверт не распознан. */
-export function parseWireStatusBarItemDispose(raw: unknown): IWireStatusBarItemDispose | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.handle)) return null;
-    return { handle: p.handle };
-}
-
 // ─── Output-каналы (window.createOutputChannel → панель Output) ──────────────
 
 /** Уровень строки output-канала (маппится на методы ILogger хоста). */
 export type WireOutputLevel = "trace" | "debug" | "info" | "warn" | "error";
-
-const WIRE_OUTPUT_LEVELS: readonly WireOutputLevel[] = ["trace", "debug", "info", "warn", "error"];
 
 /** Параметры `output.append` (subprocess → host): одна строка канала. */
 export interface IWireOutputAppend {
@@ -868,26 +617,6 @@ export interface IWireOutputShow {
     readonly channel: string;
     /** Label канала — show мог прийти до первой строки, канал регистрируется лениво. */
     readonly label: string;
-}
-
-/** Валидирует `output.append`; `null`, если конверт не распознан. */
-export function parseWireOutputAppend(raw: unknown): IWireOutputAppend | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (typeof p.channel !== "string" || p.channel === "") return null;
-    if (typeof p.label !== "string" || p.label === "") return null;
-    if (typeof p.level !== "string" || !WIRE_OUTPUT_LEVELS.includes(p.level as WireOutputLevel)) return null;
-    if (typeof p.value !== "string") return null;
-    return { channel: p.channel, label: p.label, level: p.level as WireOutputLevel, value: p.value };
-}
-
-/** Валидирует `output.show`; `null`, если конверт не распознан. */
-export function parseWireOutputShow(raw: unknown): IWireOutputShow | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (typeof p.channel !== "string" || p.channel === "") return null;
-    if (typeof p.label !== "string" || p.label === "") return null;
-    return { channel: p.channel, label: p.label };
 }
 
 // ─── Diagnostics (LSP) ───────────────────────────────────────────────────────
@@ -912,41 +641,6 @@ export interface IWireDiagnosticsPublish {
     /** Ресурс как `uri.toString()` — ключ MarkerService. */
     readonly resource: string;
     readonly markers: readonly WireMarker[];
-}
-
-/** Валидирует один wire-маркер; `null`, если форма не распознана. */
-function parseWireMarker(raw: unknown): WireMarker | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const m = raw as Record<string, unknown>;
-    const range = parseRange(m.range);
-    if (!isFiniteNumber(m.severity) || range === null || typeof m.message !== "string") {
-        return null;
-    }
-    return {
-        severity: m.severity,
-        range,
-        message: m.message,
-        ...(typeof m.code === "string" ? { code: m.code } : {}),
-        ...(typeof m.source === "string" ? { source: m.source } : {}),
-    };
-}
-
-/**
- * Разбирает параметры `diagnostics.publish`; `null`, если конверт не распознан.
- * Невалидные маркеры отбрасываются (drop+skip), а не роняют публикацию.
- */
-export function parseWireDiagnosticsPublish(raw: unknown): IWireDiagnosticsPublish | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (typeof p.owner !== "string" || p.owner === "") return null;
-    if (typeof p.resource !== "string" || p.resource === "") return null;
-    if (!Array.isArray(p.markers)) return null;
-    const markers: WireMarker[] = [];
-    for (const item of p.markers) {
-        const parsed = parseWireMarker(item);
-        if (parsed !== null) markers.push(parsed);
-    }
-    return { owner: p.owner, resource: p.resource, markers };
 }
 
 // ─── Editor write (selection + edit, #194) ───────────────────────────────────
@@ -1050,25 +744,6 @@ export function parseWireSelections(raw: unknown): IWireSelection[] {
     return result;
 }
 
-function parseWireEditorEdit(raw: unknown): IWireEditorEdit | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
-    const range = parseRange(obj.range);
-    if (range === null) return null;
-    if (typeof obj.text !== "string") return null;
-    return { range, text: obj.text };
-}
-
-export function parseWireEditorEdits(raw: unknown): IWireEditorEdit[] {
-    if (!Array.isArray(raw)) return [];
-    const result: IWireEditorEdit[] = [];
-    for (const item of raw) {
-        const parsed = parseWireEditorEdit(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
 // ─── Workspace edit (workspace.applyEdit, #196) ──────────────────────────────
 
 /** Текстовые правки одного ресурса внутри workspace edit. */
@@ -1111,68 +786,6 @@ export type IWireWorkspaceEditOp =
  */
 export interface IWireApplyWorkspaceEditParams {
     readonly ops: readonly IWireWorkspaceEditOp[];
-}
-
-/**
- * Разбор операций workspace edit'а. Мусорная операция (неизвестный `kind`, не
- * строковый ресурс, текстовая без единой валидной правки) **отбрасывает весь
- * набор**: edit применяется all-or-nothing, и молча потерять одну операцию
- * хуже, чем честно отказать. `null` — разбирать нечего.
- */
-export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireWorkspaceEditOp[] | null {
-    // Непригодные параметры (не объект, `null`, без массива `ops`) отсеивает
-    // один гейт: у примитива и у `null` свойства просто нет.
-    const list = (raw as { ops?: unknown } | null | undefined)?.ops;
-    if (!Array.isArray(list)) return null;
-    const result: IWireWorkspaceEditOp[] = [];
-    for (const item of list) {
-        const parsed = parseWireWorkspaceEditOp(item);
-        if (parsed === null) return null;
-        result.push(parsed);
-    }
-    return result;
-}
-
-function parseWireWorkspaceEditOp(raw: unknown): IWireWorkspaceEditOp | null {
-    // Достаточно отсечь то, у чего вообще нет свойств: у примитива `kind` не
-    // совпадёт ни с одним видом, и операция выпадет сама.
-    if (raw === null || raw === undefined) return null;
-    const obj = raw as Record<string, unknown>;
-    if (obj.kind === "text") {
-        if (typeof obj.resource !== "string") return null;
-        const edits = parseWireEditorEdits(obj.edits);
-        if (edits.length === 0) return null;
-        return { kind: "text", resource: obj.resource, edits };
-    }
-    if (obj.kind === "create") {
-        if (typeof obj.resource !== "string") return null;
-        return {
-            kind: "create",
-            resource: obj.resource,
-            ...(typeof obj.contents === "string" ? { contents: obj.contents } : {}),
-            ...(obj.overwrite === true ? { overwrite: true } : {}),
-            ...(obj.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
-        };
-    }
-    if (obj.kind === "delete") {
-        if (typeof obj.resource !== "string") return null;
-        return {
-            kind: "delete",
-            resource: obj.resource,
-            ...(obj.ignoreIfNotExists === true ? { ignoreIfNotExists: true } : {}),
-        };
-    }
-    if (obj.kind === "rename") {
-        if (typeof obj.from !== "string" || typeof obj.to !== "string") return null;
-        return {
-            kind: "rename",
-            from: obj.from,
-            to: obj.to,
-            ...(obj.overwrite === true ? { overwrite: true } : {}),
-            ...(obj.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
-        };
-    }
-    return null;
 }
 
 // ─── Decorations (Chunk 4 — host-bridge) ─────────────────────────────────────
@@ -1237,20 +850,12 @@ export interface IWireFileDecorationsChanged {
     readonly decorations: readonly IWireFileDecoration[];
 }
 
-/** Извлекает id темы из сериализованного цвета; `undefined` для CSS-строк/пусто. */
-export function themeColorIdOf(value: SerializedColor | undefined): string | undefined {
-    if (typeof value === "object" && typeof value.$themeColor === "string") {
-        return value.$themeColor;
-    }
-    return undefined;
-}
-
 /**
  * Валидирует один сырой диапазон в {@link IRange} (nested `start`/`end`). `null`,
  * если форма не распознана (drop+skip, как остальные wire-парсеры). Единственный
  * разбор диапазона провода: декорации, правки, дельты документа, маркеры.
  */
-function parseRange(raw: unknown): IRange | null {
+export function parseRange(raw: unknown): IRange | null {
     if (typeof raw !== "object" || raw === null) return null;
     const r = raw as { start?: unknown; end?: unknown };
     const start = r.start as { line?: unknown; character?: unknown } | undefined;
@@ -1268,35 +873,6 @@ function parseRange(raw: unknown): IRange | null {
     return createRange(start.line, start.character, end.line, end.character);
 }
 
-/** Разбирает сырой массив диапазонов декорации в {@link IRange}[] (невалидные — drop). */
-export function parseDecorationRanges(raw: unknown): IRange[] {
-    if (!Array.isArray(raw)) return [];
-    const result: IRange[] = [];
-    for (const item of raw) {
-        const parsed = parseRange(item);
-        if (parsed !== null) result.push(parsed);
-    }
-    return result;
-}
-
-/** Разбирает сырой массив файловых декораций (`window.fileDecorationsChanged`). */
-export function parseWireFileDecorations(raw: unknown): IWireFileDecoration[] {
-    if (!Array.isArray(raw)) return [];
-    const result: IWireFileDecoration[] = [];
-    for (const item of raw) {
-        if (typeof item !== "object" || item === null) continue;
-        const d = item as { uri?: unknown; badge?: unknown; colorId?: unknown; propagate?: unknown };
-        if (typeof d.uri !== "string" || d.uri === "") continue;
-        result.push({
-            uri: d.uri,
-            ...(typeof d.badge === "string" ? { badge: d.badge } : {}),
-            ...(typeof d.colorId === "string" ? { colorId: d.colorId } : {}),
-            ...(typeof d.propagate === "boolean" ? { propagate: d.propagate } : {}),
-        });
-    }
-    return result;
-}
-
 // ── workspace.fs: чтение ресурса провайдером расширения ──────────────────────
 
 /**
@@ -1306,14 +882,6 @@ export function parseWireFileDecorations(raw: unknown): IWireFileDecoration[] {
  */
 export interface IWireReadFileResult {
     content: string;
-}
-
-/** Разбирает ответ `workspace.fs.readFile` в байты. Бросает на структурно чужом ответе. */
-export function parseWireReadFileResult(raw: unknown): Uint8Array {
-    if (typeof raw !== "object" || raw === null) throw new Error("workspace.fs.readFile: result must be an object");
-    const content = (raw as { content?: unknown }).content;
-    if (typeof content !== "string") throw new Error("workspace.fs.readFile: content must be a base64 string");
-    return new Uint8Array(Buffer.from(content, "base64"));
 }
 
 // ── workspace.registerTextDocumentContentProvider: содержимое недисковых ─────
@@ -1329,23 +897,6 @@ export interface IWireTextContentResult {
     content: string | null;
 }
 
-/**
- * Разбирает ответ `workspace.provideTextDocumentContent`. Бросает на структурно
- * чужом ответе: ядру нужна разница между «провайдер сказал нет» (`null`) и
- * «канал сломался» — во втором случае человеку показывается причина.
- */
-export function parseWireTextContentResult(raw: unknown): string | null {
-    if (typeof raw !== "object" || raw === null) {
-        throw new Error("workspace.provideTextDocumentContent: result must be an object");
-    }
-    const content = (raw as { content?: unknown }).content;
-    if (content === null || content === undefined) return null;
-    if (typeof content !== "string") {
-        throw new Error("workspace.provideTextDocumentContent: content must be a string or null");
-    }
-    return content;
-}
-
 /** Схемы провайдеров (`workspace.*ProvidersChanged`, subprocess → host). */
 export interface IWireSchemes {
     readonly schemes: readonly string[];
@@ -1354,13 +905,6 @@ export interface IWireSchemes {
 /** Ресурсы провайдера ФС, изменившиеся снаружи (`workspace.fs.didChangeFile`, subprocess → host). */
 export interface IWireChangedFiles {
     readonly uris: readonly string[];
-}
-
-/** Разбирает список схем из `workspace.*ProvidersChanged`; чужие элементы отбрасывает. */
-export function parseWireSchemes(raw: unknown): string[] {
-    const schemes = (raw as { schemes?: unknown } | null)?.schemes;
-    if (!Array.isArray(schemes)) return [];
-    return schemes.filter((s): s is string => typeof s === "string");
 }
 
 // ── workspace.createFileSystemWatcher: файловые watcher'ы расширений ─────────
@@ -1381,40 +925,9 @@ export interface IWireWatcherCreate {
     readonly ignoreDeleteEvents: boolean;
 }
 
-/** Разбирает `workspace.watcher.create`; `null` — параметры структурно чужие. */
-export function parseWireWatcherCreate(raw: unknown): IWireWatcherCreate | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as {
-        id?: unknown;
-        base?: unknown;
-        pattern?: unknown;
-        ignoreCreateEvents?: unknown;
-        ignoreChangeEvents?: unknown;
-        ignoreDeleteEvents?: unknown;
-    };
-    if (typeof p.id !== "number" || !Number.isInteger(p.id)) return null;
-    if (typeof p.base !== "string" || p.base === "") return null;
-    if (typeof p.pattern !== "string") return null;
-    return {
-        id: p.id,
-        base: p.base,
-        pattern: p.pattern,
-        ignoreCreateEvents: p.ignoreCreateEvents === true,
-        ignoreChangeEvents: p.ignoreChangeEvents === true,
-        ignoreDeleteEvents: p.ignoreDeleteEvents === true,
-    };
-}
-
 /** Снятие watcher'а (`workspace.watcher.dispose`, subprocess → host). */
 export interface IWireWatcherDispose {
     readonly id: number;
-}
-
-/** Разбирает `workspace.watcher.dispose`; `null` — параметры структурно чужие. */
-export function parseWireWatcherDispose(raw: unknown): number | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const { id } = raw as { id?: unknown };
-    return typeof id === "number" && Number.isInteger(id) ? id : null;
 }
 
 /** Одно файловое событие в сторону субпроцесса: тип + ресурс как `uri.toString()`. */
@@ -1527,82 +1040,6 @@ export interface IWireQuickInputCancel {
     readonly handle: number;
 }
 
-function optionalWireString(value: unknown): string | undefined {
-    return typeof value === "string" ? value : undefined;
-}
-
-/** Разбирает `window.showInputBox`; `null` — параметры структурно чужие. */
-export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.handle)) return null;
-    return {
-        handle: p.handle,
-        title: optionalWireString(p.title),
-        prompt: optionalWireString(p.prompt),
-        placeHolder: optionalWireString(p.placeHolder),
-        value: optionalWireString(p.value),
-        password: p.password === true,
-        validates: p.validates === true,
-    };
-}
-
-/** Разбирает `window.showQuickPick`; `null` — параметры структурно чужие. */
-export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.handle)) return null;
-    if (!Array.isArray(p.items)) return null;
-    const items: IWireQuickPickItem[] = [];
-    for (const entry of p.items) {
-        if (typeof entry !== "object" || entry === null) continue;
-        const it = entry as { label?: unknown; description?: unknown };
-        // Пункт без лейбла показывать нечем — но выбросить его молча нельзя:
-        // ответ адресуется индексом в ЭТОМ массиве, и дыра сдвинула бы остальные.
-        items.push({
-            label: typeof it.label === "string" ? it.label : "",
-            description: optionalWireString(it.description),
-        });
-    }
-    const canPickMany = p.canPickMany === true;
-    const picked = Array.isArray(p.picked)
-        ? p.picked.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < items.length)
-        : [];
-    return {
-        handle: p.handle,
-        title: optionalWireString(p.title),
-        placeHolder: optionalWireString(p.placeHolder),
-        canPickMany,
-        items,
-        // Предотметки без множественного выбора смысла не имеют — гасим здесь,
-        // чтобы ниже по течению не приходилось помнить про эту пару.
-        picked: canPickMany ? picked : [],
-    };
-}
-
-/** Разбирает `window.quickInput.cancel`; `null` — параметры структурно чужие. */
-export function parseWireQuickInputCancel(raw: unknown): number | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
-    if (typeof raw !== "object" || raw === null) return null;
-    const { handle } = raw as { handle?: unknown };
-    return isFiniteNumber(handle) ? handle : null;
-}
-
-/**
- * Разбирает ответ расширения на `window.inputBox.validate`. `null` — значение в
- * порядке (в том числе когда расширение ответило мусором или молчанием).
- */
-export function parseWireValidationMessage(raw: unknown): IWireValidationMessage | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as { message?: unknown; severity?: unknown };
-    if (typeof p.message !== "string") return null;
-    const severity: WireValidationSeverity = p.severity === "warning" || p.severity === "info" ? p.severity : "error";
-    return { message: p.message, severity };
-}
-
 /** Ответ хоста на `window.showInputBox`: `value: null` — человек отменил. */
 export interface IWireInputBoxResult {
     readonly value: string | null;
@@ -1677,46 +1114,6 @@ export interface IWireShowMessageResult {
     readonly index: number | null;
 }
 
-/** Разбирает `window.showMessage`; `null` — параметры структурно чужие. */
-export function parseWireShowMessageRequest(raw: unknown): IWireShowMessageRequest | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (typeof p.message !== "string") return null;
-    return {
-        severity: parseWireMessageSeverity(p.severity),
-        message: p.message,
-        detail: optionalWireString(p.detail),
-        modal: p.modal === true,
-        items: parseWireMessageItems(p.items),
-    };
-}
-
-/**
- * Кнопки с провода. Кнопка без заголовка остаётся в массиве пустой: ответ
- * адресуется индексом в ЭТОМ массиве, и дыра сдвинула бы остальные.
- */
-function parseWireMessageItems(raw: unknown): IWireMessageItem[] {
-    if (!Array.isArray(raw)) return [];
-    const items: IWireMessageItem[] = [];
-    for (const entry of raw) {
-        // Мусорная кнопка (null, число, строка) читается теми же полями и даёт
-        // пустой заголовок — отдельной ветки для неё не нужно, нужен только
-        // `?? {}`, чтобы не обратиться к полю у `null`.
-        const it = (entry ?? {}) as { title?: unknown; isCloseAffordance?: unknown };
-        items.push({
-            title: typeof it.title === "string" ? it.title : "",
-            isCloseAffordance: it.isCloseAffordance === true,
-        });
-    }
-    return items;
-}
-
-/** Строгость с провода; всё непонятное — `info` (как у логгера до этого). */
-function parseWireMessageSeverity(raw: unknown): WireMessageSeverity {
-    return raw === "error" || raw === "warn" ? raw : "info";
-}
-
 /** Разбирает ответ хоста на `window.showMessage` (host → subprocess). */
 export function parseWireShowMessageResult(raw: unknown): IWireShowMessageResult {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
@@ -1782,18 +1179,6 @@ export function parseWireSecretRef(raw: unknown): IWireSecretRef | null {
     return { extensionId: p.extensionId, key: p.key };
 }
 
-/**
- * Разбирает `secrets.store`. Пустая строка — законный секрет (расширение вправе
- * хранить и такое), поэтому у значения проверяется только тип.
- */
-export function parseWireSecretWrite(raw: unknown): IWireSecretWrite | null {
-    const ref = parseWireSecretRef(raw);
-    if (ref === null) return null;
-    const { value } = raw as { value?: unknown };
-    if (typeof value !== "string") return null;
-    return { ...ref, value };
-}
-
 /** Запрос `secrets.keys`: ключи какого расширения. */
 export interface IWireSecretKeysRequest {
     readonly extensionId: string;
@@ -1807,14 +1192,6 @@ export interface IWireSecretKeys {
 /** Ответ хоста на `secrets.get`: `null` — секрета нет (JSON не возит `undefined`). */
 export interface IWireSecretValue {
     readonly value: string | null;
-}
-
-/** Разбирает `secrets.keys` (только id расширения); `null` — форма чужая. */
-export function parseWireSecretKeysRequest(raw: unknown): string | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
-    if (typeof raw !== "object" || raw === null) return null;
-    const { extensionId } = raw as { extensionId?: unknown };
-    return typeof extensionId === "string" && extensionId !== "" ? extensionId : null;
 }
 
 /**
@@ -1833,17 +1210,6 @@ export interface IWireMementoUpdate {
  */
 export function parseWireMementoValue(raw: unknown): Readonly<Record<string, unknown>> {
     return typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-}
-
-/** Разбирает `memento.update`; `null` — форма чужая. */
-export function parseWireMementoUpdate(raw: unknown): IWireMementoUpdate | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеют проверки полей ниже
-    if (typeof raw !== "object" || raw === null) return null;
-    const { extensionId, shared, value } = raw as { extensionId?: unknown; shared?: unknown; value?: unknown };
-    if (typeof extensionId !== "string" || extensionId === "") return null;
-    if (typeof shared !== "boolean") return null;
-    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-    return { extensionId, shared, value: value as Record<string, unknown> };
 }
 
 /**
