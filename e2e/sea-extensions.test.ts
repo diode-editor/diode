@@ -104,7 +104,16 @@ describe("SEA binary — user extensions", () => {
                 (root) => findNode(root, (n) => n.type === "EditorElement")?.state?.tabSize === 7,
                 { timeoutMs: 20_000 },
             );
-            const screen = await session.waitFor((s) => s.findText("indented") !== null);
+            // Состояние и кадр — два независимых канала: inspectState приезжает
+            // по WebSocket, кадр — байтами в PTY. Ждать «на экране есть слово
+            // indented» нельзя: слово там есть при ЛЮБОМ tabSize, предикат
+            // закрывается мгновенно, и под голодом раннера снимался кадр,
+            // отрисованный ещё до RPC (CI 37195942480: expected 4 to be 7).
+            // Ждём сам отступ — наблюдаемое значение, ради которого тест и
+            // написан. Перерисовка при этом исправна: решение расширения,
+            // пришедшее через 6 с после того, как редактор замолчал, догоняет
+            // кадр за 1 мс (проверено пробой на живом бинаре).
+            const screen = await session.waitFor((s) => tabIndentOf(s) === 7, { timeoutMs: 20_000 });
             const indentedRow = locateRow(screen, "indented");
             const indentedPos = screen.findText("indented")!;
             const endPos = screen.findText("end");
@@ -154,6 +163,19 @@ function locateRow(screen: AnsiScreen, text: string): number {
     const pos = screen.findText(text);
     if (!pos) throw new Error(`text not found on screen: ${JSON.stringify(text)}`);
     return pos.y;
+}
+
+/**
+ * Отрисованная ширина таба на фикстуре `tabbed.txt`: `indented` стоит за табом
+ * в колонке 0, `end` — в колонке 0 без отступа, так что разница их экранных `x`
+ * и есть tabSize, которым строка разложена. `null` — одной из строк на кадре
+ * ещё нет.
+ */
+function tabIndentOf(screen: AnsiScreen): number | null {
+    const indented = screen.findText("indented");
+    const end = screen.findText("end");
+    if (indented === null || end === null) return null;
+    return indented.x - end.x;
 }
 
 function rowHasFg(screen: AnsiScreen, y: number, fg: number): boolean {
