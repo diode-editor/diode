@@ -70,3 +70,11 @@ export const showAllEditorsAction: CommandAction = {
         accessor.get(QuickOpenServiceDIToken).show(OpenEditorsQuickAccessProvider.PREFIX + prefillOf(args));
     },
 };
+
+/** Экшены Quick Open и пикеров. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const QUICK_ACCESS_ACTIONS: readonly CommandAction[] = [
+    quickOpenAction,
+    showCommandsAction,
+    showAllEditorsAction,
+    gotoLineAction,
+];

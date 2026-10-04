@@ -28,3 +28,6 @@ export const revealDefinitionAsideAction: CommandAction = {
         return accessor.get(DefinitionServiceDIToken).revealDefinition({ toSide: true });
     },
 };
+
+/** Экшены перехода к определению. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const GOTO_DEFINITION_ACTIONS: readonly CommandAction[] = [revealDefinitionAction, revealDefinitionAsideAction];

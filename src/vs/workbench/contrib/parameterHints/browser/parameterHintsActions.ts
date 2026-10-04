@@ -94,3 +94,11 @@ export const closeParameterHintsAction: CommandAction = {
         accessor.get(ParameterHintsServiceDIToken).close();
     },
 };
+
+/** Экшены подсказки параметров. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+export const PARAMETER_HINTS_ACTIONS: readonly CommandAction[] = [
+    triggerParameterHintsAction,
+    closeParameterHintsAction,
+    showNextParameterHintAction,
+    showPrevParameterHintAction,
+];
