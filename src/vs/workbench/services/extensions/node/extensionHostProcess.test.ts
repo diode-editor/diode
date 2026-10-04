@@ -118,6 +118,17 @@ describe("ExtensionHostProcess — запуск", () => {
         expect(log.error).toHaveBeenCalledWith("extension host subprocess error", expect.any(Error));
     });
 
+    it("сломавшийся поток ребёнка — предупреждение в лог host'а с меткой процесса", () => {
+        const log = logger();
+        const child = new FakeChild();
+        child.stdout = new PassThrough();
+        start(child, { logger: log, stdoutLogger: logger() });
+
+        child.stdout.emit("error", new Error("EPIPE"));
+
+        expect(log.warn).toHaveBeenCalledWith("[extension-host] stdout stream error: Error: EPIPE");
+    });
+
     it("ожидание host.ready отвергается сразу на неудачном спавне, а не по таймауту", async () => {
         const child = new FakeChild();
         const { subprocess } = start(child);
