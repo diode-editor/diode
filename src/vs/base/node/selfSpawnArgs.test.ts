@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import type { IProcessSnapshot } from "./restartProcess.ts";
@@ -73,4 +75,54 @@ describe("spawnSelfAsRole", () => {
         expect(child.stderr).not.toBeNull();
         await new Promise((resolve) => child.once("exit", resolve));
     });
+
+    /**
+     * Ребёнок сообщает свою группу процессов. Лидер группы — тот, у кого
+     * `pgrp === pid`; иначе он сидит в группе родителя. Поля `/proc/self/stat`
+     * читаем после последней `)`: в `comm` бывают пробелы и скобки.
+     */
+    const groupProbe = [
+        'const fs = require("node:fs");',
+        'const stat = fs.readFileSync("/proc/self/stat", "utf-8");',
+        'const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");',
+        "process.send({ pid: process.pid, pgrp: Number(fields[2]) }, () => process.exit(0));",
+    ].join("\n");
+
+    async function spawnAndReportGroup(ownProcessGroup?: boolean): Promise<{ pid: number; pgrp: number }> {
+        const child = spawnSelfAsRole("DIODE_FILE_WATCHER", {
+            stderr: "ignore",
+            spec: { command: process.execPath, args: ["-e", groupProbe] },
+            ...(ownProcessGroup !== undefined ? { ownProcessGroup } : {}),
+        });
+        const message = await new Promise<{ pid: number; pgrp: number }>((resolve) => {
+            child.once("message", (raw) => {
+                resolve(raw as { pid: number; pgrp: number });
+            });
+        });
+        await new Promise((resolve) => child.once("exit", resolve));
+        return message;
+    }
+
+    it.skipIf(process.platform === "win32")("ownProcessGroup: ребёнок — лидер своей группы процессов", async () => {
+        const { pid, pgrp } = await spawnAndReportGroup(true);
+
+        expect(pgrp).toBe(pid);
+    });
+
+    it.skipIf(process.platform === "win32")(
+        "без ownProcessGroup ребёнок остаётся в группе родителя — роль не получает её молча",
+        async () => {
+            const { pid, pgrp } = await spawnAndReportGroup();
+
+            expect(pgrp).not.toBe(pid);
+            expect(pgrp).toBe(ownGroup());
+        },
+    );
 });
+
+/** Группа процессов самого прогона — для сравнения с группой ребёнка. */
+function ownGroup(): number {
+    const stat = readFileSync("/proc/self/stat", "utf-8");
+    const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    return Number(fields[2]);
+}
