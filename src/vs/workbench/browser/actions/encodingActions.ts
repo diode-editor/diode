@@ -1,8 +1,7 @@
-import * as fs from "node:fs";
-
 import { SUPPORTED_ENCODINGS } from "../../../editor/common/model/encoding.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistryDIToken } from "../../../platform/commands/common/commandRegistry.ts";
+import { IFileServiceDIToken } from "../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
@@ -26,7 +25,7 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
     const editor = editorGroup.getActiveEditor();
     if (editor === null) return;
 
-    const canReopen = editor.absoluteFilePath !== null && fs.existsSync(editor.absoluteFilePath);
+    const canReopen = editor.absoluteFilePath !== null && (await accessor.get(IFileServiceDIToken).exists(editor.uri));
     // Read-only запрещает запись, но не перечитывание файла с диска — поэтому
     // команда остаётся доступной, а из режимов убирается только «Save with
     // Encoding» (VS Code ведёт себя так же). Если перечитывать нечего (буфер без
