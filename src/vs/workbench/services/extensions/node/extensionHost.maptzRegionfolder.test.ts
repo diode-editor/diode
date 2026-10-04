@@ -125,7 +125,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
         try {
             // Гейт #196: после wrapWithRegion расширение делает fire-and-forget
             // executeCommand("editor.action.formatDocument"). Регистрируем
-            // НАСТОЯЩУЮ команду (как builtinActions в проде) — вызов обязан
+            // НАСТОЯЩУЮ команду (как WORKBENCH_ACTIONS в проде) — вызов обязан
             // исполниться, а не отклониться «command not found».
             const notices: string[] = [];
             const statusBar = {

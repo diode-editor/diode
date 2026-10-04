@@ -69,7 +69,7 @@ ref'ов «auto», номенклатура команд контекстног�
   ядро погасит её по подписи — секция так и осталась бы пустой.
 - **Команды** — точка меню `MenuId.ScmGraphContext` (аналог `scm/historyItem/context`),
   контекст `ScmGraphMenuContext {sha, shortSha, subject}`. Все — обычные `CommandAction`
-  в `builtinActions.ts`; из палитры они тоже доступны, но без аргумента выходят тихо.
+  в `WORKBENCH_ACTIONS` (агрегатор `workbench.common.main.ts`); из палитры они тоже доступны, но без аргумента выходят тихо.
 
 ## Отклонения от VS Code (осознанные)
 

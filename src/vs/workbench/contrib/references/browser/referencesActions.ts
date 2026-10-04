@@ -145,7 +145,7 @@ export const expandReferencesAction: CommandAction = {
     },
 };
 
-/** Экшены Find All References и панели ссылок. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены Find All References и панели ссылок. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const REFERENCES_ACTIONS: readonly CommandAction[] = [
     findAllReferencesAction,
     showReferencesAction,

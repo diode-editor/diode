@@ -112,7 +112,7 @@ export const hideSuggestWidgetAction: CommandAction = {
     },
 };
 
-/** Экшены suggest-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены suggest-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const SUGGEST_ACTIONS: readonly CommandAction[] = [
     triggerSuggestAction,
     selectNextSuggestionAction,

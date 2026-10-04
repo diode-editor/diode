@@ -58,5 +58,5 @@ export const newTerminalAction: CommandAction = {
     },
 };
 
-/** Экшены интегрированного терминала. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены интегрированного терминала. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const TERMINAL_ACTIONS: readonly CommandAction[] = [toggleTerminalAction, newTerminalAction];

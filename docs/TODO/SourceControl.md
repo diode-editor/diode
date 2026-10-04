@@ -23,7 +23,7 @@ vscode.d.ts не раскомментируем — см. «Оставшийся
 
 ## Архитектурная рамка
 
-- **Все user-facing `git.*`-команды живут в ядре** (`CommandAction` + `builtinActions.ts`):
+- **Все user-facing `git.*`-команды живут в ядре** (`CommandAction` в `SCM_ACTIONS` → `WORKBENCH_ACTIONS` агрегатора):
   манифест расширений не умеет contributes.menus, а пикеры/диалоги — в ядре. Расширение
   регистрирует только приватные мосты `diode.git.*` (одноимённая регистрация невозможна —
   `CommandRegistry` перезаписывает по id). Исключение: `git.refresh` уже зарегистрирован

@@ -3,13 +3,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { isSubmenuContribution, type MenuContribution } from "../../../platform/actions/common/iMenuContribution.ts";
-
-import { MENU_CONTRIBUTIONS } from "./menuContributions.ts";
+import { MENU_CONTRIBUTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Срез раскладки меню (F2, предохранитель разноса `builtinActions` по фичам).
+ * Срез раскладки меню (F2, предохранитель разноса `WORKBENCH_ACTIONS` по фичам).
  * Пункты одной группы с равным `order` сортируются по индексу вставки, то есть
- * по порядку экшенов в `builtinActions` — перестановка массива молча
+ * по порядку экшенов в `WORKBENCH_ACTIONS` — перестановка массива молча
  * переставила бы пункты меню. Эталон — `menuContributions.slice.json` рядом;
  * пересобрать от текущего кода: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
  *

@@ -2,7 +2,7 @@ import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent"
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
 
-import { registerAction } from "../../platform/actions/common/commandAction.ts";
+import { CommandActionsDIToken, registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
@@ -40,7 +40,6 @@ import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironme
 import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
-import { builtinActions } from "./actions/builtinActions.ts";
 import { withMacKeybindings } from "./actions/macKeybindings.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
@@ -68,7 +67,7 @@ export const WorkbenchComponentDIToken = token<WorkbenchComponent>("WorkbenchCom
  * Корневой компонент приложения (аналог Workbench-части в VS Code): владеет
  * корневой view (`BodyElement` + `WorkbenchLayoutElement`), вставляет в неё view
  * компонентов, прикрепляет late-init швы (`attachHost`/`attachLayout`/
- * `attachView`), регистрирует встроенные экшены (`builtinActions`) и красит
+ * `attachView`), регистрирует встроенные экшены (`CommandActionsDIToken`, список — `WORKBENCH_ACTIONS` агрегатора) и красит
  * собственные контролы (BodyElement/сэши) в {@link updateStyles}. Логика живёт
  * в сервисах Workbench.
  *
@@ -229,7 +228,7 @@ export class WorkbenchComponent extends Component {
         // модального сообщения по центру — тот же слой.
         this.notificationsComponent = this.register(accessor.get(NotificationsComponentDIToken));
         this.notificationsComponent.attachHost(this.view);
-        for (const action of builtinActions) {
+        for (const action of accessor.get(CommandActionsDIToken)) {
             // Мак-дельты (таблица macKeybindings.ts) — поверх объявленных биндов.
             this.register(registerAction(commands, keybindings, accessor, withMacKeybindings(action)));
         }

@@ -24,8 +24,8 @@ import {
     serializeChord,
 } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { macKeysLevel, type MacKeysRung } from "../../../platform/keybinding/common/macKeys.ts";
+import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
-import { builtinActions } from "./builtinActions.ts";
 import { MAC_KEYBINDING_DELTAS, type MacKeybindingDelta, withMacKeybindings } from "./macKeybindings.ts";
 
 interface IVscodeReference {
@@ -237,9 +237,9 @@ describe("таблица мак-дельт", () => {
     });
 
     it("каждая дельта ссылается на встроенную команду, и каждая накладывается без ошибок", () => {
-        const ids = new Set(builtinActions.map((builtin) => builtin.id));
+        const ids = new Set(WORKBENCH_ACTIONS.map((builtin) => builtin.id));
         expect(MAC_KEYBINDING_DELTAS.map((delta) => delta.command).filter((id) => !ids.has(id))).toEqual([]);
-        expect(() => builtinActions.map((builtin) => withMacKeybindings(builtin))).not.toThrow();
+        expect(() => WORKBENCH_ACTIONS.map((builtin) => withMacKeybindings(builtin))).not.toThrow();
         expect(new Set(MAC_KEYBINDING_DELTAS.map((delta) => delta.command)).size).toBe(MAC_KEYBINDING_DELTAS.length);
     });
 

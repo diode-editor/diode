@@ -5,11 +5,11 @@ import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeySe
 import type { ServiceAccessor } from "../vs/platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../vs/platform/keybinding/common/keybindingRegistry.ts";
 import { macKeysLevel, type MacKeysRung } from "../vs/platform/keybinding/common/macKeys.ts";
-import { builtinActions } from "../vs/workbench/browser/actions/builtinActions.ts";
 import { withMacKeybindings } from "../vs/workbench/browser/actions/macKeybindings.ts";
+import { WORKBENCH_ACTIONS } from "../vs/workbench/workbench.common.main.ts";
 
 /** Дефолтные бинды — так, как их регистрирует WorkbenchComponent (в порядке `actions`). */
-export function registerBuiltins(actions: readonly CommandAction[] = builtinActions): KeybindingRegistry {
+export function registerBuiltins(actions: readonly CommandAction[] = WORKBENCH_ACTIONS): KeybindingRegistry {
     const keybindings = new KeybindingRegistry();
     const commands = new CommandRegistry();
     const accessor = {} as ServiceAccessor; // enablement резолвится только при исполнении

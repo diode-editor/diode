@@ -7,7 +7,7 @@ import { PopupMenuElement } from "@tuidom/elements/menu/popupMenuElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
-import { MENU_CONTRIBUTIONS } from "../../../workbench/browser/actions/menuContributions.ts";
+import { MENU_CONTRIBUTIONS } from "../../../workbench/workbench.common.main.ts";
 import { MenuId } from "../../actions/common/menuId.ts";
 import { MenuRegistry } from "../../actions/common/menuRegistry.ts";
 import { MenuService } from "../../actions/common/menuService.ts";

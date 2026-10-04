@@ -26,7 +26,7 @@ import { explorerNewFileAction, explorerNewFolderAction } from "./fileTreeCreate
 
 /**
  * Экшены фичи files одним массивом: файл (save/open/new) и операции дерева
- * Explorer (delete/rename/clipboard/create). Регистрирует агрегатор (`builtinActions`).
+ * Explorer (delete/rename/clipboard/create). Регистрирует агрегатор (`WORKBENCH_ACTIONS`).
  */
 export const FILES_ACTIONS: readonly CommandAction[] = [
     fileSaveAction,

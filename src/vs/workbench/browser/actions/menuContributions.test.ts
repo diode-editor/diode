@@ -6,8 +6,9 @@ import { MenuRegistry } from "../../../platform/actions/common/menuRegistry.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../platform/contextkey/common/contextKeyService.ts";
 import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { MENU_CONTRIBUTIONS } from "../../workbench.common.main.ts";
 
-import { MENU_CONTRIBUTIONS, menuItemsOfAction } from "./menuContributions.ts";
+import { menuItemsOfAction } from "./menuContributions.ts";
 
 function action(overrides: Partial<CommandAction>): CommandAction {
     return { id: "test.command", title: "Test: Command", run: () => undefined, ...overrides };

@@ -69,7 +69,7 @@ export const hideInlineSuggestAction: CommandAction = {
     },
 };
 
-/** Экшены призрачных подсказок. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены призрачных подсказок. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const INLINE_COMPLETIONS_ACTIONS: readonly CommandAction[] = [
     triggerInlineSuggestAction,
     commitInlineSuggestAction,

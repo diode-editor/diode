@@ -103,7 +103,7 @@ export const openKeybindingsFileAction: CommandAction = {
     },
 };
 
-/** Экшены настроек и вкладки Keyboard Shortcuts. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены настроек и вкладки Keyboard Shortcuts. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const PREFERENCES_ACTIONS: readonly CommandAction[] = [
     openSettingsAction,
     openKeybindingsAction,

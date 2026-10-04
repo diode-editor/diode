@@ -40,9 +40,10 @@
   (саморегистрация контейнеров с `order`, хост оверлеев через
   `LayoutService.mainContainer`, фаза `blockStartup`, агрегатор
   `workbench.common.main.ts`, restore view-состояния по
-  `IStateService.onDidOpenWorkspace`) сделано; `workbenchContextKeyContributors.ts` — F3;
-  `builtinActions.ts` и мелкие action-файлы — F2. Запись удаляет задача, которая
-  её закрыла.
+  `IStateService.onDidOpenWorkspace`) сделано; списки экшенов, меню и контекст-ключей
+  фич уже в агрегаторе (F2). Мелкие action-файлы ядра (`layoutActions`,
+  `editorGroupActions`, `inputActions`) ещё зовут сервисы фич — тоже зона E4.
+  Запись удаляет задача, которая её закрыла.
 - [ ] **`attachHost` у оверлеев `browser/parts` и `DialogService`** — quickInput,
   tabSwitcher, notifications и диалоги ещё получают корневую view от корня
   (правило направления это разрешает). Перевести их на

@@ -85,5 +85,5 @@ export const selectThemeAction: CommandAction = {
     },
 };
 
-/** Экшены цветовых тем. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены цветовых тем. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const THEME_ACTIONS: readonly CommandAction[] = [selectThemeAction];

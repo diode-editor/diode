@@ -18,10 +18,10 @@ import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeF
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
-import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";

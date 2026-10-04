@@ -43,7 +43,7 @@ import { type StatusBarService, StatusBarServiceDIToken } from "../../../service
 // Установка расширения ходит в сеть (магазин) — в оффлайне сьют пропускается.
 let installed: IInstalledPrettier;
 
-/** Регистрирует НАСТОЯЩИЕ формат-команды в реестре харнесса (как builtinActions в проде). */
+/** Регистрирует НАСТОЯЩИЕ формат-команды в реестре харнесса (как WORKBENCH_ACTIONS в проде). */
 function registerFormatActions(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;

@@ -8,10 +8,9 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { parseWhen, whenKeys } from "../../../platform/contextkey/common/contextKeyExpr.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { MENU_CONTRIBUTIONS, WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
-import { builtinActions } from "./builtinActions.ts";
 import { withMacKeybindings } from "./macKeybindings.ts";
-import { MENU_CONTRIBUTIONS } from "./menuContributions.ts";
 
 /**
  * Ключи, объявленные в `ContextKeyTypes` (раскомментированные поля интерфейса).
@@ -30,7 +29,7 @@ const DYNAMIC_KEY_PREFIXES = ["mode_", "cap_"];
 function builtinWhens(): Set<string> {
     const keybindings = new KeybindingRegistry();
     const accessor = {} as ServiceAccessor; // enablement резолвится только при исполнении
-    for (const builtin of builtinActions) {
+    for (const builtin of WORKBENCH_ACTIONS) {
         registerAction(new CommandRegistry(), keybindings, accessor, withMacKeybindings(builtin));
     }
     const whens = new Set<string>();
@@ -38,7 +37,7 @@ function builtinWhens(): Set<string> {
         if (when !== undefined) whens.add(when);
     };
     for (const entry of keybindings.listBindings()) add(entry.when);
-    for (const action of builtinActions) add(action.enablement);
+    for (const action of WORKBENCH_ACTIONS) add(action.enablement);
     for (const item of MENU_CONTRIBUTIONS) {
         add(item.when);
         if (!isSubmenuContribution(item)) {

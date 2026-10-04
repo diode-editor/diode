@@ -71,7 +71,7 @@ export const showAllEditorsAction: CommandAction = {
     },
 };
 
-/** Экшены Quick Open и пикеров. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены Quick Open и пикеров. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const QUICK_ACCESS_ACTIONS: readonly CommandAction[] = [
     quickOpenAction,
     showCommandsAction,

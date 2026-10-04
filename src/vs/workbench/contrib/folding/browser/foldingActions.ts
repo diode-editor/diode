@@ -115,7 +115,7 @@ export const gotoPreviousFoldAction: CommandAction = {
     },
 };
 
-/** Экшены сворачивания. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены сворачивания. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const FOLDING_ACTIONS: readonly CommandAction[] = [
     foldAction,
     unfoldAction,

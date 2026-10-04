@@ -95,7 +95,7 @@ export const closeParameterHintsAction: CommandAction = {
     },
 };
 
-/** Экшены подсказки параметров. Фича отдаёт их одним массивом; регистрирует агрегатор (`builtinActions`). */
+/** Экшены подсказки параметров. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const PARAMETER_HINTS_ACTIONS: readonly CommandAction[] = [
     triggerParameterHintsAction,
     closeParameterHintsAction,

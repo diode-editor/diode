@@ -9,10 +9,10 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
-import { MENU_CONTRIBUTIONS } from "../../../browser/actions/menuContributions.ts";
 import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { ViewWelcomeElement } from "../../../browser/parts/views/viewWelcomeElement.ts";
+import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 
 import { EXPLORER_VIEW_ID, EXPLORER_VIEWLET_ID, ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
