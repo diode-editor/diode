@@ -32,6 +32,7 @@ export class ConfigurationSnapshot {
     /** Модель для чтения: основная или для языка `overrides.overrideIdentifier`. */
     public model(overrides?: IConfigurationOverrides): ConfigurationModel {
         const identifier = overrides?.overrideIdentifier;
+        // Stryker disable next-line ConditionalExpression: без языка путь через секцию даёт равную модель (секции нет) — ветка экономит пересборку
         if (identifier === undefined) return this.base;
         let model = this.languages.get(identifier);
         if (model === undefined) {
