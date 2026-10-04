@@ -271,17 +271,25 @@ describe("startWorkbench", () => {
 
     describe("сохранённая сессия", () => {
         let userData: ITempWorkspace;
+        /** Созданные кейсом `StateService` — гасим их в `afterEach`. */
+        let writers: IStateService[];
 
         beforeEach(() => {
             userData = createTempWorkspace({ prefix: "diode-startup-userdata-" });
+            writers = [];
         });
 
         afterEach(() => {
+            // Писателей глушим ДО сноса каталога: debounced-запись, сработавшая
+            // после `rmSync`, пересоздаёт его.
+            for (const writer of writers) writer.dispose();
             userData.dispose();
         });
 
         function newState(): IStateService {
-            return loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+            const state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+            writers.push(state);
+            return state;
         }
 
         /** Прошлый запуск: в окне (с папкой или без) были открыты эти файлы. */

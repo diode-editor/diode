@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
-import { loadState } from "../../../../platform/state/node/stateService.ts";
+import { loadState as loadStateReal, type StateService } from "../../../../platform/state/node/stateService.ts";
 import { computeWorkspaceId } from "../../../../platform/workspace/common/workspaceId.ts";
 
 import {
@@ -16,16 +16,30 @@ import {
 describe("extensionStateStore", () => {
     let userData: ITempWorkspace;
 
+    /** Созданные кейсом `StateService` — гасим их в `afterEach`. */
+    let writers: StateService[];
+
     beforeEach(() => {
         userData = createTempWorkspace({ prefix: "diode-ext-state-" });
+        writers = [];
     });
 
     afterEach(() => {
+        // Писателей глушим ДО сноса каталога: debounced-запись, сработавшая
+        // после `rmSync`, пересоздаёт его.
+        for (const writer of writers) writer.dispose();
         userData.dispose();
     });
 
     function paths() {
         return resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir });
+    }
+
+    /** `loadState` кейса: тот же контракт, плюс регистрация под `afterEach`. */
+    function loadState(...args: Parameters<typeof loadStateReal>): StateService {
+        const state = loadStateReal(...args);
+        writers.push(state);
+        return state;
     }
 
     it("дескриптор: свой ключ на расширение, globalState — global, workspaceState — workspace", () => {

@@ -14,7 +14,7 @@ import { computeWorkspaceId, EMPTY_WINDOW_WORKSPACE_ID } from "../../workspace/c
 import type { IStateDescriptor } from "../common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../common/nullStateService.ts";
 
-import { loadState, StateService } from "./stateService.ts";
+import { loadState as loadStateReal, StateService } from "./stateService.ts";
 
 const width: IStateDescriptor<number> = { key: "workbench.sideBar.width", scope: "global", default: 30 };
 const wsWidth: IStateDescriptor<number> = { key: "workbench.sideBar.width", scope: "workspace", default: 30 };
@@ -22,14 +22,37 @@ const openFiles: IStateDescriptor<string[]> = { key: "workbench.editors.openFile
 
 describe("StateService", () => {
     let ws: ITempWorkspace;
+    /**
+     * Каждый созданный в кейсе сервис. `afterEach` глушит их ДО сноса
+     * каталога: debounced-запись, сработавшая после `rmSync`, пересоздала бы
+     * каталог (`mkdir` с `recursive` в `writeStoreAsync`) и тот остался бы
+     * в `os.tmpdir()` навсегда.
+     */
+    let writers: StateService[];
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-state-" });
+        writers = [];
     });
 
     afterEach(() => {
+        for (const writer of writers) writer.dispose();
         ws.dispose();
     });
+
+    /** `loadState` кейса: тот же контракт, плюс регистрация под `afterEach`. */
+    function loadState(...args: Parameters<typeof loadStateReal>): StateService {
+        const state = loadStateReal(...args);
+        writers.push(state);
+        return state;
+    }
+
+    /** `new StateService(...)` кейса — см. {@link loadState}. */
+    function newStateService(...args: ConstructorParameters<typeof StateService>): StateService {
+        const state = new StateService(...args);
+        writers.push(state);
+        return state;
+    }
 
     function paths(profile?: string): IUserDataPaths {
         return resolveUserDataPaths({ homedir: "/never", userDataDir: ws.dir, profile });
@@ -97,7 +120,7 @@ describe("StateService", () => {
 
         it("нетронутый стор пустого окна на диск не пишется — ни при flushSync, ни по таймеру", async () => {
             const p = paths();
-            const svc = new StateService({
+            const svc = newStateService({
                 globalStateFile: p.globalStateFile,
                 workspaceStorageDir: p.workspaceStorageDir,
                 writeDebounceMs: 0,
@@ -231,7 +254,7 @@ describe("StateService", () => {
 
         it("удаление по workspace-скоупу правит стор открытого проекта, а запись — по таймеру", async () => {
             const p = paths();
-            const svc = new StateService({
+            const svc = newStateService({
                 globalStateFile: p.globalStateFile,
                 workspaceStorageDir: p.workspaceStorageDir,
                 writeDebounceMs: 0,
@@ -282,7 +305,7 @@ describe("StateService", () => {
             // Point the global-state path at a directory → readFileSync throws EISDIR.
             const dirAsFile = path.join(ws.dir, "state-as-dir");
             fs.mkdirSync(dirAsFile, { recursive: true });
-            const svc = new StateService({
+            const svc = newStateService({
                 globalStateFile: dirAsFile,
                 workspaceStorageDir: path.join(ws.dir, "wss"),
                 logger,
@@ -300,7 +323,7 @@ describe("StateService", () => {
         // dirname of the state file is a regular file → mkdirSync/writeFileSync fail.
         const blocker = path.join(ws.dir, "blocker");
         fs.writeFileSync(blocker, "x");
-        const svc = new StateService({
+        const svc = newStateService({
             globalStateFile: path.join(blocker, "globalState.json"),
             workspaceStorageDir: path.join(ws.dir, "wss"),
             logger,
@@ -374,7 +397,7 @@ describe("StateService", () => {
         // At construction the dir is missing → read is a silent ENOENT (no log). We then
         // plant a FILE where the dir should be, so the debounced write's mkdir fails.
         const subAsFile = path.join(ws.dir, "async-sub");
-        const svc = new StateService({
+        const svc = newStateService({
             globalStateFile: path.join(subAsFile, "globalState.json"),
             workspaceStorageDir: path.join(ws.dir, "wss"),
             logger,
@@ -391,7 +414,7 @@ describe("StateService", () => {
 
     it("writes dirty stores on the debounced timer (without an explicit flush)", async () => {
         const p = paths();
-        const svc = new StateService({
+        const svc = newStateService({
             globalStateFile: p.globalStateFile,
             workspaceStorageDir: p.workspaceStorageDir,
             writeDebounceMs: 5,
@@ -405,7 +428,110 @@ describe("StateService", () => {
         const onDisk = await waitForJson(p.globalStateFile);
         expect(onDisk).toMatchObject({ "workbench.sideBar.width": 88 });
     });
+
+    describe("dispose", () => {
+        it("снимает запланированную запись: ничего не пишет и после паузы", async () => {
+            const p = paths();
+            const svc = newStateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 5,
+            });
+            svc.store(width, 88);
+            svc.dispose();
+
+            await sleep(40); // с запасом к debounce
+            expect(fs.existsSync(p.globalStateFile)).toBe(false);
+        });
+
+        it("после dispose новый store не взводит запись заново", async () => {
+            const p = paths();
+            const svc = newStateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 5,
+            });
+            svc.dispose();
+            svc.store(width, 88);
+
+            await sleep(40);
+            expect(fs.existsSync(p.globalStateFile)).toBe(false);
+            // Стор остаётся живым читателем: гашение писателя не ломает `get`.
+            expect(svc.get(width)).toBe(88);
+        });
+
+        it("снесённый каталог не воскресает отложенной записью (регресс: мусор в os.tmpdir)", async () => {
+            // Ровно та последовательность, которой owner временного каталога
+            // убирает за собой: писатель заводит отложенную запись, владелец
+            // гасит писателя и сносит каталог. `mkdir` с `recursive` внутри
+            // `writeStoreAsync` до этой правки пересоздавал путь уже ПОСЛЕ
+            // `rmSync`, и каталог оставался в `os.tmpdir()` навсегда.
+            const home = path.join(ws.dir, "doomed");
+            const p = resolveUserDataPaths({ homedir: "/never", userDataDir: home });
+            const svc = newStateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 5,
+            });
+            svc.openWorkspace(computeWorkspaceId("/projects/alpha"));
+            svc.store(wsWidth, 42);
+
+            svc.dispose();
+            fs.rmSync(home, { recursive: true, force: true });
+
+            await sleep(40);
+            expect(fs.existsSync(home)).toBe(false);
+        });
+
+        it("снимает ВСЕ запланированные записи, а не последнюю", async () => {
+            const p = paths();
+            const svc = newStateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 5,
+            });
+            // Три `store` подряд — debounce обязан держать ОДИН таймер на всех.
+            // Если на каждый взводится свой, `dispose` снимет только последний,
+            // а остальные запишут файл уже после сноса каталога.
+            svc.store(width, 1);
+            svc.store(width, 2);
+            svc.store(width, 3);
+            svc.dispose();
+
+            await sleep(40);
+            expect(fs.existsSync(p.globalStateFile)).toBe(false);
+        });
+
+        it("после dispose событие openWorkspace до подписчиков не доходит", () => {
+            const svc = loadState(paths());
+            const seen: string[] = [];
+            svc.onDidOpenWorkspace((id) => seen.push(id));
+
+            svc.openWorkspace(computeWorkspaceId("/projects/alpha"));
+            expect(seen).toHaveLength(1);
+
+            svc.dispose();
+            svc.openWorkspace(computeWorkspaceId("/projects/beta"));
+
+            expect(seen).toHaveLength(1); // второго события нет — эмиттер снят
+        });
+
+        it("flushSync остаётся способом записать — dispose его не подменяет", () => {
+            const p = paths();
+            const svc = loadState(p);
+            svc.store(width, 7);
+            svc.flushSync();
+            svc.dispose();
+            expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toMatchObject({
+                "workbench.sideBar.width": 7,
+            });
+        });
+    });
 });
+
+async function sleep(ms: number): Promise<void> {
+    await new Promise((r) => setTimeout(r, ms));
+}
 
 async function waitFor(cond: () => boolean, timeoutMs = 1000): Promise<void> {
     const start = Date.now();

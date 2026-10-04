@@ -27,13 +27,20 @@ import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 describe("Workbench — session state persistence", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
+    /** Все `StateService`, созданные тестом: гасим их в `afterEach` до сноса каталогов. */
+    let writers: StateService[];
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-persist-ws-", files: { "a.ts": "A", "b.ts": "B", "c.ts": "C" } });
         userData = createTempWorkspace({ prefix: "diode-persist-home-" });
+        writers = [];
     });
 
     afterEach(() => {
+        // Порядок обязателен: сначала глушим писателей, потом сносим каталоги.
+        // Иначе debounced-запись срабатывает уже после `rmSync` и пересоздаёт
+        // каталог («воскресший» user-data оставался в /tmp тысячами).
+        for (const writer of writers) writer.dispose();
         ws.dispose();
         userData.dispose();
     });
@@ -51,7 +58,9 @@ describe("Workbench — session state persistence", () => {
     }
 
     function newState(): StateService {
-        return loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        const state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        writers.push(state);
+        return state;
     }
 
     it("restores open files, active tab, sidebar width and panel state across a restart", () => {

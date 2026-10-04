@@ -83,6 +83,7 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 import type { IWorkspaceScanner } from "../vs/workbench/services/extensions/node/workspaceContainsActivation.ts";
 
 import { diskFileService } from "./diskFileService.ts";
+import { removeDirLoud } from "./removeDirLoud.ts";
 import { createTestContextMenuService } from "./testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 
@@ -474,18 +475,15 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     }
 
     const dispose = async (): Promise<void> => {
-        host.dispose();
-        // ExtensionHost.dispose стартует асинхронный shutdownSubprocess(); ждём
-        // короткое окно, чтобы дать ему успеть отправить host.shutdown и
-        // дочерний процесс корректно завершился.
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Ждём ФАКТИЧЕСКОГО выхода субпроцесса, а не фиксированное окно: пока он
+        // жив, он пишет в `tmpDir` (globalStorage расширений), и снос каталога
+        // из-под живого писателя либо падает, либо каталог воскресает его же
+        // `mkdir`. Прежние 100 мс были заведомо меньше таймаута вежливого
+        // прощания — отсюда гигабайты `diode-ext-*` в os.tmpdir().
+        await host.shutdown();
         groupComponent.dispose();
         group.dispose();
-        try {
-            fs.rmSync(tmpDir, { recursive: true, force: true });
-        } catch {
-            // ignore
-        }
+        removeDirLoud(tmpDir, "ExtensionTestHarness");
     };
 
     return { app, host, group, languageFeatures, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };

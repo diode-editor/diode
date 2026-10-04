@@ -6,7 +6,7 @@ import type { IStateDescriptor, IStateService } from "./iStateService.ts";
 /**
  * Заглушка {@link IStateService} для тестов и demo, где состояние не
  * персистится. `get` всегда отдаёт `descriptor.default`; `store`/`remove`/
- * `openWorkspace`/`flushSync` — no-op, `onDidOpenWorkspace` не срабатывает. Зеркало `NULL_CONFIGURATION_SERVICE`.
+ * `openWorkspace`/`flushSync`/`dispose` — no-op, `onDidOpenWorkspace` не срабатывает. Зеркало `NULL_CONFIGURATION_SERVICE`.
  */
 export const NULL_STATE_SERVICE: IStateService = {
     get<T>(descriptor: IStateDescriptor<T>): T {
@@ -22,6 +22,9 @@ export const NULL_STATE_SERVICE: IStateService = {
         /* no-op */
     },
     flushSync(): void {
+        /* no-op */
+    },
+    dispose(): void {
         /* no-op */
     },
     onDidOpenWorkspace: Event.None,

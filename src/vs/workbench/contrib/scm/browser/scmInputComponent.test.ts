@@ -41,6 +41,7 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
             openWorkspaceEmitter.fire(workspaceId);
         },
         flushSync: () => {},
+        dispose: () => {},
         onDidOpenWorkspace: openWorkspaceEmitter.event,
     };
     return { service, stored };

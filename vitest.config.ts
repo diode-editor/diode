@@ -6,6 +6,10 @@ export default defineConfig({
     // Непредвиденная ошибка (onUnexpectedError — в т.ч. исключение слушателя
     // Emitter) роняет тест, а не тонет в консоли. См. docs/TESTING.md.
     setupFiles: ["src/TestUtils/unexpectedErrors.setup.ts"],
+    // Все временные каталоги прогона — внутрь одного корня (TMPDIR), который
+    // teardown сносит целиком. Страховка от SIGKILL/OOM: afterEach тогда не
+    // бежит, и забытое оставалось в /tmp навсегда. См. src/TestUtils/tmpRoot.ts.
+    globalSetup: ["src/TestUtils/tmpRoot.ts"],
     coverage: {
       skipFull: true,
       reportOnFailure: true,
