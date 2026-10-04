@@ -70,6 +70,12 @@ describe("ConfigurationModel — секции языков", () => {
         expect(ConfigurationModel.fromRaw(raw).override("go").get("editor.tabSize")).toBe(8);
     });
 
+    it("пустой идентификатор (`[ ]`, `[a][ ]`) отбрасывается", () => {
+        const model = ConfigurationModel.fromRaw({ "[ ]": { "editor.tabSize": 1 }, "[a][ ]": { "editor.tabSize": 2 } });
+
+        expect(model.getOverrideIdentifiers()).toEqual(["a"]);
+    });
+
     it("getOverride без секции — пустая модель", () => {
         expect(ConfigurationModel.fromRaw({}).getOverride("go").getValue()).toEqual({});
     });

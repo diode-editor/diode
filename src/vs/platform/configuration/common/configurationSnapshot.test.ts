@@ -46,6 +46,20 @@ describe("ConfigurationSnapshot — значения для языка", () => {
         expect(python.get("ruff.lint.enable")).toBe(false);
     });
 
+    it("из секции уходит только сам неразрешённый ключ, соседние ключи того же префикса остаются", () => {
+        const s = snapshot({ "[python]": { "files.autoSave": "afterDelay", "files.trimTrailingWhitespace": true } });
+        const python = s.model({ overrideIdentifier: "python" });
+
+        expect(python.get("files.autoSave")).toBe("off");
+        expect(python.get("files.trimTrailingWhitespace")).toBe(true);
+    });
+
+    it("префикс неразрешённого ключа в секции — не объект: не падаем", () => {
+        const s = snapshot({ "[python]": { files: null, "editor.tabSize": 2 } });
+
+        expect(s.model({ overrideIdentifier: "python" }).get("editor.tabSize")).toBe(2);
+    });
+
     it("значение секции тоже проходит схему: мусор — дефолт", () => {
         const s = snapshot({ "editor.tabSize": 2, "[go]": { "editor.tabSize": 0 } });
 
