@@ -1,4 +1,5 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
@@ -13,6 +14,16 @@ export const revealDefinitionAction: CommandAction = {
     title: "Go to Definition",
     keybinding: parseKeybinding("f12"),
     when: "textInputFocus",
+    // Группа и порядок — дословно upstream (`goToCommands.ts`): пункт виден
+    // только там, где определение кто-то отдаёт.
+    menus: [
+        {
+            menuId: MenuId.EditorContext,
+            group: "navigation",
+            order: 1.1,
+            when: "editorHasDefinitionProvider",
+        },
+    ],
     run(accessor) {
         return accessor.get(DefinitionServiceDIToken).revealDefinition();
     },

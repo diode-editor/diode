@@ -342,6 +342,17 @@ shortTitle → title» фиксируется при деривации). Явн
 `EditorTitleContext → { groupId, index, path, tabCount, hasTabsToTheRight,
 hasSavedTabs }` — вкладка под правым кликом (хелперы — `Menus/menuContexts.ts`).
 
+**`EditorContext` — контекст-меню редактора.** Состав и группы — дословно
+upstream'ские: `navigation` (Go to Definition, Find All References) →
+`1_modification` (Rename Symbol, Change All Occurrences, Format Document,
+Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) →
+`9_cutcopypaste` (Cut, Copy, Paste) → `z_commands` (Command Palette…). Пункты
+языковых фич гейтятся ключами `editorHas*Provider`, которые по реестрам
+`ILanguageFeaturesService` выставляет `LanguageFeatureContextKeys`
+(контрибьютор контекст-ключей): без провайдера под документ пункт не
+показывается — меню не обещает нерабочее. Undo в этом меню нет (его нет и в
+эталоне — отмена живёт на Ctrl+Z и в меню Edit).
+
 **`EditorTitleContext` — меню вкладки** (VS Code `editor/title/context`).
 Открывает `EditorGroupComponent` по `EditorTabStripElement.onTabContextMenu`;
 цель — вкладка **под курсором**, а не активная (правый клик активную не меняет,

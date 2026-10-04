@@ -139,6 +139,28 @@ export const selectHighlightsAction: CommandAction = {
     },
 };
 
+/**
+ * Change All Occurrences — тот же мультикурсор по всем вхождениям слова, что и
+ * Select All Occurrences, но под именем эталона (`editor.action.changeAll`,
+ * Ctrl+F2): под этим id его знают кейбинды и `contributes.menus` расширений, и
+ * именно он стоит в контекст-меню редактора VS Code.
+ *
+ * Дефолтного бинда у него нет намеренно: эталонный Ctrl+F2 на legacy-терминале
+ * не доезжает, а обещать подписью нерабочее нельзя (гейт достижимости). Та же
+ * операция висит на Ctrl+Shift+L / Ctrl+K Ctrl+A у Select All Occurrences —
+ * этой команде остаются пункт контекст-меню и палитра.
+ */
+export const changeAllOccurrencesAction: CommandAction = {
+    id: "editor.action.changeAll",
+    title: "Change All Occurrences",
+    when: "textInputFocus && !editorReadonly",
+    menus: [{ menuId: MenuId.EditorContext, group: "1_modification", order: 1.2 }],
+    run(accessor) {
+        const viewState = accessor.get(EditorServiceDIToken).getActiveViewState();
+        if (viewState) selectHighlights(viewState);
+    },
+};
+
 /** Порядок — как в меню Selection. */
 export const MULTI_CURSOR_ACTIONS: readonly CommandAction[] = [
     insertCursorAboveAction,
@@ -150,4 +172,5 @@ export const MULTI_CURSOR_ACTIONS: readonly CommandAction[] = [
     moveSelectionToNextFindMatchAction,
     moveSelectionToPreviousFindMatchAction,
     selectHighlightsAction,
+    changeAllOccurrencesAction,
 ];

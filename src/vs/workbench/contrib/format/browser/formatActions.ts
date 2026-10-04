@@ -3,6 +3,7 @@ import { createRange, type IRange } from "../../../../editor/common/core/iRange.
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { formatDocument, formatRange } from "../../../../editor/contrib/format/format.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormattingEdits.ts";
@@ -107,6 +108,16 @@ export const formatDocumentAction: CommandAction = {
     keybinding: parseChord("ctrl+k ctrl+e"),
     keybindings: [{ keys: parseKeybinding("shift+alt+f"), when: "tier != 'legacy'" }],
     when: "textInputFocus && !editorReadonly",
+    // Группа и порядок — дословно upstream (`formatActions.ts`): без
+    // форматтера под язык пункта нет.
+    menus: [
+        {
+            menuId: MenuId.EditorContext,
+            group: "1_modification",
+            order: 1.3,
+            when: "editorHasDocumentFormattingProvider",
+        },
+    ],
     run(accessor) {
         return runFormat(accessor, false, "Format Document");
     },
@@ -121,6 +132,16 @@ export const formatSelectionAction: CommandAction = {
     title: "Format Selection",
     keybinding: parseChord("mod+k mod+f"),
     when: "textInputFocus && !editorReadonly",
+    // Upstream показывает пункт только при непустом выделении — иначе
+    // «отформатировать выделенное» нечего форматировать.
+    menus: [
+        {
+            menuId: MenuId.EditorContext,
+            group: "1_modification",
+            order: 1.31,
+            when: "editorHasDocumentSelectionFormattingProvider && editorHasSelection",
+        },
+    ],
     run(accessor) {
         return runFormat(accessor, true, "Format Selection");
     },

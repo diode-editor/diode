@@ -87,8 +87,50 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
             .map((e) => (e.type === "separator" ? "─" : e.label));
     }
 
-    it("EditorContext: клипборд + Undo", () => {
-        expect(labels(MenuId.EditorContext)).toEqual(["Copy", "Cut", "Paste", "─", "Undo"]);
+    it("EditorContext: состав и порядок — дословно upstream'ские", () => {
+        // Группы эталона: `1_modification` → `1_quickfix` → `9_cutcopypaste` →
+        // `z_commands` (`navigation` всегда первой, но её пункты гейтятся
+        // ключами `editorHas*Provider` — без провайдеров их тут нет).
+        expect(labels(MenuId.EditorContext)).toEqual([
+            "Change All Occurrences",
+            "─",
+            "Cut",
+            "Copy",
+            "Paste",
+            "─",
+            "Command Palette...",
+        ]);
+    });
+
+    it("EditorContext: пункты языковых фич приходят с ключами провайдеров", () => {
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("editorHasDefinitionProvider", true);
+        contextKeys.set("editorHasReferenceProvider", true);
+        contextKeys.set("editorHasRenameProvider", true);
+        contextKeys.set("editorHasCodeActionsProvider", true);
+        contextKeys.set("editorHasDocumentFormattingProvider", true);
+        contextKeys.set("editorHasDocumentSelectionFormattingProvider", true);
+        contextKeys.set("editorHasSelection", true);
+
+        expect(labels(MenuId.EditorContext, undefined, contextKeys)).toEqual([
+            "Go to Definition",
+            "Find All References",
+            "─",
+            "Rename Symbol",
+            "Change All Occurrences",
+            "Format Document",
+            "Format Selection",
+            "Refactor...",
+            "Source Action...",
+            "─",
+            "Quick Fix",
+            "─",
+            "Cut",
+            "Copy",
+            "Paste",
+            "─",
+            "Command Palette...",
+        ]);
     });
 
     it("ExplorerContext: полный состав c label'ами из shortTitle", () => {

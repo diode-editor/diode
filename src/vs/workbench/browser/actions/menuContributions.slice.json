@@ -1,12 +1,27 @@
 {
     "EditorContext": {
-        "1_clipboard": [
-            "editor.action.clipboardCopyAction",
+        "1_modification": [
+            "editor.action.rename",
+            "editor.action.changeAll",
+            "editor.action.formatDocument",
+            "editor.action.formatSelection",
+            "editor.action.refactor",
+            "editor.action.sourceAction"
+        ],
+        "1_quickfix": [
+            "editor.action.quickFix"
+        ],
+        "9_cutcopypaste": [
             "editor.action.clipboardCutAction",
+            "editor.action.clipboardCopyAction",
             "editor.action.clipboardPasteAction"
         ],
-        "2_undo": [
-            "undo"
+        "navigation": [
+            "editor.action.revealDefinition",
+            "references-view.findReferences"
+        ],
+        "z_commands": [
+            "workbench.action.showCommands"
         ]
     },
     "EditorTitleContext": {

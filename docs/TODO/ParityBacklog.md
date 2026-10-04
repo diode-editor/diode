@@ -365,7 +365,8 @@ bulk-edit всё равно будут отвечать «failed»), плюс н
 **Как идёт.** Стеком PR, чтобы не тащить один необъятный: (1) rename-провайдер
 (`languages.registerRenameProvider` через реестр ядра по handle + команда
 `editor.action.rename`/F2) — **сделано**; (2) состав `EditorContext` по
-эталону; (3) мост `contributes.menus`/`submenus`.
+эталону + ключи `editorHas*Provider` под честные `when` — **сделано**;
+(3) мост `contributes.menus`/`submenus`.
 
 Хвосты самого `MenuRegistry` (серые пункты попапа, `when`-фильтр палитры,
 `alt`/hide-toggle/вложенные подменю) ведутся в

@@ -27,7 +27,8 @@ function setup(): { app: TestApp; owner: TUIElement; service: ContextMenuService
         ["editor.action.clipboardCopyAction", "Copy"],
         ["editor.action.clipboardCutAction", "Cut"],
         ["editor.action.clipboardPasteAction", "Paste"],
-        ["undo", "Undo"],
+        ["editor.action.changeAll", "Change All Occurrences"],
+        ["workbench.action.showCommands", "Show All Commands"],
     ] as const) {
         commands.register(id, () => executed.push(id), title);
     }
@@ -67,13 +68,23 @@ describe("ContextMenuService", () => {
             menuId: MenuId.EditorContext,
         });
 
-        expect(openMenuLabels(app)).toEqual(["Copy", "Cut", "Paste", "─", "Undo"]);
+        // Пункты языковых фич гейтятся `editorHas*Provider` — в этом сетапе
+        // контекст-ключей нет, поэтому видно то, что работает без провайдеров.
+        expect(openMenuLabels(app)).toEqual([
+            "Change All Occurrences",
+            "─",
+            "Cut",
+            "Copy",
+            "Paste",
+            "─",
+            "Command Palette...",
+        ]);
 
         const popup = app.root.overlayLayer.getItems()[0].element as PopupMenuElement;
         const first = popup.entries.find((e): e is MenuItemEntry => e.type !== "separator");
         first?.onSelect?.();
 
-        expect(executed).toEqual(["editor.action.clipboardCopyAction"]);
+        expect(executed).toEqual(["editor.action.changeAll"]);
         // Выбор пункта закрыл меню.
         expect(service.isContextMenuVisible()).toBe(false);
     });
@@ -88,7 +99,17 @@ describe("ContextMenuService", () => {
             menuId: MenuId.EditorContext,
         });
 
-        expect(openMenuLabels(app)).toEqual(["Open File", "─", "Copy", "Cut", "Paste", "─", "Undo"]);
+        expect(openMenuLabels(app)).toEqual([
+            "Open File",
+            "─",
+            "Change All Occurrences",
+            "─",
+            "Cut",
+            "Copy",
+            "Paste",
+            "─",
+            "Command Palette...",
+        ]);
     });
 
     it("does not open an empty menu", () => {

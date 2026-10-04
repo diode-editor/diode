@@ -157,6 +157,7 @@ describe("асимметрия tier-гейта — пользовательск�
         "editor.action.blockComment | Ctrl+K Alt+A | Shift+Alt+A",
         "editor.action.formatDocument | Ctrl+K Ctrl+E | Shift+Alt+F",
         "editor.action.organizeImports | Ctrl+K Alt+O | Shift+Alt+O",
+        "editor.action.refactor | Ctrl+K Alt+R | Ctrl+Shift+R",
         "editor.fold | Ctrl+K Alt+F | Ctrl+Shift+[",
         "editor.unfold | Ctrl+K Alt+U | Ctrl+Shift+]",
         "explorer.openToSide | Alt+Enter | Ctrl+Enter",

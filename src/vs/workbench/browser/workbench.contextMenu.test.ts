@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
+import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 
 // Shift+F10 opens the context menu on whichever component is focused — the same menu
 // that a right-click produces. `when` (textInputFocus / listFocus) routes the shared
@@ -52,6 +53,36 @@ describe("Workbench — Shift+F10 context menu", () => {
         expect(h.testApp.querySelector("PopupMenuElement")).not.toBeNull();
         // Editor menu carries clipboard entries.
         expect(h.testApp.backend.screenToString()).toContain("Copy");
+    });
+
+    it("пункты языковых фич появляются только при живом провайдере", () => {
+        h.workbench.openFile(ws.path("alpha.txt"));
+        h.workbench.focusEditor();
+        h.testApp.render();
+
+        // Провайдеров нет: меню не обещает нерабочее.
+        h.testApp.sendKey("Shift+F10");
+        h.testApp.render();
+        const withoutProviders = h.testApp.backend.screenToString();
+        expect(withoutProviders).not.toContain("Rename Symbol");
+        expect(withoutProviders).not.toContain("Go to Definition");
+        h.testApp.sendKey("Escape");
+        h.testApp.render();
+
+        const languageFeatures = h.container.get(LanguageFeaturesServiceDIToken);
+        languageFeatures.renameProvider.register("*", {
+            prepareRename: () => Promise.resolve(null),
+            provideRenameEdits: () => Promise.resolve({ applied: false }),
+        });
+        languageFeatures.definitionProvider.register("*", { provideDefinition: () => Promise.resolve([]) });
+
+        h.workbench.focusEditor();
+        h.testApp.render();
+        h.testApp.sendKey("Shift+F10");
+        h.testApp.render();
+        const withProviders = h.testApp.backend.screenToString();
+        expect(withProviders).toContain("Rename Symbol");
+        expect(withProviders).toContain("Go to Definition");
     });
 
     it("anchors the editor menu at the caret", () => {

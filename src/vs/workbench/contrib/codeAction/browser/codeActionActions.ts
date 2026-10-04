@@ -2,6 +2,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { getCodeActions, type ICodeActionItem } from "../../../../editor/contrib/codeAction/codeAction.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
@@ -77,6 +78,81 @@ export const organizeImportsAction: CommandAction = {
 };
 
 /**
+ * Показывает меню code actions у каретки/выделения и применяет выбранное.
+ * `only` сужает вид действий (`refactor` — только рефакторинги, `source` —
+ * только source-действия, без него — всё): общий хвост трёх команд эталона,
+ * которые различаются только видом, заголовком меню и текстом «ничего нет».
+ */
+async function pickCodeAction(
+    accessor: ServiceAccessor,
+    options: { readonly only?: string; readonly title: string; readonly empty: string },
+): Promise<void> {
+    const group = accessor.get(EditorServiceDIToken);
+    const statusBar = accessor.get(StatusBarServiceDIToken);
+    const quickInput = accessor.get(QuickInputServiceDIToken);
+    const languageFeatures = accessor.get(LanguageFeaturesServiceDIToken);
+    const editor = group.getActiveEditor();
+    if (editor === null) return;
+
+    const notice = (text: string): void => {
+        showTransientNotice(statusBar, "codeAction.notice", text);
+    };
+
+    const text = editor.getText();
+    const found = await getCodeActions(languageFeatures.codeActionProvider, editor, {
+        uri: editor.uri.toString(),
+        languageId: editor.languageId,
+        text,
+        // Каретка/выделение — как VS Code: действия по месту (пустое
+        // выделение — строка каретки, чтобы накрыть диагностики строки).
+        range: selectionRange(editor.viewState.selections[0], text),
+        // Спред — про чистоту запроса: `only: undefined` значит «любой вид».
+        ...(options.only === undefined ? {} : { only: options.only }),
+    });
+    if (found.length === 0) {
+        notice(options.empty);
+        return;
+    }
+
+    // Порядок VS Code: quickfix'ы выше рефакторингов и source-действий,
+    // preferred — первым в своей группе. Провайдеры обходятся в порядке
+    // регистрации, и без сортировки один многословный (16 рефакторингов
+    // tsserver) выталкивал фиксы линтера за край попапа.
+    const kindRank = (kind: string | undefined): number => {
+        if (kind === undefined) return 3;
+        if (kind === "quickfix" || kind.startsWith("quickfix.")) return 0;
+        if (kind === "refactor" || kind.startsWith("refactor.")) return 1;
+        if (kind === "source" || kind.startsWith("source.")) return 2;
+        return 3;
+    };
+    const sorted = [...found].sort(({ action: a }, { action: b }) => {
+        const byKind = kindRank(a.kind) - kindRank(b.kind);
+        if (byKind !== 0) return byKind;
+        const aPreferred = a.isPreferred === true;
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral: какой элемент пары попадёт в `b` — деталь TimSort; для подъёма preferred достаточно aPreferred-ветки, и на стабильных входах мутант неотличим
+        const bPreferred = b.isPreferred === true;
+        // Stryker disable next-line ConditionalExpression: «всегда не равны» вырождается в стабильную вставку тем же порядком — наблюдаемого различия нет
+        if (aPreferred === bPreferred) return 0;
+        return aPreferred ? -1 : 1;
+    });
+    const items = sorted.map(({ action }) => ({
+        label: action.title,
+        ...(action.kind === undefined ? {} : { description: action.kind }),
+        ...(action.isPreferred === true ? { badge: "preferred" } : {}),
+    }));
+    const picked = await quickInput.quickPick({
+        title: options.title,
+        placeholder: "Select Code Action",
+        items,
+    });
+    if (picked === undefined) return; // отмена — не событие
+
+    const pick = sorted[items.indexOf(picked)];
+    const applied = await pick.provider.applyCodeAction(pick.action.id);
+    if (!applied) notice(`Code action failed: ${pick.action.title}`);
+}
+
+/**
  * Меню code actions у каретки/выделения: запрашивает ВСЕ доступные действия
  * (без `only`), показывает их в quick pick и применяет выбранное.
  * Matches VS Code's `editor.action.quickFix` (Ctrl+.; точка не кодируется
@@ -88,68 +164,49 @@ export const quickFixAction: CommandAction = {
     keybinding: parseKeybinding("mod+."),
     keybindings: [parseChord("ctrl+k ctrl+q")],
     when: "textInputFocus && !editorReadonly",
-    async run(accessor) {
-        const group = accessor.get(EditorServiceDIToken);
-        const statusBar = accessor.get(StatusBarServiceDIToken);
-        const quickInput = accessor.get(QuickInputServiceDIToken);
-        const languageFeatures = accessor.get(LanguageFeaturesServiceDIToken);
-        const editor = group.getActiveEditor();
-        if (editor === null) return;
+    // Своя группа эталона (`codeActionCommands.ts`): ниже блока правок.
+    menus: [{ menuId: MenuId.EditorContext, group: "1_quickfix", order: 0, when: "editorHasCodeActionsProvider" }],
+    run(accessor) {
+        return pickCodeAction(accessor, { title: "Code Actions", empty: "No code actions available" });
+    },
+};
 
-        const notice = (text: string): void => {
-            showTransientNotice(statusBar, "codeAction.notice", text);
-        };
+/**
+ * Меню рефакторингов у каретки/выделения (`only: refactor`).
+ * Matches VS Code's `editor.action.refactor` (Ctrl+Shift+R). Шифтованная буква с
+ * Ctrl на legacy-терминале неотличима от Ctrl+R, поэтому канонический бинд под
+ * tier-гейтом, а рядом — досягаемый везде лидер-аккорд (норма organizeImports).
+ */
+export const refactorAction: CommandAction = {
+    id: "editor.action.refactor",
+    title: "Refactor...",
+    keybinding: parseChord("ctrl+k alt+r"),
+    keybindings: [{ keys: parseKeybinding("mod+shift+r"), when: "tier != 'legacy'" }],
+    when: "textInputFocus && !editorReadonly",
+    menus: [{ menuId: MenuId.EditorContext, group: "1_modification", order: 2, when: "editorHasCodeActionsProvider" }],
+    run(accessor) {
+        return pickCodeAction(accessor, { only: "refactor", title: "Refactor", empty: "No refactorings available" });
+    },
+};
 
-        const text = editor.getText();
-        const found = await getCodeActions(languageFeatures.codeActionProvider, editor, {
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            text,
-            // Каретка/выделение — как VS Code: действия по месту (пустое
-            // выделение — строка каретки, чтобы накрыть диагностики строки).
-            range: selectionRange(editor.viewState.selections[0], text),
+/**
+ * Меню source-действий у каретки/выделения (`only: source` — organize imports,
+ * fix all и прочее «на весь файл»). Matches VS Code's
+ * `editor.action.sourceAction` — дефолтного бинда у него нет и в эталоне.
+ */
+export const sourceActionAction: CommandAction = {
+    id: "editor.action.sourceAction",
+    title: "Source Action...",
+    when: "textInputFocus && !editorReadonly",
+    menus: [
+        { menuId: MenuId.EditorContext, group: "1_modification", order: 2.1, when: "editorHasCodeActionsProvider" },
+    ],
+    run(accessor) {
+        return pickCodeAction(accessor, {
+            only: "source",
+            title: "Source Action",
+            empty: "No source actions available",
         });
-        if (found.length === 0) {
-            notice("No code actions available");
-            return;
-        }
-
-        // Порядок VS Code: quickfix'ы выше рефакторингов и source-действий,
-        // preferred — первым в своей группе. Провайдеры обходятся в порядке
-        // регистрации, и без сортировки один многословный (16 рефакторингов
-        // tsserver) выталкивал фиксы линтера за край попапа.
-        const kindRank = (kind: string | undefined): number => {
-            if (kind === undefined) return 3;
-            if (kind === "quickfix" || kind.startsWith("quickfix.")) return 0;
-            if (kind === "refactor" || kind.startsWith("refactor.")) return 1;
-            if (kind === "source" || kind.startsWith("source.")) return 2;
-            return 3;
-        };
-        const sorted = [...found].sort(({ action: a }, { action: b }) => {
-            const byKind = kindRank(a.kind) - kindRank(b.kind);
-            if (byKind !== 0) return byKind;
-            const aPreferred = a.isPreferred === true;
-            // Stryker disable next-line ConditionalExpression,BooleanLiteral: какой элемент пары попадёт в `b` — деталь TimSort; для подъёма preferred достаточно aPreferred-ветки, и на стабильных входах мутант неотличим
-            const bPreferred = b.isPreferred === true;
-            // Stryker disable next-line ConditionalExpression: «всегда не равны» вырождается в стабильную вставку тем же порядком — наблюдаемого различия нет
-            if (aPreferred === bPreferred) return 0;
-            return aPreferred ? -1 : 1;
-        });
-        const items = sorted.map(({ action }) => ({
-            label: action.title,
-            ...(action.kind === undefined ? {} : { description: action.kind }),
-            ...(action.isPreferred === true ? { badge: "preferred" } : {}),
-        }));
-        const picked = await quickInput.quickPick({
-            title: "Code Actions",
-            placeholder: "Select Code Action",
-            items,
-        });
-        if (picked === undefined) return; // отмена — не событие
-
-        const pick = sorted[items.indexOf(picked)];
-        const applied = await pick.provider.applyCodeAction(pick.action.id);
-        if (!applied) notice(`Code action failed: ${pick.action.title}`);
     },
 };
 
@@ -167,4 +224,10 @@ export const fixAllAction: CommandAction = {
 };
 
 /** Экшены code actions (organize imports, fix all, quick fix). Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
-export const CODE_ACTION_ACTIONS: readonly CommandAction[] = [organizeImportsAction, fixAllAction, quickFixAction];
+export const CODE_ACTION_ACTIONS: readonly CommandAction[] = [
+    organizeImportsAction,
+    fixAllAction,
+    quickFixAction,
+    refactorAction,
+    sourceActionAction,
+];

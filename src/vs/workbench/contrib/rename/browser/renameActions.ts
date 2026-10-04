@@ -1,4 +1,5 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 import { RenameServiceDIToken } from "./renameService.ts";
@@ -17,6 +18,9 @@ export const renameSymbolAction: CommandAction = {
     title: "Rename Symbol",
     keybinding: parseKeybinding("f2"),
     when: "textInputFocus && !editorReadonly",
+    // Группа и порядок — дословно upstream (`rename.ts`): пункт виден только
+    // там, где есть rename-провайдер, иначе меню обещало бы нерабочее.
+    menus: [{ menuId: MenuId.EditorContext, group: "1_modification", order: 1.1, when: "editorHasRenameProvider" }],
     run(accessor) {
         return accessor.get(RenameServiceDIToken).rename();
     },

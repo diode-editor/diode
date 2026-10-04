@@ -29,11 +29,25 @@ export interface ContextKeyTypes {
     editorTabsMultiple: boolean;
     // inputFocus: boolean;
     // editorTabMovesFocus: boolean;
-    // editorHasSelection: boolean;
     /** True while the focused editor has more than one cursor/selection. */
     editorHasMultipleSelections: boolean;
     /** True while the focused editor is read-only (VS Code `editorReadonly`). */
     editorReadonly: boolean;
+    /**
+     * Есть ли у документа активного редактора провайдеры соответствующей
+     * языковой фичи (upstream `editorHas*Provider`). Ключи выставляет
+     * `LanguageFeatureContextKeys` по реестрам `ILanguageFeaturesService`:
+     * на них висит видимость пунктов контекст-меню — без провайдера меню не
+     * обещает нерабочее («Go to Definition» в .txt).
+     */
+    editorHasDefinitionProvider: boolean;
+    editorHasReferenceProvider: boolean;
+    editorHasRenameProvider: boolean;
+    editorHasCodeActionsProvider: boolean;
+    editorHasDocumentFormattingProvider: boolean;
+    editorHasDocumentSelectionFormattingProvider: boolean;
+    /** Есть ли в активном редакторе непустое выделение (upstream `editorHasSelection`). */
+    editorHasSelection: boolean;
     // editorLangId: string;
     // isInDiffEditor: boolean;
     // isInEmbeddedEditor: boolean;

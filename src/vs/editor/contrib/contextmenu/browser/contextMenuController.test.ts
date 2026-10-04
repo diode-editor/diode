@@ -104,12 +104,19 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
 
         const popup = openPopup(app);
         expect(popup).not.toBeNull();
+        // Состав — дословно upstream'ский (группы `1_modification`,
+        // `9_cutcopypaste`, `z_commands`). Пункты языковых фич (Go to
+        // Definition, Rename Symbol, Format Document, …) гейтятся ключами
+        // `editorHas*Provider`, а в этом минимальном приложении провайдеров
+        // нет — потому их здесь и не видно.
         expect(popup?.entries.map((e) => (e.type === "separator" ? "─" : e.label))).toEqual([
-            "Copy",
+            "Change All Occurrences",
+            "─",
             "Cut",
+            "Copy",
             "Paste",
             "─",
-            "Undo",
+            "Command Palette...",
         ]);
         expect(editor.isFocused).toBe(false); // фокус на попапе, вернётся при закрытии
     });

@@ -41,7 +41,12 @@ export const gotoLineAction: CommandAction = {
 export const showCommandsAction: CommandAction = {
     id: "workbench.action.showCommands",
     title: "Show All Commands",
-    menus: [{ menuId: MenuId.MenubarViewMenu, title: "Command Palette...", group: "1_palette", order: 10 }],
+    menus: [
+        { menuId: MenuId.MenubarViewMenu, title: "Command Palette...", group: "1_palette", order: 10 },
+        // Последний пункт контекст-меню редактора — как в эталоне
+        // (`quickAccess.contribution.ts`, группа `z_commands`).
+        { menuId: MenuId.EditorContext, title: "Command Palette...", group: "z_commands", order: 1 },
+    ],
     keybinding: parseKeybinding("mod+shift+p"),
     // Ctrl+Shift+<буква> на legacy-терминалах ненадёжен, поэтому у палитры есть
     // второй бинд. Раньше им был аккорд Ctrl+K Ctrl+P, но в VS Code этот аккорд
