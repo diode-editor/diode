@@ -9,7 +9,7 @@ import {
 import { renderCodicons } from "../../../../base/common/codicons.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { selfSpawnArgs } from "../../../../base/node/selfSpawnArgs.ts";
 import { withCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
@@ -616,6 +616,14 @@ export class ExtensionHost extends Disposable {
     private channel: IpcMessageChannel | null = null;
     private rpc: RpcEndpoint | null = null;
     private readyPromise: Promise<void> | null = null;
+    /**
+     * Подписки одного спавна субпроцесса (на события ядра, которые шлют ему
+     * нотификации). Наполняет {@link installHostHandlers}, а
+     * {@link resetSubprocessState} снимает целиком и заводит чистый для
+     * следующего спавна: иначе каждый респавн копил бы вечных слушателей,
+     * шлющих в мёртвый канал.
+     */
+    private spawnStore = new DisposableStore();
     private hostDisposed = false;
     /** Прощание с субпроцессом, начатое {@link dispose}: его ждёт {@link shutdown}. */
     private shutdownDone: Promise<void> = Promise.resolve();
@@ -1087,6 +1095,14 @@ export class ExtensionHost extends Disposable {
             // меняется здесь ровно один флаг.
             rpc.notify("extensions.activated", { id: reg.id });
         } catch (err) {
+            // Субпроцесс умер, пока шла активация: запрос оборван вместе с его
+            // каналом. Расширение тут ни при чём — возвращаем его к оживлению
+            // вместе с остальными активными (если его за это время не сняли).
+            if (rpc !== this.rpc && this.registrations.get(reg.id) === reg) {
+                this.pending.set(reg.id, reg);
+                this.logger?.warn(`activation of "${reg.id}" interrupted by extension host death — will retry`);
+                return;
+            }
             this.logger?.error(`failed to activate extension "${reg.id}"`, err);
             return;
         }
@@ -1929,6 +1945,7 @@ export class ExtensionHost extends Disposable {
     }
 
     private installHostHandlers(rpc: RpcEndpoint): void {
+        const spawnStore = this.spawnStore;
         this.installSecretHandlers(rpc);
         this.installMementoHandlers(rpc);
         rpc.handleRequest("editor.setOptions", (params): unknown => {
@@ -2005,7 +2022,7 @@ export class ExtensionHost extends Disposable {
         // порядка: layoutChanged всегда раньше связанного activeEditorChanged —
         // подписка на layout стоит первой, а мета дополнительно флашит отложенный
         // снимок, чтобы `visibleTextEditors` не отставал от `activeTextEditor`.
-        this.register(
+        spawnStore.add(
             this.editorLayout.onDidChangeLayout((layout) => {
                 rpc.notify("editor.layoutChanged", layout);
             }),
@@ -2034,7 +2051,7 @@ export class ExtensionHost extends Disposable {
             this.editorLayout.flushPendingLayout();
             return result;
         });
-        this.register(
+        spawnStore.add(
             this.editorOptions.onActiveEditorChanged((meta) => {
                 this.editorLayout.flushPendingLayout();
                 rpc.notify("editor.activeEditorChanged", meta);
@@ -2045,7 +2062,7 @@ export class ExtensionHost extends Disposable {
         // открытия файла. Именно `activeEditorChanged` слать нельзя: он дёргает
         // `onDidChangeActiveTextEditor`, и, например, встроенный git пересчитывал бы
         // статус на каждое нажатие стрелки.
-        this.register(
+        spawnStore.add(
             this.editorOptions.onActiveEditorSelectionChanged((selections) => {
                 rpc.notify("editor.selectionChanged", selections);
             }),
@@ -2341,7 +2358,7 @@ export class ExtensionHost extends Disposable {
         });
         const configuration = this.configuration;
         if (configuration !== undefined) {
-            this.register(
+            spawnStore.add(
                 configuration.onDidChange((affectedKeys) => {
                     rpc.notify("workspace.configurationChanged", {
                         configuration: configuration.getSnapshot(),
@@ -2496,6 +2513,12 @@ export class ExtensionHost extends Disposable {
      * ({@link handleSubprocessDeath}).
      */
     private resetSubprocessState(): void {
+        // Подписки спавна на ядро и watcher'ы расширений принадлежали ушедшему
+        // субпроцессу: слать их события больше некому, а оставь их — каждый
+        // респавн добавлял бы новых поверх (и держал inotify-бюджет дерева).
+        this.spawnStore.dispose();
+        this.spawnStore = new DisposableStore();
+        this.disposeFileWatchers();
         this.rpc = null;
         this.channel = null;
         this.subprocess = null;
@@ -2549,7 +2572,16 @@ export class ExtensionHost extends Disposable {
         // Вежливое выключение уже обнулило `subprocess` — там всё сделано.
         if (this.subprocess !== child) return;
         this.logger?.warn("extension host subprocess died — resetting host state");
+        const rpc = this.rpc;
+        const channel = this.channel;
         this.resetSubprocessState();
+        // Канал мертвеца закрываем: запросы в полёте (прежде всего
+        // `host.activateExtension`) получают отказ, а не висят вечно, — и
+        // оборванная активация возвращается к оживлению (см. requestActivation).
+        // Stryker disable next-line OptionalChaining: канал и RPC заводятся вместе с субпроцессом (ensureSubprocess), так что у живого ребёнка они есть всегда
+        rpc?.dispose();
+        // Stryker disable next-line OptionalChaining: см. выше
+        channel?.dispose();
         // Активные возвращаются в `pending` и оживут на ЛЮБОМ следующем событии
         // активации — оно проиграет журнал (см. `requestedEvents`).
         for (const [id, reg] of this.activatedRegistrations) this.pending.set(id, reg);
