@@ -325,4 +325,17 @@ describe("ExtensionHostProcess — потомство субпроцесса", (
         expect(child.signals).toEqual(["SIGKILL"]);
         expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("group kill failed"), denied);
     });
+
+    it.skipIf(process.platform === "win32")("отказ группового kill без логгера не роняет выключение", () => {
+        vi.mocked(process.kill).mockImplementation(() => {
+            throw Object.assign(new Error("operation not permitted"), { code: "EPERM" });
+        });
+        const child = new FakeChild();
+        const { subprocess } = start(child); // логгера нет — путь `logger?.warn`
+
+        expect(() => {
+            subprocess.kill();
+        }).not.toThrow();
+        expect(child.signals).toEqual(["SIGKILL"]);
+    });
 });

@@ -258,8 +258,11 @@ async function installExtension(userDataDir: string, vsix: string): Promise<void
  *
  * `dispose()` завершает процесс редактора, но Windows отдаёт хендлы не мгновенно
  * — и `rmSync` падает с `EPERM`. `maxRetries`/`retryDelay` — штатный ответ Node
- * ровно на этот класс ошибок. Если и после ретраев не вышло — не падаем: это
- * `tmpdir()`, его подчистит система.
+ * ровно на этот класс ошибок. Если и после ретраев не вышло — не падаем: каталог
+ * лежит внутри корня прогона, и его снесёт teardown (`src/TestUtils/tmpRoot.ts`).
+ *
+ * Прежде здесь стояло «подчистит система» — не подчищала: в `/tmp` от прогонов
+ * накопились гигабайты, пока корня прогона не появилось.
  */
 export function removeTempDir(dir: string): void {
     try {

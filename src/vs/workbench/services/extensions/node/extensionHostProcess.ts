@@ -142,9 +142,10 @@ export class ExtensionHostProcess {
     }
 
     /**
-     * Синхронно добивает ребёнка сигналом — там, где event loop дальше не
-     * крутится (перезагрузка окна). Мёртвому ребёнку `kill` не бросает — просто
-     * вернёт false, так что отдельной проверки «а жив ли он» не нужно.
+     * Синхронно добивает ребёнка (и его потомство) сигналом — там, где event
+     * loop дальше не крутится (перезагрузка окна). Проверять «а жив ли он» не
+     * нужно: мёртвому процессу/группе сигнал не бросает наружу, см.
+     * {@link killTree}.
      */
     public kill(): void {
         this.killTree("SIGKILL");
@@ -161,6 +162,7 @@ export class ExtensionHostProcess {
      */
     private killTree(signal: NodeJS.Signals): void {
         const pid = this.child.pid;
+        // Stryker disable next-line ConditionalExpression,StringLiteral: см. выше — на posix правый операнд всегда истинен, мутант эквивалентен
         if (pid !== undefined && process.platform !== "win32") {
             try {
                 process.kill(-pid, signal);
@@ -181,7 +183,7 @@ export class ExtensionHostProcess {
 }
 
 function isNoSuchProcess(err: unknown): boolean {
-    return (err as NodeJS.ErrnoException | null)?.code === "ESRCH";
+    return (err as NodeJS.ErrnoException).code === "ESRCH";
 }
 
 /**

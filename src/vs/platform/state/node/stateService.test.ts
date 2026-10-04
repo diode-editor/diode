@@ -483,6 +483,39 @@ describe("StateService", () => {
             expect(fs.existsSync(home)).toBe(false);
         });
 
+        it("снимает ВСЕ запланированные записи, а не последнюю", async () => {
+            const p = paths();
+            const svc = newStateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 5,
+            });
+            // Три `store` подряд — debounce обязан держать ОДИН таймер на всех.
+            // Если на каждый взводится свой, `dispose` снимет только последний,
+            // а остальные запишут файл уже после сноса каталога.
+            svc.store(width, 1);
+            svc.store(width, 2);
+            svc.store(width, 3);
+            svc.dispose();
+
+            await sleep(40);
+            expect(fs.existsSync(p.globalStateFile)).toBe(false);
+        });
+
+        it("после dispose событие openWorkspace до подписчиков не доходит", () => {
+            const svc = loadState(paths());
+            const seen: string[] = [];
+            svc.onDidOpenWorkspace((id) => seen.push(id));
+
+            svc.openWorkspace(computeWorkspaceId("/projects/alpha"));
+            expect(seen).toHaveLength(1);
+
+            svc.dispose();
+            svc.openWorkspace(computeWorkspaceId("/projects/beta"));
+
+            expect(seen).toHaveLength(1); // второго события нет — эмиттер снят
+        });
+
         it("flushSync остаётся способом записать — dispose его не подменяет", () => {
             const p = paths();
             const svc = loadState(p);

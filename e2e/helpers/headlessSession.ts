@@ -387,6 +387,15 @@ export class HeadlessSession {
     public getStderr(): string {
         return this.stderr;
     }
+
+    /**
+     * Pid запущенного редактора. Нужен тестам, которые смотрят на ДЕРЕВО
+     * процессов (субпроцесс расширений и поднятые им языковые серверы), а не
+     * на кадр.
+     */
+    public get pid(): number | undefined {
+        return this.child.pid;
+    }
 }
 
 /**
