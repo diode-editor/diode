@@ -37,7 +37,6 @@
 Инфраструктура настроек готова, `contributes.configuration` расширений — в общем реестре ядра (см. [docs/arch/Configuration.md](../arch/Configuration.md), [docs/arch/Extensions.md](../arch/Extensions.md)). Остаётся:
 
 - [ ] Persistent storage и запись из UI/расширений (`update(key, value)`).
-- [ ] `contributes.configurationDefaults` — оверрайды для language-specific.
 - [ ] Workspace-слой (`.diode/settings.json` в корне проекта).
 
 ## Phase 7 — Активация и lifecycle

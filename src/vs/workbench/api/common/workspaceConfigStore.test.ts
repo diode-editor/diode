@@ -75,6 +75,20 @@ describe("WorkspaceConfigStore", () => {
         expect(store.get("a.x")).toBeUndefined();
     });
 
+    it("languageId выбирает секцию языка во всех чтениях", () => {
+        const store = storeWith(
+            { editor: { tabSize: 4 }, "[makefile]": { editor: { insertSpaces: false } } },
+            { "[makefile]": { editor: { tabSize: 8 } } },
+        );
+
+        expect(store.get("editor.tabSize")).toBe(4);
+        expect(store.get("editor.tabSize", undefined, "makefile")).toBe(8);
+        expect(store.has("editor.insertSpaces", "makefile")).toBe(true);
+        expect(store.has("editor.insertSpaces")).toBe(false);
+        expect(store.inspect("editor.insertSpaces", "makefile").value).toBe(false);
+        expect(store.sectionKeys("editor", "makefile").sort()).toEqual(["insertSpaces", "tabSize"]);
+    });
+
     it("get по пути, уходящему за скаляр, возвращает undefined", () => {
         expect(storeWith({}, { editor: { tabSize: 2 } }).get("editor.tabSize.deeper")).toBeUndefined();
     });

@@ -165,6 +165,18 @@ describe("loadConfiguration", () => {
         });
     });
 
+    it("секция языка из settings.json: чтение для языка и сырая форма для хоста", async () => {
+        const p = paths();
+        writeSettings(p.settingsFile, `{ "editor.tabSize": 2, "[go]": { "editor.tabSize": 8 } }`);
+
+        const cfg = await loadCfg(p);
+
+        expect(cfg.get("editor.tabSize")).toBe(2);
+        expect(cfg.get("editor.tabSize", { overrideIdentifier: "go" })).toBe(8);
+        expect(cfg.inspect("editor.tabSize", { overrideIdentifier: "go" }).value).toBe(8);
+        expect(cfg.getConfigurationData().user).toEqual({ editor: { tabSize: 2 }, "[go]": { editor: { tabSize: 8 } } });
+    });
+
     it("inspect reports per-layer values", async () => {
         const defaultPaths = paths();
         writeSettings(defaultPaths.settingsFile, `{ "editor.tabSize": 2 }`);
@@ -188,9 +200,9 @@ describe("loadConfiguration", () => {
         expect(cfg.get<number>("editor.tabSize")).toBe(2);
     });
 
-    it("get returns provided default for unknown keys", async () => {
+    it("get returns undefined for unknown keys", async () => {
         const cfg = await loadCfg(paths());
-        expect(cfg.get<string>("unknown.key", "fallback")).toBe("fallback");
+        expect(cfg.get<string>("unknown.key")).toBeUndefined();
     });
 
     it("getValue returns nested subtree", async () => {

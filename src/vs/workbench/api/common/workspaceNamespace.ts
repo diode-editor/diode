@@ -236,6 +236,16 @@ interface IWireWorkspaceFolder {
  * снапшота. Регистрация save-слушателей шлёт `workspace.updateSubscriptions`
  * на переходах 0↔1 (исполнение will-save — WP6).
  */
+/**
+ * `languageId` из scope `getConfiguration`: у `TextDocument` и у `{ uri, languageId }`
+ * он полем. Значение не проверяем: секции под непонятный идентификатор нет, и
+ * чтение просто вернёт значения без неё.
+ */
+function languageIdOfScope(scope: unknown): string | undefined {
+    if (typeof scope !== "object" || scope === null || !("languageId" in scope)) return undefined;
+    return String(scope.languageId);
+}
+
 export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode.workspace {
     const { rpc, registry, documentSync, configStore } = ctx;
     // Предупреждения человеку (неподдержанный `getConfiguration().update`) идут
@@ -462,13 +472,17 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         onDidSaveTextDocumentEmitter.fire(doc as unknown as vscode.TextDocument);
     });
 
-    function getConfiguration(section?: string, _scope?: unknown): vscode.WorkspaceConfiguration {
+    function getConfiguration(section?: string, scope?: unknown): vscode.WorkspaceConfiguration {
         const prefix = section !== undefined && section !== "" ? section + "." : "";
+        // Язык из scope — `TextDocument` или `{ languageId }` (`scopeToOverrides` vscode):
+        // поверх значений ложится секция `"[<язык>]"`.
+        const languageId = languageIdOfScope(scope);
         const config: Record<string, unknown> = {
-            get: (key: string, defaultValue?: unknown): unknown => configStore.get(prefix + key, defaultValue),
-            has: (key: string): boolean => configStore.has(prefix + key),
+            get: (key: string, defaultValue?: unknown): unknown =>
+                configStore.get(prefix + key, defaultValue, languageId),
+            has: (key: string): boolean => configStore.has(prefix + key, languageId),
             inspect: (key: string) => {
-                const r = configStore.inspect(prefix + key);
+                const r = configStore.inspect(prefix + key, languageId);
                 return {
                     key: r.key,
                     defaultValue: r.defaultValue,
@@ -487,9 +501,9 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             },
         };
         // VS Code выставляет значения секции как поля объекта конфигурации.
-        for (const key of configStore.sectionKeys(section)) {
+        for (const key of configStore.sectionKeys(section, languageId)) {
             if (key in config) continue; // не затираем get/has/inspect/update
-            config[key] = configStore.get(prefix + key);
+            config[key] = configStore.get(prefix + key, undefined, languageId);
         }
         return config as unknown as vscode.WorkspaceConfiguration;
     }

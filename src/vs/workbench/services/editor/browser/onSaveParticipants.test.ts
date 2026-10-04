@@ -23,12 +23,7 @@ import {
 // панели/источника. Поведение с настоящими панелями — editorService.onSave.test.ts.
 
 function config(values: Record<string, unknown>): IConfigurationService {
-    return {
-        ...NULL_CONFIGURATION_SERVICE,
-        get<T>(key: string, defaultValue?: T): T | undefined {
-            return key in values ? (values[key] as T) : defaultValue;
-        },
-    };
+    return createTestConfigurationService(values);
 }
 
 const SNAPSHOT: ISaveSnapshot = {
@@ -108,8 +103,22 @@ describe("enabledCodeActionKindsOnSave", () => {
         expect(enabledCodeActionKindsOnSave(configuration)).toEqual(["source.organizeImports"]);
     });
 
+    it("секция языка документа: объект сливается с плоским (как у VS Code), другой язык — только плоские", () => {
+        const configuration = config({
+            "editor.codeActionsOnSave": { "source.fixAll": true },
+            "[python]": { "editor.codeActionsOnSave": { "source.organizeImports": true } },
+        });
+        expect(enabledCodeActionKindsOnSave(configuration, "python")).toEqual([
+            "source.fixAll",
+            "source.organizeImports",
+        ]);
+        expect(enabledCodeActionKindsOnSave(configuration, "go")).toEqual(["source.fixAll"]);
+    });
+
     it("не задано / null / не-объект → пусто", () => {
         expect(enabledCodeActionKindsOnSave(config({}))).toEqual([]);
+        // Сервис без дефолтов (null-заглушка) — ключа нет вовсе.
+        expect(enabledCodeActionKindsOnSave(NULL_CONFIGURATION_SERVICE)).toEqual([]);
         expect(enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": null }))).toEqual([]);
         expect(enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": "source.fixAll" }))).toEqual([]);
     });
@@ -207,6 +216,26 @@ describe("createFormatOnSaveParticipant", () => {
         );
         expect(await participant(SNAPSHOT)).toEqual([]);
         expect(called).toBe(false);
+    });
+
+    it("включена только в секции языка документа — участник работает для него, не для других", async () => {
+        let calls = 0;
+        const { pane } = fakePane(() => "x");
+        const participant = createFormatOnSaveParticipant(
+            host({
+                configuration: config({ "[python]": { "editor.formatOnSave": true } }),
+                format: () => {
+                    calls++;
+                    return Promise.resolve([]);
+                },
+                paneForUri: () => pane,
+            }),
+        );
+
+        await participant(SNAPSHOT); // python
+        await participant({ ...SNAPSHOT, uri: "file:///a.ts", languageId: "typescript" });
+
+        expect(calls).toBe(1);
     });
 
     it("включена, панель есть, но источника нет (host отвалился) — no-op", async () => {

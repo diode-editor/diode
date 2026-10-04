@@ -19,7 +19,8 @@ export interface IConfigurationContributingExtension {
  *   - `contributes.configuration` каждого расширения — включая декларативные и
  *     ещё не активированные — регистрируется как его ключи: ядро видит их
  *     дефолты, а валидатор settings.json перестаёт помечать их «unknown»;
- *   - инъекции хоста (`configInjection`: курируемые дефолты сторонних
+ *   - `contributes.configurationDefaults` (плоские ключи и секции языков) и
+ *     инъекции хоста (`configInjection`: курируемые дефолты сторонних
  *     расширений, пути вшитого сервера встроенного TS) ложатся переопределениями
  *     дефолтов — ниже пользовательских настроек.
  *
@@ -45,8 +46,14 @@ export class ExtensionConfigurationContributor<E extends IConfigurationContribut
                 (message) => this.logger?.warn(message),
             );
         }
-        // Переопределения — после всех ключей: инъекция может касаться ключа
-        // соседнего расширения.
+        // Переопределения — после всех ключей: они могут касаться ключа соседнего
+        // расширения. Сначала манифестные `configurationDefaults` (в том числе
+        // секции языков: `"[makefile]": { "editor.insertSpaces": false }`), поверх —
+        // инъекции хоста.
+        for (const ext of this.extensions) {
+            const contributes = (ext.manifest as { readonly contributes?: IExtensionContributions }).contributes;
+            this.registry.registerDefaultConfigurations(contributes?.configurationDefaults ?? {});
+        }
         for (const ext of this.extensions) {
             this.registry.registerDefaultConfigurations(this.configInjection(ext));
         }

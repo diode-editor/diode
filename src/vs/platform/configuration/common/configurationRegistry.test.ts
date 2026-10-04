@@ -147,3 +147,44 @@ describe("ConfigurationRegistry — настройки расширений", ()
         });
     });
 });
+
+describe("ConfigurationRegistry — секции языков в переопределениях дефолтов", () => {
+    it("секции одного языка от разных источников сливаются, плоские ключи — заменяются", () => {
+        const registry = new ConfigurationRegistry([editorNode]);
+
+        registry.registerDefaultConfigurations({ "[go]": { "editor.insertSpaces": false }, "editor.tabSize": 2 });
+        registry.registerDefaultConfigurations({ "[go]": { "editor.tabSize": 8 }, "editor.tabSize": 3 });
+
+        expect(registry.getDefaultConfiguration()).toEqual({
+            editor: { tabSize: 3, insertSpaces: true },
+            "[go]": { "editor.insertSpaces": false, "editor.tabSize": 8 },
+        });
+    });
+
+    it("обычный ключ с объектом — заменяется целиком, не сливается", () => {
+        const registry = new ConfigurationRegistry();
+        registry.registerDefaultConfigurations({ "files.exclude": { "**/a": true } });
+
+        registry.registerDefaultConfigurations({ "files.exclude": { "**/b": true } });
+
+        expect(registry.getDefaultConfiguration()).toEqual({ files: { exclude: { "**/b": true } } });
+    });
+
+    it("null в секции языка — заменяет", () => {
+        const registry = new ConfigurationRegistry();
+        registry.registerDefaultConfigurations({ "[go]": { "editor.tabSize": 8 } });
+
+        registry.registerDefaultConfigurations({ "[go]": null });
+
+        expect(registry.getDefaultConfiguration()).toEqual({ "[go]": null });
+    });
+
+    it("не-объект в секции языка — заменяет, а не сливается", () => {
+        const registry = new ConfigurationRegistry();
+        registry.registerDefaultConfigurations({ "[go]": { "editor.tabSize": 8 } });
+
+        registry.registerDefaultConfigurations({ "[go]": 1 });
+
+        expect(registry.getDefaultConfiguration()).toEqual({ "[go]": 1 });
+    });
+});
