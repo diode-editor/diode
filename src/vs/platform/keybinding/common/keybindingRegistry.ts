@@ -599,7 +599,15 @@ export class KeybindingRegistry implements IDisposable {
      *  2. остальные бинды с проходящим `when` — контекстный бинд полезнее
      *     безусловного дефолта;
      *  3. безусловные бинды;
-     *  4. любой зарегистрированный, независимо от `when`.
+     *  4. любой свой бинд, независимо от `when` и перехвата (команда в этом
+     *     контексте недоступна — подпись её канонического бинда).
+     *
+     * Внутри ступени свои записи идут от старшего слоя и веса (пользовательский
+     * бинд — раньше дефолтного), при равных — в порядке регистрации (primary
+     * раньше запасных). В ступенях 1–3 пропускаются перехваченные записи: те,
+     * чью комбинацию резолвер в этом контексте отдал бы другой команде (более
+     * сильной записи на той же комбинации или полной комбинации-префиксу), —
+     * подпись не обещает чужую клавишу.
      *
      * Поперёк ступеней действует доставляемость: комбинация, которую терминал
      * текущего tier'а не передаёт, проигрывает любой доставляемой — иначе
@@ -626,23 +634,43 @@ export class KeybindingRegistry implements IDisposable {
         // перестаёт действовать, если «ухудшить» терминал до legacy.
         const asLegacy = { ...overlay, tier: "legacy" };
 
+        const prioritized = this.byPriority();
+        const passes = (entry: KeybindingEntry): boolean =>
+            !entry.when || contextKeys?.evaluate(entry.when, overlay) === true;
+        // Затенена ли запись в этом контексте — то есть отдал бы резолвер её
+        // комбинацию другой команде: более сильной записи на той же комбинации
+        // или более короткой комбинации-префиксу (полное совпадение на меньшей
+        // глубине побеждает всегда). Затенённую подписывать — обещать чужое.
+        const shadowed = (entry: KeybindingEntry): boolean =>
+            prioritized.some(
+                (other, index) =>
+                    other.commandId !== commandId &&
+                    passes(other) &&
+                    (other.chord.length < entry.chord.length
+                        ? chordsEqual(other.chord, entry.chord.slice(0, other.chord.length))
+                        : chordsEqual(other.chord, entry.chord) && index > prioritized.indexOf(entry)),
+            );
+        // Свои записи — от старшего слоя и веса; внутри одного — в порядке
+        // регистрации, чтобы primary экшена шёл раньше его запасных биндов.
+        const own = prioritized
+            .filter((entry) => entry.commandId === commandId)
+            .sort((a, b) => b.layer - a.layer || b.weight - a.weight || a.seq - b.seq);
+
         const gated: KeybindingChord[] = [];
         const passing: KeybindingChord[] = [];
         const unconditional: KeybindingChord[] = [];
-        const any: KeybindingChord[] = [];
-        for (const entry of this.byPriority()) {
-            if (entry.commandId !== commandId) continue;
-            any.push(entry.chord);
+        for (const entry of own) {
+            if (shadowed(entry)) continue;
             if (!entry.when) {
                 unconditional.push(entry.chord);
                 continue;
             }
-            if (contextKeys?.evaluate(entry.when, overlay) !== true) continue;
-            (contextKeys.evaluate(entry.when, asLegacy) ? passing : gated).push(entry.chord);
+            if (!passes(entry)) continue;
+            (contextKeys?.evaluate(entry.when, asLegacy) === true ? passing : gated).push(entry.chord);
         }
-        // `any` включает все ступени выше, поэтому `ranked[0]` — это и есть
-        // «первый по приоритету», когда доставляемого нет ни одного.
-        const ranked = [...gated, ...passing, ...unconditional, ...any];
+        // Последняя ступень — все свои записи без учёта контекста: команда здесь
+        // недоступна, и подпись — её канонический (первый) бинд, как раньше.
+        const ranked = [...gated, ...passing, ...unconditional, ...own.map((entry) => entry.chord)];
         return ranked.find(deliverable) ?? ranked.at(0);
     }
 
