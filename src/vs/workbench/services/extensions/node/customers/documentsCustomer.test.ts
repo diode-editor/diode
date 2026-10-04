@@ -4,7 +4,7 @@ import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
-import type { IWireDocumentSyncSnapshot } from "../../../../api/common/wireTypes.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../../../../api/common/wireTypes.ts";
 import type { ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts";
 
 import { DocumentsCustomer } from "./documentsCustomer.ts";
@@ -35,7 +35,6 @@ function makeLogger(): { logger: ILogger; lines: string[] } {
 function makeCustomer(
     options: {
         attached?: boolean;
-        withExtension?: boolean;
         openDocuments?: () => IWireDocumentSyncSnapshot[];
     } = {},
 ) {
@@ -43,7 +42,6 @@ function makeCustomer(
     const customer = new DocumentsCustomer({
         willSaveTimeoutMs: 1000,
         openDocumentsProvider: options.openDocuments,
-        hasExtensions: () => options.withExtension !== false,
         logger,
     });
     const [a, b] = createInProcessChannelPair();
@@ -78,117 +76,121 @@ const SAVE_SNAPSHOT: ISaveSnapshot = {
     encoding: "utf8",
 } as unknown as ISaveSnapshot;
 
-describe("DocumentsCustomer — гейты document sync", () => {
-    it("didOpen шлётся без подписки (нужен только живой спавн с расширением)", async () => {
+function delta(uri = "file:///a.ts", version = 2): IWireDocumentChangedEvent {
+    return {
+        uri,
+        version,
+        changes: [{ range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 }, text: "x" }],
+        isDirty: true,
+    };
+}
+
+describe("DocumentsCustomer — document sync зеркалом", () => {
+    it("без спавна ничего не шлётся", async () => {
         const detached = makeCustomer({ attached: false });
         detached.customer.didOpenTextDocument(snap());
-        const noExtension = makeCustomer({ withExtension: false });
-        noExtension.customer.didOpenTextDocument(snap());
+        detached.customer.didChangeTextDocument(snap("b", 2));
+        detached.customer.didChangeTextDocumentContent(delta());
+        detached.customer.didCloseTextDocument("file:///a.ts");
+        await flushMicrotasks();
+        expect(detached.received).toEqual([]);
+    });
+
+    it("открытие — снапшот; правки — дельтой, сразу и каждая, без подписки на изменения", async () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap());
-        await flushMicrotasks();
-
-        expect(detached.received).toHaveLength(0);
-        expect(noExtension.received).toHaveLength(0);
-        expect(h.received).toEqual([{ method: "editor.didOpen", params: snap() }]);
-    });
-
-    it("didChange гейтится подпиской; подписка включает push, отписка выключает", async () => {
-        const h = makeCustomer();
-        h.customer.didChangeTextDocument(snap("a", 2));
-        await flushMicrotasks();
-        expect(h.received).toHaveLength(0);
-
-        await subscribe(h);
-        h.customer.didChangeTextDocument(snap("ab", 3));
-        await flushMicrotasks();
-        expect(h.received).toEqual([{ method: "editor.didChange", params: snap("ab", 3) }]);
-
-        await subscribe(h, { documentSync: false });
-        h.customer.didChangeTextDocument(snap("abc", 4));
-        await flushMicrotasks();
-        expect(h.received).toHaveLength(1);
-    });
-
-    it("didChange без спавна — no-op", async () => {
-        const detached = makeCustomer({ attached: false });
-        detached.customer.didChangeTextDocument(snap());
-        await flushMicrotasks();
-        expect(detached.received).toHaveLength(0);
-    });
-
-    it("didChange коалесируется в пределах тика: последний снапшот документа побеждает", async () => {
-        const h = makeCustomer();
-        await subscribe(h);
-
-        h.customer.didChangeTextDocument(snap("a", 2));
-        h.customer.didChangeTextDocument(snap("ab", 3));
-        h.customer.didChangeTextDocument({ ...snap("b", 1), uri: "file:///b.ts" });
-        h.customer.didChangeTextDocument(snap("abc", 4));
+        h.customer.didChangeTextDocumentContent(delta("file:///a.ts", 2));
+        h.customer.didChangeTextDocumentContent(delta("file:///a.ts", 3));
         await flushMicrotasks();
         expect(h.received).toEqual([
-            { method: "editor.didChange", params: snap("abc", 4) },
-            { method: "editor.didChange", params: { ...snap("b", 1), uri: "file:///b.ts" } },
+            { method: "editor.didOpen", params: snap() },
+            { method: "editor.didChange", params: delta("file:///a.ts", 2) },
+            { method: "editor.didChange", params: delta("file:///a.ts", 3) },
         ]);
-
-        // Следующий тик — отдельная нотификация.
-        h.customer.didChangeTextDocument(snap("abcd", 5));
-        await flushMicrotasks();
-        expect(h.received).toHaveLength(3);
     });
 
-    it("отложенный didChange не уходит, если спавн успел уйти", async () => {
+    it("правки неоткрытого документа не шлются — зеркала у него нет", async () => {
         const h = makeCustomer();
-        await subscribe(h);
-
-        h.customer.didChangeTextDocument(snap("late", 2));
-        h.attached?.dispose();
+        h.customer.didChangeTextDocumentContent(delta("file:///other.ts"));
         await flushMicrotasks();
-
-        expect(h.received).toHaveLength(0);
+        expect(h.received).toEqual([]);
     });
 
-    it("didClose шлётся без подписки и отменяет отложенный didChange того же документа", async () => {
+    it("flush открытого — снапшот в didChange; неоткрытого — открытие", async () => {
         const h = makeCustomer();
-        await subscribe(h);
+        h.customer.didOpenTextDocument(snap());
+        h.customer.didChangeTextDocument(snap("reloaded", 5));
+        const other = { ...snap("b"), uri: "file:///b.ts" };
+        h.customer.didChangeTextDocument(other);
+        h.customer.didChangeTextDocumentContent(delta("file:///b.ts"));
+        await flushMicrotasks();
+        expect(h.received.map((r) => r.method)).toEqual([
+            "editor.didOpen",
+            "editor.didChange",
+            "editor.didOpen",
+            "editor.didChange",
+        ]);
+        expect(h.received[1].params).toEqual(snap("reloaded", 5));
+        expect(h.received[2].params).toEqual(other);
+    });
 
-        h.customer.didChangeTextDocument(snap("stale", 2));
+    it("закрытие — только открытого, после него правки не шлются", async () => {
+        const h = makeCustomer();
         h.customer.didCloseTextDocument("file:///a.ts");
+        h.customer.didOpenTextDocument(snap());
+        h.customer.didCloseTextDocument("file:///a.ts");
+        h.customer.didCloseTextDocument("file:///a.ts");
+        h.customer.didChangeTextDocumentContent(delta());
         await flushMicrotasks();
-
-        expect(h.received).toEqual([{ method: "editor.didClose", params: { uri: "file:///a.ts" } }]);
+        expect(h.received).toEqual([
+            { method: "editor.didOpen", params: snap() },
+            { method: "editor.didClose", params: { uri: "file:///a.ts" } },
+        ]);
     });
 
-    it("didClose без спавна или без расширений — no-op", async () => {
-        const detached = makeCustomer({ attached: false });
-        detached.customer.didCloseTextDocument("file:///a.ts");
-        const noExtension = makeCustomer({ withExtension: false });
-        noExtension.customer.didCloseTextDocument("file:///a.ts");
+    it("уход спавна забывает открытые документы: новому спавну правки не шлются без открытия", async () => {
+        const first = makeCustomer();
+        first.customer.didOpenTextDocument(snap());
+        first.attached?.dispose();
+        const [a, b] = createInProcessChannelPair();
+        const peer = new RpcEndpoint(b);
+        const received: string[] = [];
+        peer.handleNotification("editor.didChange", () => received.push("didChange"));
+        first.customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        first.customer.didChangeTextDocumentContent(delta());
         await flushMicrotasks();
-
-        expect(detached.received).toHaveLength(0);
-        expect(noExtension.received).toHaveLength(0);
+        expect(received).toEqual([]);
     });
 
-    it("слишком большой документ не пушится ни didOpen, ни didChange — и логируется", async () => {
+    it("слишком большой документ не открывается — и логируется; его правки не шлются", async () => {
         const h = makeCustomer();
-        await subscribe(h);
-
         const huge = "x".repeat(8 * 1024 * 1024 + 1);
         h.customer.didOpenTextDocument(snap(huge));
         h.customer.didChangeTextDocument(snap(huge, 2));
+        h.customer.didChangeTextDocumentContent(delta());
         await flushMicrotasks();
 
-        expect(h.received).toHaveLength(0);
+        expect(h.received).toEqual([]);
         const warning = `warn:skipping document sync: document too large ${JSON.stringify([{ uri: "file:///a.ts", length: huge.length }])}`;
         expect(h.logLines).toEqual([warning, warning]);
+    });
+
+    it("flush, переросший лимит, закрывает документ субпроцессу", async () => {
+        const h = makeCustomer();
+        h.customer.didOpenTextDocument(snap());
+        h.customer.didChangeTextDocument(snap("x".repeat(8 * 1024 * 1024 + 1), 2));
+        h.customer.didChangeTextDocumentContent(delta());
+        await flushMicrotasks();
+        expect(h.received).toEqual([
+            { method: "editor.didOpen", params: snap() },
+            { method: "editor.didClose", params: { uri: "file:///a.ts" } },
+        ]);
     });
 
     it("без логгера слишком большой документ тихо отбрасывается", async () => {
         const customer = new DocumentsCustomer({
             willSaveTimeoutMs: 1000,
             openDocumentsProvider: undefined,
-            hasExtensions: () => true,
             logger: undefined,
         });
         const [a, b] = createInProcessChannelPair();
@@ -202,7 +204,7 @@ describe("DocumentsCustomer — гейты document sync", () => {
         await expect(customer.willSaveTextDocument({ ...SAVE_SNAPSHOT, text: huge })).resolves.toEqual([]);
     });
 
-    it("документ ровно на лимите ещё пушится", async () => {
+    it("документ ровно на лимите ещё открывается", async () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap("x".repeat(8 * 1024 * 1024)));
         await flushMicrotasks();
@@ -211,12 +213,16 @@ describe("DocumentsCustomer — гейты document sync", () => {
 });
 
 describe("DocumentsCustomer — семя и сохранение", () => {
-    it("семя открытых документов уходит живому спавну мимо гейтов", async () => {
+    it("семя открытых документов уходит живому спавну и открывает их для правок", async () => {
         const docs = [snap("a"), { ...snap("b"), uri: "file:///b.ts" }];
-        const h = makeCustomer({ withExtension: false, openDocuments: () => docs });
+        const h = makeCustomer({ openDocuments: () => docs });
         h.customer.pushInitialState();
+        h.customer.didChangeTextDocumentContent(delta("file:///b.ts"));
         await flushMicrotasks();
-        expect(h.received).toEqual(docs.map((params) => ({ method: "editor.didOpen", params })));
+        expect(h.received).toEqual([
+            ...docs.map((params) => ({ method: "editor.didOpen", params })),
+            { method: "editor.didChange", params: delta("file:///b.ts") },
+        ]);
 
         const detached = makeCustomer({ attached: false, openDocuments: () => docs });
         detached.customer.pushInitialState();

@@ -109,6 +109,26 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         expect(change.text).toBe("xyz");
     });
 
+    it("правки батча модели применяются к зеркалу и уходят расширениям настоящими contentChanges", () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("editor.didOpen", openParams());
+        const events: vscode.TextDocumentChangeEvent[] = [];
+        workspace.onDidChangeTextDocument((e) => events.push(e));
+
+        stub.fire("editor.didChange", {
+            uri: URI,
+            version: 5,
+            changes: [{ range: { startLine: 0, startCharacter: 6, endLine: 0, endCharacter: 7 }, text: "b" }],
+            isDirty: true,
+        });
+
+        expect(events).toHaveLength(1);
+        expect(events[0].document.getText()).toBe("const b = 1;\n");
+        expect(events[0].document.version).toBe(5);
+        expect(events[0].document.isDirty).toBe(true);
+        expect(events[0].contentChanges).toMatchObject([{ rangeOffset: 6, rangeLength: 1, text: "b" }]);
+    });
+
     it("didChange неизвестного ресурса — это открытие: didOpen с полным текстом, а не правка", () => {
         // LSP-клиент обязан послать серверу didOpen раньше любого didChange —
         // change-событие по неанонсированному документу сервер молча отбросит.

@@ -64,6 +64,7 @@ import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../ap
 import type { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
+    type IWireDocumentChangedEvent,
     type IWireDocumentSyncSnapshot,
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
@@ -532,7 +533,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.documents = new DocumentsCustomer({
             willSaveTimeoutMs: this.options.willSaveTimeoutMs,
             openDocumentsProvider: options.openDocumentsProvider,
-            hasExtensions: () => this.phases.activeCount > 0,
             logger: this.logger,
         });
         this.editor = new EditorCustomer(editorOptions, options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE);
@@ -949,6 +949,10 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
         this.documents.didChangeTextDocument(snapshot);
+    }
+
+    public didChangeTextDocumentContent(event: IWireDocumentChangedEvent): void {
+        this.documents.didChangeTextDocumentContent(event);
     }
 
     public didCloseTextDocument(uri: string): void {

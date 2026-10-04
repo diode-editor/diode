@@ -2,7 +2,11 @@ import { DisposableStore, type IDisposable } from "../../../../../base/common/li
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { IDocumentSyncTarget } from "../../../../api/common/iDocumentSyncTarget.ts";
 import type { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
-import { type IWireDocumentSyncSnapshot, requestWillSaveEdits } from "../../../../api/common/wireTypes.ts";
+import {
+    type IWireDocumentChangedEvent,
+    type IWireDocumentSyncSnapshot,
+    requestWillSaveEdits,
+} from "../../../../api/common/wireTypes.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 
@@ -14,33 +18,31 @@ export interface IDocumentsCustomerOptions {
     readonly willSaveTimeoutMs: number;
     /** Снапшоты открытых документов для семени `editor.didOpen` на handshake. */
     readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
-    /** Есть ли у хоста хоть одно расширение: без них didOpen/didClose не шлём. */
-    readonly hasExtensions: () => boolean;
     readonly logger: ILogger | undefined;
 }
 
-/** Состояние одного спавна: канал, подписки субпроцесса и отложенные didChange. */
+/** Состояние одного спавна: канал, подписки субпроцесса и синхронизированные документы. */
 interface ISpawnDocuments {
     readonly rpc: RpcEndpoint;
     /** Есть ли в субпроцессе активные подписки на will/did-save (см. `workspace.updateSubscriptions`). */
     willSaveSubscribed: boolean;
     didSaveSubscribed: boolean;
-    /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
-    documentSyncSubscribed: boolean;
     /**
-     * Коалесинг didChange в пределах тика (latest-wins ПО ДОКУМЕНТУ) — правка на
-     * каждое нажатие не гоняет RPC-шторм. Map, а не один слот: с per-document
-     * sync два документа, изменившиеся в один тик (bulk-правки), потеряли бы
-     * одно из сообщений.
+     * Документы, зеркало которых субпроцесс держит (uri): ушёл снапшот
+     * didOpen/семени, и правки им идут дельтой. Правка по документу вне набора
+     * не шлётся — применённая к чужому тексту, она испортила бы зеркало.
      */
-    readonly pendingDidChange: Map<string, IWireDocumentSyncSnapshot>;
+    readonly synced: Set<string>;
 }
 
 /**
  * Документы для расширений: участники will/did-save и document sync
- * (`workspace.textDocuments`, onDidOpen/Change/Close). Подписки субпроцесса и
- * отложенные didChange живут один спавн; семя открытых документов хост шлёт на
- * своём месте последовательности handshake ({@link pushInitialState}).
+ * (`workspace.textDocuments`, onDidOpen/Change/Close). Субпроцесс держит
+ * зеркало документа: снапшот на открытии, дальше — правки батчей модели, каждая
+ * синхронно и без коалесинга (порядок сообщений в одном канале заменяет версию
+ * в запросе — как `$acceptModelChanged` эталона). Подписки субпроцесса и набор
+ * синхронизированных документов живут один спавн; семя открытых документов хост
+ * шлёт на своём месте последовательности handshake ({@link pushInitialState}).
  */
 export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncTarget {
     private live: ISpawnDocuments | null = null;
@@ -50,13 +52,16 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
     /**
      * Семя handshake: наполняем `workspace.textDocuments` открытыми документами
      * ДО первой активации — стоковый vscode-languageclient читает его на start().
-     * Мимо гейта подписки — подписчиков в этот момент ещё нет.
+     * Мимо защитного лимита: семя — снимок того, что уже открыто.
      */
     public pushInitialState(): void {
         const live = this.live;
         if (live === null) return;
         const openDocuments = this.options.openDocumentsProvider?.() ?? [];
-        for (const snapshot of openDocuments) live.rpc.notify("editor.didOpen", snapshot);
+        for (const snapshot of openDocuments) {
+            live.rpc.notify("editor.didOpen", snapshot);
+            live.synced.add(snapshot.uri);
+        }
     }
 
     /**
@@ -103,55 +108,56 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
     }
 
     /**
-     * Пушит открытие документа в subprocess (`editor.didOpen`) — там пополняется
-     * `workspace.textDocuments` и фаерится `onDidOpenTextDocument`, на которое
-     * подписан document sync стокового vscode-languageclient. Подпиской НЕ
-     * гейтится (в отличие от didChange): `workspace.textDocuments` обязан нести
-     * полный текст активного документа ещё ДО активации клиента — стоковый
-     * languageclient на `start()` рассылает серверу didOpen для всех документов
-     * реестра, и meta-обёртка с пустым текстом отравила бы сервер. No-op без
-     * subprocess'а и для слишком больших документов.
+     * Открытие документа (`editor.didOpen`): полный снапшот — с него начинается
+     * зеркало в субпроцессе, пополняется `workspace.textDocuments` и фаерится
+     * `onDidOpenTextDocument` (на нём document sync стокового
+     * vscode-languageclient). No-op без субпроцесса и для слишком больших
+     * документов — такой документ субпроцессу не синхронизируется вовсе.
      */
     public didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
         const live = this.live;
-        if (live === null || !this.options.hasExtensions()) return;
-        if (!this.fitsDocumentSyncLimit(snapshot)) return;
+        if (live === null || !this.fitsDocumentSyncLimit(snapshot)) return;
         live.rpc.notify("editor.didOpen", snapshot);
+        live.synced.add(snapshot.uri);
     }
 
     /**
-     * Пушит изменение документа (`editor.didChange` → `onDidChangeTextDocument`).
-     * Снапшоты коалесируются в пределах тика (latest-wins): многошаговая правка
-     * даёт одну нотификацию с последним текстом, версии остаются монотонными.
+     * Содержимое заменено целиком (flush: перечитка с диска): полный снапшот
+     * вместо правок. Синхронизированный документ, переросший защитный лимит,
+     * субпроцессу закрывается — оставленное зеркало разошлось бы с документом
+     * навсегда; несинхронизированный, ставший подъёмным, — открывается.
      */
     public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
         const live = this.live;
-        if (!live?.documentSyncSubscribed) return;
-        if (!this.fitsDocumentSyncLimit(snapshot)) return;
-        const pendingDidChange = live.pendingDidChange;
-        // Stryker disable next-line ConditionalExpression: эквивалентный — лишний микротаск найдёт карту уже опустошённой первым и ничего не пошлёт
-        const alreadyScheduled = pendingDidChange.size > 0;
-        pendingDidChange.set(snapshot.uri, snapshot);
-        // Stryker disable next-line ConditionalExpression: эквивалентный — см. выше
-        if (alreadyScheduled) return;
-        queueMicrotask(() => {
-            const pending = [...pendingDidChange.values()];
-            pendingDidChange.clear();
-            for (const item of pending) {
-                live.rpc.notify("editor.didChange", item);
-            }
-        });
+        if (live === null) return;
+        const synced = live.synced.has(snapshot.uri);
+        if (this.fitsDocumentSyncLimit(snapshot)) {
+            live.rpc.notify(synced ? "editor.didChange" : "editor.didOpen", snapshot);
+            live.synced.add(snapshot.uri);
+        } else if (synced) {
+            live.synced.delete(snapshot.uri);
+            live.rpc.notify("editor.didClose", { uri: snapshot.uri });
+        }
     }
 
     /**
-     * Пушит закрытие документа (`editor.didClose` → `onDidCloseTextDocument` +
-     * сброс didOpen-дедупа в субпроцессе). Не гейтится подпиской — симметрично
-     * didOpen: bookkeeping открытых документов у реестра всегда честный.
+     * Правки батча модели (`editor.didChange` дельтой) — сразу, без коалесинга:
+     * запрос провайдера, ушедший следом, едет по тому же каналу после них.
+     * Только синхронизированным документам.
+     */
+    public didChangeTextDocumentContent(event: IWireDocumentChangedEvent): void {
+        const live = this.live;
+        if (!live?.synced.has(event.uri)) return;
+        live.rpc.notify("editor.didChange", event);
+    }
+
+    /**
+     * Закрытие документа (`editor.didClose` → `onDidCloseTextDocument` + сброс
+     * didOpen-дедупа в субпроцессе) — тем, что были синхронизированы.
      */
     public didCloseTextDocument(uri: string): void {
         const live = this.live;
-        if (live === null || !this.options.hasExtensions()) return;
-        live.pendingDidChange.delete(uri);
+        if (!live?.synced.delete(uri)) return;
         live.rpc.notify("editor.didClose", { uri });
     }
 
@@ -160,8 +166,7 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
             rpc,
             willSaveSubscribed: false,
             didSaveSubscribed: false,
-            documentSyncSubscribed: false,
-            pendingDidChange: new Map(),
+            synced: new Set(),
         };
         this.live = live;
         const store = new DisposableStore();
@@ -169,20 +174,16 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         // не гоняет RPC на сохранении (save остаётся синхронным).
         store.add(
             rpc.handleNotification("workspace.updateSubscriptions", (params) => {
-                const p = params as { willSave?: unknown; didSave?: unknown; documentSync?: unknown };
+                // Флаг `documentSync` хосту больше не нужен: правки — дельтой и
+                // всем синхронизированным документам (пропуск любой испортил бы
+                // зеркало), а не только при подписчиках onDidChangeTextDocument.
+                const p = params as { willSave?: unknown; didSave?: unknown };
                 live.willSaveSubscribed = p.willSave === true;
                 live.didSaveSubscribed = p.didSave === true;
-                // didOpen подпиской не гейтится (см. didOpenTextDocument) — реестр
-                // документов субпроцесса всегда несёт полный текст активного, и
-                // доталкивать его на переходе подписки не нужно.
-                live.documentSyncSubscribed = p.documentSync === true;
             }),
         );
-        // Отложенные didChange адресованы ушедшему субпроцессу: микротаск,
-        // если он ещё в очереди, найдёт пустую карту.
         store.add({
             dispose: () => {
-                live.pendingDidChange.clear();
                 this.live = null;
             },
         });

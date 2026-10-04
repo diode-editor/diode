@@ -877,7 +877,7 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «целей нет».
         const reg = definitionProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
@@ -909,7 +909,7 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «hover'а нет».
         const reg = hoverProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
@@ -943,7 +943,7 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «подсказки нет».
         const reg = signatureHelpProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
@@ -978,7 +978,7 @@ export function createLanguagesNamespace(
         // Провайдер мог сняться, пока запрос летел: отвечаем «ссылок нет».
         const reg = referenceProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
@@ -1017,7 +1017,7 @@ export function createLanguagesNamespace(
      * синхронизация документа живёт одним хелпером.
      */
     function syncRenameTarget(p: IWireRenameRequestParams): { doc: ExtHostTextDocument; position: Position } {
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
@@ -1123,7 +1123,7 @@ export function createLanguagesNamespace(
             }
         }
         if (format === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
@@ -1165,7 +1165,7 @@ export function createLanguagesNamespace(
         const p = params as IWireCodeActionParams;
         const reg = codeActionProviders.get(p.handle ?? -1);
         if (reg === undefined) return [];
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
@@ -1277,7 +1277,7 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest("languages.provideCompletionItems", async (params): Promise<WireCompletionResult[]> => {
         const p = params as IWireCompletionParams;
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",
@@ -1407,7 +1407,7 @@ export function createLanguagesNamespace(
         "languages.provideInlineCompletions",
         async (params, cancellation): Promise<WireInlineCompletionItem[][]> => {
             const p = params as IWireInlineCompletionParams;
-            const doc: ExtHostTextDocument = documentSync.sync({
+            const doc: ExtHostTextDocument = documentSync.verify({
                 uri: p.uri,
                 // Stryker disable next-line ConditionalExpression: `{languageId: undefined}` реестр трактует как отсутствие поля — обе ветки дают документ на дефолтном языке
                 ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
@@ -1476,7 +1476,7 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest("languages.provideFoldingRanges", async (params): Promise<WireFoldingRange[][]> => {
         const p = params as IWireFoldingParams;
-        const doc: ExtHostTextDocument = documentSync.sync({
+        const doc: ExtHostTextDocument = documentSync.verify({
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
             text: p.text ?? "",

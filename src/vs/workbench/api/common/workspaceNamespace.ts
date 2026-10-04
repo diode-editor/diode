@@ -33,6 +33,7 @@ import {
     type IWireReadFileResult,
     type IWireTextContentResult,
     type IWireWorkspaceEditOp,
+    parseWireDocumentChangedEvent,
     parseWireDocumentSyncSnapshot,
     parseWireWatcherEvents,
     type WireTextEdit,
@@ -374,17 +375,23 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     }
 
     // ── Document sync (host → subprocess) ───────────────────────────────────
-    // Оба пути — один `documentSync.sync()`: новый ресурс → didOpen (один раз,
-    // как в VS Code), изменившийся текст → didChange одной full-range правкой,
-    // тот же текст → тихое обновление меты. Никакой записи текста мимо трекера.
+    // Зеркало документа: снапшот на открытии (новый ресурс → didOpen, один раз,
+    // как в VS Code), дальше — правки модели с её versionId. Замена содержимого
+    // целиком (flush) приезжает снапшотом в didChange и расходится одной
+    // full-range правкой. Никакой записи текста мимо трекера.
     rpc.handleNotification("editor.didOpen", (params) => {
         const snap = parseWireDocumentSyncSnapshot(params);
-        if (snap !== null) documentSync.sync(snap);
+        if (snap !== null) documentSync.open(snap);
     });
 
     rpc.handleNotification("editor.didChange", (params) => {
+        const event = parseWireDocumentChangedEvent(params);
+        if (event !== null) {
+            documentSync.change(event);
+            return;
+        }
         const snap = parseWireDocumentSyncSnapshot(params);
-        if (snap !== null) documentSync.sync(snap);
+        if (snap !== null) documentSync.open(snap);
     });
 
     // Последняя вкладка ресурса закрыта: сброс didOpen-дедупа + isClosed +
@@ -422,7 +429,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     // одному per-listener таймауту), сериализуем полученные TextEdit[].
     rpc.handleRequest("workspace.willSaveTextDocument", async (params): Promise<WireTextEdit[]> => {
         const p = params as IWireWillSaveParams;
-        const doc = documentSync.sync({
+        const doc = documentSync.verify({
             uri: p.uri,
             languageId: p.languageId,
             isDirty: p.isDirty,

@@ -164,14 +164,12 @@ export async function requestWillSaveEdits(
     return wireToSaveEdits(parseWireTextEdits(outcome));
 }
 
-// ─── Document sync (LSP, наивный full-text push) ─────────────────────────────
+// ─── Document sync (зеркало документа: снапшот на открытии, дальше правки) ──
 
 /**
- * Снапшот документа для push-синхронизации host → subprocess
- * (`editor.didOpen` / `editor.didChange`). Наивная модель: полный текст, без
- * инкрементальных правок — subprocess переводит его в одну full-range правку
- * `onDidChangeTextDocument`, что валидно и для Full, и для Incremental sync
- * language-сервера.
+ * Полный снапшот документа host → subprocess: `editor.didOpen` и flush
+ * (`editor.didChange` после замены содержимого целиком). Обычные правки едут
+ * дельтой — {@link IWireDocumentChangedEvent}.
  */
 export interface IWireDocumentSyncSnapshot {
     /** Ресурс как `uri.toString()`. */
@@ -187,7 +185,56 @@ export interface IWireDocumentSyncSnapshot {
     readonly isDirty?: boolean;
 }
 
-/** Валидирует параметры `editor.didOpen`/`didChange`; `null`, если форма не распознана. */
+/**
+ * Одна правка батча модели: диапазон в координатах документа ДО неё и
+ * вставленный текст (см. `IModelContentChange` ядра).
+ */
+export interface IWireDocumentContentChange {
+    readonly range: IWireRange;
+    readonly text: string;
+}
+
+/**
+ * Правки документа host → subprocess (`editor.didChange`): батч модели целиком,
+ * в порядке применения (по убыванию, в координатах до каждой правки), и
+ * `versionId` модели после него — как `$acceptModelChanged` эталона.
+ */
+export interface IWireDocumentChangedEvent {
+    /** Ресурс как `uri.toString()`. */
+    readonly uri: string;
+    /** Версия ядрового документа после батча. */
+    readonly version: number;
+    readonly changes: readonly IWireDocumentContentChange[];
+    readonly isDirty?: boolean;
+}
+
+/**
+ * Валидирует правки `editor.didChange`; `null`, если форма не распознана. Одна
+ * битая правка отбрасывает весь батч: применённый частично, он испортил бы
+ * зеркало.
+ */
+export function parseWireDocumentChangedEvent(raw: unknown): IWireDocumentChangedEvent | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.uri !== "string" || obj.uri === "") return null;
+    if (!isFiniteNumber(obj.version) || !Array.isArray(obj.changes)) return null;
+    const changes: IWireDocumentContentChange[] = [];
+    for (const item of obj.changes as unknown[]) {
+        if (typeof item !== "object" || item === null) return null;
+        const change = item as Record<string, unknown>;
+        const range = parseWireRange(change.range);
+        if (range === undefined || typeof change.text !== "string") return null;
+        changes.push({ range, text: change.text });
+    }
+    return {
+        uri: obj.uri,
+        version: obj.version,
+        changes,
+        ...(typeof obj.isDirty === "boolean" ? { isDirty: obj.isDirty } : {}),
+    };
+}
+
+/** Валидирует снапшот `editor.didOpen`/flush; `null`, если форма не распознана. */
 export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSnapshot | null {
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
@@ -370,7 +417,7 @@ export function reviveWireUri(raw: unknown): Uri | null {
 // ─── Completion (WP8) ────────────────────────────────────────────────────────
 
 /** Wire-форма диапазона (0-based, прямой маппинг на `IRange`). */
-interface IWireRange {
+export interface IWireRange {
     readonly startLine: number;
     readonly startCharacter: number;
     readonly endLine: number;

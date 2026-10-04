@@ -1,8 +1,9 @@
+import type { IModelContentChangedEvent } from "../../../editor/common/model/iDocumentContentChange.ts";
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
-import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 
 /** Снапшот документа модели для document sync push'а (`editor.didOpen`/`didChange`). */
 export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDocumentSyncSnapshot {
@@ -11,6 +12,30 @@ export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDo
         languageId: model.languageId,
         version: model.document.versionId,
         text: model.getText(),
+        isDirty: model.isModified,
+    };
+}
+
+/**
+ * Батч правок модели в проводной форме `editor.didChange`: правки как есть (в
+ * порядке применения), версия модели после батча.
+ */
+export function documentChangedEventOfModel(
+    model: BaseTextEditorModel,
+    event: IModelContentChangedEvent,
+): IWireDocumentChangedEvent {
+    return {
+        uri: model.uri.toString(),
+        version: event.versionId,
+        changes: event.changes.map(({ range, text }) => ({
+            range: {
+                startLine: range.start.line,
+                startCharacter: range.start.character,
+                endLine: range.end.line,
+                endCharacter: range.end.character,
+            },
+            text,
+        })),
         isDirty: model.isModified,
     };
 }
@@ -37,9 +62,9 @@ export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncS
  * первое открытие ресурса, `didChange` на правку его модели — в какой бы группе
  * (и активна ли она) правка ни случилась; `didClose` — когда закрыта последняя
  * вкладка документа. Подписка на МОДЕЛЬ, не на вкладку: документ в двух группах
- * даёт один didChange, а не два. Host сам гейтит didChange по подписке
- * subprocess'а (см. `workspace.updateSubscriptions`), поэтому без LS-подобных
- * расширений RPC не гоняется.
+ * даёт один didChange, а не два. didChange — дельта: точные правки батча
+ * модели (`onDidChangeModelContent`), а не полный текст; полный снапшот — только
+ * на открытии и на замене содержимого целиком (flush).
  */
 export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsService, host: IDocumentSyncTarget): void {
     /** Живые подписки по модели; смерть последней вкладки снимает и шлёт didClose. */
@@ -50,8 +75,12 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         host.didOpenTextDocument(documentSyncSnapshotOfModel(model));
         tracked.set(
             model,
-            model.onDidChangeContent(() => {
-                host.didChangeTextDocument(documentSyncSnapshotOfModel(model));
+            // Батч модели — сразу, без коалесинга: запрос провайдера, ушедший
+            // следом, едет по тому же каналу ПОСЛЕ правки (порядок сообщений
+            // заменяет версию в запросе, как у `$acceptModelChanged` эталона).
+            model.document.onDidChangeModelContent((event) => {
+                if (event.isFlush) host.didChangeTextDocument(documentSyncSnapshotOfModel(model));
+                else host.didChangeTextDocumentContent(documentChangedEventOfModel(model, event));
             }),
         );
     };

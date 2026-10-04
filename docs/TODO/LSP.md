@@ -29,30 +29,29 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
 
 ## Document sync (сделано; конспект решений)
 
-- RPC-нотификации `editor.didOpen` / `editor.didChange`
-  (`IWireDocumentSyncSnapshot`: `uri`, `languageId`, `version` = `versionId` модели —
-  LSP требует монотонной версии, `text`, `isDirty`).
+- `editor.didOpen` — полный снапшот (`IWireDocumentSyncSnapshot`: `uri`,
+  `languageId`, `version` = `versionId` модели — LSP требует монотонной версии,
+  `text`, `isDirty`); `editor.didChange` — правки батча модели
+  (`IWireDocumentChangedEvent`, G3) с версией модели, flush — снапшотом.
 - Продюсер — `bindDocumentSync` (`src/vs/workbench/api/browser/documentSyncAdapter.ts`):
-  didOpen на смену активного редактора, didChange на `onDidChangeContent`; проводка в
+  didOpen на открытие документа, didChange на `onDidChangeModelContent`; проводка в
   `extensionHostModule` и зеркально в `ExtensionTestHarness`.
-- Гейты: `didChange` — по подписке (`workspace.updateSubscriptions.documentSync`,
-  full-text на каждое нажатие без потребителей — расточительно); `didOpen` — БЕЗ
-  гейта подписки: `workspace.textDocuments` обязан нести полный текст активного
-  документа ещё до активации клиента (стоковый languageclient на `start()`
-  рассылает серверу didOpen для документов реестра, отфильтрованных
-  `languages.match`; meta-обёртка с пустым текстом отравила бы сервер).
-- Push активного документа на `host.ready` ДО первой активации — стоковый
+- Ни didOpen, ни didChange не гейтятся подпиской: `workspace.textDocuments` обязан
+  нести полный текст ещё до активации клиента (стоковый languageclient на `start()`
+  рассылает серверу didOpen для документов реестра), а правки — дельты зеркала:
+  пропуск любой испортил бы его.
+- Push открытых документов на `host.ready` ДО первой активации — стоковый
   languageclient читает `workspace.textDocuments`/`visibleTextEditors` на `start()`.
-- didChange коалесируется в пределах тика (latest-wins) + лимит снапшота 8 МБ.
-- `onDidChangeTextDocument` несёт одну full-range правку старого текста — валидно
-  и для Full, и для Incremental sync сервера.
+- didChange уходит синхронно на каждый батч (без коалесинга) — запрос провайдера
+  едет следом по тому же каналу; лимит 8 МБ решается на открытии.
+- `onDidChangeTextDocument` несёт настоящие `contentChanges` батча — incremental
+  sync сервера получает дельту, а не весь документ.
 
 ### Осознанные люфты (закрывать по мере надобности)
 
-- **Инкрементальные правки не передаются** — всегда полный текст. Настоящий
-  debounce/инкрементальный sync — когда перф покажет.
-- Расширение без подписок document sync видит текст только по save/completion/folding
-  pull-путям.
+- Запросы провайдеров и will-save пока ещё везут полный текст документа
+  (субпроцесс только сверяет его с зеркалом) — убирается следующим шагом G3
+  ([DocumentSyncDeltas.md](DocumentSyncDeltas.md)).
 
 ## Автодополнение (итерация «suggest × LSP»)
 

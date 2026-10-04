@@ -180,7 +180,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
 
     it("неизвестный ресурс — didOpen с полным текстом", () => {
         const { tracker, log } = makeTracker();
-        const doc = tracker.sync({ uri: URI, languageId: "typescript", text: "a" });
+        const doc = tracker.open({ uri: URI, languageId: "typescript", text: "a" });
         expect(log).toEqual(["open:a"]);
         expect(doc.languageId).toBe("typescript");
     });
@@ -188,14 +188,14 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
     it("ресурс в реестре (getOrCreate/meta), но didOpen ещё не фаерился — didOpen, не didChange", () => {
         const { registry, tracker, log } = makeTracker();
         registry.getOrCreate(Uri.parse(URI)); // мета-путь active-editor-change
-        tracker.sync({ uri: URI, text: "a" });
+        tracker.open({ uri: URI, text: "a" });
         expect(log).toEqual(["open:a"]);
     });
 
     it("тот же текст — тихо: мета обновляется, версия и события не трогаются", () => {
         const { tracker, log } = makeTracker();
-        const doc = tracker.sync({ uri: URI, text: "a", version: 7 });
-        tracker.sync({ uri: URI, text: "a", isDirty: true });
+        const doc = tracker.open({ uri: URI, text: "a", version: 7 });
+        tracker.open({ uri: URI, text: "a", isDirty: true });
         expect(log).toEqual(["open:a"]);
         expect(doc.isDirty).toBe(true);
         expect(doc.version).toBe(7);
@@ -203,8 +203,8 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
 
     it("изменившийся текст — didChange одной full-range правкой от СТАРОГО текста", () => {
         const { tracker, log, changes } = makeTracker();
-        const doc = tracker.sync({ uri: URI, text: "ab\ncd" });
-        const same = tracker.sync({ uri: URI, text: "x" });
+        const doc = tracker.open({ uri: URI, text: "ab\ncd" });
+        const same = tracker.open({ uri: URI, text: "x" });
         expect(same).toBe(doc); // стабильная идентичность документа
         expect(log).toEqual(["open:ab\ncd", "change:x"]);
         const change = changes[0].contentChanges[0];
@@ -220,7 +220,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         const { registry, tracker } = makeTracker();
         const closed: string[] = [];
         tracker.onDidCloseEmitter.event((doc) => closed.push(doc.getText()));
-        const doc = tracker.sync({ uri: URI, text: "a" });
+        const doc = tracker.open({ uri: URI, text: "a" });
 
         const result = tracker.close(Uri.parse(URI));
 
@@ -249,10 +249,10 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
 
     it("воскрешение после close: снова didOpen тем же объектом, isClosed снят", () => {
         const { tracker, log } = makeTracker();
-        const doc = tracker.sync({ uri: URI, text: "a" });
+        const doc = tracker.open({ uri: URI, text: "a" });
         tracker.close(Uri.parse(URI));
 
-        const revived = tracker.sync({ uri: URI, text: "b" });
+        const revived = tracker.open({ uri: URI, text: "b" });
 
         expect(revived === doc).toBe(true);
         expect(doc.isClosed).toBe(false);
