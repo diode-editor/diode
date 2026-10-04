@@ -36,14 +36,16 @@ export default defineScenario({
     skipOn: ["win32"],
     async run(editor) {
         // Пункт появляется, как только расширение активировалось.
-        await editor.waitForNode("#statusBarItem-extensions-status-bar-demo", { timeoutMs: 20_000 });
+        await editor.waitForNode("#statusBarItem-extensions-test-status-bar-demo-status-bar-demo", {
+            timeoutMs: 20_000,
+        });
         await editor.capture("item");
 
         // Клик по пункту исполняет команду РАСШИРЕНИЯ, и она же правит текст —
         // значит, клик доехал до его кода и вернулся обратно в полосу.
         // clickNode, а не координаты из `item`: сегменты полосы переезжают,
         // когда соседи меняют ширину.
-        await editor.clickNode("#statusBarItem-extensions-status-bar-demo");
+        await editor.clickNode("#statusBarItem-extensions-test-status-bar-demo-status-bar-demo");
         await editor.waitForText((t) => t.includes("Demo · clicked 1"), { timeoutMs: 5000 });
         await editor.capture("clicked");
 

@@ -52,9 +52,9 @@ export interface IVscodeHostContext {
     /** Локальный диск субпроцесса: `workspace.fs`, `findFiles`, `openTextDocument`. */
     readonly disk: IExtHostDisk;
     /**
-     * Владелец текущего создающего вызова (см. {@link ExtensionOwner}). Общие
-     * фабрики его пока не читают — это следующие шаги G7 (составные id каналов,
-     * имя расширения в логах провайдеров).
+     * Владелец текущего создающего вызова (см. {@link ExtensionOwner}): общие
+     * фабрики читают его в момент создания (id output-каналов и пунктов
+     * статус-бара).
      */
     readonly owner: ExtensionOwner;
 }

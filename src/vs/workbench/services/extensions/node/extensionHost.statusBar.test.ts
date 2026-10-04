@@ -56,7 +56,7 @@ describe("ExtensionHost — пункт статус-бара расширени�
             await settle();
             const entry = bar.entries().at(0);
             expect(entry).toMatchObject({
-                id: "extensions.status-bar-demo",
+                id: "extensions.test.statusBar.status-bar-demo",
                 text: "Demo",
                 alignment: "right",
                 priority: 100,

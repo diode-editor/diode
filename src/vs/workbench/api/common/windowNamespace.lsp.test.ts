@@ -27,6 +27,7 @@ interface INaiveWindowSurface {
 
 function makeWindow() {
     const stub = makeStubRpc();
+    const owner = new ExtensionOwner();
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc: stub.rpc,
@@ -34,10 +35,10 @@ function makeWindow() {
         documentSync: new DocumentSyncTracker(registry),
         configStore: new WorkspaceConfigStore(),
         disk: createNodeExtHostDisk(),
-        owner: new ExtensionOwner(),
+        owner,
     };
     const window = createWindowNamespace(ctx);
-    return { stub, window, naive: window as unknown as INaiveWindowSurface };
+    return { stub, window, owner, naive: window as unknown as INaiveWindowSurface };
 }
 
 describe("WindowNamespace — наивная поверхность LSP", () => {
@@ -126,6 +127,37 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         expect(() => {
             channel.hide();
         }).not.toThrow();
+    });
+
+    it("канал расширения — `extensions.<owner>.<slug>`; владелец читается в момент создания", () => {
+        const { stub, window, owner } = makeWindow();
+        const channel = owner.runAs("diode.diode-lsp-typescript", () =>
+            window.createOutputChannel("TypeScript (Diode)"),
+        );
+        // Строка пишется уже вне создающего вызова — id канала от этого не меняется.
+        channel.appendLine("started");
+        channel.show();
+
+        expect(stub.notifies.filter((n) => n.method.startsWith("output.")).map((n) => n.params)).toEqual([
+            {
+                channel: "extensions.diode.diode-lsp-typescript.typescript-diode",
+                label: "TypeScript (Diode)",
+                level: "info",
+                value: "started",
+            },
+            { channel: "extensions.diode.diode-lsp-typescript.typescript-diode", label: "TypeScript (Diode)" },
+        ]);
+    });
+
+    it("канал расширения с именем «Host» не сталкивается с логгером хоста extensions.host", () => {
+        const { stub, window, owner } = makeWindow();
+        owner.runAs("pub.ext", () => window.createOutputChannel("Host")).show();
+
+        const ids = stub.notifies
+            .filter((n) => n.method === "output.show")
+            .map((n) => (n.params as { channel: string }).channel);
+        expect(ids).toEqual(["extensions.pub.ext.host"]);
+        expect(ids).not.toContain("extensions.host");
     });
 
     it("slugifyChannelName: lower-case, не-алфанумерика в дефис, пустое имя — fallback", () => {

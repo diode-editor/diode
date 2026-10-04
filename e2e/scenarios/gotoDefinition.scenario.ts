@@ -34,7 +34,12 @@ export default defineScenario({
     // как editorconfig-stock / region-folding.
     skipOn: ["win32", "darwin"],
     // Показ output-канала LS без ухода фокуса через палитру/меню.
-    userKeybindings: [{ key: "alt+t", command: "workbench.action.output.show.extensions.typescript-diode" }],
+    userKeybindings: [
+        {
+            key: "alt+t",
+            command: "workbench.action.output.show.extensions.diode.diode-lsp-typescript.typescript-diode",
+        },
+    ],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 

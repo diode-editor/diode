@@ -90,16 +90,15 @@ function slugify(name: string, fallback: string): string {
 }
 
 /**
- * Имя output-канала → slug для id (`extensions.<slug>`). Полный id без
- * extension id — у subprocess-неймспейса нет per-call контекста расширения
- * (docs/TODO/Logging.md).
+ * Имя output-канала → slug для id (`extensions.<owner>.<slug>`; без владельца —
+ * `extensions.<slug>`, docs/TODO/Logging.md).
  */
 export function slugifyChannelName(name: string): string {
     return slugify(name, "channel");
 }
 
 export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.window {
-    const { rpc, registry } = ctx;
+    const { rpc, registry, owner } = ctx;
 
     // Ввод/выбор у человека: собственный модуль — у него своя проводка
     // (handle'ы показов, обратный запрос валидации, токен отмены).
@@ -728,9 +727,12 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         // ExtensionOutputAdapter). Ошибки vscode-languageclient
         // (`p2c.asDiagnostics` и т.п.) идут ТОЛЬКО сюда — канал обязан быть
         // настоящим. `clear`/`replace` — no-op (журнал ретенционный, см.
-        // docs/TODO/LSP.md).
+        // docs/TODO/LSP.md). Канал принадлежит расширению, как в VS Code:
+        // id `extensions.<owner>.<slug>` — одноимённые каналы разных расширений
+        // и логгеры хоста (`extensions.host`) не сталкиваются.
         createOutputChannel: (name: string): vscode.OutputChannel => {
-            const channel = "extensions." + slugifyChannelName(name);
+            const prefix = owner.current === undefined ? "extensions." : `extensions.${owner.current}.`;
+            const channel = prefix + slugifyChannelName(name);
             const send = (level: WireOutputLevel, value: string): void => {
                 rpc.notify("output.append", { channel, label: name, level, value });
             };
@@ -830,13 +832,15 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
              * перезапуск редактора (id хранится в состоянии). Пункт без имени
              * скрыть нельзя в принципе — ему хватает id по счётчику.
              *
-             * Отклонение от VS Code: там пункт без id получает id расширения.
-             * У нас копия `vscode` в субпроцессе одна на все расширения, и
-             * контекста «кто именно зовёт» у неё нет (тот же изъян, что у имён
-             * output-каналов).
+             * Как в VS Code (`asStatusBarItemIdentifier`), id префиксуется id
+             * расширения-владельца: `<owner>.<id>`. Владелец фиксируется здесь,
+             * при создании, — имя задаётся позже, и к тому моменту окружающего
+             * владельца уже нет.
              */
             const fallbackId = `item-${String(handle)}`;
-            const currentId = (): string => explicitId ?? (name !== undefined ? slugify(name, fallbackId) : fallbackId);
+            const prefix = owner.current === undefined ? "" : `${owner.current}.`;
+            const currentId = (): string =>
+                prefix + (explicitId ?? (name !== undefined ? slugify(name, fallbackId) : fallbackId));
 
             /** Команда клика в wire-форме: строка либо `Command` (command + arguments). */
             const commandWire = (): { command?: string; arguments?: readonly unknown[] } => {
