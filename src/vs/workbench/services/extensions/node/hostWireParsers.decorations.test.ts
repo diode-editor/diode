@@ -11,6 +11,9 @@ describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
             expect(themeColorIdOf("#fff")).toBeUndefined();
             expect(themeColorIdOf(undefined)).toBeUndefined();
         });
+        it("нестроковый $themeColor → undefined (не значение как есть)", () => {
+            expect(themeColorIdOf({ $themeColor: 5 } as unknown as { $themeColor: string })).toBeUndefined();
+        });
     });
 
     describe("parseDecorationRanges", () => {
@@ -49,6 +52,17 @@ describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
         });
         it("не-массив → []", () => {
             expect(parseWireFileDecorations(null)).toEqual([]);
+        });
+        it("функция с uri — не декорация, отбрасывается", () => {
+            expect(parseWireFileDecorations([Object.assign(() => undefined, { uri: "file:///a" })])).toEqual([]);
+        });
+        it("кривые и отсутствующие опциональные поля — ключа нет вовсе", () => {
+            expect(
+                parseWireFileDecorations([
+                    { uri: "file:///a", badge: 5, colorId: 5, propagate: "да" },
+                    { uri: "file:///b" },
+                ]),
+            ).toStrictEqual([{ uri: "file:///a" }, { uri: "file:///b" }]);
         });
     });
 });

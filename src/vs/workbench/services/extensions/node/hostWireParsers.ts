@@ -268,6 +268,7 @@ export function parseWireOutputAppend(raw: unknown): IWireOutputAppend | null {
     const p = raw as Record<string, unknown>;
     if (typeof p.channel !== "string" || p.channel === "") return null;
     if (typeof p.label !== "string" || p.label === "") return null;
+    // Stryker disable next-line ConditionalExpression: `typeof p.level !== "string"` → `false` эквивалентен — `includes` по списку строк и так ложен для любого не-строкового значения; второй операнд (`!includes` → `false`) убивает тест с уровнем "fatal"
     if (typeof p.level !== "string" || !WIRE_OUTPUT_LEVELS.includes(p.level as WireOutputLevel)) return null;
     if (typeof p.value !== "string") return null;
     return { channel: p.channel, label: p.label, level: p.level as WireOutputLevel, value: p.value };
@@ -490,6 +491,7 @@ export function parseWireWatcherCreate(raw: unknown): IWireWatcherCreate | null 
         ignoreChangeEvents?: unknown;
         ignoreDeleteEvents?: unknown;
     };
+    // Stryker disable next-line ConditionalExpression: `typeof p.id !== "number"` → `false` эквивалентен — `Number.isInteger` ложен для любого не-числа; второй операнд (`!isInteger` → `false`) убивает тест с id 1.5
     if (typeof p.id !== "number" || !Number.isInteger(p.id)) return null;
     if (typeof p.base !== "string" || p.base === "") return null;
     if (typeof p.pattern !== "string") return null;
@@ -507,6 +509,7 @@ export function parseWireWatcherCreate(raw: unknown): IWireWatcherCreate | null 
 export function parseWireWatcherDispose(raw: unknown): number | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { id } = raw as { id?: unknown };
+    // Stryker disable next-line ConditionalExpression: `typeof id === "number"` → `true` эквивалентен — `Number.isInteger` ложен для любого не-числа; второй операнд (`isInteger` → `true`) убивает тест с id 1.5
     return typeof id === "number" && Number.isInteger(id) ? id : null;
 }
 

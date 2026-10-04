@@ -153,3 +153,33 @@ describe("hostWireParsers — diagnostics.publish", () => {
         expect(parseWireDiagnosticsPublish({ ...ok, markers: {} })).toBeNull();
     });
 });
+
+/** Функция с нужными полями: `typeof` — `"function"`, поля читаются как у объекта. */
+function fnWith(fields: Record<string, unknown>): unknown {
+    return Object.assign(() => undefined, fields);
+}
+
+describe("hostWireParsers — window.*: не-объект с нужными полями отвергается", () => {
+    it("progress.start/report/end: функция-конверт → null", () => {
+        expect(parseWireProgressStart(fnWith({ handle: 1, title: "t" }))).toBeNull();
+        expect(parseWireProgressReport(fnWith({ handle: 1 }))).toBeNull();
+        expect(parseWireProgressEnd(fnWith({ handle: 1 }))).toBeNull();
+    });
+
+    it("output.append/show: функция-конверт → null", () => {
+        expect(parseWireOutputAppend(fnWith({ channel: "c", label: "L", level: "info", value: "v" }))).toBeNull();
+        expect(parseWireOutputShow(fnWith({ channel: "c", label: "L" }))).toBeNull();
+    });
+
+    it("diagnostics.publish: функция-конверт → null, функция-маркер отбрасывается", () => {
+        const marker = {
+            severity: 1,
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+            message: "m",
+        };
+        expect(parseWireDiagnosticsPublish(fnWith({ owner: "o", resource: "file:///a", markers: [] }))).toBeNull();
+        expect(
+            parseWireDiagnosticsPublish({ owner: "o", resource: "file:///a", markers: [fnWith(marker)] }),
+        ).toStrictEqual({ owner: "o", resource: "file:///a", markers: [] });
+    });
+});

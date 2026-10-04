@@ -30,6 +30,16 @@ describe("parseWireWatcherCreate", () => {
         });
     });
 
+    it("ignoreDeleteEvents: true доходит до результата", () => {
+        expect(parseWireWatcherCreate({ id: 1, base: "/repo", pattern: "**", ignoreDeleteEvents: true })).toMatchObject(
+            {
+                ignoreCreateEvents: false,
+                ignoreChangeEvents: false,
+                ignoreDeleteEvents: true,
+            },
+        );
+    });
+
     it("структурно чужой запрос — null", () => {
         expect(parseWireWatcherCreate(null)).toBeNull();
         expect(parseWireWatcherCreate("нет")).toBeNull();
@@ -37,6 +47,10 @@ describe("parseWireWatcherCreate", () => {
         expect(parseWireWatcherCreate({ id: 1.5, base: "/repo", pattern: "**" })).toBeNull();
         expect(parseWireWatcherCreate({ id: 1, base: "", pattern: "**" })).toBeNull();
         expect(parseWireWatcherCreate({ id: 1, base: "/repo" })).toBeNull();
+        expect(parseWireWatcherCreate({ id: 1, base: 5, pattern: "**" })).toBeNull();
+        expect(
+            parseWireWatcherCreate(Object.assign(() => undefined, { id: 1, base: "/repo", pattern: "**" })),
+        ).toBeNull();
     });
 });
 
@@ -49,5 +63,6 @@ describe("parseWireWatcherDispose", () => {
         expect(parseWireWatcherDispose(null)).toBeNull();
         expect(parseWireWatcherDispose({ id: "4" })).toBeNull();
         expect(parseWireWatcherDispose({ id: 1.5 })).toBeNull();
+        expect(parseWireWatcherDispose(Object.assign(() => undefined, { id: 4 }))).toBeNull();
     });
 });

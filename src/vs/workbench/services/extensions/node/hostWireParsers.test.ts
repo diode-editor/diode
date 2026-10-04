@@ -165,3 +165,33 @@ describe("parseWireReadFileResult", () => {
         expect(() => parseWireReadFileResult({ content: 42 })).toThrow(/base64 string/);
     });
 });
+
+/**
+ * Функция с нужными полями — не объект провода: `typeof` у неё `"function"`, а
+ * поля читаются как у объекта. Только такой вход отличает проверку
+ * `typeof raw !== "object"` от проверок полей, идущих следом.
+ */
+function fnWith(fields: Record<string, unknown>): unknown {
+    return Object.assign(() => undefined, fields);
+}
+
+describe("hostWireParsers — editor.*: не-объект с нужными полями отвергается", () => {
+    const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+
+    it("showTextDocument: функция с uri → null", () => {
+        expect(parseWireShowTextDocumentParams(fnWith({ uri: "file:///a" }))).toBeNull();
+    });
+
+    it("closeTabs: функция-конверт и функция-вкладка → null", () => {
+        expect(parseWireCloseTabsParams(fnWith({ tabs: [] }))).toBeNull();
+        expect(parseWireCloseTabsParams({ tabs: [fnWith({ groupId: 1, uri: "file:///a" })] })).toBeNull();
+    });
+
+    it("closeGroups: функция с groupIds → null", () => {
+        expect(parseWireCloseGroupsParams(fnWith({ groupIds: [1] }))).toBeNull();
+    });
+
+    it("editorEdits: функция-правка отбрасывается", () => {
+        expect(parseWireEditorEdits([fnWith({ range, text: "x" })])).toEqual([]);
+    });
+});
