@@ -136,9 +136,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     ] as const;
 
     /**
-     * Полоса групп в порядке ViewColumn − 1. Пока сплитов нет — ровно одна;
-     * вкладочная поверхность сервиса (activeIndex, activateTab, MRU)
-     * делегирует в активную группу.
+     * Полоса групп в порядке ViewColumn − 1; без сплитов — ровно одна.
+     * Вкладочные операции (позиция, `activateTab`, MRU) — у самой группы
+     * ({@link activeGroup}), фасада на сервисе нет.
      */
     private groupsList: EditorGroup[] = [];
     private activeGroupValue!: EditorGroup;
