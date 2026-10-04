@@ -135,10 +135,10 @@ export class StateService implements IStateService {
      */
     public dispose(): void {
         this.disposed = true;
-        if (this.writeTimer !== undefined) {
-            clearTimeout(this.writeTimer);
-            this.writeTimer = undefined;
-        }
+        // Без проверки «а был ли таймер»: `clearTimeout(undefined)` — no-op,
+        // и условие вокруг него давало лишь эквивалентного мутанта.
+        clearTimeout(this.writeTimer);
+        this.writeTimer = undefined;
         this.onDidOpenWorkspaceEmitter.dispose();
     }
 
