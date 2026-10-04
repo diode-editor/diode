@@ -72,13 +72,13 @@ afterEach(() => {
 });
 
 describe("ExtensionHostProcess — запуск", () => {
-    it("с логгерами stdout/stderr идут в pipe, без них — наследуются", () => {
+    it("с логгерами stdout/stderr идут в pipe, без них — закрыты, а не наследуются (терминал общий с редактором)", () => {
         start(new FakeChild(), { stdoutLogger: logger(), stderrLogger: logger() });
         start(new FakeChild());
 
         expect(spawnMock.mock.calls.map((call) => (call[2] as { stdio: unknown }).stdio)).toEqual([
             ["ignore", "pipe", "pipe", "ipc"],
-            ["ignore", "inherit", "inherit", "ipc"],
+            ["ignore", "ignore", "ignore", "ipc"],
         ]);
     });
 
@@ -88,7 +88,8 @@ describe("ExtensionHostProcess — запуск", () => {
 
         const [inherited, explicit] = spawnMock.mock.calls.map((call) => (call[2] as { env: NodeJS.ProcessEnv }).env);
         expect(inherited).toEqual({ ...process.env, DIODE_EXTENSION_HOST: "1" });
-        expect(explicit).toEqual({ ONLY: "this" });
+        // Своё окружение шва — тоже с меткой роли: без неё ребёнок не узнал бы, кем он запущен.
+        expect(explicit).toEqual({ ONLY: "this", DIODE_EXTENSION_HOST: "1" });
     });
 
     it("поток без логгера не слушается, ошибка без логгера не роняет", () => {
@@ -104,6 +105,40 @@ describe("ExtensionHostProcess — запуск", () => {
         }).not.toThrow();
     });
 
+    it("неудачный спавн (error без exit) — тоже конец для владельца, ровно один", () => {
+        const log = logger();
+        const child = new FakeChild();
+        const { onExit } = start(child, { logger: log });
+
+        child.emit("error", Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }));
+        // Закрытый канал эмитит ошибку на каждый send — вторая не роняет и не дублирует конец.
+        child.emit("error", new Error("ERR_IPC_CHANNEL_CLOSED"));
+
+        expect(onExit).toHaveBeenCalledExactlyOnceWith(null, null);
+        expect(log.error).toHaveBeenCalledWith("extension host subprocess error", expect.any(Error));
+    });
+
+    it("сломавшийся поток ребёнка — предупреждение в лог host'а с меткой процесса", () => {
+        const log = logger();
+        const child = new FakeChild();
+        child.stdout = new PassThrough();
+        start(child, { logger: log, stdoutLogger: logger() });
+
+        child.stdout.emit("error", new Error("EPIPE"));
+
+        expect(log.warn).toHaveBeenCalledWith("[extension-host] stdout stream error: Error: EPIPE");
+    });
+
+    it("ожидание host.ready отвергается сразу на неудачном спавне, а не по таймауту", async () => {
+        const child = new FakeChild();
+        const { subprocess } = start(child);
+        const ready = subprocess.waitForReady(60_000);
+
+        child.emit("error", new Error("spawn ENOENT"));
+
+        await expect(ready).rejects.toThrow(/exited before ready/);
+    });
+
     it("выход ребёнка доходит до владельца с кодом и сигналом", () => {
         const child = new FakeChild();
         const { onExit } = start(child);
@@ -115,6 +150,22 @@ describe("ExtensionHostProcess — запуск", () => {
 });
 
 describe("ExtensionHostProcess — потоки ребёнка", () => {
+    it("stdout в info, stderr в warn — построчно, пустые строки пропускаются", async () => {
+        const child = new FakeChild();
+        child.stdout = new PassThrough();
+        child.stderr = new PassThrough();
+        const out = logger();
+        const err = logger();
+        start(child, { stdoutLogger: out, stderrLogger: err });
+
+        child.stdout.end("one\n\ntwo\n");
+        child.stderr.end("warn\n\n");
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(out.info.mock.calls).toEqual([["one"], ["two"]]);
+        expect(err.warn.mock.calls).toEqual([["warn"]]);
+    });
+
     it("многобайтный символ, разрезанный между чанками, приходит целым", () => {
         const child = new FakeChild();
         child.stdout = new PassThrough();

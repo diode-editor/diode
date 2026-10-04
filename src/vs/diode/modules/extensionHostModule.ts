@@ -138,7 +138,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const stdoutLogger = logService.createLogger("extensions.host.stdout", { label: "Extension Host (stdout)" });
         const stderrLogger = logService.createLogger("extensions.host.stderr", { label: "Extension Host (stderr)" });
         // Stryker restore StringLiteral,ObjectLiteral
-        // \u0414\u043b\u044f NULL_LOG_SERVICE \u0432\u0441\u0435 \u0443\u0440\u043e\u0432\u043d\u0438 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u2014 \u043d\u0435 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0430\u0435\u043c stdio \u0432 \"pipe\".
+        // Канал выключен (NULL_LOG_SERVICE, уровень выше Info) — логгер не передаём,
+        // и поток ребёнка закрыт, а не читается впустую (и не наследуется в кадр TUI).
         const wantStdio = (lg: typeof stdoutLogger): typeof stdoutLogger | undefined =>
             lg.isEnabled(LogLevel.Info) ? lg : undefined;
 
