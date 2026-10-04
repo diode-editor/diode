@@ -212,6 +212,8 @@ function rangesIntersect(a: Range, b: Range): boolean {
 
 /** Wire-параметры запроса inline completions (host → subprocess). */
 interface IWireInlineCompletionParams {
+    /** Провайдеры, выбранные ядром по селектору, в порядке реестра (пачка). */
+    readonly handles?: readonly unknown[];
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
@@ -708,10 +710,8 @@ export function createLanguagesNamespace(
     codeActionDeps: ICodeActionDeps = NULL_CODE_ACTION_DEPS,
 ): {
     languages: typeof vscode.languages;
-    inlineCompletionRegistrations: readonly IInlineCompletionRegistration[];
 } {
     const { rpc, documentSync } = ctx;
-    const inlineCompletionRegistrations: IInlineCompletionRegistration[] = [];
     // Провайдеры фич, переехавших в реестр ядра: по handle, который ядро
     // присылает в запросе (upstream ExtHostLanguageFeatures._adapter).
     const hoverProviders = new Map<number, IHoverRegistration>();
@@ -723,6 +723,7 @@ export function createLanguagesNamespace(
     const rangeFormattingProviders = new Map<number, IRangeFormattingRegistration>();
     const codeActionProviders = new Map<number, ICodeActionRegistration>();
     const foldingProviders = new Map<number, IFoldingRegistration>();
+    const inlineCompletionProviders = new Map<number, IInlineCompletionRegistration>();
     let nextProviderHandle = 0;
 
     /**
@@ -800,12 +801,6 @@ export function createLanguagesNamespace(
             }
         }
         return found;
-    }
-
-    function pushSubscriptions(): void {
-        rpc.notify("languages.updateSubscriptions", {
-            hasInlineCompletionProviders: inlineCompletionRegistrations.length > 0,
-        });
     }
 
     rpc.handleRequest("languages.provideDefinition", async (params): Promise<WireDefinitionLocation[]> => {
@@ -1265,7 +1260,7 @@ export function createLanguagesNamespace(
 
     rpc.handleRequest(
         "languages.provideInlineCompletions",
-        async (params, cancellation): Promise<WireInlineCompletionItem[]> => {
+        async (params, cancellation): Promise<WireInlineCompletionItem[][]> => {
             const p = params as IWireInlineCompletionParams;
             const doc: ExtHostTextDocument = documentSync.sync({
                 uri: p.uri,
@@ -1286,14 +1281,21 @@ export function createLanguagesNamespace(
                 selectedCompletionInfo: undefined,
             } as unknown as vscode.InlineCompletionContext;
 
-            const items: WireInlineCompletionItem[] = [];
+            // Провайдеров — в присланном ядром порядке; ответ выровнен по
+            // `handles`. Снятый, пока запрос летел, или чужой handle — пусто.
+            const results: WireInlineCompletionItem[][] = [];
             try {
-                for (const reg of inlineCompletionRegistrations) {
-                    // Отмена останавливает и обход цепочки: спрашивать
-                    // следующего провайдера про снапшот, который уже никому не
-                    // нужен, — та же лишняя работа, от которой мы уходим.
-                    if (cancel.token.isCancellationRequested) break;
-                    if (!matchDocumentSelector(reg.selector, doc)) continue;
+                for (const handle of Array.isArray(p.handles) ? p.handles : []) {
+                    const items: WireInlineCompletionItem[] = [];
+                    results.push(items);
+                    // Отмена останавливает и обход пачки: спрашивать следующего
+                    // провайдера про снапшот, который уже никому не нужен, — та
+                    // же лишняя работа, от которой мы уходим.
+                    if (cancel.token.isCancellationRequested) continue;
+                    // Handle чужого типа Map.get и так не найдёт — отдельная проверка не нужна.
+                    const reg = inlineCompletionProviders.get(handle as number);
+                    // Stryker disable next-line ConditionalExpression: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой список
+                    if (reg === undefined) continue;
                     let result: unknown;
                     try {
                         result = await Promise.resolve(
@@ -1323,7 +1325,7 @@ export function createLanguagesNamespace(
                 // Stryker disable next-line CallExpression: уборка подписки, см. toVscodeCancellationToken
                 cancel.dispose();
             }
-            return items;
+            return results;
         },
     );
 
@@ -1554,18 +1556,8 @@ export function createLanguagesNamespace(
         registerInlineCompletionItemProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.InlineCompletionItemProvider,
-        ): vscode.Disposable => {
-            const registration: IInlineCompletionRegistration = { selector, provider };
-            inlineCompletionRegistrations.push(registration);
-            if (inlineCompletionRegistrations.length === 1) pushSubscriptions();
-            return new DisposableImpl(() => {
-                const idx = inlineCompletionRegistrations.indexOf(registration);
-                if (idx >= 0) {
-                    inlineCompletionRegistrations.splice(idx, 1);
-                    if (inlineCompletionRegistrations.length === 0) pushSubscriptions();
-                }
-            }) as unknown as vscode.Disposable;
-        },
+        ): vscode.Disposable =>
+            registerByHandle(inlineCompletionProviders, "inlineCompletions", selector, { selector, provider }),
         registerLinkedEditingRangeProvider: registerNoopProvider,
         registerCallHierarchyProvider: registerNoopProvider,
         registerTypeHierarchyProvider: registerNoopProvider,
@@ -1573,6 +1565,5 @@ export function createLanguagesNamespace(
 
     return {
         languages: languagesNs as unknown as typeof vscode.languages,
-        inlineCompletionRegistrations,
     };
 }

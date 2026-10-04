@@ -9,6 +9,7 @@ import type {
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { isValidConfigurationValue } from "../../../../platform/configuration/common/configurationValidation.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -135,7 +136,15 @@ interface FakeGroup {
     setActiveEditorSilently: (editor: TextEditorPane | null) => void;
 }
 
-function makeGroup(editor: TextEditorPane | null, source: EditorService["inlineCompletionSource"]): FakeGroup {
+/** Источник подсказок теста: что ответить на запрос и с каким токеном отмены. */
+type FakeInlineSource =
+    | ((request: IInlineCompletionRequest, token: ICancellationToken) => Promise<readonly ICoreInlineCompletionItem[]>)
+    | undefined;
+
+/** Источник фейковой группы — в реестр сервиса его кладёт {@link makeService}. */
+const sources = new WeakMap<EditorService, FakeInlineSource>();
+
+function makeGroup(editor: TextEditorPane | null, source: FakeInlineSource): FakeGroup {
     let active = editor;
     const listeners: ((editor: TextEditorPane | null) => void)[] = [];
     const group = {
@@ -144,8 +153,8 @@ function makeGroup(editor: TextEditorPane | null, source: EditorService["inlineC
             listeners.push(l);
             return { dispose: () => listeners.splice(listeners.indexOf(l), 1) };
         },
-        inlineCompletionSource: source,
     } as unknown as EditorService;
+    sources.set(group, source);
     return {
         group,
         setActiveEditor: (next) => {
@@ -166,6 +175,8 @@ interface ServiceOptions {
     delay?: unknown;
     /** `editor.inlineSuggest.requestTimeout`; `undefined` — ключа в модели нет. */
     requestTimeout?: unknown;
+    /** Свой реестр вместо провайдера-источника группы. */
+    languageFeatures?: LanguageFeaturesService;
 }
 
 /** Схемы ключей приложения — по ним заглушка конфига отбраковывает мусор, как настоящий сервис. */
@@ -202,7 +213,17 @@ function makeService(
             return raw !== undefined && isValidConfigurationValue(schema, raw) ? raw : schema.default;
         },
     } as unknown as IConfigurationService;
-    const service = new InlineCompletionsService(group, completion, configuration) as InlineCompletionsService & {
+    // Провайдер под `*` поверх источника группы — как прокси расширения в проде.
+    const languageFeatures = options.languageFeatures ?? new LanguageFeaturesService();
+    const source = sources.get(group);
+    if (source !== undefined)
+        languageFeatures.inlineCompletionsProvider.register("*", { provideInlineCompletions: source });
+    const service = new InlineCompletionsService(
+        group,
+        completion,
+        configuration,
+        languageFeatures,
+    ) as InlineCompletionsService & {
         firePopupClose: () => void;
     };
     service.firePopupClose = () => {
@@ -235,7 +256,7 @@ function recordingItems(
  * ровно через такой токен).
  */
 function pendingSource(): {
-    source: EditorService["inlineCompletionSource"];
+    source: FakeInlineSource;
     tokens: ICancellationToken[];
     respond: (index: number, list?: ICoreInlineCompletionItem[]) => void;
 } {
@@ -462,6 +483,27 @@ describe("InlineCompletionsService — гейты", () => {
         const noSource = makeService(makeGroup(fake.editor, undefined).group);
         await noSource.trigger();
         expect(noSource.isOpen()).toBe(false);
+    });
+
+    it("вызов без подошедших провайдеров ничего не трогает: запрос в полёте доживает", async () => {
+        const fake = makeEditor("a", 1);
+        const languageFeatures = new LanguageFeaturesService();
+        let resolveLate!: (v: readonly ICoreInlineCompletionItem[]) => void;
+        const registration = languageFeatures.inlineCompletionsProvider.register("*", {
+            provideInlineCompletions: () =>
+                new Promise((resolve) => {
+                    resolveLate = resolve;
+                }),
+        });
+        const service = makeService(makeGroup(fake.editor, undefined).group, { languageFeatures });
+
+        const first = service.trigger();
+        registration.dispose();
+        await service.trigger();
+        resolveLate([{ insertText: "-late" }]);
+        await first;
+
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(expect.objectContaining({ lines: ["-late"] }));
     });
 
     it("устаревший ответ отброшен: новый запрос обгоняет старый", async () => {

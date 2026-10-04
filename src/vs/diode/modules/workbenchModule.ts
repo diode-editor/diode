@@ -395,7 +395,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(CompletionServiceDIToken, CompletionService);
     // Призрачные подсказки (inline suggest): сервис без компонента — ghost text
     // рисует сам редактор (TextEditorPane.setGhostText), источник — провайдеры
-    // расширений через inlineCompletionSource группы.
+    // расширений из реестра inlineCompletionsProvider.
     container.bind(InlineCompletionsServiceDIToken, InlineCompletionsService);
     // Go to Definition: сервис без компонента — цели отдают definition-провайдеры
     // реестра ILanguageFeaturesService, навигация — паттерн Problems reveal.

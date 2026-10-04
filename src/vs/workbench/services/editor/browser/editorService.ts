@@ -3,7 +3,6 @@ import * as path from "node:path";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { InlineCompletionSource } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
     LanguageConfigurationServiceDIToken,
@@ -220,13 +219,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * вкладку напрямую.
      */
     public focusGroupContentHook?: (group: EditorGroup) => void;
-
-    /**
-     * Источник инлайн-подсказок (host/харнесс подключает сюда провайдеры
-     * расширений через `languages.provideInlineCompletions`). Читается
-     * `InlineCompletionsService`; в редакторы не раздаётся (group-level).
-     */
-    public inlineCompletionSource?: InlineCompletionSource;
 
     /**
      * Источник содержимого недисковых ресурсов (host подключает сюда

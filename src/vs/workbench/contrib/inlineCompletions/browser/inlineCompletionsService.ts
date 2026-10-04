@@ -7,6 +7,8 @@ import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICoreInlineCompletionItem } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
@@ -18,6 +20,8 @@ import type { EditorService } from "../../../services/editor/browser/editorServi
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import type { CompletionService } from "../../suggest/browser/completionService.ts";
 import { CompletionServiceDIToken } from "../../suggest/browser/completionService.ts";
+
+import { provideInlineCompletions } from "./provideInlineCompletions.ts";
 
 export const InlineCompletionsServiceDIToken = token<InlineCompletionsService>("InlineCompletionsService");
 
@@ -37,8 +41,8 @@ interface IInlineSession {
 
 /**
  * Призрачные подсказки (VS Code inline suggest, ghost text). При паузе в
- * наборе запрашивает `EditorService.inlineCompletionSource` (провайдеры
- * расширений через host), показывает первый подошедший пункт серым текстом
+ * наборе запрашивает подошедших документу провайдеров реестра
+ * `ILanguageFeaturesService.inlineCompletionsProvider`, показывает первый подошедший пункт серым текстом
  * за кареткой ({@link TextEditorPane.setGhostText}); Tab принимает
  * (`editor.action.inlineSuggest.commit`), Escape гасит. Дисциплина
  * debounce/latest-wins/ревалидации — по образцу CompletionService.
@@ -52,11 +56,13 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         EditorServiceDIToken,
         CompletionServiceDIToken,
         IConfigurationServiceDIToken,
+        LanguageFeaturesServiceDIToken,
     ] as const;
 
     private readonly group: EditorService;
     private readonly completionService: CompletionService;
     private readonly configuration: IConfigurationService;
+    private readonly languageFeatures: ILanguageFeaturesService;
 
     private session: IInlineSession | null = null;
     /** Гейт Tab против отступа — см. context key `inlineSuggestionHasIndentationLessThanTabSize`. */
@@ -81,11 +87,13 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         group: EditorService,
         completionService: CompletionService,
         configuration: IConfigurationService,
+        languageFeatures: ILanguageFeaturesService,
     ) {
         super();
         this.group = group;
         this.completionService = completionService;
         this.configuration = configuration;
+        this.languageFeatures = languageFeatures;
 
         // Смена активного гасит и подсказку, и отложенный авто-запрос (hide()).
         this.register(
@@ -165,7 +173,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
 
     /**
      * Запрашивает подсказку для текущей позиции каретки и показывает её.
-     * No-op без активного редактора/источника; подсказка показывается при
+     * No-op без активного редактора и подошедших документу провайдеров; подсказка показывается при
      * единственной схлопнутой каретке (в том числе в СЕРЕДИНЕ строки — рендер
      * вклеивает фантомные колонки в layout строки, и её хвост уезжает вправо) и
      * закрытом suggest-попапе.
@@ -177,8 +185,9 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     public async trigger(triggerKind: InlineCompletionTriggerKind = InlineCompletionTriggerKind.Invoke): Promise<void> {
         this.cancelAutoTrigger();
         const editor = this.group.getActiveEditor();
-        const source = this.group.inlineCompletionSource;
-        if (editor === null || source === undefined) return;
+        if (editor === null) return;
+        const providers = this.languageFeatures.inlineCompletionsProvider.ordered(editor);
+        if (providers.length === 0) return;
         if (editor.readOnly) return;
         if (triggerKind === InlineCompletionTriggerKind.Automatic && !this.autoTriggerEnabled) return;
         if (this.completionService.isOpen()) return;
@@ -191,7 +200,9 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         const versionId = editor.viewState.document.versionId;
         // Предыдущий запрос (если он ещё в полёте) устарел ровно сейчас.
         const ticket = this.latest.start();
-        const items = await source(
+        // Сбойный провайдер отвечает «подсказок нет» внутри агрегатора.
+        const items = await provideInlineCompletions(
+            providers,
             {
                 uri: editor.uri.toString(),
                 languageId: editor.languageId,
@@ -202,7 +213,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
                 timeoutMs: this.requestTimeoutMs,
             },
             ticket.token,
-        ).catch(() => []);
+        );
         // Запрос отработал — отменять больше нечего.
         ticket.done();
         // Пока ходили за ответом: правка или уход каретки делают снапшот

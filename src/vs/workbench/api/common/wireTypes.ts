@@ -631,6 +631,11 @@ export interface WireInlineCompletionItem {
 
 /** Параметры запроса inline completions (host → subprocess). */
 export interface IWireInlineCompletionParams {
+    /**
+     * Провайдеры, выбранные ядром по селектору, в порядке реестра — пачкой
+     * (`ProviderRequestBatcher`); ответ — массив пунктов, выровненный по ним.
+     */
+    readonly handles: readonly number[];
     /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
@@ -702,7 +707,7 @@ export async function requestInlineCompletions(
     params: IWireInlineCompletionParams,
     timeoutMs: number,
     token?: ICancellationToken,
-): Promise<readonly ICoreInlineCompletionItem[]> {
+): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
     // Свой источник поверх токена ядра: истёкший таймаут — такой же устаревший
     // запрос, как отмена «сверху», и провайдер обязан узнать об обоих (иначе
     // зависший LLM-вызов считает в пустоту до конца жизни субпроцесса).
@@ -717,9 +722,14 @@ export async function requestInlineCompletions(
         );
         if (outcome === TIMED_OUT) {
             source.cancel();
-            return [];
+            return params.handles.map(() => []);
         }
-        return wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(outcome));
+        // Не-массив (сбой, чужая форма) — пусто у всех; недостающий элемент
+        // массива — пусто у своего провайдера.
+        const results = Array.isArray(outcome) ? outcome : undefined;
+        return params.handles.map((_handle, index) =>
+            wireToCoreInlineCompletionItems(parseWireInlineCompletionItems(results?.[index])),
+        );
     } finally {
         subscription?.dispose();
         // Stryker disable next-line CallExpression: уборка — источник этого запроса больше никому не виден
@@ -980,6 +990,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "rangeFormatting",
     "codeActions",
     "folding",
+    "inlineCompletions",
 ] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 

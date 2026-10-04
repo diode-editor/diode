@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../editor/common/languages/iCodeActionSource.ts";
@@ -13,6 +14,10 @@ import type {
 import type { IFoldingRequest } from "../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
+import type {
+    ICoreInlineCompletionItem,
+    IInlineCompletionRequest,
+} from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreSignatureHelp,
@@ -45,4 +50,9 @@ export interface IExtensionLanguageFeaturesBridge {
     provideCodeActions(handle: number, request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
     applyCodeAction(id: string): Promise<boolean>;
     provideFoldingRanges(handle: number, request: IFoldingRequest): Promise<readonly IFoldingRegion[]>;
+    provideInlineCompletions(
+        handle: number,
+        request: IInlineCompletionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreInlineCompletionItem[]>;
 }
