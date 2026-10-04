@@ -20,7 +20,9 @@ import type { TokenizationRegistry } from "../../../../editor/common/languages/t
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { IFileService } from "../../../../platform/files/common/files.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
+import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
+import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
+import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 import type { ITextFileModelReference } from "../../../services/textfile/common/textFileModelRegistry.ts";
 import { Component } from "../../component.ts";
 
@@ -113,6 +115,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
 
     private readonly sides: Record<DiffSide, TextEditorPane>;
     private readonly sideKinds: Record<DiffSide, DiffV2SideSource["kind"]>;
+    /** Модели снимочных сторон — их содержимое заменяет {@link replaceSnapshotContent}. */
+    private readonly snapshotModels: Partial<Record<DiffSide, SyntheticTextModel>> = {};
     private activeSideValue: DiffSide = "modified";
     /** Пары регионов свёртки для синхронизации разворота между сторонами. */
     private regionPairs: { original: number; modified: number; collapsed: boolean }[] = [];
@@ -198,7 +202,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         input: IDiffEditorPane2Input,
     ): TextEditorPane {
         const source = input[side];
-        let model: TextFileModel;
+        let model: BaseTextEditorModel;
         let ownership: IDisposable | undefined;
         if (source.kind === "shared") {
             model = source.ref.model;
@@ -206,13 +210,16 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         } else if (source.kind === "owned") {
             model = source.model;
         } else {
-            model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
             // Ресурс снимка — синтетический и уникальный: пара + сторона.
-            model.openSynthetic(
+            const snapshot = new SyntheticTextModel(
+                this.languageService,
+                this.undoRedoService,
                 Uri.from({ scheme: "diode-diff-side", path: input.uri.path, query: input.uri.query, fragment: side }),
                 input.languageId,
             );
-            model.replaceOwnedContent(source.text);
+            snapshot.replaceContent(source.text);
+            this.snapshotModels[side] = snapshot;
+            model = snapshot;
         }
         const component = new EditorComponent(tokenizationRegistry, tokenStyleResolver, model);
         component.foldingOwnedExternally = true;
@@ -237,11 +244,10 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
      * view-state стороны, и терять каретку впустую нельзя.
      */
     public replaceSnapshotContent(side: DiffSide, text: string): void {
-        if (this.sideKinds[side] !== "snapshot") return;
-        if (this.sides[side].model.getText() === text) return;
-        // Reload-подписка (wireLiveness) перевесит скролл-синк и пересчитает
-        // раскладку сама.
-        this.sides[side].model.replaceOwnedContent(text);
+        const snapshot = this.snapshotModels[side];
+        if (snapshot === undefined || snapshot.getText() === text) return;
+        // Раскладку на замену содержимого целиком перезальёт wireLiveness.
+        snapshot.replaceContent(text);
     }
 
     /** Обе стороны как текстовые панели (конфиг, dirty-протоколы EditorService). */

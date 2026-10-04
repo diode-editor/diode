@@ -6,6 +6,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
 
 import { TextFileModel } from "./textFileModel.ts";
 
@@ -60,7 +61,7 @@ describe("TextFileModel — запрос фич языка", () => {
     });
 
     it("синтетический документ просит фичи своего языка", () => {
-        model.openSynthetic(Uri.parse("jdt://contents/Foo.class"), "java");
+        new SyntheticTextModel(languages, new UndoRedoService(), Uri.parse("jdt://contents/Foo.class"), "java");
 
         expect(languages.requests.at(-1)).toBe("java");
     });

@@ -70,8 +70,8 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     function ownedModel(text: string): TextFileModel {
         const model = new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
         model.setUntitled(1);
-        // До создания панели у модели нет вью — сеем контент владельческим путём.
-        if (text !== "") model.replaceOwnedContent(text);
+        // До создания панели у модели нет вью — сеем контент прямо в документ.
+        if (text !== "") model.document.setText(text);
         return model;
     }
 
@@ -353,8 +353,11 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const pane = makePane("a\nb\nc", "a\nB\nc", { debounceMs: 0 });
         const { original, modified } = sides(pane);
         const viewStateBefore = original.viewState;
+        const versionBefore = original.model.document.versionId;
 
         pane.replaceSnapshotContent("original", "a\nb\nc");
+        // Тот же текст — документ не тронут вовсе (ни версии, ни события).
+        expect(original.model.document.versionId).toBe(versionBefore);
         expect(original.viewState).toBe(viewStateBefore);
 
         pane.replaceSnapshotContent("original", "a\nb2\nc");

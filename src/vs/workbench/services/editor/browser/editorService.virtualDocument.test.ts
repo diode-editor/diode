@@ -351,7 +351,8 @@ describe("EditorService.canRestore — что история умеет откр
         });
 
         it("освежается ТОЛЬКО вкладка этого ресурса — соседние не трогаем", async () => {
-            const service = createEditorService();
+            const errors: string[] = [];
+            const service = createEditorService(NULL_LANGUAGE_SERVICE, { logService: recordingLogService(errors) });
             const contents = new Map<string, string>([
                 ["demo:/a", "a v1\n"],
                 ["demo:/b", "b v1\n"],
@@ -372,6 +373,8 @@ describe("EditorService.canRestore — что история умеет откр
 
             expect(service.getEditor(0)?.getText()).toBe("a v2\n");
             expect(service.getEditor(1)?.getText()).toBe("b v1\n");
+            // Файловая вкладка рядом — не цель освежения, и освежение не споткнулось о неё.
+            expect(errors).toEqual([]);
             service.dispose();
         });
 

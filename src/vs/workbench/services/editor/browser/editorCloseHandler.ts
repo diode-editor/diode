@@ -1,8 +1,8 @@
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { isTextEditorPane, type TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 import type { DialogService } from "../../dialogs/browser/dialogService.ts";
-import type { TextFileModel } from "../../textfile/common/textFileModel.ts";
 
 import type { EditorGroup } from "./editorGroupModel.ts";
 
@@ -101,7 +101,7 @@ export class EditorCloseHandler {
         // «последняя поверхность» — и ответ тот же `isModified`, поэтому мутант
         // условия эквивалентен. Ветка держит смысл, а не результат.
         // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
-        if (!(pane instanceof TextEditorPane)) return pane.isModified;
+        if (!isTextEditorPane(pane)) return pane.isModified;
         return pane.isModified && this.isLastPaneForDocument(pane);
     }
 
@@ -132,13 +132,13 @@ export class EditorCloseHandler {
         if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane);
         /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели: панели других видов (Keyboard Shortcuts, страница расширения) не бывают изменёнными */
         // Stryker disable next-line ConditionalExpression,ArrayDeclaration: ветка недостижима — см. v8 ignore выше
-        if (!(pane instanceof TextEditorPane)) return [];
+        if (!isTextEditorPane(pane)) return [];
         /* v8 ignore stop */
         return [pane];
     }
 
     /** Сколько поверхностей (вкладок и дифф-сторон) показывают модель. */
-    private holdersOf(model: TextFileModel): number {
+    private holdersOf(model: BaseTextEditorModel): number {
         return this.surfaces.surfaces().filter((pane) => pane.model === model).length;
     }
 }

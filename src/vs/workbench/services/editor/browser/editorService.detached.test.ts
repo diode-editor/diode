@@ -65,7 +65,7 @@ describe("EditorService.openDetached", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
 
-        pane.model.appendOwnedContent("12:00:00.000 [info] hello\n");
+        pane.model.appendContent("12:00:00.000 [info] hello\n");
 
         expect(pane.isModified).toBe(false);
         expect(service.collectDirty()).toHaveLength(0);
@@ -100,8 +100,8 @@ describe("TextFileModel: owner-write для detached", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
 
-        pane.model.appendOwnedContent("first\n");
-        pane.model.appendOwnedContent("second\n");
+        pane.model.appendContent("first\n");
+        pane.model.appendContent("second\n");
 
         expect(pane.getText()).toBe("first\nsecond\n");
         expect(pane.isModified).toBe(false);
@@ -115,7 +115,7 @@ describe("TextFileModel: owner-write для detached", () => {
         const pane = service.openDetached(OUTPUT_URI, "log");
         pane.readOnly = true;
 
-        pane.model.appendOwnedContent("line\n");
+        pane.model.appendContent("line\n");
 
         expect(pane.getText()).toBe("line\n");
         // А вот обычная правка через ту же модель по-прежнему заблокирована.
@@ -127,10 +127,10 @@ describe("TextFileModel: owner-write для detached", () => {
     it("пустой append — no-op", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
-        pane.model.appendOwnedContent("a\n");
+        pane.model.appendContent("a\n");
         const versionBefore = pane.viewState.document.versionId;
 
-        pane.model.appendOwnedContent("");
+        pane.model.appendContent("");
 
         expect(pane.viewState.document.versionId).toBe(versionBefore);
         service.dispose();
@@ -139,9 +139,9 @@ describe("TextFileModel: owner-write для detached", () => {
     it("replaceOwnedContent меняет содержимое целиком и сохраняет язык", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
-        pane.model.appendOwnedContent("old\n");
+        pane.model.appendContent("old\n");
 
-        pane.model.replaceOwnedContent("new\n");
+        pane.model.replaceContent("new\n");
 
         expect(pane.getText()).toBe("new\n");
         expect(pane.viewState.document.languageId).toBe("log");

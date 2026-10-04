@@ -36,7 +36,9 @@ import type { IActivatable } from "../../../browser/iActivatable.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { isTextEditorPane, TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
+import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 import type { ISerializedEditor } from "../../../common/stateKeys.ts";
 import { DialogService, DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
@@ -923,11 +925,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * Ресурс синтетический (`output:<channel>`), содержимое даёт владелец через
      * `TextEditorPane.model`. Владелец же и решает, куда вставить `pane.view`.
      */
-    public openDetached(uri: Uri, languageId: string): TextEditorPane {
-        // Синтетический ресурс уникален по построению — модель мимо реестра.
-        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
-        this.wireModel(model);
-        model.openSynthetic(uri, languageId);
+    public openDetached(uri: Uri, languageId: string): TextEditorPane<SyntheticTextModel> {
+        // Синтетический ресурс уникален по построению — модель мимо реестра; ни
+        // диска, ни сохранения — файловой обвязки ей не нужно.
+        const model = new SyntheticTextModel(this.languageService, this.undoRedoService, uri, languageId);
         const editor = this.createPaneForModel(model);
         editor.detached = true;
         // Вкладочные панели обвязывает группа; detached — сам сервис.
@@ -1164,8 +1165,17 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * поверх работы (вкладка просто остаётся с прежним текстом).
      */
     public refreshVirtualDocument(uri: Uri): void {
-        const targets = this.allPanes().filter(
-            (pane): pane is TextEditorPane => pane instanceof TextEditorPane && pane.uri.toString() === uri.toString(),
+        const key = uri.toString();
+        // Вкладка недискового ресурса — текстовая и синтетическая по построению;
+        // обе проверки сужают тип, отличить их поведением нечем.
+        // Stryker disable next-line MethodExpression: эквивалентен — см. выше
+        const textPanes = this.allPanes().filter(isTextEditorPane);
+        const targets = textPanes.flatMap((pane) =>
+            pane.uri.toString() === key &&
+            // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+            pane.model instanceof SyntheticTextModel
+                ? [pane.model]
+                : [],
         );
         if (targets.length === 0) return;
         // `.catch` ХВОСТОМ, а не вторым аргументом `then`: так он накрывает и
@@ -1176,7 +1186,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             .provide(uri)
             .then((content) => {
                 if (content === null) return;
-                for (const pane of targets) pane.model.replaceOwnedContent(content);
+                for (const model of targets) model.replaceContent(content);
             })
             .catch((error: unknown) => {
                 this.logger.error(`cannot refresh ${uri.toString()}: ${describeError(error)}`);
@@ -1194,12 +1204,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         overrides: { languageId?: string; label?: string } = {},
     ): TextEditorPane {
         // Синтетический ресурс уникален по построению — модель мимо реестра.
-        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
-        // Stryker disable next-line CallExpression: обвязка модели у синтетического ресурса ненаблюдаема (диска нет: watcher не ставится, save отдаёт "no-file", onDidSave не стреляет) — держим её ради единообразия со всеми моделями сервиса
-        this.wireModel(model);
         const languageId = overrides.languageId ?? this.languageService.getLanguageIdForResource(uri.path);
-        model.openSynthetic(uri, languageId ?? "plaintext");
-        model.replaceOwnedContent(content);
+        const model = new SyntheticTextModel(
+            this.languageService,
+            this.undoRedoService,
+            uri,
+            languageId ?? "plaintext",
+        );
+        model.replaceContent(content);
         const editor = this.createPaneForModel(model);
         editor.labelOverride = overrides.label ?? path.basename(uri.path);
         this.applyConfigurationToEditor(editor);
@@ -1215,10 +1227,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private replaceVirtualContent(group: EditorGroup, index: number, content: string): TextEditorPane | null {
         const pane = group.getPane(index);
         /* v8 ignore start -- defensive: вкладку по этому ресурсу заводит только createVirtualPane */
-        // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия
-        if (!(pane instanceof TextEditorPane)) return null;
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: недостижимая ветвь по той же причине, что и для покрытия
+        if (!(pane instanceof TextEditorPane) || !(pane.model instanceof SyntheticTextModel)) return null;
         /* v8 ignore stop */
-        pane.model.replaceOwnedContent(content);
+        pane.model.replaceContent(content);
         return pane;
     }
 
@@ -1323,7 +1335,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * (контекст-меню, подписки → {@link onDidChangeEditors}, folding-источник). `modelOwnership` — ссылка реестра, которой владеет
      * вкладка; без неё вкладка владеет моделью единолично (untitled, detached).
      */
-    private createPaneForModel(model: TextFileModel, modelOwnership?: IDisposable): TextEditorPane {
+    private createPaneForModel<TModel extends BaseTextEditorModel>(
+        model: TModel,
+        modelOwnership?: IDisposable,
+    ): TextEditorPane<TModel> {
         const component = new EditorComponent(
             this.tokenizationRegistry,
             this.tokenStyleResolver,
@@ -1333,8 +1348,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // Политика контекстного меню редактора слушает "contextmenu" на обвязке
-        // пары: ScrollBarDecorator переживает пересоздание EditorElement при
-        // перечитке, сам элемент контроллер берёт из цели события.
+        // пары; сам элемент контроллер берёт из цели события.
         this.contextMenuController.attach(component.view);
         return editor;
     }
@@ -1515,7 +1529,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const items: IShutdownDirtyItem[] = [];
         // Дедуп по модели: документ, открытый в нескольких вкладках, — одни
         // несохранённые правки и ОДИН диалог, а не по числу вкладок.
-        const seenModels = new Set<TextFileModel>();
+        const seenModels = new Set<BaseTextEditorModel>();
         // Стороны диффа — после вкладок: у вкладки метка красивее, а модель
         // у них общая, так что дифф добавляет только СВОИ dirty-буферы
         // (untitled-стороны, файл без обычной вкладки).

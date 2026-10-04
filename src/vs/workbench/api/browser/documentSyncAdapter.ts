@@ -1,10 +1,10 @@
+import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { ExtensionHost } from "../../services/extensions/node/extensionHost.ts";
-import type { TextFileModel } from "../../services/textfile/common/textFileModel.ts";
 import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 
 /** Снапшот документа модели для document sync push'а (`editor.didOpen`/`didChange`). */
-export function documentSyncSnapshotOfModel(model: TextFileModel): IWireDocumentSyncSnapshot {
+export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDocumentSyncSnapshot {
     return {
         uri: model.uri.toString(),
         languageId: model.languageId,
@@ -22,7 +22,7 @@ export function documentSyncSnapshotOfModel(model: TextFileModel): IWireDocument
  */
 export function openDocumentSnapshots(group: EditorService): IWireDocumentSyncSnapshot[] {
     const snapshots: IWireDocumentSyncSnapshot[] = [];
-    const seen = new Set<TextFileModel>();
+    const seen = new Set<BaseTextEditorModel>();
     for (const editor of group.getEditors()) {
         if (seen.has(editor.model)) continue;
         seen.add(editor.model);
@@ -42,9 +42,9 @@ export function openDocumentSnapshots(group: EditorService): IWireDocumentSyncSn
  */
 export function bindDocumentSync(group: EditorService, host: ExtensionHost): void {
     /** Живые подписки по модели; смерть последней вкладки снимает и шлёт didClose. */
-    const tracked = new Map<TextFileModel, { dispose(): void }>();
+    const tracked = new Map<BaseTextEditorModel, { dispose(): void }>();
 
-    const trackModel = (model: TextFileModel): void => {
+    const trackModel = (model: BaseTextEditorModel): void => {
         if (tracked.has(model)) return;
         host.didOpenTextDocument(documentSyncSnapshotOfModel(model));
         tracked.set(
@@ -57,7 +57,7 @@ export function bindDocumentSync(group: EditorService, host: ExtensionHost): voi
 
     /** Согласует множество отслеживаемых моделей с открытыми вкладками. */
     const reconcile = (): void => {
-        const alive = new Set<TextFileModel>();
+        const alive = new Set<BaseTextEditorModel>();
         for (const editor of group.getEditors()) alive.add(editor.model);
         for (const [model, subscription] of [...tracked]) {
             if (alive.has(model)) continue;
