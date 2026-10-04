@@ -1,6 +1,6 @@
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
-import type { ExtensionHost } from "../../services/extensions/node/extensionHost.ts";
+import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 
 /** Снапшот документа модели для document sync push'а (`editor.didOpen`/`didChange`). */
@@ -40,7 +40,7 @@ export function openDocumentSnapshots(group: EditorService): IWireDocumentSyncSn
  * subprocess'а (см. `workspace.updateSubscriptions`), поэтому без LS-подобных
  * расширений RPC не гоняется.
  */
-export function bindDocumentSync(group: EditorService, host: ExtensionHost): void {
+export function bindDocumentSync(group: EditorService, host: IDocumentSyncTarget): void {
     /** Живые подписки по модели; смерть последней вкладки снимает и шлёт didClose. */
     const tracked = new Map<BaseTextEditorModel, { dispose(): void }>();
 
