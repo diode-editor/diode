@@ -10,7 +10,6 @@
 export interface ContextKeyTypes {
     // -- Editor contexts --
     // editorFocus: boolean;
-    // editorTextFocus: boolean;
     /**
      * Фокус в **редактируемом** текстовом виджете. На этом ключе висит всё,
      * что осмысленно только над буфером файла: правка, фолдинг, suggest,
@@ -48,7 +47,17 @@ export interface ContextKeyTypes {
     editorHasDocumentSelectionFormattingProvider: boolean;
     /** Есть ли в активном редакторе непустое выделение (upstream `editorHasSelection`). */
     editorHasSelection: boolean;
-    // editorLangId: string;
+    /**
+     * Язык документа активного редактора (`editorLangId == 'python'`). Имя
+     * upstream'ское: на него смотрят `when` пунктов `contributes.menus` у
+     * стоковых расширений.
+     */
+    editorLangId: string;
+    /**
+     * Фокус в тексте редактора — upstream'ское имя нашего {@link textInputFocus}.
+     * Живёт ради `when` расширений: они пишут `editorTextFocus`, а не наши имена.
+     */
+    editorTextFocus: boolean;
     // isInDiffEditor: boolean;
     // isInEmbeddedEditor: boolean;
 

@@ -353,6 +353,22 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 показывается — меню не обещает нерабочее. Undo в этом меню нет (его нет и в
 эталоне — отмена живёт на Ctrl+Z и в меню Edit).
 
+**Пункты расширений (`contributes.menus`/`submenus`).** Мост
+`registerExtensionMenus` (`services/extensions/common/extensionMenuContributor.ts`,
+аналог upstream `menusExtensionPoint.ts`) переводит строковые id точек VS Code
+(`editor/context`, `explorer/context`, `scm/resourceState/context`,
+`view/title`, …) в наши `MenuId` и кладёт пункты в реестр через
+`appendMenuItem`. Разбор — как в эталоне: `group@order` → группа и порядок,
+`when` → when-выражение, `title` пункта перебивает титул команды, ключом
+`menus` может быть и собственное подменю расширения из `contributes.submenus`
+(его точка получает id `ext:<расширение>:<submenu>`, поэтому одноимённые
+подменю разных расширений не схлопываются). **Неизвестная точка, пункт без
+команды и ссылка на необъявленное подменю — строка в лог и пропуск пункта**, а
+не падение: манифест пишет чужой человек. `commandPalette` — не меню, а фильтр
+палитры; пункты оттуда пока не применяются, и про это есть та же строка в логе.
+`when` расширений смотрят на upstream-имена ключей, поэтому рядом с нашими
+выставляются `editorTextFocus` и `editorLangId`.
+
 **`EditorTitleContext` — меню вкладки** (VS Code `editor/title/context`).
 Открывает `EditorGroupComponent` по `EditorTabStripElement.onTabContextMenu`;
 цель — вкладка **под курсором**, а не активная (правый клик активную не меняет,

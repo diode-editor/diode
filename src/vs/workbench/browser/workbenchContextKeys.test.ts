@@ -67,6 +67,10 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("inputWidgetFocus")).toBe(false);
         expect(h.contextKeys.get("listFocus")).toBe(false);
         expect(h.contextKeys.get("terminalFocus")).toBe(false);
+        // Upstream-имена для `when` расширений: именно под этими ключами их
+        // ищут манифесты (`editorLangId == python`), поэтому имя — контракт.
+        expect(h.contextKeys.get("editorTextFocus")).toBe(false);
+        expect(h.contextKeys.get("editorLangId")).toBe("");
     });
 
     it("reflects service state into context keys", () => {
