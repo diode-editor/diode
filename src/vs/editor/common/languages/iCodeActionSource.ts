@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
@@ -54,6 +55,6 @@ export interface CodeActionProvider {
      * `only`, не спрашивают.
      */
     readonly providedCodeActionKinds: readonly string[];
-    provideCodeActions(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
+    provideCodeActions(request: ICodeActionRequest, token: ICancellationToken): Promise<readonly ICoreCodeAction[]>;
     applyCodeAction(id: string): Promise<boolean>;
 }

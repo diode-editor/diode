@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
@@ -37,7 +38,7 @@ interface ISetup {
 }
 
 /** Ответ форматтера на запрос (и документного, и range — у теста один). */
-type FakeFormatter = (request: IFormattingRequest) => Promise<readonly ITextEdit[]>;
+type FakeFormatter = (request: IFormattingRequest, token: ICancellationToken) => Promise<readonly ITextEdit[]>;
 
 function makeSetup(
     source: FakeFormatter | undefined,
@@ -76,9 +77,9 @@ function makeSetup(
     const languageFeatures = new LanguageFeaturesService();
     if (source !== undefined) {
         const selector = options.selector ?? "*";
-        const format = (request: IFormattingRequest): Promise<readonly ITextEdit[]> => {
+        const format = (request: IFormattingRequest, token: ICancellationToken): Promise<readonly ITextEdit[]> => {
             requests.push(request);
-            return source(request);
+            return source(request, token);
         };
         languageFeatures.documentFormattingEditProvider.register(selector, { provideDocumentFormattingEdits: format });
         languageFeatures.documentRangeFormattingEditProvider.register(selector, {
@@ -195,6 +196,20 @@ describe("editor.action.formatDocument", () => {
         swapped.swapActiveEditor();
         await run2;
         expect(swapped.applied).toEqual([]);
+    });
+
+    it("правка за время запроса отменяет и работу форматтера", async () => {
+        let seen: ICancellationToken | null = null;
+        const setup = makeSetup((_request, token) => {
+            seen = token;
+            return Promise.resolve([EDIT]);
+        });
+        const run = formatDocumentAction.run(setup.accessor);
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        setup.setText("mutated while waiting");
+        expect(seen!.isCancellationRequested).toBe(true);
+        await run;
     });
 
     it("каретка после формата клампится к новому тексту; без выделений — (0,0)", async () => {

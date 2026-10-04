@@ -213,20 +213,23 @@ describe("LanguageFeaturesAdapter", () => {
         const features = new LanguageFeaturesService();
         new LanguageFeaturesAdapter(bridge, features);
         const format = { ...REQUEST, tabSize: 4, insertSpaces: true };
+        const token = new CancellationTokenSource().token;
 
         const [documentFormatter] = features.documentFormattingEditProvider.ordered(TS);
-        expect(await documentFormatter.provideDocumentFormattingEdits(format)).toEqual([
+        expect(await documentFormatter.provideDocumentFormattingEdits(format, token)).toEqual([
             { range: createRange(0, 0, 0, 0), text: "f1" },
         ]);
+        expect(bridge.provideFormattingEdits).toHaveBeenLastCalledWith(1, format, token);
         const [rangeFormatter] = features.documentRangeFormattingEditProvider.ordered(TS);
         const ranged = { ...format, range: createRange(0, 0, 0, 1) };
-        await rangeFormatter.provideDocumentRangeFormattingEdits(ranged);
-        expect(bridge.provideFormattingEdits).toHaveBeenLastCalledWith(2, ranged);
+        await rangeFormatter.provideDocumentRangeFormattingEdits(ranged, token);
+        expect(bridge.provideFormattingEdits).toHaveBeenLastCalledWith(2, ranged, token);
 
         const [codeActions] = features.codeActionProvider.ordered(TS);
         expect(codeActions.providedCodeActionKinds).toEqual(["source.organizeImports"]);
         const request = { ...REQUEST, range: createRange(0, 0, 0, 1) };
-        expect(await codeActions.provideCodeActions(request)).toEqual([{ id: "3.0", title: "fix" }]);
+        expect(await codeActions.provideCodeActions(request, token)).toEqual([{ id: "3.0", title: "fix" }]);
+        expect(bridge.provideCodeActions).toHaveBeenCalledWith(3, request, token);
         expect(await codeActions.applyCodeAction("3.0")).toBe(true);
         expect(bridge.applyCodeAction).toHaveBeenCalledWith("3.0");
         expect(features.codeActionProvider.ordered(MD)[0].providedCodeActionKinds).toEqual([]);

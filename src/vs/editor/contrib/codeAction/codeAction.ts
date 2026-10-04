@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { ILanguageFeatureTarget, LanguageFeatureRegistry } from "../../common/languageFeatureRegistry.ts";
 import type {
     CodeActionProvider,
@@ -34,6 +35,7 @@ export async function getCodeActions(
     registry: LanguageFeatureRegistry<CodeActionProvider>,
     target: ILanguageFeatureTarget,
     request: ICodeActionRequest,
+    token: ICancellationToken,
 ): Promise<ICodeActionItem[]> {
     const { only } = request;
     const providers = registry
@@ -45,7 +47,7 @@ export async function getCodeActions(
                 provider.providedCodeActionKinds.some((kind) => codeActionKindsIntersect(kind, only)),
         );
     const results = await Promise.all(
-        providers.map((provider) => provider.provideCodeActions(request).catch(() => [])),
+        providers.map((provider) => provider.provideCodeActions(request, token).catch(() => [])),
     );
     return results.flatMap((result, index) => result.map((action) => ({ action, provider: providers[index] })));
 }

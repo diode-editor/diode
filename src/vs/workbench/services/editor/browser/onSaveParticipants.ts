@@ -1,3 +1,4 @@
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
@@ -66,15 +67,21 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
             const pane = host.paneForUri(snapshot.uri);
             const text = pane?.getText() ?? snapshot.text;
             const lines = text.split("\n");
-            const items = await getCodeActions(host.languageFeatures.codeActionProvider, target, {
-                uri: snapshot.uri,
-                languageId: snapshot.languageId,
-                versionId: pane?.model.document.versionId ?? snapshot.versionId,
-                // Source-действия применяются к целому файлу — диапазон всегда
-                // полный, как у команд organizeImports/fixAll.
-                range: createRange(0, 0, lines.length - 1, lines[lines.length - 1].length),
-                only: kind,
-            });
+            const items = await getCodeActions(
+                host.languageFeatures.codeActionProvider,
+                target,
+                {
+                    uri: snapshot.uri,
+                    languageId: snapshot.languageId,
+                    versionId: pane?.model.document.versionId ?? snapshot.versionId,
+                    // Source-действия применяются к целому файлу — диапазон всегда
+                    // полный, как у команд organizeImports/fixAll.
+                    range: createRange(0, 0, lines.length - 1, lines[lines.length - 1].length),
+                    only: kind,
+                },
+                // Конвейер сохранения отмены не знает: участник дожидается ответа.
+                CancellationTokenNone,
+            );
             for (const { action, provider } of items) {
                 await provider.applyCodeAction(action.id);
             }
@@ -109,6 +116,9 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
                 insertSpaces: pane.viewState.insertSpaces,
             },
             documentRange(pane.getText()),
+            // Устаревший ответ отбрасывает сверка версии ниже; конвейер
+            // сохранения своей отмены не знает.
+            CancellationTokenNone,
         );
         if (edits === null || edits.length === 0) return [];
         if (pane.model.document.versionId !== versionId) return [];

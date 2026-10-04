@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../common/core/iRange.ts";
 import { LanguageFeatureRegistry } from "../../common/languageFeatureRegistry.ts";
@@ -18,6 +19,8 @@ const REQUEST: ICodeActionRequest = {
     versionId: 1,
     range: createRange(0, 0, 0, 9),
 };
+
+const TOKEN = new CancellationTokenSource().token;
 
 function provider(
     actions: readonly ICoreCodeAction[],
@@ -49,11 +52,14 @@ describe("getCodeActions", () => {
         registry.register("*", any);
         registry.register("python", exact);
 
-        const items = await getCodeActions(registry, PY, REQUEST);
+        const items = await getCodeActions(registry, PY, REQUEST, TOKEN);
 
         expect(items.map((item) => item.action.title)).toEqual(["exact", "any"]);
         expect(items[0].provider).toBe(exact);
         expect(items[1].provider).toBe(any);
+        // Токен запроса — каждому спрошенному провайдеру.
+        expect(exact.provideCodeActions).toHaveBeenCalledWith(REQUEST, TOKEN);
+        expect(any.provideCodeActions).toHaveBeenCalledWith(REQUEST, TOKEN);
     });
 
     it("провайдер, чьи виды не пересекаются с only, не спрашивается; без видов — спрашивается всегда", async () => {
@@ -63,15 +69,15 @@ describe("getCodeActions", () => {
         registry.register("python", organize);
         registry.register("python", anyKind);
 
-        const fixAll = await getCodeActions(registry, PY, { ...REQUEST, only: "source.fixAll" });
+        const fixAll = await getCodeActions(registry, PY, { ...REQUEST, only: "source.fixAll" }, TOKEN);
         expect(fixAll.map((item) => item.action.title)).toEqual(["Any"]);
         expect(organize.provideCodeActions).not.toHaveBeenCalled();
 
-        const source = await getCodeActions(registry, PY, { ...REQUEST, only: "source" });
+        const source = await getCodeActions(registry, PY, { ...REQUEST, only: "source" }, TOKEN);
         expect(source.map((item) => item.action.title)).toEqual(["Any", "Sort"]);
 
         // Без only виды не участвуют.
-        await getCodeActions(registry, PY, REQUEST);
+        await getCodeActions(registry, PY, REQUEST, TOKEN);
         expect(organize.provideCodeActions).toHaveBeenCalledTimes(2);
     });
 
@@ -84,7 +90,7 @@ describe("getCodeActions", () => {
             applyCodeAction: () => Promise.resolve(false),
         });
 
-        const items = await getCodeActions(registry, PY, REQUEST);
+        const items = await getCodeActions(registry, PY, REQUEST, TOKEN);
         expect(items.map((item) => item.action.title)).toEqual(["ok"]);
     });
 });

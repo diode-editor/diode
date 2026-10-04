@@ -364,7 +364,11 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * (молчаливый no-op). «Нет форматтера» решает ядро по реестру. Зовёт его
      * прокси из реестра ядра (`LanguageFeaturesAdapter`).
      */
-    public async provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {
+    public async provideFormattingEdits(
+        handle: number,
+        req: IFormattingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ITextEdit[]> {
         return this.request(
             "languages.provideFormattingEdits",
             {
@@ -381,6 +385,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 ...(req.range === undefined ? {} : { range: req.range }),
             },
             [],
+            { token },
         );
     }
 
@@ -390,7 +395,11 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * субпроцесса нет, документ субпроцессу не синхронизирован или таймаут. Зовёт его прокси из
      * реестра ядра (`LanguageFeaturesAdapter`).
      */
-    public async provideCodeActions(handle: number, req: ICodeActionRequest): Promise<readonly ICoreCodeAction[]> {
+    public async provideCodeActions(
+        handle: number,
+        req: ICodeActionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreCodeAction[]> {
         return this.request(
             "languages.provideCodeActions",
             {
@@ -405,6 +414,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 ...(req.only === undefined ? {} : { only: req.only }),
             },
             [],
+            { token },
         );
     }
 

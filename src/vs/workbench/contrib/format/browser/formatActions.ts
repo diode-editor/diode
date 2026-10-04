@@ -46,16 +46,19 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
     };
     // Правка документа за время запроса делает ответ неприменимым: его
     // смещения посчитаны по снапшоту, который уже не совпадает с текстом.
+    // Токен той же правкой отменяет и работу форматтера расширения.
     const state = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value);
     let edits: Awaited<ReturnType<typeof formatDocument>>;
     try {
         // Форматтера для документа нет — сразу «нет форматтера», без RPC.
         edits = useSelection
-            ? await formatRange(languageFeatures, editor, {
-                  ...request,
-                  range: selectionRange(editor.viewState.selections[0], text),
-              })
-            : await formatDocument(languageFeatures, editor, request, documentRange(text));
+            ? await formatRange(
+                  languageFeatures,
+                  editor,
+                  { ...request, range: selectionRange(editor.viewState.selections[0], text) },
+                  state.token,
+              )
+            : await formatDocument(languageFeatures, editor, request, documentRange(text), state.token);
     } finally {
         state.dispose();
     }

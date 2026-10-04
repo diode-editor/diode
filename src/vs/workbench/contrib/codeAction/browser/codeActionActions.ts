@@ -1,3 +1,4 @@
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { getCodeActions, type ICodeActionItem } from "../../../../editor/contrib/codeAction/codeAction.ts";
@@ -41,15 +42,22 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
     const text = editor.getText();
     const lines = text.split("\n");
     const lastLine = lines.length - 1;
-    const items = await getCodeActions(languageFeatures.codeActionProvider, editor, {
-        uri: editor.uri.toString(),
-        languageId: editor.languageId,
-        versionId: editor.model.document.versionId,
-        // Source-действия применяются к целому файлу — диапазон всегда полный,
-        // выделение роли не играет (как в VS Code).
-        range: createRange(0, 0, lastLine, lines[lastLine].length),
-        only,
-    });
+    const items = await getCodeActions(
+        languageFeatures.codeActionProvider,
+        editor,
+        {
+            uri: editor.uri.toString(),
+            languageId: editor.languageId,
+            versionId: editor.model.document.versionId,
+            // Source-действия применяются к целому файлу — диапазон всегда полный,
+            // выделение роли не играет (как в VS Code).
+            range: createRange(0, 0, lastLine, lines[lastLine].length),
+            only,
+        },
+        // Команда разовая: ответ нужен, даже если человек правит буфер, —
+        // правки субпроцесс валидирует сам при применении.
+        CancellationTokenNone,
+    );
     if (items.length === 0) {
         notice(`No ${noun} action for '${editor.languageId}'`);
         return;
@@ -99,16 +107,21 @@ async function pickCodeAction(
     };
 
     const text = editor.getText();
-    const found = await getCodeActions(languageFeatures.codeActionProvider, editor, {
-        uri: editor.uri.toString(),
-        languageId: editor.languageId,
-        versionId: editor.model.document.versionId,
-        // Каретка/выделение — как VS Code: действия по месту (пустое
-        // выделение — строка каретки, чтобы накрыть диагностики строки).
-        range: selectionRange(editor.viewState.selections[0], text),
-        // Спред — про чистоту запроса: `only: undefined` значит «любой вид».
-        ...(options.only === undefined ? {} : { only: options.only }),
-    });
+    const found = await getCodeActions(
+        languageFeatures.codeActionProvider,
+        editor,
+        {
+            uri: editor.uri.toString(),
+            languageId: editor.languageId,
+            versionId: editor.model.document.versionId,
+            // Каретка/выделение — как VS Code: действия по месту (пустое
+            // выделение — строка каретки, чтобы накрыть диагностики строки).
+            range: selectionRange(editor.viewState.selections[0], text),
+            // Спред — про чистоту запроса: `only: undefined` значит «любой вид».
+            ...(options.only === undefined ? {} : { only: options.only }),
+        },
+        CancellationTokenNone,
+    );
     if (found.length === 0) {
         notice(options.empty);
         return;
