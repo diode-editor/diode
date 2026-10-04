@@ -34,8 +34,8 @@
 6. [x] filesystem-customer (#497) (FS-схемы, text-content, watcher'ы); отдельным
    коммитом — сброс объявленных схем на смерти с событием.
 7. [x] commands (#499) (прокси на спавн, заглушки-активаторы долгоживущие).
-8. [~] editor + configuration.
-9. [ ] documents (save, sync, семя didOpen).
+8. [x] editor + configuration (#500).
+9. [~] documents (save, sync, семя didOpen).
 10. [ ] language features; удалить опустевший `resetSubprocessState`, доки.
 
 ## Не делаем

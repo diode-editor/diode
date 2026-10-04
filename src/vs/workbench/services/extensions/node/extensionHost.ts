@@ -40,6 +40,7 @@ import type { IConfigurationData } from "../../../../platform/configuration/comm
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
+import type { IDocumentSyncTarget } from "../../../api/common/iDocumentSyncTarget.ts";
 import {
     type IEditorDecorationsService,
     NULL_EDITOR_DECORATIONS_SERVICE,
@@ -79,7 +80,6 @@ import {
     requestRename,
     requestResolveCompletionItem,
     requestSignatureHelp,
-    requestWillSaveEdits,
     type WireMarker,
     type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
@@ -132,6 +132,7 @@ import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts"
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
+import { DocumentsCustomer, MAX_WILL_SAVE_TEXT_BYTES } from "./customers/documentsCustomer.ts";
 import { EditorCustomer } from "./customers/editorCustomer.ts";
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
@@ -216,9 +217,6 @@ export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
 }
 
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
-
-/** Порог, выше которого снапшот документа не гоняется через will-save RPC (8 MB). */
-const MAX_WILL_SAVE_TEXT_BYTES = 8 * 1024 * 1024;
 
 /** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
 const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
@@ -511,7 +509,7 @@ export interface IExtensionHostOptions {
  *   SIGKILL fallback; {@link ExtensionHost.shutdown} — то же, но отдаёт промис
  *   прощания (его ждёт `LifecycleService.onWillShutdown`).
  */
-export class ExtensionHost extends Disposable {
+export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly options: Required<
         Pick<
             IExtensionHostOptions,
@@ -588,19 +586,8 @@ export class ExtensionHost extends Disposable {
     private shutdownDone: Promise<void> = Promise.resolve();
     /** Субпроцесс, которого вежливо попросили выйти, а он ещё не вышел (см. {@link disposeNow}). */
     private exitingProcess: ExtensionHostProcess | null = null;
-    /** Есть ли в субпроцессе активные подписки на will/did-save (см. `workspace.updateSubscriptions`). */
-    private willSaveSubscribed = false;
-    private didSaveSubscribed = false;
-    /** Есть ли в субпроцессе подписки document sync (onDidOpen/onDidChangeTextDocument). */
-    private documentSyncSubscribed = false;
-    /**
-     * Коалесинг didChange в пределах тика (latest-wins ПО ДОКУМЕНТУ) — правка на
-     * каждое нажатие не гоняет RPC-шторм. Map, а не один слот: с per-document
-     * sync два документа, изменившиеся в один тик (bulk-правки), потеряли бы
-     * одно из сообщений.
-     */
-    private readonly pendingDidChange = new Map<string, IWireDocumentSyncSnapshot>();
-    private readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
+    /** Документы: will/did-save и document sync — customer семени открытых документов. */
+    private readonly documents: DocumentsCustomer;
     /** Редакторы и полоса групп — customer, которому хост отдаёт семена на handshake. */
     private readonly editor: EditorCustomer;
     /** Настройки — customer семени `workspace.initialize`; нет провайдера — нет и его. */
@@ -687,7 +674,12 @@ export class ExtensionHost extends Disposable {
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
             ),
         );
-        this.openDocumentsProvider = options.openDocumentsProvider;
+        this.documents = new DocumentsCustomer({
+            willSaveTimeoutMs: this.options.willSaveTimeoutMs,
+            openDocumentsProvider: options.openDocumentsProvider,
+            hasExtensions: () => this.extensions.size > 0,
+            logger: this.logger,
+        });
         this.editor = new EditorCustomer(editorOptions, options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE);
         this.configurationCustomer =
             options.configuration === undefined ? undefined : new ConfigurationCustomer(options.configuration);
@@ -703,6 +695,7 @@ export class ExtensionHost extends Disposable {
             this.fileSystem,
             this.decorations,
             this.editor,
+            this.documents,
             ...(this.configurationCustomer === undefined ? [] : [this.configurationCustomer]),
             new WindowCustomer({
                 diagnosticsSink: options.diagnosticsSink,
@@ -1087,118 +1080,28 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Запрашивает у субпроцесса правки will-save (`onWillSaveTextDocument`).
-     * Возвращает `[]`, если субпроцесса нет, никто не подписан, документ слишком
-     * большой или расширение не ответило за `willSaveTimeoutMs`. Подключается в
-     * `EditorService.saveParticipant` (wiring в module/харнессе).
+     * Правки will-save от участников субпроцесса (`onWillSaveTextDocument`);
+     * подключается в `EditorService.saveParticipant` (wiring в module/харнессе).
      */
-    public async willSaveTextDocument(snapshot: ISaveSnapshot): Promise<readonly ISaveEdit[]> {
-        const rpc = this.rpc;
-        if (rpc === null || !this.willSaveSubscribed) return [];
-        // Guard: очень большой документ не гоняем через RPC (арх-решение плана).
-        /* v8 ignore start -- защитный лимит на снапшот 8 МБ; открытие такого файла в редакторе неподъёмно для unit-теста */
-        if (snapshot.text.length > MAX_WILL_SAVE_TEXT_BYTES) {
-            this.logger?.warn("skipping will-save participant: document too large", {
-                uri: snapshot.uri,
-                length: snapshot.text.length,
-            });
-            return [];
-        }
-        /* v8 ignore stop */
-        return requestWillSaveEdits(
-            (method, params) => rpc.request(method, params),
-            {
-                uri: snapshot.uri,
-                languageId: snapshot.languageId,
-                version: snapshot.versionId,
-                isDirty: snapshot.isDirty,
-                text: snapshot.text,
-                reason: 1, // TextDocumentSaveReason.Manual
-                eol: snapshot.eol,
-                encoding: snapshot.encoding,
-            },
-            this.options.willSaveTimeoutMs,
-        );
+    public willSaveTextDocument(snapshot: ISaveSnapshot): Promise<readonly ISaveEdit[]> {
+        return this.documents.willSaveTextDocument(snapshot);
     }
 
-    /**
-     * Уведомляет субпроцесс о состоявшемся сохранении (`onDidSaveTextDocument`).
-     * No-op, если субпроцесса нет или никто не подписан.
-     */
+    /** Состоявшееся сохранение (`onDidSaveTextDocument`). */
     public didSaveTextDocument(meta: { uri: string; languageId: string }): void {
-        const rpc = this.rpc;
-        if (rpc === null || !this.didSaveSubscribed) return;
-        rpc.notify("workspace.didSaveTextDocument", meta);
+        this.documents.didSaveTextDocument(meta);
     }
 
-    /**
-     * Пушит открытие документа в subprocess (`editor.didOpen`) — там пополняется
-     * `workspace.textDocuments` и фаерится `onDidOpenTextDocument`, на которое
-     * подписан document sync стокового vscode-languageclient. Подпиской НЕ
-     * гейтится (в отличие от didChange): `workspace.textDocuments` обязан нести
-     * полный текст активного документа ещё ДО активации клиента — стоковый
-     * languageclient на `start()` рассылает серверу didOpen для всех документов
-     * реестра, и meta-обёртка с пустым текстом отравила бы сервер. No-op без
-     * subprocess'а и для слишком больших документов.
-     */
     public didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
-        const rpc = this.rpc;
-        if (rpc === null || this.extensions.size === 0) return;
-        if (!this.fitsDocumentSyncLimit(snapshot)) return;
-        rpc.notify("editor.didOpen", snapshot);
+        this.documents.didOpenTextDocument(snapshot);
     }
 
-    /**
-     * Пушит изменение документа (`editor.didChange` → `onDidChangeTextDocument`).
-     * Снапшоты коалесируются в пределах тика (latest-wins): многошаговая правка
-     * даёт одну нотификацию с последним текстом, версии остаются монотонными.
-     */
     public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
-        const rpc = this.documentSyncRpc(snapshot);
-        if (rpc === null) return;
-        const alreadyScheduled = this.pendingDidChange.size > 0;
-        this.pendingDidChange.set(snapshot.uri, snapshot);
-        if (alreadyScheduled) return;
-        queueMicrotask(() => {
-            const pending = [...this.pendingDidChange.values()];
-            this.pendingDidChange.clear();
-            for (const item of pending) {
-                rpc.notify("editor.didChange", item);
-            }
-        });
+        this.documents.didChangeTextDocument(snapshot);
     }
 
-    /**
-     * Пушит закрытие документа (`editor.didClose` → `onDidCloseTextDocument` +
-     * сброс didOpen-дедупа в субпроцессе). Не гейтится подпиской — симметрично
-     * didOpen: bookkeeping открытых документов у реестра всегда честный.
-     */
     public didCloseTextDocument(uri: string): void {
-        const rpc = this.rpc;
-        if (rpc === null || this.extensions.size === 0) return;
-        this.pendingDidChange.delete(uri);
-        rpc.notify("editor.didClose", { uri });
-    }
-
-    /**
-     * Гейт didChange: возвращает rpc, если subprocess жив, подписка document
-     * sync есть и документ подъёмный; иначе `null` (no-op).
-     */
-    private documentSyncRpc(snapshot: IWireDocumentSyncSnapshot): RpcEndpoint | null {
-        const rpc = this.rpc;
-        if (rpc === null || !this.documentSyncSubscribed) return null;
-        if (!this.fitsDocumentSyncLimit(snapshot)) return null;
-        return rpc;
-    }
-
-    /** Защитный лимит на снапшот document sync (8 МБ). */
-    private fitsDocumentSyncLimit(snapshot: IWireDocumentSyncSnapshot): boolean {
-        if (snapshot.text.length <= MAX_WILL_SAVE_TEXT_BYTES) return true;
-        this.logger?.warn("skipping document sync: document too large", {
-            uri: snapshot.uri,
-            length: snapshot.text.length,
-        });
-        return false;
+        this.documents.didCloseTextDocument(uri);
     }
 
     /**
@@ -1807,11 +1710,9 @@ export class ExtensionHost extends Disposable {
             // AI-автодополнения). На оживлении после смерти субпроцесса это же
             // семя возвращает новому субпроцессу и состав, и флаги активности.
             rpc.notify("extensions.catalog", this.extensionCatalog());
-            // Наполняем `workspace.textDocuments` открытыми документами ДО первой
-            // активации: стоковый vscode-languageclient читает его на start().
-            // Мимо гейта подписки — подписчиков в этот момент ещё нет.
-            const openDocuments = this.openDocumentsProvider?.() ?? [];
-            for (const snapshot of openDocuments) rpc.notify("editor.didOpen", snapshot);
+            // Открытые документы — ДО первой активации: стоковый
+            // vscode-languageclient читает `workspace.textDocuments` на start().
+            this.documents.pushInitialState();
         });
         await this.readyPromise;
         return rpc;
@@ -1823,17 +1724,6 @@ export class ExtensionHost extends Disposable {
         // attach и уходит вместе со spawnStore.
         for (const customer of this.customers) spawnStore.add(customer.attach({ rpc, logger: this.logger }));
         this.installMementoHandlers(rpc);
-        // Субпроцесс сообщает, есть ли подписчики на will/did-save. Без них хост
-        // не гоняет RPC на сохранении (save остаётся синхронным).
-        rpc.handleNotification("workspace.updateSubscriptions", (params) => {
-            const p = params as { willSave?: unknown; didSave?: unknown; documentSync?: unknown };
-            this.willSaveSubscribed = p.willSave === true;
-            this.didSaveSubscribed = p.didSave === true;
-            // didOpen подпиской не гейтится (см. didOpenTextDocument) — реестр
-            // документов субпроцесса всегда несёт полный текст активного, и
-            // доталкивать его на переходе подписки не нужно.
-            this.documentSyncSubscribed = p.documentSync === true;
-        });
         // Языковые провайдеры, переехавшие в реестр ядра: субпроцесс объявляет
         // каждого с handle и селектором, ядро само решает, кого спрашивать.
         rpc.handleNotification("languages.register", (params) => {
@@ -1891,16 +1781,12 @@ export class ExtensionHost extends Disposable {
         this.rpc = null;
         this.process = null;
         this.readyPromise = null;
-        this.willSaveSubscribed = false;
-        this.didSaveSubscribed = false;
-        this.documentSyncSubscribed = false;
         // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из
         // реестра ядра, и запросы к мёртвым handle не уйдут.
         if (this.languageProviders.size > 0) {
             this.languageProviders.clear();
             this.fireLanguageProvidersChanged();
         }
-        this.pendingDidChange.clear();
     }
 
     /**
