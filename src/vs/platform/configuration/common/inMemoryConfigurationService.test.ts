@@ -79,6 +79,15 @@ describe("InMemoryConfigurationService", () => {
         expect(service.inspect("files.exclude").user).toEqual({ "**/b": true });
     });
 
+    it("getConfigurationData — дефолты реестра и user-слой", () => {
+        const service = new InMemoryConfigurationService(registry(), { "editor.tabSize": 2 });
+
+        expect(service.getConfigurationData()).toEqual({
+            defaults: { editor: { tabSize: 4 }, files: { exclude: { "**/.git": true } } },
+            user: { editor: { tabSize: 2 } },
+        });
+    });
+
     it("отписка снимает слушателя", async () => {
         const service = new InMemoryConfigurationService(registry());
         let fired = 0;
@@ -96,6 +105,7 @@ describe("InMemoryConfigurationService", () => {
 describe("NULL_CONFIGURATION_SERVICE", () => {
     it("запись — честный отказ, а не молчаливый no-op", async () => {
         await expect(NULL_CONFIGURATION_SERVICE.updateValue("editor.tabSize", 2)).rejects.toThrow(/read-only/);
+        expect(NULL_CONFIGURATION_SERVICE.getConfigurationData()).toEqual({ defaults: {}, user: {} });
         expect(NULL_CONFIGURATION_SERVICE.get("editor.tabSize")).toBeUndefined();
     });
 });

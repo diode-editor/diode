@@ -95,8 +95,8 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
 /**
  * Результат сборки шима: сам объект `vscode` (раздаётся расширениям через
- * `Module._cache`) и {@link WorkspaceConfigStore}, в который subprocess-entry
- * кладёт `configDefaults` расширения ДО `activate()`.
+ * `Module._cache`) и {@link WorkspaceConfigStore}, в который приезжают слои
+ * настроек главного процесса (`workspace.initialize` / `configurationChanged`).
  */
 export interface IVscodeHost {
     readonly namespace: typeof vscode;

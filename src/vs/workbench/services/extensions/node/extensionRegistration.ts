@@ -1,14 +1,13 @@
 import * as path from "node:path";
 
 import { joinVirtualPath } from "../../../../base/common/assets/assetBundleFormat.ts";
-import { flattenConfigDefaults } from "../../../../platform/extensions/common/configDefaults.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ICommandContribution } from "../../../../platform/extensions/common/iExtensionManifest.ts";
 import { computeActivationEvents } from "../common/activationEvents.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-/** Окружение сборки регистрации: где лежат расширения и чем их дополнить. */
+/** Окружение сборки регистрации: где лежат расширения и как прочитать встроенные. */
 export interface IExtensionRegistrationEnv {
     /** Префикс виртуального пути пользовательских расширений в ассетах (`UserExtensions/`). */
     readonly userPrefix: string;
@@ -16,11 +15,6 @@ export interface IExtensionRegistrationEnv {
     readonly userExtensionsDir: string;
     /** Исходник `main` встроенного расширения по виртуальному пути (под SEA файла на диске нет). */
     readBuiltinSource(virtualPath: string): Promise<string>;
-    /**
-     * Дефолты настроек от host'а поверх манифестных (курируемые для сторонних,
-     * пути вшитого сервера для встроенных) — ниже пользовательских настроек.
-     */
-    configInjection(ext: IExtension): Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -47,10 +41,6 @@ export async function toExtensionRegistration(
         // по нему детектят не только по id (у AI-автодополнений в ходу
         // `contributes`, `categories`, `engines`).
         manifest: ext.manifest,
-        configDefaults: {
-            ...flattenConfigDefaults(ext.manifest.contributes?.configuration),
-            ...env.configInjection(ext),
-        },
         commandTitles: commandMeta.titles,
         commandCategories: commandMeta.categories,
         // Полный набор — объявленные плюс неявные (`contributes.commands` /

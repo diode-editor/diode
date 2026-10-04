@@ -53,7 +53,6 @@ describe("extensionHostModule — сервис расширений", () => {
                         userPrefix: "UserExtensions/",
                         userExtensionsDir: dir,
                         readBuiltinSource: () => Promise.reject(new Error("no such asset")),
-                        configInjection: () => ({}),
                     },
                 });
             },

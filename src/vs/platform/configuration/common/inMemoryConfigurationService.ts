@@ -6,6 +6,7 @@ import type { ConfigurationRegistry, IConfigurationPropertySchema } from "./conf
 import { sanitizeConfiguration } from "./configurationValidation.ts";
 import type {
     IConfigurationChangeEvent,
+    IConfigurationData,
     IConfigurationInspectResult,
     IConfigurationKeys,
     IConfigurationService,
@@ -56,6 +57,13 @@ export class InMemoryConfigurationService implements IConfigurationService {
 
     public getValue(section?: string): unknown {
         return this.merged.getValue(section);
+    }
+
+    public getConfigurationData(): IConfigurationData {
+        return {
+            defaults: this.defaultsLayer.getValue() as Record<string, unknown>,
+            user: this.userLayer.getValue() as Record<string, unknown>,
+        };
     }
 
     public inspect<T>(key: string): IConfigurationInspectResult<T> {

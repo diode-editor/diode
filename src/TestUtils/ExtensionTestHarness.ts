@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
+import { curatedConfigInjection } from "../vs/diode/curatedConfigInjection.ts";
 import type { ITextEdit } from "../vs/editor/common/core/iTextEdit.ts";
 import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../vs/editor/common/languages/iCodeActionSource.ts";
@@ -23,6 +24,7 @@ import { LanguageFeaturesService } from "../vs/editor/common/services/languageFe
 import { getCodeActions } from "../vs/editor/contrib/codeAction/codeAction.ts";
 import { formatDocument, formatRange } from "../vs/editor/contrib/format/format.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
+import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
@@ -49,6 +51,7 @@ import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbenc
 import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
 import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/contrib/suggest/browser/provideCompletions.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
+import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import {
     type DiagnosticsSink,
     ExtensionHost,
@@ -110,7 +113,7 @@ export const EXTENSION_FIXTURES_DIR = path.dirname(SUBPROCESS_ENTRY);
 /**
  * Регистрация fixture-расширения из {@link EXTENSION_FIXTURES_DIR} с минимальным
  * тестовым манифестом (`publisher: "test"`) и eager-событием `*`. Расширяемые поля
- * (`commandTitles`, `configDefaults`, свои `activationEvents`) добавляются спредом:
+ * (`commandTitles`, свои `activationEvents`) добавляются спредом:
  * `{ ...extensionFixture(...), commandTitles }`.
  */
 export function extensionFixture(id: string, file: string): IExtensionRegistration {
@@ -135,6 +138,19 @@ export function testRegistration(reg: IExtensionRegistration): IExtensionRegistr
         if (!events.includes(`onCommand:${id}`)) events.push(`onCommand:${id}`);
     }
     return { ...reg, activationEvents: events };
+}
+
+/**
+ * Манифест с `contributes.configuration` из dotted-map дефолтов — так тест
+ * описывает настройки расширения там же, где их объявляет настоящее
+ * расширение; харнесс регистрирует их в общем реестре, как `main.ts`.
+ */
+export function manifestWithDefaults(
+    manifest: IExtensionRegistration["manifest"],
+    defaults: Readonly<Record<string, unknown>>,
+): IExtensionRegistration["manifest"] {
+    const properties = Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, { default: value }]));
+    return { ...manifest, contributes: { configuration: { properties } } };
 }
 
 /**
@@ -165,10 +181,18 @@ export interface IExtensionHarnessOptions {
      */
     readonly activateEvents?: readonly string[];
     /**
-     * Снапшот конфигурации, который host запушит в subprocess
+     * Пользовательский слой настроек (дерево), который host запушит в subprocess
      * (`workspace.initialize`). Читается расширением через `getConfiguration`.
      */
-    readonly configuration?: unknown;
+    readonly configuration?: Readonly<Record<string, unknown>>;
+    /**
+     * Дополнительные переопределения дефолтов (dotted-ключи) — то, что в
+     * приложении кладёт хост (`builtinConfigInjection`: пути вшитого tsserver).
+     * Дефолты `contributes.configuration` зарегистрированных расширений и
+     * курируемые инъекции харнесс собирает сам — тем же контрибьютором, что и
+     * `main.ts`.
+     */
+    readonly configurationDefaults?: Readonly<Record<string, unknown>>;
     /**
      * Сервис настроек ЯДРА (`EditorService` и его onSave-участники). По
      * умолчанию — NULL-заглушка; тесты codeActionsOnSave/formatOnSave передают
@@ -326,8 +350,19 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const folders = (options.workspaceFolders ?? [tmpDir]).map((folder, index) =>
         typeof folder === "string" ? { uri: Uri.file(folder).toString(), name: path.basename(folder), index } : folder,
     );
+    // Дефолты — зеркально main.ts: общий реестр, в который контрибьютор кладёт
+    // `contributes.configuration` и курируемые инъекции всех расширений харнесса.
+    const configurationRegistry = new ConfigurationRegistry();
+    new ExtensionConfigurationContributor(options.extensions ?? [], configurationRegistry, (ext) =>
+        curatedConfigInjection(ext.id),
+    ).apply();
+    configurationRegistry.registerDefaultConfigurations(options.configurationDefaults ?? {});
+    const configurationData = {
+        defaults: configurationRegistry.getDefaultConfiguration(),
+        user: options.configuration ?? {},
+    };
     const configuration: IExtensionHostConfigProvider = {
-        getSnapshot: () => options.configuration,
+        getSnapshot: () => configurationData,
         getWorkspaceFolders: () => folders,
         onDidChange: () => ({ dispose: () => undefined }),
     };

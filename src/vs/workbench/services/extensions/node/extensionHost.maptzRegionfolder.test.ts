@@ -4,6 +4,7 @@ import * as path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
@@ -70,10 +71,11 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
     function maptzRegistration(): IExtensionRegistration {
         return {
             id: EXT_ID,
-            manifest: { name: "regionfolder", publisher: "maptz", version: extVersion },
+            manifest: manifestWithDefaults(
+                { name: "regionfolder", publisher: "maptz", version: extVersion },
+                { "maptz.regionfolder": {} },
+            ),
             mainPath,
-            // contributes.configuration → maptz.regionfolder default {}
-            configDefaults: { "maptz.regionfolder": {} },
             activationEvents: ["onStartupFinished"],
         };
     }

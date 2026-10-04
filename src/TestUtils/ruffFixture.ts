@@ -40,8 +40,8 @@ export interface IInstalledRuff {
 
 /**
  * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`):
- * flattenConfigDefaults + курируемый дефолт `importStrategy: "useBundled"`
+ * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`);
+ * дефолты настроек харнесс берёт из манифеста + курируемый `importStrategy: "useBundled"`
  * (манифестный `fromEnvironment` сканирует окружение и зависит от PATH;
  * вшитый бинарь — детерминированный native server, см. curatedConfigInjection).
  */

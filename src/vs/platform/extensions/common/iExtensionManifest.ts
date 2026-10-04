@@ -105,9 +105,10 @@ export interface IExtensionContributions {
     readonly grammars?: readonly IGrammarContribution[];
 
     /**
-     * Вклад настроек. Значения `properties[*].default` сплющиваются в
-     * `configDefaults` расширения (см. `main.ts`) и становятся дефолтным слоем
-     * `workspace.getConfiguration()` в subprocess.
+     * Вклад настроек. Ключи регистрирует в общем `ConfigurationRegistry`
+     * `ExtensionConfigurationContributor` (на bootstrap, для всех расширений):
+     * их дефолты видят ядро, валидатор settings.json и `getConfiguration()` в
+     * subprocess.
      */
     readonly configuration?: IConfigurationContribution | readonly IConfigurationContribution[];
 

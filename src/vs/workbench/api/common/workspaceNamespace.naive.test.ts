@@ -80,7 +80,7 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
         function folderLookup(): (p: string) => string | undefined {
             const { stub, naive } = makeWorkspace();
             stub.fire("workspace.initialize", {
-                configuration: {},
+                configuration: { defaults: {}, user: {} },
                 workspaceFolders: [
                     { uri: Uri.file("/proj/a").toString(), name: "a", index: 0 },
                     { uri: Uri.file("/proj/b").toString(), name: "b", index: 1 },

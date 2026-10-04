@@ -50,8 +50,8 @@ export interface IInstalledBasedpyright {
 
 /**
  * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`):
- * flattenConfigDefaults + курируемый дефолт importStrategy (манифестный
+ * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`);
+ * дефолты настроек харнесс берёт из манифеста + курируемый importStrategy (манифестный
  * `fromEnvironment` требует расширения ms-python.python и роняет activate —
  * см. curatedConfigInjection в main.ts).
  */

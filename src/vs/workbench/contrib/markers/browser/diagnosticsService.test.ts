@@ -131,6 +131,29 @@ describe("DiagnosticsService — settings.json validation", () => {
         h.service.dispose();
     });
 
+    it("ключи расширений — известные, в том числе без дефолта; чужие — нет", () => {
+        const registry = appConfigurationRegistry();
+        registry.registerExtensionConfiguration("acme.ruff", {
+            "ruff.importStrategy": { default: "fromEnvironment" },
+            "ruff.path": {},
+        });
+        const source = new FakeEditorSource();
+        const markerService = new MarkerService();
+        const service = new DiagnosticsService(source, markerService, { settingsResource: SETTINGS_PATH }, registry);
+        const text = [
+            "{",
+            '    "ruff.importStrategy": "useBundled",',
+            '    "ruff.path": [],',
+            '    "ruff.nope": 1',
+            "}",
+        ].join("\n");
+
+        source.open(new FakeEditor(SETTINGS_PATH, text));
+
+        expect(markerService.read().map((m) => m.message)).toEqual(["Unknown Configuration Setting: ruff.nope"]);
+        service.dispose();
+    });
+
     it("ignores a settings.json that is not the Diode settings file", () => {
         // A settings.json from elsewhere (e.g. VS Code's own, or a workspace one)
         // shares the basename but not the path — it must not be validated.

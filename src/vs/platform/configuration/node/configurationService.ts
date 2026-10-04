@@ -14,6 +14,7 @@ import type { ConfigurationRegistry, IConfigurationPropertySchema } from "../com
 import { sanitizeConfiguration } from "../common/configurationValidation.ts";
 import type {
     IConfigurationChangeEvent,
+    IConfigurationData,
     IConfigurationInspectResult,
     IConfigurationKeys,
     IConfigurationService,
@@ -121,6 +122,13 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 
     public getValue(section?: string): unknown {
         return this.merged.getValue(section);
+    }
+
+    public getConfigurationData(): IConfigurationData {
+        return {
+            defaults: this.defaultsLayer.getValue() as Record<string, unknown>,
+            user: ConfigurationModel.merge(this.userLayer, this.profileLayer).getValue() as Record<string, unknown>,
+        };
     }
 
     public inspect<T>(key: string): IConfigurationInspectResult<T> {

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { manifestWithDefaults } from "../../src/TestUtils/ExtensionTestHarness.ts";
 import {
     createExtensionTestHarness,
     type IExtensionHarness,
@@ -94,14 +95,16 @@ function makeRepo(dir: string): void {
 function gitRegistration(): IExtensionRegistration {
     return {
         id: "diode.git",
-        manifest: { name: "git", publisher: "diode", version: "0.1.0" },
+        manifest: manifestWithDefaults(
+            { name: "git", publisher: "diode", version: "0.1.0" },
+            {
+                "git.enabled": true,
+                "git.decorations.enabled": true,
+                "git.gutter.enabled": true,
+                "git.refreshDebounce": 0,
+            },
+        ),
         mainPath: GIT_MAIN,
-        configDefaults: {
-            "git.enabled": true,
-            "git.decorations.enabled": true,
-            "git.gutter.enabled": true,
-            "git.refreshDebounce": 0,
-        },
     };
 }
 

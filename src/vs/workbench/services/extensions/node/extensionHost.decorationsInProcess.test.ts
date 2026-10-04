@@ -75,7 +75,7 @@ function makeHost(colors: Record<string, number>) {
     };
     const configListeners: ((keys: string[]) => void)[] = [];
     const configuration = {
-        getSnapshot: () => ({ some: "config" }),
+        getSnapshot: () => ({ defaults: {}, user: { some: "config" } }),
         getWorkspaceFolders: () => [],
         onDidChange: (cb: (keys: string[]) => void) => {
             configListeners.push(cb);
@@ -248,7 +248,10 @@ describe("ExtensionHost decoration handlers (in-process, deterministic)", () => 
 
         h.fireConfig(["git.enabled"]);
         await flushMicrotasks(10);
-        expect(h.configChanges.at(-1)).toEqual({ configuration: { some: "config" }, affectedKeys: ["git.enabled"] });
+        expect(h.configChanges.at(-1)).toEqual({
+            configuration: { defaults: {}, user: { some: "config" } },
+            affectedKeys: ["git.enabled"],
+        });
     });
 
     it("editor.setSelection / editor.applyEdit: guard на uri + проброс в порт", async () => {

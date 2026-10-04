@@ -38,6 +38,9 @@ class StubConfig implements IConfigurationService {
             },
         };
     }
+    public getConfigurationData(): { defaults: Record<string, unknown>; user: Record<string, unknown> } {
+        return { defaults: {}, user: this.values };
+    }
     public updateValue(key: string, value: unknown): Promise<void> {
         this.set(key, value);
         return Promise.resolve();

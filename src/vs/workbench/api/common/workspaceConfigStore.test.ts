@@ -2,21 +2,25 @@ import { describe, expect, it } from "vitest";
 
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
+function storeWith(defaults: Record<string, unknown>, user: Record<string, unknown>): WorkspaceConfigStore {
+    const store = new WorkspaceConfigStore();
+    store.setData({ defaults, user });
+    return store;
+}
+
 describe("WorkspaceConfigStore", () => {
-    it("резолвит dotted-ключ из nested-снапшота пользователя", () => {
-        const store = new WorkspaceConfigStore();
-        store.setSnapshot({ editor: { tabSize: 2, insertSpaces: false } });
+    it("резолвит dotted-ключ из nested-дерева пользователя", () => {
+        const store = storeWith({}, { editor: { tabSize: 2, insertSpaces: false } });
         expect(store.get("editor.tabSize")).toBe(2);
         expect(store.get("editor.insertSpaces")).toBe(false);
     });
 
-    it("пользовательский слой перекрывает дефолты расширения", () => {
-        const store = new WorkspaceConfigStore();
-        store.applyDefaults({ "editor.tabSize": 4, "editorconfig.generateAuto": true });
-        store.setSnapshot({ editor: { tabSize: 8 } });
-        // user перекрывает default
+    it("пользовательский слой перекрывает дефолты, дефолт без пользовательского значения виден", () => {
+        const store = storeWith(
+            { editor: { tabSize: 4 }, editorconfig: { generateAuto: true } },
+            { editor: { tabSize: 8 } },
+        );
         expect(store.get("editor.tabSize")).toBe(8);
-        // default, которого нет у пользователя, остаётся виден
         expect(store.get("editorconfig.generateAuto")).toBe(true);
     });
 
@@ -27,87 +31,51 @@ describe("WorkspaceConfigStore", () => {
     });
 
     it("has отражает наличие ключа в любом слое", () => {
-        const store = new WorkspaceConfigStore();
-        store.applyDefaults({ "editorconfig.generateAuto": true });
+        const store = storeWith({ editorconfig: { generateAuto: true } }, {});
         expect(store.has("editorconfig.generateAuto")).toBe(true);
         expect(store.has("editorconfig.unknown")).toBe(false);
     });
 
     it("inspect разделяет default и user слои", () => {
-        const store = new WorkspaceConfigStore();
-        store.applyDefaults({ "editor.tabSize": 4 });
-        store.setSnapshot({ editor: { tabSize: 8 } });
-        const result = store.inspect("editor.tabSize");
-        expect(result.defaultValue).toBe(4);
-        expect(result.globalValue).toBe(8);
-        expect(result.value).toBe(8);
+        const result = storeWith({ editor: { tabSize: 4 } }, { editor: { tabSize: 8 } }).inspect("editor.tabSize");
+        expect(result).toEqual({ key: "editor.tabSize", defaultValue: 4, globalValue: 8, value: 8 });
     });
 
     it("inspect для чисто дефолтного ключа не имеет globalValue", () => {
-        const store = new WorkspaceConfigStore();
-        store.applyDefaults({ "editorconfig.generateAuto": true });
-        const result = store.inspect("editorconfig.generateAuto");
+        const result = storeWith({ editorconfig: { generateAuto: true } }, {}).inspect("editorconfig.generateAuto");
         expect(result.defaultValue).toBe(true);
         expect(result.globalValue).toBeUndefined();
         expect(result.value).toBe(true);
     });
 
-    it("get возвращает объект-поддерево, если ключ указывает на него", () => {
-        const store = new WorkspaceConfigStore();
-        store.setSnapshot({ editor: { tabSize: 2 } });
-        expect(store.get("editor")).toEqual({ tabSize: 2 });
-    });
-
-    it("sectionKeys перечисляет собственные ключи секции", () => {
-        const store = new WorkspaceConfigStore();
-        store.applyDefaults({ "editorconfig.generateAuto": true });
-        store.setSnapshot({ editor: { tabSize: 2, insertSpaces: true } });
+    it("sectionKeys перечисляет собственные ключи секции по обоим слоям", () => {
+        const store = storeWith(
+            { editorconfig: { generateAuto: true } },
+            { editor: { tabSize: 2, insertSpaces: true } },
+        );
         expect(store.sectionKeys("editor").sort()).toEqual(["insertSpaces", "tabSize"]);
         expect(store.sectionKeys("editorconfig")).toEqual(["generateAuto"]);
         expect(store.sectionKeys(undefined).sort()).toEqual(["editor", "editorconfig"]);
+        expect(store.sectionKeys("editor.tabSize")).toEqual([]);
     });
 
-    it("setSnapshot заменяет предыдущий пользовательский слой целиком", () => {
-        const store = new WorkspaceConfigStore();
-        store.setSnapshot({ editor: { tabSize: 2 } });
-        store.setSnapshot({ editor: { insertSpaces: false } });
+    it("setData заменяет оба слоя целиком", () => {
+        const store = storeWith({ a: { x: 1 } }, { editor: { tabSize: 2 } });
+        store.setData({ defaults: {}, user: { editor: { insertSpaces: false } } });
+        expect(store.get("a.x")).toBeUndefined();
         expect(store.get("editor.tabSize")).toBeUndefined();
         expect(store.get("editor.insertSpaces")).toBe(false);
     });
 
-    it("не мутирует переданный снапшот", () => {
-        const store = new WorkspaceConfigStore();
-        const snapshot = { editor: { tabSize: 2 } };
-        store.setSnapshot(snapshot);
-        store.applyDefaults({ "editor.insertSpaces": true });
-        // слияние не должно протечь в исходный объект
-        expect(snapshot).toEqual({ editor: { tabSize: 2 } });
-    });
-
-    it("нечисловой/непонятный снапшот трактуется как пустой", () => {
-        const store = new WorkspaceConfigStore();
-        store.setSnapshot(null);
-        store.setSnapshot("garbage");
-        expect(store.get("editor.tabSize")).toBeUndefined();
-    });
-
-    it("applyDefaults(undefined) — no-op", () => {
-        const store = new WorkspaceConfigStore();
-        store.applyDefaults(undefined);
-        expect(store.get("anything")).toBeUndefined();
-    });
-
-    it("сливает дефолты с общим префиксом в одно поддерево", () => {
-        const store = new WorkspaceConfigStore();
-        store.applyDefaults({ "a.b": 1, "a.c": 2 });
-        expect(store.get("a.b")).toBe(1);
-        expect(store.get("a.c")).toBe(2);
-        expect(store.get("a")).toEqual({ b: 1, c: 2 });
+    it("непонятные данные трактуются как пустые слои", () => {
+        const store = storeWith({ a: { x: 1 } }, {});
+        store.setData("garbage");
+        expect(store.get("a.x")).toBeUndefined();
+        store.setData({ defaults: null, user: [1] });
+        expect(store.get("a.x")).toBeUndefined();
     });
 
     it("get по пути, уходящему за скаляр, возвращает undefined", () => {
-        const store = new WorkspaceConfigStore();
-        store.setSnapshot({ editor: { tabSize: 2 } });
-        expect(store.get("editor.tabSize.deeper")).toBeUndefined();
+        expect(storeWith({}, { editor: { tabSize: 2 } }).get("editor.tabSize.deeper")).toBeUndefined();
     });
 });

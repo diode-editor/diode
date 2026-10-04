@@ -61,7 +61,7 @@ function makeWorkspace(
     };
     const workspace = createWorkspaceNamespace(ctx);
     stub.fire("workspace.initialize", {
-        configuration,
+        configuration: { defaults: {}, user: configuration },
         workspaceFolders: folders.map((folder, index) => ({
             uri: Uri.file(folder).toString(),
             name: path.basename(folder),
@@ -70,7 +70,10 @@ function makeWorkspace(
     });
     return Object.assign(workspace, {
         setConfiguration: (next: Record<string, unknown>): void => {
-            stub.fire("workspace.configurationChanged", { configuration: next, affectedKeys: [] });
+            stub.fire("workspace.configurationChanged", {
+                configuration: { defaults: {}, user: next },
+                affectedKeys: [],
+            });
         },
     });
 }

@@ -72,8 +72,36 @@ export interface IConfigurationNode {
  * вместо `Registry.as(...)` с import-side-effects), реестр собирается на
  * bootstrap в `main.ts` и уходит в `loadConfiguration` и DI.
  */
+/**
+ * Ключ настроек из `contributes.configuration` расширения. Схема расширения —
+ * полноценный JSON-schema (массивы типов, `$ref`, `pattern`…), которую мы не
+ * валидируем: храним дефолт, область и владельца. Значения таких ключей идут к
+ * потребителям как есть.
+ */
+export interface IExtensionConfigurationProperty {
+    readonly default: unknown;
+    readonly scope: ConfigurationScope;
+    /** Расширение-владелец (`publisher.name`). */
+    readonly extensionId: string;
+}
+
+const SCOPES: readonly ConfigurationScope[] = ["application", "machine", "window", "resource", "language-overridable"];
+
+/**
+ * Область ключа расширения: как `parseScope` vscode — без поля `WINDOW`;
+ * `machine-overridable` у нас приравнен к `machine` (машинного слоя нет), а
+ * незнакомое значение — к `window`.
+ */
+function parseExtensionScope(scope: unknown): ConfigurationScope {
+    if (scope === "machine-overridable") return "machine";
+    return SCOPES.find((s) => s === scope) ?? "window";
+}
+
 export class ConfigurationRegistry {
     private readonly properties = new Map<string, IConfigurationPropertySchema>();
+    private readonly extensionProperties = new Map<string, IExtensionConfigurationProperty>();
+    /** Переопределения дефолтов (`configurationDefaults` и курируемые инъекции); позднее — главнее. */
+    private readonly defaultOverrides = new Map<string, unknown>();
 
     public constructor(nodes: readonly IConfigurationNode[] = []) {
         for (const node of nodes) {
@@ -91,7 +119,50 @@ export class ConfigurationRegistry {
         }
     }
 
-    /** Схемы всех зарегистрированных ключей (по полному dotted-ключу). */
+    /**
+     * Регистрирует настройки расширения (аналог `configurationExtPoint` vscode,
+     * `deltaConfiguration`): ключ, уже занятый ядром или другим расширением, не
+     * перетирается — `onProblem` получает предупреждение, ключ пропускается
+     * (ядро на дубль бросает: там это ошибка программиста, здесь — чужой манифест).
+     *
+     * @param properties `properties` блоков `contributes.configuration`, ключи — полные dotted.
+     */
+    public registerExtensionConfiguration(
+        extensionId: string,
+        properties: Readonly<Record<string, { readonly default?: unknown; readonly scope?: unknown }>>,
+        onProblem?: (message: string) => void,
+    ): void {
+        for (const [key, schema] of Object.entries(properties)) {
+            const owner = this.properties.has(key) ? "core" : this.extensionProperties.get(key)?.extensionId;
+            if (owner !== undefined) {
+                onProblem?.(`${extensionId}: configuration key "${key}" is already registered by ${owner}, skipped`);
+                continue;
+            }
+            this.extensionProperties.set(key, {
+                default: schema.default,
+                scope: parseExtensionScope(schema.scope),
+                extensionId,
+            });
+        }
+    }
+
+    /**
+     * Переопределяет дефолты ключей (аналог `registerDefaultConfigurations`
+     * vscode): `contributes.configurationDefaults` и курируемые инъекции. Ключи —
+     * полные dotted; повторная запись того же ключа — главнее прежней.
+     */
+    public registerDefaultConfigurations(overrides: Readonly<Record<string, unknown>>): void {
+        for (const [key, value] of Object.entries(overrides)) {
+            this.defaultOverrides.set(key, value);
+        }
+    }
+
+    /** Ключи настроек расширений с владельцем и областью. */
+    public getExtensionConfigurationProperties(): ReadonlyMap<string, IExtensionConfigurationProperty> {
+        return this.extensionProperties;
+    }
+
+    /** Схемы ключей ядра (по полному dotted-ключу); по ним идёт валидация значений. */
     public getConfigurationProperties(): ReadonlyMap<string, IConfigurationPropertySchema> {
         return this.properties;
     }
@@ -101,8 +172,14 @@ export class ConfigurationRegistry {
      * которую ожидают `ConfigurationModel.fromRaw` и `collectKnownSettingKeys`.
      */
     public getDefaultConfiguration(): Readonly<Record<string, unknown>> {
+        const defaults = new Map<string, unknown>();
+        for (const [key, schema] of this.properties) defaults.set(key, schema.default);
+        for (const [key, property] of this.extensionProperties) {
+            if (property.default !== undefined) defaults.set(key, property.default);
+        }
+        for (const [key, value] of this.defaultOverrides) defaults.set(key, value);
         const tree: Record<string, unknown> = {};
-        for (const [key, schema] of this.properties) {
+        for (const [key, value] of defaults) {
             const segments = key.split(".");
             let node = tree;
             for (const segment of segments.slice(0, -1)) {
@@ -115,7 +192,7 @@ export class ConfigurationRegistry {
                     node = child;
                 }
             }
-            node[segments[segments.length - 1]] = schema.default;
+            node[segments[segments.length - 1]] = value;
         }
         return tree;
     }

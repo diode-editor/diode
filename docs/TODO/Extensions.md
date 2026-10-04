@@ -34,12 +34,10 @@
 
 ## Phase 6 — Configuration
 
-Инфраструктура настроек готова (см. [docs/arch/Configuration.md](../arch/Configuration.md)). Остаётся:
+Инфраструктура настроек готова, `contributes.configuration` расширений — в общем реестре ядра (см. [docs/arch/Configuration.md](../arch/Configuration.md), [docs/arch/Extensions.md](../arch/Extensions.md)). Остаётся:
 
-- [ ] `contributes.configuration` — JSON-схема настроек расширений, регистрация в ConfigurationService.
 - [ ] Persistent storage и запись из UI/расширений (`update(key, value)`).
 - [ ] `contributes.configurationDefaults` — оверрайды для language-specific.
-- [ ] Live-reload settings.json через fs.watch + эмит `onDidChangeConfiguration` (сейчас no-op).
 - [ ] Workspace-слой (`.diode/settings.json` в корне проекта).
 
 ## Phase 7 — Активация и lifecycle

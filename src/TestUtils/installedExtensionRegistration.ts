@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { curatedConfigInjection } from "../vs/diode/curatedConfigInjection.ts";
 import type { IExtensionManifest } from "../vs/platform/extensions/common/iExtensionManifest.ts";
 import { toExtensionRegistration } from "../vs/workbench/services/extensions/node/extensionRegistration.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
@@ -11,9 +10,9 @@ const USER_PREFIX = "UserExtensions/";
 
 /**
  * Регистрация установленного стокового расширения — той же функцией, что у
- * приложения (`toExtensionRegistration`), из УСТАНОВЛЕННОГО манифеста и с теми
- * же курируемыми дефолтами (`curatedConfigInjection`). Так в стоковых сьютах
- * регистрация ровно та, что в проде, а не её копия.
+ * приложения (`toExtensionRegistration`), из УСТАНОВЛЕННОГО манифеста. Так в
+ * стоковых сьютах регистрация ровно та, что в проде, а не её копия; дефолты его
+ * настроек (с курируемыми) харнесс собирает из манифеста сам.
  */
 export async function registrationFromInstalled(
     extensionsDir: string,
@@ -32,7 +31,6 @@ export async function registrationFromInstalled(
             /* v8 ignore start -- установленное расширение пользовательское, исходник встроенного здесь не читается */
             readBuiltinSource: () => Promise.reject(new Error("not a builtin extension")),
             /* v8 ignore stop */
-            configInjection: (ext) => curatedConfigInjection(ext.id),
         },
     );
     // Расширение без `main` активировать нечем — падаем с внятным текстом,

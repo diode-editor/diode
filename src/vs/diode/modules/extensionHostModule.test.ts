@@ -28,7 +28,6 @@ describe("extensionHostModule — прощание", () => {
                 userPrefix: "UserExtensions/",
                 userExtensionsDir: dir,
                 readBuiltinSource: () => Promise.resolve(""),
-                configInjection: () => ({}),
             },
         });
         const host = container.get(ExtensionHostDIToken);

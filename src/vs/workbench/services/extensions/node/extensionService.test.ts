@@ -23,7 +23,6 @@ const ENV: IExtensionRegistrationEnv = {
     userExtensionsDir: "/ext",
     readBuiltinSource: (virtualPath) =>
         virtualPath.includes("broken") ? Promise.reject(new Error("no such asset")) : Promise.resolve("// src"),
-    configInjection: () => ({}),
 };
 
 /** Промис, который резолвит тест, — «активация ещё идёт». */
