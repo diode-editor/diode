@@ -321,10 +321,9 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
     // didOpen/didChange живут в DocumentSyncTracker (единая точка входа текста в
     // реестр — ей пользуются и document sync, и languages.provide*-обработчики).
-    const onDidOpenTextDocumentEmitter = documentSync.onDidOpenEmitter as unknown as EventEmitter<vscode.TextDocument>;
+    const onDidOpenTextDocumentEmitter = documentSync.onDidOpenEmitter;
     const onDidCloseTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
-    const onDidChangeTextDocumentEmitter =
-        documentSync.onDidChangeEmitter as unknown as EventEmitter<vscode.TextDocumentChangeEvent>;
+    const onDidChangeTextDocumentEmitter = documentSync.onDidChangeEmitter;
     const onWillSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocumentWillSaveEvent>();
     const onDidSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
 
@@ -398,7 +397,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string" || p.uri === "") return;
         const doc = documentSync.close(Uri.parse(p.uri));
-        if (doc !== null) onDidCloseTextDocumentEmitter.fire(doc as unknown as vscode.TextDocument);
+        if (doc !== null) onDidCloseTextDocumentEmitter.fire(doc);
     });
 
     rpc.handleNotification("workspace.initialize", (params) => {
@@ -438,7 +437,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         const thenables: Thenable<readonly vscode.TextEdit[]>[] = [];
         let collecting = true;
         const event: vscode.TextDocumentWillSaveEvent = {
-            document: doc as unknown as vscode.TextDocument,
+            document: doc,
             reason: (p.reason ?? TextDocumentSaveReason.Manual) as vscode.TextDocumentSaveReason,
             waitUntil: (thenable: Thenable<unknown>): void => {
                 // waitUntil валиден только во время диспетча события (как в VS Code).
@@ -474,7 +473,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             uri: p.uri,
             ...(typeof p.languageId === "string" ? { languageId: p.languageId } : {}),
         });
-        onDidSaveTextDocumentEmitter.fire(doc as unknown as vscode.TextDocument);
+        onDidSaveTextDocumentEmitter.fire(doc);
     });
 
     function getConfiguration(section?: string, scope?: unknown): vscode.WorkspaceConfiguration {
@@ -534,7 +533,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         // Открытый документ — отдаём стабильный объект из реестра.
         const open = registry.get(uri);
-        if (open !== undefined) return open as unknown as vscode.TextDocument;
+        if (open !== undefined) return open;
 
         // Схема с зарегистрированным провайдером содержимого — спрашиваем его,
         // как это делает эталон («For all other schemes contributed text document
@@ -543,7 +542,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         if (contentProviders.has(uri.scheme)) {
             const content = await contentProviders.provide(uri);
             if (content === null) throw FileSystemError.FileNotFound(uri);
-            return makeEphemeralDocument(uri, content, "utf8") as unknown as vscode.TextDocument;
+            return makeEphemeralDocument(uri, content, "utf8");
         }
 
         // Промах реестра: читаем файл с диска в ЭФЕМЕРНЫЙ документ (в реестр не
@@ -558,7 +557,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         // эфемерного документа детектим из текста — как делает ядро.
         const buffer = await ctx.disk.readFile(uri.fsPath);
         const { text, encoding } = decodeBuffer(buffer, options?.encoding);
-        return makeEphemeralDocument(uri, text, encoding) as unknown as vscode.TextDocument;
+        return makeEphemeralDocument(uri, text, encoding);
     }
 
     /** Документ вне реестра открытых буферов: EOL детектим из текста, как ядро. */
@@ -585,7 +584,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         },
 
         get textDocuments(): readonly vscode.TextDocument[] {
-            return registry.all() as unknown as readonly vscode.TextDocument[];
+            return registry.all();
         },
 
         // workspace.fs — локальный доступ к диску субпроцесса (без RPC).

@@ -1,3 +1,11 @@
+import type * as vscode from "vscode";
+
+import {
+    DEFAULT_WORD_REGEXP,
+    getWordAtText,
+    regExpMatchesEmptyString,
+} from "../../../editor/common/core/wordHelper.ts";
+
 import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
 import type { IWireDocumentChangedEvent, IWireDocumentContentChange } from "./wireTypes.ts";
 
@@ -47,8 +55,12 @@ export interface TextLine {
     readonly isEmptyOrWhitespace: boolean;
 }
 
-/** Стабильный объект документа. Идентичность сохраняется между upsert'ами. */
-export class ExtHostTextDocument {
+/**
+ * Стабильный объект документа. Идентичность сохраняется между upsert'ами.
+ * `implements` — страж против «объявили в d.ts, не реализовали»: расширениям
+ * объект уходит как `vscode.TextDocument` без каста.
+ */
+export class ExtHostTextDocument implements vscode.TextDocument {
     /** Идентичность ресурса — источник правды, как в `vscode.TextDocument.uri`. */
     public readonly uri: Uri;
     /**
@@ -205,6 +217,33 @@ export class ExtHostTextDocument {
     /** Диапазон, прижатый к границам документа (контракт `vscode.d.ts`). */
     public validateRange(range: Range): Range {
         return new Range(this.validatePosition(range.start), this.validatePosition(range.end));
+    }
+
+    /**
+     * Слово под позицией (позиция прижимается к документу) — как upstream
+     * `ExtHostDocumentData._getWordRangeAtPosition`. Без `regex` — дефолтное
+     * определение слова: языковых word-definition у нас нет. Регекс, матчащий
+     * пустую строку, отвергается исключением с текстом upstream.
+     */
+    public getWordRangeAtPosition(position: Position, regex?: RegExp): Range | undefined {
+        const valid = this.validatePosition(position);
+        if (regex !== undefined && regExpMatchesEmptyString(regex)) {
+            throw new Error(
+                `[getWordRangeAtPosition]: ignoring custom regexp '${regex.source}' because it matches the empty string.`,
+            );
+        }
+        const word = getWordAtText(valid.character, regex ?? DEFAULT_WORD_REGEXP, this.lines()[valid.line]);
+        return word === null ? undefined : new Range(valid.line, word.start, valid.line, word.end);
+    }
+
+    /**
+     * Сохранение по просьбе расширения. RPC «сохранить документ по uri» к хосту
+     * нет, поэтому честное `false` («не сохранено») вместо молчаливого успеха;
+     * закрытый документ — отказ, как upstream.
+     */
+    public save(): Promise<boolean> {
+        if (this.isClosed) return Promise.reject(new Error("Document has been closed"));
+        return Promise.resolve(false);
     }
 
     public get lineCount(): number {

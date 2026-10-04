@@ -845,7 +845,7 @@ export function createLanguagesNamespace(
             let result: unknown;
             try {
                 result = await callWithVscodeToken(cancellation, (token) =>
-                    reg.provider.provideDefinition(doc as unknown as vscode.TextDocument, position, token),
+                    reg.provider.provideDefinition(doc, position, token),
                 );
             } catch (err) {
                 reportProviderFailure("provideDefinition", err);
@@ -872,7 +872,7 @@ export function createLanguagesNamespace(
         let result: unknown;
         try {
             result = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideHover(doc as unknown as vscode.TextDocument, position, token),
+                reg.provider.provideHover(doc, position, token),
             );
         } catch (err) {
             reportProviderFailure("provideHover", err);
@@ -908,7 +908,7 @@ export function createLanguagesNamespace(
             try {
                 result = await callWithVscodeToken(cancellation, (token) =>
                     reg.provider.provideSignatureHelp(
-                        doc as unknown as vscode.TextDocument,
+                        doc,
                         position,
                         token,
                         context as unknown as vscode.SignatureHelpContext,
@@ -935,12 +935,7 @@ export function createLanguagesNamespace(
         let result: unknown;
         try {
             result = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideReferences(
-                    doc as unknown as vscode.TextDocument,
-                    position,
-                    context as vscode.ReferenceContext,
-                    token,
-                ),
+                reg.provider.provideReferences(doc, position, context as vscode.ReferenceContext, token),
             );
         } catch (err) {
             reportProviderFailure("provideReferences", err);
@@ -984,9 +979,7 @@ export function createLanguagesNamespace(
         const { doc, position } = target;
         let result: unknown;
         try {
-            result = await callWithVscodeToken(cancellation, (token) =>
-                prepare(doc as unknown as vscode.TextDocument, position, token),
-            );
+            result = await callWithVscodeToken(cancellation, (token) => prepare(doc, position, token));
         } catch (error) {
             // «Здесь переименовывать нельзя» эталон выражает именно отказом
             // промиса — это ответ провайдера, а не сбой, и причина едет человеку.
@@ -1013,7 +1006,7 @@ export function createLanguagesNamespace(
         let edit: unknown;
         try {
             edit = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideRenameEdits(doc as unknown as vscode.TextDocument, position, newName, token),
+                reg.provider.provideRenameEdits(doc, position, newName, token),
             );
         } catch (error) {
             // Отклонённый промис — штатный канал «имя невалидно» эталона («If
@@ -1067,9 +1060,7 @@ export function createLanguagesNamespace(
 
         let result: unknown;
         try {
-            result = await callWithVscodeToken(cancellation, (token) =>
-                format(doc as unknown as vscode.TextDocument, options, token),
-            );
+            result = await callWithVscodeToken(cancellation, (token) => format(doc, options, token));
         } catch (err) {
             // Сбойный провайдер — пустой ответ (no-op), не «нет форматтера»:
             // `result` остаётся неприсвоенным, его отсеет проверка ниже. В
@@ -1114,7 +1105,7 @@ export function createLanguagesNamespace(
         let result: unknown;
         try {
             result = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideCodeActions(doc as unknown as vscode.TextDocument, range, context, token),
+                reg.provider.provideCodeActions(doc, range, context, token),
             );
         } catch (err) {
             reportProviderFailure("provideCodeActions", err);
@@ -1233,12 +1224,7 @@ export function createLanguagesNamespace(
                 let result: unknown;
                 try {
                     result = await callWithVscodeToken(cancellation, (token) =>
-                        reg.provider.provideCompletionItems(
-                            doc as unknown as vscode.TextDocument,
-                            position,
-                            token,
-                            context,
-                        ),
+                        reg.provider.provideCompletionItems(doc, position, token, context),
                     );
                 } catch (err) {
                     reportProviderFailure("provideCompletionItems", err);
@@ -1372,12 +1358,7 @@ export function createLanguagesNamespace(
                     let result: unknown;
                     try {
                         result = await Promise.resolve(
-                            reg.provider.provideInlineCompletionItems(
-                                doc as unknown as vscode.TextDocument,
-                                position,
-                                context,
-                                cancel.token,
-                            ),
+                            reg.provider.provideInlineCompletionItems(doc, position, context, cancel.token),
                         );
                     } catch (err) {
                         reportProviderFailure("provideInlineCompletionItems", err);
@@ -1424,7 +1405,7 @@ export function createLanguagesNamespace(
             let result: unknown;
             try {
                 result = await callWithVscodeToken(cancellation, (token) =>
-                    reg.provider.provideFoldingRanges(doc as unknown as vscode.TextDocument, context, token),
+                    reg.provider.provideFoldingRanges(doc, context, token),
                 );
             } catch (err) {
                 reportProviderFailure("provideFoldingRanges", err);
@@ -1533,7 +1514,7 @@ export function createLanguagesNamespace(
         // скармливал ts-серверу markdown и meta-обёртки, сервер ронял хендлеры.
         // Score тот же, что у реестра ядра: `*` — 5, точное совпадение — 10.
         match: (selector: vscode.DocumentSelector, document: vscode.TextDocument): number =>
-            scoreDocumentSelector(selector, document as unknown as ExtHostTextDocument),
+            scoreDocumentSelector(selector, document),
 
         registerCompletionItemProvider: (
             selector: vscode.DocumentSelector,
