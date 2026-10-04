@@ -50,7 +50,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
     });
 
     const textPaneOf = (index: number): TextEditorPane => {
-        const pane = service.groups[index].activePane;
+        const pane = service.editorGroups.groups[index].activePane;
         expect(pane instanceof TextEditorPane).toBe(true);
         return pane as TextEditorPane;
     };
@@ -71,7 +71,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
             expect(group?.editorCount).toBe(1);
         });
 
-        expect(service.activeGroup).toBe(group);
+        expect(service.editorGroups.activeGroup).toBe(group);
         expect(textPaneOf(1).uri.toString()).toBe(JDT.toString());
         expect(textPaneOf(1).getText()).toBe("class Lib {}\nint x;\n");
         expect(textPaneOf(1).viewState.selections).toEqual([createCursorSelection(1, 3)]);
@@ -86,7 +86,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         const group = service.splitActiveGroup();
 
         expect(group?.editorCount).toBe(0);
-        expect(service.activeGroup).toBe(group);
+        expect(service.editorGroups.activeGroup).toBe(group);
         expect(service.getActiveTabPane()).toBeNull();
     });
 
@@ -96,10 +96,10 @@ describe("EditorService — повтор вкладки по рецепту (с�
 
         service.copyActiveEditorToGroup("next");
         await vi.waitFor(() => {
-            expect(service.groups.at(1)?.editorCount).toBe(1);
+            expect(service.editorGroups.groups.at(1)?.editorCount).toBe(1);
         });
 
-        expect(service.groups[0].editorCount).toBe(1);
+        expect(service.editorGroups.groups[0].editorCount).toBe(1);
         expect(textPaneOf(1).uri.toString()).toBe(JDT.toString());
     });
 
@@ -108,8 +108,8 @@ describe("EditorService — повтор вкладки по рецепту (с�
 
         service.copyActiveEditorToGroup("next");
 
-        expect(service.groups.length).toBe(1);
-        expect(service.activeGroup.editorCount).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(1);
     });
 
     it("сплит вкладки, которую не повторить, — активного редактора больше нет, и это событие", () => {
@@ -123,7 +123,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
     });
 
     it("запись сессии чужого вида или не-файл у текстовой фабрики — ничего не открывает", () => {
-        const target = { group: service.activeGroup, focus: false };
+        const target = { group: service.editorGroups.activeGroup, focus: false };
 
         const notAFile = {
             typeId: "workbench.editors.files.fileEditorInput",
@@ -133,7 +133,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         service.openSerializedEditor({ typeId: "workbench.editors.fromTheFuture", value: "x" }, target);
         service.openSerializedEditor(notAFile, target);
 
-        expect(service.activeGroup.editorCount).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         // Путь существует, но это не file: — текстовая фабрика такое не пишет и не читает.
         expect(service.deserializeEditor(notAFile)).toBeUndefined();
     });
@@ -141,20 +141,20 @@ describe("EditorService — повтор вкладки по рецепту (с�
     it("копия из пустой группы — no-op", () => {
         service.copyActiveEditorToGroup("next");
 
-        expect(service.groups.length).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
     });
 
     it("openUri в явную группу: вкладка там, каретка из viewState", async () => {
         service.openFile(ws.path("a.txt"));
-        const right = service.newGroup("after", { focus: false })!;
-        service.focusGroup({ index: 0 });
+        const right = service.editorGroups.newGroup("after", { focus: false })!;
+        service.editorGroups.focusGroup({ index: 0 });
 
         await service.openUri(Uri.file(ws.path("a.txt")), {
             group: right,
             viewState: { selections: [createCursorSelection(2, 1)], scrollTop: 0, scrollLeft: 0 },
         });
 
-        expect(service.activeGroup).toBe(right);
+        expect(service.editorGroups.activeGroup).toBe(right);
         expect(right.editorCount).toBe(1);
         expect(textPaneOf(1).viewState.selections).toEqual([createCursorSelection(2, 1)]);
         // Вкладка источника своей каретки не потеряла.
@@ -169,7 +169,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
             viewState: { selections: [createCursorSelection(2, 2)], scrollTop: 0, scrollLeft: 0 },
         });
 
-        expect(service.activeGroup.editorCount).toBe(1);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         expect(textPaneOf(0).viewState.selections).toEqual([createCursorSelection(1, 1)]);
     });
 });
@@ -197,7 +197,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
 
         service.splitActiveGroup({ focus: false });
 
-        expect(service.groups[1].editorCount).toBe(1);
+        expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(h.testApp.focusedElement).toBe(focused);
     });
 
@@ -207,7 +207,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
 
         service.copyActiveEditorToGroup("next", { focus: false });
 
-        expect(service.groups[1].editorCount).toBe(1);
+        expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(h.testApp.focusedElement).toBe(focused);
     });
 
@@ -219,7 +219,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
         h.commands.execute("workbench.action.openGlobalKeybindings");
 
         service.copyActiveEditorToGroup("next");
-        expect(service.groups.length).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
 
         const group = service.splitActiveGroup();
         expect(group?.editorCount).toBe(0);
@@ -232,7 +232,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
         service.newUntitled();
         h.commands.execute("workbench.action.openGlobalKeybindings");
 
-        expect(service.activeGroup.getPanes().map((pane) => service.serializeEditor(pane))).toEqual([
+        expect(service.editorGroups.activeGroup.getPanes().map((pane) => service.serializeEditor(pane))).toEqual([
             { typeId: "workbench.editors.files.fileEditorInput", value: Uri.file(ws.path("a.txt")).toString() },
             undefined,
             undefined,

@@ -50,7 +50,8 @@ import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts
 import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
 import { EditorCloseHandler } from "./editorCloseHandler.ts";
-import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
+import type { EditorGroup } from "./editorGroupModel.ts";
+import { EditorGroupsService, EditorGroupsServiceDIToken } from "./editorGroupsService.ts";
 import {
     createTextEditorPaneFactory,
     EditorPaneFactoriesDIToken,
@@ -88,16 +89,6 @@ export interface IOpenUriOptions {
      * настройкой `workbench.editor.enablePreview`.
      */
     readonly preview?: boolean;
-}
-
-/** Событие изменения полосы групп (для view-слоя и host-адаптеров). */
-export interface IGroupsChangeEvent {
-    readonly kind: "added" | "removed" | "moved";
-    readonly group: EditorGroup;
-    /** Позиция группы в полосе (для added/moved — новая). */
-    readonly index: number;
-    /** Группа-источник сплита (view-слой делит её долю пополам). */
-    readonly source?: EditorGroup;
 }
 
 /**
@@ -143,19 +134,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         IFileServiceDIToken,
         TextFileModelServiceDIToken,
         TextEditorPaneBuilderDIToken,
+        EditorGroupsServiceDIToken,
     ] as const;
 
     /**
-     * Полоса групп в порядке ViewColumn − 1; без сплитов — ровно одна.
-     * Вкладочные операции (позиция, `activateTab`, MRU) — у самой группы
-     * ({@link activeGroup}), фасада на сервисе нет.
+     * Полоса групп (аналог upstream `IEditorGroupsService`): группы, активная
+     * группа, сплиты и перенос вкладок. Вкладочные операции — у самой группы.
      */
-    private groupsList: EditorGroup[] = [];
-    private activeGroupValue!: EditorGroup;
-    /** Монотонный счётчик стабильных id групп (не переиспользуется). */
-    private groupIdCounter = 0;
-    /** Владение группой и подписками на её события; чистится при схлопывании. */
-    private readonly groupSubscriptions = new Map<GroupId, IDisposable[]>();
+    public readonly editorGroups: EditorGroupsService;
     /**
      * Редакторы вне таб-строки (нижняя Panel: Output). Держим отдельным списком
      * именно затем, чтобы весь код вкладок — `getEditors`, `editorCount`,
@@ -195,24 +181,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     public readonly textFileModels: TextFileModelService;
     /** Сборка вью текстовой вкладки поверх модели. */
     private readonly paneBuilder: TextEditorPaneBuilder;
-
-    private readonly onDidActiveGroupChangeEmitter = new Emitter<EditorGroup>();
-    private readonly onDidGroupsChangeEmitter = new Emitter<IGroupsChangeEvent>();
-    private readonly onDidChangeMruCycleEmitter = new Emitter<MruCycleState | null>();
-
-    /**
-     * Хук view-слоя «влезет ли ещё одна группа» ({@link EditorPartComponent}
-     * спрашивает свой `EditorPartElement.canFit`). Не задан (headless-тесты) —
-     * место не проверяется.
-     */
-    public canAddGroupHook?: () => boolean;
-
-    /**
-     * Хук view-слоя «сфокусируй содержимое группы»: активную вкладку либо filler
-     * пустой группы — сервису filler недоступен. Не задан — фокус в активную
-     * вкладку напрямую.
-     */
-    public focusGroupContentHook?: (group: EditorGroup) => void;
 
     /**
      * Источник содержимого недисковых ресурсов (host подключает сюда
@@ -305,8 +273,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // конструкторам хватает собранных из параметров выше.
         textFileModels?: TextFileModelService,
         paneBuilder?: TextEditorPaneBuilder,
+        editorGroups?: EditorGroupsService,
     ) {
         super();
+        this.editorGroups = editorGroups ?? this.register(new EditorGroupsService(logService));
         const fileService = files ?? this.register(new FileService());
         this.textFileModels =
             textFileModels ??
@@ -377,18 +347,18 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 this.fireModelSaved(model);
             }),
         );
-        // Полоса групп начинается с единственной — она же активная.
-        this.activeGroupValue = this.createGroup();
-        // Владение оставшимися группами: схлопнутые чистятся по ходу, остальные —
-        // при выключении сервиса.
-        this.register({
-            dispose: () => {
-                for (const subscriptions of this.groupSubscriptions.values()) {
-                    for (const subscription of subscriptions) subscription.dispose();
-                }
-                this.groupSubscriptions.clear();
-            },
-        });
+        // События полосы → события «редакторов»: вкладки/метки любой группы и
+        // смена активной вкладки полосы (сужение до текста — здесь).
+        this.register(
+            this.editorGroups.onDidChangeEditors(() => {
+                this.fireEditorsChanged();
+            }),
+        );
+        this.register(
+            this.editorGroups.onDidChangeActivePane((pane) => {
+                this.fireActiveEditorChanged(pane);
+            }),
+        );
         // Стороны диффа — тоже редактирующие поверхности: tabSize и прочие
         // editor.* обязаны доехать и до них.
         this.editorConfiguration = this.register(
@@ -411,7 +381,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.register(
             this.configurationService.onDidChangeConfiguration((event) => {
                 if (!event.affectsConfiguration(PREVIEW_SETTING_KEY) || this.isPreviewEnabled()) return;
-                for (const group of this.groupsList) {
+                for (const group of this.editorGroups.groups) {
                     const preview = group.previewPane;
                     if (preview !== null) group.pinPane(preview);
                 }
@@ -419,178 +389,33 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         );
     }
 
-    // ─── Группы: полоса и активная группа ─────────────────────────────────────
-
-    /** Полоса групп в порядке ViewColumn − 1. */
-    public get groups(): readonly EditorGroup[] {
-        return this.groupsList;
-    }
-
-    /** Активная группа — та, по чьим вкладкам работает фасад сервиса. */
-    public get activeGroup(): EditorGroup {
-        return this.activeGroupValue;
-    }
-
-    /** Группа, содержащая вкладку, либо `null` (detached-панели групп не имеют). */
-    public groupOf(pane: IEditorPane): EditorGroup | null {
-        for (const group of this.groupsList) {
-            if (group.getPanes().includes(pane)) return group;
-        }
-        return null;
-    }
-
-    /** Номер колонки группы (1..N) — производный от позиции в полосе. */
-    public viewColumnOf(group: EditorGroup): number {
-        return this.groupsList.indexOf(group) + 1;
-    }
-
-    /** Смена активной группы (сплит, фокус-команды, клик мышью в другую группу). */
-    public readonly onDidActiveGroupChange = this.onDidActiveGroupChangeEmitter.event;
+    // ─── Сплит и копия: дубль вкладки по рецепту ──────────────────────────────
 
     /**
-     * Жизнь серии Ctrl+Tab любой группы полосы (практически — активной: цикл
-     * запускают команды через фасад): снимок замороженного MRU-списка с позицией
-     * цикла на каждом шаге и `null`, когда серия кончилась. Подписчик — оверлей
-     * переключателя вкладок ({@link import("../../../browser/parts/editor/tabSwitcherComponent.ts").TabSwitcherComponent}).
-     */
-    public readonly onDidChangeMruCycle = this.onDidChangeMruCycleEmitter.event;
-
-    /** Структурное изменение полосы: группа добавлена/удалена/переставлена. */
-    public readonly onDidGroupsChange = this.onDidGroupsChangeEmitter.event;
-
-    /**
-     * Сплит: новая группа справа от активной с дублем её активной вкладки
-     * (общий документ через реестр моделей; каретка и скролл скопированы) —
-     * VS Code `workbench.action.splitEditor`. Отказ: пустая активная группа
-     * либо не хватает места ({@link canAddGroupHook}; молча, с записью в лог —
-     * решение постановки №3). Возвращает новую группу либо `null` при отказе.
+     * Сплит: новая группа рядом с активной с дублем её активной вкладки (общий
+     * документ через реестр моделей; каретка и скролл скопированы) — VS Code
+     * `workbench.action.splitEditor`. Вкладку, которую повторить нельзя
+     * (untitled), новая группа не получает и остаётся пустой. Отказ (пустая
+     * активная группа, нет места) и порядок событий — у
+     * {@link EditorGroupsService.splitActiveGroup}.
      */
     public splitActiveGroup({
         focus = true,
-        position = "after",
+        position,
     }: { focus?: boolean; position?: "before" | "after" } = {}): EditorGroup | null {
-        const source = this.activeGroupValue;
-        const sourcePane = source.activePane;
-        if (sourcePane === null) return null;
-        if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
-            this.logger.info("split refused — not enough space");
-            return null;
-        }
-
-        const anchor = this.groupsList.indexOf(source);
-        const index = position === "before" ? anchor : anchor + 1;
-        const group = this.createGroup(index);
-        this.fireGroupsChanged({ kind: "added", group, index, source });
-
-        // Сплит — заявка «этот файл мне нужен»: вкладку-источник прикалываем,
-        // чтобы следующее превью не заместило половину сплита (эталон так же).
-        source.pinPane(sourcePane);
-
-        // Дубль активной вкладки — по её рецепту (каретка и скролл — как в
-        // источнике, US-1). Вкладку, которую повторить нельзя (untitled), новая
-        // группа не получает и остаётся пустой.
-        this.activeGroupValue = group;
-        const recipe = this.describePane(sourcePane);
-        if (recipe !== undefined) void recipe.factory.open(recipe.descriptor, { group, focus });
-        if (group.editorCount === 0) {
-            this.fireActiveEditorChanged(null);
-            if (focus) this.focusGroupContent(group);
-        }
-        this.fireActiveGroupChanged(group);
-        return group;
-    }
-
-    /**
-     * Пустая группа рядом с активной (`workbench.action.newGroup*`). Отказ по
-     * месту — как у {@link splitActiveGroup}.
-     */
-    public newGroup(position: "before" | "after", { focus = true }: { focus?: boolean } = {}): EditorGroup | null {
-        if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
-            this.logger.info("new group refused — not enough space");
-            return null;
-        }
-        const anchor = this.groupsList.indexOf(this.activeGroupValue);
-        const index = position === "before" ? anchor : anchor + 1;
-        const group = this.createGroup(index);
-        this.fireGroupsChanged({ kind: "added", group, index });
-        this.activeGroupValue = group;
-        this.fireActiveEditorChanged(null);
-        if (focus) this.focusGroupContent(group);
-        this.fireActiveGroupChanged(group);
-        return group;
-    }
-
-    /**
-     * Фокус группы: по стабильному id, позиции в полосе, соседству или циклом.
-     * Делает группу активной и передаёт фокус её содержимому (активной вкладке
-     * либо filler'у пустой группы). За краем полосы — no-op (US-10).
-     */
-    public focusGroup(
-        target: GroupId | { index: number } | { direction: "next" | "previous" | "cycle" },
-        { focus = true }: { focus?: boolean } = {},
-    ): void {
-        const group = this.resolveGroupTarget(target);
-        if (group === null) return;
-        this.makeGroupActive(group);
-        if (focus) this.focusGroupContent(group);
-    }
-
-    private resolveGroupTarget(
-        target: GroupId | { index: number } | { direction: "next" | "previous" | "cycle" },
-    ): EditorGroup | null {
-        if (typeof target === "number") {
-            return this.groupsList.find((group) => group.id === target) ?? null;
-        }
-        if ("index" in target) {
-            return this.groupsList[target.index] ?? null;
-        }
-        const current = this.groupsList.indexOf(this.activeGroupValue);
-        if (target.direction === "cycle") {
-            return this.groupsList[(current + 1) % this.groupsList.length];
-        }
-        const next = target.direction === "next" ? current + 1 : current - 1;
-        return this.groupsList[next] ?? null;
-    }
-
-    /**
-     * Мышь/фокус сделали группу активной (capture-listener на поддереве группы —
-     * ставит `EditorPartComponent`). Фокус уже там, куда кликнули, — только
-     * события; группа уже активна — no-op.
-     */
-    public notifyGroupFocused(group: EditorGroup): void {
-        if (group === this.activeGroupValue) return;
-        this.makeGroupActive(group);
-    }
-
-    /**
-     * Переносит активную вкладку в соседнюю группу; у единственной группы
-     * создаёт соседку и переносит (US-50). Фокус едет со вкладкой; опустевшая
-     * группа-источник схлопывается сама. Ресурс уже открыт в целевой группе —
-     * переносимая вкладка сливается с существующей (пер-группный дедуп).
-     */
-    public moveActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
-        const source = this.activeGroupValue;
-        const index = source.activeIndex;
-        if (source.activePane === null) return;
-        const target = this.neighborOrNewGroup(direction);
-        if (target === null) return;
-
-        // detachPane может схлопнуть опустевший источник (collapse внутри) —
-        // целевая группа взята по ссылке заранее и переживает перестройку полосы.
-        const pane = source.detachPane(index);
-        /* v8 ignore start -- activePane проверен выше, индекс валиден */
-        if (pane === null) return;
-        /* v8 ignore stop */
-        this.activeGroupValue = target;
-        const existing = target.findPaneIndex(pane.uri);
-        if (existing >= 0) {
-            pane.dispose();
-            target.activateTab(existing, { focus });
-        } else {
-            target.insertPane(pane);
-            target.activateTab(target.editorCount - 1, { focus });
-        }
-        this.fireActiveGroupChanged(target);
+        const source = this.editorGroups.activeGroup;
+        return this.editorGroups.splitActiveGroup(
+            (group, sourcePane) => {
+                // Сплит — заявка «этот файл мне нужен»: вкладку-источник прикалываем,
+                // чтобы следующее превью не заместило половину сплита (эталон так же).
+                source.pinPane(sourcePane);
+                // Дубль активной вкладки — по её рецепту (каретка и скролл — как в
+                // источнике, US-1).
+                const recipe = this.describePane(sourcePane);
+                if (recipe !== undefined) void recipe.factory.open(recipe.descriptor, { group, focus });
+            },
+            { focus, position },
+        );
     }
 
     /**
@@ -600,7 +425,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * просто активируется там.
      */
     public copyActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
-        const source = this.activeGroupValue;
+        const source = this.editorGroups.activeGroup;
         const sourcePane = source.activePane;
         // Мутант условия эквивалентен: у пустой группы рецепта нет и так —
         // `describe` всех фабрик на не-панели отдаёт `undefined`.
@@ -608,14 +433,11 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         if (sourcePane === null) return;
         const recipe = this.describePane(sourcePane);
         if (recipe === undefined) return;
-        const target = this.neighborOrNewGroup(direction);
-        if (target === null) return;
-
-        // Как и у сплита: копия вкладки в соседнюю группу прикалывает источник.
-        source.pinPane(sourcePane);
-        this.activeGroupValue = target;
-        void recipe.factory.open(recipe.descriptor, { group: target, focus });
-        this.fireActiveGroupChanged(target);
+        this.editorGroups.openInNeighborGroup(direction, (target) => {
+            // Как и у сплита: копия вкладки в соседнюю группу прикалывает источник.
+            source.pinPane(sourcePane);
+            void recipe.factory.open(recipe.descriptor, { group: target, focus });
+        });
     }
 
     /**
@@ -664,169 +486,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         if (recipe !== undefined) void recipe.factory.open(recipe.descriptor, target);
     }
 
-    /**
-     * Вливает СЛЕДУЮЩУЮ группу в активную (VS Code `joinTwoGroups`): вкладки
-     * переезжают в конец, дубликаты ресурса схлопываются (решение постановки
-     * №5), опустевший сосед схлопывается сам. У края полосы — no-op.
-     */
-    public joinTwoGroups(): void {
-        const target = this.activeGroupValue;
-        const source = this.resolveGroupTarget({ direction: "next" });
-        if (source === null || source === target) return;
-        this.mergeGroupInto(source, target);
-    }
-
-    /** Сливает все группы в первую; активная вкладка бывшей активной группы выживает (US-21). */
-    public joinAllGroups(): void {
-        if (this.groupsList.length < 2) return;
-        const rememberedUri = this.activeGroupValue.activePane?.uri ?? null;
-        const target = this.groupsList[0];
-        this.activeGroupValue = target;
-        while (this.groupsList.length > 1) {
-            this.mergeGroupInto(this.groupsList[1], target);
-        }
-        if (rememberedUri !== null) {
-            const index = target.findPaneIndex(rememberedUri);
-            /* v8 ignore start -- uri взят с живой вкладки, merge с дедупом сохраняет ресурс в target */
-            if (index >= 0) target.activateTab(index);
-            /* v8 ignore stop */
-        }
-        this.fireActiveGroupChanged(target);
-    }
-
-    /** Переставляет активную группу по полосе (US-18); у края — no-op. */
-    public moveActiveGroup(direction: "next" | "previous"): void {
-        const from = this.groupsList.indexOf(this.activeGroupValue);
-        const to = direction === "next" ? from + 1 : from - 1;
-        if (to < 0 || to >= this.groupsList.length) return;
-        const [group] = this.groupsList.splice(from, 1);
-        this.groupsList.splice(to, 0, group);
-        this.fireGroupsChanged({ kind: "moved", group, index: to });
-    }
-
-    /** Переливает вкладки source в target (дедуп по ресурсу) до схлопывания source. */
-    private mergeGroupInto(source: EditorGroup, target: EditorGroup): void {
-        if (source.editorCount === 0) {
-            // Пустой сосед: некому схлопнуть его событием — снимаем явно.
-            this.collapseGroup(source);
-            return;
-        }
-        while (source.editorCount > 0) {
-            const pane = source.detachPane(0);
-            /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
-            if (pane === null) break;
-            /* v8 ignore stop */
-            if (target.findPaneIndex(pane.uri) >= 0) pane.dispose();
-            else target.insertPane(pane);
-        }
-    }
-
-    /**
-     * Сосед активной группы по направлению; у единственной группы создаёт его
-     * (с проверкой места), у края многогрупповой полосы — `null`.
-     */
-    private neighborOrNewGroup(direction: "next" | "previous"): EditorGroup | null {
-        const existing = this.resolveGroupTarget({ direction });
-        if (existing !== null && existing !== this.activeGroupValue) return existing;
-        if (this.groupsList.length > 1) return null;
-        if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
-            this.logger.info("new group refused — not enough space");
-            return null;
-        }
-        const index = direction === "next" ? 1 : 0;
-        const group = this.createGroup(index);
-        this.fireGroupsChanged({ kind: "added", group, index, source: this.activeGroupValue });
-        return group;
-    }
-
-    /** Смена активной группы + фасадные события (без передачи фокуса). */
-    private makeGroupActive(group: EditorGroup): void {
-        if (group === this.activeGroupValue) return;
-        // Уход фокуса в другую группу завершает идущую серию Ctrl+Tab прежней:
-        // выбранная в серии вкладка фиксируется в MRU, оверлей переключателя
-        // получает `null` и гаснет.
-        this.activeGroupValue.endMruCycle();
-        this.activeGroupValue = group;
-        // Табы/контент групп не меняются, но фасадные потребители («активный
-        // редактор воркбенча») обязаны переехать: статус-бар, host, autoReveal.
-        this.fireActiveEditorChanged(group.activePane);
-        this.fireActiveGroupChanged(group);
-    }
-
-    /** Фокус содержимого группы: через view-хук (умеет filler), иначе — вкладка. */
-    private focusGroupContent(group: EditorGroup): void {
-        if (this.focusGroupContentHook !== undefined) this.focusGroupContentHook(group);
-        else group.focusEditor();
-    }
-
-    /**
-     * Создаёт группу на позиции `index`, включает в полосу и переподнимает её
-     * события на фасадные: view-слой (`EditorGroupComponent`) слушает саму
-     * группу, а потребители «активного редактора» — сервис. Группа, оставшаяся
-     * без вкладок, схлопывается (кроме последней — US-47).
-     */
-    private createGroup(index: number = this.groupsList.length): EditorGroup {
-        const group = new EditorGroup(++this.groupIdCounter);
-        this.groupsList.splice(index, 0, group);
-        const subscriptions: IDisposable[] = [
-            group,
-            group.onDidChangeEditors(() => {
-                this.fireEditorsChanged();
-            }),
-            group.onDidChangeActivePane((pane) => {
-                // Смена вкладки неактивной группы не трогает активный редактор
-                // воркбенча (US-13: MRU и активность — пер-группные).
-                if (group === this.activeGroupValue) this.fireActiveEditorChanged(pane);
-                if (pane === null && group.editorCount === 0 && this.groupsList.length > 1) {
-                    this.collapseGroup(group);
-                }
-            }),
-            group.onDidChangeMruCycle((state) => {
-                this.fireMruCycleChanged(state);
-            }),
-        ];
-        this.groupSubscriptions.set(group.id, subscriptions);
-        return group;
-    }
-
-    /**
-     * Схлопывает опустевшую группу: полоса сжимается, соседка получает фокус,
-     * если схлопнулась активная. Последнюю группу не схлопываем — пустая область
-     * редактора легальна (US-47).
-     */
-    private collapseGroup(group: EditorGroup): void {
-        const index = this.groupsList.indexOf(group);
-        /* v8 ignore start -- защитный гард: схлопывание зовётся только для группы из полосы */
-        if (index < 0) return;
-        /* v8 ignore stop */
-        this.groupsList.splice(index, 1);
-        /* v8 ignore start -- подписки заводит createGroup для каждой группы, фолбэк ?? [] недостижим */
-        for (const subscription of this.groupSubscriptions.get(group.id) ?? []) subscription.dispose();
-        /* v8 ignore stop */
-        this.groupSubscriptions.delete(group.id);
-        const wasActive = group === this.activeGroupValue;
-        this.fireGroupsChanged({ kind: "removed", group, index });
-        if (wasActive) {
-            const neighbor = this.groupsList[Math.max(0, index - 1)];
-            this.activeGroupValue = neighbor;
-            this.fireActiveEditorChanged(neighbor.activePane);
-            this.fireActiveGroupChanged(neighbor);
-            this.focusGroupContent(neighbor);
-        }
-    }
-
-    private fireActiveGroupChanged(group: EditorGroup): void {
-        this.onDidActiveGroupChangeEmitter.fire(group);
-    }
-
-    private fireMruCycleChanged(state: MruCycleState | null): void {
-        this.onDidChangeMruCycleEmitter.fire(state);
-    }
-
-    private fireGroupsChanged(event: IGroupsChangeEvent): void {
-        this.onDidGroupsChangeEmitter.fire(event);
-    }
-
     // ─── Панели: generic-поверхность для группы и вкладок ─────────────────────
 
     /**
@@ -855,7 +514,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      *   панели не должен подменять расширению активный текстовый редактор.
      */
     public getActiveTabPane(): IEditorPane | null {
-        return this.activeGroupValue.activePane;
+        return this.editorGroups.activeGroup.activePane;
     }
 
     /**
@@ -879,7 +538,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public openPane(
         pane: IEditorPane,
-        { focus = true, group = this.activeGroupValue }: { focus?: boolean; group?: EditorGroup } = {},
+        { focus = true, group = this.editorGroups.activeGroup }: { focus?: boolean; group?: EditorGroup } = {},
     ): void {
         const existingIndex = group.findPaneIndex(pane.uri);
         if (existingIndex >= 0) {
@@ -962,7 +621,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         uri: Uri,
         { text, languageId, label, focus = true }: { text: string; languageId: string; label: string; focus?: boolean },
     ): TextEditorPane {
-        const group = this.activeGroupValue;
+        const group = this.editorGroups.activeGroup;
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
             const existing = this.replaceVirtualContent(group, existingIndex, text);
@@ -998,7 +657,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     /** Вкладки всех групп в порядке полосы. */
     private allPanes(): IEditorPane[] {
-        return this.groupsList.flatMap((group) => [...group.getPanes()]);
+        return this.editorGroups.groups.flatMap((group) => [...group.getPanes()]);
     }
 
     /**
@@ -1068,9 +727,22 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // имени файла: два разных файла с одинаковым basename должны открываться
         // в отдельных вкладках, а тот же ресурс в другой группе — своей вкладкой
         // (общая модель через реестр).
-        const group = where === "beside" ? this.resolveBesideGroup() : (where ?? this.activeGroupValue);
-        const wasActive = group === this.activeGroupValue;
-        this.activeGroupValue = group;
+        const group = where === "beside" ? this.editorGroups.sideGroup() : (where ?? this.editorGroups.activeGroup);
+        this.editorGroups.openInGroup(group, () => {
+            this.openInResolvedGroup(group, uri, content, { focus, viewState, preview });
+        });
+    }
+
+    private openInResolvedGroup(
+        group: EditorGroup,
+        uri: Uri,
+        content: string | null,
+        {
+            focus,
+            viewState,
+            preview,
+        }: { focus: boolean; viewState: ITextEditorViewState | undefined; preview: boolean },
+    ): void {
         // Превью включает только вызывающий (сейчас — дерево Explorer) и только
         // при включённой настройке: все прочие двери (CLI, Quick Open, навигация
         // по коду, восстановление сессии) открывают постоянную вкладку, как в
@@ -1115,7 +787,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 group.activateTab(group.editorCount - 1, { focus });
             }
         }
-        if (!wasActive) this.fireActiveGroupChanged(group);
     }
 
     /** Включён ли режим предпросмотра (`workbench.editor.enablePreview`). */
@@ -1152,8 +823,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     private isOpenInTargetGroup(uri: Uri, where?: "beside" | EditorGroup): boolean {
         const group =
             where === "beside"
-                ? this.groupsList.at(this.groupsList.indexOf(this.activeGroupValue) + 1)
-                : (where ?? this.activeGroupValue);
+                ? this.editorGroups.groups.at(this.editorGroups.groups.indexOf(this.editorGroups.activeGroup) + 1)
+                : (where ?? this.editorGroups.activeGroup);
         return group !== undefined && group.findPaneIndex(uri) >= 0;
     }
 
@@ -1288,20 +959,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         this.onDidFailOpenEmitter.fire({ uri, reason });
     }
 
-    /** Группа справа от активной; нет — создаётся (нет места — фолбэк в активную). */
-    private resolveBesideGroup(): EditorGroup {
-        const index = this.groupsList.indexOf(this.activeGroupValue);
-        const next = this.groupsList.at(index + 1);
-        if (next !== undefined) return next;
-        if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
-            this.logger.info("open beside refused — not enough space, opening in the active group");
-            return this.activeGroupValue;
-        }
-        const group = this.createGroup(index + 1);
-        this.fireGroupsChanged({ kind: "added", group, index: index + 1, source: this.activeGroupValue });
-        return group;
-    }
-
     /**
      * Открывает новый безымянный буфер (VS Code `workbench.action.files.newUntitledFile`).
      * В отличие от {@link openFile}, не загружает файл и не ставит слежение —
@@ -1313,7 +970,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // Файл не грузим (view-state из конструктора не пересоздаётся) — конфиг
         // применяем сразу.
         this.editorConfiguration.apply(editor);
-        const group = this.activeGroupValue;
+        const group = this.editorGroups.activeGroup;
         group.insertPane(editor);
         group.activateTab(group.editorCount - 1, { focus });
     }
@@ -1330,65 +987,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 this.fireEditorsChanged();
             }),
         );
-    }
-
-    /**
-     * Вкладки ВСЕХ групп для пикера открытых редакторов: активная группа первой
-     * (её активная вкладка — во главе списка), за ней остальные в порядке
-     * полосы; внутри группы — MRU-порядок ({@link EditorGroup.getMruPanes}).
-     * Глобального MRU-стека у нас нет — он живёт на группе, — и склейка по
-     * полосе от активной группы даёт ровно то, что пикер обещает заголовком:
-     * сверху то, где пользователь только что был.
-     */
-    public getOpenEditorsMru(): IEditorPane[] {
-        const active = this.activeGroupValue;
-        const strip = [active, ...this.groupsList.filter((group) => group !== active)];
-        return strip.flatMap((group) => group.getMruPanes());
-    }
-
-    /**
-     * Показывает уже открытую вкладку: делает её группу активной и активирует
-     * саму вкладку с фокусом (пикер открытых редакторов). Панель не из полосы
-     * (detached-редактор, уже закрытая вкладка) — no-op.
-     */
-    public revealPane(pane: IEditorPane): void {
-        const group = this.groupOf(pane);
-        if (group === null) return;
-        this.makeGroupActive(group);
-        group.activateTab(group.getPanes().indexOf(pane));
-    }
-
-    /**
-     * Шаг по вкладкам в ВИЗУАЛЬНОМ порядке (VS Code `nextEditor` /
-     * `previousEditor`, Ctrl+PgDn/PgUp): вкладки всех групп слева направо, с
-     * заворотом на краях полосы. В отличие от MRU-цикла Ctrl+Tab здесь нет
-     * hold-сессии — каждый шаг сразу коммитится (обычный `activateTab` сам
-     * двигает цель в начало MRU). У пустой активной группы «вперёд» начинает с
-     * первой вкладки полосы, «назад» — с последней.
-     */
-    public cycleEditor(direction: 1 | -1): void {
-        const entries: { group: EditorGroup; index: number }[] = [];
-        for (const group of this.groupsList) {
-            for (let index = 0; index < group.editorCount; index++) entries.push({ group, index });
-        }
-        if (entries.length < 2) return;
-
-        const active = this.activeGroupValue;
-        const current = entries.findIndex((entry) => entry.group === active && entry.index === active.activeIndex);
-        const base = current >= 0 ? current + direction : direction === 1 ? 0 : -1;
-        const target = entries[((base % entries.length) + entries.length) % entries.length];
-
-        if (target.group === active) {
-            active.activateTab(target.index);
-            return;
-        }
-        // Переход через границу группы: цель становится активной группой (тот же
-        // порядок, что у moveActiveTabToGroup — сначала группа, потом вкладка).
-        // Идущую серию Ctrl+Tab источника завершаем как при любом уходе из группы.
-        active.endMruCycle();
-        this.activeGroupValue = target.group;
-        target.group.activateTab(target.index);
-        this.fireActiveGroupChanged(target.group);
     }
 
     public async activate(): Promise<void> {

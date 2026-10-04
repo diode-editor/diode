@@ -9,6 +9,7 @@ import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
+import type { EditorGroupsService } from "../../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 import type { EditorTitleMenuContext } from "../../actions/menuContexts.ts";
@@ -48,6 +49,7 @@ export class EditorGroupComponent extends Component {
         public readonly group: EditorGroup,
         private readonly editorService: EditorService,
         private readonly contextMenuService: ContextMenuService,
+        private readonly groups: EditorGroupsService,
     ) {
         super();
         this.view = new OverlayHostElement();
@@ -65,7 +67,7 @@ export class EditorGroupComponent extends Component {
         this.view.addEventListener(
             "focus",
             () => {
-                this.editorService.notifyGroupFocused(this.group);
+                this.groups.notifyGroupFocused(this.group);
             },
             { capture: true },
         );

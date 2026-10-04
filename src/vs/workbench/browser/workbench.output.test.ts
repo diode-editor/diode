@@ -20,6 +20,7 @@ import { FindComponentDIToken } from "../contrib/find/browser/findComponent.ts";
 import { PROBLEMS_VIEW_ID } from "../contrib/markers/browser/problemsComponent.ts";
 import { SwitchOutputMenu } from "../contrib/output/browser/outputChannelActions.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
+import { EditorGroupsServiceDIToken } from "../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../services/editor/browser/editorService.ts";
 import { LogHistoryDIToken, OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../services/output/common/output.ts";
 import { OutputChannelRegistry } from "../services/output/common/outputChannelRegistry.ts";
@@ -420,7 +421,11 @@ describe("Workbench — Output: регрессии", () => {
     it("BUG-2: расширение видит вкладку, а не панель Output", () => {
         outputPane();
 
-        const adapter = new EditorOptionsServiceAdapter(h.container.get(EditorServiceDIToken), NO_BULK_EDITS);
+        const adapter = new EditorOptionsServiceAdapter(
+            h.container.get(EditorServiceDIToken),
+            h.container.get(EditorGroupsServiceDIToken),
+            NO_BULK_EDITS,
+        );
 
         expect(adapter.getActiveEditorMeta().uri).toBe(Uri.file(ws.path("alpha.txt")).toString());
     });
@@ -460,7 +465,7 @@ describe("Workbench — Output: регрессии", () => {
         // `diode starting` есть только в логе, `Alpha` — только в файле.
         outputPane();
         const find = h.container.get(FindComponentDIToken);
-        const groupId = h.container.get(EditorServiceDIToken).activeGroup.id;
+        const groupId = h.container.get(EditorServiceDIToken).editorGroups.activeGroup.id;
 
         h.commands.execute("actions.find");
         const widget = find.widgetFor(groupId)!;
@@ -552,7 +557,7 @@ describe("Workbench — Output: потребители, которым нужн�
         await Promise.resolve();
 
         expect(h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).not.toBeNull();
-        expect(editorService.activeGroup.editorCount).toBe(1);
+        expect(editorService.editorGroups.activeGroup.editorCount).toBe(1);
     });
 
     it("Ctrl+S при фокусе в Output сохраняет вкладку, а не уводит в Save As", async () => {
@@ -656,7 +661,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
         h.commands.execute(TOGGLE_OUTPUT);
 
         const editorService = h.container.get(EditorServiceDIToken);
-        expect(editorService.activeGroup.editorCount).toBe(1);
+        expect(editorService.editorGroups.activeGroup.editorCount).toBe(1);
         expect(editorService.getEditors()[0].fileName).toBe("alpha.txt");
     });
 

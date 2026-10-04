@@ -55,14 +55,14 @@ describe("WorkbenchStateService", () => {
     });
 
     function make(): WorkbenchStateService {
-        return new WorkbenchStateService(state, editors);
+        return new WorkbenchStateService(state, editors, editors.editorGroups);
     }
 
     const fileEditor = (name: string) => ({
         typeId: TEXT_EDITOR_PANE_TYPE_ID,
         value: Uri.file(ws.path(name)).toString(),
     });
-    const openPaths = () => editors.activeGroup.getPanes().map((pane) => pane.uri.fsPath);
+    const openPaths = () => editors.editorGroups.activeGroup.getPanes().map((pane) => pane.uri.fsPath);
 
     describe("снимок", () => {
         it("пишет вкладки рецептами и файлами; активная — индексом в каждом списке", () => {
@@ -132,7 +132,30 @@ describe("WorkbenchStateService", () => {
             make().restoreOpenEditors();
 
             expect(openPaths()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
-            expect(editors.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
+            expect(editors.editorGroups.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
+        });
+
+        it("несколько групп: активной становится сохранённая, фокус содержимого не трогается", () => {
+            state.store(EDITOR_GROUPS_STATE, {
+                orientation: "columns",
+                groups: [
+                    { files: [], activeIndex: -1, editors: [fileEditor("a.ts")], activeEditor: 0 },
+                    { files: [], activeIndex: -1, editors: [fileEditor("b.ts")], activeEditor: 0 },
+                    { files: [], activeIndex: -1, editors: [fileEditor("c.ts")], activeEditor: 0 },
+                ],
+                weights: [1, 1, 1],
+                // Первая — не соседка последней созданной: «просто предыдущая» сюда не попадёт.
+                activeGroup: 0,
+            });
+            const focused: unknown[] = [];
+            editors.editorGroups.focusGroupContentHook = (group) => focused.push(group);
+
+            make().restoreOpenEditors();
+
+            expect(editors.editorGroups.groups).toHaveLength(3);
+            expect(editors.editorGroups.viewColumnOf(editors.editorGroups.activeGroup)).toBe(1);
+            expect(openPaths()).toEqual([ws.path("a.ts")]);
+            expect(focused).toEqual([]);
         });
 
         it("по записям без activeEditor — первая вкладка", () => {
@@ -145,7 +168,7 @@ describe("WorkbenchStateService", () => {
 
             make().restoreOpenEditors();
 
-            expect(editors.activeGroup.activeIndex).toBe(0);
+            expect(editors.editorGroups.activeGroup.activeIndex).toBe(0);
         });
 
         it("старый снимок без editors поднимается по files", () => {
@@ -159,7 +182,7 @@ describe("WorkbenchStateService", () => {
             make().restoreOpenEditors();
 
             expect(openPaths()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
-            expect(editors.activeGroup.activeIndex).toBe(1);
+            expect(editors.editorGroups.activeGroup.activeIndex).toBe(1);
         });
 
         it("плоский legacy-ключ: пропавший файл пропущен, активный переиндексирован", () => {
@@ -171,7 +194,7 @@ describe("WorkbenchStateService", () => {
             make().restoreOpenEditors();
 
             expect(openPaths()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
-            expect(editors.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
+            expect(editors.editorGroups.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
         });
 
         it("сохранённая активная вкладка пропала — активна первая", () => {
@@ -180,7 +203,7 @@ describe("WorkbenchStateService", () => {
             make().restoreOpenEditors();
 
             expect(openPaths()).toEqual([ws.path("a.ts")]);
-            expect(editors.activeGroup.activeIndex).toBe(0);
+            expect(editors.editorGroups.activeGroup.activeIndex).toBe(0);
         });
 
         it("ни одной уцелевшей вкладки — ничего не открывает", () => {
@@ -188,14 +211,14 @@ describe("WorkbenchStateService", () => {
 
             make().restoreOpenEditors();
 
-            expect(editors.activeGroup.editorCount).toBe(0);
-            expect(editors.groups.length).toBe(1);
+            expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
+            expect(editors.editorGroups.groups.length).toBe(1);
         });
 
         it("пустой снимок — ничего не делает", () => {
             make().restoreOpenEditors();
 
-            expect(editors.activeGroup.editorCount).toBe(0);
+            expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
         });
 
         it("рестор открывает без фокуса и кончается снимком фактической полосы", () => {

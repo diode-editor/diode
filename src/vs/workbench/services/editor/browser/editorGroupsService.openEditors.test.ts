@@ -37,7 +37,7 @@ function createEditorService(): EditorService {
     );
 }
 
-describe("EditorService — список открытых редакторов и переход на вкладку", () => {
+describe("EditorGroupsService — список открытых редакторов и переход на вкладку", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -55,7 +55,7 @@ describe("EditorService — список открытых редакторов �
     }
 
     function labels(ctrl: EditorService): string[] {
-        return ctrl.getOpenEditorsMru().map((pane) => pane.label);
+        return ctrl.editorGroups.getOpenEditorsMru().map((pane) => pane.label);
     }
 
     it("одна группа: вкладки в MRU-порядке, активная — первой", () => {
@@ -66,7 +66,7 @@ describe("EditorService — список открытых редакторов �
 
         expect(labels(ctrl)).toEqual(["c.ts", "b.ts", "a.ts"]);
 
-        ctrl.activeGroup.activateTab(0);
+        ctrl.editorGroups.activeGroup.activateTab(0);
 
         expect(labels(ctrl)).toEqual(["a.ts", "c.ts", "b.ts"]);
     });
@@ -82,7 +82,7 @@ describe("EditorService — список открытых редакторов �
         // Активная группа (вторая) первой: её MRU — c, b; следом первая: b, a.
         expect(labels(ctrl)).toEqual(["c.ts", "b.ts", "b.ts", "a.ts"]);
 
-        ctrl.focusGroup(ctrl.groups[0].id);
+        ctrl.editorGroups.focusGroup(ctrl.editorGroups.groups[0].id);
 
         expect(labels(ctrl)).toEqual(["b.ts", "a.ts", "c.ts", "b.ts"]);
     });
@@ -93,8 +93,8 @@ describe("EditorService — список открытых редакторов �
         ctrl.splitActiveGroup();
         ctrl.openFile(writeFile("b.ts"));
         // joinTwoGroups переносит вкладки без активации — мимо MRU-стека цели.
-        ctrl.focusGroup(ctrl.groups[0].id);
-        ctrl.joinTwoGroups();
+        ctrl.editorGroups.focusGroup(ctrl.editorGroups.groups[0].id);
+        ctrl.editorGroups.joinTwoGroups();
 
         // b приехала merge'ом и в MRU-стеке цели не значится — она хвостом списка,
         // но в списке: иначе пикер потерял бы половину вкладок после join.
@@ -102,18 +102,18 @@ describe("EditorService — список открытых редакторов �
     });
 
     it("пустая полоса — пустой список", () => {
-        expect(createEditorService().getOpenEditorsMru()).toEqual([]);
+        expect(createEditorService().editorGroups.getOpenEditorsMru()).toEqual([]);
     });
 
     it("revealPane активирует вкладку своей группы", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
-        const first = ctrl.activeGroup.getPanes()[0];
+        const first = ctrl.editorGroups.activeGroup.getPanes()[0];
 
-        ctrl.revealPane(first);
+        ctrl.editorGroups.revealPane(first);
 
-        expect(ctrl.activeGroup.activePane).toBe(first);
+        expect(ctrl.editorGroups.activeGroup.activePane).toBe(first);
         expect(labels(ctrl)).toEqual(["a.ts", "b.ts"]);
     });
 
@@ -122,25 +122,25 @@ describe("EditorService — список открытых редакторов �
         ctrl.openFile(writeFile("a.ts"));
         ctrl.splitActiveGroup();
         ctrl.openFile(writeFile("b.ts"));
-        const inFirstGroup = ctrl.groups[0].getPanes()[0];
+        const inFirstGroup = ctrl.editorGroups.groups[0].getPanes()[0];
 
-        ctrl.revealPane(inFirstGroup);
+        ctrl.editorGroups.revealPane(inFirstGroup);
 
-        expect(ctrl.activeGroup).toBe(ctrl.groups[0]);
-        expect(ctrl.activeGroup.activePane).toBe(inFirstGroup);
+        expect(ctrl.editorGroups.activeGroup).toBe(ctrl.editorGroups.groups[0]);
+        expect(ctrl.editorGroups.activeGroup.activePane).toBe(inFirstGroup);
     });
 
     it("revealPane панели не из полосы (уже закрытой вкладки) — no-op", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
-        const closed = ctrl.activeGroup.getPanes()[0];
-        ctrl.activeGroup.closeTab(0);
-        const activeBefore = ctrl.activeGroup.activePane;
+        const closed = ctrl.editorGroups.activeGroup.getPanes()[0];
+        ctrl.editorGroups.activeGroup.closeTab(0);
+        const activeBefore = ctrl.editorGroups.activeGroup.activePane;
 
-        ctrl.revealPane(closed);
+        ctrl.editorGroups.revealPane(closed);
 
-        expect(ctrl.activeGroup.activePane).toBe(activeBefore);
+        expect(ctrl.editorGroups.activeGroup.activePane).toBe(activeBefore);
         expect(labels(ctrl)).toEqual(["b.ts"]);
     });
 });

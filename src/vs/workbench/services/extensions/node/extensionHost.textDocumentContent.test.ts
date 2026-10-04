@@ -95,7 +95,7 @@ describe("ExtensionHost — провайдеры содержимого неди
 
             await harness.group.openUri(Uri.parse("jdt:///Missing.java"));
 
-            expect(harness.group.activeGroup.editorCount).toBe(0);
+            expect(harness.group.editorGroups.activeGroup.editorCount).toBe(0);
             expect(failures).toEqual(['the "jdt:" content provider returned no content']);
         } finally {
             await harness.dispose();
@@ -113,7 +113,7 @@ describe("ExtensionHost — провайдеры содержимого неди
 
             await expect(harness.group.openUri(Uri.parse("jdt:///Broken.java"))).resolves.toBeUndefined();
 
-            expect(harness.group.activeGroup.editorCount).toBe(0);
+            expect(harness.group.editorGroups.activeGroup.editorCount).toBe(0);
             expect(failures).toHaveLength(1);
             expect(failures[0]).toContain("java/classFileContents failed");
         } finally {
@@ -147,7 +147,7 @@ describe("ExtensionHost — провайдеры содержимого неди
             expect(harness.host.hasTextContentProvider("jdt")).toBe(false);
             await harness.group.openUri(Uri.parse(TARGET));
 
-            expect(harness.group.activeGroup.editorCount).toBe(0);
+            expect(harness.group.editorGroups.activeGroup.editorCount).toBe(0);
             expect(failures).toEqual(['no content provider is registered for the "jdt:" scheme']);
         } finally {
             await harness.dispose();

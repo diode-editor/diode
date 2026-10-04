@@ -9,7 +9,7 @@ import type { IContextKeyContributor } from "../../platform/contextkey/common/co
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
-import type { EditorService } from "../services/editor/browser/editorService.ts";
+import type { EditorGroupsService } from "../services/editor/browser/editorGroupsService.ts";
 import { FocusTracker } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
@@ -41,7 +41,7 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
 
     const service = new WorkbenchContextKeys(
         contextKeys,
-        { groups: [], activeGroup: { editorCount: 0 }, viewColumnOf: () => 1 } as unknown as EditorService,
+        { groups: [], activeGroup: { editorCount: 0 }, viewColumnOf: () => 1 } as unknown as EditorGroupsService,
         dispatcher as unknown as KeybindingDispatcher,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
         focusTracker,

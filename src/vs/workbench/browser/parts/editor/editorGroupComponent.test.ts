@@ -63,7 +63,12 @@ function createEditorGroup(
         undefined,
         diskFileService(),
     );
-    const component = new EditorGroupComponent(service.activeGroup, service, createTestContextMenuService());
+    const component = new EditorGroupComponent(
+        service.editorGroups.activeGroup,
+        service,
+        createTestContextMenuService(),
+        service.editorGroups,
+    );
     return { service, component, dialogs };
 }
 
@@ -148,7 +153,7 @@ describe("EditorGroupComponent", () => {
 
             service.newUntitled();
             service.newUntitled();
-            service.activeGroup.closeTab(0);
+            service.editorGroups.activeGroup.closeTab(0);
             service.newUntitled();
 
             expect(tabLabels(component)).toEqual(["Untitled-2", "Untitled-3"]);
@@ -182,7 +187,7 @@ describe("EditorGroupComponent", () => {
             service.openFile(writeFile("a.ts", "a"));
             service.openFile(writeFile("b.ts", "b"));
 
-            service.activeGroup.activateTab(0);
+            service.editorGroups.activeGroup.activateTab(0);
 
             expect(contentSlot(component)).toBe(service.getActiveEditor()!.view);
         });
@@ -193,7 +198,7 @@ describe("EditorGroupComponent", () => {
             const paneView = service.getActiveEditor()!.view;
             expect(contentSlot(component)).toBe(paneView);
 
-            service.activeGroup.closeTab(0);
+            service.editorGroups.activeGroup.closeTab(0);
 
             expect(contentSlot(component)).toBeInstanceOf(FillerElement);
             expect(paneView.getParent()).toBeNull();
@@ -231,7 +236,7 @@ describe("EditorGroupComponent", () => {
 
             expect(tabStrip(component).activeIndex).toBe(1);
 
-            service.activeGroup.activateTab(0);
+            service.editorGroups.activeGroup.activateTab(0);
             expect(tabStrip(component).activeIndex).toBe(0);
         });
     });
@@ -293,7 +298,7 @@ describe("EditorGroupComponent", () => {
 
             tabStrip(component).onTabActivate?.(0);
 
-            expect(service.activeGroup.activeIndex).toBe(0);
+            expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
         });
 
         it("onTabClose closes the clicked tab", () => {
@@ -303,7 +308,7 @@ describe("EditorGroupComponent", () => {
 
             tabStrip(component).onTabClose?.(0);
 
-            expect(service.activeGroup.editorCount).toBe(1);
+            expect(service.editorGroups.activeGroup.editorCount).toBe(1);
             expect(service.getActiveEditor()?.fileName).toBe("b.ts");
         });
 
@@ -318,7 +323,7 @@ describe("EditorGroupComponent", () => {
             // Not closed — waiting on the user; the asked-about tab is brought forward.
             expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
             expect(tabLabels(component)).toEqual(["a.ts", "b.ts"]);
-            expect(service.activeGroup.activeIndex).toBe(0);
+            expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
 
             dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
             await new Promise((resolve) => setTimeout(resolve, 0));

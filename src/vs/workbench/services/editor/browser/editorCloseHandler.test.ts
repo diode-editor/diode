@@ -37,7 +37,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
 
     const service = () => h.container.get(EditorServiceDIToken);
     const dialogs = () => h.container.get(DialogServiceDIToken);
-    const group = (): EditorGroup => service().activeGroup;
+    const group = (): EditorGroup => service().editorGroups.activeGroup;
     const labels = (target: EditorGroup = group()): string[] => target.getPanes().map((pane) => pane.label);
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -162,7 +162,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         openAll("a.txt");
         edit(paneAt(0), "X");
         h.commands.execute("workbench.action.splitEditor");
-        const [first, second] = service().groups;
+        const [first, second] = service().editorGroups.groups;
 
         expect(await service().closeEditor(first, 0)).toBe(true);
 

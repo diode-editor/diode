@@ -47,7 +47,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
             createTestEditorContextMenuController(),
             NULL_LOG_SERVICE,
         );
-        adapter = new EditorOptionsServiceAdapter(service, NO_BULK_EDITS);
+        adapter = new EditorOptionsServiceAdapter(service, service.editorGroups, NO_BULK_EDITS);
     });
 
     afterEach(() => {
@@ -57,7 +57,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
 
     /** Текстовая вкладка группы по позиции — с проверкой вида. */
     function editorAt(groupIndex: number, tabIndex: number): TextEditorPane {
-        const pane = service.groups[groupIndex].getPane(tabIndex);
+        const pane = service.editorGroups.groups[groupIndex].getPane(tabIndex);
         expect(pane instanceof TextEditorPane).toBe(true);
         return pane as TextEditorPane;
     }
@@ -65,13 +65,13 @@ describe("EditorOptionsServiceAdapter — адресация по группам
     it("setActiveEditorSelections с groupId ставит выделение вью ТОЙ группы (AS-10)", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup(); // группа 2 — дубль a.ts со своим viewState
-        service.focusGroup({ index: 0 });
+        service.editorGroups.focusGroup({ index: 0 });
         const uri = editorAt(0, 0).uri.toString();
 
         adapter.setActiveEditorSelections(
             uri,
             [{ anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 2 }],
-            service.groups[1].id,
+            service.editorGroups.groups[1].id,
         );
 
         // Выделение уехало во вторую группу, вью первой не тронута.
@@ -88,7 +88,11 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         // Группа умерла между запросом расширения и обработкой.
         adapter.setActiveEditorSelections(editor.uri.toString(), selections, 999);
         // В живой группе нет вкладки с этим uri.
-        adapter.setActiveEditorSelections(Uri.file(ws.path("b.ts")).toString(), selections, service.activeGroup.id);
+        adapter.setActiveEditorSelections(
+            Uri.file(ws.path("b.ts")).toString(),
+            selections,
+            service.editorGroups.activeGroup.id,
+        );
 
         expect(editor.viewState.selections[0]).toEqual(before);
     });

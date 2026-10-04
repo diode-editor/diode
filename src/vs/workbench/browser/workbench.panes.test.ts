@@ -108,7 +108,7 @@ describe("Workbench — панель не-текстового вида во в�
         testApp.render();
         expect(testApp.backend.screenToString()).toContain(PANE_TEXT);
 
-        editors.activeGroup.activateTab(0);
+        editors.editorGroups.activeGroup.activateTab(0);
         testApp.render();
 
         const screen = testApp.backend.screenToString();
@@ -120,7 +120,7 @@ describe("Workbench — панель не-текстового вида во в�
         editors.openPane(new TextOnlyPane(Uri.from({ scheme: "fake", path: "/changes" })));
         testApp.render();
 
-        editors.activeGroup.closeTab(editors.activeGroup.activeIndex);
+        editors.editorGroups.activeGroup.closeTab(editors.editorGroups.activeGroup.activeIndex);
         testApp.render();
 
         expect(testApp.backend.screenToString()).not.toContain(PANE_TEXT);

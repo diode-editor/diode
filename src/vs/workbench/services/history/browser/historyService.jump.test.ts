@@ -17,7 +17,7 @@ describe("HistoryService — шов прыжка", () => {
             files: { "alpha.ts": "alpha\n", "beta.ts": "beta\n" },
         });
         source = new FakeHistoryEditorSource();
-        service = new HistoryService(source);
+        service = new HistoryService(source, source);
     });
 
     afterEach(() => {

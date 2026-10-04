@@ -4,6 +4,7 @@ import type { ServiceAccessor } from "../../../platform/instantiation/common/diC
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../platform/keybinding/common/keybindingResolver.ts";
 import { ModifierReleaseArmoryDIToken } from "../../../platform/keybinding/common/modifierReleaseArmory.ts";
+import { EditorGroupsServiceDIToken } from "../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../services/editor/browser/editorService.ts";
 
 import { resolveTabTarget } from "./editorTabTarget.ts";
@@ -21,10 +22,10 @@ const TAB_SWITCHER_WEIGHT = KeybindingWeight.WorkbenchContrib;
  * «hold-сессии».
  */
 function cycleMruStep(accessor: ServiceAccessor, direction: 1 | -1): void {
-    const editors = accessor.get(EditorServiceDIToken);
-    editors.activeGroup.cycleMru(direction);
+    const groups = accessor.get(EditorGroupsServiceDIToken);
+    groups.activeGroup.cycleMru(direction);
     accessor.get(ModifierReleaseArmoryDIToken).armOnHoldRelease(() => {
-        editors.activeGroup.endMruCycle();
+        groups.activeGroup.endMruCycle();
     });
 }
 
@@ -44,7 +45,7 @@ export const nextEditorAction: CommandAction = {
     keybindings: [parseKeybinding("alt+pagedown")],
     when: "textViewFocus",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).cycleEditor(1);
+        accessor.get(EditorGroupsServiceDIToken).cycleEditor(1);
     },
 };
 
@@ -57,7 +58,7 @@ export const previousEditorAction: CommandAction = {
     keybindings: [parseKeybinding("alt+pageup")],
     when: "textViewFocus",
     run(accessor) {
-        accessor.get(EditorServiceDIToken).cycleEditor(-1);
+        accessor.get(EditorGroupsServiceDIToken).cycleEditor(-1);
     },
 };
 
@@ -124,7 +125,7 @@ export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
     keybinding: parseKeybinding("ctrl+6"),
     when: "textViewFocus && editorTabsMultiple",
     run(accessor) {
-        const group = accessor.get(EditorServiceDIToken).activeGroup;
+        const group = accessor.get(EditorGroupsServiceDIToken).activeGroup;
         group.cycleMru(1);
         group.endMruCycle();
     },
@@ -155,8 +156,7 @@ export const keepEditorAction: CommandAction = {
     // вкладку должно быть можно не уходя из него.
     when: "editorGroupHasEditors",
     run(accessor, ...args) {
-        const service = accessor.get(EditorServiceDIToken);
-        const target = resolveTabTarget(service, args);
+        const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         // Цели нет — вызов из палитры при пустой группе либо протухший адрес из
         // меню; делать нечего. У живой цели индекс уже проверен резолвером,
         // поэтому панель берём прямо, без защиты от `null`.
@@ -179,7 +179,7 @@ export const closeActiveEditorAction: CommandAction = {
         const service = accessor.get(EditorServiceDIToken);
         // Из меню вкладки приходит адрес вкладки ПОД КУРСОРОМ (правый клик её не
         // активирует); с клавиатуры и из палитры аргументов нет — цель активная.
-        const target = resolveTabTarget(service, args);
+        const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
 
         // Закрываем вкладку по её адресу, а не focus-aware `getActiveEditor()`:

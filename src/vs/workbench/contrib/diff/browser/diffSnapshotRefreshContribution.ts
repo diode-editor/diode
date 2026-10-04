@@ -6,8 +6,10 @@ import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts"
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
-import type { EditorService } from "../../../services/editor/browser/editorService.ts";
-import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import {
+    type EditorGroupsService,
+    EditorGroupsServiceDIToken,
+} from "../../../services/editor/browser/editorGroupsService.ts";
 
 import { refreshDiffSnapshots } from "./openDiffPair.ts";
 
@@ -28,7 +30,7 @@ const REFRESH_DEBOUNCE_MS = 200;
  * отбрасывает сама (no-op — каретка и скролл не сбрасываются зря).
  */
 export class DiffSnapshotRefreshContribution extends Disposable implements IWorkbenchContribution {
-    public static dependencies = [EditorServiceDIToken, IFileServiceDIToken] as const;
+    public static dependencies = [EditorGroupsServiceDIToken, IFileServiceDIToken] as const;
 
     /** Накопленные изменённые ресурсы до срабатывания debounce. */
     private readonly pending = new Set<string>();
@@ -37,7 +39,7 @@ export class DiffSnapshotRefreshContribution extends Disposable implements IWork
     private refreshSeq = 0;
 
     public constructor(
-        private readonly editors: EditorService,
+        private readonly groups: EditorGroupsService,
         private readonly providers: IFileService,
     ) {
         super();
@@ -67,7 +69,7 @@ export class DiffSnapshotRefreshContribution extends Disposable implements IWork
         this.pending.clear();
         const seq = ++this.refreshSeq;
 
-        for (const group of this.editors.groups) {
+        for (const group of this.groups.groups) {
             for (const pane of group.getPanes()) {
                 if (!(pane instanceof DiffEditorPane2)) continue;
                 if (!pane.snapshotSides().some((side) => this.sideTouched(pane, side, changed))) continue;

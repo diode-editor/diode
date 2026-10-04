@@ -126,14 +126,14 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         const uri = Uri.parse("demo:///a");
         await service.openUri(uri);
         service.openFile("/tmp/other.txt");
-        expect(service.activeGroup.editorCount).toBe(2);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(2);
 
         // Синхронность важна навигации: Go Back открывает ресурс и ТУТ ЖЕ ведёт
         // каретку — между этими двумя шагами тика нет.
         void service.openUri(uri);
 
-        expect(service.activeGroup.activeIndex).toBe(0);
-        expect(service.activeGroup.editorCount).toBe(2);
+        expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(2);
         expect(provide).toHaveBeenCalledTimes(1);
         service.dispose();
     });
@@ -145,7 +145,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await expect(service.openUri(Uri.parse("jdt:///Foo.java"))).resolves.toBeUndefined();
 
-        expect(service.activeGroup.editorCount).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         expect(failures).toHaveLength(1);
         expect(failures[0].reason).toContain('no content provider is registered for the "jdt:" scheme');
         service.dispose();
@@ -159,7 +159,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("class:///Foo.class"));
 
-        expect(service.activeGroup.editorCount).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(['no content provider is registered for the "class:" scheme']);
         service.dispose();
     });
@@ -174,7 +174,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await expect(service.openUri(Uri.parse("jdt:///Foo.java"))).resolves.toBeUndefined();
 
-        expect(service.activeGroup.editorCount).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(["java/classFileContents timed out"]);
         service.dispose();
     });
@@ -201,7 +201,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("jdt:///Foo.java"));
 
-        expect(service.activeGroup.editorCount).toBe(0);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         expect(failures).toEqual(['the "jdt:" content provider returned no content']);
         service.dispose();
     });
@@ -221,7 +221,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         // Ни одного await: вкладка обязана быть уже здесь, иначе сломались бы
         // все сайты, которые открывают файл и сразу двигают каретку.
-        expect(service.activeGroup.editorCount).toBe(1);
+        expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         service.dispose();
     });
 
@@ -233,7 +233,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         // Пустая группа справа — худший исход неудачи: человек получил бы
         // перекроенный экран вместо сообщения.
-        expect(service.groups.length).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(1);
         service.dispose();
     });
     it("к вкладке применяются editor.*-настройки — она полноценный редактор, а не превью", async () => {
@@ -272,17 +272,17 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         const uri = Uri.parse("demo:///a");
         service.openFile("/tmp/left.txt");
         await service.openUri(uri, { group: "beside" });
-        expect(service.groups.length).toBe(2);
+        expect(service.editorGroups.groups.length).toBe(2);
         // Возвращаемся в левую группу: «соседняя справа» для неё — та, где
         // ресурс уже открыт.
-        service.focusGroup({ index: 0 });
+        service.editorGroups.focusGroup({ index: 0 });
 
         await service.openUri(uri, { group: "beside" });
 
         // Третьей группы нет, вкладка одна, провайдера дёрнули ровно раз:
         // «соседняя справа» ищется без побочных эффектов.
-        expect(service.groups.length).toBe(2);
-        expect(service.groups[1].editorCount).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(2);
+        expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(provide).toHaveBeenCalledTimes(1);
         service.dispose();
     });
@@ -298,8 +298,8 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         // Ресурс открыт в ЛЕВОЙ группе; справа его нет — значит открываем там свою
         // вкладку, а не «уже открыто, ничего не делаем».
-        expect(service.groups.length).toBe(2);
-        expect(service.groups[1].editorCount).toBe(1);
+        expect(service.editorGroups.groups.length).toBe(2);
+        expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(provide).toHaveBeenCalledTimes(2);
         service.dispose();
     });
@@ -401,7 +401,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.refreshVirtualDocument(Uri.parse("demo:///never-opened"));
             await Promise.resolve();
 
-            expect(service.activeGroup.editorCount).toBe(0);
+            expect(service.editorGroups.activeGroup.editorCount).toBe(0);
             expect(provide).not.toHaveBeenCalled();
             service.dispose();
         });
@@ -481,7 +481,7 @@ describe("EditorService.openUri — фокус при открытии неди�
             // держится `preserveFocus` у `showTextDocument`. Прежний редактор
             // при смене вкладки уходит из дерева, поэтому «фокус не взяли»
             // видно как отсутствие сфокусированного элемента вовсе.
-            expect(editors.activeGroup.editorCount).toBe(2);
+            expect(editors.editorGroups.activeGroup.editorCount).toBe(2);
             expect(editors.getActiveTabPane()?.uri.scheme).toBe("demo");
             expect(h.testApp.focusedElement).toBeNull();
         } finally {

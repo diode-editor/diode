@@ -108,11 +108,11 @@ describe("Workbench — Save As", () => {
         h.testApp.sendKey("Enter");
         // Запись — через файловый сервис, асинхронно.
         await vi.waitFor(() => {
-            expect(service.activeGroup.editorCount).toBe(2);
+            expect(service.editorGroups.activeGroup.editorCount).toBe(2);
         });
 
         expect(fs.readFileSync(copyPath, "utf-8")).toBe("class Lib {}\n");
-        expect(service.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([
+        expect(service.editorGroups.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([
             jdt.toString(),
             Uri.file(copyPath).toString(),
         ]);

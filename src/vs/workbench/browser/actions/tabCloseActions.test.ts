@@ -30,7 +30,7 @@ describe("Tab close actions", () => {
     });
 
     const service = () => h.container.get(EditorServiceDIToken);
-    const group = (): EditorGroup => service().activeGroup;
+    const group = (): EditorGroup => service().editorGroups.activeGroup;
     const labels = (target: EditorGroup = group()): string[] => target.getPanes().map((pane) => pane.label);
 
     function openAll(...names: string[]): void {
@@ -131,8 +131,8 @@ describe("Tab close actions", () => {
         openAll("a.txt");
         h.commands.execute("workbench.action.splitEditor");
         openAll("b.txt", "c.txt");
-        const [first, second] = service().groups;
-        expect(service().activeGroup === second).toBe(true);
+        const [first, second] = service().editorGroups.groups;
+        expect(service().editorGroups.activeGroup === second).toBe(true);
         expect(labels(second)).toEqual(["a.txt", "b.txt", "c.txt"]);
 
         // Меню открыли на единственной вкладке ПЕРВОЙ группы.
@@ -180,10 +180,10 @@ describe("Tab close actions", () => {
 
         h.commands.execute("workbench.action.splitEditorRight", group().id, 0);
         await vi.waitFor(() => {
-            expect(service().groups.length).toBe(2);
+            expect(service().editorGroups.groups.length).toBe(2);
         });
 
         // Сплит унёс в новую группу именно a.txt — вкладку, по которой открыли меню.
-        expect(labels(service().groups[1])).toEqual(["a.txt"]);
+        expect(labels(service().editorGroups.groups[1])).toEqual(["a.txt"]);
     });
 });

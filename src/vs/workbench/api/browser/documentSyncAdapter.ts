@@ -1,4 +1,5 @@
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
+import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
@@ -40,7 +41,7 @@ export function openDocumentSnapshots(group: EditorService): IWireDocumentSyncSn
  * subprocess'а (см. `workspace.updateSubscriptions`), поэтому без LS-подобных
  * расширений RPC не гоняется.
  */
-export function bindDocumentSync(group: EditorService, host: IDocumentSyncTarget): void {
+export function bindDocumentSync(group: EditorService, groups: EditorGroupsService, host: IDocumentSyncTarget): void {
     /** Живые подписки по модели; смерть последней вкладки снимает и шлёт didClose. */
     const tracked = new Map<BaseTextEditorModel, { dispose(): void }>();
 
@@ -70,6 +71,9 @@ export function bindDocumentSync(group: EditorService, host: IDocumentSyncTarget
 
     // Открытия/закрытия вкладок любой группы + структурные изменения полосы.
     group.onDidChangeEditors(reconcile);
-    group.onDidGroupsChange(reconcile);
+    // Структура полосы без смены вкладок набор документов не меняет (перенос и
+    // слияние вкладок приходят через onDidChangeEditors) — подписка страхует.
+    // Stryker disable next-line CallExpression: эквивалентен — см. выше
+    groups.onDidGroupsChange(reconcile);
     reconcile();
 }

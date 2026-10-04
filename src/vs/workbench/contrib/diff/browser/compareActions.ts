@@ -17,6 +17,7 @@ import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPan
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { DiffViewMode } from "../../../common/stateKeys.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/browser/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { FileSearchServiceDIToken } from "../../../services/search/common/fileSearch.ts";
 import { TextFileModelServiceDIToken } from "../../../services/textfile/common/textFileModelService.ts";
@@ -132,8 +133,9 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
     if (active === null) return;
 
     // Вкладки ВСЕХ групп: пикер — про открытые буферы, а не про активную группу.
-    const openTabs = editors.groups
-        .flatMap((group) => [...group.getPanes()])
+    const openTabs = accessor
+        .get(EditorGroupsServiceDIToken)
+        .groups.flatMap((group) => [...group.getPanes()])
         .filter((p) => p.uri.toString() !== active.uri.toString() && p.uri.scheme !== "diode-diff");
     // Индекс строится в фоне (Quick Open живёт с этим через рост списка по мере
     // ввода); статичному пикеру нужен готовый снимок — ждём и подстёгиваем.
@@ -315,7 +317,7 @@ function toggleInlineView(accessor: ServiceAccessor): void {
     if (!(active instanceof DiffEditorPane2)) return;
     const next: DiffViewMode = active.mode === "inline" ? "side-by-side" : "inline";
     accessor.get(StateServiceDIToken).store(DIFF_VIEW_MODE_STATE, next);
-    for (const group of editors.groups) {
+    for (const group of accessor.get(EditorGroupsServiceDIToken).groups) {
         for (const pane of group.getPanes()) {
             if (pane instanceof DiffEditorPane2) pane.setModeOverride(next);
         }
@@ -334,15 +336,16 @@ const VIEW_COLUMN_BESIDE = -2;
  * фолбэк в активную, как у Open to the Side); `Active` и мусор — активная.
  */
 function applyViewColumn(accessor: ServiceAccessor, raw: unknown): void {
-    const editors = accessor.get(EditorServiceDIToken);
+    const groups = accessor.get(EditorGroupsServiceDIToken);
     const value = typeof raw === "number" ? raw : (raw as { viewColumn?: unknown } | undefined)?.viewColumn;
     if (typeof value !== "number") return;
-    if (value === VIEW_COLUMN_BESIDE || value > editors.groups.length) {
-        editors.newGroup("after", { focus: false });
+    if (value === VIEW_COLUMN_BESIDE || value > groups.groups.length) {
+        // Stryker disable next-line StringLiteral: позиция "" ведёт себя как "after" — эквивалентен
+        groups.newGroup("after", { focus: false });
         return;
     }
     // За краем слева (Active, мусор) focusGroup сам делает no-op.
-    editors.focusGroup({ index: value - 1 }, { focus: false });
+    groups.focusGroup({ index: value - 1 }, { focus: false });
 }
 
 async function vscodeDiff(accessor: ServiceAccessor, ...args: unknown[]): Promise<void> {

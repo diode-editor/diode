@@ -36,6 +36,21 @@ describe("Workbench — find navigation & recompute", () => {
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(0);
     });
 
+    it("в сплите Enter ходит по совпадениям активной группы, а не первой", () => {
+        ctx = createFindApp("foo bar foo");
+        ctx.harness.commands.execute("workbench.action.splitEditor");
+        ctx.testApp.render();
+        ctx.testApp.sendKey("Ctrl+F");
+        type(ctx.testApp, "foo");
+        const editor = ctx.activeEditor();
+        expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+
+        ctx.testApp.sendKey("Enter");
+
+        expect(ctx.activeEditor()).toBe(editor);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(1);
+    });
+
     it("Enter steps across matches on different lines", () => {
         ctx = createFindApp("foo\nbar foo\nbaz");
         ctx.testApp.sendKey("Ctrl+F");

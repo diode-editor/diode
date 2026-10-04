@@ -8,7 +8,7 @@ import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.
 
 /** Current text of the active group's find widget query input. */
 function query(ctx: FindContext): string {
-    const groupId = ctx.harness.container.get(EditorServiceDIToken).activeGroup.id;
+    const groupId = ctx.harness.container.get(EditorServiceDIToken).editorGroups.activeGroup.id;
     return ctx.harness.container.get(FindComponentDIToken).widgetFor(groupId)!.getQuery();
 }
 

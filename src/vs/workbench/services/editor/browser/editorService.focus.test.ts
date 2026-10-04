@@ -42,7 +42,7 @@ describe("EditorService focus management on tab close", () => {
 
         expect(testApp.focusedElement).not.toBeNull();
 
-        editorService.activeGroup.closeTab(0);
+        editorService.editorGroups.activeGroup.closeTab(0);
 
         expect(testApp.focusedElement).toBeNull();
     });
@@ -56,7 +56,7 @@ describe("EditorService focus management on tab close", () => {
         const initialFocused = testApp.focusedElement;
         expect(initialFocused).not.toBeNull();
 
-        editorService.activeGroup.closeTab(1);
+        editorService.editorGroups.activeGroup.closeTab(1);
 
         expect(testApp.focusedElement).not.toBeNull();
         expect(testApp.focusedElement).not.toBe(initialFocused);
@@ -67,7 +67,7 @@ describe("EditorService focus management on tab close", () => {
         const { testApp, workbench, commandRegistry, editorService } = createTestContext();
         workbench.openFile(ws.writeFile("a.ts", "a"));
         workbench.focusEditor();
-        editorService.activeGroup.closeTab(0);
+        editorService.editorGroups.activeGroup.closeTab(0);
 
         const executeSpy = vi.spyOn(commandRegistry, "execute");
 
@@ -89,7 +89,7 @@ describe("EditorService focus management on tab close", () => {
         workbench.focusEditor();
 
         // close active (index 2)
-        editorService.activeGroup.closeTab(2);
+        editorService.editorGroups.activeGroup.closeTab(2);
 
         const focused = testApp.focusedElement;
         expect(focused).not.toBeNull();
@@ -102,7 +102,7 @@ describe("EditorService focus management on tab close", () => {
         workbench.openFile(ws.writeFile("a.ts", "a"));
         workbench.focusEditor();
 
-        editorService.activeGroup.closeTab(0);
+        editorService.editorGroups.activeGroup.closeTab(0);
 
         const focused = testApp.focusedElement;
         // If focused is not null it must still be in the live tree

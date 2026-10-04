@@ -9,6 +9,7 @@ import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../ed
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { BulkEdit, BulkEditOperation } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
+import type { EditorGroupsService } from "../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../services/editor/browser/editorService.ts";
 import type {
     IActiveEditorMeta,
@@ -30,6 +31,8 @@ import {
  */
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly group: EditorService;
+    /** Полоса групп: группа вкладки и её колонка для меты, адресация по `groupId`. */
+    private readonly groups: EditorGroupsService;
     /**
      * Исполнитель `workspace.applyEdit`: правки по закрытым файлам и файловые
      * операции живут в ядре (node), а не здесь — адаптер только переводит
@@ -39,7 +42,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
 
     /** Группа вкладки (для меты/таргетинга); вкладка уже закрыта — фолбэк активная. */
     private groupIdOf(editor: TextEditorPane): number {
-        return this.group.groupOf(editor)?.id ?? this.group.activeGroup.id;
+        return this.groups.groupOf(editor)?.id ?? this.groups.activeGroup.id;
     }
     /**
      * Выделение, которое прямо сейчас ставит сам субпроцесс
@@ -56,8 +59,9 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
      */
     private pendingSelectionSource: CursorChangeSource | undefined;
 
-    public constructor(group: EditorService, workspaceEdits: IBulkEditService) {
+    public constructor(group: EditorService, groups: EditorGroupsService, workspaceEdits: IBulkEditService) {
         this.group = group;
+        this.groups = groups;
         this.workspaceEdits = workspaceEdits;
     }
 
@@ -97,8 +101,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private metaOfEditor(editor: TextEditorPane | null): IActiveEditorMeta {
         const base = metaOf(editor);
         if (editor === null) return base;
-        const owner = this.group.groupOf(editor) ?? this.group.activeGroup;
-        return { ...base, groupId: owner.id, viewColumn: this.group.viewColumnOf(owner) };
+        const owner = this.groups.groupOf(editor) ?? this.groups.activeGroup;
+        return { ...base, groupId: owner.id, viewColumn: this.groups.viewColumnOf(owner) };
     }
 
     public onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable {
@@ -196,7 +200,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
      */
     private editorFor(uri: string, groupId?: number): TextEditorPane | null {
         if (groupId !== undefined) {
-            const target = this.group.groups.find((candidate) => candidate.id === groupId);
+            const target = this.groups.groups.find((candidate) => candidate.id === groupId);
             if (target === undefined) return null;
             const index = target.findPaneIndex(Uri.parse(uri));
             const pane = index >= 0 ? target.getPane(index) : null;

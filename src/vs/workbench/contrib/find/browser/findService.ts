@@ -10,6 +10,10 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup, GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
+import {
+    type EditorGroupsService,
+    EditorGroupsServiceDIToken,
+} from "../../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 
@@ -42,17 +46,19 @@ interface IFindSession {
  * Escape) оперируют активной группой.
  */
 export class FindService extends Disposable implements IContextKeyContributor {
-    public static dependencies = [FindComponentDIToken, EditorServiceDIToken] as const;
+    public static dependencies = [FindComponentDIToken, EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
 
     private readonly component: FindComponent;
     private readonly editorService: EditorService;
+    private readonly groups: EditorGroupsService;
 
     private readonly sessions = new Map<GroupId, IFindSession>();
 
-    public constructor(component: FindComponent, editorService: EditorService) {
+    public constructor(component: FindComponent, editorService: EditorService, groups: EditorGroupsService) {
         super();
         this.component = component;
         this.editorService = editorService;
+        this.groups = groups;
         component.onQueryChange = (groupId) => {
             this.recompute(groupId);
         };
@@ -67,7 +73,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         };
         // Схлопнутая группа забирает сессию и виджет с собой.
         this.register(
-            this.editorService.onDidGroupsChange((event) => {
+            this.groups.onDidGroupsChange((event) => {
                 if (event.kind !== "removed") return;
                 this.dropSession(event.group.id);
                 this.component.disposeWidget(event.group.id);
@@ -82,7 +88,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
 
     /** Открыт ли find-виджет АКТИВНОЙ группы (контекст-ключ findWidgetVisible). */
     public isVisible(): boolean {
-        return this.component.isOpen(this.editorService.activeGroup.id);
+        return this.component.isOpen(this.groups.activeGroup.id);
     }
 
     /** IContextKeyContributor: `findWidgetVisible` — гейт Escape/Enter/F3 виджета. */
@@ -92,7 +98,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
 
     /** Ctrl+F: открывает/фокусирует find активной группы. */
     public open(): void {
-        const group = this.editorService.activeGroup;
+        const group = this.groups.activeGroup;
         const widget = this.component.widgetFor(group.id);
         if (widget === null) return;
         if (widget.isOpen()) {
@@ -125,15 +131,15 @@ export class FindService extends Disposable implements IContextKeyContributor {
 
     /** Escape/крестик: закрывает find активной группы. */
     public close(): void {
-        this.closeGroup(this.editorService.activeGroup.id);
+        this.closeGroup(this.groups.activeGroup.id);
     }
 
     public next(): void {
-        this.navigate(this.editorService.activeGroup.id, 1);
+        this.navigate(this.groups.activeGroup.id, 1);
     }
 
     public prev(): void {
-        this.navigate(this.editorService.activeGroup.id, -1);
+        this.navigate(this.groups.activeGroup.id, -1);
     }
 
     // ─── Private ─────────────────────────────────────────────────────────────
@@ -197,7 +203,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
     private navigate(groupId: GroupId, direction: 1 | -1): void {
         const widget = this.component.widgetFor(groupId);
         if (widget === null) return;
-        const group = this.editorService.groups.find((candidate) => candidate.id === groupId);
+        const group = this.groups.groups.find((candidate) => candidate.id === groupId);
         /* v8 ignore start -- виджет существует только у живой группы */
         if (group === undefined) return;
         /* v8 ignore stop */

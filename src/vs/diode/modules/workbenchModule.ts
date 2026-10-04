@@ -243,6 +243,10 @@ import {
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import {
+    EditorGroupsService,
+    EditorGroupsServiceDIToken,
+} from "../../workbench/services/editor/browser/editorGroupsService.ts";
+import {
     EditorPaneFactoriesDIToken,
     type EditorPaneFactoryCtor,
 } from "../../workbench/services/editor/browser/editorPaneFactory.ts";
@@ -259,6 +263,7 @@ import {
 import { FocusTracker, FocusTrackerDIToken } from "../../workbench/services/focus/browser/focusTracker.ts";
 import {
     HistoryEditorSourceDIToken,
+    HistoryGroupsSourceDIToken,
     HistoryService,
     HistoryServiceDIToken,
     JumpRecorderDIToken,
@@ -383,7 +388,17 @@ export const workbenchModule: ContainerModule = (container) => {
     // Швы пикера открытых редакторов: список вкладок и переход — EditorService.
     // Папки воркспейса для путей-описаний пикер берёт из IWorkspaceContextService
     // сам — отдельного шва под «корень» больше нет.
-    container.bind(OpenEditorsSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(OpenEditorsSourceDIToken, () => {
+        const editors = container.get(EditorServiceDIToken);
+        const groups = container.get(EditorGroupsServiceDIToken);
+        return {
+            getOpenEditorsMru: () => groups.getOpenEditorsMru(),
+            displayName: (editor) => editors.displayName(editor),
+            revealPane: (editor) => {
+                groups.revealPane(editor);
+            },
+        };
+    });
     // Quick-access-провайдеры: явный список (QUICK_ACCESS_PROVIDERS) + реестр,
     // выбирающий провайдера по префиксу запроса; QuickOpenService — контроллер
     // показа, о конкретных префиксах не знает.
@@ -402,6 +417,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // группам и диффу они нужны без полосы вкладок.
     container.bind(TextFileModelServiceDIToken, TextFileModelService);
     container.bind(TextEditorPaneBuilderDIToken, TextEditorPaneBuilder);
+    // Полоса групп — отдельно от «редакторов» (E1): структура групп нужна
+    // view-части и командам групп, а не всем потребителям активного редактора.
+    container.bind(EditorGroupsServiceDIToken, EditorGroupsService);
     container.bind(EditorServiceDIToken, EditorService);
     // Фабрики вкладок из contrib (рецепт вкладки для сплита и рестора сессии) —
     // явный список; фабрика ходит в контейнер лениво, в момент открытия.
@@ -451,6 +469,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.
     // Он же IJumpRecorder — шов, которым сайты прыжков сообщают о переходе.
     container.bind(HistoryEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(HistoryGroupsSourceDIToken, () => container.get(EditorGroupsServiceDIToken));
     container.bind(HistoryServiceDIToken, HistoryService);
     container.bind(JumpRecorderDIToken, () => container.get(HistoryServiceDIToken));
     container.bind(FindComponentDIToken, FindComponent);

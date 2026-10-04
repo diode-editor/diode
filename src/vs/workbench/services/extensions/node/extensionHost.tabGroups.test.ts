@@ -91,13 +91,13 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
             await settle();
             harness.group.openFile(harness.writeFile("second.ts", "const b = 2;\n"));
             await settle();
-            expect(harness.group.activeGroup.editorCount).toBe(2);
+            expect(harness.group.editorGroups.activeGroup.editorCount).toBe(2);
 
             const result = await harness.commandRegistry.execute("test.tabs.close", { label: "second.ts" });
             await settle();
 
             expect(result).toBe(true);
-            expect(harness.group.activeGroup.editorCount).toBe(1);
+            expect(harness.group.editorGroups.activeGroup.editorCount).toBe(1);
             // Свежий снимок уехал расширению ДО ответа: вкладки в tabGroups больше нет.
             const after = await snapshot(harness);
             expect(after.groups[0].tabs.map((tab) => tab.label)).toEqual(["main.ts"]);
@@ -115,13 +115,13 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
             await settle();
             harness.group.splitActiveGroup();
             await settle();
-            expect(harness.group.groups.length).toBe(2);
+            expect(harness.group.editorGroups.groups.length).toBe(2);
 
             const result = await harness.commandRegistry.execute("test.tabs.closeGroup", { viewColumn: 2 });
             await settle();
 
             expect(result).toBe(true);
-            expect(harness.group.groups.length).toBe(1);
+            expect(harness.group.editorGroups.groups.length).toBe(1);
             const after = await snapshot(harness);
             expect(after.groups.length).toBe(1);
         } finally {
@@ -144,21 +144,21 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
                 viewColumn: -2,
             })) as { uri: string; viewColumn: number };
             expect(beside.viewColumn).toBe(2);
-            expect(harness.group.groups.length).toBe(2);
+            expect(harness.group.editorGroups.groups.length).toBe(2);
 
             // Повторный показ в ту же колонку — дедуп, группа не растёт.
             await harness.commandRegistry.execute("test.tabs.show", { uri, viewColumn: 2 });
-            expect(harness.group.groups[1].editorCount).toBe(1);
+            expect(harness.group.editorGroups.groups[1].editorCount).toBe(1);
 
             // preserveFocus: активная группа не меняется.
-            harness.group.focusGroup({ index: 0 });
+            harness.group.editorGroups.focusGroup({ index: 0 });
             await settle();
             await harness.commandRegistry.execute("test.tabs.show", {
                 uri,
                 viewColumn: 2,
                 preserveFocus: true,
             });
-            expect(harness.group.viewColumnOf(harness.group.activeGroup)).toBe(1);
+            expect(harness.group.editorGroups.viewColumnOf(harness.group.editorGroups.activeGroup)).toBe(1);
         } finally {
             await harness.dispose();
         }

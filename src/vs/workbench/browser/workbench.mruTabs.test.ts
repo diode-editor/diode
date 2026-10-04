@@ -49,15 +49,15 @@ describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle
 
     it("routes a modifier keyup into the armory, committing the in-progress MRU cycle", () => {
         // Mimic what the Ctrl+Tab action does: step + arm on Control release.
-        group.activeGroup.cycleMru(1); // → a (frozen, not yet committed)
+        group.editorGroups.activeGroup.cycleMru(1); // → a (frozen, not yet committed)
         armory.arm("Control", () => {
-            group.activeGroup.endMruCycle();
+            group.editorGroups.activeGroup.endMruCycle();
         });
         expect(group.getActiveEditor()?.fileName).toBe("a.ts");
 
         keyup("Control"); // release Ctrl → armory fires → commit
 
-        expect(group.activeGroup.getMruOrder().map((e) => group.displayName(e))).toEqual(["a.ts", "b.ts"]);
+        expect(group.editorGroups.activeGroup.getMruOrder().map((e) => group.displayName(e))).toEqual(["a.ts", "b.ts"]);
     });
 
     it("routes non-modifier keyups too, but they match no armed modifier", () => {
@@ -86,7 +86,7 @@ describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle
         // Release Ctrl → armory commits the selection to the MRU front.
         h.testApp.backend.sendRaw(CONTROL_RELEASE);
         h.testApp.backend.flushInput();
-        expect(group.activeGroup.getMruOrder().map((e) => group.displayName(e))).toEqual(["a.ts", "b.ts"]);
+        expect(group.editorGroups.activeGroup.getMruOrder().map((e) => group.displayName(e))).toEqual(["a.ts", "b.ts"]);
 
         // A second press-release toggles back to b (two-newest toggle, not deeper).
         h.testApp.sendKey("Ctrl+Tab");

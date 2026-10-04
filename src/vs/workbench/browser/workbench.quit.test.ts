@@ -232,8 +232,8 @@ describe("Workbench quit with save dialog", () => {
 
         // Tabs 1 and 2 disappear before we answer, so their snapshotted items are now stale.
         const editorGroup = (workbench as unknown as { editorService: EditorService }).editorService;
-        editorGroup.activeGroup.closeTab(2);
-        editorGroup.activeGroup.closeTab(1);
+        editorGroup.editorGroups.activeGroup.closeTab(2);
+        editorGroup.editorGroups.activeGroup.closeTab(1);
 
         // Advancing the sequence walks past the now-missing editors and quits at the end.
         dialog.onDontSave?.();

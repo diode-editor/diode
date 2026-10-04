@@ -7,6 +7,10 @@ import type { IContextKeyContributor } from "../../../../platform/contextkey/com
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
+import {
+    type EditorGroupsService,
+    EditorGroupsServiceDIToken,
+} from "../../../services/editor/browser/editorGroupsService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
 import { Component } from "../../component.ts";
@@ -33,19 +37,22 @@ export const TabSwitcherComponentDIToken = token<TabSwitcherComponent>("TabSwitc
  * {@link attachHost}, как у QuickInput/Suggest/Hover.
  */
 export class TabSwitcherComponent extends Component implements IContextKeyContributor {
-    public static dependencies = [EditorServiceDIToken] as const;
+    public static dependencies = [EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
 
     public readonly view: TabSwitcherElement;
 
     private host: BodyElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
-    public constructor(private readonly editorService: EditorService) {
+    public constructor(
+        private readonly editorService: EditorService,
+        private readonly groups: EditorGroupsService,
+    ) {
         super();
         this.view = new TabSwitcherElement();
         this.view.id = "tabSwitcher";
         this.register(
-            this.editorService.onDidChangeMruCycle((state) => {
+            this.groups.onDidChangeMruCycle((state) => {
                 if (state !== null) this.show(state);
                 else this.hide();
             }),
@@ -54,7 +61,7 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
         // (сплит и другие структурные пути): оверлей про прежнюю группу не должен
         // пережить уход из неё.
         this.register(
-            this.editorService.onDidActiveGroupChange(() => {
+            this.groups.onDidActiveGroupChange(() => {
                 this.hide();
             }),
         );
