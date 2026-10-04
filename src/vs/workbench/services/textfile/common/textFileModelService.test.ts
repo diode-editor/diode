@@ -59,6 +59,18 @@ describe("TextFileModelService", () => {
         b.dispose();
     });
 
+    it("безымянный буфер обвязан, как файл: Save As объявляет сохранение", async () => {
+        const model = service.createUntitledModel();
+        const saved: TextFileModel[] = [];
+        service.onDidSaveModel((m) => saved.push(m));
+        const target = ws.path("named.txt");
+
+        await model.saveAs(target);
+
+        expect(saved).toEqual([model]);
+        model.dispose();
+    });
+
     it("модель файла сразу под наблюдением watcher'а", () => {
         const watched: string[] = [];
         const watcher: IFileWatcher = {

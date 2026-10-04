@@ -338,6 +338,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         const formatOnSave = createFormatOnSaveParticipant(onSaveHost);
         this.register(
             this.textFileModels.addSaveParticipant((model) =>
+                // Отсев — экономия прохода: участник сам проверяет провайдер и
+                // виды (onSaveParticipants.ts) и без них — no-op.
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентен — см. выше
                 languageFeatures.codeActionProvider.has(model) &&
                 // Stryker disable next-line EqualityOperator,ConditionalExpression: участник без включённых видов — no-op (провайдера не зовёт), а запись и так асинхронная; отсев только экономит проход
                 enabledCodeActionKindsOnSave(configurationService, model.languageId).length > 0
@@ -347,6 +350,9 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         );
         this.register(
             this.textFileModels.addSaveParticipant((model) =>
+                // То же у формата: участник сам читает `editor.formatOnSave`, а
+                // без форматтера formatDocument отдаёт null — no-op.
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентен — см. выше
                 hasDocumentFormatter(languageFeatures, model) &&
                 configurationService.get("editor.formatOnSave", { overrideIdentifier: model.languageId })
                     ? formatOnSave
