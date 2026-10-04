@@ -8,11 +8,15 @@ import type {
     IQuickInputSink,
     IStatusBarItemSink,
 } from "../../../../api/common/iExtensionWindowSinks.ts";
+import type {
+    IWireInputBoxResult,
+    IWireQuickPickResult,
+    IWireShowMessageResult,
+    IWireValidationMessage,
+    WireMessageSeverity,
+} from "../../../../api/common/wireTypes.ts";
+import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
-    type IWireInputBoxResult,
-    type IWireQuickPickResult,
-    type IWireShowMessageResult,
-    type IWireValidationMessage,
     parseWireDiagnosticsPublish,
     parseWireInputBoxRequest,
     parseWireOutputAppend,
@@ -26,9 +30,7 @@ import {
     parseWireStatusBarItem,
     parseWireStatusBarItemDispose,
     parseWireValidationMessage,
-    type WireMessageSeverity,
-} from "../../../../api/common/wireTypes.ts";
-import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
+} from "../hostWireParsers.ts";
 
 /** Стоки поверхностей окна; без стока поверхность молча отбрасывает своё. */
 export interface IWindowSinks {

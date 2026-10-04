@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireSchemes, parseWireTextContentResult } from "./wireTypes.ts";
+import { parseWireSchemes, parseWireTextContentResult } from "./hostWireParsers.ts";
 
 /**
  * Разбор ответов `workspace.provideTextDocumentContent` и списков схем.

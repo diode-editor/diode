@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireLanguageProviderRegistration, parseWireLanguageProviderUnregistration } from "./wireTypes.ts";
+import { parseWireLanguageProviderRegistration, parseWireLanguageProviderUnregistration } from "./hostWireParsers.ts";
 
-describe("wireTypes — parseWireLanguageProviderRegistration", () => {
+describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
     it("валидная регистрация проходит как есть", () => {
         const raw = {
             handle: 3,
@@ -79,7 +79,7 @@ describe("wireTypes — parseWireLanguageProviderRegistration", () => {
     });
 });
 
-describe("wireTypes — parseWireLanguageProviderUnregistration", () => {
+describe("hostWireParsers — parseWireLanguageProviderUnregistration", () => {
     it("берёт целый handle, остальное — null", () => {
         expect(parseWireLanguageProviderUnregistration({ handle: 0 })).toStrictEqual({ handle: 0 });
         expect(parseWireLanguageProviderUnregistration({ handle: "0" })).toBeNull();

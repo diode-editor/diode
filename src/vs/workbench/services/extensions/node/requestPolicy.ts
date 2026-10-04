@@ -1,7 +1,8 @@
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 import { TimeoutError } from "../../../api/common/rpcEndpoint.ts";
-import type { RequestFn } from "../../../api/common/wireTypes.ts";
+
+import type { RequestFn } from "./hostRequests.ts";
 
 /**
  * Сроки ответа субпроцесса на pull-запросы хоста, мс, по методу провода.

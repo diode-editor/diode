@@ -1,6 +1,6 @@
 # Wire-слой языковых запросов extension host'а (G5)
 
-Статус: `[~]` в работе — сделаны A, B, C1, C2.
+Статус: `[x]` — обязательное сделано (A, B, C1, C2, D1, D2); E — необязательный, не начат.
 
 Языковые запросы хоста к субпроцессу (`languages.provide*`, rename, code
 actions) описаны на проводе несколько раз: параметры — копиями в `wireTypes.ts`
@@ -60,10 +60,19 @@ actions) описаны на проводе несколько раз: пара�
   выпадает с элементом: маркер с `range` без `start`/`end` больше не роняет
   `collection.set`; completion признаёт `Range` чужого бандла (утиный, не
   `instanceof`). Каст `activeSignatureHelp` снят — `toVscodeSignatureHelp`.
-- [ ] D2. Host-only код из `api/common/wireTypes.ts` — в
-  `services/extensions/node/` (`RequestFn`, `settle`, остаток `request*`,
-  разбор декораций); при надобности — правило check-layers.
-- [ ] E. (необязательно) `bindExtensionHostToEditorGroup` в `api/browser` —
+- [x] D2. Host-only код из `api/common/wireTypes.ts` — в
+  `services/extensions/node/`: `hostRequests.ts` (`RequestFn`,
+  `requestWillSaveEdits`, `wireToSaveEdits` — value-зависимость от
+  `services/textfile` ушла из `api/common`) и `hostWireParsers.ts` (разбор
+  хостом нотификаций и запросов субпроцесса `parseWire*`, `wireToCore*`,
+  `themeColorIdOf`, `parseDecorationRanges`). «Только хост» — по фактическим
+  импортам; в `wireTypes.ts` остались общие типы, разбор того, что читает
+  субпроцесс, общие помощники (`parseRange`, `isFiniteNumber`,
+  `parseWireSelections`, `parseWireSecretRef`), `selectionChangeKindOf`
+  (зовёт `api/browser`, которому node недоступен) и `reviveWireUri`
+  (`contrib/diff`). Правило check-layers не понадобилось: `api/common`
+  значений из `services/*` не берёт и до D2 не брал (был только `import type`).
+- [ ] E. (необязательно, вне обязательного объёма G5) `bindExtensionHostToEditorGroup` в `api/browser` —
   одна проводка для `extensionHostModule.ts` и `ExtensionTestHarness.ts`.
 
 ## Не делаем

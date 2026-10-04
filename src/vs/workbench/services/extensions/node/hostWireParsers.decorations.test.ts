@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "./wireTypes.ts";
+import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "./hostWireParsers.ts";
 
-describe("WireTypes — decorations serialization (Chunk 4)", () => {
+describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
     describe("themeColorIdOf", () => {
         it("извлекает id из { $themeColor }", () => {
             expect(themeColorIdOf({ $themeColor: "x" })).toBe("x");

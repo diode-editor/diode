@@ -33,17 +33,19 @@ import type { IFoldingRegion } from "../../../../../editor/contrib/folding/iFold
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
 import type { RequestParams, RequestResult } from "../../../../api/common/rpcEndpoint.ts";
+import type {
+    IWireDocumentParams,
+    IWireLanguageProviderRegistration,
+    IWirePositionParams,
+} from "../../../../api/common/wireTypes.ts";
+import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
+import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
 import {
-    type IWireDocumentParams,
-    type IWireLanguageProviderRegistration,
-    type IWirePositionParams,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     wireToCoreFoldingRegions,
     wireToCoreRenameLocation,
-} from "../../../../api/common/wireTypes.ts";
-import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
-import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
+} from "../hostWireParsers.ts";
 import { loggingRequest, type RequestTimeouts, type TimedRequestMethod } from "../requestPolicy.ts";
 
 /** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
