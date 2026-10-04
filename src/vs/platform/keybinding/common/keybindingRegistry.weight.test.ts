@@ -45,8 +45,8 @@ describe("KeybindingRegistry — вес правила", () => {
         // Незавершённый чорд подписывается по сильнейшему кандидату.
         expect(serializeChord(registry.getPendingChord())).toBe("ctrl+k");
         registry.resetPending();
-        // Безусловные бинды команды — в порядке приоритета: первым идёт слабейший (как раньше — первый зарегистрированный).
-        expect(serializeChord(registry.getKeybindingForCommand("cmd")!)).toBe("f8");
+        // Подпись команды — от более тяжёлого её бинда (тот же приоритет, что у резолвера).
+        expect(serializeChord(registry.getKeybindingForCommand("cmd")!)).toBe("f9");
     });
 });
 

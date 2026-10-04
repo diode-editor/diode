@@ -171,3 +171,61 @@ describe("KeybindingRegistry — getKeybindingForCommand с overlay", () => {
         expect(contextKeys.evaluate("scmInputFocus")).toBe(false);
     });
 });
+
+describe("KeybindingRegistry — подпись по приоритету резолвера", () => {
+    const label = (registry: KeybindingRegistry, commandId: string, contextKeys?: ContextKeyService): string =>
+        formatKeybinding(registry.getKeybindingForCommand(commandId, contextKeys)!);
+
+    it("пользовательский бинд команды подписывается вместо дефолта (старший слой — первым)", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("ctrl+s"), "save");
+        registry.setUserKeybindings([{ command: "save", chord: parseChord("ctrl+alt+s") }]);
+        expect(label(registry, "save")).toBe("Ctrl+Alt+S");
+    });
+
+    it("комбинацию, которую перехватывает более сильная запись другой команды, не обещает", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("ctrl+i"), "builtin");
+        registry.register(parseKeybinding("ctrl+alt+i"), "builtin");
+        registry.setExtensionKeybindings([{ command: "ext.cmd", chord: parseChord("ctrl+i") }]);
+        expect(label(registry, "builtin")).toBe("Ctrl+Alt+I");
+        // Сам перехватчик свою комбинацию подписывает.
+        expect(label(registry, "ext.cmd")).toBe("Ctrl+I");
+    });
+
+    it("перехват считается только активной записью: when перехватчика не прошёл — подпись прежняя", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("ctrl+i"), "builtin");
+        registry.register(parseKeybinding("ctrl+alt+i"), "builtin");
+        registry.register(parseKeybinding("ctrl+i"), "popup", "popupVisible");
+        const contextKeys = new ContextKeyService();
+
+        expect(label(registry, "builtin", contextKeys)).toBe("Ctrl+I");
+        contextKeys.setRaw("popupVisible", true);
+        expect(label(registry, "builtin", contextKeys)).toBe("Ctrl+Alt+I");
+    });
+
+    it("более слабая запись другой команды на той же комбинации не мешает", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("ctrl+i"), "weak");
+        registry.register(parseKeybinding("ctrl+i"), "strong");
+        registry.register(parseKeybinding("ctrl+alt+i"), "strong");
+        expect(label(registry, "strong")).toBe("Ctrl+I");
+    });
+
+    it("чорд, чей префикс — полная комбинация другой команды, недостижим", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+k ctrl+s"), "chorded");
+        registry.register(parseKeybinding("f2"), "chorded");
+        // Слабее по весу, но полное совпадение на первой клавише побеждает всегда.
+        registry.register(parseKeybinding("ctrl+k"), "short", undefined, "default", undefined, { weight: -1 });
+        expect(label(registry, "chorded")).toBe("F2");
+    });
+
+    it("без доступной комбинации — канонический (первый) бинд команды", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseKeybinding("ctrl+i"), "builtin");
+        registry.register(parseKeybinding("ctrl+i"), "popup");
+        expect(label(registry, "builtin")).toBe("Ctrl+I");
+    });
+});
