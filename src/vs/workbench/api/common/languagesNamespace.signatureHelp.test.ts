@@ -193,6 +193,8 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
 
         expect(seen[0]).toMatchObject({ isRetrigger: true, triggerCharacter: "," });
         expect(seen[0].activeSignatureHelp).toEqual(active);
+        // Провайдер видит экземпляры API-классов, как в VS Code, а не plain-объект провода.
+        expect(seen[0].activeSignatureHelp).toBeInstanceOf(SignatureHelp);
     });
 
     it("контекст без полей: Invoke по умолчанию, isRetrigger — false", async () => {

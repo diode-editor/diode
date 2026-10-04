@@ -250,6 +250,31 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         expect(req?.params).toEqual({ ops: [{ kind: "delete", resource: URI_A.toString() }] });
     });
 
+    it("операция из одних битых правок — false без RPC; битая правка среди целых выпадает", async () => {
+        const { stub, workspace } = makeWorkspace();
+        const broken = new TextEdit(new Range(0, 0, 0, 0), "bad");
+        (broken as { range: unknown }).range = { line: 0 };
+        const allBroken = new WorkspaceEdit();
+        allBroken.set(URI_A, [broken]);
+        await expect(workspace.applyEdit(allBroken as unknown as vscode.WorkspaceEdit)).resolves.toBe(false);
+        expect(stub.requests.find((r) => r.method === "workspace.applyEdit")).toBeUndefined();
+
+        const mixed = new WorkspaceEdit();
+        mixed.set(URI_A, [broken, new TextEdit(new Range(0, 1, 0, 2), "ok")]);
+        void workspace.applyEdit(mixed as unknown as vscode.WorkspaceEdit);
+        expect(stub.requests.find((r) => r.method === "workspace.applyEdit")?.params).toEqual({
+            ops: [
+                {
+                    kind: "text",
+                    resource: URI_A.toString(),
+                    edits: [
+                        { range: { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } }, text: "ok" },
+                    ],
+                },
+            ],
+        });
+    });
+
     it("объект не-WorkspaceEdit (мимо типов) — честный false без RPC", async () => {
         const { stub, workspace } = makeWorkspace();
         await expect(workspace.applyEdit({} as unknown as vscode.WorkspaceEdit)).resolves.toBe(false);

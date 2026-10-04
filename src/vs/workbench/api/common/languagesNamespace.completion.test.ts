@@ -7,7 +7,7 @@ import type {
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
-import { createLanguagesNamespace, stripSnippetPlaceholders } from "./languagesNamespace.ts";
+import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { CompletionItem, CompletionList, MarkdownString, Range, SnippetString, TextEdit } from "./vscodeTypes.ts";
@@ -39,23 +39,6 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
     return { ctx, stub };
 }
 
-describe("stripSnippetPlaceholders", () => {
-    it("вырезает плейсхолдеры, оставляя их текст", () => {
-        expect(stripSnippetPlaceholders("greet(${1:name})$0")).toBe("greet(name)");
-        expect(stripSnippetPlaceholders("if ${1|a,b|} then")).toBe("if a then");
-        expect(stripSnippetPlaceholders("call(${1})")).toBe("call()");
-        expect(stripSnippetPlaceholders("sum($1, $2)")).toBe("sum(, )");
-    });
-
-    it("экранированный доллар остаётся долларом", () => {
-        expect(stripSnippetPlaceholders("cost: \\$5")).toBe("cost: $5");
-    });
-
-    it("пустой список вариантов не ломает разбор", () => {
-        expect(stripSnippetPlaceholders("x${1||}y")).toBe("xy");
-    });
-});
-
 describe("LanguagesNamespace — completion: сериализация полей источника", () => {
     it("labelDetails, sortText/filterText и сниппет-insertText доезжают в wire-форме", async () => {
         const { ctx, stub } = makeCtx();
@@ -85,6 +68,23 @@ describe("LanguagesNamespace — completion: сериализация полей
             insertText: "getTime(arg)",
         });
         expect(result.items[0].id).toBeDefined();
+    });
+
+    it("Range чужого бандла (утиный, не instanceof Range) доезжает диапазоном замены", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const foreign = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 }, isEmpty: false };
+        const plain = new CompletionItem("plain");
+        (plain as { range: unknown }).range = foreign;
+        const split = new CompletionItem("split");
+        (split as { range: unknown }).range = { inserting: foreign, replacing: foreign };
+        languages.registerCompletionItemProvider({ language: "typescript" }, {
+            provideCompletionItems: () => [plain, split],
+        } as never);
+
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } };
+        expect(result.items.map((item) => item.range)).toEqual([range, range]);
     });
 
     it("isIncomplete из CompletionList доезжает до ядра", async () => {

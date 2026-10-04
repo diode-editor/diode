@@ -1,30 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-    parseDecorationRanges,
-    parseWireFileDecorations,
-    serializeColor,
-    serializeDecorationRenderOptions,
-    themeColorIdOf,
-} from "./wireTypes.ts";
+import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "./wireTypes.ts";
 
 describe("WireTypes — decorations serialization (Chunk 4)", () => {
-    describe("serializeColor", () => {
-        it("CSS-строка проходит как есть", () => {
-            expect(serializeColor("#ff0000")).toBe("#ff0000");
-        });
-        it("ThemeColor (утиный тип с id) → { $themeColor }", () => {
-            expect(serializeColor({ id: "editorGutter.modifiedBackground" })).toEqual({
-                $themeColor: "editorGutter.modifiedBackground",
-            });
-        });
-        it("undefined / прочее → undefined", () => {
-            expect(serializeColor(undefined)).toBeUndefined();
-            expect(serializeColor(42)).toBeUndefined();
-            expect(serializeColor({ nope: 1 })).toBeUndefined();
-        });
-    });
-
     describe("themeColorIdOf", () => {
         it("извлекает id из { $themeColor }", () => {
             expect(themeColorIdOf({ $themeColor: "x" })).toBe("x");
@@ -32,33 +10,6 @@ describe("WireTypes — decorations serialization (Chunk 4)", () => {
         it("CSS-строка / undefined → undefined", () => {
             expect(themeColorIdOf("#fff")).toBeUndefined();
             expect(themeColorIdOf(undefined)).toBeUndefined();
-        });
-    });
-
-    describe("serializeDecorationRenderOptions", () => {
-        it("несёт только релевантные поля, ThemeColor сериализуется", () => {
-            expect(
-                serializeDecorationRenderOptions({
-                    isWholeLine: true,
-                    overviewRulerLane: 1,
-                    overviewRulerColor: { id: "editorGutter.addedBackground" },
-                    backgroundColor: "#111",
-                    color: { id: "foreground" },
-                    gutterIconPath: "/ignored.png",
-                    borderWidth: "2px",
-                }),
-            ).toEqual({
-                isWholeLine: true,
-                overviewRulerLane: 1,
-                overviewRulerColor: { $themeColor: "editorGutter.addedBackground" },
-                backgroundColor: "#111",
-                color: { $themeColor: "foreground" },
-            });
-        });
-        it("пустые/невалидные опции → пустой объект", () => {
-            expect(serializeDecorationRenderOptions(undefined)).toEqual({});
-            expect(serializeDecorationRenderOptions(null)).toEqual({});
-            expect(serializeDecorationRenderOptions({ isWholeLine: "yes" })).toEqual({});
         });
     });
 

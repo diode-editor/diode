@@ -2,8 +2,6 @@ import type * as vscode from "vscode";
 
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { isCancellationError } from "../../../base/common/errorSerialization.ts";
-import { comparePositions, createPosition } from "../../../editor/common/core/iPosition.ts";
-import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type {
     ICoreCompletionItem,
     ICoreCompletionResult,
@@ -13,15 +11,26 @@ import type { ICoreDefinitionLocation } from "../../../editor/common/languages/i
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
-import type {
-    ICoreParameterInfo,
-    ICoreSignature,
-    ICoreSignatureHelp,
-} from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import {
+    rangeFrom,
+    readDocumentation,
+    serializeCompletionItem,
+    serializeDefinitionLocation,
+    serializeFoldingRange,
+    serializeHoverContents,
+    serializeInlineCompletionItem,
+    serializeRenamePrepare,
+    serializeSignatureHelp,
+    serializeTextEdit,
+    toVscodeRange,
+    toVscodeSignatureHelp,
+    toWireMarker,
+} from "./extHostTypeConverters.ts";
 import { callWithVscodeToken, toVscodeCancellationToken } from "./vscodeCancellation.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -34,7 +43,6 @@ import {
     Position,
     Range,
     SignatureHelpTriggerKind,
-    SnippetString,
     Uri,
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
@@ -56,55 +64,9 @@ import type {
     WireCodeAction,
     WireFoldingRange,
     WireLanguageFeatureKind,
-    WireMarker,
     WireRenamePrepare,
     WireRenameResult,
 } from "./wireTypes.ts";
-
-/** `vscode.Diagnostic` (утиный тип) → {@link WireMarker}; кривые поля — к дефолтам. */
-/**
- * Текст диагностики: строка как есть, rich-форма (`MarkdownString` и подобные) —
- * её `value`. Слепой `String()` дал бы здесь «[object Object]» в маркере.
- */
-function messageText(message: unknown): string {
-    if (typeof message === "string") return message;
-    if (message === undefined || message === null) return "";
-    if (typeof message === "object") {
-        const value = (message as { value?: unknown }).value;
-        return typeof value === "string" ? value : "";
-    }
-    return (message as { toString(): string }).toString();
-}
-
-/**
- * Строковый вид uri, пришедшего от расширения (свой `Uri` или чужой из другого
- * рантайма). Отдельной ветки на строку не нужно: у неё `toString()` — она сама.
- */
-function uriText(uri: unknown): string {
-    return (uri as { toString(): string }).toString();
-}
-
-function toWireMarker(diag: unknown): WireMarker {
-    const d = diag as {
-        range?: { start: { line: number; character: number }; end: { line: number; character: number } };
-        message?: unknown;
-        severity?: unknown;
-        code?: unknown;
-        source?: unknown;
-    };
-    const r = d.range ?? { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
-    // code бывает и rich-формой { value, target } (ссылка на доку правила —
-    // так шлёт eslint); wire несёт только value, target TUI некуда открывать.
-    const rawCode = typeof d.code === "object" && d.code !== null ? (d.code as { value?: unknown }).value : d.code;
-    const code = typeof rawCode === "string" || typeof rawCode === "number" ? String(rawCode) : undefined;
-    return {
-        severity: typeof d.severity === "number" ? d.severity : 0,
-        range: createRange(r.start.line, r.start.character, r.end.line, r.end.character),
-        message: messageText(d.message),
-        ...(code !== undefined ? { code } : {}),
-        ...(typeof d.source === "string" ? { source: d.source } : {}),
-    };
-}
 
 /** Зарегистрированный провайдер автодополнения. */
 export interface ICompletionRegistration {
@@ -212,94 +174,6 @@ function rangesIntersect(a: Range, b: Range): boolean {
     return startsBeforeOrAt(a.start, b.end) && startsBeforeOrAt(b.start, a.end);
 }
 
-/** Конечное число: не `NaN`, не `Infinity` и не значение другого типа. */
-function isFiniteNumber(raw: unknown): raw is number {
-    return Number.isFinite(raw);
-}
-
-/**
- * Сериализует `vscode.Range` (утиный тип — подойдёт и `Range` чужого бандла) в
- * core-диапазон провода ({@link IRange}); `null`, если форма чужая или
- * координата не конечное число (`Position` расширения клампит к нулю, но `NaN`
- * пропускает). Перевёрнутый диапазон разворачивается: инвариант `start <= end`
- * `vscode.Range` держит конструктором, а утиный объект — нет. Хост диапазоны
- * ответа не перепроверяет.
- */
-export function serializeRange(raw: unknown): IRange | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const r = raw as { start?: { line?: unknown; character?: unknown }; end?: { line?: unknown; character?: unknown } };
-    const { start, end } = r;
-    if (
-        start == null ||
-        end == null ||
-        !isFiniteNumber(start.line) ||
-        !isFiniteNumber(start.character) ||
-        !isFiniteNumber(end.line) ||
-        !isFiniteNumber(end.character)
-    ) {
-        return null;
-    }
-    const from = createPosition(start.line, start.character);
-    const to = createPosition(end.line, end.character);
-    // Stryker disable next-line EqualityOperator: на равных границах обе ветки дают один и тот же диапазон
-    return comparePositions(from, to) <= 0 ? { start: from, end: to } : { start: to, end: from };
-}
-
-/** Диапазон провода (параметры запроса хоста, свой сериализованный) → `vscode.Range` для провайдера. */
-function toVscodeRange(range: IRange): Range {
-    return new Range(range.start.line, range.start.character, range.end.line, range.end.character);
-}
-
-/**
- * Сериализует один элемент результата definition-провайдера: `Location`
- * (`{ uri, range }`) или `LocationLink` (`{ targetUri, targetRange,
- * targetSelectionRange? }` — прицельный диапазон `targetSelectionRange ??
- * targetRange`). `null` — форма не распознана (drop+skip).
- */
-function serializeDefinitionLocation(item: unknown): ICoreDefinitionLocation | null {
-    if (typeof item !== "object" || item === null) return null;
-    const link = item as { targetUri?: unknown; targetRange?: unknown; targetSelectionRange?: unknown };
-    if (link.targetUri != null) {
-        return serializeLocation(link.targetUri, link.targetSelectionRange ?? link.targetRange);
-    }
-    const loc = item as { uri?: unknown; range?: unknown };
-    if (loc.uri == null) return null;
-    return serializeLocation(loc.uri, loc.range);
-}
-
-/** Цель с диапазоном; `null` — диапазон чужой формы или uri пустой (прыгать некуда). */
-function serializeLocation(rawUri: unknown, rawRange: unknown): ICoreDefinitionLocation | null {
-    const uri = uriText(rawUri);
-    const range = serializeRange(rawRange);
-    return range === null || uri === "" ? null : { uri, range };
-}
-
-/**
- * Сериализует ответ `prepareRename`: либо голый `Range`, либо
- * `{ range, placeholder }`. Placeholder, которого провайдер не прислал,
- * добирается текстом самого диапазона — ровно как обещает эталон («when
- * omitted the text in the returned range is used»); подстановка живёт здесь,
- * потому что документ есть только у субпроцесса. `null` — форма не распознана
- * (ядро спросит следующего провайдера).
- */
-function serializeRenamePrepare(raw: unknown, doc: ExtHostTextDocument): WireRenamePrepare | null {
-    // Своей проверки формы тут нет: `null`/`undefined` отсекает вызывающий
-    // («провайдеру сказать нечего»), а примитив отсеет разбор диапазона ниже.
-    const holder = raw as { range?: unknown; placeholder?: unknown };
-    // Голый `Range` от `{range, placeholder}` отличает наличие поля `range`:
-    // у самого Range его нет.
-    const rangeSource = holder.range === undefined ? raw : holder.range;
-    const range = serializeRange(rangeSource);
-    if (range === null) return null;
-    if (typeof holder.placeholder === "string" && holder.placeholder !== "") {
-        return { placeholder: holder.placeholder };
-    }
-    const text = doc.getText(toVscodeRange(range));
-    // Пустой диапазон не даёт имени: отвечаем «сказать нечего», и слово под
-    // кареткой доберёт ядро.
-    return text === "" ? null : { placeholder: text };
-}
-
 /**
  * Текст отклонения промиса провайдера для показа человеку. `Error` несёт
  * `message`, но провайдер вправе отклонить промис чем угодно — включая строку
@@ -310,33 +184,6 @@ function renameRejectReason(error: unknown): string {
     const message = (error as { message?: unknown } | null | undefined)?.message;
     if (typeof message === "string" && message !== "") return message;
     return "Rename failed";
-}
-
-/**
- * Сериализует `contents` одного hover'а в блоки сырого markdown: строка,
- * `MarkdownString { value }` или legacy `MarkedString { language, value }`
- * (кодовый блок → fenced). Пустые и нераспознанные блоки отбрасываются
- * (drop+skip), разметку протокол не трогает — её стрипает UI-потребитель.
- */
-function serializeHoverContents(raw: unknown): string[] {
-    const blocks: string[] = [];
-    for (const block of Array.isArray(raw) ? raw : [raw]) {
-        const value = readHoverBlock(block);
-        if (value !== null && value.trim() !== "") blocks.push(value);
-    }
-    return blocks;
-}
-
-/** Один блок `Hover.contents`: строка, `MarkdownString` или `MarkedString`. */
-function readHoverBlock(block: unknown): string | null {
-    if (typeof block === "string") return block;
-    if (block === null) return null;
-    const b = block as { value?: unknown; language?: unknown };
-    if (typeof b.value !== "string") return null;
-    // Legacy MarkedString `{language, value}` — кодовый блок; оборачиваем в
-    // fenced, чтобы UI отличал код от прозы.
-    if (typeof b.language !== "string" || b.language === "") return b.value;
-    return `\`\`\`${b.language}\n${b.value}\n\`\`\``;
 }
 
 /**
@@ -367,231 +214,6 @@ function readStringList(raw: unknown): readonly string[] {
 }
 
 /**
- * `vscode.SignatureHelp` (утиный тип) → форма ядра; `null` — форма чужая или
- * подсказки нет. Разбор строгий: битая сигнатура или параметр отбраковывают
- * весь ответ, и хендлер спрашивает следующего провайдера: `activeSignature`/
- * `activeParameter` — индексы, и выброс одного элемента сдвинул бы подсветку на
- * соседний параметр молча. Хост ответ не перепроверяет — индексы и числа
- * приводятся здесь.
- */
-function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const help = raw as { signatures?: unknown; activeSignature?: unknown; activeParameter?: unknown };
-    if (!Array.isArray(help.signatures) || help.signatures.length === 0) return null;
-
-    const signatures: ICoreSignature[] = [];
-    for (const item of help.signatures) {
-        const signature = serializeSignature(item);
-        if (signature === null) return null;
-        signatures.push(signature);
-    }
-
-    return {
-        signatures,
-        activeSignature: clampSignatureIndex(help.activeSignature, signatures.length),
-        // `-1` — легальное «активного параметра нет» (noActiveParameterSupport),
-        // поэтому нижней границы здесь нет, только отбраковка не-чисел.
-        activeParameter: isFiniteNumber(help.activeParameter) ? help.activeParameter : 0,
-    };
-}
-
-/** Индекс активной сигнатуры: не-целое или выход за список → 0. */
-function clampSignatureIndex(raw: unknown, length: number): number {
-    if (!Number.isInteger(raw)) return 0;
-    const index = raw as number;
-    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
-    if (index < 0 || index >= length) return 0;
-    return index;
-}
-
-/** Одна сигнатура (`vscode.SignatureInformation`); `null` — форма чужая. */
-function serializeSignature(raw: unknown): ICoreSignature | null {
-    if (!isDuckObject(raw)) return null;
-    const item = raw as { label?: unknown; documentation?: unknown; parameters?: unknown; activeParameter?: unknown };
-    if (typeof item.label !== "string") return null;
-
-    const parameters: ICoreParameterInfo[] = [];
-    if (item.parameters !== undefined) {
-        if (!Array.isArray(item.parameters)) return null;
-        for (const parameter of item.parameters) {
-            const serialized = serializeParameter(parameter);
-            if (serialized === null) return null;
-            parameters.push(serialized);
-        }
-    }
-
-    const documentation = readDocumentationText(item.documentation);
-    return {
-        label: item.label,
-        parameters,
-        ...(documentation === undefined || documentation === "" ? {} : { documentation }),
-        ...(isFiniteNumber(item.activeParameter) ? { activeParameter: item.activeParameter } : {}),
-    };
-}
-
-/** Один параметр (`vscode.ParameterInformation`); `null` — форма чужая. */
-function serializeParameter(raw: unknown): ICoreParameterInfo | null {
-    if (!isDuckObject(raw)) return null;
-    const item = raw as { label?: unknown; documentation?: unknown };
-    const label = serializeParameterLabel(item.label);
-    if (label === null) return null;
-    const documentation = readDocumentationText(item.documentation);
-    return { label, ...(documentation === undefined || documentation === "" ? {} : { documentation }) };
-}
-
-/**
- * Утиная проверка «это объект расширения, а не примитив». Отдельная функция —
- * чтобы `typeof`-конъюнкт (нужный компилятору, но избыточный в рантайме: у
- * числа всё равно нет ни `label`, ни `parameters`) гасился в одном месте.
- */
-function isDuckObject(raw: unknown): boolean {
-    if (raw === null) return false;
-    // Stryker disable next-line ConditionalExpression: см. выше — примитив отсеют проверки полей у вызывающих
-    return typeof raw === "object";
-}
-
-/** Метка параметра: подстрока метки сигнатуры либо пара офсетов `[start, end)`. */
-function serializeParameterLabel(raw: unknown): string | readonly [number, number] | null {
-    if (typeof raw === "string") return raw;
-    if (!Array.isArray(raw) || raw.length !== 2) return null;
-    const [start, end] = raw as unknown[];
-    if (!isFiniteNumber(start) || !isFiniteNumber(end)) return null;
-    return [start, end];
-}
-
-/** Читает `label` элемента (строка или `CompletionItemLabel { label }`). */
-function readLabel(item: vscode.CompletionItem): string | undefined {
-    const label = (item as { label?: unknown }).label;
-    if (typeof label === "string") return label;
-    if (typeof label === "object" && label !== null && typeof (label as { label?: unknown }).label === "string") {
-        return (label as { label: string }).label;
-    }
-    return undefined;
-}
-
-/**
- * Читает `labelDetails` (`labelDetailsSupport` объявляет за нас стоковый
- * languageclient): сигнатура рядом с лейблом (`(a: string): void`) и описание
- * источника (модуль авто-импорта).
- */
-function readLabelDetails(item: vscode.CompletionItem): { detail?: string; description?: string } {
-    const label = (item as { label?: unknown }).label;
-    if (typeof label !== "object" || label === null) return {};
-    const parts = label as { detail?: unknown; description?: unknown };
-    return {
-        ...(typeof parts.detail === "string" ? { detail: parts.detail } : {}),
-        ...(typeof parts.description === "string" ? { description: parts.description } : {}),
-    };
-}
-
-/**
- * Вырезает сниппет-синтаксис: `${1:name}` → `name`, `${1|a,b|}` → `a`,
- * `$1`/`$0` → ``, `\$` → `$`.
- *
- * Сниппет-сессий (табстопы) у нас нет, и заводить их в этой итерации мы не
- * стали — но и пускать `${1:name}` в буфер пользователя нельзя. Это страховка,
- * а не поддержка сниппетов.
- */
-export function stripSnippetPlaceholders(value: string): string {
-    // Экранированный `\$` прячем ПЕРВЫМ: иначе `\$5` разбирается как плейсхолдер
-    // `$5`, и от него остаётся осиротевший обратный слэш.
-    const ESCAPED_DOLLAR = "\u0000";
-    return (
-        value
-            .replace(/\\\$/g, ESCAPED_DOLLAR)
-            // `split(",", 1).join("")` вместо `[0]`: даёт первый вариант без ветки
-            // «а вдруг массив пуст» (её не бывает, а покрытие требовало бы теста).
-            .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) =>
-                choices.split(",", 1).join(""),
-            )
-            .replace(/\$\{\d+:([^}]*)\}/g, "$1")
-            .replace(/\$\{\d+\}/g, "")
-            .replace(/\$\d+/g, "")
-            .replaceAll(ESCAPED_DOLLAR, "$")
-    );
-}
-
-/**
- * Читает `insertText` (строка или `SnippetString { value }`); fallback — label.
- * У сниппет-пунктов плейсхолдеры вырезаются — см. {@link stripSnippetPlaceholders}.
- */
-function readInsertText(item: vscode.CompletionItem, label: string): string {
-    const insert = (item as { insertText?: unknown }).insertText;
-    if (typeof insert === "string") return insert;
-    if (insert instanceof SnippetString) return stripSnippetPlaceholders(insert.value);
-    if (typeof insert === "object" && insert !== null && typeof (insert as { value?: unknown }).value === "string") {
-        return (insert as { value: string }).value;
-    }
-    return label;
-}
-
-/** Читает `documentation` (строка или `MarkdownString { value }`). */
-function readDocumentation(item: vscode.CompletionItem): string | undefined {
-    return readDocumentationText((item as { documentation?: unknown }).documentation);
-}
-
-/** `string | MarkdownString` → строка сырого markdown; чужая форма → `undefined`. */
-function readDocumentationText(doc: unknown): string | undefined {
-    if (typeof doc === "string") return doc;
-    if (typeof doc === "object" && doc !== null && typeof (doc as { value?: unknown }).value === "string") {
-        return (doc as { value: string }).value;
-    }
-    return undefined;
-}
-
-/** Читает диапазон замены (`Range` или `{ replacing, inserting }`). */
-function readRange(item: vscode.CompletionItem): IRange | undefined {
-    const raw = (item as { range?: unknown }).range;
-    if (raw === undefined || raw === null) return undefined;
-    const range =
-        raw instanceof Range
-            ? raw
-            : typeof raw === "object" && (raw as { replacing?: unknown }).replacing instanceof Range
-              ? (raw as { replacing: Range }).replacing
-              : undefined;
-    if (range === undefined) return undefined;
-    return serializeRange(range) ?? undefined;
-}
-
-/**
- * Сериализует `vscode.CompletionItem` в wire-форму (subprocess → host).
- * `id` — ключ элемента в кэше ответа, по нему host потом просит resolve.
- */
-function serializeCompletionItem(item: vscode.CompletionItem, id: string): ICoreCompletionItem | null {
-    const label = readLabel(item);
-    if (label === undefined || label === "") return null;
-    const labelDetails = readLabelDetails(item);
-    const command = (item as { command?: { command?: unknown; arguments?: unknown } | null }).command;
-    const kind = (item as { kind?: unknown }).kind;
-    const detail = (item as { detail?: unknown }).detail;
-    const sortText = (item as { sortText?: unknown }).sortText;
-    const filterText = (item as { filterText?: unknown }).filterText;
-    const documentation = readDocumentation(item);
-    const range = readRange(item);
-    return {
-        label,
-        insertText: readInsertText(item, label),
-        id,
-        ...(labelDetails.detail !== undefined ? { labelDetail: labelDetails.detail } : {}),
-        ...(labelDetails.description !== undefined ? { labelDescription: labelDetails.description } : {}),
-        ...(isFiniteNumber(kind) ? { kind } : {}),
-        ...(typeof detail === "string" ? { detail } : {}),
-        ...(documentation !== undefined ? { documentation } : {}),
-        ...(typeof command?.command === "string" && command.command !== ""
-            ? {
-                  command: {
-                      command: command.command,
-                      ...(Array.isArray(command.arguments) ? { arguments: command.arguments } : {}),
-                  },
-              }
-            : {}),
-        ...(range !== undefined ? { range } : {}),
-        ...(typeof sortText === "string" ? { sortText } : {}),
-        ...(typeof filterText === "string" ? { filterText } : {}),
-    };
-}
-
-/**
  * Нормализует результат провайдера в элементы + флаг «список неполный».
  * `isIncomplete` — не косметика: на нём стоит решение ядра перезапросить
  * провайдеров при доборе символа вместо локальной фильтрации (у tsserver
@@ -603,18 +225,6 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
     const items = (result as { items?: unknown }).items;
     const isIncomplete = (result as { isIncomplete?: unknown }).isIncomplete === true;
     return { items: Array.isArray(items) ? (items as vscode.CompletionItem[]) : [], isIncomplete };
-}
-
-/**
- * Сериализует `vscode.TextEdit` (утиный тип) в wire-правку текста
- * ({@link IWireEditorEdit}); `null` — форма чужая.
- */
-function serializeTextEdit(edit: unknown): IWireEditorEdit | null {
-    if (typeof edit !== "object" || edit === null) return null;
-    const e = edit as { range?: unknown; newText?: unknown };
-    const range = serializeRange(e.range);
-    if (range === null || typeof e.newText !== "string") return null;
-    return { range, text: e.newText };
 }
 
 /**
@@ -631,20 +241,6 @@ function reportProviderFailure(method: string, err: unknown): void {
     // CancellationError по токену), а не сбой.
     if (isCancellationError(err)) return;
     console.error(`[ext-host] ${method} failed: ${describeRejection(err)}`);
-}
-
-/** Сериализует `vscode.FoldingRange` в wire-форму; `null`, если форма битая. */
-function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | null {
-    const start = (range as { start?: unknown }).start;
-    const end = (range as { end?: unknown }).end;
-    if (typeof start !== "number" || !Number.isFinite(start)) return null;
-    if (typeof end !== "number" || !Number.isFinite(end)) return null;
-    const kind = (range as { kind?: unknown }).kind;
-    return {
-        start,
-        end,
-        ...(isFiniteNumber(kind) ? { kind } : {}),
-    };
 }
 
 /**
@@ -824,7 +420,7 @@ export function createLanguagesNamespace(
         if (result == null) return null;
         const contents = serializeHoverContents((result as { contents?: unknown }).contents);
         if (contents.length === 0) return null;
-        const range = serializeRange((result as { range?: unknown }).range);
+        const range = rangeFrom((result as { range?: unknown }).range);
         return { contents, ...(range === null ? {} : { range }) };
     });
 
@@ -844,11 +440,8 @@ export function createLanguagesNamespace(
                 triggerKind: p.triggerKind ?? SignatureHelpTriggerKind.Invoke,
                 triggerCharacter: p.triggerCharacter,
                 isRetrigger: p.isRetrigger === true,
-                // Точечный каст: ядро присылает подсказку plain-объектом с
-                // readonly-массивами, а не экземплярами SignatureHelp/
-                // SignatureInformation; по полям форма та же, провайдеры её
-                // только читают (конвертера wire → API-классы пока нет, это G5).
-                activeSignatureHelp: p.activeSignatureHelp as vscode.SignatureHelp | undefined,
+                activeSignatureHelp:
+                    p.activeSignatureHelp === undefined ? undefined : toVscodeSignatureHelp(p.activeSignatureHelp),
             };
             let result: unknown;
             try {
@@ -1236,36 +829,6 @@ export function createLanguagesNamespace(
         },
     );
 
-    /**
-     * Сериализует пункт инлайн-подсказки (утиный тип `vscode.InlineCompletionItem`):
-     * `insertText` — строка либо `SnippetString` (плейсхолдеры вырезаются, чтобы
-     * сниппет-синтаксис не попал ни в превью, ни в буфер). `null` — форма чужая
-     * или текст пуст (drop+skip).
-     */
-    function serializeInlineCompletionItem(item: unknown): ICoreInlineCompletionItem | null {
-        // Клауза typeof — защитная: не-объект без .insertText отсеет следующий
-        // гард (примитив со строковым insertText невозможен) — её мутанты
-        // эквивалентны. null отсекается по-настоящему (доступ к полю бросил бы).
-        // Stryker disable next-line ConditionalExpression: см. выше
-        if (typeof item !== "object" || item === null) return null;
-        const obj = item as { insertText?: unknown; filterText?: unknown; range?: unknown };
-        let insertText: string;
-        if (typeof obj.insertText === "string") {
-            insertText = obj.insertText;
-        } else if (obj.insertText instanceof SnippetString) {
-            insertText = stripSnippetPlaceholders(obj.insertText.value);
-        } else {
-            return null;
-        }
-        if (insertText === "") return null;
-        const range = serializeRange(obj.range);
-        return {
-            insertText,
-            ...(typeof obj.filterText === "string" ? { filterText: obj.filterText } : {}),
-            ...(range === null ? {} : { range }),
-        };
-    }
-
     rpc.handleRequest(
         "languages.provideInlineCompletions",
         async (params, cancellation): Promise<ICoreInlineCompletionItem[][]> => {
@@ -1391,7 +954,8 @@ export function createLanguagesNamespace(
             return (uri as { toString(): string }).toString();
         };
         const publish = (resource: string, diags: readonly vscode.Diagnostic[]): void => {
-            rpc.notify("diagnostics.publish", { owner, resource, markers: diags.map(toWireMarker) });
+            const markers = diags.map(toWireMarker).filter((marker) => marker !== null);
+            rpc.notify("diagnostics.publish", { owner, resource, markers });
         };
         const setOne = (uri: unknown, diags: readonly vscode.Diagnostic[] | undefined): void => {
             const resource = resourceOf(uri);

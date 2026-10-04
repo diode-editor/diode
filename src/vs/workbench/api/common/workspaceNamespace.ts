@@ -3,16 +3,15 @@ import * as nodePath from "node:path";
 import type * as vscode from "vscode";
 
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
-import { createRange } from "../../../editor/common/core/iRange.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { serializeWillSaveTextEdit, serializeWorkspaceEdit } from "./extHostTypeConverters.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { findFiles as walkForFiles } from "./findFiles.ts";
-import { serializeRange, stripSnippetPlaceholders } from "./languagesNamespace.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -21,9 +20,6 @@ import {
     EndOfLine,
     EventEmitter,
     FileSystemError,
-    Position,
-    Range,
-    SnippetTextEdit,
     TextDocumentSaveReason,
     TextEdit,
     Uri,
@@ -31,10 +27,8 @@ import {
 } from "./vscodeTypes.ts";
 import {
     type IWireApplyWorkspaceEditParams,
-    type IWireEditorEdit,
     type IWireReadFileResult,
     type IWireTextContentResult,
-    type IWireWorkspaceEditOp,
     type IWireWorkspaceFolder,
     parseWireDocumentChangedEvent,
     parseWireDocumentSyncSnapshot,
@@ -102,89 +96,6 @@ function listenerTimeout(): Promise<readonly TextEdit[]> {
         // Не держим event loop живым из-за таймера, который проиграл гонку.
         timer.unref();
     });
-}
-
-/**
- * Сериализует `vscode.TextEdit` в wire-форму (subprocess → host); `null` —
- * поля правки испорчены (её `range`/`newText` публичны и записываемы). Хост
- * ответ will-save не перепроверяет.
- */
-function serializeTextEdit(edit: TextEdit): WireTextEdit | null {
-    if (edit.newEol !== undefined) {
-        return { setEndOfLine: edit.newEol === EndOfLine.CRLF ? 2 : 1 };
-    }
-    const range = serializeRange(edit.range);
-    if (range === null || typeof edit.newText !== "string") return null;
-    return { range, text: edit.newText };
-}
-
-/**
- * Сериализует правку из `WorkspaceEdit` в wire-форму `workspace.applyEdit`.
- * Сниппет-правка становится обычным текстом (плейсхолдеры вырезаются — как у
- * completion, интерактивных табстопов нет). Чистая EOL-правка
- * (`TextEdit.setEndOfLine`) текстом не является — пропускается (`null`).
- */
-function serializeWorkspaceTextEdit(edit: TextEdit | SnippetTextEdit): IWireEditorEdit | null {
-    const range = createRange(
-        edit.range.start.line,
-        edit.range.start.character,
-        edit.range.end.line,
-        edit.range.end.character,
-    );
-    if (edit instanceof SnippetTextEdit) {
-        return { range, text: stripSnippetPlaceholders(edit.snippet.value) };
-    }
-    if (edit.newEol !== undefined && edit.newText === "" && edit.range.isEmpty) return null;
-    return { range, text: edit.newText };
-}
-
-/**
- * Сериализует `WorkspaceEdit` в упорядоченный набор операций провода.
- *
- * Порядок операций сохраняется дословно: «Move to a new file» создаёт файл и
- * тут же пишет в него, а rename-рефакторинг правит импорты уже по новому пути.
- * Текстовая операция, у которой не осталось ни одной настоящей правки (один шум
- * вроде `TextEdit.setEndOfLine`), выпадает — применять там нечего.
- */
-function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditOp[] {
-    const ops: IWireWorkspaceEditOp[] = [];
-    for (const op of edit.operations()) {
-        if (op.kind === "text") {
-            const edits: IWireEditorEdit[] = [];
-            for (const item of op.edits) {
-                const serialized = serializeWorkspaceTextEdit(item);
-                if (serialized !== null) edits.push(serialized);
-            }
-            if (edits.length > 0) ops.push({ kind: "text", resource: op.uri.toString(), edits });
-            continue;
-        }
-        if (op.kind === "rename") {
-            ops.push({
-                kind: "rename",
-                from: op.from.toString(),
-                to: op.to.toString(),
-                ...(op.options.overwrite === true ? { overwrite: true } : {}),
-                ...(op.options.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
-            });
-            continue;
-        }
-        if (op.kind === "create") {
-            ops.push({
-                kind: "create",
-                resource: op.uri.toString(),
-                ...(op.options.contents === undefined ? {} : { contents: op.options.contents }),
-                ...(op.options.overwrite === true ? { overwrite: true } : {}),
-                ...(op.options.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
-            });
-            continue;
-        }
-        ops.push({
-            kind: "delete",
-            resource: op.uri.toString(),
-            ...(op.options.ignoreIfNotExists === true ? { ignoreIfNotExists: true } : {}),
-        });
-    }
-    return ops;
 }
 
 /** Валидный Event, который никогда не стреляет (хост его не фаерит). */
@@ -459,7 +370,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         for (const result of settled) {
             if (!Array.isArray(result)) continue;
             for (const edit of result) {
-                const wire = edit instanceof TextEdit ? serializeTextEdit(edit) : null;
+                const wire = edit instanceof TextEdit ? serializeWillSaveTextEdit(edit) : null;
                 if (wire !== null) edits.push(wire);
             }
         }
@@ -634,6 +545,8 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
         applyEdit: (edit: vscode.WorkspaceEdit): Thenable<boolean> => {
             if (!(edit instanceof WorkspaceEdit)) return Promise.resolve(false);
             const ops = serializeWorkspaceEdit(edit);
+            // Операция из одних битых правок — отказ всего edit'а (all-or-nothing).
+            if (ops === null) return Promise.resolve(false);
             // Пустой edit (или один шум вроде чистых EOL-правок) — вакуумный
             // успех, как у VS Code: применять нечего, но и отказа нет.
             if (ops.length === 0) return Promise.resolve(true);
