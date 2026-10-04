@@ -7,7 +7,7 @@ import { createRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 import { createTextEdit } from "../core/iTextEdit.ts";
 
-import type { IDocumentContentChange } from "./iDocumentContentChange.ts";
+import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
 import type { IApplyEditsResult, ITextDocument } from "./iTextDocument.ts";
 
@@ -21,6 +21,8 @@ export class TextDocument implements ITextDocument {
     private lines: string[];
     private readonly onDidChangeContentEmitter = new Emitter<IDocumentContentChange>();
     public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;
+    private readonly onDidChangeModelContentEmitter = new Emitter<IModelContentChangedEvent>();
+    public readonly onDidChangeModelContent = this.onDidChangeModelContentEmitter.event;
     private readonly onDidChangeLanguageEmitter = new Emitter<IDocumentLanguageChange>();
     public readonly onDidChangeLanguage = this.onDidChangeLanguageEmitter.event;
     private readonly onDidChangeEolEmitter = new Emitter<void>();
@@ -104,6 +106,12 @@ export class TextDocument implements ITextDocument {
             newEndLine: this.lines.length - 1,
             isFlush: true,
         });
+        this.onDidChangeModelContentEmitter.fire({
+            changes: [],
+            versionId: this.innerVersionId,
+            eol: this.eolValue,
+            isFlush: true,
+        });
         if (this.eolValue !== eolBefore) this.onDidChangeEolEmitter.fire();
     }
 
@@ -175,6 +183,18 @@ export class TextDocument implements ITextDocument {
             });
             lineShift += change.newEndLine - change.oldEndLine;
         }
+
+        // Батч целиком — уже после построчных событий. `reversed` — ровно
+        // порядок применения (по убыванию, в исходных координатах), как у
+        // `pieceTreeTextBuffer._sortOpsDescending` эталона: последовательное
+        // применение к копии строк до батча корректно по той же причине, что
+        // и наш цикл `applySingleEdit`.
+        this.onDidChangeModelContentEmitter.fire({
+            changes: reversed.map((edit) => ({ range: edit.range, text: edit.text })),
+            versionId: this.innerVersionId,
+            eol: this.eolValue,
+            isFlush: false,
+        });
 
         return { appliedVersion: this.innerVersionId, inverseEdits };
     }
