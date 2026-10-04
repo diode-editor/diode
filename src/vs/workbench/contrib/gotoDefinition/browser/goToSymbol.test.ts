@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
@@ -24,6 +25,27 @@ describe("getDefinitions — агрегация по реестру", () => {
         registry.register("*", { provideDefinition: () => Promise.reject(new Error("boom")) });
         registry.register("typescript", { provideDefinition: () => Promise.resolve([target(1)]) });
 
-        expect(await getDefinitions(registry, TS, REQUEST)).toEqual([target(1), target(2)]);
+        expect(await getDefinitions(registry, TS, REQUEST, new CancellationTokenSource().token)).toEqual([
+            target(1),
+            target(2),
+        ]);
+    });
+
+    it("каждый провайдер получает токен запроса", async () => {
+        const registry = new LanguageFeaturesService().definitionProvider;
+        const seen: ICancellationToken[] = [];
+        const provider = {
+            provideDefinition: (_request: IDefinitionRequest, token: ICancellationToken) => {
+                seen.push(token);
+                return Promise.resolve([]);
+            },
+        };
+        registry.register("*", provider);
+        registry.register("typescript", provider);
+        const token = new CancellationTokenSource().token;
+
+        await getDefinitions(registry, TS, REQUEST, token);
+
+        expect(seen).toEqual([token, token]);
     });
 });

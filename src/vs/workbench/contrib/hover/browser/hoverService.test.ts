@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -118,6 +119,20 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(lines).toContain("Документация ответа");
         // Фокус остался в редакторе.
         expect(group().getActiveEditor()).not.toBeNull();
+    });
+
+    it("закрытие попапа отменяет запрос и у провайдера", async () => {
+        const tokens: ICancellationToken[] = [];
+        useProvider((_request, token) => {
+            tokens.push(token);
+            return new Promise(() => undefined);
+        });
+
+        void service().showHover();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([false]);
+
+        service().close();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
     it("несколько провайдеров: по блоку на каждого, между ними линия-разделитель", async () => {

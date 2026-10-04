@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type {
     ILanguageFeatureTarget,
     LanguageFeatureRegistry,
@@ -18,9 +19,10 @@ export async function getReferences(
     registry: LanguageFeatureRegistry<ReferenceProvider>,
     target: ILanguageFeatureTarget,
     request: IReferenceRequest,
+    token: ICancellationToken,
 ): Promise<ICoreReference[]> {
     const results = await Promise.all(
-        registry.ordered(target).map((provider) => provider.provideReferences(request).catch(() => [])),
+        registry.ordered(target).map((provider) => provider.provideReferences(request, token).catch(() => [])),
     );
     return results.flat();
 }

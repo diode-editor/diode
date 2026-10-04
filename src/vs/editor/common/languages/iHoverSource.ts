@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
@@ -33,5 +34,10 @@ export interface ICoreHover {
  * расширений регистрирует туда `LanguageFeaturesAdapter` — прокси по handle.
  */
 export interface HoverProvider {
-    provideHover(request: IHoverRequest): Promise<ICoreHover | undefined>;
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
+     * закрытие попапа, правка или уход каретки) — отмена доезжает до провайдера
+     * расширения, и language-сервер бросает ненужную работу.
+     */
+    provideHover(request: IHoverRequest, token: ICancellationToken): Promise<ICoreHover | undefined>;
 }

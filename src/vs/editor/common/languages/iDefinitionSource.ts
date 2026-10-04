@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
@@ -33,5 +34,13 @@ export interface ICoreDefinitionLocation {
  * найдено. Провайдеры расширений регистрирует туда `LanguageFeaturesAdapter`.
  */
 export interface DefinitionProvider {
-    provideDefinition(request: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]>;
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
+     * закрытие попапа, правка или уход каретки) — отмена доезжает до провайдера
+     * расширения, и language-сервер бросает ненужную работу.
+     */
+    provideDefinition(
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
 }

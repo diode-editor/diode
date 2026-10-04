@@ -118,22 +118,27 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         const caret = editor.viewState.selections[0].active;
         const ticket = this.latest.start();
         const isRetrigger = this.isOpen();
-        const help = await provideSignatureHelp(providers, {
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            versionId: editor.model.document.versionId,
-            line: caret.line,
-            character: caret.character,
-            triggerKind,
-            ...(character === undefined ? {} : { triggerCharacter: character }),
-            isRetrigger,
-            // Эхо показанной подсказки: по нему сервер удерживает перегрузку,
-            // которую пользователь выбрал стрелками (tsserver ищет её по метке).
-            // Stryker disable next-line ConditionalExpression: открытый попап без сохранённого результата недостижим — `close()` гасит и сессию, и результат вместе
-            ...(isRetrigger && this.currentHelp !== null
-                ? { activeSignatureHelp: { ...this.currentHelp, activeSignature: this.activeSignatureIndex } }
-                : {}),
-        });
+        const help = await provideSignatureHelp(
+            providers,
+            {
+                uri: editor.uri.toString(),
+                languageId: editor.languageId,
+                versionId: editor.model.document.versionId,
+                line: caret.line,
+                character: caret.character,
+                triggerKind,
+                ...(character === undefined ? {} : { triggerCharacter: character }),
+                isRetrigger,
+                // Эхо показанной подсказки: по нему сервер удерживает перегрузку,
+                // которую пользователь выбрал стрелками (tsserver ищет её по метке).
+                // Stryker disable next-line ConditionalExpression: открытый попап без сохранённого результата недостижим — `close()` гасит и сессию, и результат вместе
+                ...(isRetrigger && this.currentHelp !== null
+                    ? { activeSignatureHelp: { ...this.currentHelp, activeSignature: this.activeSignatureIndex } }
+                    : {}),
+            },
+            // Перезапрос и закрытие подсказки отменяют запрос и у провайдера.
+            ticket.token,
+        );
         // Пока ходили за ответом, попап могли закрыть или перезапросить — старый
         // ответ не имеет права перекрыть новое состояние.
         if (ticket.isStale()) return;

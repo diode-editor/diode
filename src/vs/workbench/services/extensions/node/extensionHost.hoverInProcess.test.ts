@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks, settle } from "../../../../../TestUtils/timing.ts";
-import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -238,5 +238,25 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);
         });
+    });
+
+    it("отмена ядра доезжает до токена субпроцесса (provideHover)", async () => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest("languages.provideHover", (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host.provideHover(7, REQUEST, source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
     });
 });

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type {
@@ -105,6 +106,20 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
     const service = () => h.container.get(ParameterHintsServiceDIToken);
     const component = () => h.container.get(ParameterHintsComponentDIToken);
     const lines = () => component().view.linesFor(60);
+
+    it("закрытие подсказки отменяет запрос и у провайдера", () => {
+        const tokens: ICancellationToken[] = [];
+        useSource((_request, token) => {
+            tokens.push(token);
+            return new Promise(() => undefined);
+        });
+
+        void service().trigger();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([false]);
+
+        service().close();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
+    });
 
     it("провайдеров для документа не осталось — вызов no-op: открытый попап не трогает (как upstream)", async () => {
         useSource(() => Promise.resolve(help()));

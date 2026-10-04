@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 /** Чем спровоцирован запрос подсказки (значения `vscode.SignatureHelpTriggerKind`). */
 export const SignatureHelpTriggerKind = {
     /** Ручной вызов командой. */
@@ -81,5 +82,10 @@ export interface SignatureHelpProvider {
     readonly triggerCharacters: readonly string[];
     /** Символы, перезапрашивающие подсказку, пока она показана («)»). */
     readonly retriggerCharacters: readonly string[];
-    provideSignatureHelp(request: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null>;
+    /**
+     * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
+     * закрытие попапа, правка или уход каретки) — отмена доезжает до провайдера
+     * расширения, и language-сервер бросает ненужную работу.
+     */
+    provideSignatureHelp(request: ISignatureHelpRequest, token: ICancellationToken): Promise<ICoreSignatureHelp | null>;
 }

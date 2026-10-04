@@ -887,20 +887,36 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideFoldingRanges(handle, req);
     }
 
-    public provideDefinition(handle: number, req: IDefinitionRequest): Promise<readonly ICoreDefinitionLocation[]> {
-        return this.languageFeatures.provideDefinition(handle, req);
+    public provideDefinition(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideDefinition(handle, req, token);
     }
 
-    public provideHover(handle: number, req: IHoverRequest): Promise<ICoreHover | undefined> {
-        return this.languageFeatures.provideHover(handle, req);
+    public provideHover(
+        handle: number,
+        req: IHoverRequest,
+        token?: ICancellationToken,
+    ): Promise<ICoreHover | undefined> {
+        return this.languageFeatures.provideHover(handle, req, token);
     }
 
-    public provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
-        return this.languageFeatures.provideReferences(handle, req);
+    public provideReferences(
+        handle: number,
+        req: IReferenceRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreReference[]> {
+        return this.languageFeatures.provideReferences(handle, req, token);
     }
 
-    public provideSignatureHelp(handle: number, req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
-        return this.languageFeatures.provideSignatureHelp(handle, req);
+    public provideSignatureHelp(
+        handle: number,
+        req: ISignatureHelpRequest,
+        token?: ICancellationToken,
+    ): Promise<ICoreSignatureHelp | null> {
+        return this.languageFeatures.provideSignatureHelp(handle, req, token);
     }
 
     public provideFormattingEdits(handle: number, req: IFormattingRequest): Promise<readonly ITextEdit[]> {

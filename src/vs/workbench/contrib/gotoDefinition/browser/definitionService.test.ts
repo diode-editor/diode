@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -104,6 +105,20 @@ describe("DefinitionService — Go to Definition", () => {
         expect(groups[0].activePane?.uri.toString()).toBe(mainUri);
         expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);
         expect(caret()).toMatchObject({ line: 0, character: 16 });
+    });
+
+    it("уход каретки отменяет запрос и у провайдера", () => {
+        const tokens: ICancellationToken[] = [];
+        useDefinitions((_request, token) => {
+            tokens.push(token);
+            return new Promise(() => undefined);
+        });
+
+        void service().revealDefinition();
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([false]);
+
+        group().getActiveEditor()?.goToPosition(1, 2);
+        expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
     /** Провайдер с ручным ответом: каждый вызов кладёт свой resolver в очередь. */

@@ -65,7 +65,7 @@ interface ILanguageRequestOptions<K extends LanguageRequestMethod> {
     readonly notSynced?: LanguageResult<K>;
     /** Срок ответа вместо табличного (inline completions берут его из запроса). */
     readonly timeoutMs?: number | undefined;
-    /** Отмена «сверху» (inline completions). */
+    /** Отмена «сверху»: ответ перестал быть нужен (новый запрос, закрытый попап, правка). */
     readonly token?: ICancellationToken | undefined;
 }
 
@@ -251,6 +251,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     public async provideDefinition(
         handle: number,
         req: IDefinitionRequest,
+        token?: ICancellationToken,
     ): Promise<readonly ICoreDefinitionLocation[]> {
         return this.request(
             "languages.provideDefinition",
@@ -259,6 +260,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 ...positionParams(req),
             },
             [],
+            { token },
         );
     }
 
@@ -269,7 +271,11 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * отведённый срок. Зовёт его прокси, который `LanguageFeaturesAdapter`
      * держит в реестре ядра.
      */
-    public async provideHover(handle: number, req: IHoverRequest): Promise<ICoreHover | undefined> {
+    public async provideHover(
+        handle: number,
+        req: IHoverRequest,
+        token?: ICancellationToken,
+    ): Promise<ICoreHover | undefined> {
         const hover = await this.request(
             "languages.provideHover",
             {
@@ -277,6 +283,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 ...positionParams(req),
             },
             null,
+            { token },
         );
         return hover ?? undefined;
     }
@@ -288,7 +295,11 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * отведённый срок. Зовёт его прокси из реестра ядра
      * (`LanguageFeaturesAdapter`).
      */
-    public async provideReferences(handle: number, req: IReferenceRequest): Promise<readonly ICoreReference[]> {
+    public async provideReferences(
+        handle: number,
+        req: IReferenceRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreReference[]> {
         return this.request(
             "languages.provideReferences",
             {
@@ -297,6 +308,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 includeDeclaration: req.includeDeclaration,
             },
             [],
+            { token },
         );
     }
 
@@ -307,7 +319,11 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * отведённый срок. Зовёт его прокси из реестра ядра
      * (`LanguageFeaturesAdapter`).
      */
-    public async provideSignatureHelp(handle: number, req: ISignatureHelpRequest): Promise<ICoreSignatureHelp | null> {
+    public async provideSignatureHelp(
+        handle: number,
+        req: ISignatureHelpRequest,
+        token?: ICancellationToken,
+    ): Promise<ICoreSignatureHelp | null> {
         return this.request(
             "languages.provideSignatureHelp",
             {
@@ -324,6 +340,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 ...(req.activeSignatureHelp === undefined ? {} : { activeSignatureHelp: req.activeSignatureHelp }),
             },
             null,
+            { token },
         );
     }
 

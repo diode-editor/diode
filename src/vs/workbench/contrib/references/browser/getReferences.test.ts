@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
@@ -25,6 +26,27 @@ describe("getReferences — агрегация по реестру", () => {
         registry.register("*", { provideReferences: () => Promise.reject(new Error("boom")) });
         registry.register("typescript", { provideReferences: () => Promise.resolve([ref(1)]) });
 
-        expect(await getReferences(registry, TS, REQUEST)).toEqual([ref(1), ref(2)]);
+        expect(await getReferences(registry, TS, REQUEST, new CancellationTokenSource().token)).toEqual([
+            ref(1),
+            ref(2),
+        ]);
+    });
+
+    it("каждый провайдер получает токен запроса", async () => {
+        const registry = new LanguageFeaturesService().referenceProvider;
+        const seen: ICancellationToken[] = [];
+        const provider = {
+            provideReferences: (_request: IReferenceRequest, token: ICancellationToken) => {
+                seen.push(token);
+                return Promise.resolve([]);
+            },
+        };
+        registry.register("*", provider);
+        registry.register("typescript", provider);
+        const token = new CancellationTokenSource().token;
+
+        await getReferences(registry, TS, REQUEST, token);
+
+        expect(seen).toEqual([token, token]);
     });
 });

@@ -1,3 +1,4 @@
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type {
     ILanguageFeatureTarget,
     LanguageFeatureRegistry,
@@ -19,9 +20,10 @@ export async function getDefinitions(
     registry: LanguageFeatureRegistry<DefinitionProvider>,
     target: ILanguageFeatureTarget,
     request: IDefinitionRequest,
+    token: ICancellationToken,
 ): Promise<ICoreDefinitionLocation[]> {
     const results = await Promise.all(
-        registry.ordered(target).map((provider) => provider.provideDefinition(request).catch(() => [])),
+        registry.ordered(target).map((provider) => provider.provideDefinition(request, token).catch(() => [])),
     );
     return results.flat();
 }
