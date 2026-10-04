@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
-import { CANCEL_REQUEST_METHOD, RpcEndpoint } from "./rpcEndpoint.ts";
+import { CANCEL_REQUEST_METHOD, RpcEndpoint, TimeoutError } from "./rpcEndpoint.ts";
 
 /**
  * Транспорт отмены поверх RpcEndpoint: токен вызывающего → нотификация
@@ -83,7 +83,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         b.handleRequest("slow", deferred.handler);
 
         const source = new CancellationTokenSource();
-        const pending = a.request("slow", { x: 1 }, source.token);
+        const pending = a.request("slow", { x: 1 }, { token: source.token });
         await microtasks();
 
         const observed = vi.fn();
@@ -128,7 +128,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         b.handleRequest("fast", () => "done");
 
         const source = new CancellationTokenSource();
-        expect(await a.request("fast", {}, source.token)).toBe("done");
+        expect(await a.request("fast", {}, { token: source.token })).toBe("done");
         source.cancel();
         await microtasks();
 
@@ -229,7 +229,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         b.handleNotification(CANCEL_REQUEST_METHOD, (params) => cancels.push(params));
 
         const source = new CancellationTokenSource();
-        void a.request("slow", {}, source.token).catch(() => undefined);
+        void a.request("slow", {}, { token: source.token }).catch(() => undefined);
         await microtasks();
 
         a.dispose();
@@ -253,8 +253,8 @@ describe("RpcEndpoint — отмена запроса", () => {
 
         const first = new CancellationTokenSource();
         const second = new CancellationTokenSource();
-        const p1 = a.request("slow", { n: 1 }, first.token);
-        const p2 = a.request("slow", { n: 2 }, second.token);
+        const p1 = a.request("slow", { n: 1 }, { token: first.token });
+        const p2 = a.request("slow", { n: 2 }, { token: second.token });
         await microtasks();
 
         first.cancel();
@@ -277,7 +277,7 @@ describe("RpcEndpoint — отмена запроса", () => {
 
         const source = new CancellationTokenSource();
         source.cancel();
-        const pending = a.request("slow", {}, source.token);
+        const pending = a.request("slow", {}, { token: source.token });
         await microtasks();
 
         expect(deferred.called()).toBe(1);
@@ -285,6 +285,107 @@ describe("RpcEndpoint — отмена запроса", () => {
 
         deferred.finish("late");
         await pending;
+        dispose();
+    });
+});
+
+describe("RpcEndpoint — срок ответа (timeoutMs)", () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("истёкший срок отклоняет TimeoutError и отменяет запрос на той стороне", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const { a, b, chB, dispose } = createEndpointPair();
+        const cancels = cancelsOn(chB);
+        const deferred = deferredHandler();
+        b.handleRequest("slow", deferred.handler);
+
+        const pending = a.request("slow", {}, { timeoutMs: 50 });
+        const settled = pending.catch((error: unknown) => error);
+        await microtasks();
+        expect(deferred.called()).toBe(1);
+        expect(deferred.tokenOf().isCancellationRequested).toBe(false);
+
+        vi.advanceTimersByTime(49);
+        await microtasks();
+        expect(cancels).toHaveLength(0);
+
+        vi.advanceTimersByTime(1);
+        const error = await settled;
+        expect(error).toBeInstanceOf(TimeoutError);
+        expect(error).toMatchObject({
+            name: "TimeoutError",
+            method: "slow",
+            timeoutMs: 50,
+            message: 'request "slow" timed out after 50ms',
+        });
+        await microtasks();
+        expect(cancels).toHaveLength(1);
+        expect(deferred.tokenOf().isCancellationRequested).toBe(true);
+
+        // Опоздавший ответ никому не адресован и ничего не ломает.
+        deferred.finish("late");
+        await microtasks();
+        dispose();
+    });
+
+    it("ответ в срок гасит таймер: отмены нет, таймеров не остаётся", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const { a, b, chB, dispose } = createEndpointPair();
+        const cancels = cancelsOn(chB);
+        b.handleRequest("fast", () => "done");
+
+        expect(await a.request("fast", {}, { timeoutMs: 50 })).toBe("done");
+        expect(vi.getTimerCount()).toBe(0);
+        vi.advanceTimersByTime(100);
+        await microtasks();
+        expect(cancels).toHaveLength(0);
+        dispose();
+    });
+
+    it("dispose до срока гасит таймер вместе с ожиданием", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const { a, b, dispose } = createEndpointPair();
+        b.handleRequest("slow", deferredHandler().handler);
+
+        const pending = a.request("slow", {}, { timeoutMs: 50 });
+        expect(vi.getTimerCount()).toBe(1);
+        dispose();
+        await expect(pending).rejects.toThrow("RpcEndpoint disposed");
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("после срока токен вызывающего больше не шлёт отмену — запрос уже снят", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const { a, b, chB, dispose } = createEndpointPair();
+        const cancels = cancelsOn(chB);
+        b.handleRequest("slow", deferredHandler().handler);
+        const caller = new CancellationTokenSource();
+
+        const settled = a.request("slow", {}, { token: caller.token, timeoutMs: 10 }).catch(() => undefined);
+        vi.advanceTimersByTime(10);
+        await settled;
+        await microtasks();
+        expect(cancels).toHaveLength(1);
+
+        caller.cancel();
+        await microtasks();
+        expect(cancels).toHaveLength(1);
+        dispose();
+    });
+
+    it("без срока запрос ждёт сколько угодно", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const { a, b, dispose } = createEndpointPair();
+        const deferred = deferredHandler();
+        b.handleRequest("slow", deferred.handler);
+
+        const pending = a.request("slow", {});
+        expect(vi.getTimerCount()).toBe(0);
+        await microtasks();
+        deferred.finish("eventually");
+        expect(await pending).toBe("eventually");
         dispose();
     });
 });

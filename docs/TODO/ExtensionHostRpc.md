@@ -18,10 +18,10 @@
 
 ## План
 
-1. [~] Формат ошибки: `SerializedError`, `transformError{For,From}Serialization`,
+1. [x] Формат ошибки (#513): `SerializedError`, `transformError{For,From}Serialization`,
    `CancellationError`/`isCancellationError` (`base/common/errorSerialization.ts`); `RpcEndpoint`
    переносит ошибку целиком.
-2. [ ] Таймаут как отмена в транспорте: `request(…, { token, timeoutMs })`,
+2. [~] Таймаут как отмена в транспорте: `request(…, { token, timeoutMs })`,
    `raceWithTimeout` удаляется; таблица таймаутов вместо опций `*TimeoutMs`;
    ошибка и таймаут логируются раздельно.
 3. [ ] Токены отмены в субпроцессе вместо `neverCancelledToken`, логгер у

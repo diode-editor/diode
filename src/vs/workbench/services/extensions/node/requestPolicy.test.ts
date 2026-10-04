@@ -1,0 +1,81 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import { type IRequestOptions, type RpcEndpoint, TimeoutError } from "../../../api/common/rpcEndpoint.ts";
+
+import { DEFAULT_REQUEST_TIMEOUTS, loggingRequest } from "./requestPolicy.ts";
+
+function spyLogger() {
+    return { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+}
+
+function rpcAnswering(answer: () => Promise<unknown>) {
+    const calls: { method: string; params: unknown; options: IRequestOptions }[] = [];
+    const rpc = {
+        request: (method: string, params: unknown, options: IRequestOptions) => {
+            calls.push({ method, params, options });
+            return answer();
+        },
+    } as unknown as RpcEndpoint;
+    return { rpc, calls };
+}
+
+describe("loggingRequest", () => {
+    it("ответ проходит как есть, параметры и опции — до транспорта; лог молчит", async () => {
+        const logger = spyLogger();
+        const { rpc, calls } = rpcAnswering(() => Promise.resolve("ok"));
+        const request = loggingRequest(rpc, logger as unknown as ILogger);
+        await expect(request("languages.provideHover", { a: 1 }, { timeoutMs: 7 })).resolves.toBe("ok");
+        expect(calls).toEqual([{ method: "languages.provideHover", params: { a: 1 }, options: { timeoutMs: 7 } }]);
+        expect(logger.debug).not.toHaveBeenCalled();
+        expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it("истёкший срок — debug с текстом таймаута, отказ пробрасывается", async () => {
+        const logger = spyLogger();
+        const timeout = new TimeoutError("languages.provideHover", 5);
+        const { rpc } = rpcAnswering(() => Promise.reject(timeout));
+        const request = loggingRequest(rpc, logger as unknown as ILogger);
+        await expect(request("languages.provideHover", {}, {})).rejects.toBe(timeout);
+        expect(logger.debug).toHaveBeenCalledWith('request "languages.provideHover" timed out after 5ms');
+        expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it("отказ — warn с методом и самой ошибкой (стек расширения), отказ пробрасывается", async () => {
+        const logger = spyLogger();
+        const failure = new Error("provider crashed");
+        const { rpc } = rpcAnswering(() => Promise.reject(failure));
+        const request = loggingRequest(rpc, logger as unknown as ILogger);
+        await expect(request("languages.provideHover", {}, {})).rejects.toBe(failure);
+        expect(logger.warn).toHaveBeenCalledWith('request "languages.provideHover" failed', failure);
+        expect(logger.debug).not.toHaveBeenCalled();
+    });
+
+    it("без логгера отказы просто пробрасываются", async () => {
+        const { rpc } = rpcAnswering(() => Promise.reject(new TimeoutError("m", 1)));
+        await expect(loggingRequest(rpc, undefined)("m", {}, {})).rejects.toBeInstanceOf(TimeoutError);
+        const { rpc: failing } = rpcAnswering(() => Promise.reject(new Error("x")));
+        await expect(loggingRequest(failing, undefined)("m", {}, {})).rejects.toThrow("x");
+    });
+});
+
+describe("DEFAULT_REQUEST_TIMEOUTS", () => {
+    it("сроки по методам провода — прежние дефолты опций хоста", () => {
+        expect(DEFAULT_REQUEST_TIMEOUTS).toEqual({
+            "workspace.willSaveTextDocument": 1500,
+            "languages.provideCompletionItems": 1500,
+            "languages.resolveCompletionItem": 1500,
+            "languages.provideInlineCompletions": 5000,
+            "languages.provideFoldingRanges": 1500,
+            "languages.provideDefinition": 5000,
+            "languages.provideHover": 5000,
+            "languages.provideReferences": 5000,
+            "languages.provideSignatureHelp": 5000,
+            "languages.provideFormattingEdits": 5000,
+            "languages.provideCodeActions": 5000,
+            "languages.applyCodeAction": 10000,
+            "languages.prepareRename": 5000,
+            "languages.provideRenameEdits": 10000,
+        });
+    });
+});

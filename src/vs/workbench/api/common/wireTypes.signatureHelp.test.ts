@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { SignatureHelpTriggerKind } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 
+import { type IRequestOptions, TimeoutError } from "./rpcEndpoint.ts";
 import { type IWireSignatureHelpParams, parseWireSignatureHelp, requestSignatureHelp } from "./wireTypes.ts";
 
 const PARAMS: IWireSignatureHelpParams = {
@@ -21,6 +22,18 @@ const HELP = {
     activeSignature: 0,
     activeParameter: 0,
 };
+
+/**
+ * Субпроцесс, который не отвечает, за транспортом, который держит срок, как
+ * `RpcEndpoint.request`: по истечении `options.timeoutMs` — `TimeoutError`.
+ */
+function hanging(method: string, _params: unknown, options: IRequestOptions): Promise<unknown> {
+    return new Promise((_resolve, reject) => {
+        setTimeout(() => {
+            reject(new TimeoutError(method, options.timeoutMs ?? 0));
+        }, options.timeoutMs);
+    });
+}
 
 describe("wireTypes — parseWireSignatureHelp", () => {
     it("разбирает ответ сервера целиком: метки, документация, активные индексы", () => {
@@ -171,7 +184,9 @@ describe("wireTypes — requestSignatureHelp", () => {
     });
 
     it("таймаут, ошибка RPC и чужая форма ответа → подсказки нет", async () => {
-        expect(await requestSignatureHelp(() => new Promise(() => undefined), PARAMS, 5)).toBeNull();
+        const request = vi.fn(hanging);
+        expect(await requestSignatureHelp(request, PARAMS, 5)).toBeNull();
+        expect(request).toHaveBeenCalledWith("languages.provideSignatureHelp", PARAMS, { timeoutMs: 5 });
         expect(await requestSignatureHelp(() => Promise.reject(new Error("boom")), PARAMS, 1000)).toBeNull();
         expect(await requestSignatureHelp(() => Promise.resolve({ nope: true }), PARAMS, 1000)).toBeNull();
     });

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
+import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 
+import { type IRequestOptions, TimeoutError } from "./rpcEndpoint.ts";
 import {
     parseWireInlineCompletionItems,
     requestInlineCompletions,
@@ -102,9 +103,9 @@ describe("requestInlineCompletions", () => {
         expect(result).toStrictEqual([[], []]);
     });
 
-    it("таймаут и ошибка RPC — пустой список", async () => {
-        const never = new Promise<unknown>(() => undefined);
-        expect(await requestInlineCompletions(() => never, PARAMS, 10)).toEqual([[]]);
+    it("истёкший срок и ошибка RPC — пусто у каждого провайдера пачки", async () => {
+        const timedOut = (method: string): Promise<unknown> => Promise.reject(new TimeoutError(method, 10));
+        expect(await requestInlineCompletions(timedOut, { ...PARAMS, handles: [1, 2] }, 10)).toStrictEqual([[], []]);
         expect(await requestInlineCompletions(() => Promise.reject(new Error("boom")), PARAMS, 1000)).toEqual([[]]);
     });
 
@@ -121,61 +122,37 @@ describe("requestInlineCompletions", () => {
         expect(calls).toEqual([{ method: "languages.provideInlineCompletions", params: PARAMS }]);
     });
 
-    it("отмена ядра уезжает в RPC-запрос тем же токеном", async () => {
+    // Отмену по сроку и по токену ядра делает транспорт (`RpcEndpoint.request`,
+    // `$/cancelRequest`) — здесь только то, что хелпер отдаёт ему оба.
+    it("срок и токен ядра уезжают в options запроса тем же токеном", async () => {
         const caller = new CancellationTokenSource();
-        let seen: ICancellationToken | undefined;
-        const pending = requestInlineCompletions(
-            (_method, _params, token) => {
-                seen = token;
-                return new Promise<unknown>(() => undefined);
+        let seen: IRequestOptions | undefined;
+        const result = await requestInlineCompletions(
+            (_method, _params, options) => {
+                seen = options;
+                return Promise.resolve([[{ insertText: "x" }]]);
             },
             PARAMS,
             20,
             caller.token,
         );
 
-        expect(seen?.isCancellationRequested).toBe(false);
-        caller.cancel();
-        expect(seen?.isCancellationRequested).toBe(true);
-
-        // Сам промис так и висит — его снимет таймаут; результат пустой.
-        expect(await pending).toEqual([[]]);
+        expect(result).toStrictEqual([[{ insertText: "x" }]]);
+        expect(seen).toStrictEqual({ timeoutMs: 20, token: caller.token });
+        expect(seen?.token).toBe(caller.token);
     });
 
-    it("истёкший таймаут отменяет запрос: провайдер не считает в пустоту", async () => {
-        let seen: ICancellationToken | undefined;
-        const result = await requestInlineCompletions(
-            (_method, _params, token) => {
-                seen = token;
-                return new Promise<unknown>(() => undefined);
-            },
-            PARAMS,
-            10,
-        );
-
-        expect(result).toEqual([[]]);
-        expect(seen?.isCancellationRequested).toBe(true);
-    });
-
-    it("дождавшийся ответа запрос не отменяется", async () => {
-        let seen: ICancellationToken | undefined;
-        const caller = new CancellationTokenSource();
-        const result = await requestInlineCompletions(
-            (_method, _params, token) => {
-                seen = token;
-                return Promise.resolve([[{ insertText: "x" }]]);
+    it("без токена ядра в options — только срок", async () => {
+        let seen: IRequestOptions | undefined;
+        await requestInlineCompletions(
+            (_method, _params, options) => {
+                seen = options;
+                return Promise.resolve([]);
             },
             PARAMS,
             1000,
-            caller.token,
         );
 
-        expect(result).toStrictEqual([[{ insertText: "x" }]]);
-        expect(seen?.isCancellationRequested).toBe(false);
-
-        // Отмена, опоздавшая к ответу, до токена запроса уже не доходит:
-        // подписка на токен ядра снята вместе с завершением запроса.
-        caller.cancel();
-        expect(seen?.isCancellationRequested).toBe(false);
+        expect(seen).toStrictEqual({ timeoutMs: 1000 });
     });
 });

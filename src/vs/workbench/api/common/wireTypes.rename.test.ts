@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { type IRequestOptions, TimeoutError } from "./rpcEndpoint.ts";
 import { parseWireRenamePrepare, requestPrepareRename, requestRename } from "./wireTypes.ts";
 
 const PARAMS = {
@@ -10,6 +11,18 @@ const PARAMS = {
     line: 0,
     character: 8,
 };
+
+/**
+ * Субпроцесс, который не отвечает, за транспортом, который держит срок, как
+ * `RpcEndpoint.request`: по истечении `options.timeoutMs` — `TimeoutError`.
+ */
+function hanging(method: string, _params: unknown, options: IRequestOptions): Promise<unknown> {
+    return new Promise((_resolve, reject) => {
+        setTimeout(() => {
+            reject(new TimeoutError(method, options.timeoutMs ?? 0));
+        }, options.timeoutMs);
+    });
+}
 
 describe("wireTypes — parseWireRenamePrepare", () => {
     it("имя символа доезжает placeholder'ом", () => {
@@ -62,7 +75,9 @@ describe("wireTypes — requestPrepareRename", () => {
     });
 
     it("таймаут, отказ RPC и мусор — null: слово под кареткой доберёт ядро", async () => {
-        expect(await requestPrepareRename(() => new Promise(() => undefined), PARAMS, 5)).toBeNull();
+        const request = vi.fn(hanging);
+        expect(await requestPrepareRename(request, PARAMS, 5)).toBeNull();
+        expect(request).toHaveBeenCalledWith("languages.prepareRename", PARAMS, { timeoutMs: 5 });
         expect(await requestPrepareRename(() => Promise.reject(new Error("boom")), PARAMS, 1000)).toBeNull();
         expect(await requestPrepareRename(() => Promise.resolve("junk"), PARAMS, 1000)).toBeNull();
     });
@@ -103,10 +118,12 @@ describe("wireTypes — requestRename", () => {
     });
 
     it("таймаут — отказ С сообщением: человек ввёл имя и обязан узнать, что ничего не произошло", async () => {
-        expect(await requestRename(() => new Promise(() => undefined), renameParams, 5)).toEqual({
+        const request = vi.fn(hanging);
+        expect(await requestRename(request, renameParams, 5)).toEqual({
             applied: false,
             error: "Rename timed out",
         });
+        expect(request).toHaveBeenCalledWith("languages.provideRenameEdits", renameParams, { timeoutMs: 5 });
     });
 
     it("мусорный ответ — родовой отказ", async () => {
@@ -120,7 +137,7 @@ describe("wireTypes — requestRename", () => {
         });
     });
 
-    it("отказ самого RPC читается как неответ субпроцесса (общий гонщик таймаута)", async () => {
+    it("отказ самого RPC читается как неответ субпроцесса (любой сбой запроса — тот же исход)", async () => {
         expect(await requestRename(() => Promise.reject(new Error("boom")), renameParams, 1000)).toEqual({
             applied: false,
             error: "Rename timed out",

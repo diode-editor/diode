@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { settle } from "../../../../../TestUtils/timing.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -51,7 +52,9 @@ function requestOf(): IReferenceRequest {
 function makeHost(
     options: {
         warn?: ILogger["warn"];
-        referencesTimeoutMs?: number;
+        debug?: ILogger["debug"];
+        /** Срок ответа `languages.provideReferences`, мс (`requestTimeouts`). */
+        timeoutMs?: number;
         maxSyncedDocumentChars?: number;
         /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
         open?: boolean;
@@ -61,12 +64,19 @@ function makeHost(
     peer: RpcEndpoint;
 } {
     const logger =
-        options.warn === undefined
+        options.warn === undefined && options.debug === undefined
             ? undefined
-            : ({ warn: options.warn, info: () => undefined, error: () => undefined } as unknown as ILogger);
+            : ({
+                  warn: options.warn ?? (() => undefined),
+                  debug: options.debug ?? (() => undefined),
+                  info: () => undefined,
+                  error: () => undefined,
+              } as unknown as ILogger);
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         ...(logger === undefined ? {} : { logger }),
-        ...(options.referencesTimeoutMs === undefined ? {} : { referencesTimeoutMs: options.referencesTimeoutMs }),
+        ...(options.timeoutMs === undefined
+            ? {}
+            : { requestTimeouts: { "languages.provideReferences": options.timeoutMs } }),
         ...(options.maxSyncedDocumentChars === undefined
             ? {}
             : { maxSyncedDocumentChars: options.maxSyncedDocumentChars }),
@@ -165,22 +175,33 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолт таймаута — 5000 мс: поиск ссылок по проекту дороже одиночного перехода", () => {
-        const { host } = makeHost();
-        // Читаем разрешённую опцию, а не ждём вживую: реальное ожидание в
-        // мутационном прогоне стоит полсекунды на каждом покрывающем мутанте.
-        expect((host as unknown as { options: { referencesTimeoutMs: number } }).options.referencesTimeoutMs).toBe(
-            5000,
-        );
+    it("дефолт таймаута — 5000 мс: поиск ссылок по проекту дороже одиночного перехода", async () => {
+        const { host, peer } = makeHost();
+        const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
+        const request = vi.spyOn(hostRpc, "request");
+        peer.handleRequest("languages.provideReferences", () => null);
+        // Срок уезжает транспорту с запросом, а не ждётся вживую: реальное
+        // ожидание в мутационном прогоне стоит секунды на каждом мутанте.
+        await host.provideReferences(0, requestOf());
+        expect(request).toHaveBeenCalledWith("languages.provideReferences", expect.anything(), { timeoutMs: 5000 });
     });
 
-    it("по истечении таймаута ответ отбрасывается", async () => {
-        const { host, peer } = makeHost({ referencesTimeoutMs: 5 });
-        peer.handleRequest("languages.provideReferences", async () => {
+    it("по истечении таймаута ответ отбрасывается, а запрос у субпроцесса отменяется", async () => {
+        const debug = vi.fn();
+        const { host, peer } = makeHost({ timeoutMs: 5, debug });
+        let seen: ICancellationToken | undefined;
+        peer.handleRequest("languages.provideReferences", async (_params, token) => {
+            seen = token;
             await settle(200);
             return [REF];
         });
 
         expect(await host.provideReferences(0, requestOf())).toEqual([]);
+        // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
+        expect(debug).toHaveBeenCalledWith('request "languages.provideReferences" timed out after 5ms');
+        // Провайдер узнаёт, что ответа больше не ждут (`$/cancelRequest`).
+        await vi.waitFor(() => {
+            expect(seen?.isCancellationRequested).toBe(true);
+        });
     });
 });

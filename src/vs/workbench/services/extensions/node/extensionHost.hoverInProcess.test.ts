@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks, settle } from "../../../../../TestUtils/timing.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -38,7 +39,9 @@ const REQUEST: IHoverRequest = { uri: DOCUMENT.uri, languageId: "typescript", ve
 function makeHost(
     options: {
         warn?: ILogger["warn"];
-        hoverTimeoutMs?: number;
+        debug?: ILogger["debug"];
+        /** Срок ответа `languages.provideHover`, мс (`requestTimeouts`). */
+        timeoutMs?: number;
         maxSyncedDocumentChars?: number;
         /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
         open?: boolean;
@@ -48,12 +51,19 @@ function makeHost(
     peer: RpcEndpoint;
 } {
     const logger =
-        options.warn === undefined
+        options.warn === undefined && options.debug === undefined
             ? undefined
-            : ({ warn: options.warn, info: () => undefined, error: () => undefined } as unknown as ILogger);
+            : ({
+                  warn: options.warn ?? (() => undefined),
+                  debug: options.debug ?? (() => undefined),
+                  info: () => undefined,
+                  error: () => undefined,
+              } as unknown as ILogger);
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         ...(logger === undefined ? {} : { logger }),
-        ...(options.hoverTimeoutMs === undefined ? {} : { hoverTimeoutMs: options.hoverTimeoutMs }),
+        ...(options.timeoutMs === undefined
+            ? {}
+            : { requestTimeouts: { "languages.provideHover": options.timeoutMs } }),
         ...(options.maxSyncedDocumentChars === undefined
             ? {}
             : { maxSyncedDocumentChars: options.maxSyncedDocumentChars }),
@@ -200,20 +210,33 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолт таймаута — 5000 мс, как у definition (холодный сервер индексирует секундами)", () => {
-        const { host } = makeHost();
-        // Читаем разрешённую опцию, а не ждём вживую: реальное ожидание в
-        // мутационном прогоне стоит полсекунды на каждом покрывающем мутанте.
-        expect((host as unknown as { options: { hoverTimeoutMs: number } }).options.hoverTimeoutMs).toBe(5000);
+    it("дефолт таймаута — 5000 мс, как у definition (холодный сервер индексирует секундами)", async () => {
+        const { host, peer } = makeHost();
+        const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
+        const request = vi.spyOn(hostRpc, "request");
+        peer.handleRequest("languages.provideHover", () => null);
+        // Срок уезжает транспорту с запросом, а не ждётся вживую: реальное
+        // ожидание в мутационном прогоне стоит секунды на каждом мутанте.
+        await host.provideHover(1, REQUEST);
+        expect(request).toHaveBeenCalledWith("languages.provideHover", expect.anything(), { timeoutMs: 5000 });
     });
 
-    it("по истечении таймаута ответ отбрасывается", async () => {
-        const { host, peer } = makeHost({ hoverTimeoutMs: 5 });
-        peer.handleRequest("languages.provideHover", async () => {
+    it("по истечении таймаута ответ отбрасывается, а запрос у субпроцесса отменяется", async () => {
+        const debug = vi.fn();
+        const { host, peer } = makeHost({ timeoutMs: 5, debug });
+        let seen: ICancellationToken | undefined;
+        peer.handleRequest("languages.provideHover", async (_params, token) => {
+            seen = token;
             await settle(200);
             return { contents: ["опоздал"] };
         });
 
         expect(await host.provideHover(1, REQUEST)).toBeUndefined();
+        // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
+        expect(debug).toHaveBeenCalledWith('request "languages.provideHover" timed out after 5ms');
+        // Провайдер узнаёт, что ответа больше не ждут (`$/cancelRequest`).
+        await vi.waitFor(() => {
+            expect(seen?.isCancellationRequested).toBe(true);
+        });
     });
 });

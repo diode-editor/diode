@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 
@@ -37,6 +38,31 @@ const PARAMS = {
     reason: 1,
     eol: 1,
 };
+
+/**
+ * Обработчик, который никогда не отвечает, и его токен: истёкший срок обязан
+ * отменить запрос и на стороне субпроцесса (`$/cancelRequest`).
+ */
+function hangingHandler(): {
+    handler: (params: unknown, token: ICancellationToken) => Promise<never>;
+    token: () => ICancellationToken | undefined;
+} {
+    let seen: ICancellationToken | undefined;
+    return {
+        handler: (_params, token) => {
+            seen = token;
+            return new Promise<never>(() => undefined);
+        },
+        token: () => seen,
+    };
+}
+
+/** Срок истёк — запрос отменён и у обработчика субпроцесса. */
+async function expectCancelledOnPeer(hang: ReturnType<typeof hangingHandler>): Promise<void> {
+    await vi.waitFor(() => {
+        expect(hang.token()?.isCancellationRequested).toBe(true);
+    });
+}
 
 describe("WireTypes — parseWireTextEdits", () => {
     it("парсит текстовую правку и setEndOfLine", () => {
@@ -109,7 +135,7 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
                 { range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 2 }, text: "" },
                 { setEndOfLine: 2 },
             ]);
-            const edits = await requestWillSaveEdits((m, p) => host.request(m, p), PARAMS, 1000);
+            const edits = await requestWillSaveEdits((m, p, o) => host.request(m, p, o), PARAMS, 1000);
             expect(edits).toEqual([
                 { kind: "text", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "" },
                 { kind: "eol", eol: EndOfLine.CRLF },
@@ -122,9 +148,11 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
     it("возвращает пустой результат по таймауту, если participant никогда не резолвится", async () => {
         const { host, sub, dispose } = connectPair();
         try {
-            sub.handleRequest("workspace.willSaveTextDocument", () => new Promise(() => {}));
-            const edits = await requestWillSaveEdits((m, p) => host.request(m, p), PARAMS, 30);
+            const hang = hangingHandler();
+            sub.handleRequest("workspace.willSaveTextDocument", hang.handler);
+            const edits = await requestWillSaveEdits((m, p, o) => host.request(m, p, o), PARAMS, 30);
             expect(edits).toEqual([]);
+            await expectCancelledOnPeer(hang);
         } finally {
             dispose();
         }
@@ -136,7 +164,7 @@ describe("WireTypes — requestWillSaveEdits (InProcessChannelPair)", () => {
             sub.handleRequest("workspace.willSaveTextDocument", () => {
                 throw new Error("boom");
             });
-            const edits = await requestWillSaveEdits((m, p) => host.request(m, p), PARAMS, 1000);
+            const edits = await requestWillSaveEdits((m, p, o) => host.request(m, p, o), PARAMS, 1000);
             expect(edits).toEqual([]);
         } finally {
             dispose();
@@ -298,7 +326,7 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
                 // читаем её как полный список.
                 [{ label: "indent_style", insertText: "indent_style", kind: 9 }],
             ]);
-            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
+            const result = await requestCompletionItems((m, p, o) => host.request(m, p, o), COMPLETION_PARAMS, 1000);
             expect(result).toEqual([
                 { items: [{ label: "indent_style", insertText: "indent_style", kind: 9 }], isIncomplete: false },
             ]);
@@ -315,7 +343,7 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
                 "мусор",
             ]);
             const params = { ...COMPLETION_PARAMS, handles: [1, 2, 3] };
-            const result = await requestCompletionItems((m, p) => host.request(m, p), params, 1000);
+            const result = await requestCompletionItems((m, p, o) => host.request(m, p, o), params, 1000);
             expect(result).toEqual([
                 { items: [{ label: "a", insertText: "a" }], isIncomplete: true },
                 { items: [], isIncomplete: false },
@@ -332,7 +360,7 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
             sub.handleRequest("languages.provideCompletionItems", () => ({
                 0: { items: [{ label: "a", insertText: "a" }], isIncomplete: true },
             }));
-            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
+            const result = await requestCompletionItems((m, p, o) => host.request(m, p, o), COMPLETION_PARAMS, 1000);
             expect(result).toEqual([{ items: [], isIncomplete: false }]);
         } finally {
             dispose();
@@ -342,9 +370,11 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
     it("возвращает пустой результат по таймауту", async () => {
         const { host, sub, dispose } = connectPair();
         try {
-            sub.handleRequest("languages.provideCompletionItems", () => new Promise(() => {}));
-            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 30);
+            const hang = hangingHandler();
+            sub.handleRequest("languages.provideCompletionItems", hang.handler);
+            const result = await requestCompletionItems((m, p, o) => host.request(m, p, o), COMPLETION_PARAMS, 30);
             expect(result).toEqual([{ items: [], isIncomplete: false }]);
+            await expectCancelledOnPeer(hang);
         } finally {
             dispose();
         }
@@ -356,7 +386,7 @@ describe("WireTypes — requestCompletionItems (InProcessChannelPair)", () => {
             sub.handleRequest("languages.provideCompletionItems", () => {
                 throw new Error("boom");
             });
-            const result = await requestCompletionItems((m, p) => host.request(m, p), COMPLETION_PARAMS, 1000);
+            const result = await requestCompletionItems((m, p, o) => host.request(m, p, o), COMPLETION_PARAMS, 1000);
             expect(result).toEqual([{ items: [], isIncomplete: false }]);
         } finally {
             dispose();
@@ -413,7 +443,7 @@ describe("WireTypes — resolveCompletionItem", () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("languages.resolveCompletionItem", () => ({ detail: "resolved" }));
-            const resolved = await requestResolveCompletionItem((m, p) => host.request(m, p), "1.0", 1000);
+            const resolved = await requestResolveCompletionItem((m, p, o) => host.request(m, p, o), "1.0", 1000);
             expect(resolved?.detail).toBe("resolved");
         } finally {
             dispose();
@@ -421,8 +451,10 @@ describe("WireTypes — resolveCompletionItem", () => {
 
         const slow = connectPair();
         try {
-            slow.sub.handleRequest("languages.resolveCompletionItem", () => new Promise(() => {}));
-            expect(await requestResolveCompletionItem((m, p) => slow.host.request(m, p), "1.0", 30)).toBeNull();
+            const hang = hangingHandler();
+            slow.sub.handleRequest("languages.resolveCompletionItem", hang.handler);
+            expect(await requestResolveCompletionItem((m, p, o) => slow.host.request(m, p, o), "1.0", 30)).toBeNull();
+            await expectCancelledOnPeer(hang);
         } finally {
             slow.dispose();
         }
@@ -506,7 +538,7 @@ describe("WireTypes — requestFoldingRanges (InProcessChannelPair)", () => {
                 ],
             ]);
             const regions = await requestFoldingRanges(
-                (m, p) => host.request(m, p),
+                (m, p, o) => host.request(m, p, o),
                 { handles: [0], uri: Uri.file("/x.cs").toString(), languageId: "csharp", version: 1 },
                 1000,
             );
@@ -521,7 +553,7 @@ describe("WireTypes — requestFoldingRanges (InProcessChannelPair)", () => {
         try {
             const params = { handles: [0, 1], uri: Uri.file("/x.cs").toString(), languageId: "csharp", version: 1 };
             sub.handleRequest("languages.provideFoldingRanges", () => ({ 0: [{ start: 1, end: 4 }] }));
-            expect(await requestFoldingRanges((m, p) => host.request(m, p), params, 1000)).toEqual([[], []]);
+            expect(await requestFoldingRanges((m, p, o) => host.request(m, p, o), params, 1000)).toEqual([[], []]);
         } finally {
             dispose();
         }
@@ -530,13 +562,15 @@ describe("WireTypes — requestFoldingRanges (InProcessChannelPair)", () => {
     it("таймаут → []", async () => {
         const { host, sub, dispose } = connectPair();
         try {
-            sub.handleRequest("languages.provideFoldingRanges", () => new Promise(() => {})); // никогда не резолвится
+            const hang = hangingHandler();
+            sub.handleRequest("languages.provideFoldingRanges", hang.handler);
             const regions = await requestFoldingRanges(
-                (m, p) => host.request(m, p),
+                (m, p, o) => host.request(m, p, o),
                 { handles: [0], uri: Uri.file("/x.cs").toString(), languageId: "csharp", version: 1 },
                 20,
             );
             expect(regions).toEqual([[]]);
+            await expectCancelledOnPeer(hang);
         } finally {
             dispose();
         }

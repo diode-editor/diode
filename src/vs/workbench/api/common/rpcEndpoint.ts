@@ -87,6 +87,8 @@ export class RpcEndpoint implements IDisposable {
             reject: (reason: Error) => void;
             /** Подписка на токен вызывающего; снимается вместе с ответом. */
             cancelSubscription: IDisposable | null;
+            /** Таймер {@link IRequestOptions.timeoutMs}; гасится ответом. */
+            timer: ReturnType<typeof setTimeout> | undefined;
         }
     >();
     /** Токены входящих запросов, которые сейчас исполняет эта сторона. */
@@ -112,14 +114,24 @@ export class RpcEndpoint implements IDisposable {
      * вызывающего: когда он стреляет, второй стороне уходит нотификация
      * {@link CANCEL_REQUEST_METHOD}, и обработчик там видит отменённый токен.
      * Ответ при этом всё равно ожидается: отмена — просьба, а не разрыв.
+     *
+     * `timeoutMs` — срок ответа: истёк — запрос отменяется так же (обработчик
+     * второй стороны узнаёт об этом токеном, language server — `$/cancelRequest`),
+     * а промис отклоняется {@link TimeoutError}, не дожидаясь опоздавшего ответа.
      */
-    public request(method: string, params?: unknown, token?: ICancellationToken): Promise<unknown> {
+    public request(method: string, params?: unknown, options: IRequestOptions = {}): Promise<unknown> {
+        const { token, timeoutMs } = options;
         if (this.disposed) {
             return Promise.reject(new Error(`RpcEndpoint disposed; cannot request "${method}"`));
         }
         const id = this.nextRequestId++;
         return new Promise<unknown>((resolve, reject) => {
-            const pending = { resolve, reject, cancelSubscription: null as IDisposable | null };
+            const pending = {
+                resolve,
+                reject,
+                cancelSubscription: null as IDisposable | null,
+                timer: undefined as ReturnType<typeof setTimeout> | undefined,
+            };
             this.pendingRequests.set(id, pending);
             const msg: IRequestMessage = { kind: "req", id, method, params };
             this.logger?.trace(`-> req#${String(id)} ${method}`, params);
@@ -131,6 +143,15 @@ export class RpcEndpoint implements IDisposable {
                 token?.onCancellationRequested(() => {
                     this.cancelOutgoing(id, method);
                 }) ?? null;
+            if (timeoutMs !== undefined) {
+                pending.timer = setTimeout(() => {
+                    // Stryker disable next-line CallExpression: гигиена — опоздавший ответ нашёл бы уже отклонённый промис (повторный resolve — no-op), разница лишь в росте карты
+                    this.pendingRequests.delete(id);
+                    pending.cancelSubscription?.dispose();
+                    this.cancelOutgoing(id, method);
+                    reject(new TimeoutError(method, timeoutMs));
+                }, timeoutMs);
+            }
         });
     }
 
@@ -169,6 +190,7 @@ export class RpcEndpoint implements IDisposable {
         this.channelSubscription.dispose();
         for (const pending of this.pendingRequests.values()) {
             pending.cancelSubscription?.dispose();
+            clearTimeout(pending.timer);
             pending.reject(new Error("RpcEndpoint disposed"));
         }
         this.pendingRequests.clear();
@@ -306,6 +328,7 @@ export class RpcEndpoint implements IDisposable {
         if (pending === undefined) return;
         this.pendingRequests.delete(message.id);
         pending.cancelSubscription?.dispose();
+        clearTimeout(pending.timer);
         if (message.error !== undefined) {
             pending.reject(transformErrorFromSerialization(message.error));
         } else {
@@ -354,6 +377,25 @@ export class RpcEndpoint implements IDisposable {
             default:
                 return;
         }
+    }
+}
+
+/** Параметры исходящего запроса ({@link RpcEndpoint.request}). */
+export interface IRequestOptions {
+    /** Токен отмены вызывающего. */
+    readonly token?: ICancellationToken;
+    /** Срок ответа, мс: истёк — запрос отменяется, промис — {@link TimeoutError}. */
+    readonly timeoutMs?: number;
+}
+
+/** Ответ не пришёл за `timeoutMs`: запрос отменён на второй стороне. */
+export class TimeoutError extends Error {
+    public constructor(
+        public readonly method: string,
+        public readonly timeoutMs: number,
+    ) {
+        super(`request "${method}" timed out after ${String(timeoutMs)}ms`);
+        this.name = "TimeoutError";
     }
 }
 
