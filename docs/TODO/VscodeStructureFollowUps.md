@@ -28,10 +28,19 @@
   переедут вместе со своими фичами.
 - [ ] **Направление ядро workbench → contrib** — храповик `DIRECTION_EXCEPTIONS`
   в `scripts/check-layers.mjs`: 8 файлов ядра ещё импортируют фичи. Корень
-  (`workbenchComponent.ts`) — E4 PR5: ссылки на фичи в `setWorkspaceFolder`,
-  `activate` и restore (саморегистрация контейнеров с `order`, хост оверлеев
-  через `LayoutService.mainContainer`, фаза `blockStartup` и агрегатор
-  `workbench.common.main.ts` — сделаны); `workbenchContextKeyContributors.ts` — F3;
+  (`workbenchComponent.ts`) держат два вызова в `setWorkspaceFolder`:
+  `ExplorerService.setRootPath(dirPath)` (+ `refresh` при Open Folder и в
+  `activate`) и `TerminalService.setWorkingDirectory(dirPath)`. Подписаться на
+  `onDidChangeWorkspaceFolders` им мешает то, что событие несёт только
+  `IWorkspaceFolder.uri`, а `uri.fsPath` (vscode-uri) понижает регистр буквы
+  диска на Windows (`C:\x` → `c:\x`): корень дерева разошёлся бы с путями
+  редакторов, и сравнения префиксом в reveal сломались бы. Нужен либо исходный
+  путь папки в `IWorkspaceContextService`, либо reveal без строкового префикса —
+  тогда explorer становится `IActivatable`, а запись уходит. Остальное из E4
+  (саморегистрация контейнеров с `order`, хост оверлеев через
+  `LayoutService.mainContainer`, фаза `blockStartup`, агрегатор
+  `workbench.common.main.ts`, restore view-состояния по
+  `IStateService.onDidOpenWorkspace`) сделано; `workbenchContextKeyContributors.ts` — F3;
   `builtinActions.ts` и мелкие action-файлы — F2. Запись удаляет задача, которая
   её закрыла.
 - [ ] **`attachHost` у оверлеев `browser/parts` и `DialogService`** — quickInput,

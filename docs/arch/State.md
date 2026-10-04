@@ -107,6 +107,8 @@ main.ts: build container ─► lifecycle.onShutdownSync(flushSync) + страх
    │
    ├─ первый CLI-arg — папка? ─► WorkbenchComponent.setWorkspaceFolder(dir)
    │                              └─► WorkbenchStateService.openWorkspace(dir)  (load per-project стор)
+   │                                  └─► onDidOpenWorkspace ─► restore view-состояния фич
+   │                                      (поиск, SCM, черновик коммита, секции view)
    │                              (папки нет — пустое окно: workspace-дескрипторы обслуживает
    │                               стор пустого окна workspaceStorage/empty-window/)
    ├─ mount()  ─► LayoutService.restoreLayout()   (перед первым кадром; + sync истины в PanelService)
@@ -161,7 +163,11 @@ main.ts: build container ─► lifecycle.onShutdownSync(flushSync) + страх
 - **restoreOpenEditors** пропускает отсутствующие на диске файлы (как VS Code) и
   переотображает индекс активной вкладки на выживших.
 - **Смена папки в рантайме** (`setWorkspaceFolder`): `openWorkspace(newDir)` сначала
-  синхронно флашит текущий workspace-стор, затем синхронно грузит новый.
+  синхронно флашит текущий workspace-стор, затем синхронно грузит новый и
+  файрит `IStateService.onDidOpenWorkspace` (аналог `IStorageService.onDidChangeTarget`
+  VS Code). Фичи, чьё view-состояние живёт в workspace-сторе, подписаны на него сами
+  и перечитывают состояние уже из стора проекта. Стор пустого окна, открытый на
+  старте, события не даёт.
 - **Flush:** `flushSync` — участник синхронной фазы прощания
   (`LifecycleService.onShutdownSync`, подписывает `main.ts`): выход, перезагрузка
   окна и выход по инспектору сбрасывают состояние до `exit`/замены процесса.

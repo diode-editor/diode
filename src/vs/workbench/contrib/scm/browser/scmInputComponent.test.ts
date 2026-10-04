@@ -6,11 +6,13 @@ import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
+import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
@@ -25,6 +27,8 @@ import {
 
 function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     const stored = new Map<string, unknown>();
+    // Как настоящий сервис: openWorkspace сообщает об открытии стора проекта.
+    const openWorkspaceEmitter = new Emitter<WorkspaceId>();
     const service: IStateService = {
         get<T>(descriptor: IStateDescriptor<T>): T {
             return stored.has(descriptor.key) ? (stored.get(descriptor.key) as T) : descriptor.default;
@@ -33,8 +37,11 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
             stored.set(descriptor.key, value);
         },
         remove: () => undefined,
-        openWorkspace: () => {},
+        openWorkspace: (workspaceId) => {
+            openWorkspaceEmitter.fire(workspaceId);
+        },
         flushSync: () => {},
+        onDidOpenWorkspace: openWorkspaceEmitter.event,
     };
     return { service, stored };
 }
@@ -249,6 +256,25 @@ describe("ScmInputComponent — поле", () => {
         const focus = vi.spyOn(h.component.input, "focus").mockImplementation(() => {});
         h.component.focus();
         expect(focus).toHaveBeenCalledTimes(1);
+    });
+
+    it("открытие стора проекта восстанавливает черновик без вызова извне", () => {
+        const { service, stored } = fakeState();
+        const commands = new CommandRegistry();
+        const component = new ScmInputComponent(
+            service,
+            new ScmChangesService(commands),
+            new ScmRepoStateService(commands, new ContextKeyService()),
+            commands,
+            new ProgressService(),
+            new KeybindingRegistry(),
+            new ContextKeyService(),
+        );
+        stored.set(SCM_INPUT_MESSAGE_STATE.key, "draft message");
+
+        service.openWorkspace("project" as WorkspaceId);
+
+        expect(component.message).toBe("draft message");
     });
 
     it("restoreDraft читает workspace-стор без write-through; совпадение — no-op", () => {

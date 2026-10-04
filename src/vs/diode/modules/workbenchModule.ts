@@ -90,6 +90,10 @@ import {
     DiffSnapshotRefreshContributionDIToken,
 } from "../../workbench/contrib/diff/browser/diffSnapshotRefreshContribution.ts";
 import {
+    VscodeDiffCommandContribution,
+    VscodeDiffCommandContributionDIToken,
+} from "../../workbench/contrib/diff/browser/vscodeDiffCommandContribution.ts";
+import {
     AutoRevealContribution,
     AutoRevealContributionDIToken,
 } from "../../workbench/contrib/files/browser/autoRevealContribution.ts";
@@ -496,6 +500,7 @@ export const workbenchModule: ContainerModule = (container) => {
     );
     container.bind(QuickDiffServiceDIToken, QuickDiffService);
     container.bind(DiffSnapshotRefreshContributionDIToken, DiffSnapshotRefreshContribution);
+    container.bind(VscodeDiffCommandContributionDIToken, VscodeDiffCommandContribution);
     // Вкладка Changes: расширение пушит набор изменений в ScmChangesService
     // (команда `diode.scm.publishChanges`), ChangesComponent показывает его
     // списком в нижней Panel и по клику открывает дифф этапа 5.

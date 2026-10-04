@@ -5,6 +5,7 @@ import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createTestContainer } from "../../../../diode/modules/testProfile.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -522,6 +523,7 @@ describe("Workbench — дифф v2", () => {
             remove: () => undefined,
             openWorkspace: () => undefined,
             flushSync: () => undefined,
+            onDidOpenWorkspace: Event.None,
         }));
         workbench = container.get(WorkbenchComponentDIToken);
         editors = container.get(EditorServiceDIToken);

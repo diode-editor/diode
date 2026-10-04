@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { Emitter } from "../../../base/common/event.ts";
 import { type IUserDataPaths, resolveWorkspaceStatePath } from "../../environment/node/userDataPaths.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
@@ -37,6 +38,8 @@ export class StateService implements IStateService {
     private readonly workspaceStorageDir: string;
     private readonly logger: ILogger | undefined;
     private readonly writeDebounceMs: number;
+    private readonly onDidOpenWorkspaceEmitter = new Emitter<WorkspaceId>();
+    public readonly onDidOpenWorkspace = this.onDidOpenWorkspaceEmitter.event;
     private writeTimer: ReturnType<typeof setTimeout> | undefined;
 
     public constructor(input: {
@@ -106,6 +109,7 @@ export class StateService implements IStateService {
         this.workspace.data = loadStateFile(filePath, this.logger);
         this.workspace.filePath = filePath;
         this.workspace.dirty = false;
+        this.onDidOpenWorkspaceEmitter.fire(workspaceId);
     }
 
     public flushSync(): void {

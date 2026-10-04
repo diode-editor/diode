@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
@@ -15,6 +16,7 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
@@ -97,6 +99,8 @@ function fakeReveal(): {
 /** In-memory стейт: get отдаёт сохранённое или дефолт, store записывает. */
 function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     const stored = new Map<string, unknown>();
+    // Как настоящий сервис: openWorkspace сообщает об открытии стора проекта.
+    const openWorkspaceEmitter = new Emitter<WorkspaceId>();
     const service: IStateService = {
         get<T>(descriptor: IStateDescriptor<T>): T {
             return stored.has(descriptor.key) ? (stored.get(descriptor.key) as T) : descriptor.default;
@@ -105,8 +109,11 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
             stored.set(descriptor.key, value);
         },
         remove: () => undefined,
-        openWorkspace: () => {},
+        openWorkspace: (workspaceId) => {
+            openWorkspaceEmitter.fire(workspaceId);
+        },
         flushSync: () => {},
+        onDidOpenWorkspace: openWorkspaceEmitter.event,
     };
     return { service, stored };
 }
@@ -594,6 +601,17 @@ describe("SearchComponent", () => {
             expect(writes).not.toHaveBeenCalled();
 
             component.restoreViewState(); // повтор — no-op
+            expect(component.getViewMode()).toBe("tree");
+        });
+
+        it("открытие стора проекта восстанавливает режим без вызова извне", () => {
+            const { service: state, stored } = fakeState();
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT), { state });
+            expect(component.getViewMode()).toBe("list");
+            stored.set("workbench.search.viewMode", "tree");
+
+            state.openWorkspace("project" as WorkspaceId);
+
             expect(component.getViewMode()).toBe("tree");
         });
 

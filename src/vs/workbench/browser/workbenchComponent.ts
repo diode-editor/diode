@@ -21,13 +21,7 @@ import {
     WorkbenchContributionsRegistry,
     WorkbenchContributionsRegistryDIToken,
 } from "../common/workbenchContributionsRegistry.ts";
-import { registerVscodeDiffCommand } from "../contrib/diff/browser/compareActions.ts";
-import { ExplorerComponent, ExplorerComponentDIToken } from "../contrib/files/browser/explorerComponent.ts";
 import { ExplorerService, ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
-import { FileOperationsService, FileOperationsServiceDIToken } from "../contrib/files/browser/fileOperationsService.ts";
-import { ChangesComponent, ChangesComponentDIToken } from "../contrib/scm/browser/changesComponent.ts";
-import { ScmInputComponent, ScmInputComponentDIToken } from "../contrib/scm/browser/scmInputComponent.ts";
-import { SearchComponent, SearchComponentDIToken } from "../contrib/search/browser/searchComponent.ts";
 import { type TerminalService, TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import type { DialogService } from "../services/dialogs/browser/dialogService.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
@@ -110,13 +104,8 @@ export class WorkbenchComponent extends Component {
     private dialogService: DialogService;
     private workspaceContext: WorkspaceContextService;
     private explorerService: ExplorerService;
-    private explorerComponent: ExplorerComponent;
-    private searchComponent: SearchComponent;
-    private changesComponent: ChangesComponent;
-    private scmInputComponent: ScmInputComponent;
     private sidebarService: SidebarService;
     private viewsService: ViewsService;
-    private fileOperations: FileOperationsService;
     private fileSearchService: FileSearchService;
     private quickInput: QuickInputService;
     private statusBarComponent: StatusBarComponent;
@@ -182,13 +171,10 @@ export class WorkbenchComponent extends Component {
                 contributionsRegistry.instantiateByPhase(phase);
             }),
         );
-        // Ссылки на фичи, которые корень ещё дёргает сам (setWorkspaceFolder,
-        // activate, restore) — владеет ими реестр, здесь только кэш DI.
+        // Ссылки на фичи, которые корень ещё дёргает сам: корень дерева Explorer'а
+        // и cwd терминала берут ровно ту строку пути, что открыли (см.
+        // setWorkspaceFolder), — владеет ими реестр, здесь только кэш DI.
         this.explorerService = accessor.get(ExplorerServiceDIToken);
-        this.explorerComponent = accessor.get(ExplorerComponentDIToken);
-        this.searchComponent = accessor.get(SearchComponentDIToken);
-        this.changesComponent = accessor.get(ChangesComponentDIToken);
-        this.scmInputComponent = accessor.get(ScmInputComponentDIToken);
         this.terminalService = accessor.get(TerminalServiceDIToken);
         // Клавиатурный диспатчер: WorkbenchComponent владеет его жизнью и подключает
         // view-хук модальных оверлеев (хук контекст-ключей замыкает на себя
@@ -201,9 +187,6 @@ export class WorkbenchComponent extends Component {
         this.fileSearchService = this.register(accessor.get(FileSearchServiceDIToken));
         const quickInputComponent = this.register(accessor.get(QuickInputComponentDIToken));
         this.quickInput = accessor.get(QuickInputServiceDIToken);
-        // Файловые операции (Workbench-сервис): промпт имени/пути — QuickInputService
-        // (шов IExplorerInputPrompt замкнут в DI).
-        this.fileOperations = accessor.get(FileOperationsServiceDIToken);
         this.statusBarComponent = this.register(statusBarComponent);
         // Реестр вкладок нижней панели; вкладки — контейнеры фич (см. mount()).
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
@@ -250,9 +233,6 @@ export class WorkbenchComponent extends Component {
             // Мак-дельты (таблица macKeybindings.ts) — поверх объявленных биндов.
             this.register(registerAction(commands, keybindings, accessor, withMacKeybindings(action)));
         }
-        // `vscode.diff` — программный вход с контрактом VS Code: без title,
-        // мимо палитры; ext-host исполняет её по id через мост команд.
-        this.register(registerVscodeDiffCommand(commands, accessor));
         // Слой user реестра: его бинды сильнее default и extension, а снятия
         // (`-command`) убирают дефолты и бинды расширений — когда бы те ни
         // зарегистрировались. Слоем владеет KeybindingsEditorService: правки во
@@ -373,19 +353,9 @@ export class WorkbenchComponent extends Component {
         // см. resolveWorkspaceStorageDir. Дальше layout/открытые файлы
         // читаются/пишутся в него.
         this.workbenchState.openWorkspace(workspaceId);
-        // Состояние view поиска (режим дерево/плоско, раскрытость include/exclude)
-        // — из workspace-стора; строго после openWorkspace, иначе прочитается
-        // стор пустого окна.
-        this.searchComponent.restoreViewState();
-        this.changesComponent.restoreViewMode();
-        // Черновик сообщения коммита — из workspace-стора.
-        this.scmInputComponent.restoreDraft();
-        // Свёрнутость/веса/скрытость view-секций — тоже из workspace-стора.
-        // На бутстрапе контейнеров ещё нет (их строит mount()), поэтому там
-        // состояние применяет он; здесь вызов работает для Open Folder на живом
-        // приложении, где сайдбар уже собран. Write-through'а у restore нет, так
-        // что лишний вызов безвреден.
-        this.viewsService.restoreViewsState();
+        // Состояние view (режим поиска и SCM, черновик коммита, свёрнутость/веса
+        // секций) фичи восстанавливают сами по `IStateService.onDidOpenWorkspace`
+        // — синхронно внутри openWorkspace, то есть уже из стора проекта.
         // Fire-and-forget: the index builds in the background so startup and the
         // first render are not blocked. `fileIndexReady` exposes completion for
         // callers (and tests) that need the index populated.

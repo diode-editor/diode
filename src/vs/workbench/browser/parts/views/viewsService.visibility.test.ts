@@ -140,6 +140,19 @@ describe("ViewsService — restore скрытости", () => {
         expect(harness.paneView("scm").getWeights()["scm.changes"]).toBe(5);
     });
 
+    it("открытие стора проекта (Open Folder) само применяет его к собранным контейнерам", () => {
+        const harness = makeViewsHarness();
+        harness.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
+        harness.service.registerView(view("scm.changes", 10));
+        harness.service.registerView(view("scm.graph", 20));
+        harness.service.attachContainer("scm");
+        harness.stored.set(SIDEBAR_VIEWS_STATE.key, { scm: { collapsed: [], weights: {}, hidden: ["scm.graph"] } });
+
+        harness.openWorkspace();
+
+        expect(harness.paneView("scm").getPaneIds()).toEqual(["scm.changes"]);
+    });
+
     it("стор без поля hidden читается как «ничего не скрыто»", () => {
         const harness = makeViewsHarness();
         harness.stored.set(SIDEBAR_VIEWS_STATE.key, { scm: { collapsed: [], weights: {} } });

@@ -7,6 +7,7 @@ import { ViewTitleActionsContributionDIToken } from "./browser/parts/views/viewT
 import { SetContextCommandContributionDIToken } from "./browser/setContextCommandContribution.ts";
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
 import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/diffSnapshotRefreshContribution.ts";
+import { VscodeDiffCommandContributionDIToken } from "./contrib/diff/browser/vscodeDiffCommandContribution.ts";
 import { ExtensionsComponentDIToken } from "./contrib/extensions/browser/extensionsComponent.ts";
 import { AutoRevealContributionDIToken } from "./contrib/files/browser/autoRevealContribution.ts";
 import { ExplorerComponentDIToken } from "./contrib/files/browser/explorerComponent.ts";
@@ -106,6 +107,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: KeybindingRecorderComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: то же — доктор резолвится лениво командой запуска
     { token: KeyboardDoctorComponentDIToken, phase: "blockStartup" },
+    // `vscode.diff`: ext-host зовёт её по id — команда нужна до старта расширений.
+    { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
 
     // ── ready и eventually: фич-проводка ──────────────────────────────────────
     { token: EditorStatusContributionDIToken, phase: "ready" },

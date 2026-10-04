@@ -219,6 +219,13 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         private readonly contextKeys: ContextKeyService,
     ) {
         super();
+        // Workspace-стор проекта открыт (Open Folder или бутстрап) — черновик
+        // коммита теперь читается из него, а не из стора пустого окна.
+        this.register(
+            this.stateService.onDidOpenWorkspace(() => {
+                this.restoreDraft();
+            }),
+        );
         this.input.id = "scmCommitInput";
         this.updatePlaceholder();
         this.input.onChange = (value) => {

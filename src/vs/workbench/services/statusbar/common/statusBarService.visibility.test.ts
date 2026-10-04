@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { Event } from "../../../../base/common/event.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { STATUS_BAR_HIDDEN_STATE } from "../../../common/stateKeys.ts";
 
@@ -14,6 +15,7 @@ function memoryState(): IStateService {
         remove: () => undefined,
         openWorkspace: () => undefined,
         flushSync: () => undefined,
+        onDidOpenWorkspace: Event.None,
     };
 }
 
