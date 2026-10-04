@@ -38,7 +38,7 @@ function raceSaveParticipantTimeout(run: Promise<readonly ISaveEdit[]>): Promise
 
 /**
  * Пайплайн save-участников (аналог upstream `TextFileSaveParticipant`): один
- * экземпляр на все модели, его держит владелец моделей (`EditorService`), а
+ * экземпляр на все модели, его держит владелец моделей (`TextFileModelService`), а
  * модель зовёт перед записью на диск — и в `save`, и в `saveAs`.
  *
  * Состав пайплайна (`onWillSaveTextDocument`, code actions / формат on-save)

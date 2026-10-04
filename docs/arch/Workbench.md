@@ -77,8 +77,9 @@ bootstrap-последовательность приложения (mount → a
 - **Можно:** импортировать view-типы ради типов и `instanceof` (`EditorService` знает
   `DiffEditorPane2`; upstream `EditorService` так же импортирует из
   `browser/parts/editor`), инжектить компонент-виджет в форме «владелец виджета».
-- **Известное отклонение:** сервис **конструирует** view. `EditorService.createPaneForModel`
-  сам создаёт `EditorComponent`/`TextEditorPane`, а `DialogService` — диалоги и их
+- **Известное отклонение:** сервис **конструирует** view. `TextEditorPaneBuilder`
+  (`services/editor/browser/textEditorPaneBuilder.ts`, DI) собирает
+  `EditorComponent`/`TextEditorPane` поверх модели, а `DialogService` — диалоги и их
   overlay-сессии. В VS Code панели создаёт группа по дескриптору из реестра
   (`EditorPanes.doInstantiateEditorPane`), а диалоги — пара `DialogsModel` в сервисе +
   подписчик `DialogHandlerContribution`. Перенос создания панелей — задачи E1/E2;
@@ -805,7 +806,12 @@ hide-toggle (`isHiddenByDefault`). См.
     **Не** singleton-сервис: экземпляр на файл, но один при любом числе вкладок —
     реестр `TextFileModelRegistry` (`acquire(uri)` → ref-count-ссылка, вкладка
     владеет ссылкой, модель умирает с последней; untitled/synthetic — мимо
-    реестра). Правки, которые модель применяет сама (участник, `setEol`,
+    реестра). Модели раздаёт `TextFileModelService`
+    (`services/textfile/common/textFileModelService.ts`, DI; аналог upstream
+    `ITextFileService.files`/`.untitled`): реестр, `createUntitledModel` со
+    сквозной нумерацией, модельная обвязка (watcher, пайплайн save-участников —
+    `addSaveParticipant`, порядок регистрации = порядок исполнения) и
+    `onDidSaveModel` (после перепривязки ключа реестра). Правки, которые модель применяет сама (участник, `setEol`,
     `applyExternalEdits`), идут через шов `ITextFileEditTarget` — прикрепляет
     каждый парный компонент (целей может быть несколько — сплит-вью; действующую
     передаёт вызывающий, `markDirty` вещается всем).
@@ -854,8 +860,9 @@ hide-toggle (`isHiddenByDefault`). См.
     `contrib/diff/browser/diffEditorPaneFactory.ts`, рецепт — спеки сторон
     `openDiffPair`);
     отказ по месту — `canAddGroupHook` + лог), схлопыванием опустевших групп,
-    реестром моделей (`TextFileModelRegistry`: одна `TextFileModel` на ресурс,
-    вкладка владеет ref-count-ссылкой), `openFile`/`openUri` (`{group:"beside"}` —
+    моделями (`textFileModels` — `TextFileModelService` из DI: одна
+    `TextFileModel` на ресурс, вкладка владеет ref-count-ссылкой; вью вкладки
+    собирает `TextEditorPaneBuilder`), `openFile`/`openUri` (`{group:"beside"}` —
     Open to the Side), `newUntitled`, `displayName`/`suggestedSaveName`,
     применение `editor.*`-настроек (`TextEditorConfiguration`,
     `textEditorConfiguration.ts`, не DI-сервис: сервис держит его как

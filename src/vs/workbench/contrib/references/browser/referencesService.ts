@@ -12,6 +12,10 @@ import type { SidebarService } from "../../../browser/parts/sidebar/sidebarServi
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/browser/editorService.ts";
+import {
+    type TextFileModelService,
+    TextFileModelServiceDIToken,
+} from "../../../services/textfile/common/textFileModelService.ts";
 
 import { getReferences } from "./getReferences.ts";
 import { buildReferenceGroups, type IReferenceTextSource } from "./referencePreview.ts";
@@ -34,6 +38,7 @@ export class ReferencesService {
     public static dependencies = [
         ReferencesComponentDIToken,
         EditorServiceDIToken,
+        TextFileModelServiceDIToken,
         IWorkspaceContextServiceDIToken,
         IFileServiceDIToken,
         SidebarServiceDIToken,
@@ -48,6 +53,7 @@ export class ReferencesService {
     public constructor(
         private readonly component: ReferencesComponent,
         private readonly group: EditorService,
+        models: TextFileModelService,
         private readonly workspaceContext: IWorkspaceContextService,
         providers: IFileService,
         private readonly sidebarService: SidebarService,
@@ -56,7 +62,7 @@ export class ReferencesService {
         this.textSource = {
             // Открытая модель — источник правды для открытых файлов: в ней видны
             // несохранённые правки, которые сервер тоже видит через didChange.
-            openText: (uri: Uri) => this.group.openFileModel(uri)?.getText() ?? null,
+            openText: (uri: Uri) => models.get(uri)?.getText() ?? null,
             readText: async (uri: Uri) => new TextDecoder().decode((await providers.readFile(uri)).value),
         };
     }

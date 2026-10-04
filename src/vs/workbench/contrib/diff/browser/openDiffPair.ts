@@ -15,6 +15,7 @@ import { EditorServiceDIToken } from "../../../services/editor/browser/editorSer
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice, TRANSIENT_NOTICE_MS } from "../../../services/statusbar/common/transientNotice.ts";
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
+import { TextFileModelServiceDIToken } from "../../../services/textfile/common/textFileModelService.ts";
 
 /** Схема вкладки диффа: не ресурс на диске, а пара «источник ↔ источник». */
 const DIFF_SCHEME = "diode-diff";
@@ -231,8 +232,8 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
         return text === null ? null : { kind: "snapshot", text };
     }
 
-    const editors = accessor.get(EditorServiceDIToken);
-    if (editors.openFileModel(side.uri) === null) {
+    const models = accessor.get(TextFileModelServiceDIToken);
+    if (models.get(side.uri) === null) {
         // Файл не открыт — политика `onMissing` требует знать, существует ли он,
         // а фабрика реестра отсутствующий файл молча открыла бы пустым буфером
         // (семантика «новый файл по пути»). Пробуем чтение провайдером; сам
@@ -243,7 +244,7 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
             return side.onMissing === "empty" ? { kind: "snapshot", text: "" } : null;
         }
     }
-    return { kind: "shared", ref: editors.acquireFileModel(side.uri) };
+    return { kind: "shared", ref: models.acquire(side.uri) };
 }
 
 /**
@@ -281,10 +282,10 @@ async function refreshSnapshotSides(
 /** Язык подсветки снимков: открытая модель стороны с uri, иначе по расширению файла. */
 function resolveLanguageId(accessor: ServiceAccessor, options: IOpenDiffPairOptions): string {
     const languages = accessor.get(LanguageServiceDIToken);
-    const editors = accessor.get(EditorServiceDIToken);
+    const models = accessor.get(TextFileModelServiceDIToken);
     for (const side of [options.modified, options.original]) {
         if (side.uri === undefined) continue;
-        const model = editors.openFileModel(side.uri);
+        const model = models.get(side.uri);
         if (model !== null) return model.languageId;
         const byResource = languages.getLanguageIdForResource(side.uri.path);
         if (byResource !== undefined) return byResource;

@@ -414,7 +414,7 @@ describe("EditorService — сохранение по настройкам onSav
                 "editor.formatOnSave": true,
             });
             // Модель БЕЗ панели — как редактируемая сторона Compare Untitled.
-            const model = ctrl.createUntitledModel();
+            const model = ctrl.textFileModels.createUntitledModel();
             useCodeActions(ctrl, {
                 provide: () => Promise.resolve([]),
                 apply: () => Promise.resolve(true),

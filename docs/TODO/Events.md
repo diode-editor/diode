@@ -208,7 +208,7 @@
 | `EditorService.onOpenFailed` (:243) | событие; подписчик — `openFailureNotificationContribution.ts:32–43` (ставит и в `dispose` обнуляет) | → событие `onDidFailOpen` |
 | `FileSearchService.onIndexChanged` (:66) | событие; `filesQuickAccessProvider.ts:53,61` ставит и обнуляет на открытии/закрытии пикера | → событие |
 | `EditorService.onEditorCreate` (:189) | событие без подписчиков | → событие либо удалить (см. раздел 9) |
-| ~~`TextFileModel.onDidSave`~~ | снят в E3: `EditorService.wireModel` подписан на `onDidSaveDocument` (первым — порядок прежний) | — |
+| ~~`TextFileModel.onDidSave`~~ | снят в E3: `TextFileModelService.wireModel` подписан на `onDidSaveDocument` (первым — порядок прежний; E1 перенёс обвязку из `EditorService`) | — |
 | ~~`EditorService.onRequestConfirmClose`~~ | снят в E8: закрытие с подтверждением — метод `EditorService.closeEditor` | — |
 | `UndoManager.onDidPush` (:63) | ребёнок → владелец (`TextFileModel` создаёт `UndoManager`) | остаётся слотом |
 

@@ -1,6 +1,7 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { EditorService } from "../../../services/editor/browser/editorService.ts";
+import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
 import type { BulkEditTarget, IBulkEditBuffers } from "../common/iBulkEditBuffers.ts";
 
 /**
@@ -15,9 +16,11 @@ import type { BulkEditTarget, IBulkEditBuffers } from "../common/iBulkEditBuffer
  */
 export class BulkEditBuffers implements IBulkEditBuffers {
     private readonly editors: EditorService;
+    private readonly models: TextFileModelService;
 
-    public constructor(editors: EditorService) {
+    public constructor(editors: EditorService, models: TextFileModelService) {
         this.editors = editors;
+        this.models = models;
     }
 
     public get(resource: string): BulkEditTarget {
@@ -26,7 +29,7 @@ export class BulkEditBuffers implements IBulkEditBuffers {
             // Вкладки нет — но модель ресурса может жить в реестре (сторона
             // диффа). Правку туда провести нечем, и на диск мимо неё тоже
             // нельзя: отбиваем edit целиком.
-            return this.editors.openFileModel(Uri.parse(resource)) === null ? null : "read-only";
+            return this.models.get(Uri.parse(resource)) === null ? null : "read-only";
         }
         if (pane.readOnly) return "read-only";
         return {

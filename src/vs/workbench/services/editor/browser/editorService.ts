@@ -34,7 +34,6 @@ import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceD
 import { UndoRedoService, UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IActivatable } from "../../../browser/iActivatable.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
-import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
@@ -43,10 +42,8 @@ import type { ISerializedEditor } from "../../../common/stateKeys.ts";
 import { DialogService, DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
-import { TextFileModel } from "../../textfile/common/textFileModel.ts";
-import type { ITextFileModelReference } from "../../textfile/common/textFileModelRegistry.ts";
-import { TextFileModelRegistry } from "../../textfile/common/textFileModelRegistry.ts";
-import { TextFileSaveParticipant } from "../../textfile/common/textFileSaveParticipant.ts";
+import type { TextFileModel } from "../../textfile/common/textFileModel.ts";
+import { TextFileModelService, TextFileModelServiceDIToken } from "../../textfile/common/textFileModelService.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
@@ -67,6 +64,7 @@ import {
     type IOnSaveParticipantHost,
 } from "./onSaveParticipants.ts";
 import { TextEditorConfiguration } from "./textEditorConfiguration.ts";
+import { TextEditorPaneBuilder, TextEditorPaneBuilderDIToken } from "./textEditorPaneBuilder.ts";
 
 export const EditorServiceDIToken = token<EditorService>("EditorService");
 
@@ -133,6 +131,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         EditorPaneFactoriesDIToken,
         LanguageFeaturesServiceDIToken,
         IFileServiceDIToken,
+        TextFileModelServiceDIToken,
+        TextEditorPaneBuilderDIToken,
     ] as const;
 
     /**
@@ -147,12 +147,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Владение группой и подписками на её события; чистится при схлопывании. */
     private readonly groupSubscriptions = new Map<GroupId, IDisposable[]>();
     /**
-     * Реестр моделей открытых файлов: один {@link TextFileModel} на ресурс при
-     * любом числе показывающих его вкладок; вкладка владеет ссылкой, модель
-     * умирает с последней. Безымянные и синтетические буферы — мимо реестра.
-     */
-    private readonly modelRegistry = new TextFileModelRegistry((uri) => this.createFileModel(uri));
-    /**
      * Редакторы вне таб-строки (нижняя Panel: Output). Держим отдельным списком
      * именно затем, чтобы весь код вкладок — `getEditors`, `editorCount`,
      * `getOpenFilePaths`, `collectDirty` — продолжал ходить по группам и
@@ -161,11 +155,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     private detachedPanes: TextEditorPane[] = [];
     private themeService: ThemeService;
-    private tokenizationRegistry: TokenizationRegistry;
-    private tokenStyleResolver: ITokenStyleResolver;
     private languageService: ILanguageService;
-    private languageConfigurationService: ILanguageConfigurationService;
-    private readonly languageFeatures: ILanguageFeaturesService;
     private configurationService: IConfigurationService;
     /**
      * `editor.*`-настройки текстовых поверхностей: новые настраивает сервис,
@@ -173,9 +163,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      */
     public readonly editorConfiguration: TextEditorConfiguration;
     private undoRedoService: UndoRedoService;
-    private fileWatcher: IFileWatcher;
-    private readonly files: IFileService;
-    private contextMenuController: ContextMenuController;
     private readonly logger: ILogger;
     /**
      * Фабрики вкладок по видам: через рецепт вкладки сплит и копия в группу
@@ -194,23 +181,10 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /** Подписка на выделение активного редактора; перевешивается при его смене. */
     private activeSelectionSubscription?: IDisposable;
     private saveParticipantValue?: SaveParticipant;
-    /**
-     * Пайплайн save-участников — один на все модели сервиса; состав собирается
-     * в момент сохранения ({@link collectSaveParticipants}).
-     */
-    private readonly textFileSaveParticipant = new TextFileSaveParticipant((model) =>
-        this.collectSaveParticipants(model),
-    );
-    /** Участник `editor.codeActionsOnSave` (см. {@link collectSaveParticipants}). */
-    private readonly codeActionsOnSaveParticipant: SaveParticipant;
-    /** Участник `editor.formatOnSave` (см. {@link collectSaveParticipants}). */
-    private readonly formatOnSaveParticipant: SaveParticipant;
-    /**
-     * Монотонный счётчик номеров безымянных буферов (`Untitled-1`, `Untitled-2`, …).
-     * Не переиспользуется при закрытии вкладок — как в VS Code, номер стабилен за
-     * буфером всю его жизнь.
-     */
-    private untitledCounter = 0;
+    /** Модели файлов и безымянных буферов, пайплайн сохранения. */
+    public readonly textFileModels: TextFileModelService;
+    /** Сборка вью текстовой вкладки поверх модели. */
+    private readonly paneBuilder: TextEditorPaneBuilder;
 
     private readonly onDidActiveGroupChangeEmitter = new Emitter<EditorGroup>();
     private readonly onDidGroupsChangeEmitter = new Emitter<IGroupsChangeEvent>();
@@ -253,7 +227,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
     /**
      * Save-участник расширений (host/харнесс подключает сюда
      * `onWillSaveTextDocument`). Модели читают его через провайдер пайплайна
-     * ({@link collectSaveParticipants}) в момент сохранения — присваивание в
+     * (`TextFileModelService.addSaveParticipant`) в момент сохранения — присваивание в
      * любой момент видно и уже открытым редакторам, и всем последующим.
      */
     public get saveParticipant(): SaveParticipant | undefined {
@@ -262,36 +236,6 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
 
     public set saveParticipant(participant: SaveParticipant | undefined) {
         this.saveParticipantValue = participant;
-    }
-
-    /**
-     * Пайплайн сохранения, собираемый В МОМЕНТ save по живым настройкам
-     * (порядок VS Code: code actions → формат → will-save расширений; правки
-     * каждого ложатся в буфер до следующего и до записи на диск). С дефолтами
-     * (обе настройки выключены) список состоит из одного will-save участника —
-     * поведение сохранения не меняется; без host'а он пуст, и save остаётся
-     * синхронным. Участник по провайдерам входит, только если для ЭТОГО
-     * документа есть подходящий провайдер (реестр по селектору).
-     */
-    private collectSaveParticipants(model: TextFileModel): readonly SaveParticipant[] {
-        const participants: SaveParticipant[] = [];
-        if (
-            this.languageFeatures.codeActionProvider.has(model) &&
-            // Stryker disable next-line EqualityOperator,ConditionalExpression: участник без включённых видов — no-op (провайдера не зовёт), а запись и так асинхронная; отсев только экономит проход
-            enabledCodeActionKindsOnSave(this.configurationService, model.languageId).length > 0
-        ) {
-            participants.push(this.codeActionsOnSaveParticipant);
-        }
-        if (
-            hasDocumentFormatter(this.languageFeatures, model) &&
-            this.configurationService.get("editor.formatOnSave", { overrideIdentifier: model.languageId })
-        ) {
-            participants.push(this.formatOnSaveParticipant);
-        }
-        if (this.saveParticipantValue !== undefined) {
-            participants.push(this.saveParticipantValue);
-        }
-        return participants;
     }
 
     /**
@@ -347,19 +291,29 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // тестовым конструкторам, которые не сохраняют, диск не нужен, а
         // сохранение в таком сервисе громко падает, а не пишет мимо.
         files?: IFileService,
+        // Модели и сборка вкладок: в композиции — из DI, тестовым
+        // конструкторам хватает собранных из параметров выше.
+        textFileModels?: TextFileModelService,
+        paneBuilder?: TextEditorPaneBuilder,
     ) {
         super();
-        this.files = files ?? this.register(new FileService());
+        const fileService = files ?? this.register(new FileService());
+        this.textFileModels =
+            textFileModels ??
+            this.register(new TextFileModelService(languageService, undoRedoService, fileService, fileWatcher));
+        this.paneBuilder =
+            paneBuilder ??
+            new TextEditorPaneBuilder(
+                tokenizationRegistry,
+                tokenStyleResolver,
+                languageConfigurationService,
+                languageFeatures,
+                contextMenuController,
+            );
         this.themeService = themeService;
-        this.tokenizationRegistry = tokenizationRegistry;
-        this.tokenStyleResolver = tokenStyleResolver;
         this.languageService = languageService;
         this.configurationService = configurationService;
         this.undoRedoService = undoRedoService;
-        this.fileWatcher = fileWatcher;
-        this.contextMenuController = contextMenuController;
-        this.languageConfigurationService = languageConfigurationService;
-        this.languageFeatures = languageFeatures;
         // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
         this.paneFactories = [createTextEditorPaneFactory(this), ...contributedPaneFactories];
@@ -373,8 +327,40 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             languageFeatures,
             paneForUri: (uri) => this.textPanes().find((pane) => pane.uri.toString() === uri) ?? null,
         };
-        this.codeActionsOnSaveParticipant = createCodeActionsOnSaveParticipant(onSaveHost);
-        this.formatOnSaveParticipant = createFormatOnSaveParticipant(onSaveHost);
+        // Пайплайн сохранения собирается В МОМЕНТ save по живым настройкам
+        // (порядок VS Code: code actions → формат → will-save расширений; правки
+        // каждого ложатся в буфер до следующего и до записи на диск). С
+        // дефолтами (обе настройки выключены) остаётся один will-save участник,
+        // без host'а — ни одного, и save идёт без участников. Участник по
+        // провайдерам входит, только если для ЭТОГО документа есть подходящий
+        // провайдер (реестр по селектору).
+        const codeActionsOnSave = createCodeActionsOnSaveParticipant(onSaveHost);
+        const formatOnSave = createFormatOnSaveParticipant(onSaveHost);
+        this.register(
+            this.textFileModels.addSaveParticipant((model) =>
+                languageFeatures.codeActionProvider.has(model) &&
+                // Stryker disable next-line EqualityOperator,ConditionalExpression: участник без включённых видов — no-op (провайдера не зовёт), а запись и так асинхронная; отсев только экономит проход
+                enabledCodeActionKindsOnSave(configurationService, model.languageId).length > 0
+                    ? codeActionsOnSave
+                    : null,
+            ),
+        );
+        this.register(
+            this.textFileModels.addSaveParticipant((model) =>
+                hasDocumentFormatter(languageFeatures, model) &&
+                configurationService.get("editor.formatOnSave", { overrideIdentifier: model.languageId })
+                    ? formatOnSave
+                    : null,
+            ),
+        );
+        this.register(this.textFileModels.addSaveParticipant(() => this.saveParticipantValue ?? null));
+        // Сохранение модели: метки/маркеры вкладок и агрегат для host'а.
+        this.register(
+            this.textFileModels.onDidSaveModel((model) => {
+                this.fireEditorsChanged();
+                this.fireModelSaved(model);
+            }),
+        );
         // Полоса групп начинается с единственной — она же активная.
         this.activeGroupValue = this.createGroup();
         // Владение оставшимися группами: схлопнутые чистятся по ходу, остальные —
@@ -394,6 +380,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
                 ...this.textPanes(),
                 ...this.diffSidePanes(),
             ]),
+        );
+        // Сменился язык документа — настройки редактора читаются для нового
+        // языка (`"[lang]"`-секции). Переприменяем ко всем, как при правке
+        // настроек: остальным это ничего не меняет.
+        this.register(
+            this.textFileModels.onDidChangeModelLanguage(() => {
+                this.editorConfiguration.reapply();
+            }),
         );
     }
 
@@ -911,7 +905,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
         // Синтетический ресурс уникален по построению — модель мимо реестра; ни
         // диска, ни сохранения — файловой обвязки ей не нужно.
         const model = new SyntheticTextModel(this.languageService, this.undoRedoService, uri, languageId);
-        const editor = this.createPaneForModel(model);
+        const editor = this.paneBuilder.build(model);
         editor.detached = true;
         // Вкладочные панели обвязывает группа; detached — сам сервис.
         this.wirePane(editor);
@@ -1052,8 +1046,8 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             if (content !== null) {
                 editor = this.createVirtualPane(uri, content);
             } else {
-                const ref = this.modelRegistry.acquire(uri);
-                editor = this.createPaneForModel(ref.model, ref);
+                const ref = this.textFileModels.acquire(uri);
+                editor = this.paneBuilder.build(ref.model, ref);
                 this.editorConfiguration.apply(editor);
             }
             // Прямое присваивание, без reveal: позиция пришла из вкладки, где
@@ -1188,7 +1182,7 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
             languageId ?? "plaintext",
         );
         model.replaceContent(content);
-        const editor = this.createPaneForModel(model);
+        const editor = this.paneBuilder.build(model);
         editor.labelOverride = overrides.label ?? path.basename(uri.path);
         this.editorConfiguration.apply(editor);
         editor.readOnly = true;
@@ -1236,103 +1230,14 @@ export class EditorService extends Disposable implements IShutdownParticipant, I
      * `filePath` остаётся `null`, путь запрашивается при первом сохранении (Save As).
      */
     public newUntitled({ focus = true }: { focus?: boolean } = {}): void {
-        const model = this.createUntitledModel();
-        const editor = this.createPaneForModel(model);
+        const model = this.textFileModels.createUntitledModel();
+        const editor = this.paneBuilder.build(model);
         // Файл не грузим (view-state из конструктора не пересоздаётся) — конфиг
         // применяем сразу.
         this.editorConfiguration.apply(editor);
         const group = this.activeGroupValue;
         group.insertPane(editor);
         group.activateTab(group.editorCount - 1, { focus });
-    }
-
-    /**
-     * Безымянный буфер БЕЗ вкладки — сторона «Compare New Untitled Text Files»,
-     * редактируемая прямо в дифф-вкладке. Модель мимо реестра (уникальна по
-     * построению), номер — из общего счётчика: `Untitled-N` стабилен, Save As
-     * работает штатно. Владение — у вызывающего (панель диффа).
-     */
-    public createUntitledModel(): TextFileModel {
-        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
-        this.wireModel(model);
-        model.setUntitled(++this.untitledCounter);
-        return model;
-    }
-
-    /**
-     * Ссылка на общую модель файла из реестра — для file-стороны диффа v2: тот
-     * же документ, что у вкладок этого файла, поэтому несохранённые правки видны
-     * в обе стороны, а undo общий. Владелец обязан освободить ссылку (панель
-     * передаёт её `TextEditorPane` третьим аргументом).
-     */
-    public acquireFileModel(uri: Uri): ITextFileModelReference {
-        return this.modelRegistry.acquire(uri);
-    }
-
-    /** Открытая модель ресурса, если есть; без создания и без изменения ref-count. */
-    public openFileModel(uri: Uri): TextFileModel | null {
-        return this.modelRegistry.get(uri);
-    }
-
-    /**
-     * Фабрика реестра моделей: модель файла + модельная обвязка + загрузка.
-     * Наблюдатель ставится до openFile ({@link wireModel}), чтобы слежение
-     * началось с первой загрузки.
-     */
-    private createFileModel(uri: Uri): TextFileModel {
-        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
-        this.wireModel(model);
-        model.openFile(uri);
-        return model;
-    }
-
-    /**
-     * Модельная обвязка — ставится один раз на документ, а не на вкладку:
-     * watcher, save-участник и событие сохранения принадлежат файлу, сколько бы
-     * вью его ни показывало.
-     */
-    private wireModel(model: TextFileModel): void {
-        model.fileWatcher = this.fileWatcher;
-        model.saveParticipant = this.textFileSaveParticipant;
-        // Подписка ставится первой — раньше вкладок: реестр должен перепривязать
-        // ключ до того, как вкладки перерисуют имя после saveAs. Живёт, сколько
-        // модель: эмиттер модели снимает её вместе с собой.
-        model.onDidSaveDocument(() => {
-            // saveAs мог сменить ресурс — реестр перепривязывает ключ.
-            this.modelRegistry.handleUriChanged(model);
-            this.fireEditorsChanged();
-            this.fireModelSaved(model);
-        });
-        // Сменился язык документа — настройки редактора читаются для нового
-        // языка (`"[lang]"`-секции). Переприменяем ко всем, как при правке
-        // настроек: остальным это ничего не меняет. Подписка живёт, сколько модель.
-        model.onDidChangeLanguage(() => {
-            this.editorConfiguration.reapply();
-        });
-    }
-
-    /**
-     * Создаёт view-часть вкладки поверх модели ({@link EditorComponent} +
-     * транзитный {@link TextEditorPane}) и навешивает вкладочную обвязку
-     * (контекст-меню, подписки → {@link onDidChangeEditors}, folding-источник). `modelOwnership` — ссылка реестра, которой владеет
-     * вкладка; без неё вкладка владеет моделью единолично (untitled, detached).
-     */
-    private createPaneForModel<TModel extends BaseTextEditorModel>(
-        model: TModel,
-        modelOwnership?: IDisposable,
-    ): TextEditorPane<TModel> {
-        const component = new EditorComponent(
-            this.tokenizationRegistry,
-            this.tokenStyleResolver,
-            model,
-            this.languageConfigurationService,
-            this.languageFeatures.foldingRangeProvider,
-        );
-        const editor = new TextEditorPane(model, component, modelOwnership);
-        // Политика контекстного меню редактора слушает "contextmenu" на обвязке
-        // пары; сам элемент контроллер берёт из цели события.
-        this.contextMenuController.attach(component.view);
-        return editor;
     }
 
     /**

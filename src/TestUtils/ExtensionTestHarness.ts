@@ -349,7 +349,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         undoRedoService,
         new TrashService(),
         configurationService,
-        new BulkEditBuffers(group),
+        new BulkEditBuffers(group, group.textFileModels),
         diskFileService(),
     );
     const adapter = new EditorOptionsServiceAdapter(group, workspaceEditService);

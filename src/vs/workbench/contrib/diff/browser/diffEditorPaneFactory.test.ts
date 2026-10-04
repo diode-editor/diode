@@ -130,7 +130,7 @@ describe("Фабрика дифф-вкладки", () => {
     });
 
     it("дифф со стороной-моделью слева не повторить", async () => {
-        const owned = service().createUntitledModel();
+        const owned = service().textFileModels.createUntitledModel();
         await openDiffPair(h.container, {
             original: { ownedModel: owned, label: "Untitled", identity: "u" },
             modified: { uri: Uri.file(ws.path("a.txt")), label: "a.txt", identity: "a" },
@@ -141,7 +141,7 @@ describe("Фабрика дифф-вкладки", () => {
     });
 
     it("дифф со стороной-моделью справа не повторить", async () => {
-        const owned = service().createUntitledModel();
+        const owned = service().textFileModels.createUntitledModel();
         await openDiffPair(h.container, {
             original: { uri: Uri.file(ws.path("a.txt")), label: "a.txt", identity: "a" },
             modified: { ownedModel: owned, label: "Untitled", identity: "u" },
@@ -189,7 +189,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(
             factory().serialize({ ...files(), original: { uri: fileUri, text: "x", label: "a", identity: "t" } }),
         ).toBeUndefined();
-        const owned = service().createUntitledModel();
+        const owned = service().textFileModels.createUntitledModel();
         expect(
             factory().serialize({
                 ...files(),

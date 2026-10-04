@@ -30,7 +30,7 @@ export interface IEditorPaneOverrides {
 
 /**
  * Обвязка юнит-тестов пары `TextFileModel` + `EditorComponent`: собирает пару так
- * же, как `EditorService.createPaneForModel`, и отдаёт
+ * же, как `TextEditorPaneBuilder.build`, и отдаёт
  * {@link TextEditorPane} — сценарии работают с единой поверхностью пары.
  */
 export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEditorPane<TextFileModel> {
