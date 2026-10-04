@@ -23,9 +23,11 @@ import { type IWireMessageItem, parseWireShowMessageResult, type WireMessageSeve
  * `getConfiguration().update`) делают это сами.
  */
 export interface IMessageApi {
-    showInformationMessage(message: string, ...rest: unknown[]): Thenable<unknown>;
-    showWarningMessage(message: string, ...rest: unknown[]): Thenable<unknown>;
-    showErrorMessage(message: string, ...rest: unknown[]): Thenable<unknown>;
+    // Свойства-стрелки, а не методы: `this` не нужен, и `window` раздаёт их
+    // расширению как есть (`const { showErrorMessage } = vscode.window`).
+    readonly showInformationMessage: (message: string, ...rest: unknown[]) => Thenable<unknown>;
+    readonly showWarningMessage: (message: string, ...rest: unknown[]) => Thenable<unknown>;
+    readonly showErrorMessage: (message: string, ...rest: unknown[]) => Thenable<unknown>;
 }
 
 /** Разобранные аргументы перегрузок `show*Message`. */

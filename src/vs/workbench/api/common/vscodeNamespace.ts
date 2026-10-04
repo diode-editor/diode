@@ -4,6 +4,7 @@ import type * as vscode from "vscode";
 
 import { UI_LOCALE } from "../../../platform/environment/common/uiLocale.ts";
 
+import { implementsApi } from "./apiSurface.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
@@ -28,6 +29,7 @@ import {
     CompletionItemTag,
     CompletionList,
     CompletionTriggerKind,
+    ConfigurationTarget,
     DecorationRangeBehavior,
     Diagnostic,
     DiagnosticRelatedInformation,
@@ -79,6 +81,7 @@ import {
     TabInputText,
     TabInputTextDiff,
     TabInputWebview,
+    TextDocumentChangeReason,
     TextDocumentSaveReason,
     TextEdit,
     TextEditorSelectionChangeKind,
@@ -210,7 +213,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         // Редактор настольный, пусть и в терминале: `Web` в контракте значит
         // «доступ из браузера» (vscode.dev), а не «не-графический UI».
         uiKind: UIKind.Desktop,
-    } as unknown;
+    };
 
     // Каталог установленных расширений приезжает от хоста (`extensions.catalog`
     // семенем ДО первой активации, `extensions.activated` — на каждое оживление).
@@ -231,16 +234,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         taskExecutions: [] as const,
         onDidStartTask: new EventEmitter<never>().event,
         onDidEndTask: new EventEmitter<never>().event,
-    } as unknown;
+    };
 
     const namespace = {
         // vscode-languageclient требует валидный VS Code semver (^1.91.0).
         // Лок-степ с extensions/VSCODE_VERSION — проверяет vscodeNamespace.identity.test.
         version: VSCODE_SHIM_VERSION,
         Disposable: DisposableImpl,
-        // Value-типы — обязательно перечислить поимённо: каст `as unknown as
-        // typeof vscode` прячет пропуск, он всплыл бы только рантайм-undefined
-        // внутри расширения (`new vscode.Position(...)`).
         Position,
         Range,
         Selection,
@@ -255,14 +255,22 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         // ответе сервера — без них конвертация completion падала молча.
         CompletionList,
         CompletionTriggerKind,
-        SnippetString,
+        // Точечный каст (и у трёх классов ниже, которые держат SnippetString в
+        // полях): у нашего SnippetString только `appendText`, и тот без
+        // экранирования; билдеров `appendTabstop`/`appendPlaceholder`/
+        // `appendChoice`/`appendVariable` из d.ts нет — это новый функционал.
+        SnippetString: SnippetString as unknown as typeof vscode.SnippetString,
         // InlineCompletionItem/List конструирует конвертер languageclient на
         // каждом ответе inline-completion-сервера — классы обязаны быть настоящими.
-        InlineCompletionItem,
-        InlineCompletionList,
+        InlineCompletionItem: InlineCompletionItem as unknown as typeof vscode.InlineCompletionItem,
+        InlineCompletionList: InlineCompletionList as unknown as typeof vscode.InlineCompletionList,
         InlineCompletionTriggerKind,
         EndOfLine,
         TextDocumentSaveReason,
+        // Оба enum'а объявлены в активном d.ts, но рантайм-поля не было:
+        // `vscode.ConfigurationTarget.Global` падал на чтении у undefined.
+        TextDocumentChangeReason,
+        ConfigurationTarget,
         FileChangeType,
         FileType,
         FileSystemError,
@@ -316,7 +324,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         WorkspaceEdit,
         // SnippetTextEdit конструирует конвертер клиента на сниппет-правку
         // внутри WorkspaceEdit — без класса падала бы конвертация всего edit'а.
-        SnippetTextEdit,
+        SnippetTextEdit: SnippetTextEdit as unknown as typeof vscode.SnippetTextEdit,
         // Расширение выбирает сторону полосы этим enum'ом на каждом
         // createStatusBarItem — без runtime-поля выравнивание всегда падало бы
         // в Left, а `item.alignment === vscode.StatusBarAlignment.Right` — в false.
@@ -353,13 +361,19 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         workspace,
         languages,
         commands,
-        env,
+        env: implementsApi<typeof vscode.env>()(env),
         extensions,
         // l10n без бандлов переводов: t подставляет плейсхолдеры, bundle/uri
         // честно undefined (ruff зовёт t на каждое пользовательское сообщение).
         l10n: createL10nNamespace(),
+        // `tasks` в активном d.ts ещё не объявлен — проверять не против чего.
         tasks,
-    } as unknown as typeof vscode;
+    };
 
-    return { namespace, configStore: ctx.configStore, extensionExports: exportsById, secrets };
+    return {
+        namespace: implementsApi<typeof vscode>()(namespace),
+        configStore: ctx.configStore,
+        extensionExports: exportsById,
+        secrets,
+    };
 }

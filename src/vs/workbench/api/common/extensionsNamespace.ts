@@ -1,5 +1,6 @@
 import type * as vscode from "vscode";
 
+import { implementsApi } from "./apiSurface.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { EventEmitter, ExtensionKind, Uri } from "./vscodeTypes.ts";
 import { type IWireExtensionDescription, parseWireExtensionActivated, parseWireExtensionCatalog } from "./wireTypes.ts";
@@ -112,10 +113,12 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
         },
         // Регистр id в эталоне не важен (`ExtensionIdentifier.equals` сравнивает
         // lowercase): расширения пишут id руками и промахиваются регистром.
-        getExtension: (extensionId: string): vscode.Extension<unknown> | undefined =>
-            byLowerId.get(extensionId.toLowerCase()),
+        // `T` — утверждение вызывающего о форме `exports` (как в эталоне):
+        // проверить его нечем, поэтому сужение — каст.
+        getExtension: <T = unknown>(extensionId: string): vscode.Extension<T> | undefined =>
+            byLowerId.get(extensionId.toLowerCase()) as vscode.Extension<T> | undefined,
         onDidChange: changeEmitter.event,
-    } as unknown as typeof vscode.extensions;
+    };
 
-    return { extensions, exportsById };
+    return { extensions: implementsApi<typeof vscode.extensions>()(extensions), exportsById };
 }

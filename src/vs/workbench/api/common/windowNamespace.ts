@@ -1,5 +1,6 @@
 import type * as vscode from "vscode";
 
+import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
@@ -38,7 +39,7 @@ import {
  * из layout-диффера.
  */
 function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T> {
-    return ((listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]): vscode.Disposable => {
+    return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]): vscode.Disposable => {
         const bound: (e: T) => unknown = thisArgs != null ? (e) => listener.call(thisArgs, e) : listener;
         listeners.push(bound);
         const disposable = new DisposableImpl(() => {
@@ -47,7 +48,7 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
         });
         if (disposables !== undefined) disposables.push(disposable);
         return disposable;
-    }) as vscode.Event<T>;
+    };
 }
 
 /** Wire-форма диапазона декорации (nested `start`/`end`, совпадает с `IRange`). */
@@ -167,12 +168,12 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
      * первой активации, но пока сообщение не пришло, врать `undefined`
      * расширению нельзя — `activeColorTheme.kind` читают без проверок.
      */
-    let activeColorTheme: vscode.ColorTheme = { kind: ColorThemeKind.Dark } as vscode.ColorTheme;
+    let activeColorTheme: vscode.ColorTheme = { kind: ColorThemeKind.Dark };
 
     // Монотонный ключ типа декорации + маппинг type-объект → числовой ключ.
     // Ключ живёт локально в субпроцессе; хост знает тип только по числу.
     let nextDecorationKey = 1;
-    const decorationTypeKeys = new WeakMap<object, number>();
+    const decorationTypeKeys = new WeakMap<vscode.TextEditorDecorationType, number>();
 
     function selectionKey(groupId: number, uri: string): string {
         return `${String(groupId)}:${uri}`;
@@ -231,13 +232,13 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         // Кэш обновлён ДО рассылки: слушатель читает `editor.selections` и
         // обязан увидеть новое, а не то, что было до события.
         const editor = getEditorFor(registry.getOrCreate(Uri.parse(p.uri)), groupId);
-        const event = {
+        const event: vscode.TextEditorSelectionChangeEvent = {
             textEditor: editor,
             selections: selections.map(toSelection),
             // Числа провода — это и есть значения `TextEditorSelectionChangeKind`
             // (см. WireSelectionChangeKind); нераспознанный источник — `undefined`.
             kind: parseWireSelectionChangeKind(p.kind),
-        } as unknown as vscode.TextEditorSelectionChangeEvent;
+        };
         for (const listener of [...selectionListeners]) listener(event);
     });
 
@@ -248,7 +249,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     rpc.handleNotification("window.themeChanged", (params) => {
         const parsed = parseWireColorTheme(params);
         if (parsed === null) return;
-        activeColorTheme = { kind: parsed.kind } as vscode.ColorTheme;
+        activeColorTheme = { kind: parsed.kind };
         for (const listener of [...colorThemeListeners]) listener(activeColorTheme);
     });
 
@@ -377,10 +378,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             const editors = editorCache.get(group.groupId);
             if (editors === undefined) continue;
             for (const editor of editors.values()) {
-                const event = {
+                const event: vscode.TextEditorViewColumnChangeEvent = {
                     textEditor: editor,
                     viewColumn: group.viewColumn,
-                } as unknown as vscode.TextEditorViewColumnChangeEvent;
+                };
                 for (const listener of [...viewColumnListeners]) listener(event);
             }
         }
@@ -489,8 +490,8 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             }
             return toSelection(primary);
         };
-        const editorData = {
-            options: {} as vscode.TextEditorOptions,
+        const editorData: vscode.TextEditor = {
+            options: {},
             document,
             /** Колонка — всегда от текущего снимка: перенумерация не рвёт объект (AS-9). */
             get viewColumn(): number | undefined {
@@ -545,7 +546,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 decorationType: vscode.TextEditorDecorationType,
                 rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
             ): void => {
-                const key = decorationTypeKeys.get(decorationType as unknown as object);
+                const key = decorationTypeKeys.get(decorationType);
                 if (key === undefined) return;
                 rpc.notify("editor.setDecorations", {
                     key,
@@ -591,7 +592,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 }
                 return false;
             },
-        }) as unknown as vscode.TextEditor;
+        });
     }
 
     // Опрашивает провайдер по изменившимся uri и шлёт хосту результат. uri без
@@ -647,7 +648,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
 
         // Оконное состояние. В TUI мы всегда «сфокусированы»; событие
         // регистрируется (editorconfig подписывается), но никогда не стреляет.
-        state: { focused: true, active: true } as vscode.WindowState,
+        state: { focused: true, active: true },
 
         onDidChangeActiveTextEditor: (
             listener: (e: vscode.TextEditor | undefined) => unknown,
@@ -692,20 +693,18 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         // Сообщения человеку (тост над статус-баром, у модального — диалог) со
         // всеми четырьмя перегрузками: кнопки и MessageOptions разбирает
         // messageNamespace.ts, ответ возвращается тем же предметом, что прислало
-        // расширение.
-        showErrorMessage: (message: string, ...rest: unknown[]): Thenable<unknown> =>
-            messages.showErrorMessage(message, ...rest),
-        showWarningMessage: (message: string, ...rest: unknown[]): Thenable<unknown> =>
-            messages.showWarningMessage(message, ...rest),
-        showInformationMessage: (message: string, ...rest: unknown[]): Thenable<unknown> =>
-            messages.showInformationMessage(message, ...rest),
+        // расширение. Каст — к перегрузкам d.ts: одна реализация обслуживает все
+        // четыре, а из одной сигнатуры TS перегрузки не выводит.
+        showErrorMessage: messages.showErrorMessage as typeof vscode.window.showErrorMessage,
+        showWarningMessage: messages.showWarningMessage as typeof vscode.window.showWarningMessage,
+        showInformationMessage: messages.showInformationMessage as typeof vscode.window.showInformationMessage,
 
         // Создаёт тип декорации: числовой ключ монотонен и живёт локально;
         // хосту уходит сериализованный options (ThemeColor → { $themeColor: id }).
         // `dispose()` шлёт хосту снятие типа (все его декорации гаснут).
         createTextEditorDecorationType: (options: vscode.DecorationRenderOptions): vscode.TextEditorDecorationType => {
             const key = nextDecorationKey++;
-            const type = {
+            const type: vscode.TextEditorDecorationType = {
                 key: String(key),
                 dispose: (): void => {
                     rpc.notify("window.disposeTextEditorDecorationType", { key });
@@ -716,7 +715,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 key,
                 options: serializeDecorationRenderOptions(options),
             });
-            return type as unknown as vscode.TextEditorDecorationType;
+            return type;
         },
 
         // Провайдер файловых декораций живёт в субпроцессе; мост подписывается на
@@ -756,6 +755,18 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 pending = "";
                 send("info", value);
             };
+            // Члены LogOutputChannel сверх OutputChannel: перегрузка
+            // `createOutputChannel(name, { log: true })` в d.ts ещё не поднята,
+            // но расширения зовут `channel.info(...)` и на обычном канале.
+            const logChannelExtras = {
+                logLevel: 3, // vscode.LogLevel.Info
+                onDidChangeLogLevel: new EventEmitter<never>().event,
+                trace: logEntry("trace"),
+                debug: logEntry("debug"),
+                info: logEntry("info"),
+                warn: logEntry("warn"),
+                error: logEntry("error"),
+            };
             return {
                 name,
                 append: (value: string) => {
@@ -786,14 +797,8 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 dispose: () => {
                     flushPending();
                 },
-                logLevel: 3, // vscode.LogLevel.Info
-                onDidChangeLogLevel: new EventEmitter<never>().event,
-                trace: logEntry("trace"),
-                debug: logEntry("debug"),
-                info: logEntry("info"),
-                warn: logEntry("warn"),
-                error: logEntry("error"),
-            } as unknown as vscode.OutputChannel;
+                ...logChannelExtras,
+            };
         },
 
         // Настоящий пункт статус-бара: состояние живёт здесь, а в полосу уезжает
@@ -870,7 +875,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 rpc.notify("window.statusBarItem.dispose", { handle });
             };
 
-            const item = {
+            const item: vscode.StatusBarItem = {
                 get id(): string {
                     return currentId();
                 },
@@ -904,10 +909,10 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 // Принимаются и читаются обратно, но на полосу не влияют — см.
                 // «Границы» постановки: подсказка требует виджета движка, цвета —
                 // новых токенов темы и посегментных стилей.
-                tooltip: undefined as string | vscode.MarkdownString | undefined,
-                color: undefined as string | vscode.ThemeColor | undefined,
-                backgroundColor: undefined as vscode.ThemeColor | undefined,
-                accessibilityInformation: undefined as vscode.AccessibilityInformation | undefined,
+                tooltip: undefined,
+                color: undefined,
+                backgroundColor: undefined,
+                accessibilityInformation: undefined,
                 show: (): void => {
                     if (disposed || visible) return;
                     visible = true;
@@ -924,7 +929,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                     disposed = true;
                 },
             };
-            return item as unknown as vscode.StatusBarItem;
+            return item;
         },
 
         onDidChangeVisibleTextEditors: makeListenerEvent(visibleEditorsListeners),
@@ -985,11 +990,9 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
             options?: vscode.InputBoxOptions,
             token?: vscode.CancellationToken,
         ): Thenable<string | undefined> => quickInput.showInputBox(options, token),
-        showQuickPick: (
-            items: unknown,
-            options?: vscode.QuickPickOptions,
-            token?: vscode.CancellationToken,
-        ): Thenable<unknown> => quickInput.showQuickPick(items, options, token),
+        // Каст — к четырём перегрузкам d.ts (строки/предметы × canPickMany):
+        // форму ответа реализация выбирает по `canPickMany` в рантайме.
+        showQuickPick: quickInput.showQuickPick as typeof vscode.window.showQuickPick,
 
         // `window.showTextDocument` (3 перегрузки): нормализуем в один запрос
         // хосту; к моменту резолва `editor.layoutChanged` уже применён (хост
@@ -1085,7 +1088,7 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
         },
     };
 
-    return windowNs as unknown as typeof vscode.window;
+    return implementsApi<typeof vscode.window>()(windowNs);
 }
 
 /** `vscode.Selection` → wire (anchor/active, 0-based). */

@@ -284,7 +284,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         const id = await provideAndPick(stub);
         expect(await stub.callRequest("languages.applyCodeAction", { id })).toBe(true);
         expect(appliedEdits).toHaveLength(1);
-        expect(appliedEdits[0]).toBe(action.edit as vscode.WorkspaceEdit);
+        expect(appliedEdits[0]).toBe(action.edit);
         expect(executed).toEqual([]);
     });
 

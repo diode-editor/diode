@@ -25,11 +25,12 @@ import {
  */
 export interface IQuickInputApi {
     showInputBox(options?: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined>;
-    showQuickPick(
+    // Свойство-стрелка, а не метод: `window` раздаёт его расширению как есть.
+    readonly showQuickPick: (
         items: unknown,
         options?: vscode.QuickPickOptions,
         token?: vscode.CancellationToken,
-    ): Thenable<unknown>;
+    ) => Thenable<unknown>;
 }
 
 /** Исход `validateInput` расширения → сообщение на проводе. */

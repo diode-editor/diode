@@ -1,5 +1,7 @@
 import type * as vscode from "vscode";
 
+import { implementsApi } from "./apiSurface.ts";
+
 /**
  * `vscode.l10n` без бандлов переводов: локализованных строк у Diode нет
  * (`bundle`/`uri` честно `undefined`), но подстановка плейсхолдеров обязана
@@ -40,5 +42,5 @@ function t(...params: unknown[]): string {
 }
 
 export function createL10nNamespace(): typeof vscode.l10n {
-    return { t, bundle: undefined, uri: undefined } as unknown as typeof vscode.l10n;
+    return implementsApi<typeof vscode.l10n>()({ t, bundle: undefined, uri: undefined });
 }

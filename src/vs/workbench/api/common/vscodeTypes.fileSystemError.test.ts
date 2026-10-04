@@ -10,6 +10,17 @@ describe("FileSystemError", () => {
         expect(FileSystemError.Unavailable("m").code).toBe("Unavailable");
     });
 
+    it("фабрики FileNotADirectory/FileIsADirectory (объявлены в d.ts) — code и провайдерный name", () => {
+        const notDir = FileSystemError.FileNotADirectory("m");
+        expect(notDir.code).toBe("FileNotADirectory");
+        expect(notDir.name).toBe("EntryNotADirectory (FileSystemError)");
+        expect(notDir.message).toBe("m");
+        const isDir = FileSystemError.FileIsADirectory(Uri.file("/a/dir"));
+        expect(isDir.code).toBe("FileIsADirectory");
+        expect(isDir.name).toBe("EntryIsADirectory (FileSystemError)");
+        expect(isDir.message).toContain("/a/dir");
+    });
+
     it("это Error с VS Code-совместимым name (провайдерный код + суффикс)", () => {
         const err = FileSystemError.FileNotFound("nope");
         expect(err).toBeInstanceOf(Error);
