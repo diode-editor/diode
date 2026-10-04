@@ -140,6 +140,17 @@ env-флагом, который выставляет спавнящая сто�
   причём `exit` после него может не прийти вовсе — значит и состояние ребёнка
   нельзя вести по одному `exit`. То же и для его stdio-потоков.
 
+Два последних правила, а также «stdout ребёнку закрыт», исполняет код, а не
+комментарии: самофорк поднимается только через `spawnSelfAsRole`
+(`base/node/selfSpawnArgs.ts` — флаг роли, IPC-канал, stdio без `inherit`
+типом), а его жизненный цикл ведёт `GuardedChildProcess`
+(`base/node/childProcessGuard.ts`: `error` через `on`, `error` без `exit` — тоже
+конец, слушатели на stdio, stderr построчно в лог, `onDidEnd` ровно один раз,
+`dispose` — синхронный SIGKILL). Так же устроен и разовый спавн rg. Новый
+самофорк — только через них. Не под guard'ом намеренно: «запустил и забыл»
+(`externalOpenerService`, процесс обязан пережить редактор), `execFile` с
+таймаутом (`tmuxClientProbe`) и PTY (у node-pty нет `error`).
+
 ### Дословный перенос upstream: `editor/common/diff`
 
 Алгоритм построчного диффа (`DefaultLinesDiffComputer`) и нужные ему примитивы

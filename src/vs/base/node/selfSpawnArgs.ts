@@ -1,3 +1,5 @@
+import { type ChildProcess, spawn } from "node:child_process";
+
 import type { IProcessSnapshot } from "./restartProcess.ts";
 import { currentProcessSnapshot } from "./restartProcess.ts";
 
@@ -30,4 +32,36 @@ export function selfSpawnArgs(snapshot: IProcessSnapshot = currentProcessSnapsho
         throw new Error("selfSpawnArgs: cannot determine main script for dev subprocess");
     }
     return { command: snapshot.execPath, args: [...snapshot.execArgv, mainScript] };
+}
+
+/** Роль, в которой редактор запускает сам себя; развилку по флагу держит `main.ts`. */
+export type SelfProcessRole = "DIODE_FILE_WATCHER" | "DIODE_EXTENSION_HOST";
+
+export interface ISpawnSelfAsRoleOptions {
+    /**
+     * stdout ребёнка: закрыт (`"ignore"`) или читается нами (`"pipe"`).
+     * `"inherit"` типом не допускается — ребёнок делит терминал с редактором, и
+     * любая его печать испортила бы кадр TUI.
+     */
+    readonly stdout?: "ignore" | "pipe";
+    /** stderr ребёнка — по тем же причинам без `"inherit"`. */
+    readonly stderr: "ignore" | "pipe";
+    /** Чем запускать; по умолчанию {@link selfSpawnArgs} (шов для тестов). */
+    readonly spec?: ISelfSpawnSpec;
+    /** Окружение ребёнка до флага роли; по умолчанию `process.env`. */
+    readonly env?: NodeJS.ProcessEnv;
+}
+
+/**
+ * Запуск себя ещё одним процессом в роли (watcher, extension host): тот же
+ * бинарь, флаг роли в env, IPC-канал четвёртым stdio. Аналог upstream
+ * `base/parts/ipc/node/ipc.cp.ts` `Client` по обязанностям спавна; жизненный
+ * цикл (error/exit/stdio) — `GuardedChildProcess`.
+ */
+export function spawnSelfAsRole(role: SelfProcessRole, options: ISpawnSelfAsRoleOptions): ChildProcess {
+    const spec = options.spec ?? selfSpawnArgs();
+    return spawn(spec.command, spec.args, {
+        stdio: ["ignore", options.stdout ?? "ignore", options.stderr, "ipc"],
+        env: { ...(options.env ?? process.env), [role]: "1" },
+    });
 }

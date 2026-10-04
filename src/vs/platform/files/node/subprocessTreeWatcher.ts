@@ -1,7 +1,6 @@
-import { spawn } from "node:child_process";
-
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
-import { selfSpawnArgs } from "../../../base/node/selfSpawnArgs.ts";
+import { GuardedChildProcess } from "../../../base/node/childProcessGuard.ts";
+import { spawnSelfAsRole } from "../../../base/node/selfSpawnArgs.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions } from "../common/iTreeFileWatcher.ts";
@@ -261,36 +260,17 @@ export const SubprocessTreeWatcherDIToken = token<SubprocessTreeWatcher>("Subpro
 
 /**
  * Боевой спавн: тот же бинарь с `DIODE_FILE_WATCHER=1` — ровно та дисциплина,
- * что у extension host'а (`selfSpawnArgs`, env-гейт, ветка в `main.ts`).
+ * что у extension host'а (`spawnSelfAsRole`, env-гейт, ветка в `main.ts`).
  *
  * stdout ребёнку закрыт: он делит терминал с редактором, и любая случайная
  * печать испортила бы кадр. stderr пишет в тот же лог-канал — туда попадает то,
  * что мимо протокола (падение с трассой).
  */
 function spawnWatcherProcess(logger: ILogger | undefined): IWatcherProcess {
-    const spec = selfSpawnArgs();
-    const child = spawn(spec.command, spec.args, {
-        stdio: ["ignore", "ignore", "pipe", "ipc"],
-        env: { ...process.env, DIODE_FILE_WATCHER: "1" },
-    });
-    // `stderr` — поток только при нашем `"pipe"`; тип допускает и `null`
-    // (`"ignore"` у других вызывающих), поэтому проверка, а не `?.` на каждой строке.
-    const { stderr } = child;
-    if (stderr !== null) {
-        // Без явной кодировки в обработчик приезжает Buffer, и строковые операции
-        // над ним молча дают не то.
-        stderr.setEncoding("utf8");
-        stderr.on("data", (chunk: string) => {
-            // Ребёнок пишет строками с `\n`; лог-канал сам разделяет записи.
-            logger?.warn(`[file-watcher] ${chunk.trimEnd()}`);
-        });
-        // Слушатель обязателен по той же причине, что и на самом процессе:
-        // сломавшийся поток без него убил бы редактор. Состояние процесса от
-        // этого не меняется — его ведут `exit`/`error` на нём самом.
-        stderr.on("error", (error: unknown) => {
-            logger?.warn(`[file-watcher] stderr stream error: ${String(error)}`);
-        });
-    }
+    const child = spawnSelfAsRole("DIODE_FILE_WATCHER", { stderr: "pipe" });
+    // Правила самофорка (error через `on`, error без exit — тоже конец, слушатели
+    // на stdio, stderr построчно в лог) исполняет guard.
+    const guard = new GuardedChildProcess(child, { label: "file-watcher", logger, logStderr: true });
     return {
         send: (message) => {
             // Синхронный throw (канал уже закрыт к моменту вызова) — молча;
@@ -306,16 +286,17 @@ function spawnWatcherProcess(logger: ILogger | undefined): IWatcherProcess {
             child.on("message", listener);
         },
         onExit: (listener) => {
-            child.once("exit", listener);
+            guard.onDidEnd((end) => {
+                if (end.error === undefined) listener();
+            });
         },
         onError: (listener) => {
-            // `on`, а не `once`: закрытый канал эмитит ошибку на каждый `send`,
-            // и второй такой без слушателя снова уронил бы редактор.
-            child.on("error", listener);
+            guard.onDidEnd((end) => {
+                if (end.error !== undefined) listener(end.error);
+            });
         },
         kill: () => {
-            // Мёртвому ребёнку `kill` не бросает — отдельной проверки не нужно.
-            child.kill("SIGKILL");
+            guard.dispose();
         },
     };
 }
