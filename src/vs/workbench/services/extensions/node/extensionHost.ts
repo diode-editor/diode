@@ -63,11 +63,8 @@ import {
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
     type IWireInputBoxRequest,
-    type IWireInputBoxResult,
     type IWireQuickPickRequest,
-    type IWireQuickPickResult,
     type IWireShowMessageRequest,
-    type IWireShowMessageResult,
     type IWireStatusBarItem,
     type IWireValidationMessage,
     type IWireWatcherCreate,
@@ -76,29 +73,16 @@ import {
     parseWireApplyWorkspaceEditParams,
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
-    parseWireDiagnosticsPublish,
     parseWireEditorEdits,
     parseWireFileDecorations,
-    parseWireInputBoxRequest,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     parseWireMementoUpdate,
-    parseWireOutputAppend,
-    parseWireOutputShow,
-    parseWireProgressEnd,
-    parseWireProgressReport,
-    parseWireProgressStart,
-    parseWireQuickInputCancel,
-    parseWireQuickPickRequest,
     parseWireReadFileResult,
     parseWireSchemes,
     parseWireSelections,
-    parseWireShowMessageRequest,
     parseWireShowTextDocumentParams,
-    parseWireStatusBarItem,
-    parseWireStatusBarItemDispose,
     parseWireTextContentResult,
-    parseWireValidationMessage,
     parseWireWatcherCreate,
     parseWireWatcherDispose,
     requestApplyCodeAction,
@@ -116,7 +100,6 @@ import {
     type SerializedDecorationRenderOptions,
     themeColorIdOf,
     type WireMarker,
-    type WireMessageSeverity,
     type WireOutputLevel,
 } from "../../../api/common/wireTypes.ts";
 import {
@@ -167,6 +150,7 @@ import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts"
 
 import { EnvCustomer } from "./customers/envCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
+import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
 
@@ -640,27 +624,6 @@ export class ExtensionHost extends Disposable {
     private readonly pendingDidChange = new Map<string, IWireDocumentSyncSnapshot>();
     private readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
     private readonly editorLayout: IEditorLayoutService;
-    private readonly diagnosticsSink: DiagnosticsSink | undefined;
-    private readonly progressSink: IProgressSink | undefined;
-    private readonly outputSink: IOutputSink | undefined;
-    private readonly statusBarItemSink: IStatusBarItemSink | undefined;
-    private readonly quickInputSink: IQuickInputSink | undefined;
-    private readonly notificationSink: INotificationSink | undefined;
-    /** Живые handle'ы withProgress — на shutdown всем шлётся end (спиннеры не зависают). */
-    private readonly activeProgressHandles = new Set<number>();
-    /**
-     * Живые показы quick input'а. На смерти субпроцесса всем шлётся `cancel`:
-     * иначе оверлей расширения остался бы на экране без хозяина, а ответить на
-     * него было бы уже некому.
-     */
-    private readonly activeQuickInputHandles = new Set<number>();
-    /**
-     * Живые показы сообщений — по той же причине, что у quick input'а: ответить
-     * на сообщение умершего субпроцесса некому, а на экране оно бы осталось.
-     */
-    private readonly activeMessageHandles = new Set<number>();
-    /** Счётчик адресов показов сообщений — монотонен на всё время жизни хоста. */
-    private nextMessageHandle = 1;
     private readonly fileWatcher: IExtensionFileWatcher;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
     private readonly storageHomes: () => IExtensionStorageHomes;
@@ -752,15 +715,17 @@ export class ExtensionHost extends Disposable {
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
-        this.diagnosticsSink = options.diagnosticsSink;
-        this.progressSink = options.progressSink;
-        this.outputSink = options.outputSink;
-        this.statusBarItemSink = options.statusBarItemSink;
-        this.quickInputSink = options.quickInputSink;
-        this.notificationSink = options.notificationSink;
         this.customers = [
             new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
             new EnvCustomer(options.clipboard, options.externalOpener),
+            new WindowCustomer({
+                diagnosticsSink: options.diagnosticsSink,
+                progressSink: options.progressSink,
+                outputSink: options.outputSink,
+                statusBarItemSink: options.statusBarItemSink,
+                quickInputSink: options.quickInputSink,
+                notificationSink: options.notificationSink,
+            }),
         ];
         // Смена темы → пере-резолв держимых декораций в обе поверхности + новая
         // тема расширениям (`window.onDidChangeActiveColorTheme`).
@@ -2126,139 +2091,6 @@ export class ExtensionHost extends Disposable {
             if (id === null) return;
             this.disposeFileWatcher(id);
         });
-        // Жизненный цикл withProgress расширения — отдаём стоку (module рисует
-        // запись статус-бара со спиннером и снимает её на end).
-        rpc.handleNotification("window.progress.start", (params) => {
-            const start = parseWireProgressStart(params);
-            if (start === null) return;
-            this.activeProgressHandles.add(start.handle);
-            this.progressSink?.start(start.handle, start.title);
-        });
-        rpc.handleNotification("window.progress.report", (params) => {
-            const report = parseWireProgressReport(params);
-            if (report === null) return;
-            this.progressSink?.report(report.handle, report.message, report.increment);
-        });
-        rpc.handleNotification("window.progress.end", (params) => {
-            const end = parseWireProgressEnd(params);
-            if (end === null) return;
-            this.activeProgressHandles.delete(end.handle);
-            this.progressSink?.end(end.handle);
-        });
-        // Пункт статус-бара расширения (`window.createStatusBarItem`) показан или
-        // изменён / снят — отдаём стоку (module ведёт в StatusBarService).
-        // `update` — полное состояние, а не дельта: у хоста нет своей копии пункта.
-        rpc.handleNotification("window.statusBarItem.update", (params) => {
-            const item = parseWireStatusBarItem(params);
-            if (item === null) return;
-            this.statusBarItemSink?.update(item);
-        });
-        rpc.handleNotification("window.statusBarItem.dispose", (params) => {
-            const removed = parseWireStatusBarItemDispose(params);
-            if (removed === null) return;
-            this.statusBarItemSink?.remove(removed.handle);
-        });
-        // Строка output-канала расширения / просьба показать канал — отдаём
-        // стоку (module ведёт в реестр Output + логгер + команду show).
-        rpc.handleNotification("output.append", (params) => {
-            const append = parseWireOutputAppend(params);
-            if (append === null) return;
-            this.outputSink?.append(append.channel, append.label, append.level, append.value);
-        });
-        rpc.handleNotification("output.show", (params) => {
-            const show = parseWireOutputShow(params);
-            if (show === null) return;
-            this.outputSink?.show(show.channel, show.label);
-        });
-        // Расширение опубликовало диагностики (createDiagnosticCollection().set)
-        // — отдаём их стоку (module ведёт в MarkerService → squiggle + Problems).
-        rpc.handleNotification("diagnostics.publish", (params) => {
-            const publish = parseWireDiagnosticsPublish(params);
-            if (publish === null) return;
-            this.diagnosticsSink?.(publish.owner, publish.resource, publish.markers);
-        });
-        // ─── Quick input (ввод и выбор по просьбе расширения) ────────────────
-        // Показ адресуется handle'ом расширения. Валидацию хост спрашивает
-        // обратным запросом в тот же субпроцесс — она живёт в расширении.
-        rpc.handleRequest("window.showInputBox", async (params): Promise<IWireInputBoxResult> => {
-            const request = parseWireInputBoxRequest(params);
-            // Мусорные параметры или отсутствующий сток — «человек отменил»:
-            // расширение получает undefined сразу, а не зависает навсегда.
-            if (request === null || this.quickInputSink === undefined) return { value: null };
-            const sink = this.quickInputSink;
-            // Именованной константой, а не стрелкой внутри спреда: Stryker
-            // разбирает исходник своим babel'ом и на типизированной стрелке в
-            // спред-тернарнике падает (`Did not expect a type annotation here`).
-            const askExtension = async (text: string): Promise<IWireValidationMessage | null> => {
-                try {
-                    const answer = await rpc.request("window.inputBox.validate", {
-                        handle: request.handle,
-                        value: text,
-                    });
-                    return parseWireValidationMessage(answer);
-                } catch {
-                    // Расширение упало на валидации — считаем значение годным,
-                    // а не вешаем поле навсегда.
-                    return null;
-                }
-            };
-            this.activeQuickInputHandles.add(request.handle);
-            try {
-                const value = await sink.showInputBox({
-                    ...request,
-                    ...(request.validates ? { validate: askExtension } : {}),
-                });
-                return { value: value ?? null };
-            } finally {
-                this.activeQuickInputHandles.delete(request.handle);
-            }
-        });
-        rpc.handleRequest("window.showQuickPick", async (params): Promise<IWireQuickPickResult> => {
-            const request = parseWireQuickPickRequest(params);
-            if (request === null || this.quickInputSink === undefined) return { indices: null };
-            this.activeQuickInputHandles.add(request.handle);
-            try {
-                const indices = await this.quickInputSink.showQuickPick(request);
-                return { indices: indices ?? null };
-            } finally {
-                this.activeQuickInputHandles.delete(request.handle);
-            }
-        });
-        // Токен отмены расширения стрельнул — снимаем показ, обещание расширения
-        // доводится до undefined закрытием оверлея.
-        rpc.handleNotification("window.quickInput.cancel", (params) => {
-            const handle = parseWireQuickInputCancel(params);
-            if (handle === null) return;
-            // Stryker disable next-line OptionalChaining: ветка «стока нет» ниже по коду недостижима из тестов иначе как этим же путём, а без стока обращение кинуло бы
-            this.quickInputSink?.cancel(handle);
-        });
-        // ─── Сообщения человеку (window.show*Message) ────────────────────────
-        // Сообщение одновременно уходит в лог расширений (история сообщений
-        // остаётся читаемой после того, как тост погас) и на поверхность стока.
-        // Ответ — индекс нажатой кнопки; без стока и на мусорных параметрах
-        // расширение получает «закрыто без выбора», а не висит.
-        rpc.handleRequest("window.showMessage", async (params): Promise<IWireShowMessageResult> => {
-            const request = parseWireShowMessageRequest(params);
-            if (request === null) return { index: null };
-            this.logExtensionMessage(request.severity, request.message);
-            if (this.notificationSink === undefined) return { index: null };
-            // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо
-            const handle = this.nextMessageHandle++;
-            this.activeMessageHandles.add(handle);
-            // `.catch` вместо try/catch: поверхность, не сумевшая показать
-            // сообщение, — это НАША поломка, и расширение за неё платить не
-            // должно. Отказ этого запроса отклонил бы его `await show*Message(...)`,
-            // а необработанный reject валит весь субпроцесс расширений (поймано
-            // живым прогоном). Отвечаем «закрыто без выбора» и пишем в лог.
-            const index = await this.notificationSink
-                .showMessage({ ...request, handle })
-                .catch((error: unknown): undefined => {
-                    this.logger?.error(`[extension] showMessage failed: ${String(error)}`);
-                    return undefined;
-                });
-            this.activeMessageHandles.delete(handle);
-            return { index: index ?? null };
-        });
         // ─── Decorations bridge (Chunk 4) ────────────────────────────────────
         // Субпроцесс завёл тип декорации. Регистрируем его форму: наличие
         // overviewRulerColor делает тип gutter change-bar'ом.
@@ -2421,16 +2253,6 @@ export class ExtensionHost extends Disposable {
     }
 
     /**
-     * Дублирует сообщение расширения в лог по строгости: тост гаснет, а
-     * прочитать, что расширение сказало, надо и потом.
-     */
-    private logExtensionMessage(severity: WireMessageSeverity, text: string): void {
-        if (severity === "error") this.logger?.error(`[extension] ${text}`);
-        else if (severity === "warn") this.logger?.warn(`[extension] ${text}`);
-        else this.logger?.info(`[extension] ${text}`);
-    }
-
-    /**
      * Сбрасывает всё, что принадлежало ушедшему субпроцессу: ссылки на канал,
      * флаги подписок и поверхности, которые он держал (спиннеры, пункты полосы,
      * декорации, прокси-команды). Общий для вежливого выключения
@@ -2457,23 +2279,6 @@ export class ExtensionHost extends Disposable {
             this.fireLanguageProvidersChanged();
         }
         this.pendingDidChange.clear();
-        // Subprocess умер — его `end` уже не придёт: гасим спиннеры сами.
-        for (const handle of this.activeProgressHandles) this.progressSink?.end(handle);
-        this.activeProgressHandles.clear();
-        // Та же причина у пунктов статус-бара: `dispose` от умершего расширения
-        // не придёт никогда, а его пункты в полосе висеть не должны.
-        this.statusBarItemSink?.clear();
-        // …и у его оверлеев ввода: отвечать на них стало некому, а на экране они
-        // остались бы навсегда.
-        // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока, поэтому пары «набор непуст, а стока нет» не бывает; `?.` стоит защитой
-        for (const handle of this.activeQuickInputHandles) this.quickInputSink?.cancel(handle);
-        // Stryker disable next-line CallExpression: гигиена набора; второй проход по нему невозможен — host после остановки субпроцесса этот код повторно не исполняет
-        this.activeQuickInputHandles.clear();
-        // …и у его сообщений: нажимать кнопки стало некому.
-        // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока, поэтому пары «набор непуст, а стока нет» не бывает; `?.` стоит защитой
-        for (const handle of this.activeMessageHandles) this.notificationSink?.cancel(handle);
-        // Stryker disable next-line CallExpression: гигиена набора; второй проход по нему невозможен — host после остановки субпроцесса этот код повторно не исполняет
-        this.activeMessageHandles.clear();
         // Декорации принадлежали умирающему сабпроцессу — сбрасываем реестр, чтобы
         // респавн начинал с чистого листа (сами поверхности перерисует расширение).
         this.decorationTypes.clear();
