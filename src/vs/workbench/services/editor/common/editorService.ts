@@ -81,6 +81,14 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
 
     /** Открытые текстовые редакторы ВСЕХ групп. */
     getEditors(): readonly TextEditorPane[];
+    /**
+     * Текстовые поверхности документов: вкладки и стороны дифф-вкладок (сторона
+     * диффа бывает правимой моделью файла без своей вкладки). По ним зовут
+     * языковых провайдеров, поэтому их документы синхронизируются с extension
+     * host'ом. Панели вне таб-строки (Output) сюда не входят — см.
+     * `bindDocumentSync`.
+     */
+    getTextSurfaces(): readonly TextEditorPane[];
     /** Пути открытых файлов всех групп в порядке вкладок (без безымянных и недисковых). */
     getOpenFilePaths(): string[];
     /** Вкладки, метки или активная вкладка поменялись. */

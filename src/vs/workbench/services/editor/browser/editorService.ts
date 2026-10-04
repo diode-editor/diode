@@ -620,6 +620,10 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return this.textPanes();
     }
 
+    public getTextSurfaces(): readonly TextEditorPane[] {
+        return [...this.textPanes(), ...this.diffSidePanes()];
+    }
+
     /** Текстовые вкладки всех групп в порядке полосы (декорации, конфиг, персист). */
     private textPanes(): TextEditorPane[] {
         return this.allPanes().filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane);
