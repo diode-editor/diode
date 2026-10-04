@@ -25,19 +25,19 @@ describe("loggingRequest", () => {
         const logger = spyLogger();
         const { rpc, calls } = rpcAnswering(() => Promise.resolve("ok"));
         const request = loggingRequest(rpc, logger as unknown as ILogger);
-        await expect(request("languages.provideHover", { a: 1 }, { timeoutMs: 7 })).resolves.toBe("ok");
-        expect(calls).toEqual([{ method: "languages.provideHover", params: { a: 1 }, options: { timeoutMs: 7 } }]);
+        await expect(request("test.method", { a: 1 }, { timeoutMs: 7 })).resolves.toBe("ok");
+        expect(calls).toEqual([{ method: "test.method", params: { a: 1 }, options: { timeoutMs: 7 } }]);
         expect(logger.debug).not.toHaveBeenCalled();
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("истёкший срок — debug с текстом таймаута, отказ пробрасывается", async () => {
         const logger = spyLogger();
-        const timeout = new TimeoutError("languages.provideHover", 5);
+        const timeout = new TimeoutError("test.method", 5);
         const { rpc } = rpcAnswering(() => Promise.reject(timeout));
         const request = loggingRequest(rpc, logger as unknown as ILogger);
-        await expect(request("languages.provideHover", {}, {})).rejects.toBe(timeout);
-        expect(logger.debug).toHaveBeenCalledWith('request "languages.provideHover" timed out after 5ms');
+        await expect(request("test.method", {}, {})).rejects.toBe(timeout);
+        expect(logger.debug).toHaveBeenCalledWith('request "test.method" timed out after 5ms');
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
@@ -46,8 +46,8 @@ describe("loggingRequest", () => {
         const failure = new Error("provider crashed");
         const { rpc } = rpcAnswering(() => Promise.reject(failure));
         const request = loggingRequest(rpc, logger as unknown as ILogger);
-        await expect(request("languages.provideHover", {}, {})).rejects.toBe(failure);
-        expect(logger.warn).toHaveBeenCalledWith('request "languages.provideHover" failed', failure);
+        await expect(request("test.method", {}, {})).rejects.toBe(failure);
+        expect(logger.warn).toHaveBeenCalledWith('request "test.method" failed', failure);
         expect(logger.debug).not.toHaveBeenCalled();
     });
 

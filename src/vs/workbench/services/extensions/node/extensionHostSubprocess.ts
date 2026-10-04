@@ -6,6 +6,7 @@ import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { importModule } from "../../../../base/node/importModule.ts";
 import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
+import type { SubprocessRpc } from "../../../api/common/extHostProtocol.ts";
 import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
@@ -114,7 +115,7 @@ export function runExtensionHostSubprocess(): void {
     const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
     // Логгер — в stderr: сбой обработчика запроса (провайдер расширения упал)
     // и запрос без обработчика видны в канале `extensions.host.stderr`.
-    const rpc = new RpcEndpoint(channel, createStderrLogger());
+    const rpc: SubprocessRpc = new RpcEndpoint(channel, createStderrLogger());
 
     const { configStore, extensionExports, secrets } = installVscodeStub(rpc);
 
@@ -426,7 +427,7 @@ export function buildVscodeEsmShim(exportNames: readonly string[]): string {
  * Хуки и CJS-кэш не мешают друг другу: `require("vscode")` по-прежнему берёт
  * объект из кэша, а не сгенерированный ESM (проверено тестом).
  */
-function installVscodeStub(rpc: RpcEndpoint): IDisposable & {
+function installVscodeStub(rpc: SubprocessRpc): IDisposable & {
     configStore: WorkspaceConfigStore;
     extensionExports: Map<string, unknown>;
     secrets: IExtensionSecretsFactory;

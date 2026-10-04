@@ -1,6 +1,6 @@
 import type { IExtHostDisk } from "./extHostDisk.ts";
 import type { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 /**
@@ -10,7 +10,7 @@ import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
  * чтобы все они работали поверх ОДНОГО реестра документов и хранилища конфигурации.
  */
 export interface IVscodeHostContext {
-    readonly rpc: RpcEndpoint;
+    readonly rpc: SubprocessRpc;
     readonly registry: DocumentRegistry;
     /** Единственная точка входа текста в {@link registry} (см. DocumentSyncTracker). */
     readonly documentSync: DocumentSyncTracker;

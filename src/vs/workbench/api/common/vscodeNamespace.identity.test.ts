@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Uri } from "../../../base/common/uri.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
-import type { RpcEndpoint } from "./rpcEndpoint.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { makeStubRpc as makeSharedStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
@@ -13,7 +13,7 @@ import { buildVscodeNamespace } from "./vscodeNamespace.ts";
  * document === doc` (сравнение по ссылке, как в editorconfig) ломалось.
  */
 interface StubRpc {
-    rpc: RpcEndpoint;
+    rpc: SubprocessRpc;
     /** Принимает путь на диске и поднимает его в ресурс — как это делает хост. */
     fireActiveEditorChanged: (filePath: string | null) => void;
     request: ReturnType<typeof vi.fn>;
@@ -31,7 +31,7 @@ function makeStubRpc(): StubRpc {
         request,
         notify: vi.fn(),
         dispose: vi.fn(),
-    } as unknown as RpcEndpoint;
+    } as unknown as SubprocessRpc;
     return {
         rpc,
         request,

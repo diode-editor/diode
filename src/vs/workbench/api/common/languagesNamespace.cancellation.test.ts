@@ -5,6 +5,7 @@ import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
+import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { RpcEndpoint, TimeoutError } from "./rpcEndpoint.ts";
@@ -24,7 +25,7 @@ const DOC = { uri: URI, languageId: "typescript", version: 1 };
 const POS = { ...DOC, handle: 0, line: 0, character: 1 };
 const SELECTOR = { language: "typescript" };
 
-function makeCtx(rpc: RpcEndpoint): IVscodeHostContext {
+function makeCtx(rpc: SubprocessRpc): IVscodeHostContext {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc,
