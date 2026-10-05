@@ -28,7 +28,10 @@
     "office": "agent-office .",
     "office:dry": "node scripts/office-dry-run.mjs",
     "import:vscode-diff": "node scripts/import-vscode-diff.mjs",
-    "import:codicons": "node scripts/import-codicons.mjs"
+    "import:codicons": "node scripts/import-codicons.mjs",
+    "engine:link": "node scripts/engine-link.mjs link",
+    "engine:unlink": "node scripts/engine-link.mjs unlink",
+    "engine:status": "node scripts/engine-link.mjs status"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
