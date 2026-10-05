@@ -147,6 +147,11 @@ jobs:
           restore-keys: |
             stryker-incremental-${{ github.head_ref || github.ref_name }}-
 
+      # Логика самого гейта (ключ мутанта, скоуп, балл): секунды, и сломанный
+      # гейт лучше узнать до получасового Stryker'а, чем по тихо-зелёному отчёту.
+      - name: Gate self-test
+        run: npm run test:scripts
+
       # continue-on-error, чтобы отчёт долетел до PR и когда балл ниже порога;
       # красным job делает последний шаг.
       # База: у PR — его base.sha, у ручного запуска — `base` из inputs, а без
@@ -162,7 +167,7 @@ jobs:
           base="${BASE:-$(git merge-base origin/main HEAD)}"
           echo "База диффа: $base"
           mkdir -p reports/mutation
-          node scripts/mutation-diff.mjs "$base" \
+          node scripts/mutation-diff.mjs --base "$base" \
             --ignoreStatic --incremental --reporters json,html,clear-text \
             2>&1 | tee reports/mutation/mutation.log
 
@@ -185,8 +190,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -f reports/mutation/mutation.json ]; then
-            echo "PR не трогает продуктовый код — мутировать нечего."
-            exit 0
+            # «Нет отчёта» бывает и от пустого скоупа, и от упавшего скрипта —
+            # различает их только исход, который скрипт пишет в gate.json.
+            if [ "$(jq -r .outcome reports/mutation/gate.json 2>/dev/null)" = "empty-scope" ]; then
+              echo "PR не трогает продуктовый код — мутировать нечего."
+              exit 0
+            fi
+            echo "::error::Мутационный прогон не дошёл до отчёта — смотри шаг Mutation testing."
+            exit 1
           fi
           {
             echo "<!-- mutation-report -->"

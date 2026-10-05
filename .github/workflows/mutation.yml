@@ -77,7 +77,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          node scripts/mutation-diff.mjs "${{ steps.base.outputs.sha }}" \
+          node scripts/mutation-diff.mjs --base "${{ steps.base.outputs.sha }}" \
             --reporters json,html,clear-text 2>&1 | tee mutation-run.log
 
       - name: Собрать отчёт
@@ -86,12 +86,23 @@ jobs:
           MUTATION_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          # Исход прогона пишет mutation-diff.mjs. Нет файла — скрипт упал, не
+          # дойдя до вердикта. Раньше «нет отчёта» читалось как «нечего
+          # мутировать», и с 2026-09-13 прогон три недели зеленел за 0.4 минуты,
+          # падая на первом же `git diff` (ENOBUFS на 11.7 МБ вывода).
+          outcome="$(jq -r .outcome reports/mutation/gate.json 2>/dev/null || echo missing)"
+          echo "outcome=$outcome" >> "$GITHUB_OUTPUT"
+          echo "Исход прогона: $outcome"
           if [ ! -f reports/mutation/mutation.json ]; then
-            # Пустой скоуп (в окне не было изменений в продуктовом коде) — это
-            # штатный исход, а не сбой: mutation-diff.mjs выходит нулём.
-            echo "Отчёта нет — в окне нечего было мутировать."
             echo "has_report=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            if [ "$outcome" = "empty-scope" ]; then
+              # Пустой скоуп — в окне не было изменений в продуктовом коде.
+              # Штатный исход, базу двигаем: окно проверено.
+              echo "В окне нечего было мутировать."
+              exit 0
+            fi
+            echo "::error::Прогон не дошёл до отчёта (исход: $outcome) — смотри шаг «Прогон». База не сдвинута."
+            exit 1
           fi
           echo "has_report=true" >> "$GITHUB_OUTPUT"
           {
@@ -147,6 +158,9 @@ jobs:
       # из этого не выберется. Выход — запустить вручную (workflow_dispatch),
       # передав в `base` промежуточный коммит: прогон пройдёт по узкому окну и
       # сдвинет базу, после чего расписание догонит остаток по частям.
+      #
+      # Двигаем только по вердикту (passed/failed) или пустому скоупу: при
+      # исходе `error` (перепроверка не доехала) окно проверено не до конца.
       - name: Сдвинуть базу
-        if: steps.report.outputs.has_report == 'true'
+        if: contains(fromJSON('["passed","failed","empty-scope"]'), steps.report.outputs.outcome)
         run: git push --force origin HEAD:refs/heads/mutation-baseline
