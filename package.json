@@ -31,7 +31,12 @@
     "import:codicons": "node scripts/import-codicons.mjs",
     "engine:link": "node scripts/engine-link.mjs link",
     "engine:unlink": "node scripts/engine-link.mjs unlink",
-    "engine:status": "node scripts/engine-link.mjs status"
+    "engine:status": "node scripts/engine-link.mjs status",
+    "git:fetch": "node scripts/git/fetch.mjs",
+    "git:stack-rebase": "node scripts/git/stack-rebase.mjs",
+    "git:push": "node scripts/git/push.mjs",
+    "git:pr-status": "node scripts/git/pr-status.mjs",
+    "git:wt-bootstrap": "node scripts/git/wt-bootstrap.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

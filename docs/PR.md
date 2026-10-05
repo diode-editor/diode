@@ -48,3 +48,28 @@ git push origin "$C:refs/heads/pr-assets/<branch>"
 После мерджа/закрытия PR ветку чистим: `git push origin --delete pr-assets/<branch>`.
 
 Подробности про сценарии и как это гоняется в CI — [TESTING.md](TESTING.md) (раздел «E2E → Скриншот-демо»).
+
+## Стек PR, rebase и push
+
+Сеть — только по https (`origin` в checkout'ах — ssh, а он живёт лишь с проброшенным агентом), перезапись
+ветки — только `--force-with-lease` с явным SHA. Руками это легко сделать неправильно, поэтому есть
+помощники (`npm run *` разрешён без промптов):
+
+| Команда | Что делает |
+|---|---|
+| `npm run git:fetch [-- <ветка>…]` | обновляет `origin/main` (и названные ветки) по https с `--no-prune`. Голый `git fetch <url> main:refs/remotes/origin/main` при `fetch.prune=true` **удаляет** остальные `refs/remotes/origin/*` |
+| `npm run git:stack-rebase -- <ветка> --base <#PR \| ref> [--dry-run]` | переносит ветку-ребёнка после squash-merge родителя: `git rebase --onto origin/main <голова-родителя> <ветка>`. Squash распознаёт по PR (`gh`: MERGED, merge-коммит уже в `origin/main`) или по patch-id суммарного диффа родителя; не распознал — отказ. Печатает план, ставит тег-страховку `backup/<ветка>/<время>` (backup-ветку rebase уносит, тег — нет) и запоминает SHA ветки на сервере ДО переписывания |
+| `npm run git:push [-- <ветка>] [--expect <sha>]` | push по https с `--force-with-lease=refs/heads/<ветка>:<sha>`. SHA — из `--expect`, из записи `git:stack-rebase` или с сервера, если push — fast-forward; иначе отказ. Двигает `origin/<ветка>` локально |
+| `npm run git:pr-status [-- <PR \| ветка>]` | `mergeable`, `mergeStateStatus`, сводка проверок и упавшие. `UNKNOWN` переспрашивает с паузой; `CONFLICTING` без проверок — значит **CI не запустится**, пока PR не станет мерджабельным (ждать бесполезно, нужен rebase) |
+| `npm run git:wt-bootstrap [-- --force]` | `node_modules` worktree соответствуют `package-lock.json` (sha256 против `node_modules/.lock-hash`), иначе `npm ci`. При подмене движка (`.engine-link/STAMP`) без `--force` отказывается |
+
+Типичный стек после того, как родитель влит squash'ем:
+
+```bash
+npm run git:fetch
+npm run git:stack-rebase -- my-child --base '#123' --dry-run   # посмотреть план
+npm run git:stack-rebase -- my-child --base '#123'
+npm run check:diff                                             # если уже есть в ветке
+npm run git:push -- my-child
+npm run git:pr-status
+```
