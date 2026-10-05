@@ -1,10 +1,31 @@
 name: CI
 
+# Ручной запуск — удалённый раннер тяжёлых гейтов для ветки без PR
+# (`npm run ci:run -- <gate>`, scripts/ci-run.mjs; docs/TESTING.md#гейты-в-ci-без-pr).
+# `token` нужен только затем, чтобы скрипт нашёл свой прогон по имени среди
+# соседних; у push/PR имя пустое → GitHub ставит обычное.
+run-name: "${{ github.event_name == 'workflow_dispatch' && format('ci {0} {1}', inputs.gate, inputs.token) || '' }}"
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      gate:
+        description: Какой гейт прогнать
+        type: choice
+        options: [all, static, test, mutation, e2e, e2e-windows]
+        default: all
+      base:
+        description: База диффа мутационного гейта (SHA); пусто — merge-base с origin/main
+        type: string
+        required: false
+      token:
+        description: Метка прогона для поиска по имени (ставит scripts/ci-run.mjs)
+        type: string
+        required: false
 
 jobs:
   # Статические гейты: типы и линт. Отдельной job'ой, а не шагом внутри `test`,
@@ -15,6 +36,7 @@ jobs:
   # и требует сгенерированный `settings-schema.generated.ts` только как файл на
   # диске — он закоммичен, так что билд расширений здесь не нужен.
   static:
+    if: github.event_name != 'workflow_dispatch' || inputs.gate == 'all' || inputs.gate == 'static'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,6 +78,7 @@ jobs:
           exit 1
 
   test:
+    if: github.event_name != 'workflow_dispatch' || inputs.gate == 'all' || inputs.gate == 'test'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -91,7 +114,7 @@ jobs:
   # связанный набор. Замер на #261: полный прогон 41 минута, без статики — 11:45.
   # Статику добирает ночной прогон (mutation.yml), там она с критического пути снята.
   mutation:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.gate == 'all' || inputs.gate == 'mutation'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -120,18 +143,28 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: reports/stryker-incremental.json
-          key: stryker-incremental-${{ github.head_ref }}-${{ github.run_id }}
+          key: stryker-incremental-${{ github.head_ref || github.ref_name }}-${{ github.run_id }}
           restore-keys: |
-            stryker-incremental-${{ github.head_ref }}-
+            stryker-incremental-${{ github.head_ref || github.ref_name }}-
 
       # continue-on-error, чтобы отчёт долетел до PR и когда балл ниже порога;
       # красным job делает последний шаг.
+      # База: у PR — его base.sha, у ручного запуска — `base` из inputs, а без
+      # него merge-base с main (fetch-depth: 0 приносит origin/main).
+      # Лог — в артефакт: при ручном запуске комментария в PR нет.
       - name: Mutation testing
         id: mutation
         continue-on-error: true
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || inputs.base }}
         run: |
-          node scripts/mutation-diff.mjs "${{ github.event.pull_request.base.sha }}" \
-            --ignoreStatic --incremental --reporters json,html,clear-text
+          set -o pipefail
+          base="${BASE:-$(git merge-base origin/main HEAD)}"
+          echo "База диффа: $base"
+          mkdir -p reports/mutation
+          node scripts/mutation-diff.mjs "$base" \
+            --ignoreStatic --incremental --reporters json,html,clear-text \
+            2>&1 | tee reports/mutation/mutation.log
 
       # always(): результаты нужны следующему пушу и когда балл ниже порога —
       # выжившие перепроверяются точечно каждый прогон (scripts/mutation-diff.mjs).
@@ -148,7 +181,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # head.sha, а не github.sha: последний — merge-коммит PR, ссылки на
           # строки в нём ведут не в те места.
-          MUTATION_SHA: ${{ github.event.pull_request.head.sha }}
+          MUTATION_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if [ ! -f reports/mutation/mutation.json ]; then
@@ -162,6 +195,8 @@ jobs:
             node scripts/mutation-report.mjs
           } > mutation-comment.md
           cat mutation-comment.md >> "$GITHUB_STEP_SUMMARY"
+          # Ручной запуск: PR может не быть — отчёт остаётся в summary и артефакте.
+          if [ "${{ github.event_name }}" != pull_request ]; then exit 0; fi
           # --edit-last, чтобы пуши в PR не плодили комментарии; если предыдущего
           # нет, gh падает — тогда создаём новый.
           gh pr comment "${{ github.event.pull_request.number }}" \
@@ -170,29 +205,32 @@ jobs:
                  --body-file mutation-comment.md
 
       - name: Mutation report artifact
-        if: always() && hashFiles('reports/mutation/mutation.html') != ''
+        if: always() && hashFiles('reports/mutation/*') != ''
         uses: actions/upload-artifact@v4
         with:
           name: mutation-report-pr
-          path: reports/mutation/mutation.html
+          path: |
+            reports/mutation/mutation.html
+            reports/mutation/mutation.json
+            reports/mutation/mutation.log
           retention-days: 14
 
       - name: Gate
         if: steps.mutation.outcome == 'failure'
         run: |
-          echo "Мутационный балл ниже порога. Выжившие мутанты — в комментарии к PR."
+          echo "Мутационный балл ниже порога. Выжившие мутанты — в комментарии к PR / summary прогона."
           echo "Каждого либо убиваем тестом, либо гасим:"
           echo "  // Stryker disable next-line <мутатор>: причина"
           exit 1
 
+  # Ручной запуск делит матрицу: `e2e` — ubuntu, `e2e-windows` — windows. Имена
+  # проверок на PR (`e2e (ubuntu-latest)`, `e2e (windows-latest)`) те же.
   e2e:
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["all","e2e","e2e-windows"]'), inputs.gate)
     strategy:
       fail-fast: false
       matrix:
-        os: 
-          - ubuntu-latest
-          # - macos-latest
-          - windows-latest
+        os: ${{ fromJSON(inputs.gate == 'e2e' && '["ubuntu-latest"]' || inputs.gate == 'e2e-windows' && '["windows-latest"]' || '["ubuntu-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -215,6 +253,10 @@ jobs:
       # Последовательный прогон в CI (как было до параллелизации): детерминизм
       # на общих раннерах важнее скорости — несколько SEA/PTY-процессов на слабой
       # машине дают тайминг-флейк. Параллель доступна локально (DIODE_E2E_WORKERS).
+      #
+      # Артефакта нет намеренно: пост-мортем сессии (e2e/helpers/diagnostics.ts)
+      # печатается в stderr, то есть в лог job'а, а его целиком забирает
+      # scripts/ci-run.mjs.
       - run: npm run test:e2e
         env:
           DIODE_E2E_WORKERS: '1'

@@ -368,6 +368,32 @@ expect(ed?.state?.hasSelection).toBe(true);
 
 ---
 
+## Гейты в CI без PR
+
+Тяжёлый гейт можно прогнать не на своей машине, а на раннере GitHub — на своей ветке, без PR:
+
+```bash
+npm run ci:run -- mutation              # static | test | mutation | e2e | e2e-windows | all
+npm run ci:run -- mutation --base <sha> # база диффа; по умолчанию merge-base с origin/main
+npm run ci:run -- e2e --no-push         # ветка уже запушена (скрипт сверит remote с HEAD)
+```
+
+[`scripts/ci-run.mjs`](../scripts/ci-run.mjs) пушит ветку по https, запускает `ci.yml` вручную
+(`workflow_dispatch`) только с выбранным гейтом, ждёт конца и **возвращает вердикт кодом выхода**:
+0 — зелёный, 1 — красный, 2 — прогон не состоялся (push, dispatch). На провале печатает хвост логов
+упавших шагов (включая шаги под `continue-on-error`); полные логи упавших job’ов и артефакты прогона — отчёт Stryker (`mutation.json`,
+`.html`, лог) — ложатся в `reports/ci/<run id>/`.
+
+Для мутационного гейта, e2e и покрытия это **предпочтительный путь**: лиза машине не нужна,
+соседние сеансы не голодают, а раннер не страдает флаками от голода по CPU. Прогон идёт минуты
+(на 2 vCPU: static ~1.5 мин, test ~5.5, mutation инкрементально ~4.5, e2e ubuntu ~13.5, windows ~8,
+плюс `npm install`) — агенту запускать в фоне (`run_in_background`). Инкрементальный кэш Stryker'а
+у ручных прогонов свой, по имени ветки: второй прогон той же ветки быстрее первого.
+
+`all` — то же, что гоняет PR, кроме комментариев в PR: отчёты остаются в summary прогона.
+
+---
+
 ## Покрытие (Coverage)
 
 ```bash
