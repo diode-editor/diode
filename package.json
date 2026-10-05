@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ extensions/",
     "lint:fix": "eslint src/ extensions/ --fix",
+    "check:diff": "node scripts/check-diff.mjs",
     "valid-layers-check": "node scripts/check-layers.mjs",
     "office": "agent-office .",
     "office:dry": "node scripts/office-dry-run.mjs",

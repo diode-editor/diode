@@ -368,6 +368,31 @@ expect(ed?.state?.hasSelection).toBe(true);
 
 ---
 
+## Быстрый цикл по диффу (`check:diff`)
+
+Внутренний цикл «поправил — проверил» не должен ждать полный линт и все 857 тест-файлов. `npm run check:diff` берёт файлы ветки (`git diff` от `merge-base origin/main HEAD` + неотслеженные, только `src/**`, `extensions/**` `.ts`) и последовательно гонит:
+
+1. `tsc --noEmit --incremental` — по всей программе (тип ломается не там, где правка), buildinfo в `node_modules/.cache/diode/`; повторный прогон — секунды.
+2. `eslint --cache --cache-strategy content` — только изменённые файлы.
+3. `vitest related --run <файлы>` — тесты, которые транзитивно импортируют изменённое.
+
+```bash
+npm run check:diff                     # tsc + eslint + vitest related
+npm run check:diff -- --near           # тесты только соседние: Foo.ts → Foo.test.ts, Foo.*.test.ts
+npm run check:diff -- --coverage       # + покрытие изменённых не-тестовых файлов
+npm run check:diff -- --base <ref>     # другая база (стек PR: база — ветка родителя)
+npm run check:diff -- --skip tsc,lint  # пропустить шаги
+npm run check:diff -- --list           # только показать файлы диффа
+```
+
+- Правка в `base/` или `platform/` по графу импортов тянет сотни тестов (`strings.ts` → 230 файлов, ~5 мин). Для них — `--near`: правка рядом с одним тестом проверяется за ~30 с вместе с типами и линтом.
+- `--coverage` выключает храповик на этот прогон (`thresholds.autoUpdate=false` и нули): на подмножестве тестов глобальные 100% краснеют и переписывают `vitest.config.ts`. Отчёт `text` по изменённым файлам, с полностью покрытыми.
+- Под лизу команда не попадает: она нарочно лёгкая.
+
+**Это не гейт сдачи.** Кэш type-aware eslint не перепроверяет файл, если тип поменялся в его зависимости, `related`/`--near` не видят тестов вне графа, а покрытие подмножества — не храповик. Перед PR — как раньше: `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run test:mutation` (тяжёлые — под лизой).
+
+---
+
 ## Гейты в CI без PR
 
 Тяжёлый гейт можно прогнать не на своей машине, а на раннере GitHub — на своей ветке, без PR:
