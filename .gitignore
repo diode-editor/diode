@@ -21,7 +21,8 @@ extensions/*/out/
 # Эталонный клон microsoft/vscode для сверки (scripts/vscode-ref.mjs)
 .reference/
 
-# Staging npm-пакета tuidom (scripts/pack-tuidom.mjs)
+# Локальная подмена движка неопубликованным tuidom (scripts/engine-link.mjs)
+.engine-link/
 
 # Каналы дистрибуции (packaging/): срендеренные манифесты и скачанный npm-обёрткой бинарь
 packaging/out/
