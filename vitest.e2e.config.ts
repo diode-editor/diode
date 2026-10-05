@@ -20,12 +20,12 @@ export default defineConfig({
         include: ["e2e/**/*.test.ts"],
         testTimeout: 60_000,
         hookTimeout: 180_000,
-        // Собираем бинарь один раз до воркеров; путь уходит в env (DIODE_E2E_BINARY).
+        // Собираем SEA и self-extract один раз до воркеров; пути уходят в env
+        // (DIODE_E2E_BINARY, DIODE_E2E_SELFEXTRACT), воркеры сами не собирают никогда.
         globalSetup: ["e2e/globalSetup.ts"],
         pool: "forks",
         fileParallelism: workers > 1,
         maxWorkers: workers,
-        minWorkers: 1,
         coverage: { enabled: false },
     },
 });

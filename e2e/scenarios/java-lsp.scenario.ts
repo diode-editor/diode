@@ -56,10 +56,26 @@ export default defineScenario({
 
         // Каретка на `int broken = message;` (строка 10) → меню code actions
         // (Ctrl+K Ctrl+Q — досягаемый везде чорд): фиксы настоящего jdt.ls.
+        //
+        // Меню — снимок code actions на момент открытия. Волна приходит раньше,
+        // чем jdt.ls готов отдавать по ней фиксы (импорт проекта ещё идёт), и
+        // открытое в это окно меню так и остаётся с одним «Source Actions…» —
+        // в CI это съедало все 120 с ожидания. Поэтому переоткрываем меню, пока
+        // фикс не появится.
         for (let i = 0; i < 9; i++) await editor.sendKey("ArrowDown");
-        await editor.sendKey("Ctrl+K");
-        await editor.sendKey("Ctrl+Q");
-        await editor.waitForText((t) => t.includes("Change type of 'broken' to 'String'"), { timeoutMs: 120_000 });
+        const fixTitle = "Change type of 'broken' to 'String'";
+        const deadline = Date.now() + 180_000;
+        for (;;) {
+            await editor.sendKey("Ctrl+K");
+            await editor.sendKey("Ctrl+Q");
+            try {
+                await editor.waitForText((t) => t.includes(fixTitle), { timeoutMs: 15_000 });
+                break;
+            } catch (err) {
+                if (Date.now() > deadline) throw err;
+                await editor.sendKey("Escape");
+            }
+        }
         await editor.capture("code-actions");
 
         // Escape закрывает меню → каретка на `String` строкой выше → F12.
