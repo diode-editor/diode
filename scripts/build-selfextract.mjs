@@ -27,6 +27,10 @@
  *   --node    `host` — взять process.execPath (быстро, без сети: локальные сборки и e2e);
  *             путь — взять указанный бинарь; по умолчанию — скачать официальный тарбол.
  *   --out     путь результата (по умолчанию dist/diode)
+ *   --reuse-dist  не пересобирать `dist/main.js` и бандлы, взять уже собранные
+ *             (e2e: SEA только что собрала их в globalSetup). Без этого флага
+ *             tsup с `clean: true` стирает весь `dist/` — включая SEA-бинарь,
+ *             который в этот момент могут исполнять соседи.
  */
 
 import { execFileSync } from "node:child_process";
@@ -65,7 +69,9 @@ async function main() {
     console.log(`[selfextract] target=${target} version=${version}`);
 
     // 1. dist/main.js + dist/diode.bundle (общее с build-sea.mjs).
-    const { mainJsPath, bundlePath, tsServerBundlePath } = await buildDistArtifacts({ repoRoot: root });
+    const { mainJsPath, bundlePath, tsServerBundlePath } = args.reuseDist
+        ? existingDistArtifacts()
+        : await buildDistArtifacts({ repoRoot: root });
 
     // 2. node для payload'а.
     const nodeBinary = await resolveNodeBinary({ target, nodeOpt: args.node });
@@ -100,14 +106,36 @@ async function main() {
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
-    /** @type {{ target?: string, node?: string, out?: string }} */
+    /** @type {{ target?: string, node?: string, out?: string, reuseDist?: boolean }} */
     const args = {};
     for (const arg of argv) {
+        if (arg === "--reuse-dist") {
+            args.reuseDist = true;
+            continue;
+        }
         const match = /^--(target|node|out)=(.+)$/.exec(arg);
         if (!match) throw new Error(`[selfextract] Unknown argument: ${arg}`);
         args[match[1]] = match[2];
     }
     return args;
+}
+
+/**
+ * Пути артефактов `buildDistArtifacts` без пересборки — для `--reuse-dist`.
+ * @returns {{ mainJsPath: string, bundlePath: string, tsServerBundlePath: string }}
+ */
+function existingDistArtifacts() {
+    const distDir = join(root, "dist");
+    const paths = {
+        mainJsPath: join(distDir, "main.js"),
+        bundlePath: join(distDir, "diode.bundle"),
+        tsServerBundlePath: join(distDir, "ts-server.bundle"),
+    };
+    for (const path of Object.values(paths)) {
+        if (!existsSync(path)) throw new Error(`[selfextract] --reuse-dist: нет ${path} — сначала npm run build:sea`);
+    }
+    console.log("[selfextract] reuse dist/ artifacts (no tsup)");
+    return paths;
 }
 
 /**

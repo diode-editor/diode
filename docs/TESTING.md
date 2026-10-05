@@ -197,7 +197,7 @@ expectScreen(backend, screen`
 
 ## E2E
 
-`npm run test:e2e` (отдельный конфиг `vitest.e2e.config.ts`) собирает SEA-бинарь один раз (`e2e/globalSetup.ts`) и гоняет его как чёрный ящик. Два транспорта: **инспектор** (`--headless` + WebSocket → структурный кадр/дерево) и **PTY** (`node-pty` + ANSI-парсер, для проверок реального вывода). Сьюты и helpers — в `e2e/`. Детали и статус — [TODO/E2E.md](TODO/E2E.md).
+`npm run test:e2e` (отдельный конфиг `vitest.e2e.config.ts`) собирает SEA-бинарь и self-extract один раз до старта воркеров (`e2e/globalSetup.ts`, пути — в `DIODE_E2E_BINARY`/`DIODE_E2E_SELFEXTRACT`) и гоняет их как чёрный ящик. Воркеры сами не собирают никогда: сборка посреди прогона — это tsup `clean` по всему `dist/` из-под соседей. Поэтому не запускай `build:sea`/`build:selfextract`/`tsup` в том же дереве, пока идёт e2e. Два транспорта: **инспектор** (`--headless` + WebSocket → структурный кадр/дерево) и **PTY** (`node-pty` + ANSI-парсер, для проверок реального вывода). Сьюты и helpers — в `e2e/`. Детали и статус — [TODO/E2E.md](TODO/E2E.md).
 
 ### Изолированный запуск
 

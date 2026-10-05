@@ -14,41 +14,63 @@ let buildPromise: Promise<string> | null = null;
 let selfExtractPromise: Promise<string> | null = null;
 
 /**
- * Lazily build the SEA binary and return its absolute path.
+ * Путь к SEA-бинарю; собирает его лениво только вне `test:e2e`.
  *
- * When `globalSetup` has already built it, its path arrives via
- * `DIODE_E2E_BINARY` (inherited by every worker fork) — we skip the build. Only
- * the fallback path (no global setup, e.g. `npm run screenshots` or a single
- * file run) triggers `npm run build:sea`, at most once per worker.
+ * Под `test:e2e` бинарь собирает `globalSetup` ДО старта воркеров и отдаёт путь
+ * через `DIODE_E2E_BINARY` (форки наследуют env). Воркер при этом не собирает
+ * НИКОГДА — даже если файла по пути нет: сборка в воркере — это tsup `clean`
+ * по всему `dist/` и перезапись `dist/diode`, который в этот момент исполняют
+ * соседние воркеры (ENOENT/ETXTBSY и 30-секундные таймауты в случайных файлах,
+ * см. docs/TODO/TestRunTime.md). Пропавший бинарь — ошибка с понятной причиной.
+ *
+ * Ленивая сборка `npm run build:sea` остаётся только для запусков без
+ * globalSetup (`npm run screenshots`, бенчи), где env не задан.
  */
 export function getBinaryPath(): Promise<string> {
-    if (buildPromise) return buildPromise;
-    const injected = process.env.DIODE_E2E_BINARY;
-    if (injected !== undefined && injected.length > 0 && existsSync(injected)) {
-        buildPromise = Promise.resolve(injected);
-        return buildPromise;
-    }
-    buildPromise = build(["run", "build:sea"], binaryPath);
+    buildPromise ??= resolveInjected("DIODE_E2E_BINARY") ?? build(["run", "build:sea"], binaryPath);
     return buildPromise;
 }
 
 /**
- * Lazily build the self-extracting binary (#144) and return its absolute path.
+ * Путь к self-extracting бинарю (#144); правила те же, что у {@link getBinaryPath}:
+ * под `test:e2e` его собирает globalSetup (`DIODE_E2E_SELFEXTRACT`).
  *
  * `--node=host` берёт `process.execPath` вместо скачивания тарбола с nodejs.org:
  * тестам не нужен именно релизный node, а сеть в e2e — лишняя точка отказа.
  * Ветку со скачиванием покрывает реальная сборка в CI.
  *
- * Пишем в `dist/diode-selfextract`, чтобы не затирать SEA-бинарь `dist/diode`,
- * от которого зависят соседние sea-*.test.ts.
+ * Пишем в `dist/diode-selfextract`, чтобы не затирать SEA-бинарь `dist/diode`.
  */
 export function getSelfExtractPath(): Promise<string> {
-    if (selfExtractPromise) return selfExtractPromise;
-    selfExtractPromise = build(
-        ["run", "build:selfextract", "--", "--node=host", `--out=${selfExtractPath}`],
-        selfExtractPath,
-    );
+    selfExtractPromise ??= resolveInjected("DIODE_E2E_SELFEXTRACT") ?? buildSelfExtract();
     return selfExtractPromise;
+}
+
+/**
+ * Сборка self-extract для globalSetup и для ленивого пути. `reuseDist` — взять
+ * `dist/main.js` и бандлы, только что собранные `build:sea`, без второго tsup:
+ * его `clean` снёс бы и сам SEA-бинарь.
+ */
+export function buildSelfExtract(options: { reuseDist?: boolean } = {}): Promise<string> {
+    const args = ["run", "build:selfextract", "--", "--node=host", `--out=${selfExtractPath}`];
+    if (options.reuseDist === true) args.push("--reuse-dist");
+    return build(args, selfExtractPath);
+}
+
+/** Путь из env, если он задан; заданный, но пропавший файл — ошибка, а не пересборка. */
+function resolveInjected(envName: string): Promise<string> | undefined {
+    const injected = process.env[envName];
+    if (injected === undefined || injected.length === 0) return undefined;
+    if (!existsSync(injected)) {
+        return Promise.reject(
+            new Error(
+                `${envName}=${injected}: файла нет. Под test:e2e его собирает globalSetup до воркеров — ` +
+                    `пропал посреди прогона, значит снесла параллельная сборка в этом же дереве ` +
+                    `(build:sea / build:selfextract / tsup). Воркер сам не пересобирает: это сломало бы соседей.`,
+            ),
+        );
+    }
+    return Promise.resolve(injected);
 }
 
 function build(npmArgs: string[], expectedPath: string): Promise<string> {

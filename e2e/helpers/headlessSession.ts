@@ -23,6 +23,8 @@ import { waitUntil } from "./waitFor.ts";
 
 /** Сколько ждём ответа на `TUIDom.shutdown`, прежде чем перейти к SIGKILL. */
 const SHUTDOWN_REPLY_TIMEOUT_MS = 5000;
+/** Сколько ждём подключения к инспектору только что запущенного редактора. */
+const CONNECT_TIMEOUT_MS = 30_000;
 /** Сколько ждать самостоятельного выхода процесса после shutdown (до SIGKILL). */
 const EXIT_GRACE_MS = 3000;
 
@@ -85,13 +87,15 @@ export class HeadlessSession {
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
             env: hermeticSpawnEnv(options.env),
         });
-        const session = new HeadlessSession(
-            child,
-            cols,
-            rows,
-            port,
-            await connectWithRetry(`ws://127.0.0.1:${String(port)}`, 30_000),
-        );
+        // stderr копим с самого спавна: если процесс умрёт до подключения, его
+        // последние слова — единственная диагностика.
+        let stderr = "";
+        child.stderr?.on("data", (chunk: Buffer) => {
+            stderr += chunk.toString();
+        });
+        const ws = await connectOrDie(child, `ws://127.0.0.1:${String(port)}`, () => stderr);
+        const session = new HeadlessSession(child, cols, rows, port, ws);
+        session.stderr = stderr;
         return session;
     }
 
@@ -395,6 +399,34 @@ export class HeadlessSession {
      */
     public get pid(): number | undefined {
         return this.child.pid;
+    }
+}
+
+/**
+ * Подключение к инспектору наперегонки со смертью процесса. Без этого бинарь,
+ * который не запустился (ENOENT — его снесли из-под воркера) или упал на
+ * старте, стоил 30 секунд `connectWithRetry` и uncaught `error` от spawn, а
+ * зависший на старте процесс оставался сиротой: `dispose` до него не доходил.
+ * Теперь ранний выход виден за миллисекунды вместе со stderr, а при любой
+ * неудаче процесс добивается.
+ */
+async function connectOrDie(child: ChildProcess, url: string, stderr: () => string): Promise<WebSocket> {
+    const abort = new AbortController();
+    const died = new Promise<never>((_, reject) => {
+        child.once("error", (err) => {
+            reject(new Error(`редактор не запустился: ${err.message}`));
+        });
+        child.once("exit", (code, signal) => {
+            const how = signal === null ? `кодом ${String(code)}` : `сигналом ${signal}`;
+            reject(new Error(`редактор вышел ${how} до подключения инспектора\n${stderr().slice(-4000)}`));
+        });
+    });
+    try {
+        return await Promise.race([connectWithRetry(url, CONNECT_TIMEOUT_MS, abort.signal), died]);
+    } catch (err) {
+        abort.abort();
+        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        throw err;
     }
 }
 

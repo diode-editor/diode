@@ -24,14 +24,19 @@ export function freePort(): Promise<number> {
 }
 
 /** Connect to a WebSocket URL, retrying until it opens or `timeoutMs` elapses. */
-export function connectWithRetry(url: string, timeoutMs: number): Promise<WebSocket> {
+export function connectWithRetry(url: string, timeoutMs: number, signal?: AbortSignal): Promise<WebSocket> {
     const deadline = Date.now() + timeoutMs;
     return new Promise((resolve, reject) => {
         const attempt = (): void => {
             const ws = new WebSocket(url);
-            ws.once("open", () => resolve(ws));
+            ws.once("open", () => {
+                // Отменили, пока сокет открывался: он уже никому не нужен.
+                if (signal?.aborted === true) ws.close();
+                else resolve(ws);
+            });
             ws.once("error", () => {
-                if (Date.now() > deadline) reject(new Error(`ws connect to ${url} timed out`));
+                if (signal?.aborted === true) reject(new Error(`ws connect to ${url} aborted`));
+                else if (Date.now() > deadline) reject(new Error(`ws connect to ${url} timed out`));
                 else setTimeout(attempt, 100);
             });
         };
