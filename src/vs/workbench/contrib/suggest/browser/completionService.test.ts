@@ -289,6 +289,18 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
     });
 
+    it("префикс — слово под кареткой, а не вся строка до неё", async () => {
+        const { service, component, fake } = setup(ITEMS, "x = ind", 7);
+        await service.trigger();
+        // Фильтр по всей строке `x = ind` не нашёл бы ничего и откатился бы к полному списку с `root`.
+        expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
+
+        service.acceptSelected();
+        const [edits] = fake.applyExternalEdits.mock.calls[0];
+        // Заменяется только слово `ind`, присваивание слева не трогаем.
+        expect(edits[0].range).toEqual({ start: { line: 0, character: 4 }, end: { line: 0, character: 7 } });
+    });
+
     it("onDidClose фаерится на закрытии ОТКРЫТОГО попапа и молчит на холостых close", async () => {
         const { service } = setup(ITEMS);
         const closed = vi.fn();
