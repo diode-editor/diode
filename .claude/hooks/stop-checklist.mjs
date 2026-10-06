@@ -15,6 +15,8 @@ import { git, runHook } from "./lib.mjs";
 
 const TRANSCRIPT_LIMIT = 64 * 1024 * 1024;
 const CODE_RE = /^(src|extensions)\/.+\.ts$/;
+// Узлы настроек: `workbench/common/configuration/*Configuration.ts` и регистрации в фичах.
+const CONFIG_RE = /Configuration\.ts$|\/configuration\//;
 // Запуск — это Bash-вызов в транскрипте (`"command":"…"`), а не упоминание:
 // AGENTS.md, прочитанный в начале сессии, тоже содержит `npm run lint`.
 const STATIC_RUN_RE = /"command":"(?:[^"\\]|\\.)*(?:npm run (?:lint|typecheck|check:diff)\b|npx (?:tsc|eslint)\b)/;
@@ -38,6 +40,13 @@ export function checklist({ files, subjects, transcript }) {
             id: "scenario",
             scope: "branch",
             text: "В ветке есть `feat`-коммит, а в `e2e/scenarios/` ничего не менялось. Видимой фиче нужен сценарий-демо (docs/PR.md).",
+        });
+    }
+    if (visible && !files.some((f) => CONFIG_RE.test(f))) {
+        items.push({
+            id: "settings",
+            scope: "branch",
+            text: "В ветке есть `feat`-коммит, а настройки не менялись. Если у фичи в эталоне vscode есть настройки — они приезжают в том же PR (docs/arch/Configuration.md, «Настройки — как в эталоне»).",
         });
     }
     if (files.includes("src/vscode-dts/vscode.d.ts") && !files.includes("docs/public/API-COVERAGE.md")) {
