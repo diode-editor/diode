@@ -25,3 +25,8 @@
 - `fix: correct Bash command syntax in settings.json` → `chore: correct Bash command syntax in settings.json` (это конфиг)
 - `fix: update nightly release process` → `ci: update nightly release process` (это workflow)
 - `fix: correct import order and syntax in various files` → `style: fix import order and lint issues` (это линт/форматирование, а не баг)
+
+**Squash-merge и changelog.** PR вливается squash'ем, и в changelog идёт только заголовок
+squash-коммита. PR из `fix(…)` + `refactor(…)` под заголовком `refactor` теряет видимое
+изменение (так в #366 правка `getWorkspaceFolder` для расширений не попала в changelog). Видимую
+правку выноси отдельным PR — или называй squash по ней (`fix: …`), а не по самому крупному коммиту.
