@@ -10,10 +10,17 @@ import type { RequestFn } from "./hostRequests.ts";
  * `$/cancelRequest`) и пустой результат. Единственное исключение — inline
  * completions: срок берётся из самого запроса (`editor.inlineSuggest.requestTimeout`),
  * а отсюда — только при его отсутствии.
+ *
+ * `languages.provideCompletionItems` в таблице нет намеренно: у автодополнения
+ * срока ответа нет, как и в upstream (`provideSuggestionItems` ждёт провайдеров
+ * столько, сколько они думают, а ненужный запрос отменяет токеном). Срок здесь
+ * не «пустой ответ», а подмена: по пустому ответу ядро открывает попап словами
+ * из буфера, и language server, не уложившийся в срок на холодном старте или
+ * под нагрузкой, оставался без своих пунктов до закрытия попапа. Ненужный
+ * запрос гасит `CompletionService` (перезапрос, уход каретки, закрытие).
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
-    "languages.provideCompletionItems": 1500,
     "languages.resolveCompletionItem": 1500,
     "languages.provideInlineCompletions": 5000,
     "languages.provideFoldingRanges": 1500,

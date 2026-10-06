@@ -289,6 +289,18 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
     });
 
+    it("префикс — слово под кареткой, а не вся строка до неё", async () => {
+        const { service, component, fake } = setup(ITEMS, "x = ind", 7);
+        await service.trigger();
+        // Фильтр по всей строке `x = ind` не нашёл бы ничего и откатился бы к полному списку с `root`.
+        expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
+
+        service.acceptSelected();
+        const [edits] = fake.applyExternalEdits.mock.calls[0];
+        // Заменяется только слово `ind`, присваивание слева не трогаем.
+        expect(edits[0].range).toEqual({ start: { line: 0, character: 4 }, end: { line: 0, character: 7 } });
+    });
+
     it("onDidClose фаерится на закрытии ОТКРЫТОГО попапа и молчит на холостых close", async () => {
         const { service } = setup(ITEMS);
         const closed = vi.fn();
@@ -971,6 +983,165 @@ describe("CompletionService", () => {
 
         service.close();
         expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
+    });
+
+    // Срока ответа у провайдеров нет (language server на холодном старте думает
+    // секунды), поэтому запрос «в полёте» обязан сам знать, нужен ли ещё ответ.
+    describe("запрос в полёте: ответа ещё нет, попап не открыт", () => {
+        /** Источник, отвечающий по команде теста; токены запросов — в `cancelled()`. */
+        function pendingSetup(line: string, character: number) {
+            const fake = makeEditor(line, character, line);
+            const tokens: ICancellationToken[] = [];
+            const answers: ((value: ICoreCompletionResult) => void)[] = [];
+            const source = vi.fn((_request: ICompletionRequest, token: ICancellationToken) => {
+                tokens.push(token);
+                return new Promise<ICoreCompletionResult>((res) => {
+                    answers.push(res);
+                });
+            });
+            const group = makeGroup(fake.editor, source);
+            const { service, component, body, focusTracker } = createService(group);
+            // Перезапрос по набору в этих тестах не нужен: смотрим на судьбу ПЕРВОГО запроса.
+            service.autoSuggestDelayMs = 10_000;
+            TestApp.create(body, new Size(80, 24));
+            const cancelled = (): boolean[] => tokens.map((token) => token.isCancellationRequested);
+            return { fake, service, component, focusTracker, group, source, answers, cancelled };
+        }
+
+        it("медленный ответ дожидается и открывает попап пунктами провайдера, а не словами буфера", async () => {
+            const h = pendingSetup("ind", 3);
+            const pending = h.service.trigger();
+            // Сколько бы сервер ни думал — попапа со словами буфера вместо него нет.
+            await new Promise((resolve) => setTimeout(resolve, 30));
+            expect(h.service.isOpen()).toBe(false);
+            expect(h.cancelled()).toEqual([false]);
+
+            h.answers[0](completionResult(ITEMS));
+            await pending;
+            expect(h.component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
+        });
+
+        it("каретка ушла на другую строку — запрос отменён, опоздавший ответ попап не поднимает", async () => {
+            const h = pendingSetup("ind", 3);
+            const pending = h.service.trigger();
+            h.fake.move(1, 3);
+            expect(h.cancelled()).toEqual([true]);
+
+            h.answers[0](completionResult(ITEMS));
+            await pending;
+            expect(h.service.isOpen()).toBe(false);
+        });
+
+        it("шаг каретки влево от точки запроса отменяет запрос", async () => {
+            const h = pendingSetup("ind", 3);
+            const pending = h.service.trigger();
+            h.fake.move(0, 2);
+            expect(h.cancelled()).toEqual([true]);
+
+            h.answers[0](completionResult(ITEMS));
+            await pending;
+            expect(h.service.isOpen()).toBe(false);
+        });
+
+        it("выделение и мультикурсор отменяют запрос", () => {
+            const selected = pendingSetup("ind", 3);
+            void selected.service.trigger();
+            selected.fake.setSelection(1, 3);
+            expect(selected.cancelled()).toEqual([true]);
+
+            const multi = pendingSetup("ind", 3);
+            void multi.service.trigger();
+            multi.fake.setCursorCount(2);
+            expect(multi.cancelled()).toEqual([true]);
+        });
+
+        it("несловесный добор (пробел) отменяет запрос", async () => {
+            const h = pendingSetup("ind", 3);
+            const pending = h.service.trigger();
+            h.fake.type("ind ", 4);
+            expect(h.cancelled()).toEqual([true]);
+
+            h.answers[0](completionResult(ITEMS));
+            await pending;
+            expect(h.service.isOpen()).toBe(false);
+        });
+
+        it("событие каретки без сдвига запрос не трогает", async () => {
+            const h = pendingSetup("ind", 3);
+            const pending = h.service.trigger();
+            h.fake.move(0, 3);
+            expect(h.cancelled()).toEqual([false]);
+
+            h.answers[0](completionResult(ITEMS));
+            await pending;
+            expect(h.service.isOpen()).toBe(true);
+        });
+
+        it("добор слова, пока ждали ответ: список сужен под набранное, accept заменяет всё слово", async () => {
+            const h = pendingSetup("ind", 3);
+            const pending = h.service.trigger();
+            h.fake.type("inden", 5); // словесный добор запрос переживает
+            expect(h.cancelled()).toEqual([false]);
+
+            h.answers[0](completionResult([...ITEMS, { label: "index", insertText: "index" }]));
+            await pending;
+
+            // Фильтр — по живому префиксу `inden`, а не по снимку `ind` момента запроса.
+            expect(h.component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
+            h.service.acceptSelected();
+            const [edits] = h.fake.applyExternalEdits.mock.calls[0];
+            // Снимок оставил бы в буфере хвост `en`.
+            expect(edits[0].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 5 } });
+        });
+
+        it("добор при провайдерском range: конец range догоняет каретку от точки ЗАПРОСА", async () => {
+            const h = pendingSetup('{ "e', 4);
+            const pending = h.service.trigger();
+            h.fake.type('{ "edi', 6);
+
+            h.answers[0](
+                completionResult([
+                    {
+                        label: "editor.tabSize",
+                        insertText: '"editor.tabSize"',
+                        filterText: '"editor.tabSize"',
+                        range: { start: { line: 0, character: 2 }, end: { line: 0, character: 4 } },
+                    },
+                ]),
+            );
+            await pending;
+            expect(h.service.isOpen()).toBe(true);
+
+            h.service.acceptSelected();
+            const [edits] = h.fake.applyExternalEdits.mock.calls[0];
+            // Провайдер видел `"e` (range [2,4)); два добранных символа сдвигают конец на 2.
+            expect(edits[0].range).toEqual({ start: { line: 0, character: 2 }, end: { line: 0, character: 6 } });
+        });
+
+        it("уход фокуса с редактора отменяет запрос", async () => {
+            const h = pendingSetup("ind", 3);
+            const pending = h.service.trigger();
+            h.focusTracker.fire(new EditorElement(new EditorViewState(new TextDocument(""))));
+            expect(h.cancelled()).toEqual([false]);
+            h.focusTracker.fire(null);
+            expect(h.cancelled()).toEqual([true]);
+
+            h.answers[0](completionResult(ITEMS));
+            await pending;
+            expect(h.service.isOpen()).toBe(false);
+        });
+
+        it("триггер-символ отменяет запрос прежнего слова: его ответ не поднимает старый список", async () => {
+            const h = pendingSetup("re", 2);
+            (h.group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
+            const pending = h.service.trigger();
+            h.fake.type("re.", 3); // «.» — словесный символ ядра, но для сервера это новый запрос
+            expect(h.cancelled()).toEqual([true]);
+
+            h.answers[0](completionResult(ITEMS));
+            await pending;
+            expect(h.service.isOpen()).toBe(false);
+        });
     });
 
     it("accept вставляет элемент, заменяя префикс, и исполняет item.command через CommandRegistry", async () => {

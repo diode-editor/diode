@@ -182,7 +182,14 @@ export class HeadlessSession {
         const id = this.nextId++;
         return new Promise<T>((resolve, reject) => {
             this.pending.set(id, { resolve: resolve as (r: unknown) => void, reject });
-            this.ws.send(JSON.stringify({ id, method, params }));
+            // Колбэк обязателен: без него `ws` отправку в уже закрытый сокет
+            // молча выбрасывает, и запрос после `dispose` висел бы вечно — ни
+            // ответа, ни события `close` (оно уже прошло) ему не дождаться.
+            this.ws.send(JSON.stringify({ id, method, params }), (error) => {
+                if (error === undefined || error === null) return;
+                this.pending.delete(id);
+                reject(new Error(`inspector request ${method} not sent: ${error.message}`));
+            });
         });
     }
 

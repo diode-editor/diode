@@ -23,21 +23,34 @@ export function treeSkeleton(root: NodeSnapshot | null, maxDepth = 40): string {
     return lines.join("\n");
 }
 
+/** Сколько пост-мортем ждёт ответа редактора на каждый свой запрос. */
+const PROBE_TIMEOUT_MS = 10_000;
+
+/** Что пост-мортему нужно от сессии (сужено до используемого — фейкается в тесте). */
+export type DumpableSession = Pick<HeadlessSession, "captureFrame" | "getDocument" | "getStderr">;
+
 /**
  * Снимок состояния сессии для отчёта о падении: нумерованный кадр, путь фокуса,
  * скелет дерева, stderr и (если задан) путь к сохранённому temp-корню. Ничего не
- * бросает — вызывается из `onTestFailed`, где важно не уронить сам репортер.
+ * бросает и не ждёт дольше `probeTimeoutMs` на запрос — вызывается из хука
+ * упавшего теста, где диагностика не имеет права ни уронить репортер, ни
+ * съесть прогон: редактор, из-за которого тест упал, может и не ответить
+ * (завис, умер), а без срока хук молчал бы весь `hookTimeout`.
  */
-export async function dumpSession(session: HeadlessSession, opts: { root?: string; label?: string } = {}): Promise<string> {
+export async function dumpSession(
+    session: DumpableSession,
+    opts: { root?: string; label?: string; probeTimeoutMs?: number } = {},
+): Promise<string> {
+    const probeTimeoutMs = opts.probeTimeoutMs ?? PROBE_TIMEOUT_MS;
     const parts: string[] = [];
     if (opts.label !== undefined) parts.push(`# ${opts.label}`);
     try {
-        parts.push("── frame ──", dumpFrame(await session.captureFrame()));
+        parts.push("── frame ──", dumpFrame(await within(session.captureFrame(), probeTimeoutMs)));
     } catch (err) {
         parts.push(`── frame ── <capture failed: ${errMsg(err)}>`);
     }
     try {
-        const { root } = await session.getDocument();
+        const { root } = await within(session.getDocument(), probeTimeoutMs);
         parts.push(`── focus ── ${focusPath(root).join(" > ") || "<none>"}`);
         parts.push("── tree ──", treeSkeleton(root));
     } catch (err) {
@@ -47,6 +60,25 @@ export async function dumpSession(session: HeadlessSession, opts: { root?: strin
     if (stderr.length > 0) parts.push("── stderr ──", stderr);
     if (opts.root !== undefined) parts.push(`── session root ── ${opts.root}`);
     return parts.join("\n");
+}
+
+/** `promise` наперегонки со сроком: не ответил за `timeoutMs` — отказ с понятной причиной. */
+function within<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error(`no reply in ${String(timeoutMs)}ms`));
+        }, timeoutMs);
+        promise.then(
+            (value) => {
+                clearTimeout(timer);
+                resolve(value);
+            },
+            (error: unknown) => {
+                clearTimeout(timer);
+                reject(error instanceof Error ? error : new Error(String(error)));
+            },
+        );
+    });
 }
 
 function errMsg(err: unknown): string {

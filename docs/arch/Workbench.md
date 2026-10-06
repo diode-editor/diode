@@ -1145,7 +1145,9 @@ hide-toggle (`isHiddenByDefault`). См.
     fallback `collectWordCompletions` из всех открытых редакторов), сессия
     попапа (живой `prefixRange`, re-filter по событию каретки, авто-suggest и
     триггер-символы по `onDidType` редактора — правка accept, undo и вставка
-    набором не считаются, — с задержкой `autoSuggestDelayMs`),
+    набором не считаются, — с задержкой `autoSuggestDelayMs`; ответа провайдеров
+    ждёт без срока, а запрос «в полёте» отменяет сам, когда каретка ушла из
+    слова, — `cancelRequestIfCaretLeft`),
     accept (замена префикса/провайдерского range с догоном каретки;
     `item.command` исполняется напрямую через `CommandRegistry.execute` в
     микротаске), делегаторы select*/accept/hide для команд, `onFocusChanged`

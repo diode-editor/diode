@@ -13,7 +13,6 @@ import { LanguageFeaturesCustomer } from "./languageFeaturesCustomer.ts";
 /** Разные сроки у каждого метода: перепутанный ключ таблицы виден в опциях запроса. */
 const TIMEOUTS: RequestTimeouts = {
     ...DEFAULT_REQUEST_TIMEOUTS,
-    "languages.provideCompletionItems": 101,
     "languages.resolveCompletionItem": 102,
     "languages.provideInlineCompletions": 103,
     "languages.provideFoldingRanges": 104,
@@ -286,6 +285,9 @@ describe("LanguageFeaturesCustomer — запросы только по синх
                 (method) => [method, TIMEOUTS[method as keyof RequestTimeouts]],
             ),
         );
+        // У автодополнения срока нет: его ожидание ограничивает только токен вызывающего.
+        expect(seen).toContainEqual(["languages.provideCompletionItems", undefined]);
+        expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(1);
     });
 });
 
