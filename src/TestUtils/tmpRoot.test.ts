@@ -201,7 +201,11 @@ describe("tmpRoot — корень временных каталогов про�
 
         it("подчищает корни мёртвых прогонов и сообщает об этом", () => {
             process.env.DIODE_TEST_TMP_PARENT = parent;
-            const dead = rootOwnedBy(1111);
+            // `setup` проверяет владельца настоящим `process.kill(pid, 0)`, поэтому pid
+            // должен быть несуществующим, а не «скорее всего мёртвым»: с 1111 тест
+            // падал на раннере CI, где процесс с таким номером иногда жив. Этот — выше
+            // потолка pid любой платформы.
+            const dead = rootOwnedBy(2 ** 31 - 1);
             const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
             const teardown = setup();
