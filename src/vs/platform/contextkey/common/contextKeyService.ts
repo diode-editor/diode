@@ -39,6 +39,14 @@ export class ContextKeyService implements IDisposable {
         return this.values.get(key) as ContextKeyTypes[K] | undefined;
     }
 
+    /**
+     * Значение любого ключа по имени — парный {@link setRaw} читатель для тех, кто
+     * имя знает только строкой (инспектор: `Diode.getContextKey`).
+     */
+    public getRaw(key: string): ContextValue | undefined {
+        return this.values.get(key);
+    }
+
     public reset(key: ContextKey): void {
         if (!this.values.has(key)) return;
         this.values.delete(key);

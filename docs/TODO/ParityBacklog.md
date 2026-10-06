@@ -29,7 +29,8 @@
 
 Живой прогон без сборки SEA: shell-обёртка `exec npx tsx src/vs/diode/main.ts "$@"`
 отдаётся в `startHeadlessApp({ binary })` (`e2e/helpers/appSession.ts`), дальше
-обычные `key`/`text`/`captureFrame`. Кадр читается `frameToText`, но **PUA-глифы
+обычные `key`/`text`/`captureFrame`. (Сейчас то же делается `npm run drive` —
+скилл `.claude/skills/drive/`; ячейку с код-пойнтом показывает `drive cell x y`.) Кадр читается `frameToText`, но **PUA-глифы
 (nerd-font иконки) в текстовом дампе теряются** — выравнивание проверять по
 ячейкам (`frame.cells[y * cols + x].char`), иначе дерево выглядит сломанным там,
 где оно целое (ровно эта ловушка стоила ложного диагноза по пункту 12).

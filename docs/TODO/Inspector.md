@@ -131,6 +131,14 @@ Workbench-модели Service ↔ Component), `EditorGroupComponent` ↔
   отдельной фазой. (Сейчас e2e снимает кадр через `captureFrame` в headless;
   «рендер устоялся» решает `TUIDom.waitForIdle`, а не событие renderTick.)
 - Объём GUI: только e2e-бекенд vs + CLI-инспектор (`npm run inspect`) vs + web.
+  **Решено (CLI):** вместо `npm run inspect` сделан `npm run drive` (`tools/drive/`)
+  — долгоживущая headless-сессия между вызовами CLI, текстовый вывод, ввод,
+  ожидания, пост-мортем; рецепты — скилл `.claude/skills/drive/`. Методы уровня
+  редактора (`Diode.whenReady|executeCommand|listCommands|listOutputChannels|getOutput|getContextKey|evaluateWhen`)
+  регистрирует сам diode через публичный `InspectorCore.register`
+  (`src/vs/diode/diodeInspectorMethods.ts`), движок не тронут. MCP-обёртка
+  отложена сознательно: агенту хватает Bash; ядро (`DriveClient`) для неё
+  пригодно как есть. Web-GUI — не делаем.
 
 ## Verification
 - После каждой фазы: `npm test` (unit/integration через `TestApp`,

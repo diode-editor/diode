@@ -12,3 +12,32 @@
 
 ## TestUtils/
 Общие утилиты для тестов (визуальные assertions для экрана). `ExtensionTestHarness.createExtensionTestHarness({ initialFile?, extensions? })` поднимает реальный `EditorService` (+ `EditorGroupComponent`) + `ExtensionHost` поверх `TestApp`/`MockTerminalBackend`. `ExtensionHost` форкается через `subprocessSpawnArgsForTests()` — `node --import tsx/esm src/vs/platform/extensions/Host/__fixtures__/subprocessEntry.ts` (в vitest `process.argv[1]` указывает на vitest CLI, не на `main.ts`). Тестовые расширения лежат рядом — `*.cjs` файлы с `exports.activate = function(ctx) { var vscode = require("vscode"); ... }`.
+
+## tools/drive
+
+`npm run drive -- <команда>` — живой прогон редактора, которым агент водит diode
+как браузер: долгоживущая headless-сессия между вызовами CLI. Рецепты и ловушки —
+скилл [`.claude/skills/drive/SKILL.md`](../../.claude/skills/drive/SKILL.md); здесь — устройство.
+
+- **Сессия = процесс + запись.** `start` поднимает редактор detached (своя группа
+  процессов, stdout/stderr в `<корень>/drive/*.log`) в изолированном корне
+  `$TMPDIR/diode-drive-<имя>-*` (раскладка и изоляция HOME/XDG — `prepareAppEnv`
+  из `e2e/helpers/appSession.ts`) и пишет запись в `.drive/sessions/<имя>.json`
+  этого checkout'а (у каждого worktree свой реестр) и её копию в
+  `<корень>/drive/session.json`. Каждый следующий вызов переподключается к порту
+  инспектора — сервер держит сколько угодно сокетов, отдельный демон не нужен.
+- **Из исходников без обёртки:** `node --import <url tsx> src/vs/diode/main.ts` —
+  один процесс (pid записи — сам редактор), абсолютный URL tsx резолвится из
+  любого cwd, `reloadWindow` перезапускается с тем же `execArgv`. Перед стартом —
+  `scripts/build-extensions.mjs` (быстро, esbuild). `--binary` — `dist/diode`.
+- **Готовность** — `Diode.whenReady`: резолвится в тот же момент, что
+  `complete: true` трассы старта (`exthost:activated` + фаза `eventually`).
+- **Уборка по маркеру.** Все процессы сессии наследуют env
+  `DIODE_DRIVE_SESSION=<имя>:<корень>`; `stop`/`gc` находят их по
+  `/proc/<pid>/environ` — в том числе ушедших из группы (`setsid` у языковых
+  серверов). `gc` сиротой считает процесс, чей лидер (из `session.json` корня)
+  мёртв, — поэтому живые сессии соседних worktree он не трогает, а мёртвые
+  убирает. Зомби считается мёртвым (init контейнера пожинает не всегда).
+- **Методы `Diode.*`** (`src/vs/diode/diodeInspectorMethods.ts`) — сервисы
+  портами, регистрация через публичный `InspectorCore.register`; клиент —
+  `tools/drive/driveClient.ts`.
