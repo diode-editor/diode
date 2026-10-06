@@ -21,6 +21,19 @@ const STRYKER_BOOLEAN_FLAGS = new Set([
 ]);
 
 /**
+ * Позиционный аргумент у `mutation-diff.mjs`. Отдельный класс — для хука
+ * `.claude/hooks/bash-guard.mjs`: он зовёт `parseArgs` на словах команды и
+ * отказывает до запуска ровно на том, на чём упал бы гейт, а не на своей
+ * догадке, где у флага значение.
+ */
+export class PositionalArgumentError extends Error {
+    constructor(arg) {
+        super(`Непонятный позиционный аргумент «${arg}». База диффа задаётся флагом: --base ${arg}`);
+        this.arg = arg;
+    }
+}
+
+/**
  * Разбирает аргументы `mutation-diff.mjs`.
  *
  * База задаётся только флагом `--base <ref>`. Раньше ею был первый позиционный
@@ -63,9 +76,7 @@ export function parseArgs(argv) {
             const prev = strykerArgs.at(-1);
             const isFlagValue = prev !== undefined && prev.startsWith("-") && !prev.includes("=") && !STRYKER_BOOLEAN_FLAGS.has(prev);
             if (!isFlagValue) {
-                throw new Error(
-                    `Непонятный позиционный аргумент «${arg}». База диффа задаётся флагом: --base ${arg}`,
-                );
+                throw new PositionalArgumentError(arg);
             }
         }
         strykerArgs.push(arg);
