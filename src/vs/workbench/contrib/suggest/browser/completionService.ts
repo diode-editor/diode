@@ -92,6 +92,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // Каретка на момент запроса провайдеров. Провайдерский `range` — снапшот той же
     // позиции, поэтому по нему мы отслеживаем, сколько символов добрали с триггера.
     private triggerCaret: IPosition | null = null;
+    // Каретка последнего запроса к провайдерам (`null` — запросов ещё не было).
+    // Пока ответа нет и попап не открыт, по ней решается, нужен ли он ещё:
+    // см. cancelRequestIfCaretLeft. После ответа отмена по ней холостая.
+    private requestCaret: IPosition | null = null;
 
     // Отложенный авто-запрос по набору; символ, которым он спровоцирован (`.`),
     // лежит в pendingTriggerCharacter.
@@ -136,10 +140,11 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         };
         this.component.detailsVisible = this.state.get(SUGGEST_DETAILS_VISIBLE_STATE);
         // Фокус ушёл с редактора (клавиатурный путь: Ctrl+Tab, Quick Open) —
-        // попап закрывается. Клик-фокус уже покрыт `close-on-outside`.
+        // попап закрывается, а запрос «в полёте» отменяется: его ответ поднял бы
+        // попап под чужим фокусом. Клик-фокус уже покрыт `close-on-outside`.
         this.register(
             focusTracker.onDidChangeFocus((active) => {
-                if (!(active instanceof EditorElement) && this.isOpen()) this.close();
+                if (!(active instanceof EditorElement)) this.close();
             }),
         );
 
@@ -182,12 +187,16 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
 
         const active = selections[0].active;
-        const lineContent = editor.viewState.document.getLineContent(active.line);
 
         // Провайдеры, подошедшие документу + word-based fallback из всех
         // открытых редакторов (как editor.wordBasedSuggestions в VS Code).
         const providers = this.languageFeatures.completionProvider.ordered(editor);
         const ticket = this.latest.start();
+        this.requestCaret = active;
+        // Срока ответа у провайдеров нет (как в upstream): language server на
+        // холодном старте думает секунды, и подменять его ответ словами из
+        // буфера нельзя — открытый попап уже не перезапросится. Ждём, пока ответ
+        // нужен; ненужный гасит билет (новый запрос, уход каретки, close).
         // Без провайдеров — пустой ответ без обращения к агрегатору.
         const result =
             // Stryker disable next-line ConditionalExpression: provideCompletions([]) даёт тот же пустой ответ — ветка лишь не зовёт агрегатор впустую
@@ -214,6 +223,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // запрос уже в пути, и старый ответ не имеет права перекрыть его.
         if (ticket.isStale()) return;
 
+        // Пока ждали ответа, слово могли добрать: запрос переживает только такой
+        // сдвиг каретки (остальные его отменяют — cancelRequestIfCaretLeft), и
+        // список сужается под набранное сразу, а не под снимок момента запроса.
+        const caret = editor.viewState.selections[0].active;
+        const caretLine = editor.viewState.document.getLineContent(caret.line);
+
         const extensionItems = result.items;
         // Границу префикса задаёт сам провайдер: у LSP-пунктов `range` — это
         // заменяемое слово, и после `d.` он начинается ПОСЛЕ точки. Свой
@@ -221,8 +236,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // ключам settings.json и editorconfig), поэтому префиксом стало бы
         // `d.` — он не матчит ни один label, и список схлопывался.
         const providerStart = commonPrefixStart(extensionItems, active);
-        const prefixStart = providerStart ?? wordStart(lineContent, active.character);
-        const prefix = lineContent.slice(prefixStart, active.character);
+        const prefixStart = providerStart ?? wordStart(caretLine, caret.character);
+        const prefix = caretLine.slice(prefixStart, caret.character);
 
         // Слова из буфера подмешиваем только там, где провайдер не задал своего
         // диапазона: после точки они были бы шумом поверх членов типа.
@@ -230,13 +245,14 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             providerStart === null ? [...extensionItems, ...this.wordItems(prefix, extensionItems)] : extensionItems;
         if (items.length === 0) return;
 
-        // Каретка могла уйти за время await — берём актуальный якорь.
         const anchor = editor.getCaretAnchor();
         if (anchor === null) return;
 
         this.activeEditor = editor;
-        this.prefixRange = createRange(active.line, prefixStart, active.line, active.character);
+        this.prefixRange = createRange(caret.line, prefixStart, caret.line, caret.character);
         this.prefixFromProvider = providerStart !== null;
+        // Снимок каретки ЗАПРОСА, а не текущей: от него accept отсчитывает добор
+        // к провайдерскому range (resolveAcceptRange).
         this.triggerCaret = { line: active.line, character: active.character };
         this.isIncomplete = result.isIncomplete;
         this.providerOf = result.providerOf;
@@ -340,7 +356,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * актуального префикса (или закрывает, если каретка ушла из слова).
      */
     private onCaretChanged(editor: TextEditorPane): void {
-        if (!this.isOpen()) return;
+        if (!this.isOpen()) {
+            this.cancelRequestIfCaretLeft(editor);
+            return;
+        }
         const selections = editor.viewState.selections;
         // Выделение или мультикурсор — сужать нечего: попап привязан к одной каретке.
         if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) {
@@ -349,6 +368,32 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         }
         const active = selections[0].active;
         this.refilterOpen(editor, active, editor.viewState.document.getLineContent(active.line));
+    }
+
+    /**
+     * Запрос «в полёте» нужен, пока каретка продолжает слово, для которого он
+     * задан: та же строка, не левее и добор словесный (upstream
+     * `SuggestModel._onNewContext`: другая строка и шаг влево отменяют запрос).
+     * Иначе запрос отменяется сразу — срока ответа у него нет, и ответ
+     * медленного сервера поднял бы попап там, откуда человек давно ушёл, а сам
+     * сервер считал бы впустую.
+     */
+    private cancelRequestIfCaretLeft(editor: TextEditorPane): void {
+        const from = this.requestCaret;
+        if (from === null) return;
+        const selections = editor.viewState.selections;
+        if (selections.length === 1 && isSelectionCollapsed(selections[0])) {
+            const active = selections[0].active;
+            const line = editor.viewState.document.getLineContent(active.line);
+            if (
+                active.line === from.line &&
+                active.character >= from.character &&
+                isWordRun(line.slice(from.character, active.character))
+            ) {
+                return;
+            }
+        }
+        this.latest.cancel();
     }
 
     /**
@@ -368,6 +413,9 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             .flatMap((provider) => provider.triggerCharacters);
         if (triggers.includes(text)) {
             if (this.isOpen()) this.component.close();
+            // Запрос «в полёте» — про слово ДО символа: его ответ поднял бы
+            // прежний список на время ожидания нового.
+            this.latest.cancel();
             this.scheduleAutoSuggest(text);
         } else if (!this.isOpen() && WORD_CHAR.test(text)) {
             this.scheduleAutoSuggest();

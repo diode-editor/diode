@@ -149,4 +149,35 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });
+
+    it("срока ответа у автодополнения нет: медленного провайдера дожидаемся, пустым ответом не подменяем", async () => {
+        vi.useFakeTimers();
+        try {
+            const { host, peer } = makeHost();
+            let answer: ((value: unknown) => void) | null = null;
+            peer.handleRequest(
+                "languages.provideCompletionItems",
+                () =>
+                    new Promise((resolve) => {
+                        answer = resolve;
+                    }),
+            );
+            const settled = vi.fn();
+            const pending = host.provideCompletionItems(0, REQUEST);
+            void pending.then(settled);
+
+            // Language server на холодном старте или под нагрузкой: минута тишины —
+            // не повод отдать ядру «пусто» (по нему попап открылся бы словами из буфера).
+            await vi.advanceTimersByTimeAsync(60_000);
+            expect(settled).not.toHaveBeenCalled();
+
+            answer!([{ items: [{ label: "late", insertText: "late" }], isIncomplete: false }]);
+            await expect(pending).resolves.toEqual({
+                items: [{ label: "late", insertText: "late" }],
+                isIncomplete: false,
+            });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });

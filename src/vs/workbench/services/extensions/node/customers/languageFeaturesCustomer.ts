@@ -51,8 +51,14 @@ import { loggingRequest, type RequestTimeouts, type TimedRequestMethod } from ".
 /** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
 const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
 
-/** Языковой запрос хоста к субпроцессу (со сроком ответа из {@link RequestTimeouts}). */
-type LanguageRequestMethod = Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">;
+/**
+ * Языковой запрос хоста к субпроцессу. Срок ответа — из {@link RequestTimeouts};
+ * у автодополнения его нет (см. `DEFAULT_REQUEST_TIMEOUTS`), оно ждёт ответа,
+ * пока тот нужен вызывающему.
+ */
+type LanguageRequestMethod =
+    | Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">
+    | "languages.provideCompletionItems";
 
 /** Ответ языкового запроса — форма из карты протокола. */
 type LanguageResult<K extends LanguageRequestMethod> = RequestResult<IHostToSubprocess, K>;
@@ -124,7 +130,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * Запрашивает у completion-провайдера субпроцесса `handle` элементы
      * автодополнения для позиции курсора (`languages.provideCompletionItems`).
      * Пустой результат, если субпроцесса нет, документ субпроцессу не синхронизирован или
-     * расширение не ответило за отведённый срок. Зовёт его прокси из
+     * запрос отказал. Срока ответа нет — ждём, пока вызывающий не отменит `token`
+     * (см. `DEFAULT_REQUEST_TIMEOUTS`). Зовёт его прокси из
      * реестра ядра (`LanguageFeaturesAdapter`); вызовы прокси с одним запросом
      * уходят одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
      */
@@ -471,7 +478,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * когда спрашивать некого (спавна нет, документ субпроцессу не
      * синхронизирован — текста запросы не везут, отвечать не по чему) или
      * расширение не ответило: истёк срок или отказ RPC (его пишет в лог
-     * `loggingRequest`). UI никогда не ждёт вечно. Rename различает причины
+     * `loggingRequest`). Срок есть у всех запросов, кроме автодополнения: его
+     * ожидание ограничивает токен вызывающего. Rename различает причины
      * отказа сообщением (`noHost`/`notSynced` в `options`).
      */
     private async request<K extends LanguageRequestMethod>(
@@ -487,7 +495,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         // субпроцесса): документ, которого субпроцесс не держит, — без RPC.
         const { uri } = params as Partial<IWireDocumentParams>;
         if (uri !== undefined && !this.isSynced(uri)) return options.notSynced ?? empty;
-        const { timeoutMs = this.timeouts[method], token } = options;
+        // Метод без строки в таблице сроков (автодополнение) ждёт без срока.
+        const timeouts: Partial<Record<LanguageRequestMethod, number>> = this.timeouts;
+        const { timeoutMs = timeouts[method], token } = options;
         try {
             return await loggingRequest(rpc, this.logger)(method, params, {
                 timeoutMs,

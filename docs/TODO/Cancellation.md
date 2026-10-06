@@ -21,7 +21,9 @@
   Откуда берётся токен:
   - hover, definition, references, signature help, completion, folding: `ticket.token` своего `LatestRequest`
     (перезапрос, закрытие попапа, уход каретки, правка, закрытие редактора); у completion и folding токен общий
-    у пачки `ProviderRequestBatcher`;
+    у пачки `ProviderRequestBatcher`. У completion это единственное, что ограничивает ожидание: срока ответа у
+    него нет, поэтому запрос «в полёте» (попап ещё не открыт) отменяется и уходом каретки из слова, и уходом
+    фокуса, и триггер-символом (`CompletionService.cancelRequestIfCaretLeft`);
   - Format Document / Selection: `EditorStateCancellationTokenSource(Value)`, правка буфера отменяет и форматтер.
 - Без токена намеренно:
   - resolve пункта автодополнения: его ответ кэшируется и общий у панели описания и accept (правки авто-импорта),
