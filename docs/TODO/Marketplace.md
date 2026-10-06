@@ -30,6 +30,12 @@ views, Phase 9 — внешние расширения), [docs/arch/Extensions.m
   читают/пишут один формат; код — source of truth
   (`src/vs/platform/extensionManagement/common/registryFormat.ts`).
 
+- **Магазин — три репозитория, и правка формата задевает все три:** формат и клиент — diode
+  (`registryFormat.ts`), реестр и валидатор — [`diode-editor.github.io`](https://github.com/diode-editor/diode-editor.github.io),
+  веб-витрина — [`diode-editor/marketplace`](https://github.com/diode-editor/marketplace) (её
+  легко забыть, а человек смотрит обычно туда). Так заводилась пометка `support` (#355 +
+  сайт#7 + marketplace#4). Курация языков витрины живёт в самой витрине (`src/curation.ts`).
+
 ## Формат данных (schemaVersion 1)
 
 Публикуемый вид registry-репозитория = то, что читает клиентский источник:
@@ -185,6 +191,12 @@ registry/v1/meta/<id>.json
   по готовому файлу; недокачанный `artifact.vsix` убирается, чтобы не остаться под видом
   валидного. Реестр режет размер своим `MAX_ARTIFACT_BYTES` отдельно (репозиторий сайта,
   `scripts/registry.mjs`) — клиентского лимита мало.
+  Проверить скачивание крупного артефакта можно без сети: `.vsix` собирается через `yazl` с
+  нагрузкой `crypto.randomBytes(90 * 1024 * 1024)` и `{ compress: false }` (иначе нули
+  схлопнутся и по сети поедут килобайты), рядом `node:http` отдаёт `index.json`,
+  `meta/<id>.json` и артефакт, а настоящий CLI ставит его
+  `--registry http://127.0.0.1:<port>/v1/ --install-extension <id>`; пик памяти — поле `VmHWM`
+  в `/proc/<pid>/status`.
 - `http:` разрешён наравне с `https:`: целостность держится на `sha256` из меты, а не на
   транспорте; локальный реестр по http — законный сценарий.
 - Выбор источника — `node/createRegistrySource.ts` (`DEFAULT_REGISTRY_URL` + различение по
