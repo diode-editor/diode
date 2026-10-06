@@ -77,8 +77,10 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
+          # Бюджет перепроверки вживлением: окно бывает широким, а выживших —
+          # сотни; не успевшие уходят в тикет как inconclusive.
           node scripts/mutation-diff.mjs --base "${{ steps.base.outputs.sha }}" \
-            --reporters json,html,clear-text 2>&1 | tee mutation-run.log
+            --reporters json,html,clear-text --verify-budget 90 2>&1 | tee mutation-run.log
 
       - name: Собрать отчёт
         id: report
@@ -128,6 +130,7 @@ jobs:
           path: |
             reports/mutation/mutation.html
             reports/mutation/mutation.json
+            reports/mutation/verdict.json
             mutation-run.log
           retention-days: 30
 

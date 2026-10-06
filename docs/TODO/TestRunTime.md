@@ -61,7 +61,8 @@ PR влит `--admin`.
 
 Нюанс, который надо закрыть при внедрении: «выжившие» из потерянных по bail прогонов
 (`testsCompleted: 0`, см. TESTING.md) тоже переиспользуются как Survived, поэтому
-перепроверку из `scripts/mutation-diff.mjs` надо оставить (она и так точечная, секунды).
+перепроверку из `scripts/mutation-diff.mjs` надо оставить (теперь это вживление
+точного мутанта, `scripts/verify-mutants.mjs`).
 Файл `reports/stryker-incremental.json` — 3,9 МБ, в CI его можно класть в
 `actions/cache` по ключу ветки.
 

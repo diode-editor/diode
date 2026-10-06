@@ -19,6 +19,7 @@
                 "npm run build:sea",
                 "npm run build:selfextract",
                 "node scripts/mutation-diff.mjs",
+                "node scripts/verify-mutants.mjs",
                 "npx stryker",
                 "npx vitest run --config vitest.e2e.config.ts",
                 "vitest run e2e/"

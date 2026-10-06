@@ -167,12 +167,16 @@ jobs:
           base="${BASE:-$(git merge-base origin/main HEAD)}"
           echo "База диффа: $base"
           mkdir -p reports/mutation
+          # Перепроверка вживлением — после Stryker'а, в том же шаге; бюджет с
+          # запасом под timeout-minutes job'а: не успевшие — inconclusive (красный).
           node scripts/mutation-diff.mjs --base "$base" \
             --ignoreStatic --incremental --reporters json,html,clear-text \
+            --verify-budget 40 \
             2>&1 | tee reports/mutation/mutation.log
 
       # always(): результаты нужны следующему пушу и когда балл ниже порога —
-      # выжившие перепроверяются точечно каждый прогон (scripts/mutation-diff.mjs).
+      # не убитые Stryker'ом перепроверяются вживлением каждый прогон
+      # (scripts/verify-mutants.mjs).
       - name: Save incremental mutation results
         if: always() && hashFiles('reports/stryker-incremental.json') != ''
         uses: actions/cache/save@v4
@@ -224,14 +228,17 @@ jobs:
             reports/mutation/mutation.html
             reports/mutation/mutation.json
             reports/mutation/mutation.log
+            reports/mutation/verdict.json
+            reports/mutation/gate.json
           retention-days: 14
 
       - name: Gate
         if: steps.mutation.outcome == 'failure'
         run: |
-          echo "Мутационный балл ниже порога. Выжившие мутанты — в комментарии к PR / summary прогона."
-          echo "Каждого либо убиваем тестом, либо гасим:"
-          echo "  // Stryker disable next-line <мутатор>: причина"
+          echo "Мутационный гейт красный: настоящие выжившие (real) или мутанты без вердикта —"
+          echo "классы и причины в комментарии к PR / summary прогона, разбор — docs/TESTING.md."
+          echo "real — убиваем тестом либо гасим: // Stryker disable next-line <мутатор>: причина"
+          echo "phantom гейт уже разоблачил сам — их чинить и гасить не нужно."
           exit 1
 
   # Ручной запуск делит матрицу: `e2e` — ubuntu, `e2e-windows` — windows. Имена
