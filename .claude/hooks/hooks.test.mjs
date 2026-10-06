@@ -136,14 +136,28 @@ describe("stop-checklist", () => {
         });
         assert.deepEqual(
             items.map((i) => i.id),
-            ["scenario", "api-coverage"],
+            ["scenario", "settings", "api-coverage"],
         );
         const ok = checklist({
-            files: ["src/vscode-dts/vscode.d.ts", "docs/public/API-COVERAGE.md", "e2e/scenarios/x.scenario.ts"],
+            files: [
+                "src/vscode-dts/vscode.d.ts",
+                "docs/public/API-COVERAGE.md",
+                "e2e/scenarios/x.scenario.ts",
+                "src/vs/workbench/common/configuration/editorConfiguration.ts",
+            ],
             subjects: ["feat(api)!: x"],
             transcript: ran,
         });
         assert.deepEqual(ok, []);
+    });
+    it("feat без настроек: напоминание; fix — молчим", () => {
+        const scenario = "e2e/scenarios/x.scenario.ts";
+        const feat = checklist({ files: ["src/a.ts", scenario], subjects: ["feat(x): y"], transcript: ran });
+        assert.deepEqual(
+            feat.map((i) => i.id),
+            ["settings"],
+        );
+        assert.deepEqual(checklist({ files: ["src/a.ts"], subjects: ["fix(x): y"], transcript: ran }), []);
     });
 });
 

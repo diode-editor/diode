@@ -75,6 +75,15 @@ win32 — `%COMSPEC%` → `cmd.exe` (обнаружения PowerShell нет). 
 stderr })` — запуск себя в роли (`DIODE_FILE_WATCHER`, `DIODE_EXTENSION_HOST`): флаг роли в env, IPC-канал,
 stdio без `inherit` (типом). Пользователи — watcher-процесс (`SubprocessTreeWatcher`) и разовый спавн rg в поиске по файлам (`services/search/node`).
 
+## Надёжность процесса: что не должно его ронять
+
+Сквозные правила; каждое уже стоило падения редактора или субпроцесса расширений.
+
+- **Свой дочерний процесс — только через `GuardedChildProcess`** (выше). `error` у `ChildProcess` слушается обязательно и подпиской `on`, а не `once`; `try/catch` вокруг `send` не спасает (закрытый канал отвечает `false` синхронно, `ERR_IPC_CHANNEL_CLOSED` приходит событием позже), а после `error` событие `exit` может не прийти вовсе ([ARCHITECTURE.md](../ARCHITECTURE.md#роли-процессов-форк-самого-себя)).
+- **Команда не роняет процесс.** Обработчик команды возвращает свой промис, а не `void`; `CommandRegistry.execute` вешает обработчик отказа на исходный промис, не подменяя его (ждущему отказ обязан доехать); `openUri` не отклоняется никогда; последняя страховка — `process.on("unhandledRejection")` в `main.ts` и в субпроцессе расширений ([TODO/Uri.md](../TODO/Uri.md#виртуальные-read-only-документы-сделано)).
+- **Отказ host-обработчика RPC — это отказ промиса у расширения**, и необработанный отказ в коде расширения бьёт по всему субпроцессу. Поломка нашей поверхности (сток бросил) расширению стоить не должна: нейтральный ответ + строка в лог (образец — `window.showMessage` в `services/extensions/node/customers/windowCustomer.ts`).
+- **Отсутствующая зависимость — null-объект, а не `undefined`** (`NULL_LOGGER`, `NULL_LANGUAGE_SERVICE`, `NULL_FILE_WATCHER`, `NULL_VIRTUAL_DOCUMENT_SOURCE`); обработчик отказа — хвостом `.catch(...)`, а не вторым аргументом `then`. Обе формы убирают ветки, которые иначе дают `RuntimeError` мутанта или эквивалентного выжившего ([TESTING.md](../TESTING.md), «Раннер упал на мутанте»).
+
 ## Вехи старта: `performance.ts`
 
 `mark(name, detail?)` — тонкая обёртка над стандартным `performance.mark` (аналог
