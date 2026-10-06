@@ -9,10 +9,10 @@ import { git, gitSubcommand, runHook, simpleCommands } from "./lib.mjs";
 const HTTPS_ORIGIN = "https://github.com/diode-editor/diode.git";
 
 /**
- * `npm run test:mutation -- <ref>`: npm дописывает аргументы ПОСЛЕ флагов
- * скрипта (`--ignoreStatic --incremental`), а mutation-diff.mjs берёт базу
- * только первым словом — позиционный аргумент уезжает Stryker'у, база молча
- * остаётся `main`, и гейт меряет не тот дифф.
+ * `npm run test:mutation -- <ref>`: база гейта задаётся только флагом
+ * `--base <ref>`, позиционный аргумент mutation-diff.mjs отвергает (раньше он
+ * молча уезжал Stryker'у как имя конфига, а база оставалась `main`). Хук
+ * отказывает ещё до запуска — чтобы не тратить на это слот лизы.
  */
 function mutationPositional(words) {
     // Обёртки (`claude-lease run -- …`, `timeout 600 …`) не мешают: ищем саму команду.
@@ -28,13 +28,10 @@ function mutationPositional(words) {
             if (!w.includes("=") && /^--(base|since)$/.test(w)) i++;
             continue;
         }
-        return `Позиционный аргумент «${w}» у \`npm run test:mutation -- …\` не становится базой гейта:
-npm дописывает его после \`--ignoreStatic --incremental\`, а scripts/mutation-diff.mjs
-читает базу только ПЕРВЫМ словом — «${w}» уедет Stryker'у, база молча останется \`main\`.
-
-Если скрипт уже понимает флаг базы — передай его флагом (\`-- --base ${w}\`, см. --help скрипта).
-Иначе зови скрипт напрямую, база первым словом (тяжёлый прогон — под лизой):
-  claude-lease run -- node scripts/mutation-diff.mjs ${w} --ignoreStatic --incremental`;
+        return `Позиционный аргумент «${w}» у \`npm run test:mutation -- …\` — не база гейта:
+scripts/mutation-diff.mjs принимает базу только флагом и на позиционный аргумент
+выйдет с ошибкой. Передай её флагом (тяжёлый прогон — под лизой):
+  claude-lease run -- npm run test:mutation -- --base ${w}`;
     }
     return undefined;
 }

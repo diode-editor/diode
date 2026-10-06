@@ -14,7 +14,12 @@
  * Мутанты со статусом `Ignored` в знаменатель балла не входят — так же, как
  * исключения покрытия. Их два разных вида, и различаются они только причиной:
  * погашенные `// Stryker disable` (решение автора, видно в ревью) и пропущенные
- * флагом `--ignoreStatic` (решение прогона).
+ * флагом `--ignoreStatic` (решение прогона). `RuntimeError`/`CompileError` в
+ * знаменатель тоже не входят — счёт ровно как у Stryker'а (`scoreReport`).
+ *
+ * ✅/❌ в шапке — вердикт самого гейта из `gate.json` рядом с отчётом
+ * (его пишет `mutation-diff.mjs`). Нет файла — отчёт открыли руками, и
+ * значок считается по порогу из конфига.
  *
  * Использование: node scripts/mutation-report.mjs [<путь к mutation.json>]
  * Ссылки на строки появляются, если заданы GITHUB_REPOSITORY и MUTATION_SHA.
@@ -22,6 +27,8 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
+
+import { scoreReport } from "./mutation-gate.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const reportPath = process.argv[2] ?? path.join(repoRoot, "reports", "mutation", "mutation.json");
@@ -83,24 +90,23 @@ function renderDiff(source, mutant) {
     return { original: clip(original), mutated: clip(mutated) };
 }
 
+/** Вердикт гейта, если отчёт пришёл из `mutation-diff.mjs`. */
+function gateOutcome() {
+    const gatePath = path.join(path.dirname(reportPath), "gate.json");
+    if (!existsSync(gatePath)) return null;
+    return JSON.parse(readFileSync(gatePath, "utf8")).outcome ?? null;
+}
+
 const survivors = [];
-let killed = 0;
 let silenced = 0; // погашены `// Stryker disable` — осознанное решение автора
 let skippedStatic = 0; // пропущены `--ignoreStatic` — решение прогона, не автора
 let noCoverage = 0;
-let timeout = 0;
 let total = 0;
 
 for (const [file, data] of Object.entries(report.files)) {
     for (const mutant of data.mutants) {
         total++;
         switch (mutant.status) {
-            case "Killed":
-                killed++;
-                break;
-            case "Timeout":
-                timeout++;
-                break;
             case "Ignored":
                 if (/ignoreStatic/.test(mutant.statusReason ?? "")) skippedStatic++;
                 else silenced++;
@@ -118,10 +124,10 @@ for (const [file, data] of Object.entries(report.files)) {
     }
 }
 
-const scored = total - silenced - skippedStatic;
-const detected = killed + timeout;
-const score = scored === 0 ? 100 : (detected / scored) * 100;
-const passing = threshold === null || score >= threshold;
+const { counts, detected, score } = scoreReport(report);
+const unchecked = counts.RuntimeError + counts.CompileError;
+const outcome = gateOutcome();
+const passing = outcome !== null ? outcome === "passed" : threshold === null || score >= threshold;
 
 const out = [];
 
@@ -134,10 +140,14 @@ out.push(`| **Выжило** | **${survivors.length - noCoverage}** |`);
 if (noCoverage > 0) out.push(`| Не покрыто ни одним тестом | ${noCoverage} |`);
 if (silenced > 0) out.push(`| Погашено \`// Stryker disable\` | ${silenced} |`);
 if (skippedStatic > 0) out.push(`| Пропущено как статические | ${skippedStatic} |`);
+if (unchecked > 0) out.push(`| Не проверено (упал раннер или компиляция) | ${unchecked} |`);
 out.push(`| Всего мутантов | ${total} |`);
 out.push("");
 
-if (threshold !== null && !passing) {
+if (outcome === "error") {
+    out.push("Гейт не дошёл до вердикта — причина в логе прогона. Балл выше посчитан по тому, что успели проверить.");
+    out.push("");
+} else if (threshold !== null && !passing) {
     out.push(`Порог — ${threshold}%. Каждого выжившего либо убиваем тестом, либо гасим`);
     out.push("`// Stryker disable next-line <мутатор>: причина` — и причина едет в ревью.");
     out.push("");

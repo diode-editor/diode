@@ -36,7 +36,7 @@ describe("simpleCommands", () => {
 describe("bash-guard: test:mutation", () => {
     it("ловит позиционную базу после --", () => {
         const why = checkBash("npm run test:mutation -- origin/main", "/");
-        assert.match(why, /mutation-diff\.mjs origin\/main/);
+        assert.match(why, /test:mutation -- --base origin\/main/);
     });
     it("ловит позиционный и за флагами", () => {
         assert.ok(checkBash("claude-lease run -- npm run test:mutation -- --force HEAD~3", "/"));
@@ -168,6 +168,6 @@ describe("протокол: любой сбой — пропуск", () => {
         const input = JSON.stringify({ tool_name: "Bash", tool_input: { command: "npm run test:mutation -- main" } });
         const r = spawnSync(process.execPath, [path.join(here, "bash-guard.mjs")], { input, encoding: "utf8" });
         assert.equal(r.status, 2);
-        assert.match(r.stderr, /не становится базой/);
+        assert.match(r.stderr, /не база гейта/);
     });
 });
