@@ -23,7 +23,7 @@
     "bench:open": "tsx e2e/bench/benchOpen.ts",
     "test:mutation": "node scripts/mutation-diff.mjs --ignoreStatic --incremental",
     "ci:run": "node scripts/ci-run.mjs",
-    "test:scripts": "node --test scripts/*.test.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs .claude/hooks/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ extensions/ tools/",
     "lint:fix": "eslint src/ extensions/ tools/ --fix",

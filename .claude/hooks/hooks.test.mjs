@@ -1,5 +1,6 @@
-// Тесты проектных хуков: `node --test .claude/hooks/`.
-// Хуки живут вне src/ и в общий vitest-прогон не входят — они не код редактора.
+// Тесты проектных хуков: `node --test .claude/hooks/hooks.test.mjs`; в CI — в составе
+// `npm run test:scripts`. Хуки живут вне src/ и в общий vitest-прогон не входят —
+// они не код редактора.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -31,21 +32,100 @@ describe("simpleCommands", () => {
             ["wc"],
         ]);
     });
+    it("операторы в кавычках команду не режут", () => {
+        assert.deepEqual(simpleCommands(`git commit -m "a; b | c && d" -m 'e || f\ng'`), [
+            ["git", "commit", "-m", "a; b | c && d", "-m", "e || f\ng"],
+        ]);
+        assert.deepEqual(simpleCommands(`echo "a \\"b\\" c" d\\ e`), [["echo", `a "b" c`, "d e"]]);
+    });
+    it("редиректы — не слова команды", () => {
+        assert.deepEqual(simpleCommands("git push 2>&1 | tail -5"), [
+            ["git", "push"],
+            ["tail", "-5"],
+        ]);
+        assert.deepEqual(simpleCommands("a >out 2>/dev/null; b > out 2> err < in; c &>log; d >>log 2>&1 &"), [
+            ["a"],
+            ["b"],
+            ["c"],
+            ["d"],
+        ]);
+        assert.deepEqual(simpleCommands("grep x <<< text y; echo 2 > f"), [
+            ["grep", "x", "y"],
+            ["echo", "2"],
+        ]);
+    });
+    it("подстановка — одно непрозрачное слово, скобки и перенос строки режут", () => {
+        assert.deepEqual(simpleCommands('a --base $(git merge-base HEAD "origin/main") b `c d`'), [
+            ["a", "--base", '$(git merge-base HEAD "origin/main")', "b", "`c d`"],
+        ]);
+        assert.deepEqual(simpleCommands("(cd x && ls)\necho \\\n  y # хвост; z"), [["cd", "x"], ["ls"], ["echo", "y"]]);
+    });
+    it("тело heredoc — данные, а не команды", () => {
+        const body = "git push git@github.com:a/b.git c\nEOF не конец\n";
+        assert.deepEqual(simpleCommands(`cat > f <<'EOF' && ls\n${body}EOF\nwc -l f`), [
+            ["cat"],
+            ["ls"],
+            ["wc", "-l", "f"],
+        ]);
+        assert.deepEqual(simpleCommands(`cat <<-X\n\tтекст\n\tX\nls`), [["cat"], ["ls"]]);
+        const subst = `$(cat <<'EOF'\nкавычка " и ; тут\nEOF\n)`;
+        assert.deepEqual(simpleCommands(`gh pr create --body "${subst}" --draft`), [
+            ["gh", "pr", "create", "--body", subst, "--draft"],
+        ]);
+    });
 });
 
 describe("bash-guard: test:mutation", () => {
+    const run = "npm run test:mutation --";
     it("ловит позиционную базу после --", () => {
-        const why = checkBash("npm run test:mutation -- origin/main", "/");
+        const why = checkBash(`${run} origin/main`, "/");
         assert.match(why, /test:mutation -- --base origin\/main/);
+        assert.match(checkBash(`${run} feature`, "/"), /Позиционный аргумент «feature»/);
     });
-    it("ловит позиционный и за флагами", () => {
-        assert.ok(checkBash("claude-lease run -- npm run test:mutation -- --force HEAD~3", "/"));
+    it("ловит позиционный и за флагами, обёртками и перед пайпом", () => {
+        assert.ok(checkBash(`claude-lease run -- ${run} --force HEAD~3`, "/"));
+        assert.match(checkBash(`${run} --incremental feature`, "/"), /--base feature/);
+        assert.match(checkBash(`timeout 600 ${run} --concurrency=4 feature 2>&1 | tail -5`, "/"), /--base feature/);
+        assert.match(checkBash(`cd x && claude-lease run -- timeout 600 ${run} feature > log`, "/"), /--base feature/);
     });
     it("пропускает флаги и значение флага базы", () => {
         assert.equal(checkBash("npm run test:mutation", "/"), undefined);
-        assert.equal(checkBash("npm run test:mutation -- --scope-only", "/"), undefined);
-        assert.equal(checkBash("npm run test:mutation -- --base origin/main --force", "/"), undefined);
-        assert.equal(checkBash("npm run test:mutation -- --base=origin/main", "/"), undefined);
+        assert.equal(checkBash(`${run} --scope-only`, "/"), undefined);
+        assert.equal(checkBash(`${run} --base origin/main --force`, "/"), undefined);
+        assert.equal(checkBash(`${run} --base=origin/main`, "/"), undefined);
+        assert.equal(checkBash(`${run} --base $(git merge-base HEAD origin/main)`, "/"), undefined);
+    });
+    it("значение любого флага — не позиционный", () => {
+        // Первые два — отказы из сессии #556, с которых началась эта починка.
+        const file = "src/vs/base/common/strings.test.ts";
+        assert.equal(checkBash(`claude-lease run -- ${run} --testFiles ${file}`, "/"), undefined);
+        assert.equal(
+            checkBash(`claude-lease run -- ${run} --testFiles=${file} 2>&1 | grep -v DEBUG | tail -60`, "/"),
+            undefined,
+        );
+        assert.equal(checkBash(`${run} --concurrency 4 --mutate "src/a.ts" --reporters json`, "/"), undefined);
+        assert.equal(
+            checkBash(`${run} --verify-jobs 2 --verify-timeout 90 --verify-budget 10 --verify-full`, "/"),
+            undefined,
+        );
+        assert.equal(checkBash(`${run} --since origin/main -c 2`, "/"), undefined);
+    });
+    it("редиректы, пайпы и цепочки после команды — не аргументы", () => {
+        const wrapped = `claude-lease run -- timeout 600 ${run} --base origin/main`;
+        const tails = ["2>&1", "> /tmp/log 2>&1", ">/tmp/log", "2>/dev/null | tail", "&> log &", "|| true", "; echo ok"];
+        for (const tail of tails) {
+            assert.equal(checkBash(`${wrapped} ${tail}`, "/"), undefined, tail);
+        }
+        assert.equal(checkBash(`${run} --scope-only\necho готово`, "/"), undefined);
+    });
+    it("упоминание в кавычках и heredoc — текст, а не запуск", () => {
+        assert.equal(checkBash(`git commit -m "fix: теперь; ${run} feature"`, "/"), undefined);
+        assert.equal(checkBash(`gh pr create --body "$(cat <<'EOF'\n    ${run} feature\nEOF\n)"`, "/"), undefined);
+        assert.equal(checkBash(`cat > notes.md <<'EOF'\n${run} feature\nEOF`, "/"), undefined);
+    });
+    it("прочие ошибки аргументов оставляет гейту", () => {
+        assert.equal(checkBash(`${run} --verify-jobs много`, "/"), undefined);
+        assert.equal(checkBash(`${run} --base`, "/"), undefined);
     });
 });
 
@@ -64,6 +144,11 @@ describe("bash-guard: fetch по URL в refs/remotes", () => {
         );
         assert.equal(checkBash("git fetch https://github.com/a/b.git main", "/"), undefined);
     });
+    it("редирект после команды вердикт не меняет", () => {
+        const cmd = "git fetch https://github.com/a/b.git main:refs/remotes/origin/main";
+        assert.ok(checkBash(`${cmd} 2>&1 | tail -3`, "/"));
+        assert.equal(checkBash(`${cmd} --no-prune 2>&1 | tail -3`, "/"), undefined);
+    });
 });
 
 describe("bash-guard: push по ssh", () => {
@@ -79,6 +164,20 @@ describe("bash-guard: push по ssh", () => {
     });
     it("ловит явный ssh-URL", () => {
         assert.ok(checkBash("git push git@github.com:diode-editor/diode.git b", "/"));
+    });
+    it("редирект и пайп не прячут ssh-push", () => {
+        const dir = repoWithOrigin("git@github.com:diode-editor/diode.git");
+        try {
+            assert.ok(checkBash("git push 2>&1 | tail -5", dir));
+            assert.ok(checkBash("git push > /tmp/push.log", dir));
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+    it("ssh-push в тексте (кавычки, heredoc) — не push", () => {
+        const ssh = "git push git@github.com:diode-editor/diode.git b";
+        assert.equal(checkBash(`git commit -m "docs: не делай так; ${ssh}"`, "/"), undefined);
+        assert.equal(checkBash(`cat > notes.md <<'EOF'\n${ssh}\nEOF`, "/"), undefined);
     });
     it("пропускает https-URL и https-remote", () => {
         assert.equal(checkBash("git push https://github.com/diode-editor/diode.git b", "/"), undefined);

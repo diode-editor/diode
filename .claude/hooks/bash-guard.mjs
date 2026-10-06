@@ -4,6 +4,7 @@
 // Лизу на тяжёлые прогоны проверяет отдельный глобальный хук, здесь её нет.
 import { pathToFileURL } from "node:url";
 
+import { parseArgs, PositionalArgumentError } from "../../scripts/mutation-gate.mjs";
 import { git, gitSubcommand, runHook, simpleCommands } from "./lib.mjs";
 
 const HTTPS_ORIGIN = "https://github.com/diode-editor/diode.git";
@@ -13,6 +14,11 @@ const HTTPS_ORIGIN = "https://github.com/diode-editor/diode.git";
  * `--base <ref>`, позиционный аргумент mutation-diff.mjs отвергает (раньше он
  * молча уезжал Stryker'у как имя конфига, а база оставалась `main`). Хук
  * отказывает ещё до запуска — чтобы не тратить на это слот лизы.
+ *
+ * Что считать позиционным, решает сам гейт (`parseArgs`): своя копия этой
+ * логики знала только `--base`/`--since` и отказывала на значении любого
+ * другого флага (`--testFiles <файл>`, `--concurrency 4`, `--verify-jobs 2`).
+ * Остальные ошибки аргументов гейт сообщит сам — мгновенно и своим текстом.
  */
 function mutationPositional(words) {
     // Обёртки (`claude-lease run -- …`, `timeout 600 …`) не мешают: ищем саму команду.
@@ -20,18 +26,14 @@ function mutationPositional(words) {
     if (at < 0) return undefined;
     const sep = words.indexOf("--", at + 3);
     if (sep < 0) return undefined;
-    const rest = words.slice(sep + 1);
-    for (let i = 0; i < rest.length; i++) {
-        const w = rest[i];
-        if (w.startsWith("-")) {
-            // `--base <ref>` / `--since <ref>` — значение флага, а не позиционный.
-            if (!w.includes("=") && /^--(base|since)$/.test(w)) i++;
-            continue;
-        }
-        return `Позиционный аргумент «${w}» у \`npm run test:mutation -- …\` — не база гейта:
+    try {
+        parseArgs(words.slice(sep + 1));
+    } catch (error) {
+        if (!(error instanceof PositionalArgumentError)) return undefined;
+        return `Позиционный аргумент «${error.arg}» у \`npm run test:mutation -- …\` — не база гейта:
 scripts/mutation-diff.mjs принимает базу только флагом и на позиционный аргумент
 выйдет с ошибкой. Передай её флагом (тяжёлый прогон — под лизой):
-  claude-lease run -- npm run test:mutation -- --base ${w}`;
+  claude-lease run -- npm run test:mutation -- --base ${error.arg}`;
     }
     return undefined;
 }

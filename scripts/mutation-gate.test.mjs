@@ -3,7 +3,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ensureJsonReporter, filterReportToScope, mutantKey, parseArgs, parseScope, scoreReport } from "./mutation-gate.mjs";
+import {
+    ensureJsonReporter,
+    filterReportToScope,
+    mutantKey,
+    parseArgs,
+    parseScope,
+    PositionalArgumentError,
+    scoreReport,
+} from "./mutation-gate.mjs";
 
 const at = (line, column, endLine, endColumn) => ({ start: { line, column }, end: { line: endLine, column: endColumn } });
 
@@ -23,6 +31,22 @@ test("parseArgs: позиционный аргумент — ошибка с п�
     assert.throws(() => parseArgs(["--concurrency=4", "feature"]), /позиционный/);
     assert.throws(() => parseArgs(["--base"]), /требует ревизию/);
     assert.throws(() => parseArgs(["--base", "--force"]), /требует ревизию/);
+});
+
+test("parseArgs: позиционный — свой класс ошибки, по нему хук bash-guard отказывает до запуска", () => {
+    assert.throws(
+        () => parseArgs(["--incremental", "feature"]),
+        (error) => error instanceof PositionalArgumentError && error.arg === "feature",
+    );
+    // Прочие ошибки аргументов — не он: на них хук молчит, их сообщает сам гейт.
+    assert.throws(
+        () => parseArgs(["--base"]),
+        (error) => !(error instanceof PositionalArgumentError),
+    );
+    assert.throws(
+        () => parseArgs(["--verify-jobs", "x"]),
+        (error) => !(error instanceof PositionalArgumentError),
+    );
 });
 
 test("parseArgs: --scope-only снимается и не уходит Stryker'у", () => {
