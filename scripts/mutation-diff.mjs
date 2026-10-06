@@ -29,12 +29,24 @@
  *                   лежат в reports/stryker-incremental.json, и мутант, у которого не
  *                   менялись ни код, ни убивший его тест, заново не гоняется. Повтор на
  *                   неизменном коде — секунды вместо минут (замер — TODO/TestRunTime.md).
- *                   Перепроверка выживших в этом режиме идёт с `--force`: иначе Stryker
- *                   переиспользовал бы и того «выжившего», которого надо перепроверить.
+ *                   Переиспользованный «выживший» всё равно перепроверяется вживлением.
  *                   Полный пересчёт без переиспользования — `-- --incremental --force`.
+ *   --verify-jobs N        перепроверка в N песочницах параллельно (по умолчанию 1:
+ *                          каждый vitest и так занимает все ядра);
+ *   --verify-full          третий этап перепроверки — весь сьют для тех, кого не
+ *                          убили ни покрывающие, ни импортирующие тесты;
+ *   --verify-timeout <с>   таймаут одного прогона vitest (по умолчанию 120 с + 3 с
+ *                          на тест-файл);
+ *   --verify-budget <мин>  бюджет всей перепроверки: не успевшие — inconclusive.
+ *
+ * После прогона Stryker'а каждый мутант, которого он не записал убитым
+ * (Survived, NoCoverage, RuntimeError), перепроверяется вживлением точного
+ * мутанта и узким прогоном vitest (`scripts/verify-mutants.mjs`) и получает
+ * класс: real / phantom / runtime-error / inconclusive / timeout / stale.
+ * Фантомы становятся Killed, классы — в `reports/mutation/verdict.json`.
  *
  * Исход прогона скрипт пишет в `reports/mutation/gate.json`
- * (`{ outcome: "empty-scope" | "passed" | "failed" | "error", … }`). Нет файла —
+ * (`{ outcome: "empty-scope" | "passed" | "failed" | "error", classes, … }`). Нет файла —
  * скрипт упал, не дойдя до вердикта. По нему workflow'ы отличают «мутировать
  * нечего» от «прогон сломался»: по одному отсутствию `mutation.json` это не
  * различить, и ночной прогон три недели зеленел, ничего не проверяя.
@@ -44,7 +56,9 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
-import { filterReportToScope, inScope, mutantKey, parseArgs, parseScope, scoreReport } from "./mutation-gate.mjs";
+import { filterReportToScope, parseArgs, parseScope, scoreReport } from "./mutation-gate.mjs";
+import { blockingVerdicts, countClasses, isCandidate, mergeVerdicts } from "./mutation-inject.mjs";
+import { formatSummary, verifyMutants, writeVerdictFile } from "./verify-mutants.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
@@ -221,7 +235,6 @@ try {
 // `--scope-only` печатает скоуп и выходит: прогон на широко импортируемом файле
 // стоит десятки минут, и перед ним полезно увидеть, что именно будет мутировано.
 const { scopeOnly, strykerArgs } = args;
-const incremental = strykerArgs.includes("--incremental");
 
 /**
  * База по умолчанию — свежий `origin/main`: локальный `main` в долгоживущем
@@ -350,25 +363,6 @@ function runStryker(scope, extraArgs = []) {
     });
 }
 
-/**
- * Мутанты, которых прогон НЕ проверил. Их два вида, и ни один нельзя читать
- * как «тесты не заметили».
- *
- * `Survived` с `testsCompleted: 0` — при прогоне не выполнилось НИ ОДНОГО
- * теста, хотя покрывающих у мутанта могут быть сотни. Прогон теряется, и
- * теряется он ровно следом за прогоном, оборванным по bail (Stryker гоняет
- * vitest с `bail: 1`): файлы остаются в состоянии `run` без результатов, а
- * `vitest-test-runner` отбрасывает всё без результата и получает пустой список
- * тестов. Апстрим: stryker-mutator/stryker-js#6073, чинит #6146 (не влит).
- *
- * `RuntimeError` — на этом мутанте упал сам раннер. Такой мутант не попадает в
- * знаменатель балла, поэтому сам по себе гейт НЕ красит: Stryker выходит нулём,
- * и мутант уезжает непроверенным. Наш штатный источник — мутант, из-за которого
- * слушатель кидает асинхронно (в микротаске): ни один тест при этом не падает,
- * vitest записывает unhandled error, а `vitest-runner` ломается, пытаясь эту
- * ошибку сериализовать (`String()` над объектом, у которого собственный
- * `toString` — строка `"Function<toString>"`).
- */
 function readReport() {
     if (!existsSync(REPORT_PATH)) return null;
     return JSON.parse(readFileSync(REPORT_PATH, "utf8"));
@@ -380,93 +374,43 @@ function breakThreshold() {
     return config.thresholds?.break ?? null;
 }
 
-/** Почему мутанта пришлось гонять отдельно — видно прямо в отчёте. */
-function recheckReason(mutant) {
-    if (mutant.status === "RuntimeError") return "перепроверен точечным прогоном: в общем прогоне на нём упал раннер";
-    if (!mutant.testsCompleted) return "перепроверен точечным прогоном: в общем прогоне не выполнилось ни одного теста";
-    return (
-        "перепроверен точечным прогоном: в общем прогоне выжил, точечно убит " +
-        "(подбор тестов через vitest.related неполон, см. docs/TODO/MutationGateFlake.md)"
-    );
-}
-
-/** Мутант, которого первый прогон не проверил: перепроверять — обязательно. */
-function isUnchecked(mutant) {
-    return mutant.status === "RuntimeError" || (mutant.status === "Survived" && !mutant.testsCompleted);
-}
-
 /**
- * Возвращает отчёт первого прогона на место точечного: комментарий в PR должен
- * показывать всю картину, а не тот кусок, который перепроверяли. Каждый
- * перепроверенный мутант получает статус точечного прогона — он и есть вердикт;
- * убитые — с причиной, чтобы в отчёте было видно, что их гоняли отдельно.
+ * Вердикт гейта. Две половины, и обе — по итоговому отчёту (первый прогон +
+ * перепроверка вживлением, только мутанты скоупа):
  *
- * Отдельно возвращает тех, на ком раннер упал и в точечном прогоне: их не
- * проверил ни один из двух прогонов, и молчать об этом нельзя.
+ *   - балл по формуле Stryker'а против порога конфига: `real` остаётся
+ *     Survived/NoCoverage и роняет балл, `phantom` стал Killed и не роняет;
+ *   - классы без вердикта (runtime-error, inconclusive, timeout, stale) красят
+ *     гейт сами: балл их не видит (RuntimeError вне знаменателя, остальные
+ *     сохраняют статус Stryker'а), а «не смогли проверить» — не «проверено».
+ *
+ * Не код возврата Stryker'а: инкрементальный Stryker считает в свой балл и
+ * старых мутантов вне `--mutate`.
  */
-function mergeRecheckIntoReport(firstReport, recheckReport, recheckScope) {
-    let rechecked = 0;
-    const stillCrashed = [];
-    const recheckStatus = new Map();
-    for (const [file, data] of Object.entries(recheckReport.files ?? {})) {
-        for (const mutant of data.mutants ?? []) {
-            // В инкрементальном режиме Stryker дописывает в отчёт перепроверки и все
-            // прошлые результаты из incremental-файла — считаем и разбираем только своих.
-            if (!inScope(recheckScope, file, mutant)) continue;
-            rechecked++;
-            recheckStatus.set(mutantKey(file, mutant), mutant.status);
-            if (mutant.status === "RuntimeError") {
-                stillCrashed.push({
-                    at: `${file}:${String(mutant.location?.start?.line)} (${String(mutant.mutatorName)} → ${String(mutant.replacement)})`,
-                    reason: String(mutant.statusReason ?? "").split("\n")[0],
-                });
-            }
-        }
-    }
-    for (const [file, data] of Object.entries(firstReport.files ?? {})) {
-        for (const mutant of data.mutants ?? []) {
-            if (!isUnchecked(mutant) && mutant.status !== "Survived") continue;
-            const status = recheckStatus.get(mutantKey(file, mutant));
-            if (status === undefined) continue;
-            if (status === "Killed" || status === "Timeout") mutant.statusReason = recheckReason(mutant);
-            mutant.status = status;
-        }
-    }
-    writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
-    return { rechecked, stillCrashed };
-}
-
-function classifyMutants(report) {
-    const verified = [];
-    const unchecked = [];
-    for (const [file, data] of Object.entries(report.files ?? {})) {
-        for (const mutant of data.mutants ?? []) {
-            const start = mutant.location?.start?.line;
-            if (start === undefined) continue;
-            // Диапазон — по всей длине мутанта: у многострочных (вырезанное тело
-            // функции) `--mutate file:N-N` не покрыл бы его целиком, и скоуп
-            // вышел бы пустым — перепроверка молча ничего бы не проверила.
-            const end = mutant.location?.end?.line ?? start;
-            if (isUnchecked(mutant)) unchecked.push({ file, start, end, status: mutant.status });
-            else if (mutant.status === "Survived") verified.push({ file, start, end });
-        }
-    }
-    return { verified, unchecked };
-}
-
-/**
- * Вердикт гейта — балл ИТОГОВОГО отчёта (первый прогон + перепроверка, только
- * мутанты скоупа) против порога конфига, по формуле Stryker'а. Не код возврата
- * Stryker'а: инкрементальный Stryker считает в свой балл и старых мутантов вне
- * `--mutate`, так что его код возврата мог краснеть от чужих выживших, а
- * комментарий — показывать зелёный (и наоборот).
- */
-function verdict(report, extra = {}) {
+function verdict(report, verdicts = []) {
     const threshold = breakThreshold();
     const { score } = scoreReport(report);
-    const passed = threshold === null || score >= threshold;
+    const blocking = blockingVerdicts(verdicts);
+    const passed = (threshold === null || score >= threshold) && blocking.length === 0;
     console.log(`\nМутационный балл по скоупу: ${score.toFixed(2)}% (порог ${String(threshold)}).`);
-    finish(passed ? "passed" : "failed", passed ? 0 : 1, { score, threshold, ...extra });
+    if (blocking.length > 0) {
+        console.log(
+            `Без вердикта ${String(blocking.length)} мутантов (${formatSummary(blocking)}) — гейт красный, ` +
+                "пока их не разберут (docs/TESTING.md).",
+        );
+    }
+    finish(passed ? "passed" : "failed", passed ? 0 : 1, {
+        score,
+        threshold,
+        classes: countClasses(verdicts),
+        blocking: blocking.map(({ file, line, mutatorName, class: cls, reason }) => ({
+            file,
+            line,
+            mutatorName,
+            class: cls,
+            reason: reason.split("\n")[0],
+        })),
+    });
 }
 
 /**
@@ -511,92 +455,26 @@ if (dropped > 0) {
 // Отфильтрованный отчёт — на диск сразу: из него собирается комментарий в PR и
 // тикет, даже если дальше что-то упадёт.
 writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
-const classified = classifyMutants(firstReport);
+// Самопроверка: каждого, кого Stryker не записал убитым, вживляем точно и
+// гоняем vitest сами (scripts/verify-mutants.mjs). Раньше здесь был второй
+// прогон Stryker'а построчным скоупом — он не лечил промах подбора тестов
+// (`vitest.related`, perTest-покрытие) и сам флакал на initial test run (#339).
+const candidates = Object.values(firstReport.files ?? {}).flatMap((data) => (data.mutants ?? []).filter(isCandidate));
+if (candidates.length === 0) verdict(firstReport);
 
-if (classified.unchecked.length === 0 && classified.verified.length === 0) verdict(firstReport);
-
-// Перепроверяем точечно всех выживших, а не только непроверенных: скоуп в одну
-// строку на мутанта прогоняется надёжно. Выживший с выполненными тестами — тоже
-// не приговор: подбор тестов через `vitest.related` неполон, и гейт записывает
-// в Survived мутантов, которых тесты их файла убивают (docs/TODO/MutationGateFlake.md).
-// В инкрементальном режиме это ещё и обязательно: иначе такой «выживший»
-// переиспользовался бы из прошлого прогона без единого теста — до первой правки
-// рядом. Скоуп — единицы мутантов, цена — секунды.
-const recheckScope = [...classified.unchecked, ...classified.verified].map(({ file, start, end }) => ({
-    file,
-    start,
-    end,
-}));
-const recheck = [...new Set(recheckScope.map(({ file, start, end }) => `${file}:${start}-${end}`))];
-const lost = classified.unchecked.filter(({ status }) => status === "Survived").length;
-const crashed = classified.unchecked.length - lost;
 console.log(
-    `\nВыживших: ${String(classified.verified.length)}, непроверенных: ${String(classified.unchecked.length)} ` +
-        `(потерянных прогонов — ${String(lost)}, падений раннера — ${String(crashed)}). ` +
-        `Непроверенный — не находка, выживший — не обязательно (см. docs/TESTING.md). Перепроверяю точечно:`,
+    `\nНе убито Stryker'ом: ${String(candidates.length)}. Перепроверяю каждого вживлением точного мутанта ` +
+        "(фантом / настоящий / без вердикта — см. docs/TESTING.md):",
 );
-for (const entry of recheck) console.log(`  ${entry}`);
-
-// `--disableBail` именно здесь: потерянный прогон — это прогон, стартовавший
-// следом за оборванным по bail, поэтому перепроверка с включённым bail сама
-// теряет часть мутантов и выдаёт новых «выживших» вместо вердикта. На полном
-// прогоне флаг неподъёмен (docs/TESTING.md), но скоуп перепроверки — единицы
-// мутантов по одной строке, и цена «все покрывающие тесты на мутанта» тут
-// секунды. Без него вердикт второго прогона нестабилен от запуска к запуску.
-//
-// `--force` в инкрементальном режиме: без него Stryker переиспользовал бы для
-// перепроверяемых мутантов прошлый результат — тот самый «выжил», который мы и
-// перепроверяем, — и не запустил бы ни одного теста. С `--force` он гоняет всё,
-// что в скоупе, а результаты остальных мутантов из incremental-файла переносит
-// как есть, так что следующий прогон видит перепроверенных уже убитыми.
-const recheckArgs = ["--disableBail", ...(incremental ? ["--force"] : [])];
-let recheckRun = runFresh(recheck, recheckArgs);
-
-// Нет отчёта — прогон не доехал до конца, и о мутантах он не сказал ничего.
-// Почти всегда это флак его initial test run, а не находка, поэтому один повтор
-// дешевле красного PR: скоуп перепроверки — единицы мутантов по одной строке.
-if (recheckRun.report === null) {
-    console.log(
-        "\nТочечный прогон не оставил отчёта — повторяю один раз " +
-            "(обычно Stryker падает на initial test run, а не на самих мутантах).",
-    );
-    recheckRun = runFresh(recheck, recheckArgs);
+let verdicts = [];
+try {
+    verdicts = await verifyMutants({ root: repoRoot, report: firstReport, ...args.verify });
+} catch (error) {
+    console.error(`\nПерепроверка упала: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+    finish("error", 1, { reason: "перепроверка вживлением упала" });
 }
-
-if (recheckRun.report === null) {
-    // Возвращаем картину первого прогона: без неё в PR не будет вообще никакого отчёта.
-    writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
-    console.error(
-        "\nТочечный прогон дважды не дошёл до отчёта — вердикта по непроверенным мутантам нет. " +
-            "Смотри его вывод выше: в initial test run гоняется весь сьют, включая сетевые тесты " +
-            "стоковых расширений, и падение там роняет прогон целиком.",
-    );
-    finish("error", 1, { reason: "точечный прогон дважды не оставил отчёта" });
-}
-
-const { rechecked, stillCrashed } = mergeRecheckIntoReport(firstReport, recheckRun.report, recheckScope);
-
-// Пустая перепроверка — тихо-зелёный гейт: Stryker на скоупе без мутантов
-// выходит нулём. Падаем громко, иначе «ничего не проверили» станет «всё хорошо».
-if (rechecked === 0) {
-    console.error(
-        "Перепроверка не нашла ни одного мутанта в своём скоупе — гейт ничего не проверил. " +
-            "Скорее всего разъехались диапазоны строк; чинить в scripts/mutation-diff.mjs.",
-    );
-    finish("error", 1, { reason: "перепроверка не нашла ни одного мутанта в своём скоупе" });
-}
-
-// Упал и в точечном прогоне — значит мутанта не проверил ни один из двух.
-// Пропустить его молча нельзя: в балл он не входит и гейт бы позеленел.
-if (stillCrashed.length > 0) {
-    console.error("\nНа этих мутантах раннер падает и в точечном прогоне — их не проверил никто:");
-    for (const { at, reason } of stillCrashed) console.error(`  ${at}\n    ${reason}`);
-    console.error(
-        "\nПочти всегда это наш код, а не инструмент: мутант заставляет слушателя кинуть " +
-            "асинхронно, тест при этом не падает, и vitest ломается на сериализации unhandled " +
-            "error. Разбор и что делать — docs/TESTING.md.",
-    );
-    finish("failed", 1, { reason: "раннер падает на мутантах и в точечном прогоне", stillCrashed });
-}
-
-verdict(firstReport);
+mergeVerdicts(firstReport, verdicts);
+writeFileSync(REPORT_PATH, JSON.stringify(firstReport));
+writeVerdictFile(REPORT_DIR, verdicts);
+console.log(`\nПерепроверено вживлением: ${formatSummary(verdicts)}.`);
+verdict(firstReport, verdicts);

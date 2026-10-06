@@ -33,10 +33,22 @@ export function parseArgs(argv) {
     let base = null;
     let scopeOnly = false;
     const strykerArgs = [];
+    const verify = {};
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === "--scope-only") {
             scopeOnly = true;
+            continue;
+        }
+        if (arg === "--verify-full") {
+            verify.full = true;
+            continue;
+        }
+        if (arg in VERIFY_NUMBER_FLAGS) {
+            const value = Number(argv[++i]);
+            if (!Number.isFinite(value) || value <= 0) throw new Error(`${arg} требует положительное число`);
+            const [option, scale] = VERIFY_NUMBER_FLAGS[arg];
+            verify[option] = value * scale;
             continue;
         }
         if (arg === "--base" || arg.startsWith("--base=")) {
@@ -58,8 +70,15 @@ export function parseArgs(argv) {
         }
         strykerArgs.push(arg);
     }
-    return { base, scopeOnly, strykerArgs: ensureJsonReporter(strykerArgs) };
+    return { base, scopeOnly, verify, strykerArgs: ensureJsonReporter(strykerArgs) };
 }
+
+/** Числовые флаги перепроверки вживлением → опция `verifyMutants` и множитель единицы. */
+const VERIFY_NUMBER_FLAGS = {
+    "--verify-jobs": ["jobs", 1],
+    "--verify-timeout": ["timeoutMs", 1000],
+    "--verify-budget": ["budgetMs", 60_000],
+};
 
 /**
  * Гейт читает `mutation.json` — без json-репортёра отчёта не будет, и вердикт

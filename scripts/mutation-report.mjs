@@ -29,6 +29,17 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 
 import { scoreReport } from "./mutation-gate.mjs";
+import { BLOCKING_CLASSES, CLASSES } from "./mutation-inject.mjs";
+
+/** Подписи классов перепроверки — те же, что в консоли verify-mutants.mjs. */
+const CLASS_LABELS = {
+    real: "настоящий",
+    phantom: "фантом",
+    "runtime-error": "runtime-error",
+    inconclusive: "без вердикта",
+    timeout: "таймаут",
+    stale: "отчёт протух",
+};
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const reportPath = process.argv[2] ?? path.join(repoRoot, "reports", "mutation", "mutation.json");
@@ -102,10 +113,23 @@ let silenced = 0; // погашены `// Stryker disable` — осознанн�
 let skippedStatic = 0; // пропущены `--ignoreStatic` — решение прогона, не автора
 let noCoverage = 0;
 let total = 0;
+// Классы перепроверки вживлением (`verification`, пишет verify-mutants.mjs).
+const classes = Object.fromEntries(CLASSES.map((name) => [name, 0]));
+let verified = 0;
+const undecided = []; // классы без вердикта — красят гейт сами, мимо балла
 
 for (const [file, data] of Object.entries(report.files)) {
     for (const mutant of data.mutants) {
         total++;
+        const cls = mutant.verification?.class;
+        if (cls !== undefined) {
+            verified++;
+            classes[cls]++;
+            if (BLOCKING_CLASSES.has(cls)) {
+                undecided.push({ file, mutant });
+                continue;
+            }
+        }
         switch (mutant.status) {
             case "Ignored":
                 if (/ignoreStatic/.test(mutant.statusReason ?? "")) skippedStatic++;
@@ -127,7 +151,7 @@ for (const [file, data] of Object.entries(report.files)) {
 const { counts, detected, score } = scoreReport(report);
 const unchecked = counts.RuntimeError + counts.CompileError;
 const outcome = gateOutcome();
-const passing = outcome !== null ? outcome === "passed" : threshold === null || score >= threshold;
+const passing = outcome !== null ? outcome === "passed" : (threshold === null || score >= threshold) && undecided.length === 0;
 
 const out = [];
 
@@ -142,7 +166,37 @@ if (silenced > 0) out.push(`| Погашено \`// Stryker disable\` | ${silenc
 if (skippedStatic > 0) out.push(`| Пропущено как статические | ${skippedStatic} |`);
 if (unchecked > 0) out.push(`| Не проверено (упал раннер или компиляция) | ${unchecked} |`);
 out.push(`| Всего мутантов | ${total} |`);
+if (verified > 0) {
+    const parts = CLASSES.filter((name) => classes[name] > 0).map((name) => `${CLASS_LABELS[name]} ${classes[name]}`);
+    out.push(`| Перепроверено вживлением | ${verified}: ${parts.join(", ")} |`);
+}
 out.push("");
+
+if (classes.phantom > 0) {
+    out.push(
+        `> ${classes.phantom} мутантов Stryker не засчитал убитыми, а существующие тесты их убивают — ` +
+            "проверено вживлением точного мутанта (фантомы гейта, docs/TODO/MutationGateFlake.md). " +
+            "В балл они вошли убитыми; чинить там нечего.",
+    );
+    out.push("");
+}
+
+if (undecided.length > 0) {
+    out.push(`#### Без вердикта — ${undecided.length}`);
+    out.push("");
+    out.push("Гейт красный, пока их не разберут: балл их не видит, а «не смогли проверить» — не «проверено». Что делать с каждым классом — docs/TESTING.md.");
+    out.push("");
+    undecided.sort((a, b) => a.file.localeCompare(b.file) || a.mutant.location.start.line - b.mutant.location.start.line);
+    for (const { file, mutant } of undecided.slice(0, DETAIL_LIMIT)) {
+        const reason = String(mutant.verification.reason ?? "").split("\n").slice(0, 2).join(" — ").slice(0, 300);
+        out.push(
+            `- **${CLASS_LABELS[mutant.verification.class]}** · \`${file}\` ${lineLink(file, mutant.location.start.line)} · ` +
+                `\`${mutant.mutatorName}\` → \`${String(mutant.replacement ?? "").slice(0, 60)}\` — ${reason}`,
+        );
+    }
+    if (undecided.length > DETAIL_LIMIT) out.push(`- … и ещё ${undecided.length - DETAIL_LIMIT}`);
+    out.push("");
+}
 
 if (outcome === "error") {
     out.push("Гейт не дошёл до вердикта — причина в логе прогона. Балл выше посчитан по тому, что успели проверить.");
@@ -211,7 +265,11 @@ if (survivors.length === 0) {
                 break;
             }
             const diff = renderDiff(source, mutant);
-            const mark = uncovered ? " · не покрыт ни одним тестом" : "";
+            const hint = mutant.verification?.hint;
+            const mark =
+                (uncovered ? " · не покрыт ни одним тестом" : "") +
+                (mutant.verification?.class === "real" ? " · подтверждён вживлением" : "") +
+                (hint ? ` · возможно, эквивалентный: ${hint}` : "");
             block.push(
                 `**${lineLink(file, mutant.location.start.line)}** · \`${mutant.mutatorName}\`${mark}`,
             );

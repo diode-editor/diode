@@ -79,3 +79,12 @@ test("scoreReport: формула Stryker'а — RuntimeError/CompileError/Ignor
     assert.equal(score, 50);
     assert.equal(scoreReport({ files: { "a.ts": { mutants: [{ status: "RuntimeError" }] } } }).score, 100);
 });
+
+test("parseArgs: флаги перепроверки вживлением снимаются и не уходят Stryker'у", () => {
+    const parsed = parseArgs(["--incremental", "--verify-jobs", "2", "--verify-full", "--verify-timeout", "30", "--verify-budget", "15"]);
+    assert.deepEqual(parsed.verify, { jobs: 2, full: true, timeoutMs: 30_000, budgetMs: 900_000 });
+    assert.deepEqual(parsed.strykerArgs, ["--incremental"]);
+    assert.deepEqual(parseArgs([]).verify, {});
+    assert.throws(() => parseArgs(["--verify-jobs"]), /положительное число/);
+    assert.throws(() => parseArgs(["--verify-budget", "x"]), /положительное число/);
+});

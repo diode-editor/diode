@@ -6,6 +6,7 @@
     "configFile": "vitest.config.ts"
   },
   "coverageAnalysis": "perTest",
+  "disableTypeChecks": false,
   "concurrency": "50%",
   "reporters": ["html", "json", "clear-text", "progress"],
   "thresholds": {
