@@ -157,10 +157,10 @@ function requiredString(params: unknown, name: string): string {
 function optionalNumber(params: unknown, name: string): number | undefined {
     const value = field(params, name);
     if (value === undefined) return undefined;
-    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-        throw new Error(`'${name}' must be a non-negative number`);
-    }
-    return value;
+    // `Number.isFinite` сам отвергает не-числа (в отличие от глобального `isFinite`),
+    // отдельная проверка `typeof` была бы недостижимой веткой.
+    if (!Number.isFinite(value) || (value as number) < 0) throw new Error(`'${name}' must be a non-negative number`);
+    return value as number;
 }
 
 function optionalArray(params: unknown, name: string): unknown[] | undefined {

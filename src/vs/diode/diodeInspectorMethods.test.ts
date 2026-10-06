@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CommandRegistry } from "../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../platform/contextkey/common/contextKeyService.ts";
@@ -50,6 +50,10 @@ function setup(overrides: Partial<IDiodeInspectorPorts> = {}): {
     return { call, commands, contextKeys, methods };
 }
 
+afterEach(() => {
+    vi.useRealTimers();
+});
+
 describe("registerDiodeInspectorMethods", () => {
     it("регистрирует все методы Diode.* и только их", () => {
         const { methods } = setup();
@@ -87,6 +91,13 @@ describe("registerDiodeInspectorMethods", () => {
                 "non-negative",
             );
             await expect(call(DiodeInspectorMethod.whenReady, { timeoutMs: Infinity })).rejects.toThrow("non-negative");
+        });
+
+        it("таймер ожидания снимается, как только готовность пришла (не держит процесс)", async () => {
+            vi.useFakeTimers();
+            const { call } = setup();
+            await call(DiodeInspectorMethod.whenReady, { timeoutMs: 60_000 });
+            expect(vi.getTimerCount()).toBe(0);
         });
 
         it("timeoutMs: 0 — допустим (мгновенная проба готовности)", async () => {
@@ -165,7 +176,9 @@ describe("registerDiodeInspectorMethods", () => {
                 "'id' must be a non-empty string",
             );
             await expect(call(DiodeInspectorMethod.executeCommand, { id: "" })).rejects.toThrow("'id'");
-            await expect(call(DiodeInspectorMethod.executeCommand, null)).rejects.toThrow("'id'");
+            await expect(call(DiodeInspectorMethod.executeCommand, null)).rejects.toThrow(
+                "'id' must be a non-empty string",
+            );
             await expect(call(DiodeInspectorMethod.executeCommand, "x")).rejects.toThrow("'id'");
             await expect(call(DiodeInspectorMethod.executeCommand, { id: "a", args: "x" })).rejects.toThrow(
                 "'args' must be an array",
