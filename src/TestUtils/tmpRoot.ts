@@ -2,6 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { describeKilled, killByEnv, type MarkedProcess } from "./processSweep.ts";
+
 /**
  * Корень временных каталогов на один прогон тестов.
  *
@@ -19,6 +21,13 @@ import * as path from "node:path";
  * опознаётся по {@link OWNER_FILE}, и корень с мёртвым владельцем сносится.
  * Признак — именно живость процесса, а не возраст: долгий мутационный прогон не
  * должен попасть под уборку соседнего.
+ *
+ * Каталоги — половина мусора; вторая — процессы. Редактор, его субпроцесс
+ * расширений и языковые серверы, пережившие убитый воркер, держали гигабайты
+ * памяти (3,3 ГБ сирот роняли следующую сборку по OOM). Все они наследуют
+ * `DIODE_TEST_TMP=<корень>`, поэтому перед сносом корня — и своего в teardown, и
+ * чужого бесхозного — процессы с этой меткой добиваются (Linux, см.
+ * processSweep.ts).
  */
 
 // Префикс именно "testrun": "diode-tests-" уже занят `createTestEnvironment`
@@ -27,6 +36,13 @@ import * as path from "node:path";
 const ROOT_PREFIX = "diode-testrun-";
 /** Pid процесса, которому принадлежит корень. */
 const OWNER_FILE = "owner.pid";
+/** Метка прогона в окружении: путь корня. Наследуется всеми потомками. */
+export const RUN_MARKER_ENV = "DIODE_TEST_TMP";
+
+/** Добивает процессы, помеченные корнем. */
+export type KillMarked = (root: string) => MarkedProcess[];
+
+const killMarkedByRoot: KillMarked = (root) => killByEnv(RUN_MARKER_ENV, root);
 
 /** Создаёт корень прогона и помечает его владельцем. */
 export function createRunTmpRoot(parent: string, ownerPid: number = process.pid): string {
@@ -50,7 +66,11 @@ function isAlive(pid: number): boolean {
  * Сносит корни прогонов, чей владелец уже не жив. Возвращает снесённые пути
  * (для лога — молчаливая уборка гигабайтов пугает больше, чем сообщение).
  */
-export function pruneStaleRoots(parent: string, isProcessAlive: (pid: number) => boolean = isAlive): string[] {
+export function pruneStaleRoots(
+    parent: string,
+    isProcessAlive: (pid: number) => boolean = isAlive,
+    killMarked: KillMarked = killMarkedByRoot,
+): string[] {
     let entries: fs.Dirent[];
     try {
         entries = fs.readdirSync(parent, { withFileTypes: true });
@@ -63,6 +83,13 @@ export function pruneStaleRoots(parent: string, isProcessAlive: (pid: number) =>
         if (!entry.isDirectory() || !entry.name.startsWith(ROOT_PREFIX)) continue;
         const root = path.join(parent, entry.name);
         if (ownerAlive(root, isProcessAlive)) continue;
+        // Сироты убитого прогона ещё могут жить и писать в корень.
+        const killed = killMarked(root);
+        if (killed.length > 0) {
+            console.info(
+                `[tmpRoot] добито процессов прерванного прогона ${root}: ${String(killed.length)}\n${describeKilled(killed)}`,
+            );
+        }
         try {
             fs.rmSync(root, { recursive: true, force: true });
             removed.push(root);
@@ -93,16 +120,24 @@ function ownerAlive(root: string, isProcessAlive: (pid: number) => boolean): boo
  * teardown, сносящий корень целиком.
  */
 export function setup(): () => void {
+    return setupRunTmpRoot(killMarkedByRoot);
+}
+
+/**
+ * {@link setup} с подменяемым добиванием (тесты). Отдельной функцией, а не
+ * параметром `setup`: vitest зовёт globalSetup с аргументом (проект).
+ */
+export function setupRunTmpRoot(killMarked: KillMarked): () => void {
     // Родитель — настоящий системный tmp, а не корень возможного внешнего
     // прогона: вкладывать корни друг в друга не нужно.
     const parent = process.env.DIODE_TEST_TMP_PARENT ?? os.tmpdir();
-    const stale = pruneStaleRoots(parent);
+    const stale = pruneStaleRoots(parent, isAlive, killMarked);
     if (stale.length > 0) {
         console.info(`[tmpRoot] подчищено корней от прерванных прогонов: ${stale.length}`);
     }
 
     const root = createRunTmpRoot(parent);
-    process.env.DIODE_TEST_TMP = root;
+    process.env[RUN_MARKER_ENV] = root;
     // Все переменные, которые читает `os.tmpdir()`: на posix — `TMPDIR`, на
     // Windows — `TEMP`/`TMP`. Ставим весь набор, иначе на одной из платформ
     // корень оставался бы пустым, а каталоги уходили в системный tmp мимо
@@ -110,6 +145,15 @@ export function setup(): () => void {
     for (const name of TEMP_ENV_VARS) process.env[name] = root;
 
     return () => {
+        // К этому моменту каждый тест уже убрал свои процессы. Кто остался —
+        // утечка (или прогон оборвали): добиваем и говорим вслух, иначе сирота
+        // продолжает держать память и файлы в корне, который сейчас снесём.
+        const killed = killMarked(root);
+        if (killed.length > 0) {
+            console.warn(
+                `[tmpRoot] добито процессов, переживших прогон: ${String(killed.length)}\n${describeKilled(killed)}`,
+            );
+        }
         fs.rmSync(root, { recursive: true, force: true });
     };
 }

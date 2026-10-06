@@ -7,7 +7,7 @@
  * но исходные артефакты у них общие и собираются одинаково.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -18,18 +18,24 @@ import { buildRipgrepBundle } from "./pack-ripgrep.mjs";
 import { buildTsServerBundle } from "./pack-ts-server.mjs";
 
 /**
- * Собирает `dist/main.js`, `dist/diode.bundle` и `dist/node-pty.bundle`.
+ * Собирает `main.js`, `diode.bundle` и остальные бандлы в `distDir` (по умолчанию
+ * `<repoRoot>/dist`). Другой каталог нужен e2e: там сборка неизменяемая и живёт в
+ * кэше по хешу исходников (`scripts/e2e-artifacts.mjs`), а не в рабочем `dist/`,
+ * который `tsup clean` сносит целиком.
  *
- * @param {{ repoRoot: string }} params
+ * @param {{ repoRoot: string, distDir?: string }} params
  * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string }>}
  */
-export async function buildDistArtifacts({ repoRoot }) {
-    const distDir = join(repoRoot, "dist");
+export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "dist") }) {
     mkdirSync(distDir, { recursive: true });
 
-    // 1. Бандлим приложение в единственный dist/main.js (tsup, splitting: false).
-    console.log("> npx tsup");
-    execSync("npx tsup", { stdio: "inherit", cwd: repoRoot });
+    // 1. Бандлим приложение в единственный <distDir>/main.js (tsup, splitting: false).
+    // `clean: true` из tsup.config.ts чистит именно out-dir — чужой каталог не задевает.
+    // CLI tsup напрямую, массивом аргументов: путь не проходит через шелл (на
+    // Windows `npx` требует его, а кавычки/обратные слэши там ломаются).
+    const tsupCli = join(repoRoot, "node_modules", "tsup", "dist", "cli-default.js");
+    console.log(`> tsup --out-dir ${distDir}`);
+    execFileSync(process.execPath, [tsupCli, "--out-dir", distDir], { stdio: "inherit", cwd: repoRoot });
 
     // 2. Компилируем «кодовые» builtin'ы (git, …) → <dir>/out/extension.cjs ДО упаковки,
     // иначе скомпилированный entry не попадёт в diode.bundle.

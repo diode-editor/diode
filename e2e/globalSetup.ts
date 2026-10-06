@@ -1,28 +1,32 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { ensureE2eArtifacts } from "../scripts/e2e-artifacts.mjs";
 import { setup as setupTmpRoot } from "../src/TestUtils/tmpRoot.ts";
 
-import { buildSelfExtract, getBinaryPath } from "./helpers/buildOnce.ts";
+const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
-// Собираем бинари один раз до старта воркеров и передаём пути через env —
-// иначе при параллельном прогоне форк-воркеры собирали бы свои копии, и tsup
-// `clean` одного стирал бы `dist/diode` из-под остальных. Форки наследуют env
-// родителя на момент спавна (после globalSetup), поэтому `DIODE_E2E_BINARY` и
-// `DIODE_E2E_SELFEXTRACT` доходят до всех; воркер по ним только читает и не
-// собирает никогда (см. helpers/buildOnce.ts).
+// Бинари для прогона — неизменяемая сборка из общего кэша по хешу исходников
+// (scripts/e2e-artifacts.mjs): попадание — ноль секунд, промах — одна сборка в
+// отдельный каталог, публикуемая атомарно и затем read-only. Рабочий `dist/` прогон
+// не трогает вовсе: ручной `build:sea` посреди e2e больше ничего не ломает, а
+// редактор, открытый сценарием на репозитории, не смотрит на сотни МБ записи.
 //
-// Порядок важен: SEA первой (tsup + бандлы в dist/), self-extract — после неё
-// из тех же артефактов (`--reuse-dist`), без второго tsup, чей `clean` снёс бы
-// только что собранный `dist/diode`. Self-extract — POSIX sh-стаб, под Windows
-// его нет (selfextract.test.ts там пропускается целиком).
+// Пути уходят воркерам через env (`DIODE_E2E_BINARY`, `DIODE_E2E_SELFEXTRACT`):
+// форки наследуют env родителя на момент спавна, то есть после globalSetup.
+// Воркер не собирает никогда (helpers/buildOnce.ts). Self-extract — POSIX
+// sh-стаб, под Windows его нет (selfextract.test.ts там пропускается).
 //
-// Тем же наследованием едет `TMPDIR`: все временные каталоги прогона (user-data
-// редактора, фикстурные проекты, каталоги запущенного бинаря) ложатся в один
-// корень, который teardown сносит целиком. Без этого прогон, убитый по таймауту
-// или OOM, оставлял их в /tmp навсегда — см. src/TestUtils/tmpRoot.ts.
-export default async function setup(): Promise<() => void> {
+// Тем же наследованием едет `TMPDIR`: все временные каталоги прогона ложатся в
+// один корень, который teardown сносит целиком — вместе с процессами, которые
+// в нём ещё живут (см. src/TestUtils/tmpRoot.ts).
+export default function setup(): () => void {
+    const artifacts = ensureE2eArtifacts({ repoRoot });
     const teardownTmpRoot = setupTmpRoot();
-    process.env.DIODE_E2E_BINARY = await getBinaryPath();
-    if (process.platform !== "win32") {
-        process.env.DIODE_E2E_SELFEXTRACT = await buildSelfExtract({ reuseDist: true });
-    }
-    return teardownTmpRoot;
+    process.env.DIODE_E2E_BINARY = artifacts.binary;
+    if (artifacts.selfExtract !== undefined) process.env.DIODE_E2E_SELFEXTRACT = artifacts.selfExtract;
+    return () => {
+        teardownTmpRoot();
+        artifacts.release();
+    };
 }

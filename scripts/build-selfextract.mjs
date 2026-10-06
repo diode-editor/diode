@@ -26,7 +26,9 @@
  *   --target  платформа payload'а (по умолчанию — хост). darwin-x64 | darwin-arm64 | linux-x64 | linux-arm64
  *   --node    `host` — взять process.execPath (быстро, без сети: локальные сборки и e2e);
  *             путь — взять указанный бинарь; по умолчанию — скачать официальный тарбол.
- *   --out     путь результата (по умолчанию dist/diode)
+ *   --out     путь результата (по умолчанию <dist-dir>/diode)
+ *   --dist-dir  каталог сборки вместо `dist/` (e2e собирает в кэш по хешу
+ *             исходников, см. scripts/e2e-artifacts.mjs)
  *   --reuse-dist  не пересобирать `dist/main.js` и бандлы, взять уже собранные
  *             (e2e: SEA только что собрала их в globalSetup). Без этого флага
  *             tsup с `clean: true` стирает весь `dist/` — включая SEA-бинарь,
@@ -64,20 +66,21 @@ async function main() {
         throw new Error(`[selfextract] Unsupported target: ${target}. Supported: ${[...SUPPORTED_TARGETS].join(", ")}`);
     }
 
-    const outputPath = resolve(root, args.out ?? join("dist", "diode"));
+    const distDir = resolve(root, args.distDir ?? "dist");
+    const outputPath = resolve(root, args.out ?? join(distDir, "diode"));
     const version = resolveDiodeVersion({ repoRoot: root });
     console.log(`[selfextract] target=${target} version=${version}`);
 
     // 1. dist/main.js + dist/diode.bundle (общее с build-sea.mjs).
     const { mainJsPath, bundlePath, tsServerBundlePath } = args.reuseDist
-        ? existingDistArtifacts()
-        : await buildDistArtifacts({ repoRoot: root });
+        ? existingDistArtifacts(distDir)
+        : await buildDistArtifacts({ repoRoot: root, distDir });
 
     // 2. node для payload'а.
     const nodeBinary = await resolveNodeBinary({ target, nodeOpt: args.node });
 
     // 3. Стейджим payload и жмём его.
-    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath });
+    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, distDir });
 
     // 4. Клеим стаб + payload.
     const key = `${version}-${sha256(payload).slice(0, 12)}`;
@@ -106,26 +109,26 @@ async function main() {
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
-    /** @type {{ target?: string, node?: string, out?: string, reuseDist?: boolean }} */
+    /** @type {{ target?: string, node?: string, out?: string, distDir?: string, reuseDist?: boolean }} */
     const args = {};
     for (const arg of argv) {
         if (arg === "--reuse-dist") {
             args.reuseDist = true;
             continue;
         }
-        const match = /^--(target|node|out)=(.+)$/.exec(arg);
+        const match = /^--(target|node|out|dist-dir)=(.+)$/.exec(arg);
         if (!match) throw new Error(`[selfextract] Unknown argument: ${arg}`);
-        args[match[1]] = match[2];
+        args[match[1] === "dist-dir" ? "distDir" : match[1]] = match[2];
     }
     return args;
 }
 
 /**
  * Пути артефактов `buildDistArtifacts` без пересборки — для `--reuse-dist`.
+ * @param {string} distDir
  * @returns {{ mainJsPath: string, bundlePath: string, tsServerBundlePath: string }}
  */
-function existingDistArtifacts() {
-    const distDir = join(root, "dist");
+function existingDistArtifacts(distDir) {
     const paths = {
         mainJsPath: join(distDir, "main.js"),
         bundlePath: join(distDir, "diode.bundle"),
@@ -134,7 +137,7 @@ function existingDistArtifacts() {
     for (const path of Object.values(paths)) {
         if (!existsSync(path)) throw new Error(`[selfextract] --reuse-dist: нет ${path} — сначала npm run build:sea`);
     }
-    console.log("[selfextract] reuse dist/ artifacts (no tsup)");
+    console.log(`[selfextract] reuse ${distDir} artifacts (no tsup)`);
     return paths;
 }
 
@@ -206,11 +209,11 @@ async function downloadNode({ target }) {
 
 /**
  * Стейджит node + main.js + diode.bundle + ts-server.bundle и возвращает payload.tar.gz байтами.
- * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string }} params
+ * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string, distDir: string }} params
  * @returns {Buffer}
  */
-function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath }) {
-    const stageDir = join(root, "dist", ".selfextract", target);
+function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, distDir }) {
+    const stageDir = join(distDir, ".selfextract", target);
     rmSync(stageDir, { recursive: true, force: true });
     mkdirSync(stageDir, { recursive: true });
 

@@ -43,7 +43,9 @@ export default defineConfig({
   banner: {
     js: 'import { createRequire as __diodeCreateRequire } from "node:module"; const require = __diodeCreateRequire(import.meta.url);',
   },
-  dts: true,
+  // d.ts не нужен никому: точка входа ничего не экспортирует (выходил `export {  }`),
+  // а проход tsc стоил ~8 с и сотни МБ на каждую сборку бинаря.
+  dts: false,
   clean: true,
   sourcemap: true,
   define: {

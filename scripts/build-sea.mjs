@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { writeFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 
@@ -8,11 +8,24 @@ import { buildDistArtifacts } from "./build-dist.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
-const dist = join(root, "dist");
+// `--dist-dir=<path>` — собрать не в рабочий `dist/`, а в отдельный каталог (e2e
+// кладёт сборку в кэш по хешу исходников, см. scripts/e2e-artifacts.mjs).
+const dist = resolve(root, parseDistDir(process.argv.slice(2)) ?? "dist");
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
 const exeName = isWindows ? "diode.exe" : "diode";
 const outputPath = join(dist, exeName);
+
+/** @param {string[]} argv */
+function parseDistDir(argv) {
+    let distDir;
+    for (const arg of argv) {
+        const match = /^--dist-dir=(.+)$/.exec(arg);
+        if (!match) throw new Error(`[build-sea] Unknown argument: ${arg}`);
+        distDir = match[1];
+    }
+    return distDir;
+}
 
 function run(cmd) {
     console.log(`> ${cmd}`);
@@ -22,6 +35,7 @@ function run(cmd) {
 // 1. Собираем dist/main.js + dist/diode.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
 const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath } = await buildDistArtifacts({
     repoRoot: root,
+    distDir: dist,
 });
 
 // 2. Generate SEA config
@@ -49,7 +63,9 @@ writeFileSync(configPath, JSON.stringify(seaConfig, null, 2));
 console.log(`SEA config written to ${configPath}`);
 
 // 3. Build SEA binary
-run(`node --build-sea ${configPath}`);
+// Тот же node, что собирает (он же — в ключе кэша e2e-сборок), и путь без шелла.
+console.log(`> node --build-sea ${configPath}`);
+execFileSync(process.execPath, ["--build-sea", configPath], { stdio: "inherit", cwd: root });
 
 // 4. Verify the output is a proper binary (not just a blob)
 const binStats = statSync(outputPath);

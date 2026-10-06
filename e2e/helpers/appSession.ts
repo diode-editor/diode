@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { getBinaryPath } from "./buildOnce.ts";
 import { HeadlessSession, type HeadlessSessionOptions } from "./headlessSession.ts";
+import { reapSession } from "./processGroup.ts";
 import { DiodeSession } from "./runDiode.ts";
 
 // ── Hermetic app session ─────────────────────────────────────────────────────
@@ -301,6 +302,9 @@ export async function startHeadlessApp(options: AppEnvOptions & { binary?: strin
         env,
         dispose: async () => {
             await session.dispose();
+            // Языковые серверы живут в чужой группе процессов: групповой сигнал
+            // `dispose` до них не доходит. Добиваем всё с меткой сессии.
+            await reapSession(session.sessionTag);
             env.dispose();
         },
     };
@@ -342,6 +346,9 @@ export async function startPtyApp(options: PtyAppOptions = {}): Promise<PtyApp> 
         env,
         dispose: async () => {
             await session.dispose();
+            // Языковые серверы живут в чужой группе процессов: групповой сигнал
+            // `dispose` до них не доходит. Добиваем всё с меткой сессии.
+            await reapSession(session.sessionTag);
             env.dispose();
         },
     };

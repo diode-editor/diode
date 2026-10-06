@@ -13,7 +13,8 @@
  * server приезжает асинхронно позже.
  *
  * Запуск: `npm run bench:open [-- --sizes=small,xlarge --runs=3 --json=out.json --md=out.md --label="от сети, фон пуст"]`
- * Бинарь собирается лениво (`getBinaryPath` → `npm run build:sea`), либо
+ * Бинарь берётся из кэша e2e-сборок по хешу исходников (`getBinaryPath` →
+ * scripts/e2e-artifacts.mjs; промах — одна сборка), либо
  * передаётся готовый через env `DIODE_E2E_BINARY`. Тяжёлый прогон — под лизу
  * (скилл heavy-run).
  */
