@@ -24,8 +24,10 @@ import { currentProcessSnapshot, realRestartHooks, restartProcess } from "../bas
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
 import { OscClipboard } from "../platform/clipboard/common/oscClipboard.ts";
+import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../platform/configuration/common/configurationRegistry.ts";
 import { loadConfiguration } from "../platform/configuration/node/configurationService.ts";
+import { ContextKeyServiceDIToken } from "../platform/contextkey/common/contextKeyService.ts";
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
 import { CliArgsError, parseCliArgs, USAGE } from "../platform/environment/node/cliArgs.ts";
 import { createEnvironmentService } from "../platform/environment/node/environmentService.ts";
@@ -64,12 +66,14 @@ import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/ext
 import { LanguageConfigurationService } from "../workbench/services/language/common/languageConfigurationService.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
+import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
 import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/builtinThemes.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
 import { TokenThemeResolver } from "../workbench/services/themes/common/tokenThemeResolver.ts";
 
 import { curatedConfigInjection } from "./curatedConfigInjection.ts";
+import { registerDiodeInspectorMethods } from "./diodeInspectorMethods.ts";
 import { createProductionContainer } from "./modules/productionProfile.ts";
 import { runAsNode } from "./runAsNode.ts";
 import { setupStartupTrace, TracingNodeTerminalBackend, writeStartupTrace } from "./startupTrace.ts";
@@ -432,6 +436,11 @@ async function runEditor(): Promise<void> {
         if (phase === "eventually") void tokenizationContributor.preloadAll();
     });
 
+    // Конец старта для инспектора (`Diode.whenReady`): тот же момент, что
+    // `complete: true` в трассе старта, — extension host активирован и фаза
+    // `eventually` отработала. Резолвится в `afterRestored` ниже.
+    const startupComplete = Promise.withResolvers<undefined>();
+
     await startWorkbench(
         container,
         { targets, extensions: allExtensions, extensionsLogger },
@@ -492,6 +501,18 @@ async function runEditor(): Promise<void> {
                                   },
                               };
                     const inspector = await attachInspector(app, cli.inspectTui, driver);
+                    registerDiodeInspectorMethods(
+                        (method, handler) => {
+                            inspector.core.register(method, handler);
+                        },
+                        {
+                            commands: container.get(CommandRegistryDIToken),
+                            output: container.get(OutputServiceDIToken),
+                            contextKeys: container.get(ContextKeyServiceDIToken),
+                            ready: startupComplete.promise,
+                            pid: process.pid,
+                        },
+                    );
                     // Порт освобождается до выхода: перезагруженное окно займёт тот же.
                     lifecycle.onShutdownSync(() => {
                         inspector.dispose();
@@ -506,14 +527,14 @@ async function runEditor(): Promise<void> {
             preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
             afterRestored: () => {
                 const activation = extensionService.start();
-                // Конец лестницы: выгружаем трассу целиком (бенч ждёт `complete: true`)
-                // — когда есть и `main:startup-complete` (переход в `eventually`), и
-                // `exthost:activated`: друг друга они больше не ждут.
-                if (startupTraceFile !== null) {
-                    void Promise.all([activation, lifecycle.when("eventually")]).then(() => {
-                        writeStartupTrace(startupTraceFile, true);
-                    });
-                }
+                // Конец лестницы — когда есть и `main:startup-complete` (переход в
+                // `eventually`), и `exthost:activated`: друг друга они больше не ждут.
+                // Тогда выгружаем трассу целиком (бенч ждёт `complete: true`) и
+                // отпускаем `Diode.whenReady` инспектора.
+                void Promise.all([activation, lifecycle.when("eventually")]).then(() => {
+                    if (startupTraceFile !== null) writeStartupTrace(startupTraceFile, true);
+                    startupComplete.resolve(undefined);
+                });
             },
             afterFirstFrame: (callback) => {
                 setImmediate(callback);

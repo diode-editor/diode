@@ -398,6 +398,30 @@ expect(ed?.state?.hasSelection).toBe(true);
 
 ---
 
+## Живой прогон редактора (`npm run drive`)
+
+Харнесс фейкает рендер и ввод — ровно те области, где живут баги, поэтому перед
+«готово» редактор запускают по-настоящему и смотрят на кадр. Для этого есть
+инструмент с долгоживущей сессией: каждый шаг — отдельный вызов, как в браузере.
+
+```bash
+npm run drive -- start --file src/a.ts='const x = 1;\n' --open src/a.ts   # из исходников, ждёт готовности
+npm run drive -- palette "View: Toggle Panel Visibility"
+npm run drive -- exec workbench.action.files.save
+npm run drive -- screen --numbered          # кадр текстом с координатами
+npm run drive -- output Extensions --tail 20
+npm run drive -- stop                       # ноль процессов, ноль временных каталогов
+```
+
+Полный список команд — `npm run drive -- help`; рецепты и ловушки (попап
+автодополнения крадёт Enter, тосты закрывают низ панели, `ArrowDown` а не `Down`) —
+скилл [`.claude/skills/drive/SKILL.md`](../.claude/skills/drive/SKILL.md);
+устройство — [arch/DevTooling.md](arch/DevTooling.md#toolsdrive). Методы инспектора
+`Diode.*` (готовность, команды, OUTPUT, контекст-ключи) доступны любому клиенту
+`--inspect-tui`, не только инструменту.
+
+---
+
 ## Быстрый цикл по диффу (`check:diff`)
 
 Внутренний цикл «поправил — проверил» не должен ждать полный линт и все 857 тест-файлов. `npm run check:diff` берёт файлы ветки (`git diff` от `merge-base origin/main HEAD` + неотслеженные, только `src/**`, `extensions/**` `.ts`) и последовательно гонит:

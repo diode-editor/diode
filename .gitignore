@@ -15,6 +15,9 @@ coverage/coverage-final.json
 # Compiled builtin code-extensions (built by scripts/build-extensions.mjs)
 extensions/*/out/
 
+# Реестр сессий живого прогона `npm run drive` (tools/drive/)
+.drive/
+
 # Эталонный клон microsoft/vscode для сверки (scripts/vscode-ref.mjs)
 .reference/
 

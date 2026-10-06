@@ -15,6 +15,15 @@ describe("ContextKeyService", () => {
         expect(ctx.get("textInputFocus")).toBe(true);
     });
 
+    it("getRaw читает ключ по строке — и типизированный, и setRaw", () => {
+        const svc = new ContextKeyService();
+        svc.set("textInputFocus", true);
+        svc.setRaw("ext.thing", ["a", "b"]);
+        expect(svc.getRaw("textInputFocus")).toBe(true);
+        expect(svc.getRaw("ext.thing")).toEqual(["a", "b"]);
+        expect(svc.getRaw("nope")).toBeUndefined();
+    });
+
     it("reset removes a key", () => {
         const ctx = new ContextKeyService();
         ctx.set("listFocus", true);
