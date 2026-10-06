@@ -446,7 +446,13 @@ hide-toggle (`isHiddenByDefault`). См.
   `FileSearchService`, `QuickOpenParsing`, `collectWordCompletions`,
   каталоги `Workspace/` (undo/redo + `TrashService` за `ITrashService`;
   `WorkspaceEditService` — `contrib/bulkEdit/browser`, ходит на диск через
-  `IFileService`), `TerminalEnvironment/`,
+  `IFileService`; это единственный исполнитель bulk edit — и для файловых
+  операций проводника, и для `workspace.applyEdit` расширений: открытые
+  буферы видит через порт `IBulkEditBuffers` (`contrib/bulkEdit/common`:
+  буфер, `"read-only"` или `null` — «не открыт, правим по диску»), шаги
+  документов забирает из их истории (`applyExternalEditsDetached`) и
+  складывает в ОДИН элемент `UndoRedoService`; контракт и люфты —
+  [LSP.md](../TODO/LSP.md), строка `workspace.applyEdit`), `TerminalEnvironment/`,
   `Terminal/` (EmbeddedTerminalSession, фабрика, загрузчик node-pty,
   `TerminalService`), `Diagnostics/` (валидатор settings.json,
   `ProblemsTreeDataProvider`, `DiagnosticsService`), `history/`
@@ -576,6 +582,13 @@ hide-toggle (`isHiddenByDefault`). См.
     пикер открытых редакторов, Keyboard Shortcuts. Поиск в Extensions view
     остаётся подстрочным сознательно: его матчер (`matchesExtensionQuery`) —
     часть формата реестра магазина, общего с витриной и сайтом.
+    **Расширил матчер — проверь каждого потребителя, у которого выдача не
+    отсортирована по очкам:** соседа ломает порядок, а не состав. Переход
+    Keyboard Shortcuts на термы сделал `Show Hover` шире (`show` и `hover`
+    нашлись в id чужих команд), таблица сортировалась по алфавиту, и точное
+    совпадение уехало в хвост — поймал только e2e. Лечение — ранжирование
+    (`TITLE_MATCH_BONUS` в `keybindingsEditorModel.ts`, как `BASENAME_BONUS`
+    у файлового пикера).
   - `Services/QuickOpenService.ts` — контроллер показа Quick Open (аналог
     `QuickAccessController`): `show(prefix)` занимает общий виджет, дальше
     ведёт запрос через реестр (смена префикса на лету переключает провайдера),
@@ -781,6 +794,11 @@ hide-toggle (`isHiddenByDefault`). См.
     сам видимостью панели не распоряжается: клик по кнопке `×` в хвосте
     таб-строки компонент переводит в команду `workbench.action.closePanel`
     (`CLOSE_PANEL_COMMAND_ID`) — ту же дверь, что у Ctrl+J и палитры.
+    Кнопка старше таб-строки: на узкой панели рисуется поверх хвоста вкладок
+    и в этих колонках срабатывает она (эталон в этом случае уводит вкладки в
+    overflow). Глиф — `×`, как у `EditorTabItemElement`, а **не codicon**:
+    PUA-глифы codicon'ов в текстовом дампе кадра неотличимы, сценарий не
+    проверил бы кнопку; хит-бокс — `inspectState().close`.
   - `Components/Panel/ProblemsComponent.ts` — `Component`; дерево
     «файл → маркеры» (`TreeViewElement` поверх `ProblemsTreeDataProvider`,
     `view` = `ScrollBarDecorator`, `view.id = "problemsView"`; стили —
@@ -1425,6 +1443,12 @@ hide-toggle (`isHiddenByDefault`). См.
   категории у расширений — `contributes.commands[].category`
   (`IExtensionRegistration.commandCategories`, см.
   [Extensions.md](Extensions.md)).
+- **`args` у бинда** (VS Code-семантика): значение правила
+  `keybindings.json` едет по цепочке реестр (`KeybindingResolution.args`,
+  `platform/keybinding/common/keybindingRegistry.ts`) → диспатчер → команда
+  и приходит **первым аргументом** `execute`; без `args` команда зовётся
+  вовсе без аргументов. Перебинд и reset во вкладке шорткатов `args`
+  сохраняют. Первый потребитель — строковый префилл Quick Open.
 - Доступность кейбиндингов — через typed when-контексты из
   `Workbench/Services/ContextKeys.ts` (`ContextKeyService`); фокус/UI-состояния
   обновляет `WorkbenchContextKeys.update()`.
@@ -1575,6 +1599,15 @@ hide-toggle (`isHiddenByDefault`). См.
 (`QuickPickFrameElement`). Виджет приехал из движка, где по этому же критерию
 лежать не должен был; остальные кандидаты на возврат —
 [../TODO/EngineWidgetRepatriation.md](../TODO/EngineWidgetRepatriation.md).
+
+**Что уже есть в движке — до того как писать своё.** Перенос по словам —
+`wrapText` из `@tuidom/elements/completionlist/completionDetailsElement`
+(им пользуются тосты, диалоги, hover, parameter hints, welcome-вьюхи; режет
+по пробелам, поэтому отступ перенесённого хвоста не сохраняется).
+`HFlexElement` допускает **не больше одного** `fill`-ребёнка (второй —
+исключение `HFlexElement supports at most one fill child`): центрировать ряд
+двумя филлерами нельзя, ширину кнопок бери у `getMaxIntrinsicWidth`, а не по
+длине подписи. `TreeViewElement` наполняется только `refresh()` (см. выше).
 
 Зависимости слоя: Workbench → { Editor, TUIDom, Theme, Configuration, Common,
 интерфейс Backend }. Workbench — верхний слой ядра приложения; выше него только
