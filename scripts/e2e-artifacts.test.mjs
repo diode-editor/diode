@@ -53,7 +53,17 @@ test("computeBuildKey: стабилен и меняется ровно от вх
     const withUntracked = computeBuildKey(repo, {});
     assert.notEqual(withUntracked, base);
     writeFileSync(join(repo, "src", "extra.ts"), "y\n");
-    assert.notEqual(computeBuildKey(repo, {}), withUntracked, "содержимое неотслеживаемого файла — в ключе");
+    const untrackedY = computeBuildKey(repo, {});
+    assert.notEqual(untrackedY, withUntracked, "содержимое неотслеживаемого файла — в ключе");
+
+    // Коммит того же содержимого ключ не меняет: ключ — от содержимого, а не от git.
+    execFileSync("git", ["add", "."], { cwd: repo });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "more"], { cwd: repo });
+    assert.equal(computeBuildKey(repo, {}), untrackedY);
+
+    // Удалённый из рабочей копии файл — уже не вход.
+    removeTree(join(repo, "src", "extra.ts"));
+    assert.notEqual(computeBuildKey(repo, {}), untrackedY);
 
     // Зашиваемая версия — часть ключа.
     assert.notEqual(computeBuildKey(repo, { DIODE_VERSION: "1.2.3" }), computeBuildKey(repo, {}));

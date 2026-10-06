@@ -18,8 +18,10 @@
  *  - пока сборка не готова целиком, её не видно (tmp → rename), а готовую нельзя
  *    испортить (chmod a-w), даже по ошибке.
  *
- * Ключ — sha256 от входов сборки: индекс git (`ls-files -s`) + незакоммиченный дифф +
- * неотслеживаемые файлы по путям {@link BUILD_INPUTS}, плюс node/платформа, версия,
+ * Ключ — sha256 от содержимого входов сборки: blob-хеш каждого файла рабочей копии
+ * (отслеживаемого и нет, кроме игнорируемых) по путям {@link BUILD_INPUTS} — от
+ * состояния git он не зависит: коммит, amend, squash с тем же деревом ключ не
+ * меняют. Плюс node/платформа, версия,
  * которую зашивает сборка, и `node_modules/.package-lock.json` (его переписывает и
  * `npm ci`, и `npm run engine:link`). Тесты (`*.test.ts`, `e2e/`) во вход не входят:
  * правка теста не пересобирает бинарь.
@@ -121,33 +123,26 @@ export function buildVersion(env = process.env) {
  * @returns {string | null}
  */
 export function computeBuildKey(repoRoot, env = process.env) {
-    const git = (args) => execFileSync("git", args, { cwd: repoRoot, maxBuffer: 256 * 1024 * 1024 });
-    let index;
+    const git = (args, input) =>
+        execFileSync("git", args, { cwd: repoRoot, input, maxBuffer: 256 * 1024 * 1024 }).toString();
+    let listed;
     try {
-        index = git(["ls-files", "-s", "--", ...BUILD_INPUTS]);
+        listed = git(["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ...BUILD_INPUTS]);
     } catch {
         return null;
     }
+    // Ключ — от СОДЕРЖИМОГО рабочей копии, а не от состояния git: закоммитил,
+    // сделал amend или squash с тем же деревом — та же сборка. Удалённый, но ещё
+    // отслеживаемый файл в рабочей копии отсутствует — и во вход не попадает.
+    const files = [...new Set(listed.split("\0").filter((p) => p.length > 0))]
+        .filter((p) => existsSync(join(repoRoot, p)))
+        .sort();
+    const blobs = files.length === 0 ? [] : git(["hash-object", "--stdin-paths"], `${files.join("\n")}\n`).trim().split("\n");
     const hash = createHash("sha256");
     hash.update(`layout ${LAYOUT_VERSION}\n`);
     hash.update(`node ${process.version} ${process.platform}-${process.arch}\n`);
     hash.update(`version ${buildVersion(env)}\n`);
-    hash.update(index);
-    // Рабочая копия против индекса: незакоммиченные правки тоже меняют бинарь.
-    hash.update(git(["diff", "--binary", "--no-ext-diff", "--", ...BUILD_INPUTS]));
-    const untracked = git(["ls-files", "--others", "--exclude-standard", "-z", "--", ...BUILD_INPUTS])
-        .toString()
-        .split("\0")
-        .filter((p) => p.length > 0)
-        .sort();
-    for (const rel of untracked) {
-        hash.update(`untracked ${rel}\n`);
-        try {
-            hash.update(readFileSync(join(repoRoot, rel)));
-        } catch {
-            // исчез между ls-files и чтением — имя уже в ключе
-        }
-    }
+    files.forEach((p, i) => hash.update(`${p}\0${blobs[i] ?? ""}\n`));
     const lock = join(repoRoot, "node_modules", ".package-lock.json");
     hash.update(existsSync(lock) ? readFileSync(lock) : "no node_modules lock");
     return hash.digest("hex").slice(0, 16);
@@ -199,7 +194,7 @@ export function acquireLock(lockDir, options = {}) {
             log(`эту же сборку собирает процесс ${String(owner)} — жду его, а не собираю второй раз`);
             announced = true;
         }
-        if (Date.now() > deadline) {
+        if (Date.now() >= deadline) {
             throw new Error(`[e2e-artifacts] не дождался замка ${lockDir} за ${String(waitMs / 1000)} с`);
         }
         sleepSync(1000);
