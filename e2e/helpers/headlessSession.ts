@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 import type WebSocket from "ws";
 
@@ -18,6 +19,7 @@ import { getBinaryPath } from "./buildOnce.ts";
 import { dumpFrame, frameToText } from "./frame.ts";
 import { hermeticSpawnEnv } from "./hermeticEnv.ts";
 import { connectWithRetry, freePort } from "./inspectorClient.ts";
+import { killGroup, SESSION_MARKER_ENV } from "./processGroup.ts";
 import { $, $$, focusedLeaf } from "./query.ts";
 import { waitUntil } from "./waitFor.ts";
 
@@ -64,6 +66,12 @@ export interface HeadlessSessionOptions {
 export class HeadlessSession {
     public readonly cols: number;
     public readonly rows: number;
+    /**
+     * Метка сессии в окружении (`DIODE_E2E_SESSION`): её наследует всё, что
+     * поднял редактор, включая языковые серверы в чужой группе процессов, — по
+     * ней `appSession` добивает переживших `dispose` (см. processGroup.ts).
+     */
+    public readonly sessionTag: string;
     private readonly child: ChildProcess;
     /** Не readonly: перезагрузка окна поднимает новый процесс на том же порту. */
     private ws: WebSocket;
@@ -82,10 +90,14 @@ export class HeadlessSession {
             `--headless=${String(cols)}x${String(rows)}`,
             `--inspect-tui=127.0.0.1:${String(port)}`,
         ];
+        const sessionTag = randomUUID();
         const child = spawn(binary, args, {
             stdio: ["ignore", "ignore", "pipe"],
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
-            env: hermeticSpawnEnv(options.env),
+            env: hermeticSpawnEnv({ ...options.env, [SESSION_MARKER_ENV]: sessionTag }),
+            // Своя группа процессов (posix): `dispose` сигналит всей группе, а не
+            // одному редактору, — его прямые помощники не остаются сиротами.
+            detached: process.platform !== "win32",
         });
         // stderr копим с самого спавна: если процесс умрёт до подключения, его
         // последние слова — единственная диагностика.
@@ -94,13 +106,14 @@ export class HeadlessSession {
             stderr += chunk.toString();
         });
         const ws = await connectOrDie(child, `ws://127.0.0.1:${String(port)}`, () => stderr);
-        const session = new HeadlessSession(child, cols, rows, port, ws);
+        const session = new HeadlessSession(child, sessionTag, cols, rows, port, ws);
         session.stderr = stderr;
         return session;
     }
 
-    private constructor(child: ChildProcess, cols: number, rows: number, port: number, ws: WebSocket) {
+    private constructor(child: ChildProcess, sessionTag: string, cols: number, rows: number, port: number, ws: WebSocket) {
         this.child = child;
+        this.sessionTag = sessionTag;
         this.cols = cols;
         this.rows = rows;
         this.port = port;
@@ -384,7 +397,12 @@ export class HeadlessSession {
         while (this.child.exitCode === null && Date.now() < exitDeadline) {
             await sleep(50);
         }
-        if (this.child.exitCode === null) this.child.kill("SIGKILL");
+        // Группе — всегда, даже если лидер вышел сам: его прямые помощники в той
+        // же группе (наблюдатель за деревом и т.п.) сами не уходят. Субпроцесс
+        // расширений и языковые серверы живут в СВОЕЙ группе и прощаются сами —
+        // это проверяет languageServerTeardown.test.ts, поэтому здесь их не трогаем;
+        // переживших добивает appSession по метке сессии.
+        killGroup(this.child, "SIGKILL");
     }
 
     /** Captured stderr (diagnostics only — headless writes nothing there normally). */
@@ -425,7 +443,7 @@ async function connectOrDie(child: ChildProcess, url: string, stderr: () => stri
         return await Promise.race([connectWithRetry(url, CONNECT_TIMEOUT_MS, abort.signal), died]);
     } catch (err) {
         abort.abort();
-        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        killGroup(child, "SIGKILL");
         throw err;
     }
 }

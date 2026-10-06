@@ -4,7 +4,14 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createRunTmpRoot, pruneStaleRoots, setup, TEMP_ENV_VARS } from "./tmpRoot.ts";
+import {
+    createRunTmpRoot,
+    type KillMarked,
+    pruneStaleRoots,
+    setup,
+    setupRunTmpRoot,
+    TEMP_ENV_VARS,
+} from "./tmpRoot.ts";
 
 describe("tmpRoot — корень временных каталогов прогона", () => {
     let parent: string;
@@ -46,6 +53,41 @@ describe("tmpRoot — корень временных каталогов про�
             expect(removed).toEqual([dead]);
             expect(fs.existsSync(dead)).toBe(false);
             expect(fs.existsSync(alive)).toBe(true);
+        });
+
+        it("перед сносом бесхозного корня добивает его процессы и говорит об этом", () => {
+            const dead = rootOwnedBy(1111);
+            const alive = rootOwnedBy(2222);
+            const killMarked = vi.fn<KillMarked>((root) => (root === dead ? [{ pid: 77, command: "tsserver" }] : []));
+            const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+            try {
+                pruneStaleRoots(parent, (pid) => pid === 2222, killMarked);
+
+                // Живой прогон не трогаем вовсе — ни каталоги, ни процессы.
+                expect(killMarked.mock.calls).toEqual([[dead]]);
+                expect(fs.existsSync(alive)).toBe(true);
+                expect(info).toHaveBeenCalledWith(
+                    expect.stringMatching(/добито процессов прерванного прогона .*: 1\n {2}77 tsserver/),
+                );
+            } finally {
+                info.mockRestore();
+            }
+        });
+
+        it("добивать нечего — молчит", () => {
+            rootOwnedBy(1111);
+            const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+            try {
+                pruneStaleRoots(
+                    parent,
+                    () => false,
+                    () => [],
+                );
+
+                expect(info).not.toHaveBeenCalled();
+            } finally {
+                info.mockRestore();
+            }
         });
 
         it("корень без метки владельца считается бесхозным", () => {
@@ -168,6 +210,42 @@ describe("tmpRoot — корень временных каталогов про�
             expect(fs.existsSync(dead)).toBe(false);
             expect(info).toHaveBeenCalledWith(expect.stringContaining("подчищено корней"));
             info.mockRestore();
+        });
+
+        it("teardown добивает процессы прогона до сноса корня и говорит об этом", () => {
+            process.env.DIODE_TEST_TMP_PARENT = parent;
+            const seen: { root: string; existed: boolean }[] = [];
+            const killMarked = vi.fn<KillMarked>((root) => {
+                seen.push({ root, existed: fs.existsSync(root) });
+                return [{ pid: 88, command: "diode --headless" }];
+            });
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+            try {
+                const teardown = setupRunTmpRoot(killMarked);
+                const root = process.env.DIODE_TEST_TMP!;
+                teardown();
+
+                // Метка прогона — путь корня; добивание — пока корень ещё на месте.
+                expect(seen).toEqual([{ root, existed: true }]);
+                expect(warn).toHaveBeenCalledWith(
+                    expect.stringMatching(/добито процессов, переживших прогон: 1\n {2}88 diode --headless/),
+                );
+                expect(fs.existsSync(root)).toBe(false);
+            } finally {
+                warn.mockRestore();
+            }
+        });
+
+        it("teardown без выживших — молчит", () => {
+            process.env.DIODE_TEST_TMP_PARENT = parent;
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+            try {
+                setupRunTmpRoot(() => [])();
+
+                expect(warn).not.toHaveBeenCalled();
+            } finally {
+                warn.mockRestore();
+            }
         });
 
         it("подчищать нечего — молчит", () => {

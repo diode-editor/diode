@@ -22,12 +22,16 @@
                 "node scripts/verify-mutants.mjs",
                 "npx stryker",
                 "npx vitest run --config vitest.e2e.config.ts",
+                "node scripts/e2e.mjs",
+                "node scripts/e2e-artifacts.mjs",
                 "vitest run e2e/"
             ],
             "except": [
                 "--scope-only",
                 "--help",
-                "--dry-run"
+                "--dry-run",
+                "scripts/e2e-artifacts.mjs --key",
+                "scripts/e2e-artifacts.mjs --list"
             ]
         }
     ]

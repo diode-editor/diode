@@ -13,7 +13,7 @@ import { saveScreenshot } from "../helpers/renderScreenshot.ts";
 // headless, drives it (open files, send keys), and captures named screenshots.
 // One `*.scenario.ts` file per feature/flow lives next to this module. Two
 // consumers share `runScenario`: `generate.ts` (npm run screenshots → PNGs for a
-// PR) and `scenarios.test.ts` (CI, keeps scenarios from rotting).
+// PR) and `scenarios-<N>.test.ts` (CI, keeps scenarios from rotting; see suite.ts).
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const scenariosDir = here;
@@ -73,7 +73,7 @@ export interface ScenarioSpec {
     rows?: number;
     env?: Record<string, string>;
     /**
-     * Платформы (`process.platform`), на которых CI-safety-net (`scenarios.test.ts`)
+     * Платформы (`process.platform`), на которых CI-safety-net (`scenarios-<N>.test.ts`)
      * пропускает сценарий. Скриншоты (`npm run screenshots`) генерируются как обычно.
      * Нужно для extension-host сценариев: субпроцесс-расширения в e2e гоняем только
      * на Linux (как `editorconfig-stock`/`sea-git`).
@@ -95,7 +95,7 @@ export interface ScenarioSpec {
     timeoutMs?: number;
     /**
      * Сценарий ходит в сеть (ставит расширение из магазина): CI-safety-net
-     * (`scenarios.test.ts`) пропускает его при `DIODE_E2E_OFFLINE=1` — та же
+     * (`scenarios-<N>.test.ts`) пропускает его при `DIODE_E2E_OFFLINE=1` — та же
      * договорённость, что у сетевых e2e (docs/TESTING.md).
      */
     network?: boolean;
@@ -204,11 +204,21 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
     return shots;
 }
 
-/** Discover and import every `*.scenario.ts` in this directory (sorted by name). */
-export async function loadScenarios(): Promise<ScenarioSpec[]> {
-    const files = readdirSync(scenariosDir)
+/** Файлы сценариев в этом каталоге, по имени. */
+export function scenarioFiles(): string[] {
+    return readdirSync(scenariosDir)
         .filter((f) => f.endsWith(".scenario.ts"))
         .sort();
+}
+
+/**
+ * Discover and import `*.scenario.ts` in this directory (sorted by name).
+ * `filter` отбирает файлы ДО импорта (имя, позиция в отсортированном списке): часть
+ * сценариев готовит фикстуры прямо при импорте (`mkdtempSync`), и срезу (suite.ts)
+ * незачем платить за чужие.
+ */
+export async function loadScenarios(filter: (file: string, index: number) => boolean = () => true): Promise<ScenarioSpec[]> {
+    const files = scenarioFiles().filter(filter);
     const specs: ScenarioSpec[] = [];
     for (const file of files) {
         const mod = (await import(pathToFileURL(resolve(scenariosDir, file)).href)) as { default?: ScenarioSpec };

@@ -84,8 +84,21 @@ export default defineScenario({
         await editor.sendKey("Escape");
         await editor.sendKey("ArrowUp");
         for (let i = 0; i < 10; i++) await editor.sendKey("ArrowRight");
-        await editor.sendKey("F12");
-        await editor.waitForText((t) => t.includes("String.java"), { timeoutMs: 120_000 });
+        // Тот же класс гонки, что у меню выше: пока jdt.ls не доиндексировал JRE,
+        // определение `String` приходит пустым, и единственное F12 терялось
+        // навсегда — 120 с ожидания и красный сценарий примерно в половине
+        // прогонов на 4 ядрах (тот же бинарь то проходил за 35 с, то нет).
+        // Поэтому жмём F12, пока вкладка не откроется.
+        const jumpDeadline = Date.now() + 180_000;
+        for (;;) {
+            await editor.sendKey("F12");
+            try {
+                await editor.waitForText((t) => t.includes("String.java"), { timeoutMs: 15_000 });
+                break;
+            } catch (err) {
+                if (Date.now() > jumpDeadline) throw err;
+            }
+        }
         await editor.capture("jdk-source");
     },
 });

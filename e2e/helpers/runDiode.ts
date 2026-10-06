@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import * as pty from "node-pty";
 import type WebSocket from "ws";
 
@@ -7,6 +9,7 @@ import { AnsiScreen } from "./AnsiScreen.ts";
 import { getBinaryPath } from "./buildOnce.ts";
 import { hermeticSpawnEnv } from "./hermeticEnv.ts";
 import { connectWithRetry, freePort, getDocument } from "./inspectorClient.ts";
+import { killGroup, SESSION_MARKER_ENV } from "./processGroup.ts";
 
 export interface DiodeSessionOptions {
     args: string[];
@@ -50,6 +53,8 @@ export class DiodeSession {
     public readonly rows: number;
     /** Port the TUIDom inspector listens on, or `null` when `inspect` was not set. */
     public readonly inspectorPort: number | null;
+    /** Метка сессии в окружении — см. `HeadlessSession.sessionTag`. */
+    public readonly sessionTag: string;
     private readonly term: pty.IPty;
     private buffer = "";
     private exited = false;
@@ -65,7 +70,8 @@ export class DiodeSession {
         // Терминальная идентичность (TERM, маркеры kitty/tmux/ssh) пинуется к
         // детерминированному baseline — иначе keyboard-tier и вывод зависят от
         // машины, на которой гоняется e2e (см. hermeticEnv.ts).
-        const env = hermeticSpawnEnv(options.env);
+        const sessionTag = randomUUID();
+        const env = hermeticSpawnEnv({ ...options.env, [SESSION_MARKER_ENV]: sessionTag });
 
         // Launch exactly like the other e2e tests; when inspecting, the only
         // difference is an injected --inspect-tui flag on a free loopback port.
@@ -83,17 +89,19 @@ export class DiodeSession {
             env,
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
         });
-        return new DiodeSession(term, cols, rows, inspectorPort, options.onData ?? null);
+        return new DiodeSession(term, sessionTag, cols, rows, inspectorPort, options.onData ?? null);
     }
 
     private constructor(
         term: pty.IPty,
+        sessionTag: string,
         cols: number,
         rows: number,
         inspectorPort: number | null,
         onData: ((data: string) => void) | null,
     ) {
         this.term = term;
+        this.sessionTag = sessionTag;
         this.cols = cols;
         this.rows = rows;
         this.inspectorPort = inspectorPort;
@@ -259,20 +267,21 @@ export class DiodeSession {
             }
             await this.waitForExit(graceMs);
         }
+        // node-pty стартует редактор лидером своей сессии и группы (setsid), поэтому
+        // сигнал уходит всей группе: прямые помощники редактора не остаются сиротами.
+        const group = {
+            pid: this.term.pid,
+            kill: (signal: NodeJS.Signals): boolean => {
+                this.term.kill(signal);
+                return true;
+            },
+        };
         if (!this.exited) {
-            try {
-                this.term.kill("SIGTERM");
-            } catch {
-                // ignore
-            }
+            killGroup(group, "SIGTERM");
             await this.waitForExit(500);
         }
         if (!this.exited) {
-            try {
-                this.term.kill("SIGKILL");
-            } catch {
-                // ignore
-            }
+            killGroup(group, "SIGKILL");
             // On Windows node-pty's kill() closes the ConPTY handle but may not
             // immediately fire onExit. Also signal the process directly by PID.
             if (process.platform === "win32") {
@@ -284,6 +293,8 @@ export class DiodeSession {
             }
             await this.waitForExit(1000);
         }
+        // Группе — и после выхода лидера: помощники в ней сами не уходят.
+        if (process.platform !== "win32") killGroup(group, "SIGKILL");
         // If onExit still hasn't fired (can happen on Windows when ConPTY
         // terminates the process without propagating the exit event), mark the
         // session as disposed so callers are not left hanging.
