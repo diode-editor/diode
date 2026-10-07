@@ -1,3 +1,4 @@
+import * as dns from "node:dns";
 import * as fs from "node:fs";
 import { createRequire, Module, registerHooks } from "node:module";
 import * as path from "node:path";
@@ -100,6 +101,18 @@ export function runExtensionHostSubprocess(): void {
         console.error("[ext-host] subprocess started without IPC channel; exiting");
         process.exit(2);
     }
+
+    // `localhost` → 127.0.0.1 первым, как у extension host'а VS Code
+    // (`--dns-result-order=ipv4first` в execArgv форка, localProcessExtensionHost.ts
+    // и server/node/extensionHostConnection.ts, issue #189805). С дефолтным
+    // `verbatim` Node отдаёт `::1` там, где /etc/hosts ставит его выше, и
+    // TCP-сервер расширения, слушающий `localhost`, встаёт на IPv6 — а его же
+    // языковой сервер на Java открывает `Socket("localhost", port)`, JVM берёт
+    // первым 127.0.0.1 и получает «Connection refused» (так bazel-java терял лог
+    // синхронизации). Функцией, а не флагом процесса: под SEA execArgv бинаря не
+    // наш (прецедент эталона — cliProcessMain.ts). Отступление: дети субпроцесса
+    // (`cp.fork` из расширения) порядок не наследуют, в VS Code он уезжает с execArgv.
+    dns.setDefaultResultOrder("ipv4first");
 
     // Дети этого процесса — НЕ extension host'ы. Сторонние расширения спавнят
     // `process.execPath` в обход наших резолверов (`cp.fork` внутри
