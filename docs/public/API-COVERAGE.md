@@ -249,7 +249,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextDocument` | 19/19 | — (класс документа проверяется компилятором: `implements vscode.TextDocument`). 🟡 `save` — всегда `false` («не сохранено»), у закрытого документа — отказ, как upstream: запроса «сохранить документ по uri» к хосту пока нет. `getWordRangeAtPosition` — дефолтное определение слова upstream (`DEFAULT_WORD_REGEXP`) либо регекс расширения; языковых word-definition (`wordPattern`) нет, регекс, матчащий пустую строку, — исключение. Рабочие и `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
-| `ExtensionContext` | 14/17 | `environmentVariableCollection`, `extension`, `languageModelAccessInformation`. Из активных: `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
+| `ExtensionContext` | 15/17 | `environmentVariableCollection`, `languageModelAccessInformation`. Из активных: `extension` — запись самого расширения из каталога `vscode.extensions` (телеметрии читают по ней `packageJSON.version`); `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
 | `WorkspaceEdit` | 11/11 | — |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
 | `FileStat` | 4/5 | `permissions` |

@@ -19,6 +19,13 @@ interface IContextReport {
     envRunAsNode: string | null;
     pylance: unknown;
     allExtensions: unknown[];
+    selfAtActivate: {
+        id: string;
+        packageJSON: { name: string; publisher: string; version: string };
+        extensionPath: string;
+        isActive: boolean;
+    };
+    selfIsActiveNow: boolean;
 }
 
 // Расширение из in-memory source (builtin): extensionPath у регистрации нет —
@@ -106,6 +113,30 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
             // всегда, и соседей детектить было нечем (подробности каталога — в
             // extensionHost.extensionsCatalog.test.ts).
             expect((report.allExtensions as { id: string }[]).map((e) => e.id)).toEqual(["test.context"]);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("context.extension — запись самого расширения из каталога: манифест, корень, isActive", async () => {
+        const harness = await createExtensionTestHarness();
+        try {
+            await registerAndActivate(harness.host, {
+                ...extensionFixture("test.context", "reportsContext.cjs"),
+                manifest: { name: "context", publisher: "test", version: "1.2.3" },
+                extensionPath: harness.tmpDir,
+            });
+            const report = (await harness.commandRegistry.execute("test.context.report")) as IContextReport;
+            // Телеметрия форка bazel-java читает `packageJSON.name`/`version`
+            // первой строкой activate() — без поля расширение не поднимается.
+            expect(report.selfAtActivate.id).toBe("test.context");
+            expect(report.selfAtActivate.packageJSON).toEqual({ name: "context", publisher: "test", version: "1.2.3" });
+            // Тот же корень, что у самого контекста (значение хоста, не каталог main-модуля).
+            expect(report.selfAtActivate.extensionPath).toBe(report.extensionPath);
+            // Во время собственной активации расширение ещё не активно (как
+            // `isActivated` эталона), после — активно: запись живая, не снимок.
+            expect(report.selfAtActivate.isActive).toBe(false);
+            expect(report.selfIsActiveNow).toBe(true);
         } finally {
             await harness.dispose();
         }

@@ -1207,6 +1207,11 @@ declare module "vscode" {
 		 * for possible values and scenarios.
 		 */
 		readonly extensionMode: ExtensionMode;
+
+		/**
+		 * The current `Extension` instance.
+		 */
+		readonly extension: Extension<any>;
 	}
 
 	/**

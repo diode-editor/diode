@@ -2,6 +2,8 @@ import * as fs from "node:fs";
 import { createRequire, Module, registerHooks } from "node:module";
 import * as path from "node:path";
 
+import type * as vscode from "vscode";
+
 import { describeRejection } from "../../../../base/common/describeRejection.ts";
 import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -76,6 +78,14 @@ interface ExtensionContext {
     readonly storagePath: string | undefined;
     readonly logUri: Uri;
     readonly logPath: string;
+    /**
+     * `ExtensionContext.extension` — запись самого расширения из каталога
+     * `vscode.extensions` (типовой потребитель — телеметрия, читающая
+     * `context.extension.packageJSON.version`). Эталон строит отдельный
+     * `Extension` из описания расширения; у нас объект уже лежит в каталоге,
+     * который хост шлёт семенем ДО первой активации, — берём его.
+     */
+    readonly extension: vscode.Extension<unknown>;
 }
 
 /**
@@ -124,7 +134,7 @@ export function runExtensionHostSubprocess(): void {
     const logger = createStderrLogger();
     const rpc: SubprocessRpc = new RpcEndpoint(channel, logger);
 
-    const { configStore, extensionExports, secrets, paths } = installVscodeStub(rpc, logger);
+    const { configStore, extensionExports, secrets, paths, extensions: catalog } = installVscodeStub(rpc, logger);
 
     const extensions = new Map<string, ActivatedExtension>();
 
@@ -151,6 +161,16 @@ export function runExtensionHostSubprocess(): void {
         const loaded = await loadExtensionModule({ mainPath, source, filename, moduleType });
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
+        }
+        // Запись в каталоге есть всегда: хост шлёт `extensions.catalog` семенем
+        // на подъёме субпроцесса и на каждой регистрации — ДО активации, по
+        // тому же упорядоченному каналу. Нет записи — нарушен контракт хоста;
+        // падаем здесь с именем, а не TypeError'ом внутри `activate()` расширения.
+        const extension = catalog.getExtension(id);
+        if (extension === undefined) {
+            throw new Error(
+                `Extension "${id}" is not in the extensions catalog: host must push extensions.catalog before activation`,
+            );
         }
         const context: ExtensionContext = {
             subscriptions: [],
@@ -184,6 +204,7 @@ export function runExtensionHostSubprocess(): void {
             storagePath: storage.storagePath ?? undefined,
             logUri: Uri.file(storage.logPath),
             logPath: storage.logPath,
+            extension,
         };
         const active: ActivatedExtension = { id, mod: loaded, context };
         extensions.set(id, active);
@@ -409,9 +430,14 @@ function installVscodeStub(
     extensionExports: Map<string, unknown>;
     secrets: IExtensionSecretsFactory;
     paths: ExtensionPaths;
+    /** `vscode.extensions` общего namespace — источник `ExtensionContext.extension`. */
+    extensions: typeof vscode.extensions;
 } {
     const host = buildVscodeNamespace(rpc, createNodeExtHostDisk());
     const { configStore, extensionExports, secrets } = host;
+    // Общий namespace, не оверлей владельца: `extensions` оверлей не перекрывает
+    // (`extensionApiFactory.ts`), объект у всех расширений один и тот же.
+    const extensions = host.namespace.extensions;
     const paths = new ExtensionPaths({ realpath: fs.realpathSync.native });
     // Корни расширений — из каталога хоста (семя ДО первой активации), чтобы
     // опознать и `require("vscode")` раньше `activate()` своего расширения.
@@ -462,6 +488,7 @@ function installVscodeStub(
         extensionExports,
         secrets,
         paths,
+        extensions,
         dispose: (): void => {
             hooks.deregister();
             catalogSubscription.dispose();
