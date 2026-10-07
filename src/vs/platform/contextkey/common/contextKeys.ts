@@ -168,6 +168,10 @@ export interface ContextKeyTypes {
     terminalFocus: boolean;
     /** True while at least one integrated terminal instance is open. */
     terminalIsOpen: boolean;
+    /** The current number of terminals. */
+    terminalCount: number;
+    /** Whether the terminal tabs widget is focused. */
+    terminalTabsFocus: boolean;
 
     // -- Global UI contexts --
     // notificationFocus: boolean;

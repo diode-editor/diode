@@ -46,6 +46,8 @@ export interface IConfigurationPropertySchema {
     readonly scope: ConfigurationScope;
     readonly description?: string;
     readonly enum?: readonly unknown[];
+    /** Описания значений {@link enum} по позициям (`enumDescriptions` у эталона) — для документации и подсказок. */
+    readonly enumDescriptions?: readonly string[];
     /** Нижняя граница числа (JSON-schema `minimum`); значение меньше — невалидно. */
     readonly minimum?: number;
     /** Верхняя граница числа (JSON-schema `maximum`). */

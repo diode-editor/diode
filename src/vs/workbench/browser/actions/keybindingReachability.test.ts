@@ -175,6 +175,7 @@ describe("асимметрия tier-гейта — пользовательск�
         "workbench.action.navigateBack | Ctrl+K Ctrl+B | Ctrl+Alt+-",
         "workbench.action.navigateForward | Ctrl+K Ctrl+F | Ctrl+Shift+-",
         "workbench.action.search.toggleQueryDetails | Ctrl+K Alt+J | Ctrl+Shift+J",
+        "workbench.action.terminal.focusTabs | Ctrl+K \\ | Ctrl+Shift+\\",
         "workbench.action.terminal.new | Ctrl+K Alt+T | Ctrl+Shift+`",
         "workbench.action.terminal.toggleTerminal | Ctrl+K T | Ctrl+`",
         "workbench.action.toggleEditorGroupLayout | Ctrl+K Alt+0 | Shift+Alt+0",

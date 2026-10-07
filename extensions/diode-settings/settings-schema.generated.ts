@@ -268,6 +268,50 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Declare custom manual-only terminal modes usable in when-clauses.",
     },
     {
+        key: "terminal.integrated.hideOnLastClosed",
+        type: "boolean",
+        default: true,
+        description:
+            "Whether to hide the terminal view when the last terminal is closed. This will only happen when the terminal is the only visible view in the view container.",
+    },
+    {
+        key: "terminal.integrated.tabs.enabled",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether terminal tabs display as a list to the side of the terminal. When this is disabled a dropdown will display instead.",
+    },
+    {
+        key: "terminal.integrated.tabs.focusMode",
+        type: "string",
+        default: "doubleClick",
+        description: "Controls whether focusing the terminal of a tab happens on double or single click.",
+        enum: ["singleClick", "doubleClick"],
+    },
+    {
+        key: "terminal.integrated.tabs.hideCondition",
+        type: "string",
+        default: "singleTerminal",
+        description: "Controls whether the terminal tabs view will hide under certain conditions.",
+        enum: ["never", "singleTerminal", "singleGroup"],
+    },
+    {
+        key: "terminal.integrated.tabs.location",
+        type: "string",
+        default: "right",
+        description:
+            "Controls the location of the terminal tabs, either to the left or right of the actual terminal(s).",
+        enum: ["left", "right"],
+    },
+    {
+        key: "terminal.integrated.tabs.showActiveTerminal",
+        type: "string",
+        default: "singleTerminalOrNarrow",
+        description:
+            "Shows the active terminal information in the view. This is particularly useful when the title within the tabs aren't visible.",
+        enum: ["always", "singleTerminal", "singleTerminalOrNarrow", "never"],
+    },
+    {
         key: "terminal.modes",
         type: "object",
         default: {},

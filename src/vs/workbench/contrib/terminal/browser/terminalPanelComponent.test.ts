@@ -5,7 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import type { IContextMenuMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
@@ -17,7 +20,7 @@ import type { TerminalSessionFactory } from "../common/terminalSessionFactory.ts
 import { TerminalPanelComponent } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-function buildHarness() {
+function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const views = makeViewsHarness();
     const panelService = views.panelService;
@@ -28,11 +31,26 @@ function buildHarness() {
         sessions.push(surface);
         return surface;
     };
-    const service = new TerminalService(panelService, views.service, factory);
+    const configuration = createTestConfigurationService(settings);
+    const service = new TerminalService(panelService, views.service, configuration, factory);
     // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
     views.service.attachRegisteredContainers();
     const focusFallback = { focusEditor: vi.fn() };
-    const component = new TerminalPanelComponent(service, views.service, focusFallback);
+    const menus: IContextMenuMenuDelegate[] = [];
+    const contextMenu = {
+        showContextMenu: (delegate: IContextMenuMenuDelegate) => {
+            menus.push(delegate);
+        },
+    } as unknown as ContextMenuService;
+    const commands = new CommandRegistry();
+    const component = new TerminalPanelComponent(
+        service,
+        views.service,
+        focusFallback,
+        configuration,
+        contextMenu,
+        commands,
+    );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const dispose = (): void => {
         component.dispose();
@@ -49,6 +67,10 @@ function buildHarness() {
         testApp,
         created: sessions,
         focusFallback,
+        configuration,
+        menus,
+        commands,
+        views,
         dispose,
     };
 }
@@ -206,11 +228,24 @@ describe("TerminalPanelComponent", () => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         const views = makeViewsHarness();
         const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
-        const service = new TerminalService(views.panelService, views.service, () => new FakeTerminalSurface());
+        const configuration = createTestConfigurationService();
+        const service = new TerminalService(
+            views.panelService,
+            views.service,
+            configuration,
+            () => new FakeTerminalSurface(),
+        );
         views.service.attachRegisteredContainers();
         service.openTerminal(); // инстанс существует ДО компонента
 
-        const component = new TerminalPanelComponent(service, views.service, { focusEditor: vi.fn() });
+        const component = new TerminalPanelComponent(
+            service,
+            views.service,
+            { focusEditor: vi.fn() },
+            configuration,
+            {} as ContextMenuService,
+            new CommandRegistry(),
+        );
 
         expect(views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")).toHaveLength(1);
         component.dispose();

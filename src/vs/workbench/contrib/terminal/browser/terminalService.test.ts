@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -8,7 +9,7 @@ import type { ITerminalSessionOptions, TerminalSessionFactory } from "../common/
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-function buildHarness(shell?: string) {
+function buildHarness(shell?: string, settings: Readonly<Record<string, unknown>> = {}) {
     const views = makeViewsHarness();
     const panelService = views.panelService;
     const sessions: FakeTerminalSurface[] = [];
@@ -20,7 +21,8 @@ function buildHarness(shell?: string) {
         sessions.push(surface);
         return surface;
     };
-    const service = new TerminalService(panelService, views.service, factory);
+    const configuration = createTestConfigurationService(settings);
+    const service = new TerminalService(panelService, views.service, configuration, factory);
     // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
     views.service.attachRegisteredContainers();
     return { panelService, views, service, created: sessions, factoryOptions };
@@ -235,7 +237,7 @@ describe("TerminalService — instance title", () => {
     it("names instances after the shell the session launched", () => {
         const h = buildHarness("/bin/bash");
         h.service.openTerminal();
-        expect(h.service.getInstances()[0].title).toBe("bash (1)");
+        expect(h.service.getInstances()[0].title).toBe("bash");
         h.service.dispose();
     });
 
@@ -251,7 +253,7 @@ describe("TerminalService — instance title", () => {
         vi.stubEnv("SHELL", "/bin/bash");
         const h = buildHarness("/usr/bin/zsh");
         h.service.openTerminal();
-        expect(h.service.getInstances()[0].title).toBe("zsh (1)");
+        expect(h.service.getInstances()[0].title).toBe("zsh");
         vi.unstubAllEnvs();
         h.service.dispose();
     });

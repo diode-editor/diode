@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { ContextKeyService, ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import {
     TERMINAL_VIEW_ID,
@@ -89,7 +90,27 @@ describe("Workbench — integrated terminal", () => {
         expect(activeWidget() === firstWidget).toBe(false);
     });
 
-    it("Toggle Terminal after the shell exited spawns a new one instead of hiding the panel", () => {
+    it("the last shell exiting hides the panel (terminal.integrated.hideOnLastClosed)", () => {
+        h.commands.execute(TOGGLE_TERMINAL);
+        const session = terminal.getActiveInstance()?.session as FakeTerminalSurface;
+
+        session.emitExit(0);
+
+        expect(terminal.hasOpenTerminals).toBe(false);
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
+        // Toggle снова поднимает панель с новым шеллом.
+        h.commands.execute(TOGGLE_TERMINAL);
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
+        expect(terminal.hasOpenTerminals).toBe(true);
+    });
+
+    it("Toggle Terminal after the shell exited spawns a new one instead of hiding the panel (hideOnLastClosed off)", () => {
+        h.dispose();
+        h = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            configurationService: createTestConfigurationService({ "terminal.integrated.hideOnLastClosed": false }),
+        });
+        terminal = h.container.get(TerminalServiceDIToken);
         h.commands.execute(TOGGLE_TERMINAL);
         const session = terminal.getActiveInstance()?.session as FakeTerminalSurface;
 
@@ -114,10 +135,8 @@ describe("Workbench — integrated terminal", () => {
         panel().onActivateView?.(TERMINAL_VIEW_ID);
 
         expect(terminal.hasOpenTerminals).toBe(true);
-        expect(
-            panel()
-                .getChildren()
-                .filter((c) => !c.hidden),
-        ).toHaveLength(1);
+        // Видимый контент вкладки — ровно один терминал (рядом в таб-строке
+        // живут только её кнопки: «+» и Kill).
+        expect(panel().querySelectorAll("TerminalViewElement")).toHaveLength(1);
     });
 });

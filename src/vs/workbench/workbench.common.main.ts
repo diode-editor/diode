@@ -466,6 +466,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     ExplorerComponentDIToken,
     ScmInputComponentDIToken,
     TerminalServiceDIToken,
+    TerminalPanelComponentDIToken,
     TabSwitcherComponentDIToken,
     // «У документа есть провайдер такой-то фичи» — видимость пунктов контекст-меню.
     LanguageFeatureContextKeysDIToken,
