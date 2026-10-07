@@ -23,14 +23,15 @@ const PLUS_ICON = "";
 const TRASH_ICON = "";
 
 /**
- * Показать вкладку TERMINAL (эталон `terminalGroupService.showPanel(focus)`):
- * панель видима, вкладка активна; `focus` — фокус в активный терминал.
- * Контекст-ключи освежает сама смена фокуса (`WorkbenchContextKeys`).
+ * Показать вкладку TERMINAL с фокусом в активном терминале (эталон
+ * `terminalGroupService.showPanel(true)`; кому фокус нужен в другом месте —
+ * список вкладок, — переставляет его следом). Контекст-ключи освежает сама
+ * смена фокуса (`WorkbenchContextKeys`).
  */
-function showPanel(accessor: ServiceAccessor, focus: boolean): void {
+function showPanel(accessor: ServiceAccessor): void {
     accessor.get(PanelServiceDIToken).setActiveView(TERMINAL_VIEW_ID);
     accessor.get(LayoutServiceDIToken).setPanelVisible(true);
-    if (focus) accessor.get(TerminalServiceDIToken).focusActive();
+    accessor.get(TerminalServiceDIToken).focusActive();
 }
 
 /**
@@ -114,7 +115,7 @@ export const focusTerminalAction: CommandAction = {
     id: "workbench.action.terminal.focus",
     title: "Terminal: Focus Terminal",
     run(accessor) {
-        showPanel(accessor, false);
+        showPanel(accessor);
         accessor.get(TerminalServiceDIToken).openTerminal();
     },
 };
@@ -133,7 +134,7 @@ export const focusTabsAction: CommandAction = {
     when: "terminalTabsFocus || terminalFocus",
     weight: KeybindingWeight.WorkbenchContrib,
     run(accessor) {
-        showPanel(accessor, false);
+        showPanel(accessor);
         accessor.get(TerminalPanelComponentDIToken).focusTabs();
     },
 };
@@ -148,7 +149,7 @@ export const focusNextTerminalAction: CommandAction = {
     weight: KeybindingWeight.WorkbenchContrib,
     run(accessor) {
         accessor.get(TerminalServiceDIToken).setActiveToNext();
-        showPanel(accessor, true);
+        showPanel(accessor);
     },
 };
 
@@ -160,7 +161,7 @@ export const focusPreviousTerminalAction: CommandAction = {
     weight: KeybindingWeight.WorkbenchContrib,
     run(accessor) {
         accessor.get(TerminalServiceDIToken).setActiveToPrevious();
-        showPanel(accessor, true);
+        showPanel(accessor);
     },
 };
 
@@ -168,7 +169,7 @@ export const focusPreviousTerminalAction: CommandAction = {
 function killInstance(accessor: ServiceAccessor, id: number | undefined): void {
     const terminal = accessor.get(TerminalServiceDIToken);
     terminal.closeInstance(id);
-    if (terminal.hasOpenTerminals) showPanel(accessor, true);
+    if (terminal.hasOpenTerminals) showPanel(accessor);
     refreshContextKeys(accessor);
 }
 
@@ -249,7 +250,7 @@ export const switchTerminalAction: CommandAction = {
         const index = terminal.getInstances().findIndex((instance, i) => terminalIndexedLabel(i, instance) === label);
         if (index < 0) return;
         terminal.setActiveInstanceByIndex(index);
-        showPanel(accessor, true);
+        showPanel(accessor);
     },
 };
 
@@ -277,7 +278,7 @@ async function pickTerminal(accessor: ServiceAccessor): Promise<void> {
         return;
     }
     terminal.setActiveInstance(instances[index].id);
-    showPanel(accessor, true);
+    showPanel(accessor);
 }
 
 export const quickOpenTermAction: CommandAction = {

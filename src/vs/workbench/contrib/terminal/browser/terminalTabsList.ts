@@ -85,7 +85,8 @@ export class TerminalTabsList {
         for (const instance of instances) {
             const row = new TextLabelElement(` ${terminalTabLabel(instance)}`);
             row.id = terminalTabRowId(instance.id);
-            this.list.appendRow(row, { label: instance.title });
+            // Без `label`: он нужен только typeahead'у, а тот выключен.
+            this.list.appendRow(row);
         }
         // Курсор — на активном; терминалов нет — и строки нет (setCursorTo бросает на неизвестной).
         if (activeId !== null) this.list.setCursorTo(terminalTabRowId(activeId));

@@ -47,9 +47,7 @@ export class TerminalTabbedViewElement extends TUIElement {
     }
 
     public setLocation(location: TerminalTabsLocation): void {
-        const left = location === "left";
-        if (this.tabsOnLeft === left) return;
-        this.tabsOnLeft = left;
+        this.tabsOnLeft = location === "left";
         this.markDirty();
     }
 
@@ -81,6 +79,7 @@ export class TerminalTabbedViewElement extends TUIElement {
         const column = this.tabsOnLeft ? this.tabsColumns(width) : width - this.tabsColumns(width) - 1;
         const fg = this.styleVar("panel.border");
         const bg = this.resolvedStyle.bg;
+        // Stryker disable next-line EqualityOperator: лишняя строка за нижним краем отсекается клипом контекста
         for (let y = 0; y < this.layoutSize.height; y++) {
             context.setCell(column, y, { char: DIVIDER, fg, bg, width: 1 });
         }
