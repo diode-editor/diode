@@ -16,6 +16,11 @@ export type ConfigurationScope =
     | "application"
     /** User или настройки машины, но не воркспейс: свойство окружения, а не проекта. */
     | "machine"
+    /**
+     * Свойство машины, которое проекту всё же разрешено переопределить (путь к
+     * JDK у redhat.java). Объявляют только расширения; в воркспейс ложится.
+     */
+    | "machine-overridable"
     /** User или воркспейс, но не отдельная папка: одно значение на окно. */
     | "window"
     /** Вплоть до папки: у каждой папки воркспейса может быть своё значение. */
@@ -93,15 +98,23 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const SCOPES: readonly ConfigurationScope[] = ["application", "machine", "window", "resource", "language-overridable"];
+const SCOPES: readonly ConfigurationScope[] = [
+    "application",
+    "machine",
+    "machine-overridable",
+    "window",
+    "resource",
+    "language-overridable",
+];
 
 /**
  * Область ключа расширения: как `parseScope` vscode — без поля `WINDOW`;
- * `machine-overridable` у нас приравнен к `machine` (машинного слоя нет), а
- * незнакомое значение — к `window`.
+ * `application-machine` у нас приравнен к `application` (для слоя воркспейса
+ * они равны: оба только в user-настройках), а незнакомое значение — к `window`.
  */
 function parseExtensionScope(scope: unknown): ConfigurationScope {
-    if (scope === "machine-overridable") return "machine";
+    // `application-machine` эталона — тот же `APPLICATION_SCOPES`: только user-настройки.
+    if (scope === "application-machine") return "application";
     return SCOPES.find((s) => s === scope) ?? "window";
 }
 
@@ -175,6 +188,17 @@ export class ConfigurationRegistry {
     /** Ключи настроек расширений с владельцем и областью. */
     public getExtensionConfigurationProperties(): ReadonlyMap<string, IExtensionConfigurationProperty> {
         return this.extensionProperties;
+    }
+
+    /**
+     * `scope` каждого зарегистрированного ключа — ядра и расширений. По нему слой
+     * воркспейса решает, какие ключи из `.diode/settings.json` действуют.
+     */
+    public getConfigurationScopes(): ReadonlyMap<string, ConfigurationScope> {
+        const scopes = new Map<string, ConfigurationScope>();
+        for (const [key, schema] of this.properties) scopes.set(key, schema.scope);
+        for (const [key, property] of this.extensionProperties) scopes.set(key, property.scope);
+        return scopes;
     }
 
     /** Схемы ключей ядра (по полному dotted-ключу); по ним идёт валидация значений. */

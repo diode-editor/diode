@@ -94,7 +94,10 @@ describe("ConfigurationRegistry — настройки расширений", ()
         [undefined, "window"],
         ["application", "application"],
         ["machine", "machine"],
-        ["machine-overridable", "machine"],
+        // Проекту разрешено переопределить — слой воркспейса его не отбрасывает.
+        ["machine-overridable", "machine-overridable"],
+        // Для слоя воркспейса `application-machine` ≡ `application`: только user-настройки.
+        ["application-machine", "application"],
         ["language-overridable", "language-overridable"],
         ["somethingNew", "window"],
     ])("scope %s → %s", (scope, expected) => {
@@ -186,5 +189,30 @@ describe("ConfigurationRegistry — секции языков в переопр�
         registry.registerDefaultConfigurations({ "[go]": 1 });
 
         expect(registry.getDefaultConfiguration()).toEqual({ "[go]": 1 });
+    });
+});
+
+describe("ConfigurationRegistry — scope всех ключей", () => {
+    it("getConfigurationScopes: ядро и расширения одной картой", () => {
+        const registry = new ConfigurationRegistry([
+            {
+                id: "t",
+                properties: {
+                    "terminal.tier": { scope: "machine", type: "string", default: "auto" },
+                    "editor.tabSize": { scope: "language-overridable", type: "number", default: 4 },
+                },
+            },
+        ]);
+        registry.registerExtensionConfiguration("acme.java", {
+            "java.home": { scope: "machine-overridable" },
+            "java.trace": {},
+        });
+
+        expect(Object.fromEntries(registry.getConfigurationScopes())).toEqual({
+            "terminal.tier": "machine",
+            "editor.tabSize": "language-overridable",
+            "java.home": "machine-overridable",
+            "java.trace": "window",
+        });
     });
 });

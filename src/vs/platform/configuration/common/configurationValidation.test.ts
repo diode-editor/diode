@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { ConfigurationModel } from "./configurationModel.ts";
 import type { IConfigurationPropertySchema } from "./configurationRegistry.ts";
+import type { ConfigurationScope } from "./configurationRegistry.ts";
 import { ConfigurationRegistry } from "./configurationRegistry.ts";
-import { isValidConfigurationValue, sanitizeConfiguration } from "./configurationValidation.ts";
+import {
+    filterWorkspaceSettings,
+    isValidConfigurationValue,
+    sanitizeConfiguration,
+} from "./configurationValidation.ts";
 import { InMemoryConfigurationService } from "./inMemoryConfigurationService.ts";
 
 function schema(overrides: Partial<IConfigurationPropertySchema>): IConfigurationPropertySchema {
@@ -99,5 +104,50 @@ describe("сервис в памяти отдаёт значения, проше
 
         expect(service.get("editor.inlineSuggest.delay")).toBe(50);
         expect(service.inspect("editor.inlineSuggest.delay").user).toBe(-5);
+    });
+});
+
+describe("filterWorkspaceSettings", () => {
+    const scopes = new Map<string, ConfigurationScope>([
+        ["terminal.tier", "machine"],
+        ["terminal.modes", "machine"],
+        ["terminal.customModes", "window"],
+        ["update.mode", "application"],
+        ["editor.tabSize", "language-overridable"],
+        ["java.home", "machine-overridable"],
+    ]);
+
+    it("ничего не отброшено — та же модель", () => {
+        const model = ConfigurationModel.fromRaw({ "editor.tabSize": 2, "x.y": 1 });
+        const result = filterWorkspaceSettings(model, scopes);
+        expect(result.model).toBe(model);
+        expect(result.excludedKeys).toEqual([]);
+    });
+
+    it("отбрасывает application/machine — без пустых предков; соседи по секции остаются", () => {
+        const model = ConfigurationModel.fromRaw({
+            "terminal.tier": "kitty",
+            "terminal.customModes": { a: 1 },
+            "update.mode": "none",
+            "java.home": "/jdk",
+            "[go]": { "terminal.modes": [], "editor.tabSize": 8 },
+        });
+
+        const result = filterWorkspaceSettings(model, scopes);
+
+        expect(result.model.toRaw()).toEqual({
+            terminal: { customModes: { a: 1 } },
+            java: { home: "/jdk" },
+            "[go]": { editor: { tabSize: 8 } },
+        });
+        expect([...result.excludedKeys].sort()).toEqual(["[go].terminal.modes", "terminal.tier", "update.mode"]);
+        // Исходная модель не тронута.
+        expect(model.get("terminal.tier")).toBe("kitty");
+    });
+
+    it("секция языка, где были только отброшенные ключи, остаётся пустой секцией", () => {
+        const result = filterWorkspaceSettings(ConfigurationModel.fromRaw({ "[go]": { "update.mode": "x" } }), scopes);
+        expect(result.model.getOverride("go").get("update.mode")).toBeUndefined();
+        expect(result.excludedKeys).toEqual(["[go].update.mode"]);
     });
 });

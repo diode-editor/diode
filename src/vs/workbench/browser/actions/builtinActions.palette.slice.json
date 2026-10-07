@@ -18,6 +18,8 @@
     "explorer.newFile",
     "explorer.newFolder",
     "workbench.action.openSettings",
+    "workbench.action.openWorkspaceSettings",
+    "workbench.action.openWorkspaceSettingsFile",
     "workbench.action.openGlobalKeybindings",
     "workbench.action.openGlobalKeybindingsFile",
     "diode.keyboardDoctor",

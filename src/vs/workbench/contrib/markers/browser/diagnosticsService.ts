@@ -3,8 +3,12 @@ import * as path from "node:path";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { isOverrideKey } from "../../../../platform/configuration/common/configurationModel.ts";
-import type { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
+import type {
+    ConfigurationRegistry,
+    ConfigurationScope,
+} from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { ConfigurationRegistryDIToken } from "../../../../platform/configuration/common/configurationRegistryDIToken.ts";
+import { workspaceSettingsPath } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import {
     type IEnvironmentService,
     IEnvironmentServiceDIToken,
@@ -13,10 +17,21 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
 import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
-import { collectKnownSettingKeys, validateSettingsJson } from "../../preferences/common/settingsDiagnostics.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import {
+    collectKnownSettingKeys,
+    validateSettingsJson,
+    workspaceUnsupportedSettingMessage,
+} from "../../preferences/common/settingsDiagnostics.ts";
 
 /** Marker owner used by the built-in settings.json validator. */
 const SETTINGS_OWNER = "settings";
+
+/** Окно без папок — для юнитов, которым файл воркспейса не нужен. */
+const NO_WORKSPACE: Pick<IWorkspaceContextService, "getWorkspace"> = {
+    getWorkspace: () => ({ id: null, folders: [] }),
+};
 
 /**
  * Минимальный срез открытого редактора, нужный диагностикам: ресурс, текст,
@@ -60,11 +75,14 @@ export class DiagnosticsService extends Disposable {
         MarkerServiceDIToken,
         IEnvironmentServiceDIToken,
         ConfigurationRegistryDIToken,
+        IWorkspaceContextServiceDIToken,
     ] as const;
 
     private editorSource: IDiagnosticsEditorSource;
     private markerService: MarkerService;
     private knownSettingKeys: Set<string>;
+    /** `scope` ключей ядра и расширений — какие ключи не действуют в settings.json воркспейса. */
+    private settingScopes: ReadonlyMap<string, ConfigurationScope>;
     /**
      * Ресурс настроек, который валидируем.
      *
@@ -80,6 +98,7 @@ export class DiagnosticsService extends Disposable {
         markerService: MarkerService,
         environment: Pick<IEnvironmentService, "settingsResource">,
         configurationRegistry: ConfigurationRegistry,
+        private readonly workspace: Pick<IWorkspaceContextService, "getWorkspace"> = NO_WORKSPACE,
     ) {
         super();
         this.editorSource = editorSource;
@@ -92,6 +111,7 @@ export class DiagnosticsService extends Disposable {
         for (const key of configurationRegistry.getExtensionConfigurationProperties().keys()) {
             this.knownSettingKeys.add(key);
         }
+        this.settingScopes = configurationRegistry.getConfigurationScopes();
 
         this.register(
             this.editorSource.onActiveEditorChanged((editor) => {
@@ -127,18 +147,30 @@ export class DiagnosticsService extends Disposable {
      */
     private validate(editor: IDiagnosticsEditor | null): void {
         if (editor === null) return;
-        // Валидируем только settings.json активного профиля — сверяем ресурс целиком,
-        // а не basename, чтобы чужой settings.json (например, самого VS Code или
-        // workspace-ный .vscode/settings.json) остался нетронутым.
-        const resource = editor.uri;
-        if (resource.toString() !== this.settingsResource.toString()) return;
+        // Валидируем только settings.json активного профиля и `.diode/settings.json`
+        // открытой папки — сверяем ресурс целиком, а не basename, чтобы чужой
+        // settings.json (например, самого VS Code или `.vscode/settings.json`
+        // проекта) остался нетронутым.
+        const resource = editor.uri.toString();
+        const isUserSettings = resource === this.settingsResource.toString();
+        if (!isUserSettings && !this.isWorkspaceSettings(resource)) return;
 
         // Секции языков (`"[python]": { … }`) — тоже известные ключи верхнего уровня.
         const markers = validateSettingsJson(
             editor.getText(),
             (key) => this.knownSettingKeys.has(key) || isOverrideKey(key),
+            // В файле воркспейса ключи `application`/`machine` не действуют —
+            // подсказка с объяснением, как у эталона.
+            isUserSettings ? undefined : (key) => workspaceUnsupportedSettingMessage(this.settingScopes.get(key)),
         );
-        this.markerService.changeOne(SETTINGS_OWNER, resource.toString(), markers);
+        this.markerService.changeOne(SETTINGS_OWNER, resource, markers);
+    }
+
+    /** `resource` — settings.json воркспейса одной из открытых папок. */
+    private isWorkspaceSettings(resource: string): boolean {
+        return this.workspace
+            .getWorkspace()
+            .folders.some((folder) => Uri.file(workspaceSettingsPath(folder.uri.fsPath)).toString() === resource);
     }
 
     /** Pushes the current markers for each changed resource to its open editor(s). */

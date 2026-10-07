@@ -54,6 +54,7 @@ import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
 import { FileSink } from "../platform/log/node/fileSink.ts";
 import { loadState } from "../platform/state/node/stateService.ts";
+import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
@@ -259,11 +260,14 @@ async function runEditor(): Promise<void> {
                 : curatedConfigInjection(ext.id),
         extensionsLogger,
     ).apply();
+    // Папка воркспейса — уже здесь: `.diode/settings.json` проекта (тема,
+    // `editor.*`) обязан действовать с первого кадра, а не после него.
     const configurationService = await loadConfiguration(
         userDataPaths,
         configurationLogger,
         settingsWatcher,
         configurationRegistry,
+        targets.folder,
     );
     mark("main:config-loaded");
     const userKeybindings = await loadUserKeybindings(userDataPaths.keybindingsFile, configurationLogger);
@@ -392,6 +396,17 @@ async function runEditor(): Promise<void> {
     // окно читает его на старте, то есть заведомо раньше, чем сработал бы
     // `process.on("exit")`.
     const lifecycle = container.get(LifecycleServiceDIToken);
+
+    // Слой настроек воркспейса следует за папками окна (Open Folder): источник
+    // правды о папках — IWorkspaceContextService, сервис настроек о нём не знает
+    // (platform/configuration ниже по смыслу, чем набор папок окна). Бутстрапная
+    // папка уже прочитана выше — повторная установка той же папки сервисом no-op.
+    const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
+    workspaceContext.onDidChangeWorkspaceFolders(() => {
+        void configurationService.setWorkspaceFolders(
+            workspaceContext.getWorkspace().folders.map((folder) => folder.uri.fsPath),
+        );
+    });
     lifecycle.onShutdownSync(() => {
         stateService.flushSync();
     });

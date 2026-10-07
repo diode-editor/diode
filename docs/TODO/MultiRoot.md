@@ -121,11 +121,10 @@
 Это самое важное в исследовании: три вещи отсутствуют как класс, и мульти-рут
 без них не строится.
 
-1. **Слой workspace-конфигурации.** `ConfigurationService` знает ровно три
-   слоя: defaults → `User/settings.json` → профиль. `.vscode/settings.json`
-   **не читается вообще** — ни папочный, ни проектный. `inspect()` честно
-   отдаёт `workspaceValue: undefined` в API расширений. То есть до мульти-рута
-   (M5) надо сперва сделать однопапочный workspace-слой, которого нет.
+1. **Слой workspace-конфигурации** — *сделан однопапочным* (этап B ниже):
+   `<папка>/.diode/settings.json` поверх профиля, `inspect().workspaceValue`
+   честный. Для мульти-рута остаются слой `.code-workspace` и слои папок
+   (`workspaceFolderValue`), этапы D–E.
 2. **`scope` у ключей настроек (M6).** `IConfigurationPropertySchema` — это
    `{ type, default, description?, enum? }`. Поля `scope` нет, значит нет
    ответа на вопрос «этот ключ вообще можно переопределять на уровне папки».
@@ -151,7 +150,7 @@ e2e-сценарий на каждую видимую часть) в оценк�
 | Этап | Содержание | Размер | Зависит от |
 |---|---|---|---|
 | **A. Ядро идентичности** | `platform/workspace/common/`: `IWorkspaceContextService` (M1), `IWorkspace { id, folders }`, `WorkbenchState`, `getWorkspaceFolder(uri)`, событие изменения. Перевод 10 потребителей с `ExplorerService.getRootPath()`. Идентичность (M8) вместо `sha256(путь)` в state и `storageUri` | средний | — |
-| **B. Однопапочный workspace-слой конфигурации** | `<folder>/.vscode/settings.json` как слой между user и профилем; `scope` у ключей (M6); `inspect().workspaceValue`; live-reload файла; `ConfigurationTarget` при записи | **крупный** | A |
+| **B. Однопапочный workspace-слой конфигурации** — **сделан** | `<folder>/.diode/settings.json` (свой каталог, не `.vscode`) как слой поверх профиля, как у эталона; фильтр по `scope` (M6) ядра и расширений; `inspect().workspaceValue`; live-reload файла; `updateValue(…, "workspace")`. Устройство — [arch/Configuration.md](../arch/Configuration.md#слой-воркспейса-diodesettingsjson). Задел под D/E: `ConfigurationService.setWorkspaceFolders(folders)` принимает список | **крупный** | A |
 | **C. Explorer + поиск + индекс на N корней** | лес корней в дереве (M2), reveal/relative-пути, N обходов индекса, N процессов rg, группировка результатов (M3) | средний | A |
 | **D. Папочный слой конфигурации** | per-folder merged-модель, `getConfiguration(section, scope)` со скоупом, `workspaceFolderValue`, фильтр по `scope` ключа | средний | B |
 | **E. `.code-workspace`** | формат и парсер (M7), относительные пути, untitled-воркспейсы, CLI (M10), команды Add/Remove/Save As/Open (M9), `workspace.workspaceFile` | средний | A, B |
@@ -195,9 +194,9 @@ e2e-сценарий на каждую видимую часть) в оценк�
 `workspaceContains:`, `workspace.fs`. Менять формат RPC не надо.
 
 **Дорого №1 — конфигурация.** `getConfiguration(section, _scope)` сегодня
-принимает scope и **молча его игнорирует**; `inspect()` возвращает
-`workspaceValue: undefined` и `workspaceFolderValue: undefined` константами;
-`update()` не поддержан вовсе (показывает предупреждение). Чтобы это стало
+принимает scope и **молча его игнорирует** (кроме языка); `inspect()` возвращает
+`workspaceFolderValue: undefined` константой (`workspaceValue` уже честный —
+однопапочный слой `.diode/settings.json`); `update()` не поддержан вовсе (показывает предупреждение). Чтобы это стало
 правдой, нужен push per-folder снапшотов в субпроцесс (сейчас едет один общий
 снапшот) — то есть меняется модель `configStore` на стороне расширений.
 

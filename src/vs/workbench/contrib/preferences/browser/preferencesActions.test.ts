@@ -18,6 +18,7 @@ import {
     KeybindingRegistryDIToken,
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import type { IKeybindingsEditorService } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
@@ -25,7 +26,13 @@ import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/co
 import type { KeybindingRecorderComponent } from "./keybindingRecorderComponent.ts";
 import { KeybindingRecorderComponentDIToken } from "./keybindingRecorderComponent.ts";
 import { KeybindingsEditorTargetDIToken } from "./keybindingsEditorPane.ts";
-import { openKeybindingsAction, openKeybindingsFileAction, openSettingsAction } from "./preferencesActions.ts";
+import {
+    openKeybindingsAction,
+    openKeybindingsFileAction,
+    openSettingsAction,
+    openWorkspaceSettingsAction,
+    openWorkspaceSettingsFileAction,
+} from "./preferencesActions.ts";
 
 describe("PreferencesActions", () => {
     it("declares VS Code-compatible ids, titles and default bindings", () => {
@@ -38,6 +45,27 @@ describe("PreferencesActions", () => {
         // JSON — запасной ход без дефолтной клавиши, как в VS Code.
         expect(openKeybindingsFileAction.keybinding).toBeUndefined();
         expect(openKeybindingsFileAction.keybindings).toBeUndefined();
+    });
+
+    it("команды воркспейса: id и заголовки эталона, в палитре только с открытой папкой", () => {
+        expect(openWorkspaceSettingsAction.id).toBe("workbench.action.openWorkspaceSettings");
+        expect(openWorkspaceSettingsAction.title).toBe("Preferences: Open Workspace Settings");
+        expect(openWorkspaceSettingsFileAction.id).toBe("workbench.action.openWorkspaceSettingsFile");
+        expect(openWorkspaceSettingsFileAction.title).toBe("Preferences: Open Workspace Settings (JSON)");
+        expect(openWorkspaceSettingsAction.enablement).toBe("workbenchState != 'empty'");
+        expect(openWorkspaceSettingsFileAction.enablement).toBe("workbenchState != 'empty'");
+    });
+
+    it("вызов в обход гейта без папки — тихий no-op, файлов и вкладок нет", async () => {
+        const container = new Container();
+        container.bind(IWorkspaceContextServiceDIToken, () => ({
+            getWorkspace: () => ({ id: null, folders: [] }),
+            getWorkbenchState: () => "empty" as const,
+            getWorkspaceFolder: () => null,
+            onDidChangeWorkspaceFolders: () => ({ dispose: () => undefined }),
+        }));
+        // Ни файлового сервиса, ни команд в контейнере нет: дошёл бы до них — бросил бы.
+        await expect(openWorkspaceSettingsFileAction.run(container)).resolves.toBeUndefined();
     });
 
     it("registers each command with its title and default keybinding", () => {

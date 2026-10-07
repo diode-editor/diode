@@ -3,8 +3,9 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 /**
  * Сервис настроек приложения. Аналог `IConfigurationService` из VS Code,
  * урезанный до набора, который реально нужен: чтение значений по слоям
- * (defaults реестра → user → profile), запись в settings.json активного
- * профиля и событие изменения (live-reload файла и собственные записи).
+ * (defaults реестра → user → profile → workspace), запись в settings.json
+ * активного профиля или воркспейса и событие изменения (live-reload файлов и
+ * собственные записи).
  *
  * Реализации: `ConfigurationService` (node, файлы на диске) и
  * `InMemoryConfigurationService` (тестовый профиль и юниты — те же дефолты
@@ -48,9 +49,9 @@ export interface IConfigurationService {
     getConfigurationData(): IConfigurationData;
 
     /**
-     * Покомпонентный inspect — полезно для отладки/UI «User vs Default vs Profile».
-     * Любое из полей `default/user/profile` может быть `undefined`,
-     * если в соответствующем слое ключ не задан. `value` — итоговое
+     * Покомпонентный inspect — полезно для отладки/UI «User vs Default vs Profile
+     * vs Workspace». Любое из полей `default/user/profile/workspace` может быть
+     * `undefined`, если в соответствующем слое ключ не задан. `value` — итоговое
      * значение (то же, что вернёт `get(key)`).
      */
     inspect<T>(key: string, overrides?: IConfigurationOverrides): IConfigurationInspectResult<T>;
@@ -63,14 +64,28 @@ export interface IConfigurationService {
     onDidChangeConfiguration(listener: (event: IConfigurationChangeEvent) => void): IDisposable;
 
     /**
-     * Записывает значение в настройки активного профиля (аналог `updateValue`
-     * VS Code с неявной целью `ConfigurationTarget.USER`) и обновляет модель,
-     * чтобы последующие `get`/`inspect` сразу видели новое значение. У файловой
-     * реализации — JSONC-правка settings.json с сохранением комментариев и
-     * форматирования (`jsonc-parser.modify`).
+     * Записывает значение в настройки цели (аналог `updateValue` VS Code):
+     * `"user"` (по умолчанию) — settings.json активного профиля, `"workspace"` —
+     * `.diode/settings.json` открытой папки. Модель обновляется сразу, чтобы
+     * последующие `get`/`inspect` видели новое значение, и уходит то же событие
+     * изменения, что при live-reload. `value: undefined` снимает ключ. У файловой
+     * реализации — JSONC-правка с сохранением комментариев и форматирования
+     * (`jsonc-parser.modify`); записи сериализуются, параллельные вызовы не
+     * теряют друг друга.
+     *
+     * Отказы (rejected promise, формулировки эталона): цель `"workspace"` без
+     * открытой папки; ключ со `scope` `application`/`machine` в воркспейс —
+     * такие ключи туда не ложатся и при чтении (см. `filterWorkspaceSettings`).
      */
-    updateValue(key: string, value: unknown): Promise<void>;
+    updateValue(key: string, value: unknown, target?: ConfigurationTarget): Promise<void>;
 }
+
+/**
+ * Куда пишет {@link IConfigurationService.updateValue} (подмножество
+ * `ConfigurationTarget` VS Code: `USER` и `WORKSPACE`; `WORKSPACE_FOLDER`
+ * появится вместе с мульти-рутом — `docs/TODO/MultiRoot.md`, этап D).
+ */
+export type ConfigurationTarget = "user" | "workspace";
 
 /**
  * Типы ключей настроек приложения по их схемам. В platform — пусто: слой не
@@ -88,6 +103,11 @@ export interface IConfigurationData {
     readonly defaults: Readonly<Record<string, unknown>>;
     /** Пользовательские настройки активного профиля (user, поверх него — profile). */
     readonly user: Readonly<Record<string, unknown>>;
+    /**
+     * Настройки воркспейса (`<папка>/.diode/settings.json`, уже без ключей, чей
+     * `scope` воркспейсу не положен). Пустое дерево, если папка не открыта.
+     */
+    readonly workspace: Readonly<Record<string, unknown>>;
 }
 
 export interface IConfigurationInspectResult<T> {
@@ -97,6 +117,8 @@ export interface IConfigurationInspectResult<T> {
     readonly user: T | undefined;
     /** Значение из активного профиля (если он не default). */
     readonly profile: T | undefined;
+    /** Значение из `.diode/settings.json` открытой папки. */
+    readonly workspace: T | undefined;
     /** Итоговое значение после слияния слоёв. */
     readonly value: T | undefined;
 }

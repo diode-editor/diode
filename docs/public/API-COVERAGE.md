@@ -82,7 +82,7 @@ notebook-поверхность — нет.
 | `textDocuments`, `openTextDocument` | ✅ | включая `{ encoding }` — реальное декодирование не-utf8 |
 | `onDidOpen/onDidClose/onDidChangeTextDocument` | ✅ | |
 | `onWillSaveTextDocument`, `onDidSaveTextDocument` | ✅ | композиция save-участников с `codeActionsOnSave`/`formatOnSave` |
-| `getConfiguration`, `onDidChangeConfiguration` | ✅ | |
+| `getConfiguration`, `onDidChangeConfiguration` | ✅ | слои default → user → workspace: настройки проекта — в `.diode/settings.json` открытой папки (у VS Code — `.vscode/settings.json`), `inspect().workspaceValue` честный; `workspaceFolderValue` — `undefined` до мульти-рута. `update()` пока не поддержан (предупреждение) |
 | `asRelativePath` | ✅ | |
 | `applyEdit` | 🟡 | настоящий bulk edit: текстовые правки по ОТКРЫТЫМ (через буфер, остаётся «грязным») и ЗАКРЫТЫМ (запись на диск) ресурсам плюс файловые операции `createFile`/`deleteFile`/`renameFile` с опциями `overwrite`/`ignoreIfExists`/`ignoreIfNotExists`, в порядке добавления; весь edit — ОДИН шаг отмены. All-or-nothing: read-only ресурс, нечитаемый файл, коллизия имени или пересекающиеся правки отбивают edit целиком (`false`). Отклонения: `recursive` у `deleteFile` игнорируется (удаление всегда рекурсивное — в корзину уходит всё дерево), `WorkspaceEditEntryMetadata` отбрасывается (preview-режима нет), `contents` в виде `DataTransferFile` игнорируется |
 | `createFileSystemWatcher` | ✅ | настоящие watcher'ы: `RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude` |

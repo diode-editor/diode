@@ -6,9 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { KeybindingsEditorPane } from "../contrib/preferences/browser/keybindingsEditorPane.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
+
+import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 describe("Workbench — Preferences commands", () => {
     let ws: ITempWorkspace;
@@ -88,6 +91,49 @@ describe("Workbench — Preferences commands", () => {
 
             expect(fs.readFileSync(settingsFile, "utf-8")).toBe('{ "editor.tabSize": 2 }\n');
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+        });
+    });
+
+    describe("settings.json воркспейса", () => {
+        it("openWorkspaceSettingsFile создаёт .diode/settings.json открытой папки заготовкой и открывает его", async () => {
+            ws = createTempWorkspace({ prefix: "diode-prefs-" });
+            h = createAppTestHarness({ workspaceFolder: ws.dir });
+            const file = ws.path(".diode/settings.json");
+
+            await h.commands.execute("workbench.action.openWorkspaceSettingsFile");
+
+            expect(fs.readFileSync(file, "utf-8")).toBe("{}\n");
+            expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(file));
+        });
+
+        it("openWorkspaceSettings открывает тот же JSON и не перетирает существующий файл", async () => {
+            ws = createTempWorkspace({
+                prefix: "diode-prefs-",
+                files: { ".diode/settings.json": '{ "editor.tabSize": 2 }\n' },
+            });
+            h = createAppTestHarness({ workspaceFolder: ws.dir });
+
+            await h.commands.execute("workbench.action.openWorkspaceSettings");
+
+            expect(fs.readFileSync(ws.path(".diode/settings.json"), "utf-8")).toBe('{ "editor.tabSize": 2 }\n');
+            expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(ws.path(".diode/settings.json")));
+        });
+
+        it("без папки команд воркспейса в палитре нет, а вызов по id файлов не создаёт", async () => {
+            ws = createTempWorkspace({ prefix: "diode-prefs-" });
+            h = createAppTestHarness({});
+            const contextKeys = h.container.get(ContextKeyServiceDIToken);
+            const titles = (): string[] => h.commands.listCommands().map((command) => command.title);
+            h.container.get(WorkbenchContextKeysDIToken).update();
+            const enabled = h.commands
+                .listCommands()
+                .filter((command) => command.id.startsWith("workbench.action.openWorkspaceSettings"))
+                .filter((command) => command.enablement === undefined || contextKeys.evaluate(command.enablement));
+            expect(enabled).toEqual([]);
+            expect(titles()).toContain("Preferences: Open Workspace Settings (JSON)");
+
+            await h.commands.execute("workbench.action.openWorkspaceSettingsFile");
+            expect(fs.readdirSync(ws.dir)).toEqual([]);
         });
     });
 

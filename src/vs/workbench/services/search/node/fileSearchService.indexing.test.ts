@@ -7,6 +7,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { createConfigurationChangeEvent } from "../../../../platform/configuration/common/configurationChangeEvent.ts";
 import type {
     IConfigurationChangeEvent,
+    IConfigurationData,
     IConfigurationInspectResult,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -28,7 +29,7 @@ class StubConfig implements IConfigurationService {
         return this.values;
     }
     public inspect<T>(): IConfigurationInspectResult<T> {
-        return { default: undefined, user: undefined, profile: undefined, value: undefined };
+        return { default: undefined, user: undefined, profile: undefined, workspace: undefined, value: undefined };
     }
     public onDidChangeConfiguration(listener: (event: IConfigurationChangeEvent) => void): { dispose: () => void } {
         this.listeners.push(listener);
@@ -38,8 +39,8 @@ class StubConfig implements IConfigurationService {
             },
         };
     }
-    public getConfigurationData(): { defaults: Record<string, unknown>; user: Record<string, unknown> } {
-        return { defaults: {}, user: this.values };
+    public getConfigurationData(): IConfigurationData {
+        return { defaults: {}, user: this.values, workspace: {} };
     }
     public updateValue(key: string, value: unknown): Promise<void> {
         this.set(key, value);

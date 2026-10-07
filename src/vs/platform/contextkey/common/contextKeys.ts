@@ -256,7 +256,8 @@ export interface ContextKeyTypes {
     // isWeb: boolean;
 
     // -- Workspace contexts --
-    // workbenchState: string;
+    /** `"empty"` | `"folder"` (у эталона ещё `"workspace"` — `.code-workspace`); как `workbenchState != 'empty'`. */
+    workbenchState: string;
     // workspaceFolderCount: number;
     // replaceActive: boolean;
 

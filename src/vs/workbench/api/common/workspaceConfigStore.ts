@@ -11,7 +11,9 @@ import { ConfigurationModel } from "../../../platform/configuration/common/confi
  * - `defaults` — дефолты из общего реестра: ядро, `contributes.configuration`
  *   всех расширений (в том числе ещё не активированных и декларативных) и их
  *   переопределения;
- * - `user` — пользовательские настройки активного профиля.
+ * - `user` — пользовательские настройки активного профиля;
+ * - `workspace` — `.diode/settings.json` открытой папки (хост уже отбросил
+ *   ключи, чей `scope` воркспейсу не положен); пустой, если папки нет.
  *
  * Слияние — та же {@link ConfigurationModel}, что в главном процессе (аналог
  * `ExtHostConfigProvider` vscode поверх `configurationModels.ts`): своего
@@ -26,23 +28,26 @@ export interface IConfigInspectResult {
     readonly key: string;
     readonly defaultValue: unknown;
     readonly globalValue: unknown;
+    readonly workspaceValue: unknown;
     readonly value: unknown;
 }
 
 export class WorkspaceConfigStore {
     private defaults = ConfigurationModel.EMPTY;
     private user = ConfigurationModel.EMPTY;
+    private workspace = ConfigurationModel.EMPTY;
     private merged = ConfigurationModel.EMPTY;
 
     /**
-     * Заменяет слои данными главного процесса (`{ defaults, user }` — деревья).
+     * Заменяет слои данными главного процесса (`{ defaults, user, workspace }` — деревья).
      * Всё, что не объект, трактуется как пустой слой.
      */
     public setData(data: unknown): void {
         const layers = isPlainObject(data) ? data : {};
         this.defaults = ConfigurationModel.fromRaw(layers.defaults);
         this.user = ConfigurationModel.fromRaw(layers.user);
-        this.merged = ConfigurationModel.merge(this.defaults, this.user);
+        this.workspace = ConfigurationModel.fromRaw(layers.workspace);
+        this.merged = ConfigurationModel.merge(this.defaults, this.user, this.workspace);
     }
 
     /** Значение по dotted-ключу (для языка `languageId`, если задан); `defaultValue`, если ключа нет. */
@@ -60,6 +65,7 @@ export class WorkspaceConfigStore {
             key: dottedKey,
             defaultValue: this.defaults.get(dottedKey),
             globalValue: this.user.get(dottedKey),
+            workspaceValue: this.workspace.get(dottedKey),
             value: this.model(languageId).get(dottedKey),
         };
     }

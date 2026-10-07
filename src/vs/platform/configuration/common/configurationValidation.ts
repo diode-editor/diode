@@ -1,5 +1,10 @@
 import { ConfigurationModel } from "./configurationModel.ts";
-import type { ConfigurationValueType, IConfigurationPropertySchema } from "./configurationRegistry.ts";
+import type {
+    ConfigurationScope,
+    ConfigurationValueType,
+    IConfigurationPropertySchema,
+} from "./configurationRegistry.ts";
+import { isWorkspaceScope } from "./workspaceSettings.ts";
 
 /**
  * Проходит ли значение схему ключа: `type` (один или любой из списка), `enum`,
@@ -89,4 +94,54 @@ function deletePath(tree: Record<string, unknown>, segments: readonly string[]):
     if (typeof child === "object" && child !== null && !Array.isArray(child)) {
         deletePath(child as Record<string, unknown>, rest);
     }
+}
+
+export interface IWorkspaceSettingsFilterResult {
+    /** Слой без ключей чужого скоупа — в основном дереве и в секциях языков. */
+    readonly model: ConfigurationModel;
+    /** Отброшенные ключи (dotted; в секции языка — с префиксом `[lang].`) — чтобы назвать их человеку в логе. */
+    readonly excludedKeys: readonly string[];
+}
+
+/**
+ * Слой воркспейса без ключей, чей `scope` воркспейсу не положен (как фильтр по
+ * `scopes` у `ConfigurationModelParser` эталона): `application`/`machine`-ключ в
+ * `.diode/settings.json` не действует — ни в основном дереве, ни в секции
+ * языка. Скоупы — ключей ядра и расширений
+ * (`ConfigurationRegistry.getConfigurationScopes`); ключ вне реестра идёт как есть.
+ */
+export function filterWorkspaceSettings(
+    model: ConfigurationModel,
+    scopes: ReadonlyMap<string, ConfigurationScope>,
+): IWorkspaceSettingsFilterResult {
+    const raw = structuredClone(model.toRaw());
+    const excludedKeys: string[] = [];
+    for (const [key, scope] of scopes) {
+        if (isWorkspaceScope(scope)) continue;
+        if (model.get(key) !== undefined) {
+            prunePath(raw, key.split("."));
+            excludedKeys.push(key);
+        }
+        for (const identifier of model.getOverrideIdentifiers()) {
+            if (model.getOverride(identifier).get(key) === undefined) continue;
+            prunePath(raw[`[${identifier}]`] as Record<string, unknown>, key.split("."));
+            excludedKeys.push(`[${identifier}].${key}`);
+        }
+    }
+    return { model: excludedKeys.length === 0 ? model : ConfigurationModel.fromRaw(raw), excludedKeys };
+}
+
+/**
+ * Удаляет ключ из дерева вместе с опустевшими предками: отброшенный
+ * `terminal.tier` не должен оставлять в слое `terminal: {}` — пустой объект
+ * перекрыл бы при слиянии ничего, но доехал бы до хоста как значение секции.
+ */
+function prunePath(tree: Record<string, unknown>, segments: readonly string[]): void {
+    const [head, ...rest] = segments;
+    if (rest.length > 0) {
+        const child = tree[head] as Record<string, unknown>;
+        prunePath(child, rest);
+        if (Object.keys(child).length > 0) return;
+    }
+    Reflect.deleteProperty(tree, head);
 }

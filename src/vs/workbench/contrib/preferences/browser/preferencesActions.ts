@@ -3,6 +3,7 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { workspaceSettingsPath } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { IEnvironmentServiceDIToken } from "../../../../platform/environment/common/environment.ts";
@@ -14,6 +15,7 @@ import {
     parseChord,
     parseKeybinding,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/common/iKeybindingsEditorService.ts";
 
@@ -51,6 +53,39 @@ export const openSettingsAction: CommandAction = {
     run(accessor) {
         return openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "{}\n");
     },
+};
+
+/**
+ * Открывает settings.json воркспейса — `.diode/settings.json` открытой папки
+ * (у эталона `.vscode/settings.json`). Как у эталона, файла может ещё не быть:
+ * он создаётся заготовкой. Без папки команды в палитре нет (`workbenchState`),
+ * а вызов по id ничего не делает.
+ */
+function openWorkspaceSettingsFile(accessor: ServiceAccessor): Promise<void> {
+    const folder = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0);
+    if (folder === undefined) return Promise.resolve();
+    return openUserConfigFile(accessor, workspaceSettingsPath(folder.uri.fsPath), "{}\n");
+}
+
+/**
+ * Open the workspace settings (VS Code `workbench.action.openWorkspaceSettings`).
+ * Diode has no settings UI, so — like {@link openSettingsAction} — the command
+ * opens the JSON file directly.
+ */
+export const openWorkspaceSettingsAction: CommandAction = {
+    id: "workbench.action.openWorkspaceSettings",
+    title: "Preferences: Open Workspace Settings",
+    // У эталона — `when: WorkbenchStateContext.notEqualsTo('empty')` пункта палитры.
+    enablement: "workbenchState != 'empty'",
+    run: openWorkspaceSettingsFile,
+};
+
+/** Open the workspace settings.json (VS Code `workbench.action.openWorkspaceSettingsFile`). */
+export const openWorkspaceSettingsFileAction: CommandAction = {
+    id: "workbench.action.openWorkspaceSettingsFile",
+    title: "Preferences: Open Workspace Settings (JSON)",
+    enablement: "workbenchState != 'empty'",
+    run: openWorkspaceSettingsFile,
 };
 
 /**
@@ -106,6 +141,8 @@ export const openKeybindingsFileAction: CommandAction = {
 /** Экшены настроек и вкладки Keyboard Shortcuts. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const PREFERENCES_ACTIONS: readonly CommandAction[] = [
     openSettingsAction,
+    openWorkspaceSettingsAction,
+    openWorkspaceSettingsFileAction,
     openKeybindingsAction,
     openKeybindingsFileAction,
 ];

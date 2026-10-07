@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 
-import { collectKnownSettingKeys, validateSettingsJson } from "./settingsDiagnostics.ts";
+import {
+    collectKnownSettingKeys,
+    validateSettingsJson,
+    workspaceUnsupportedSettingMessage,
+} from "./settingsDiagnostics.ts";
 
 const KNOWN = collectKnownSettingKeys({
     editor: { tabSize: 4, insertSpaces: true },
@@ -66,4 +70,49 @@ describe("validateSettingsJson", () => {
         expect(markers.map((m) => m.message)).toHaveLength(1);
         expect(markers[0].message).toContain("nope");
     });
+});
+
+describe("validateSettingsJson — ключи, не действующие в этом файле", () => {
+    it("известный ключ с причиной — подсказка (Hint) на ключе, неизвестный — прежнее предупреждение", () => {
+        const text = ["{", '    "editor.tabSize": 2,', '    "workbench.colorTheme": "x",', '    "nope": 1', "}"].join(
+            "\n",
+        );
+        const markers = validateSettingsJson(text, isKnown, (key) =>
+            key === "workbench.colorTheme" ? "not here" : null,
+        );
+
+        expect(markers.map((m) => [m.severity, m.message, m.code])).toEqual([
+            [MarkerSeverity.Hint, "not here", "unsupportedSetting"],
+            [MarkerSeverity.Warning, "Unknown Configuration Setting: nope", "unknownSetting"],
+        ]);
+        expect(markers[0].source).toBe("json");
+        expect(markers[0].range.start).toEqual({ line: 2, character: 4 });
+        expect(markers[0].range.end).toEqual({ line: 2, character: 26 });
+    });
+
+    it("без предиката причин — известные ключи молчат (user settings.json)", () => {
+        expect(validateSettingsJson(`{ "workbench.colorTheme": "x" }`, isKnown)).toEqual([]);
+    });
+});
+
+describe("workspaceUnsupportedSettingMessage — тексты эталона", () => {
+    it.each([
+        [
+            "application",
+            "This setting has an application scope and can only be set in the settings file from the Default profile.",
+        ],
+        [
+            "machine",
+            "This setting can only be applied in user settings in local window or in remote settings in remote window.",
+        ],
+    ] as const)("%s", (scope, message) => {
+        expect(workspaceUnsupportedSettingMessage(scope)).toBe(message);
+    });
+
+    it.each(["window", "resource", "language-overridable", "machine-overridable", undefined] as const)(
+        "%s — действует в воркспейсе",
+        (scope) => {
+            expect(workspaceUnsupportedSettingMessage(scope)).toBeNull();
+        },
+    );
 });
