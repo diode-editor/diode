@@ -25,11 +25,20 @@ const TRASH_ICON = "";
 /**
  * Показать вкладку TERMINAL (эталон `terminalGroupService.showPanel(focus)`):
  * панель видима, вкладка активна; `focus` — фокус в активный терминал.
+ * Контекст-ключи освежает сама смена фокуса (`WorkbenchContextKeys`).
  */
 function showPanel(accessor: ServiceAccessor, focus: boolean): void {
     accessor.get(PanelServiceDIToken).setActiveView(TERMINAL_VIEW_ID);
     accessor.get(LayoutServiceDIToken).setPanelVisible(true);
     if (focus) accessor.get(TerminalServiceDIToken).focusActive();
+}
+
+/**
+ * Число и наличие терминалов меняются без смены фокуса (фокус остался в
+ * редакторе или в списке вкладок) — ключи `terminalCount`/`terminalIsOpen`
+ * и кнопки заголовка освежаем явно.
+ */
+function refreshContextKeys(accessor: ServiceAccessor): void {
     accessor.get(WorkbenchContextKeysDIToken).update();
 }
 
@@ -105,10 +114,8 @@ export const focusTerminalAction: CommandAction = {
     id: "workbench.action.terminal.focus",
     title: "Terminal: Focus Terminal",
     run(accessor) {
-        accessor.get(PanelServiceDIToken).setActiveView(TERMINAL_VIEW_ID);
-        accessor.get(LayoutServiceDIToken).setPanelVisible(true);
+        showPanel(accessor, false);
         accessor.get(TerminalServiceDIToken).openTerminal();
-        accessor.get(WorkbenchContextKeysDIToken).update();
     },
 };
 
@@ -128,7 +135,6 @@ export const focusTabsAction: CommandAction = {
     run(accessor) {
         showPanel(accessor, false);
         accessor.get(TerminalPanelComponentDIToken).focusTabs();
-        accessor.get(WorkbenchContextKeysDIToken).update();
     },
 };
 
@@ -160,11 +166,10 @@ export const focusPreviousTerminalAction: CommandAction = {
 
 /** Убить инстанс; если терминалы остались — показать панель с фокусом (эталон `killInstance`). */
 function killInstance(accessor: ServiceAccessor, id: number | undefined): void {
-    if (id === undefined) return;
     const terminal = accessor.get(TerminalServiceDIToken);
     terminal.closeInstance(id);
     if (terminal.hasOpenTerminals) showPanel(accessor, true);
-    else accessor.get(WorkbenchContextKeysDIToken).update();
+    refreshContextKeys(accessor);
 }
 
 export const killTerminalAction: CommandAction = {
@@ -203,11 +208,10 @@ export const killActiveTabAction: CommandAction = {
     run(accessor, instanceId) {
         const component = accessor.get(TerminalPanelComponentDIToken);
         const id = typeof instanceId === "number" ? instanceId : component.tabs.getCursorInstanceId();
-        if (id === null) return;
-        const terminal = accessor.get(TerminalServiceDIToken);
-        terminal.closeInstance(id);
-        if (!component.focusTabs() && terminal.hasOpenTerminals) terminal.focusActive();
-        accessor.get(WorkbenchContextKeysDIToken).update();
+        accessor.get(TerminalServiceDIToken).closeInstance(id);
+        // Фокус — в список, пока он виден, иначе в терминал (эталон зовёт `focusTabs()`).
+        component.focusTabs();
+        refreshContextKeys(accessor);
     },
 };
 
@@ -217,7 +221,7 @@ export const killAllTerminalsAction: CommandAction = {
     run(accessor) {
         const terminal = accessor.get(TerminalServiceDIToken);
         for (const instance of [...terminal.getInstances()]) terminal.closeInstance(instance.id);
-        accessor.get(WorkbenchContextKeysDIToken).update();
+        refreshContextKeys(accessor);
     },
 };
 
@@ -239,9 +243,12 @@ export const switchTerminalAction: CommandAction = {
             await accessor.get(IConfigurationServiceDIToken).updateValue("terminal.integrated.tabs.enabled", true);
             return;
         }
-        const match = /^([0-9]+): /.exec(label);
-        if (match === null) return;
-        accessor.get(TerminalServiceDIToken).setActiveInstanceByIndex(Number(match[1]) - 1);
+        // Подпись `N: title` ищем среди текущих подписей, а не разбираем: так
+        // неизвестная строка (разделитель, протухший пункт) просто не находится.
+        const terminal = accessor.get(TerminalServiceDIToken);
+        const index = terminal.getInstances().findIndex((instance, i) => terminalIndexedLabel(i, instance) === label);
+        if (index < 0) return;
+        terminal.setActiveInstanceByIndex(index);
         showPanel(accessor, true);
     },
 };
@@ -260,7 +267,8 @@ async function pickTerminal(accessor: ServiceAccessor): Promise<void> {
     const picked = await accessor.get(QuickInputServiceDIToken).quickPick({
         placeholder: "Type the name of a terminal to open.",
         items,
-        activeIndex: active === null ? 0 : instances.indexOf(active),
+        // Нет активного — -1, пикер клампит его к первой строке.
+        activeIndex: instances.findIndex((instance) => instance === active),
     });
     if (picked === undefined) return;
     const index = items.indexOf(picked);

@@ -209,12 +209,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     /**
      * Убить инстанс (команды Kill): PTY закрывается, инстанс снимается со
      * списка. Активным становится сосед с тем же индексом, иначе последний —
-     * как `removeGroup` эталона. Неизвестный id — no-op.
+     * как `removeGroup` эталона. Неизвестный id (и `undefined` — «нечего
+     * убивать») — no-op.
      */
-    public closeInstance(id: number): void {
-        const instance = this.instances.find((i) => i.id === id);
-        if (instance === undefined) return;
-        this.removeInstance(instance);
+    public closeInstance(id: number | undefined): void {
+        this.removeInstance(this.instances.find((i) => i.id === id));
     }
 
     /** Сфокусировать активный терминал (если он есть). */
@@ -251,7 +250,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     private setActiveByOffset(offset: number): void {
         const count = this.instances.length;
-        if (count <= 1) return;
+        // При одном терминале «следующий» — он сам, и setActiveInstance это погасит.
+        if (count === 0) return;
         const current = this.instances.findIndex((i) => i.id === this.activeId);
         const next = this.instances[(current + offset + count) % count];
         this.setActiveInstance(next.id);
@@ -263,11 +263,10 @@ export class TerminalService extends Disposable implements IContextKeyContributo
      * (`terminal.integrated.hideOnLastClosed`), если вкладка TERMINAL сейчас
      * активна — у эталона `hidePanel` закрывает view, когда она одна в контейнере.
      */
-    private removeInstance(instance: TerminalInstanceRecord): void {
+    private removeInstance(instance: TerminalInstanceRecord | undefined): void {
+        // Неизвестный id у closeInstance — инстанса нет в списке.
+        if (instance === undefined) return;
         const index = this.instances.indexOf(instance);
-        /* v8 ignore start -- defensive re-entrancy guard: both removeInstance and dispose() drop the onExit subscription (via destroyInstance) as part of removing the instance, and a real session reports its exit asynchronously, so removeInstance is never re-entered for an instance already gone from the list */
-        if (index === -1) return; // уже снесён (dispose)
-        /* v8 ignore stop */
         const wasActive = this.activeId === instance.id;
         this.instances.splice(index, 1);
         this.destroyInstance(instance);

@@ -80,6 +80,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     public readonly tabs: TerminalTabsList;
     public readonly view: TerminalTabbedViewElement;
     /** Имя активного терминала в заголовке (эталон `SingleTerminalTabActionViewItem`). */
+    // Stryker disable next-line StringLiteral: текст ставит titleWidget до того, как метка попадает в заголовок
     private readonly activeTabLabel = new TextLabelElement("");
     /** Терминал, чьё имя сейчас нарисовано в {@link activeTabLabel} (цель клика). */
     private activeTabInstanceId = 0;
@@ -103,8 +104,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                     this.terminalService.focusActive();
                 }
             },
-            onDidActivateInstance: (id) => {
-                this.terminalService.setActiveInstance(id);
+            onDidActivateInstance: () => {
                 this.terminalService.focusActive();
             },
             onDidRequestContextMenu: (id, screenX, screenY) => {
@@ -165,7 +165,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 
     /** IContextKeyContributor: `terminalTabsFocus` — фокус в списке вкладок. */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
-        contextKeys.set("terminalTabsFocus", active !== null && active === this.tabs.list);
+        contextKeys.set("terminalTabsFocus", active === this.tabs.list);
     }
 
     /** Виден ли сейчас список вкладок (`_shouldShowTabs` эталона применён). */
@@ -174,13 +174,12 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     }
 
     /**
-     * Фокус в список вкладок (`focusTabs` эталона). Списка не видно — no-op:
-     * `false`, чтобы команда знала, что фокусировать нечего.
+     * Фокус в список вкладок (`focusTabs` эталона). Списка не видно — фокус в
+     * активный терминал: эталон перед этим зовёт `showPanel(true)`.
      */
-    public focusTabs(): boolean {
-        if (!this.view.isTabsVisible) return false;
-        this.tabs.list.focus();
-        return true;
+    public focusTabs(): void {
+        if (this.view.isTabsVisible) this.tabs.list.focus();
+        else this.terminalService.focusActive();
     }
 
     private handleOpen(instance: ITerminalInstance): void {
@@ -220,6 +219,10 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         if (!hadFocus) return;
         // Следующий терминал есть — фокус идёт в него; не осталось ни одного —
         // возвращаем его редактору, как VS Code при выходе последнего шелла.
+        this.focusActiveOrEditor();
+    }
+
+    private focusActiveOrEditor(): void {
         if (this.activeWidget !== null) this.activeWidget.focus();
         else this.focusFallback.focusEditor();
     }
@@ -237,9 +240,9 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         this.view.setLocation(this.configuration.get("terminal.integrated.tabs.location"));
         const showTabs = this.shouldShowTabs(instances.length);
         this.view.setTabsVisible(showTabs);
-        // Список, в котором стоял фокус, спрятали (остался один терминал) —
-        // фокус уходит в терминал, а не в никуда.
-        if (hadTabsFocus && !showTabs) this.activeWidget?.focus();
+        // Список, в котором стоял фокус, спрятали — фокус уходит в терминал, а
+        // если терминалов не осталось (Kill All из списка) — редактору.
+        if (hadTabsFocus && !showTabs) this.focusActiveOrEditor();
         this.viewsService.setViewTitleWidget(TERMINAL_VIEW_ID, this.titleWidget(instances, active));
     }
 

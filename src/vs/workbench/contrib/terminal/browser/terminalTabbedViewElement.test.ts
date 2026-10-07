@@ -39,6 +39,27 @@ describe("TerminalTabbedViewElement", () => {
         expect(app.backend.screenToString()).not.toContain("│");
     });
 
+    it("puts the tabs on the right by default and moves them live with setLocation", () => {
+        const tabs = new TextLabelElement("tabs");
+        const view = new TerminalTabbedViewElement(tabs, 10);
+        view.setTerminal(new TextLabelElement("t"));
+        view.setTabsVisible(true);
+        const app = TestApp.createWithContent(view, new Size(40, 3));
+        app.render();
+        expect(view.id).toBe("terminalTabbedView");
+        expect(tabs.globalPosition.x).toBe(30);
+        expect(app.backend.screenToString().split("\n")[0][29]).toBe("│");
+
+        view.setLocation("left");
+        app.render();
+        expect(tabs.globalPosition.x).toBe(0);
+        expect(app.backend.screenToString().split("\n")[0][10]).toBe("│");
+
+        view.setLocation("right");
+        app.render();
+        expect(tabs.globalPosition.x).toBe(30);
+    });
+
     it("never gives the tabs more than half of a narrow panel", () => {
         const tabs = new TextLabelElement("tabs");
         const view = new TerminalTabbedViewElement(tabs, 30);

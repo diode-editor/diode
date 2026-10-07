@@ -78,6 +78,16 @@ describe("TerminalService — switching the active instance", () => {
         h.service.dispose();
     });
 
+    it("next/previous are no-ops without terminals", () => {
+        const h = buildHarness(0);
+        expect(() => {
+            h.service.setActiveToNext();
+            h.service.setActiveToPrevious();
+        }).not.toThrow();
+        expect(h.service.getActiveInstance()).toBeNull();
+        h.service.dispose();
+    });
+
     it("next/previous are no-ops with a single terminal", () => {
         const h = buildHarness(1);
         const onActive = vi.fn();

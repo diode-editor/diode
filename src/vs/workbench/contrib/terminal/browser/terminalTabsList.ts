@@ -41,8 +41,11 @@ export function terminalIndexedLabel(index: number, instance: ITerminalInstance)
 export interface ITerminalTabsListHandlers {
     /** Курсор встал на строку — стрелки или клик: терминал становится активным без фокуса. */
     onDidSelectInstance(instanceId: number): void;
-    /** Enter или двойной клик: терминал активируется И получает фокус. */
-    onDidActivateInstance(instanceId: number): void;
+    /**
+     * Enter или двойной клик: фокус в терминал. Строка к этому моменту уже
+     * активна — её выбрали стрелками или первым кликом.
+     */
+    onDidActivateInstance(): void;
     /** Правый клик по строке. */
     onDidRequestContextMenu(instanceId: number, screenX: number, screenY: number): void;
 }
@@ -58,6 +61,7 @@ export class TerminalTabsList {
     public readonly list = new ListViewElement({ typeahead: false });
 
     /** Пока список сам переставляет курсор, его `onSelect` — эхо, не действие пользователя. */
+    // Stryker disable next-line BooleanLiteral: до первого setInstances строк нет, и onSelect не приходит — начальное значение ни на что не влияет
     private syncing = false;
 
     public constructor(handlers: ITerminalTabsListHandlers) {
@@ -66,8 +70,8 @@ export class TerminalTabsList {
             if (this.syncing) return;
             handlers.onDidSelectInstance(instanceIdOf(element));
         };
-        this.list.onActivate = (element) => {
-            handlers.onDidActivateInstance(instanceIdOf(element));
+        this.list.onActivate = () => {
+            handlers.onDidActivateInstance();
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
             handlers.onDidRequestContextMenu(instanceIdOf(element), screenX, screenY);
@@ -83,22 +87,15 @@ export class TerminalTabsList {
             row.id = terminalTabRowId(instance.id);
             this.list.appendRow(row, { label: instance.title });
         }
-        this.syncing = false;
-        this.setActive(activeId);
-    }
-
-    /** Подвинуть курсор на активный инстанс (null — терминалов нет, курсор не трогаем). */
-    public setActive(activeId: number | null): void {
-        if (activeId === null) return;
-        this.syncing = true;
-        this.list.setCursorTo(terminalTabRowId(activeId));
+        // Курсор — на активном; терминалов нет — и строки нет (setCursorTo бросает на неизвестной).
+        if (activeId !== null) this.list.setCursorTo(terminalTabRowId(activeId));
         this.syncing = false;
     }
 
-    /** Инстанс под курсором списка (цель Delete в списке). */
-    public getCursorInstanceId(): number | null {
+    /** Инстанс под курсором списка (цель Delete в списке); `undefined` — список пуст. */
+    public getCursorInstanceId(): number | undefined {
         const element = this.list.getCursorElement();
-        return element === null ? null : instanceIdOf(element);
+        return element === null ? undefined : instanceIdOf(element);
     }
 }
 

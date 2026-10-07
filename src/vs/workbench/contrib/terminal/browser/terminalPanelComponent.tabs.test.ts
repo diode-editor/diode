@@ -22,7 +22,7 @@ import {
     TerminalPanelComponent,
 } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
-import { TERMINAL_TABS_WIDTH, terminalTabRowId } from "./terminalTabsList.ts";
+import { SWITCH_TERMINAL_SHOW_TABS, TERMINAL_TABS_WIDTH, terminalTabRowId } from "./terminalTabsList.ts";
 
 const WIDTH = 80;
 const HEIGHT = 12;
@@ -46,10 +46,11 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
         },
     } as unknown as ContextMenuService;
     const commands = new CommandRegistry();
+    const focusFallback = { focusEditor: vi.fn() };
     const component = new TerminalPanelComponent(
         service,
         views.service,
-        { focusEditor: vi.fn() },
+        focusFallback,
         configuration,
         contextMenu,
         commands,
@@ -99,6 +100,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
         component,
         testApp,
         sessions,
+        focusFallback,
         menus,
         commands,
         screen,
@@ -284,6 +286,17 @@ describe("TerminalPanelComponent — active terminal in the view title", () => {
         h.dispose();
     });
 
+    it("draws the name in descriptionForeground", () => {
+        const h = buildHarness();
+        h.service.openTerminal();
+        h.screen();
+        const label = h.testApp.querySelector(`#${TERMINAL_ACTIVE_TAB_ID}`);
+        if (label === null) throw new Error("active tab label not rendered");
+        const pos = label.globalPosition;
+        expect(h.testApp.backend.getFgAt(new Point(pos.x + 3, pos.y))).toBe(label.styleVar("descriptionForeground"));
+        h.dispose();
+    });
+
     it("a click on the name opens the tab context menu for the active terminal", () => {
         const h = buildHarness();
         h.service.openTerminal();
@@ -349,6 +362,29 @@ describe("TerminalPanelComponent — tabs.enabled: false (dropdown)", () => {
     });
 });
 
+describe("TerminalPanelComponent — dropdown keyboard", () => {
+    it("skips the separator: two steps down from the first terminal land on Show Tabs", () => {
+        const h = buildHarness({ "terminal.integrated.tabs.enabled": false });
+        const run = vi.fn();
+        h.commands.register(SWITCH_TERMINAL_COMMAND_ID, run);
+        h.service.newTerminal();
+        h.service.newTerminal();
+        h.screen();
+        const switcher = h.testApp.querySelector("#terminalSwitcher");
+        if (switcher === null) throw new Error("switcher not rendered");
+        switcher.focus();
+        h.testApp.render();
+        h.testApp.sendKey("Enter"); // раскрыть
+        expect((switcher as SelectBoxElement).isOpen()).toBe(true);
+        // Попап открывается на первом пункте: «1: bash» → «2: bash» → (черта пропущена) «Show Tabs».
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("Enter");
+        expect(run).toHaveBeenCalledWith(SWITCH_TERMINAL_SHOW_TABS);
+        h.dispose();
+    });
+});
+
 describe("TerminalPanelComponent — list interaction", () => {
     it("a click on a row makes its terminal active without stealing focus (focusMode: doubleClick)", () => {
         const h = buildHarness();
@@ -383,8 +419,9 @@ describe("TerminalPanelComponent — list interaction", () => {
         h.service.newTerminal();
         h.service.newTerminal();
         h.screen();
-        expect(h.component.focusTabs()).toBe(true);
+        h.component.focusTabs();
         h.testApp.render();
+        expect(h.testApp.focusedElement).toBe(h.component.tabs.list);
 
         h.testApp.sendKey("ArrowUp");
         expect(h.activeIndex()).toBe(1);
@@ -445,10 +482,45 @@ describe("TerminalPanelComponent — list interaction", () => {
 });
 
 describe("TerminalPanelComponent — focus and context keys", () => {
-    it("focusTabs is a no-op while the list is hidden", () => {
+    it("focusTabs focuses the terminal while the list is hidden (showPanel(true) of the reference)", () => {
         const h = buildHarness();
         h.service.openTerminal();
-        expect(h.component.focusTabs()).toBe(false);
+        h.testApp.render();
+        const widget = h.testApp.focusedElement as TerminalViewElement;
+        widget.blur();
+        h.testApp.render();
+
+        h.component.focusTabs();
+        h.testApp.render();
+
+        expect(h.testApp.focusedElement).toBe(widget);
+        h.dispose();
+    });
+
+    it("hands focus to the editor when the focused list disappears with no terminals left", () => {
+        const h = buildHarness({ "terminal.integrated.hideOnLastClosed": false });
+        h.service.newTerminal();
+        h.service.newTerminal();
+        h.screen();
+        h.component.focusTabs();
+        h.testApp.render();
+
+        for (const instance of [...h.service.getInstances()]) h.service.closeInstance(instance.id);
+
+        expect(h.focusFallback.focusEditor).toHaveBeenCalled();
+        h.dispose();
+    });
+
+    it("typing in the list does not jump between terminals (no typeahead)", () => {
+        const h = buildHarness({}, ["/bin/bash", "/usr/bin/zsh", "/bin/fish"]);
+        h.service.newTerminal();
+        h.service.newTerminal();
+        h.service.newTerminal();
+        h.screen();
+        h.component.focusTabs();
+        h.testApp.render();
+        h.testApp.sendKey("z"); // с typeahead курсор прыгнул бы на zsh
+        expect(h.activeIndex()).toBe(2);
         h.dispose();
     });
 

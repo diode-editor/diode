@@ -1,4 +1,5 @@
-import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import type { BoxConstraints } from "@tuidom/core/common/geometryPromitives";
+import { BoxConstraints as Constraints, Size } from "@tuidom/core/common/geometryPromitives";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
@@ -18,8 +19,7 @@ export type TerminalTabsLocation = "left" | "right";
  */
 export class TerminalTabbedViewElement extends TUIElement {
     private terminal: TUIElement | null = null;
-    private tabsVisible = false;
-    private location: TerminalTabsLocation = "right";
+    private tabsOnLeft = false;
 
     public constructor(
         private readonly tabs: TUIElement,
@@ -33,63 +33,52 @@ export class TerminalTabbedViewElement extends TUIElement {
 
     /** Подменить виджет терминала (null — терминалов нет). */
     public setTerminal(terminal: TUIElement | null): void {
-        if (this.terminal === terminal) return;
-        if (this.terminal !== null) this.removeChild(this.terminal);
         this.terminal = terminal;
-        if (terminal !== null) this.appendChild(terminal);
-        this.markDirty();
+        this.setChildren(terminal === null ? [this.tabs] : [this.tabs, terminal]);
     }
 
+    /** Показать/спрятать список; перерисовку метит сам сеттер `hidden`. */
     public setTabsVisible(visible: boolean): void {
-        if (this.tabsVisible === visible) return;
-        this.tabsVisible = visible;
         this.tabs.hidden = !visible;
-        this.markDirty();
     }
 
     public get isTabsVisible(): boolean {
-        return this.tabsVisible;
+        return !this.tabs.hidden;
     }
 
     public setLocation(location: TerminalTabsLocation): void {
-        if (this.location === location) return;
-        this.location = location;
+        const left = location === "left";
+        if (this.tabsOnLeft === left) return;
+        this.tabsOnLeft = left;
         this.markDirty();
-    }
-
-    /** Колонка черты-разделителя (null — списка нет). */
-    private get dividerColumn(): number | null {
-        if (!this.tabsVisible) return null;
-        const width = this.layoutSize.width;
-        return this.location === "left" ? this.tabsColumns(width) : width - this.tabsColumns(width) - 1;
     }
 
     /** Список не отнимает у терминала больше половины ширины. */
     private tabsColumns(width: number): number {
-        return Math.max(0, Math.min(this.tabsWidth, Math.floor(width / 2)));
+        return Math.min(this.tabsWidth, Math.floor(width / 2));
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        const tabsWidth = this.tabsVisible ? this.tabsColumns(size.width) : 0;
-        const dividerWidth = this.tabsVisible ? 1 : 0;
-        const terminalWidth = Math.max(0, size.width - tabsWidth - dividerWidth);
-        const left = this.location === "left";
-        if (this.tabsVisible) {
-            const tabsX = left ? 0 : terminalWidth + dividerWidth;
-            this.layoutChild(this.tabs, tabsX, 0, BoxConstraints.tight(new Size(tabsWidth, size.height)));
-        }
+        const tabsWidth = this.isTabsVisible ? this.tabsColumns(size.width) : 0;
+        // Черта-разделитель есть только вместе со списком.
+        const dividerWidth = this.isTabsVisible ? 1 : 0;
+        const terminalWidth = size.width - tabsWidth - dividerWidth;
+        const tabsX = this.tabsOnLeft ? 0 : terminalWidth + dividerWidth;
+        // Скрытый список раскладывать незачем, но и вреда нет — он не рисуется.
+        this.layoutChild(this.tabs, tabsX, 0, Constraints.tight(new Size(tabsWidth, size.height)));
         if (this.terminal !== null) {
-            const terminalX = left ? tabsWidth + dividerWidth : 0;
-            this.layoutChild(this.terminal, terminalX, 0, BoxConstraints.tight(new Size(terminalWidth, size.height)));
+            const terminalX = this.tabsOnLeft ? tabsWidth + dividerWidth : 0;
+            this.layoutChild(this.terminal, terminalX, 0, Constraints.tight(new Size(terminalWidth, size.height)));
         }
         return size;
     }
 
     public override render(context: RenderContext): void {
         this.renderChildren(context);
-        const column = this.dividerColumn;
-        if (column === null) return;
+        if (!this.isTabsVisible) return;
+        const width = this.layoutSize.width;
+        const column = this.tabsOnLeft ? this.tabsColumns(width) : width - this.tabsColumns(width) - 1;
         const fg = this.styleVar("panel.border");
         const bg = this.resolvedStyle.bg;
         for (let y = 0; y < this.layoutSize.height; y++) {
