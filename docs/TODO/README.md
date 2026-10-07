@@ -91,7 +91,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Uri](Uri.md) — ядро на `Uri` готово, виртуальные read-only документы (`registerTextDocumentContentProvider`) доведены до вкладки; далее — `untitled:`-провайдер, язык безымянных буферов, кэш содержимого
 - [~] [Problems](Problems.md) — маркер-сервис, squiggle и панель готовы; далее — счётчик в статус-баре, доп. поставщики (расширения/matchers)
 - [~] [TerminalPanelBugs](TerminalPanelBugs.md) — баги панели/терминала из e2e-прогона MVP закрыты; осталась необработанная ошибка спавна шелла на неподдерживаемой платформе
-- [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), список терминалов, тема-реактивная ANSI-палитра, commandsToSkipShell
+- [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), сплиты/rename терминалов, тема-реактивная ANSI-палитра, commandsToSkipShell
 - [x] [EditorGroups](EditorGroups.md) — сплиты области редактора сделаны (включая API расширений); в документе остались follow-up'ы (Quick Open Ctrl+Enter, read-only на документ, сплит untitled/дифф-вкладок)
 - [x] [SourceControlGraph](SourceControlGraph.md) — панель GRAPH сделана; в документе остались follow-up'ы (пикер ref'ов, compare/diff коммита, действия на бейджах)
 

@@ -23,6 +23,12 @@ export class MenuId {
      */
     public static readonly EditorTitleContext = new MenuId("EditorTitleContext");
     /**
+     * Контекст-меню вкладки встроенного терминала (VS Code `TerminalTabContext`):
+     * правый клик по строке списка терминалов или по имени активного терминала
+     * в заголовке. Цель — инстанс под курсором (см. `TerminalTabMenuContext`).
+     */
+    public static readonly TerminalTabContext = new MenuId("TerminalTabContext");
+    /**
      * Действия заголовка ОДНОЙ view — VS Code `ViewTitle`. Группа `navigation`
      * рисуется inline-кнопками в заголовке, остальные группы уезжают в попап
      * «⋯». Пункты фильтруются императивно по `menuContext.view`

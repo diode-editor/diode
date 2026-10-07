@@ -1,8 +1,8 @@
-// Оркестратор встроенного терминала — headless-сервис: держит список инстансов
-// (multi-terminal готов с первого дня — список-UI добавит следующий этап), лениво
-// спавнит шелл при первом открытии/активации вкладки TERMINAL и убивает PTY при
-// выходе шелла или dispose(). Виджеты (`TerminalViewElement`) сервис не трогает —
-// ими владеет `TerminalPanelComponent`, подписанный на события инстансов.
+// Оркестратор встроенного терминала — headless-сервис: держит список инстансов,
+// активный из них, лениво спавнит шелл при первом открытии/активации вкладки
+// TERMINAL и убивает PTY при выходе шелла, по команде kill или в dispose().
+// Виджеты (`TerminalViewElement`) и список вкладок сервис не трогает — ими
+// владеет `TerminalPanelComponent`, подписанный на события инстансов.
 //
 // Связка с PTY/эмулятором спрятана за `TerminalSessionFactory` (DI-шов): в тестах
 // фабрика возвращает FakeTerminalSurface, в проде — EmbeddedTerminalSession.
@@ -14,6 +14,8 @@ import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -35,6 +37,11 @@ const INITIAL_ROWS = 24;
 /** Один открытый терминал: сессия (PTY+эмулятор) за интерфейсом поверхности. */
 export interface ITerminalInstance {
     readonly id: number;
+    /**
+     * Заголовок вкладки — имя процесса шелла (`${process}` эталона: `bash`,
+     * `zsh`). Номер «N:» к нему приписывают только quick pick и дропдаун, как
+     * у эталона; одинаковые заголовки не дедуплицируются — у эталона тоже.
+     */
     readonly title: string;
     /** Поверхность сессии — по ней компонент строит `TerminalViewElement`. */
     readonly session: ITerminalSurface;
@@ -50,12 +57,21 @@ interface TerminalInstanceRecord extends ITerminalInstance {
  * (регистрирует её в {@link PanelService}; шелл спавнится **лениво** — по
  * `onDidActivateView` вкладки или командам toggle/new). Видимостью Panel
  * управляют toggle-команды через `PanelService.setVisible`; сервис лишь
- * создаёт/активирует инстансы и чистит PTY. View не знает: виджеты строит
- * `TerminalPanelComponent` по событиям `onDidOpenInstance` /
- * `onDidCloseInstance` / `onDidChangeActiveInstance` / `onDidRequestFocus`.
+ * создаёт/активирует/закрывает инстансы и чистит PTY. View не знает: виджеты и
+ * список вкладок строит `TerminalPanelComponent` по событиям
+ * `onDidOpenInstance` / `onDidCloseInstance` / `onDidChangeActiveInstance` /
+ * `onDidRequestFocus`.
+ *
+ * Групп (сплитов) нет: группа эталона здесь — один инстанс, поэтому
+ * `setActiveToNext`/`setActiveToPrevious` ходят по инстансам.
  */
 export class TerminalService extends Disposable implements IContextKeyContributor {
-    public static dependencies = [PanelServiceDIToken, ViewsServiceDIToken, TerminalSessionFactoryDIToken] as const;
+    public static dependencies = [
+        PanelServiceDIToken,
+        ViewsServiceDIToken,
+        IConfigurationServiceDIToken,
+        TerminalSessionFactoryDIToken,
+    ] as const;
 
     private instances: TerminalInstanceRecord[] = [];
     private activeId: number | null = null;
@@ -68,8 +84,9 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private readonly onDidRequestFocusEmitter = this.register(new Emitter<void>());
 
     public constructor(
-        panelService: PanelService,
+        private readonly panelService: PanelService,
         viewsService: ViewsService,
+        private readonly configuration: IConfigurationService,
         private readonly factory: TerminalSessionFactory,
     ) {
         super();
@@ -101,9 +118,10 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return this.instances.length > 0;
     }
 
-    /** IContextKeyContributor: `terminalIsOpen`. */
+    /** IContextKeyContributor: `terminalIsOpen`, `terminalCount`. */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("terminalIsOpen", this.hasOpenTerminals);
+        contextKeys.set("terminalCount", this.instances.length);
     }
 
     /** Открытые инстансы в порядке создания. */
@@ -114,6 +132,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     /** Активный инстанс или null, если ни одного не открыто. */
     public getActiveInstance(): ITerminalInstance | null {
         return this.active() ?? null;
+    }
+
+    /** Инстанс по id (null — такого нет или уже закрыт). */
+    public getInstance(id: number): ITerminalInstance | null {
+        return this.instances.find((i) => i.id === id) ?? null;
     }
 
     /** Задать рабочий каталог для будущих инстансов (следует за папкой воркспейса). */
@@ -136,16 +159,16 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     /** Создаёт инстанс терминала и делает его активным (без фокуса). */
-    public createInstance(): void {
+    public createInstance(): ITerminalInstance {
         const id = this.nextId++;
         const session = this.factory({ cols: INITIAL_COLS, rows: INITIAL_ROWS, cwd: this.cwd ?? process.cwd() });
         const instance: TerminalInstanceRecord = {
             id,
-            title: `${basename(session.shell)} (${id})`,
+            title: basename(session.shell),
             session,
             subscriptions: [
                 session.onExit(() => {
-                    this.handleExit(instance);
+                    this.removeInstance(instance);
                 }),
             ],
         };
@@ -153,6 +176,45 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.activeId = id;
         this.onDidOpenInstanceEmitter.fire(instance);
         this.onDidChangeActiveInstanceEmitter.fire(instance);
+        return instance;
+    }
+
+    /**
+     * Сделать инстанс активным (без фокуса — так ведут себя стрелки и клик по
+     * списку вкладок эталона). Неизвестный id и уже активный — no-op.
+     */
+    public setActiveInstance(id: number): void {
+        const instance = this.instances.find((i) => i.id === id);
+        if (instance === undefined || this.activeId === id) return;
+        this.activeId = id;
+        this.onDidChangeActiveInstanceEmitter.fire(instance);
+    }
+
+    /** Активировать инстанс по позиции в списке (`focusAtIndexN` эталона); вне диапазона — no-op. */
+    public setActiveInstanceByIndex(index: number): void {
+        if (index < 0 || index >= this.instances.length) return;
+        this.setActiveInstance(this.instances[index].id);
+    }
+
+    /** Следующий инстанс по кругу (`setActiveGroupToNext` эталона); при одном — no-op. */
+    public setActiveToNext(): void {
+        this.setActiveByOffset(1);
+    }
+
+    /** Предыдущий инстанс по кругу (`setActiveGroupToPrevious` эталона). */
+    public setActiveToPrevious(): void {
+        this.setActiveByOffset(-1);
+    }
+
+    /**
+     * Убить инстанс (команды Kill): PTY закрывается, инстанс снимается со
+     * списка. Активным становится сосед с тем же индексом, иначе последний —
+     * как `removeGroup` эталона. Неизвестный id — no-op.
+     */
+    public closeInstance(id: number): void {
+        const instance = this.instances.find((i) => i.id === id);
+        if (instance === undefined) return;
+        this.removeInstance(instance);
     }
 
     /** Сфокусировать активный терминал (если он есть). */
@@ -163,7 +225,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     /** Открытие нового инстанса (компонент строит по нему виджет). */
     public readonly onDidOpenInstance = this.onDidOpenInstanceEmitter.event;
 
-    /** Закрытие инстанса — выход шелла (компонент dispose'ит его виджет). */
+    /** Закрытие инстанса — выход шелла или kill (компонент dispose'ит его виджет). */
     public readonly onDidCloseInstance = this.onDidCloseInstanceEmitter.event;
 
     /** Смена активного инстанса; null — терминалов не осталось (вернуть placeholder). */
@@ -187,10 +249,23 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.fireFocus();
     }
 
-    /** Обработка выхода шелла: снести инстанс, переключиться на самый свежий из оставшихся. */
-    private handleExit(instance: TerminalInstanceRecord): void {
+    private setActiveByOffset(offset: number): void {
+        const count = this.instances.length;
+        if (count <= 1) return;
+        const current = this.instances.findIndex((i) => i.id === this.activeId);
+        const next = this.instances[(current + offset + count) % count];
+        this.setActiveInstance(next.id);
+    }
+
+    /**
+     * Снять инстанс (выход шелла или kill): закрыть PTY, оповестить, выбрать
+     * нового активного. Последний закрытый терминал прячет панель
+     * (`terminal.integrated.hideOnLastClosed`), если вкладка TERMINAL сейчас
+     * активна — у эталона `hidePanel` закрывает view, когда она одна в контейнере.
+     */
+    private removeInstance(instance: TerminalInstanceRecord): void {
         const index = this.instances.indexOf(instance);
-        /* v8 ignore start -- defensive re-entrancy guard: both handleExit and dispose() drop the onExit subscription (via destroyInstance) as part of removing the instance, and a real session reports its exit asynchronously, so handleExit is never re-entered for an instance already gone from the list */
+        /* v8 ignore start -- defensive re-entrancy guard: both removeInstance and dispose() drop the onExit subscription (via destroyInstance) as part of removing the instance, and a real session reports its exit asynchronously, so removeInstance is never re-entered for an instance already gone from the list */
         if (index === -1) return; // уже снесён (dispose)
         /* v8 ignore stop */
         const wasActive = this.activeId === instance.id;
@@ -199,9 +274,12 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.onDidCloseInstanceEmitter.fire(instance);
 
         if (!wasActive) return;
-        const next = this.instances.at(-1) ?? null;
+        const next = this.instances.at(Math.min(index, this.instances.length - 1)) ?? null;
         this.activeId = next === null ? null : next.id;
         this.onDidChangeActiveInstanceEmitter.fire(next);
+        if (next !== null) return;
+        if (!this.configuration.get("terminal.integrated.hideOnLastClosed")) return;
+        if (this.panelService.getActiveViewId() === TERMINAL_VIEW_ID) this.panelService.setVisible(false);
     }
 
     /** Освобождает ресурсы одного инстанса: PTY и наши подписки на сессию. */

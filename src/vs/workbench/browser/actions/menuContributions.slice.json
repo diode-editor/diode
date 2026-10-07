@@ -341,6 +341,11 @@
             "git.clean"
         ]
     },
+    "TerminalTabContext": {
+        "7_kill": [
+            "workbench.action.terminal.killActiveTab"
+        ]
+    },
     "ViewTitle": {
         "1_actions": [
             "scm.graph.loadMore"
@@ -373,13 +378,15 @@
             "explorer.newFile",
             "search.action.collapseSearchResults",
             "search.action.expandSearchResults",
+            "workbench.action.terminal.new",
             "scm.graph.refresh",
             "extensions.refresh",
             "references-view.collapseAll",
             "references-view.expandAll",
             "explorer.newFolder",
             "references-view.clear",
-            "workbench.files.action.refreshFilesExplorer"
+            "workbench.files.action.refreshFilesExplorer",
+            "workbench.action.terminal.kill"
         ]
     }
 }

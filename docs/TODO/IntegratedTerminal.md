@@ -3,8 +3,9 @@
 Встроенный терминал (аналог integrated terminal в VS Code): панель, в которой крутится
 интерактивный шелл. Статус: **интегрировано**. Вкладка **TERMINAL** в нижней Panel (всегда
 присутствует, placeholder «No active terminal.» до первого открытия), сервис
-`TerminalService` + view-владелец `TerminalPanelComponent` (Workbench), команды
-`workbench.action.terminal.toggleTerminal` / `…terminal.new`,
+`TerminalService` + view-владелец `TerminalPanelComponent` (Workbench), несколько
+терминалов со списком вкладок (см. «Несколько терминалов»), команды
+`workbench.action.terminal.toggleTerminal` / `…terminal.new` / `…kill` / `…focusNext` и др.,
 SEA-упаковка нативного node-pty — в **основном** пайплайне сборки (`npm run build:sea`).
 Остаётся кросс-платформенность и UX-надстройки (см. «Дальнейшие шаги»).
 
@@ -23,13 +24,14 @@ SEA-упаковка нативного node-pty — в **основном** п�
   - `TerminalSessionFactory.ts` — DI-шов (`TerminalSessionFactoryDIToken`); в тестах — `FakeTerminalSurface`.
   - `loadNodePty.ts` — двухпутёвая загрузка нативного аддона (dev / SEA-ассет).
   - `xtermPalette.ts` — palette-индекс xterm → `0xRRGGBB`.
-  - `TerminalService.ts` — headless-оркестратор: список инстансов, ленивый спавн, регистрация вкладки TERMINAL в `PanelService`.
-  - `TerminalPanelComponent.ts` (в `src/vs/workbench/Components/Panel/`) — виджеты `TerminalViewElement` по инстансам, вкидывание активного в вкладку.
+  - `terminalService.ts` (`contrib/terminal/browser/`) — headless-оркестратор: список инстансов, активный, ленивый спавн, `setActiveInstance`/`closeInstance`/`setActiveToNext`, регистрация вкладки TERMINAL.
+  - `terminalPanelComponent.ts` — виджеты `TerminalViewElement` по инстансам, тело вкладки (`terminalTabbedViewElement.ts`: терминал + список вкладок `terminalTabsList.ts`), виджет заголовка вкладки.
+  - `terminalActions.ts` — команды терминала; настройки — `workbench/common/configuration/terminalConfiguration.ts`.
 - **Упаковка** — `scripts/pack-node-pty.mjs` (пакует рантайм-раскладку node-pty в ассет `node-pty.bundle`),
   встраивается основным `scripts/build-sea.mjs`.
 - **Демо-песочница** — `src/demos/terminal/terminalHost.ts` (`npm run demo:terminal`) — потребляет те же
   интегрированные модули.
-- **E2E-скриншот-сценарий** — `e2e/scenarios/terminal.scenario.ts`.
+- **E2E-скриншот-сценарии** — `e2e/scenarios/terminal.scenario.ts`, `e2e/scenarios/terminalTabs.scenario.ts` (несколько терминалов).
 
 ## Архитектура — однопанельный in-process tmux
 
@@ -97,6 +99,41 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
   Юнит/интеграция — `TerminalService.test.ts`, `TerminalPanelComponent.test.ts`, `Workbench.Terminal.test.ts`,
   `EmbeddedTerminalSession.test.ts`, `TerminalViewElement.*.test.ts`, `encodeKeyForPty.test.ts`.
 
+## Несколько терминалов (terminal tabs)
+
+Форма — эталонная (`terminalTabbedView.ts`, `terminalTabsList.ts`, `terminalView.ts` у vscode):
+
+- **Тело вкладки** — терминал плюс список вкладок сбоку (`tabs.location`, по умолчанию справа), между
+  ними черта `panel.border`. Список скрыт по `tabs.hideCondition` (по умолчанию — пока терминал один).
+  Строка — `$(terminal) <имя процесса>`; курсор списка — активный терминал.
+- **Заголовок вкладки**: пока списка нет, там имя активного терминала (`tabs.showActiveTerminal`), клик по
+  нему открывает меню вкладки (`MenuId.TerminalTabContext`). При `tabs.enabled: false` вместо списка —
+  дропдаун `N: имя` + «Show Tabs», выбор исполняет `workbench.action.terminal.switchTerminal`. Кнопки
+  «+» (New) и «корзина» (Kill) — пункты `ViewTitle`.
+- **Список**: клик и стрелки делают терминал активным без кражи фокуса, Enter и двойной клик фокусируют его
+  (`tabs.focusMode`), Delete — `killActiveTab`, правый клик — меню вкладки («Kill Terminal»).
+- **Команды**: `focus`, `focusTabs` (`Ctrl+K \` везде, `Ctrl+Shift+\` — на tier csi-u/kitty), `focusNext`/`focusPrevious`
+  (Ctrl+PageDown/PageUp при `terminalFocus`, по кругу), `kill`, `killActiveTab`, `killAll`, `switchTerminal`,
+  `quickOpenTerm` («Switch Active Terminal» — quick pick `N: имя` + «Create New Terminal»).
+- **Kill и выход шелла**: активным становится сосед с тем же индексом, иначе последний (`removeGroup`
+  эталона). Последний закрытый терминал прячет панель (`terminal.integrated.hideOnLastClosed`), если
+  активна вкладка TERMINAL.
+- **Имя терминала** — `basename` шелла (`${process}` эталона), без номера; номер `N:` только в дропдауне и
+  quick pick. Одинаковые имена не дедуплицируются — как у эталона.
+- **Контекст-ключи**: `terminalCount`, `terminalTabsFocus` (плюс прежние `terminalFocus`, `terminalIsOpen`).
+- **Шов для `window.createTerminal`**: терминалы расширений — те же инстансы сервиса;
+  `setActiveInstance(id)` / `closeInstance(id)` / `getInstance(id)` — для них.
+
+Групп (сплитов) нет: группа эталона здесь — один терминал, поэтому `hideCondition: singleGroup` работает как
+`singleTerminal`, а `focusNext`/`focusPrevious` ходят по терминалам.
+
+**Настройки** приехали дословно: `terminal.integrated.tabs.enabled`, `tabs.hideCondition`, `tabs.location`,
+`tabs.showActiveTerminal`, `tabs.focusMode`, `terminal.integrated.hideOnLastClosed`. **Не поддержаны**:
+`tabs.showActions` (кнопка Kill в заголовке видна всегда), `tabs.title`/`tabs.description`/`tabs.separator`
+(нет трекинга процесса и cwd — имя всегда имя шелла), `tabs.defaultIcon`/`tabs.defaultColor`,
+`tabs.enableAnimation`, `tabs.allowAgentCliTitle`, `confirmOnKill`. Нет и узкого «иконочного» режима
+списка (`singleTerminalOrNarrow` сведён к `singleTerminal`) и перетаскиваемой ширины списка.
+
 ## Кросс-платформенность и тестирование
 
 Интеграция и упаковка проверены **только на linux-x64**. Риск делится на две части:
@@ -155,8 +192,18 @@ Scaleway, MacStadium, MacinCloud). Windows тестируется локальн
   шелла по ОС (`win32 → COMSPEC/powershell`); GitHub Actions workflow `ubuntu/macos/windows` (сборка SEA +
   прогон headless-харнесса), проверка resize-пути ConPTY на Windows.
 - **UX шелла**: скролбэк/выделение/копирование, кликабельные ссылки, bracketed-paste.
-- **Multiple-terminals UI**: контроллер уже держит список инстансов — добавить список/дропдаун переключения
-  и Kill Terminal (сейчас доступен только «активный» + `terminal.new`).
+- [x] **Multiple-terminals UI**: список вкладок сбоку, имя активного в заголовке, дропдаун при
+  `tabs.enabled: false`, kill/switch/focusNext/focusPrevious/focusTabs/quick pick — см. «Несколько терминалов».
+- [ ] **Сплиты терминалов** (`split`/`splitActiveTab`/`unsplit`, группы): раскладка нескольких терминалов
+  внутри панели; вместе с ними — `hideCondition: singleGroup` по группам и префиксы `┌ ├ └` в списке.
+- [ ] **Rename терминала** (`rename`, `renameActiveTab` — F2 в списке, inline-ввод) и `tabs.title`/
+  `tabs.description`/`tabs.separator` с переменными `${process}`, `${cwdFolder}` (нужен трекинг процесса и cwd).
+- [ ] **Терминал как редактор** (`moveToEditor`, `moveToTerminalPanel`).
+- [ ] **Иконки и цвета вкладок** (`tabs.defaultIcon`, `tabs.defaultColor`, Change Icon/Color), статусы
+  вкладок (`tabs.enableAnimation`).
+- [ ] **Ширина списка вкладок**: sash и узкий «иконочный» режим (`isTerminalTabsNarrow`,
+  `singleTerminalOrNarrow`), `tabs.showActions` для кнопок заголовка.
+- [ ] **Мышь в списке вкладок**: средний клик — kill, мультивыделение и kill выделенного, drag-and-drop.
 - **Тема-реактивная ANSI-палитра**: `xtermPalette.ts` статичен; палитру 16/256 брать из активной темы
   (`terminal.ansi*`) и рефлоу при смене темы (сейчас реактивны только `terminal.background/foreground`).
 - **Проброс клавиш à la `terminal.integrated.commandsToSkipShell`**: список команд, которые перехватывает

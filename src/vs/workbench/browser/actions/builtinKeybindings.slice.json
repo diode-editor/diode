@@ -11,6 +11,9 @@
         "ctrl+p: showPrevParameterHint [(parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible) && (macKeys >= 3)] > cursorUp [(textViewFocus) && (macKeys >= 3)]",
         "ctrl+space: toggleSuggestionDetails [suggestWidgetVisible] > editor.action.triggerSuggest [textInputFocus]",
         "ctrl+up: workbench.action.previousEditorInGroup [(textViewFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineUp [(textViewFocus) && (!(macKeys >= 1))]",
+        "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > deleteRight [textInputFocus && !editorReadonly]",
+        "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > fileOperations.deleteFile [listFocus]",
+        "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > input.deleteRight [inputWidgetFocus]",
         "down: selectNextSuggestion [suggestWidgetVisible] > cursorDown [textViewFocus]",
         "down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorDown [textViewFocus]",
         "enter: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.nextMatchFindAction [findWidgetVisible]",
@@ -862,6 +865,10 @@
             "*": "ctrl+\\",
             "mac-cmd (kitty) #1": "meta+\\"
         },
+        "workbench.action.terminal.focusNext": "ctrl+pagedown",
+        "workbench.action.terminal.focusPrevious": "ctrl+pageup",
+        "workbench.action.terminal.focusTabs": "ctrl+k \\",
+        "workbench.action.terminal.killActiveTab": "delete",
         "workbench.action.terminal.new": {
             "*": "ctrl+shift+`",
             "pc legacy #0": "ctrl+k alt+t",

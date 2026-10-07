@@ -71,6 +71,12 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.capabilities": "machine",
     "terminal.modes": "machine",
     "terminal.customModes": "window",
+    "terminal.integrated.tabs.enabled": "window",
+    "terminal.integrated.tabs.hideCondition": "window",
+    "terminal.integrated.tabs.showActiveTerminal": "window",
+    "terminal.integrated.tabs.location": "window",
+    "terminal.integrated.tabs.focusMode": "window",
+    "terminal.integrated.hideOnLastClosed": "window",
 };
 
 const registered = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
