@@ -77,10 +77,12 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     private widgets = new Map<number, TerminalViewElement>();
     private activeWidget: TerminalViewElement | null = null;
 
-    public readonly tabs = new TerminalTabsList();
-    public readonly view = new TerminalTabbedViewElement(this.tabs.list, TERMINAL_TABS_WIDTH);
+    public readonly tabs: TerminalTabsList;
+    public readonly view: TerminalTabbedViewElement;
     /** Имя активного терминала в заголовке (эталон `SingleTerminalTabActionViewItem`). */
     private readonly activeTabLabel = new TextLabelElement("");
+    /** Терминал, чьё имя сейчас нарисовано в {@link activeTabLabel} (цель клика). */
+    private activeTabInstanceId = 0;
     /** Дропдаун терминалов при выключенном списке (эталон `SwitchTerminalActionViewItem`). */
     private readonly switcher = new SelectBoxElement();
 
@@ -93,32 +95,32 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         private readonly commands: CommandRegistry,
     ) {
         super();
+        this.tabs = new TerminalTabsList({
+            onDidSelectInstance: (id) => {
+                this.terminalService.setActiveInstance(id);
+                // `tabs.focusMode: singleClick` — клик (и любой выбор) сразу фокусирует терминал.
+                if (this.configuration.get("terminal.integrated.tabs.focusMode") === "singleClick") {
+                    this.terminalService.focusActive();
+                }
+            },
+            onDidActivateInstance: (id) => {
+                this.terminalService.setActiveInstance(id);
+                this.terminalService.focusActive();
+            },
+            onDidRequestContextMenu: (id, screenX, screenY) => {
+                this.showTabContextMenu(id, screenX, screenY);
+            },
+        });
+        this.view = new TerminalTabbedViewElement(this.tabs.list, TERMINAL_TABS_WIDTH);
         this.activeTabLabel.id = TERMINAL_ACTIVE_TAB_ID;
         this.activeTabLabel.style = { fg: "descriptionForeground" };
         // Клик по имени — меню вкладки, как у эталона (там это кнопка с dropdown).
         this.activeTabLabel.addEventListener("click", (event) => {
-            const active = this.terminalService.getActiveInstance();
-            if (active === null) return;
-            this.showTabContextMenu(active.id, event.screenX, event.screenY + 1);
+            this.showTabContextMenu(this.activeTabInstanceId, event.screenX, event.screenY + 1);
         });
         this.switcher.id = "terminalSwitcher";
         this.switcher.onDidSelect = ({ selected }) => {
             void this.commands.execute(SWITCH_TERMINAL_COMMAND_ID, selected);
-        };
-
-        this.tabs.onDidSelectInstance = (id) => {
-            this.terminalService.setActiveInstance(id);
-            // `tabs.focusMode: singleClick` — клик (и любой выбор) сразу фокусирует терминал.
-            if (this.configuration.get("terminal.integrated.tabs.focusMode") === "singleClick") {
-                this.terminalService.focusActive();
-            }
-        };
-        this.tabs.onDidActivateInstance = (id) => {
-            this.terminalService.setActiveInstance(id);
-            this.terminalService.focusActive();
-        };
-        this.tabs.onDidRequestContextMenu = (id, screenX, screenY) => {
-            this.showTabContextMenu(id, screenX, screenY);
         };
 
         this.register(
@@ -261,6 +263,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
             return this.switcher;
         }
         if (!this.shouldShowActiveTerminal(instances.length)) return null;
+        this.activeTabInstanceId = active.id;
         this.activeTabLabel.setText(` ${terminalTabLabel(active)} `);
         return this.activeTabLabel;
     }

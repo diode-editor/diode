@@ -220,6 +220,16 @@ describe("Workbench — multiple terminals", () => {
         expect(activeIndex()).toBe(1);
     });
 
+    it("Switch Active Terminal without terminals offers only Create New Terminal", async () => {
+        boot();
+        const picked = h.commands.execute("workbench.action.quickOpenTerm") as Promise<void>;
+        h.testApp.render();
+        expect(screen()).toContain("Create New Terminal");
+        h.testApp.sendKey("Enter");
+        await picked;
+        expect(terminal.getInstances()).toHaveLength(1);
+    });
+
     it("Switch Active Terminal dismissed keeps everything as is", async () => {
         boot();
         open(2);

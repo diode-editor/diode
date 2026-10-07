@@ -1,7 +1,7 @@
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
 import { listRowId } from "../../../../base/common/listRowId.ts";
 
 import type { ITerminalInstance } from "./terminalService.ts";
@@ -19,7 +19,7 @@ export const TERMINAL_TABS_WIDTH = 20;
 export const SWITCH_TERMINAL_SHOW_TABS = "Show Tabs";
 
 /** `$(terminal)` — иконка вкладки по умолчанию (`terminal.integrated.tabs.defaultIcon` эталона). */
-const TERMINAL_ICON = CODICON_GLYPHS.terminal ?? "";
+const TERMINAL_ICON = "\uea85";
 
 const ROW_ID_PREFIX = "terminalTab-";
 
@@ -37,6 +37,16 @@ export function terminalIndexedLabel(index: number, instance: ITerminalInstance)
     return `${index + 1}: ${instance.title}`;
 }
 
+/** Что владелец делает с действиями пользователя в списке. */
+export interface ITerminalTabsListHandlers {
+    /** Курсор встал на строку — стрелки или клик: терминал становится активным без фокуса. */
+    onDidSelectInstance(instanceId: number): void;
+    /** Enter или двойной клик: терминал активируется И получает фокус. */
+    onDidActivateInstance(instanceId: number): void;
+    /** Правый клик по строке. */
+    onDidRequestContextMenu(instanceId: number, screenX: number, screenY: number): void;
+}
+
 /**
  * Список вкладок терминалов (эталон `TerminalTabList`): строка на инстанс,
  * курсор списка = активный терминал. Виджет презентационный — семантика
@@ -47,28 +57,20 @@ export function terminalIndexedLabel(index: number, instance: ITerminalInstance)
 export class TerminalTabsList {
     public readonly list = new ListViewElement({ typeahead: false });
 
-    /** Курсор встал на строку — стрелки или клик: терминал становится активным без фокуса. */
-    public onDidSelectInstance: ((instanceId: number) => void) | null = null;
-    /** Enter или двойной клик: терминал активируется И получает фокус. */
-    public onDidActivateInstance: ((instanceId: number) => void) | null = null;
-    /** Правый клик по строке. */
-    public onDidRequestContextMenu: ((instanceId: number, screenX: number, screenY: number) => void) | null = null;
-
     /** Пока список сам переставляет курсор, его `onSelect` — эхо, не действие пользователя. */
     private syncing = false;
 
-    public constructor() {
+    public constructor(handlers: ITerminalTabsListHandlers) {
         this.list.id = TERMINAL_TABS_LIST_ID;
         this.list.onSelect = (element) => {
             if (this.syncing) return;
-            this.forward(element, this.onDidSelectInstance);
+            handlers.onDidSelectInstance(instanceIdOf(element));
         };
         this.list.onActivate = (element) => {
-            this.forward(element, this.onDidActivateInstance);
+            handlers.onDidActivateInstance(instanceIdOf(element));
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
-            const id = instanceIdOf(element);
-            if (id !== null) this.onDidRequestContextMenu?.(id, screenX, screenY);
+            handlers.onDidRequestContextMenu(instanceIdOf(element), screenX, screenY);
         };
     }
 
@@ -98,19 +100,9 @@ export class TerminalTabsList {
         const element = this.list.getCursorElement();
         return element === null ? null : instanceIdOf(element);
     }
-
-    private forward(
-        element: Parameters<NonNullable<ListViewElement["onSelect"]>>[0],
-        cb: ((id: number) => void) | null,
-    ): void {
-        const id = instanceIdOf(element);
-        if (id !== null) cb?.(id);
-    }
 }
 
-function instanceIdOf(element: Parameters<NonNullable<ListViewElement["onSelect"]>>[0]): number | null {
-    const rowId = listRowId(element);
-    if (!rowId.startsWith(ROW_ID_PREFIX)) return null;
-    const id = Number(rowId.slice(ROW_ID_PREFIX.length));
-    return Number.isInteger(id) ? id : null;
+/** Строки списка — только наши (`terminalTab-<id>`), поэтому разбор без проверок. */
+function instanceIdOf(element: TUIElement): number {
+    return Number(listRowId(element).slice(ROW_ID_PREFIX.length));
 }
