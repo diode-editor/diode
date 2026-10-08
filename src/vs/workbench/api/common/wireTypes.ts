@@ -619,6 +619,157 @@ export interface IWireOutputShow {
     readonly label: string;
 }
 
+// ─── Терминалы (window.createTerminal → встроенный терминал) ─────────────────
+// Состояние `vscode.Terminal` живёт в субпроцессе, инстансом владеет хост
+// (`TerminalService`). Хост минтит `id` каждого инстанса — и открытого
+// человеком, и заведённого расширением; субпроцесс для своих терминалов минтит
+// `extHostId` (как `extHostTerminalId` эталона) и шлёт его в
+// `terminal.create`. Пока `terminal.opened` с хостовым `id` не пришёл,
+// субпроцесс адресует свой терминал по `extHostId` — хост знает обе метки.
+
+/** Адрес терминала в нотификациях субпроцесса: хостовый `id` либо свой `extHostId`. */
+export type IWireTerminalRef = { readonly id: number } | { readonly extHostId: number };
+
+/**
+ * Параметры `terminal.create` (subprocess → host): расширение завело шелл
+ * (`TerminalOptions`); строковые `shellArgs` (Windows-форма) сюда уже не
+ * доезжают — субпроцесс режет их по пробелам.
+ */
+export interface IWireTerminalCreate {
+    readonly extHostId: number;
+    readonly name?: string;
+    readonly shellPath?: string;
+    readonly shellArgs?: readonly string[];
+    readonly cwd?: string;
+    /** `null` — снять переменную из окружения шелла (семантика `TerminalOptions.env`). */
+    readonly env?: Readonly<Record<string, string | null>>;
+    readonly strictEnv?: boolean;
+    readonly hideFromUser?: boolean;
+    readonly message?: string;
+}
+
+/** Параметры `terminal.show` (subprocess → host). */
+export interface IWireTerminalShow {
+    readonly terminal: IWireTerminalRef;
+    readonly preserveFocus: boolean;
+}
+
+/** Параметры `terminal.hide` / `terminal.dispose` (subprocess → host). */
+export interface IWireTerminalTarget {
+    readonly terminal: IWireTerminalRef;
+}
+
+/** Параметры `terminal.sendText` (subprocess → host); нормализует Enter хост. */
+export interface IWireTerminalSendText {
+    readonly terminal: IWireTerminalRef;
+    readonly text: string;
+    readonly shouldExecute: boolean;
+}
+
+/** `creationOptions` терминала, которого субпроцесс не заводил (шелл человека). */
+export interface IWireTerminalLaunch {
+    readonly name?: string;
+    readonly shellPath?: string;
+    readonly shellArgs?: readonly string[];
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string | null>>;
+    readonly hideFromUser?: boolean;
+}
+
+/**
+ * Параметры `terminal.opened` (host → subprocess): инстанс заведён. `extHostId`
+ * — у терминала, заведённого этим субпроцессом; `pid` — у настоящего шелла.
+ */
+export interface IWireTerminalOpened {
+    readonly id: number;
+    readonly extHostId?: number;
+    readonly name: string;
+    readonly pid?: number;
+    readonly launch: IWireTerminalLaunch;
+}
+
+/** Причина закрытия терминала — вид `vscode.TerminalExitReason` на проводе. */
+export type WireTerminalExitReason = "unknown" | "shutdown" | "process" | "user" | "extension";
+
+/** Параметры `terminal.closed` (host → subprocess): инстанс снесён. */
+export interface IWireTerminalClosed {
+    readonly id: number;
+    readonly code?: number;
+    readonly reason: WireTerminalExitReason;
+}
+
+/** Параметры `terminal.activeChanged` (host → subprocess); `null` — активного нет. */
+export interface IWireTerminalActive {
+    readonly id: number | null;
+}
+
+const WIRE_TERMINAL_EXIT_REASONS: readonly WireTerminalExitReason[] = [
+    "unknown",
+    "shutdown",
+    "process",
+    "user",
+    "extension",
+];
+
+/** Объект «строка → строка | null»; прочие значения отбрасываются. */
+export function parseWireStringRecord(raw: unknown): Record<string, string | null> | undefined {
+    if (typeof raw !== "object" || raw === null) return undefined;
+    const out: Record<string, string | null> = {};
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof value === "string" || value === null) out[key] = value;
+    }
+    return out;
+}
+
+/** Массив строк; не-строки отбрасываются, не массив — `undefined`. */
+export function parseWireStringArray(raw: unknown): string[] | undefined {
+    return Array.isArray(raw) ? raw.filter((a): a is string => typeof a === "string") : undefined;
+}
+
+/** Разбор `creationOptions` чужого терминала: незнакомые поля отбрасываются. */
+function parseWireTerminalLaunch(raw: unknown): IWireTerminalLaunch {
+    const p = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+    const shellArgs = parseWireStringArray(p.shellArgs);
+    const env = parseWireStringRecord(p.env);
+    return {
+        ...(typeof p.name === "string" ? { name: p.name } : {}),
+        ...(typeof p.shellPath === "string" ? { shellPath: p.shellPath } : {}),
+        ...(shellArgs !== undefined ? { shellArgs } : {}),
+        ...(typeof p.cwd === "string" ? { cwd: p.cwd } : {}),
+        ...(env !== undefined ? { env } : {}),
+        ...(typeof p.hideFromUser === "boolean" ? { hideFromUser: p.hideFromUser } : {}),
+    };
+}
+
+/** Валидирует `terminal.opened`; `null`, если нет `id` или имени. */
+export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.id !== "number" || typeof p.name !== "string") return null;
+    return {
+        id: p.id,
+        name: p.name,
+        ...(typeof p.extHostId === "number" ? { extHostId: p.extHostId } : {}),
+        ...(typeof p.pid === "number" ? { pid: p.pid } : {}),
+        launch: parseWireTerminalLaunch(p.launch),
+    };
+}
+
+/** Валидирует `terminal.closed`; незнакомая причина (хост новее) — `unknown`. */
+export function parseWireTerminalClosed(raw: unknown): IWireTerminalClosed | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.id !== "number") return null;
+    const reason = WIRE_TERMINAL_EXIT_REASONS.find((r) => r === p.reason) ?? "unknown";
+    return { id: p.id, ...(typeof p.code === "number" ? { code: p.code } : {}), reason };
+}
+
+/** Валидирует `terminal.activeChanged`: не число — «активного нет». */
+export function parseWireTerminalActive(raw: unknown): IWireTerminalActive {
+    const id = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).id : undefined;
+    return { id: typeof id === "number" ? id : null };
+}
+
 // ─── Diagnostics (LSP) ───────────────────────────────────────────────────────
 
 /**

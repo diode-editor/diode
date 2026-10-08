@@ -13,15 +13,28 @@ export interface ITerminalSessionOptions {
     shell?: string;
     args?: string[];
     cwd?: string;
-    env?: Record<string, string>;
+    /** Поверх унаследованного окружения; `null` снимает переменную (`TerminalOptions.env`). */
+    env?: Record<string, string | null>;
+    /** `true` — окружение шелла ровно `env`, без наследования от процесса (`TerminalOptions.strictEnv`). */
+    strictEnv?: boolean;
+    /**
+     * Строка, напечатанная в эмулятор до вывода шелла, с переводом строки
+     * (`TerminalOptions.message`, `initialText` эталона); в шелл не уходит.
+     */
+    message?: string;
 }
 
 /**
  * Сессия встроенного терминала: поверхность для отрисовки плюс запущенный шелл
  * (`shell` — по нему вкладка получает заголовок; какой шелл запускать, решает
- * node-слой, `getSystemShell`).
+ * node-слой, `getSystemShell`; `pid` — его процесс).
  */
-export type ITerminalSession = ITerminalSurface & IDisposable & { readonly shell: string };
+export type ITerminalSession = ITerminalSurface &
+    IDisposable & {
+        readonly shell: string;
+        /** Pid процесса шелла; `undefined`, если процесса на нашей стороне нет. */
+        readonly pid: number | undefined;
+    };
 
 export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSession;
 

@@ -11,6 +11,7 @@ import {
 } from "./extHostTypeConverters.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
+import { createTerminalNamespace } from "./terminalNamespace.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     ColorThemeKind,
@@ -107,6 +108,8 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     // перегрузок (`MessageOptions` первым аргументом, кнопки строками или
     // `MessageItem`-ами) и возврат расширению ЕГО предмета.
     const messages = createMessageApi(rpc);
+    // Терминалы: состояние здесь, инстансы — у хоста (встроенный терминал).
+    const terminals = createTerminalNamespace(rpc);
 
     let activeEditorUri: string | null = null;
     /** Группа активного редактора (из меты); null — до первой меты с группой. */
@@ -721,6 +724,19 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
                 void pushFileDecorations(provider, changed);
             });
         },
+
+        // Терминалы (`ExtHostTerminalService` эталона) — см. terminalNamespace.ts.
+        // Геттеры, а не копии: список и активный живые.
+        createTerminal: terminals.createTerminal.bind(terminals) as typeof vscode.window.createTerminal,
+        get terminals(): readonly vscode.Terminal[] {
+            return terminals.terminals;
+        },
+        get activeTerminal(): vscode.Terminal | undefined {
+            return terminals.activeTerminal;
+        },
+        onDidOpenTerminal: terminals.onDidOpenTerminal,
+        onDidCloseTerminal: terminals.onDidCloseTerminal,
+        onDidChangeActiveTerminal: terminals.onDidChangeActiveTerminal,
 
         // Настоящий output-канал: строки уезжают хосту (`output.append`) и
         // попадают в панель Output отдельным каналом с label = name (мост —

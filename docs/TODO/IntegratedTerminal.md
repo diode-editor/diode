@@ -121,8 +121,12 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
 - **Имя терминала** — `basename` шелла (`${process}` эталона), без номера; номер `N:` только в дропдауне и
   quick pick. Одинаковые имена не дедуплицируются — как у эталона.
 - **Контекст-ключи**: `terminalCount`, `terminalTabsFocus` (плюс прежние `terminalFocus`, `terminalIsOpen`).
-- **Шов для `window.createTerminal`**: терминалы расширений — те же инстансы сервиса;
-  `setActiveInstance(id)` / `closeInstance(id)` / `getInstance(id)` — для них.
+- **Терминалы расширений** (`window.createTerminal`) — те же инстансы сервиса: `createInstance(options)`
+  с опциями шелла расширения (имя, шелл и аргументы, `cwd`, `env` с `null`, `strictEnv`, `message`),
+  фоновые инстансы для `hideFromUser` (`showInstance` выносит во вкладки), `sendText` с нормализацией
+  Enter, причина закрытия (`process`/`user`/`extension`) и код выхода на инстансе, события
+  `onDidCreateInstance`/`onDidDisposeInstance` по всем инстансам, включая фоновые. Мост к расширениям —
+  `ExtensionTerminalAdapter`, устройство — [docs/arch/Extensions.md](../arch/Extensions.md).
 
 Групп (сплитов) нет: группа эталона здесь — один терминал, поэтому `hideCondition: singleGroup` работает как
 `singleTerminal`, а `focusNext`/`focusPrevious` ходят по терминалам.

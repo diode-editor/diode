@@ -51,6 +51,7 @@ import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsSe
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
 import type {
     DiagnosticsSink,
+    IExtensionTerminalSink,
     INotificationSink,
     IOutputSink,
     IProgressSink,
@@ -89,6 +90,7 @@ import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
+import { TerminalCustomer } from "./customers/terminalCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { ExtensionPhases } from "./extensionPhases.ts";
@@ -232,6 +234,13 @@ export interface IExtensionHostOptions {
      * «закрыто без выбора» (`undefined`), а не зависает.
      */
     readonly notificationSink?: INotificationSink;
+    /**
+     * Сток терминалов расширений (`window.createTerminal` → `terminal.*`) и
+     * источник жизни встроенного терминала для `window.terminals`. Если не
+     * передан — терминал заводится «в никуда»: объект у расширения есть, но
+     * `onDidOpenTerminal` не стреляет и список пуст.
+     */
+    readonly terminalSink?: IExtensionTerminalSink;
     /**
      * Буфер обмена для `env.clipboard`. Если не передан — чтение отдаёт пустую
      * строку, запись молча теряется (как было до появления провода).
@@ -391,6 +400,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly configurationCustomer: ConfigurationCustomer | undefined;
     /** Команды расширений в реестре ядра: прокси спавна и заглушки-активаторы. */
     private readonly commands: CommandsCustomer;
+    private readonly terminals: TerminalCustomer;
     /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
     private readonly fileSystem: FileSystemCustomer;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
@@ -446,6 +456,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             options.configuration === undefined ? undefined : new ConfigurationCustomer(options.configuration);
         this.commands = new CommandsCustomer(commandService, (event) => this.activateByEvent(event), this.logger);
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
+        this.terminals = new TerminalCustomer(options.terminalSink);
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
@@ -467,6 +478,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 quickInputSink: options.quickInputSink,
                 notificationSink: options.notificationSink,
             }),
+            this.terminals,
         ];
     }
 
@@ -1098,6 +1110,9 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             // Открытые документы — ДО первой активации: стоковый
             // vscode-languageclient читает `workspace.textDocuments` на start().
             this.documents.pushInitialState();
+            // Терминалы — тоже ДО первой активации: bazel-java в `activate()`
+            // ищет свой лог в `window.terminals`, прежде чем завести новый.
+            this.terminals.pushInitialState();
         });
         await this.readyPromise;
         return rpc;

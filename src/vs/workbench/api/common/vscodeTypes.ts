@@ -712,6 +712,21 @@ export enum StatusBarAlignment {
     Right = 2,
 }
 
+/** Где показан терминал (`vscode.TerminalLocation`); Diode держит все терминалы в панели. */
+export enum TerminalLocation {
+    Panel = 1,
+    Editor = 2,
+}
+
+/** Почему терминал закрылся (`vscode.TerminalExitReason`). */
+export enum TerminalExitReason {
+    Unknown = 0,
+    Shutdown = 1,
+    Process = 2,
+    User = 3,
+    Extension = 4,
+}
+
 /**
  * Вид активной темы (`vscode.ColorThemeKind`) — то, что расширение читает у
  * `window.activeColorTheme.kind`. Значения дословно из upstream; наш

@@ -31,7 +31,7 @@
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 12/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 20/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 22/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 28/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -44,7 +44,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 117/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 128/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 5/32 |
 
 ## vscode.languages
@@ -119,7 +119,8 @@ output-каналы, декорации, пункты статус-бара и �
 | quick input прочее (`showWorkspaceFolderPick`, `showOpenDialog`, `showSaveDialog`, `createQuickPick`, `createInputBox`) | 🕐 | объектные формы (пошаговые мастера) и диалоги файлов |
 | `createStatusBarItem` | 🟡 | пункт в полосе: `text` со значками `$(name)`, `name`, `alignment`, `priority`, команда по клику, `show`/`hide`/`dispose`. Стабы: `tooltip` принимается, но не показывается (виджета подсказки в TUI нет); `color`/`backgroundColor`/`accessibilityInformation` ни на что не влияют. Текст длиннее 24 символов усекается — ширина полосы в терминале дефицитна |
 | `setStatusBarMessage` | 🕐 | |
-| терминал (12 членов: `createTerminal`, `terminals`, события, shell integration, link/profile-провайдеры) | 🕐 | |
+| `createTerminal`, `terminals`, `activeTerminal`, `onDidOpenTerminal`, `onDidCloseTerminal`, `onDidChangeActiveTerminal` | 🟡 | терминал расширения — настоящий шелл встроенного терминала в нижней панели (вкладка в списке терминалов). Позиционная форма и `TerminalOptions`: `name`, `shellPath`, `shellArgs`, `cwd`, `env` (`null` снимает переменную), `strictEnv`, `hideFromUser` (фоновый терминал: в `terminals` есть, во вкладках — после `show()`), `message`. `terminals` — все терминалы, включая шеллы, открытые человеком (у них `creationOptions` — чем их запустили); `activeTerminal` и события — тоже по всем. `Terminal`: `sendText` (переводы строк — Enter, как в эталоне), `show(preserveFocus)` открывает панель на вкладке TERMINAL, `hide` прячет её, только если показан этот терминал, `dispose`, `processId`, `exitStatus` с причиной (`Process` — шелл вышел, `User` — Kill, `Extension` — `dispose()`). После `dispose()` методы бросают, как в эталоне. Не поддержаны: `ExtensionTerminalOptions` (`pty`), `location`/`color`/`isTransient`/`shellIntegrationNonce` принимаются и игнорируются (терминал всегда в панели); `state.isInteractedWith` всегда `false`; строковые `shellArgs` режутся по пробелам; имя терминала не следует за заголовком процесса |
+| `onDidChangeTerminalState`, shell integration (3 события), `registerTerminalLinkProvider`, `registerTerminalProfileProvider` | 🕐 | |
 | деревья (`registerTreeDataProvider`, `createTreeView`) | 🕐 | |
 | `onDidChangeTextEditorSelection` | ✅ | каждое движение каретки/смена выделения в редакторе; `kind` едет от жеста — набор и кейбинд дают `Keyboard`, мышь `Mouse`, команда расширения `Command`, остальное (undo/redo, find, фолдинг, программная правка) — `undefined`, как и разрешает upstream. Выделение, которое расширение поставило само, эхом не возвращается |
 | события редактора (`onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
@@ -239,7 +240,7 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## Типы с неполной поверхностью
 
-Активно 115 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 128 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.
@@ -249,6 +250,9 @@ output-каналы, декорации, пункты статус-бара и �
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextDocument` | 19/19 | — (класс документа проверяется компилятором: `implements vscode.TextDocument`). 🟡 `save` — всегда `false` («не сохранено»), у закрытого документа — отказ, как upstream: запроса «сохранить документ по uri» к хосту пока нет. `getWordRangeAtPosition` — дефолтное определение слова upstream (`DEFAULT_WORD_REGEXP`) либо регекс расширения; языковых word-definition (`wordPattern`) нет, регекс, матчащий пустую строку, — исключение. Рабочие и `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
+| `Terminal` | 9/10 | `shellIntegration` |
+| `TerminalOptions` | 12/13 | `iconPath` (тянет `ThemeIcon`) |
+| `ExtensionTerminalOptions` | 6/7 | `iconPath`. Тип поднят ради `Terminal.creationOptions`; перегрузка `createTerminal` с `pty` — 🕐 |
 | `ExtensionContext` | 15/17 | `environmentVariableCollection`, `languageModelAccessInformation`. Из активных: `extension` — запись самого расширения из каталога `vscode.extensions` (телеметрии читают по ней `packageJSON.version`); `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
 | `WorkspaceEdit` | 11/11 | — |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |

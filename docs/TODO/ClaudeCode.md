@@ -73,17 +73,19 @@ diagnostic client»). Белого списка имён IDE в CLI нет: ва
 
 ### 2. Терминал для расширений (крупное)
 
-Все 12 членов терминального API сейчас в статусе «позже». Нужен RPC-мост
-хост↔субпроцесс поверх `TerminalService`, который сегодня умеет только «шелл из
-`$SHELL` в cwd».
+RPC-мост хост↔субпроцесс поверх `TerminalService` сделан для шеллов (устройство —
+docs/arch/Extensions.md, «Терминалы расширений»); pty расширения
+(`ExtensionTerminalOptions`) — следующим PR.
 
-- [ ] `window.createTerminal(options)`: `name`, `cwd`, `env`, `strictEnv`,
-      `shellPath`/`shellArgs`, `iconPath` (игнор), `isTransient`, `location`
-      (решить, куда класть «рядом с редактором»: сайдбар/панель — вопрос
-      раскладки, см. ниже).
-- [ ] `Terminal.show`/`hide`/`sendText`/`dispose`, `processId`, `exitStatus`,
+- [x] `window.createTerminal(options)`: `name`, `cwd`, `env` (`null` снимает),
+      `strictEnv`, `shellPath`/`shellArgs`, `hideFromUser`, `message`;
+      `location`/`color`/`isTransient` принимаются и игнорируются — терминал
+      всегда в панели, рядом с шеллами человека в списке вкладок.
+- [x] `Terminal.show`/`hide`/`sendText`/`dispose`, `processId`, `exitStatus`,
       `onDidCloseTerminal`, `onDidOpenTerminal`, `onDidChangeActiveTerminal`,
-      `window.terminals`, `window.activeTerminal`.
+      `window.terminals` (все терминалы, как в эталоне), `window.activeTerminal`.
+- [ ] `ExtensionTerminalOptions.pty` (`Pseudoterminal`): эмулятор на хосте, байты по
+      проводу — лог BJLS у bazel-java.
 - [ ] `ExtensionContext.environmentVariableCollection`: коллекции всех расширений
       вливаются в окружение **каждого** нашего терминала (так `claude`, набранный
       руками в нижней панели, тоже увидит IDE через `CLAUDE_CODE_SSE_PORT`).
