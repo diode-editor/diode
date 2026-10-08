@@ -151,6 +151,21 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         h.service.dispose();
     });
 
+    it("фоновый не подменяет чужой адрес: showInstance видимого и запись по незнакомому id его не трогают", () => {
+        const h = buildHarness();
+        const visible = h.service.createInstance();
+        h.service.createInstance({ hideFromUser: true });
+        h.service.createInstance();
+        h.service.showInstance(visible.id);
+        expect(h.service.getBackgroundInstances()).toHaveLength(1);
+        expect(h.service.getActiveInstance()).toBe(visible);
+        h.service.sendText(999, "x", false);
+        h.service.sendText(undefined, "x", false);
+        expect(h.sessions[1].writes).toStrictEqual([]);
+        expect(h.service.getInstance(999)).toBeNull();
+        h.service.dispose();
+    });
+
     it("dispose сервиса убивает и фоновые сессии", () => {
         const h = buildHarness();
         h.service.createInstance({ hideFromUser: true });

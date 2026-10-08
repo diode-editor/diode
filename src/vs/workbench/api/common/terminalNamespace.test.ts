@@ -73,7 +73,9 @@ describe("window.createTerminal — формы вызова уходят одн�
         expect(Object.isFrozen(terminal.creationOptions)).toBe(true);
         expect(terminal.exitStatus).toBeUndefined();
         expect(terminal.state).toStrictEqual({ isInteractedWith: false, shell: undefined });
-        expect(ns.createTerminal().name).toBe("");
+        const bare = ns.createTerminal();
+        expect(bare.name).toBe("");
+        expect(bare.creationOptions).toStrictEqual({});
     });
 });
 
@@ -246,6 +248,12 @@ describe("события от хоста", () => {
         expect(onActive).toHaveBeenLastCalledWith(a);
 
         stub.fire("terminal.activeChanged", { id: 77 });
+        expect(ns.activeTerminal).toBe(a);
+
+        // Закрытый терминал из адресов выбыл: активным его уже не сделать.
+        stub.fire("terminal.opened", { id: 2, name: "b", launch: {} });
+        stub.fire("terminal.closed", { id: 2, reason: "process" });
+        stub.fire("terminal.activeChanged", { id: 2 });
         expect(ns.activeTerminal).toBe(a);
 
         stub.fire("terminal.activeChanged", { id: null });

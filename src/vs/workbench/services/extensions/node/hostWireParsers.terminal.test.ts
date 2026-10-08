@@ -8,6 +8,10 @@ import {
 } from "./hostWireParsers.ts";
 
 describe("parseWireTerminalCreate", () => {
+    it("только метка — ничего лишнего", () => {
+        expect(parseWireTerminalCreate({ extHostId: 1 })).toStrictEqual({ extHostId: 1 });
+    });
+
     it("без числовой метки — null", () => {
         expect(parseWireTerminalCreate(null)).toBeNull();
         expect(parseWireTerminalCreate("x")).toBeNull();

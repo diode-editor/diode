@@ -21,10 +21,8 @@ import { type ITerminalInstance, TERMINAL_VIEW_ID, type TerminalService } from "
  * из `opened`; адаптер помнит соответствие до `reset()` (смерть субпроцесса).
  */
 export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
-    /** `extHostId` субпроцесса → id инстанса. */
-    private readonly byExtHostId = new Map<number | undefined, number>();
-    /** Обратная метка — её несёт `opened` своего терминала. */
-    private readonly extHostIdOf = new Map<number, number>();
+    /** `extHostId` субпроцесса → id инстанса (терминалов единицы — обратный поиск перебором). */
+    private readonly byExtHostId = new Map<number, number>();
     /**
      * `extHostId` терминала, который заводится прямо сейчас: `onDidCreateInstance`
      * стреляет изнутри `createInstance`, раньше, чем тот вернёт инстанс.
@@ -60,9 +58,10 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
                     ...(instance.exitCode !== undefined ? { code: instance.exitCode } : {}),
                     reason: instance.exitReason,
                 });
-                // У чужого инстанса метки нет — удаление по `undefined` пустое.
-                this.byExtHostId.delete(this.extHostIdOf.get(instance.id));
-                this.extHostIdOf.delete(instance.id);
+                // Метка закрытого больше ничего не адресует (у чужого её и нет).
+                for (const [extHostId, id] of this.byExtHostId) {
+                    if (id === instance.id) this.byExtHostId.delete(extHostId);
+                }
             }),
         );
         store.add(
@@ -79,18 +78,10 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
         if (this.byExtHostId.has(request.extHostId)) return;
         this.creating = request.extHostId;
         try {
-            const instance = this.terminals.createInstance({
-                ...(request.name !== undefined ? { name: request.name } : {}),
-                ...(request.shellPath !== undefined ? { shellPath: request.shellPath } : {}),
-                ...(request.shellArgs !== undefined ? { shellArgs: request.shellArgs } : {}),
-                ...(request.cwd !== undefined ? { cwd: request.cwd } : {}),
-                ...(request.env !== undefined ? { env: request.env } : {}),
-                ...(request.strictEnv === true ? { strictEnv: true } : {}),
-                ...(request.message !== undefined ? { message: request.message } : {}),
-                ...(request.hideFromUser === true ? { hideFromUser: true } : {}),
-            });
+            // Опции провода — те же поля, что у `createInstance` (разбор их уже
+            // отфильтровал); лишняя метка сервису не мешает.
+            const instance = this.terminals.createInstance(request);
             this.byExtHostId.set(request.extHostId, instance.id);
-            this.extHostIdOf.set(instance.id, request.extHostId);
         } finally {
             this.creating = undefined;
         }
@@ -133,7 +124,11 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
 
     public reset(): void {
         this.byExtHostId.clear();
-        this.extHostIdOf.clear();
+    }
+
+    private labelOf(instanceId: number): number | undefined {
+        for (const [extHostId, id] of this.byExtHostId) if (id === instanceId) return extHostId;
+        return undefined;
     }
 
     private resolve(terminal: IWireTerminalRef): number | undefined {
@@ -141,7 +136,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
     }
 
     private toOpened(instance: ITerminalInstance): IWireTerminalOpened {
-        const extHostId = this.creating ?? this.extHostIdOf.get(instance.id);
+        const extHostId = this.creating ?? this.labelOf(instance.id);
         return {
             id: instance.id,
             ...(extHostId !== undefined ? { extHostId } : {}),

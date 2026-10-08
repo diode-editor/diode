@@ -141,6 +141,9 @@ describe("ExtensionTerminalAdapter", () => {
         expect(activeId).toBe(3);
         h.adapter.reset();
         expect(h.adapter.snapshot().terminals[1].extHostId).toBeUndefined();
+        // После уборки старая метка ничего не адресует.
+        h.adapter.sendText({ extHostId: 1 }, "x", true);
+        expect(h.sessions[1].writes).toStrictEqual([]);
         h.service.dispose();
         expect(h.adapter.snapshot()).toStrictEqual({ terminals: [], activeId: null });
     });
@@ -155,10 +158,12 @@ describe("ExtensionTerminalAdapter", () => {
             { id: 1, code: 9, reason: "process" },
             { id: 2, reason: "extension" },
         ]);
-        // Метка закрытого больше ничего не адресует.
+        // Метка закрытого больше ничего не адресует — и её можно завести заново.
         h.adapter.create({ extHostId: 3 });
         h.adapter.sendText({ extHostId: 1 }, "x", true);
         expect(h.sessions[2].writes).toStrictEqual([]);
+        h.adapter.create({ extHostId: 1, name: "again" });
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["bash", "again"]);
 
         h.subscription.dispose();
         h.events.opened.mockClear();

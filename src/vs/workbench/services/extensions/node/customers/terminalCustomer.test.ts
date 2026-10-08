@@ -209,6 +209,18 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
+    it("после уборки спавна семени нет — RPC умершего не трогается", () => {
+        const h = setup({ pushInitialState: false });
+        const sent: string[] = [];
+        vi.spyOn(h.hostRpc, "notify").mockImplementation((method) => {
+            sent.push(method);
+        });
+        h.attached.dispose();
+        h.customer.pushInitialState();
+        expect(sent).toStrictEqual([]);
+        h.service.dispose();
+    });
+
     it("поздняя уборка прежнего спавна не трогает нового", async () => {
         const h = setup();
         const [a, b] = createInProcessChannelPair();
@@ -276,7 +288,18 @@ describe("терминалы расширений — сквозь провод"
         };
         const customer = new TerminalCustomer(sink);
         const [a, b] = createInProcessChannelPair();
-        const attached = customer.attach({ rpc: new RpcEndpoint(a) as unknown as HostRpc, logger: undefined });
+        // Обработчик, упавший на битом конверте, RPC глотает с предупреждением —
+        // ноль предупреждений значит, что разбор отсёк конверт до стока.
+        const warnings: string[] = [];
+        const logger = {
+            trace: () => undefined,
+            debug: () => undefined,
+            info: () => undefined,
+            warn: (message: string) => warnings.push(message),
+            error: () => undefined,
+            isEnabled: () => true,
+        };
+        const attached = customer.attach({ rpc: new RpcEndpoint(a, logger) as unknown as HostRpc, logger: undefined });
         const peer = new RpcEndpoint(b) as unknown as SubprocessRpc;
         const send = peer.notify.bind(peer) as (method: string, params: unknown) => void;
         send("terminal.create", { name: "no id" });
@@ -286,6 +309,7 @@ describe("терминалы расширений — сквозь провод"
         send("terminal.dispose", { terminal: "x" });
         await flush();
         expect(calls).toStrictEqual([]);
+        expect(warnings).toStrictEqual([]);
         send("terminal.create", { extHostId: 1 });
         send("terminal.show", { terminal: { id: 1 } });
         send("terminal.hide", { terminal: { extHostId: 1 } });

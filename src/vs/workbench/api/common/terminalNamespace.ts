@@ -164,7 +164,8 @@ function fromWireLaunch(launch: IWireTerminalLaunch): vscode.TerminalOptions {
 export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace {
     /** Порядок появления — им отдаётся `terminals`. */
     const order: TerminalRecord[] = [];
-    const byId = new Map<number, TerminalRecord>();
+    /** По хостовому id; ключ `null` («активного нет») не заводится никогда. */
+    const byId = new Map<number | null, TerminalRecord>();
     /** Свои терминалы по метке; `get`/`delete` по `undefined` (чужой терминал) — пустые операции. */
     const byExtHostId = new Map<number | undefined, TerminalRecord>();
     let nextExtHostId = 1;
@@ -203,7 +204,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
 
     rpc.handleNotification("terminal.activeChanged", (params) => {
         const { id } = parseWireTerminalActive(params);
-        const next = id === null ? undefined : byId.get(id);
+        const next = byId.get(id);
         // Незнакомый id — как у эталона: активный не меняется.
         if (next === undefined && id !== null) return;
         if (next === active) return;
