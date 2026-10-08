@@ -81,6 +81,8 @@ function makeHost(colors: Record<string, number>) {
             configListeners.push(cb);
             return { dispose: () => undefined };
         },
+        updateValue: () => Promise.resolve(),
+        getConfigurationScopes: () => new Map(),
     };
     const { logger, lines } = makeLogger();
 

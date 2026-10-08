@@ -12,10 +12,10 @@ import { serializeWillSaveTextEdit, serializeWorkspaceEdit } from "./extHostType
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
 import { findFiles as walkForFiles } from "./findFiles.ts";
-import { createMessageApi } from "./messageNamespace.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
+    ConfigurationTarget,
     DisposableImpl,
     EndOfLine,
     EventEmitter,
@@ -33,6 +33,7 @@ import {
     parseWireDocumentChangedEvent,
     parseWireDocumentSyncSnapshot,
     parseWireWatcherEvents,
+    type WireConfigurationTarget,
     type WireTextEdit,
 } from "./wireTypes.ts";
 import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
@@ -152,12 +153,36 @@ function languageIdOfScope(scope: unknown): string | undefined {
     return String(scope.languageId);
 }
 
+/**
+ * Ресурс из scope `getConfiguration` (`scopeToOverrides` эталона): сам `Uri`
+ * либо `uri` у `TextDocument`, `WorkspaceFolder`, `{ uri, languageId }`.
+ */
+function resourceOfScope(scope: unknown): string | undefined {
+    if (scope instanceof Uri) return scope.toString();
+    if (typeof scope !== "object" || scope === null || !("uri" in scope)) return undefined;
+    return scope.uri instanceof Uri ? scope.uri.toString() : undefined;
+}
+
+/**
+ * Цель записи (`parseConfigurationTarget` эталона): `true`/Global — user,
+ * `false`/Workspace — воркспейс, WorkspaceFolder — папка; прочее — цель не
+ * задана, её выводит хост.
+ */
+function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undefined {
+    if (typeof arg === "boolean") return arg ? "user" : "workspace";
+    switch (arg) {
+        case ConfigurationTarget.Global:
+            return "user";
+        case ConfigurationTarget.Workspace:
+            return "workspace";
+        case ConfigurationTarget.WorkspaceFolder:
+            return "workspaceFolder";
+    }
+    return undefined;
+}
+
 export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode.workspace {
     const { rpc, registry, documentSync, configStore } = ctx;
-    // Предупреждения человеку (неподдержанный `getConfiguration().update`) идут
-    // тем же путём, что `window.show*Message`: api без состояния, поэтому
-    // собственный экземпляр здесь ничего не дублирует.
-    const messages = createMessageApi(rpc);
 
     let workspaceFolders: IWorkspaceFolder[] = [];
 
@@ -409,14 +434,8 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                     workspaceFolderValue: undefined,
                 };
             },
-            update: (key: string): Thenable<void> => {
-                // Предупреждение видно человеку тостом (и в логе расширений);
-                // ответа не ждём — кнопок у сообщения нет, выбирать нечего.
-                void messages.showWarningMessage(
-                    `workspace.getConfiguration().update("${prefix + key}") is not supported`,
-                );
-                return Promise.resolve();
-            },
+            update: (key: string, value: unknown, target?: unknown, overrideInLanguage?: boolean) =>
+                updateConfiguration(prefix + key, value, target, overrideInLanguage, scope, languageId),
         };
         // VS Code выставляет значения секции как поля объекта конфигурации.
         for (const key of configStore.sectionKeys(section, languageId)) {
@@ -424,6 +443,45 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
             config[key] = configStore.get(prefix + key, undefined, languageId);
         }
         return config;
+    }
+
+    /**
+     * `WorkspaceConfiguration.update` (эталон: `extHostConfiguration` →
+     * `mainThreadConfiguration.$updateConfigurationOption`). Пишет хост — тем же
+     * сервисом настроек, что ядро; отказ приходит rejected promise без тоста.
+     * К резолву новое значение уже приехало `configurationChanged`: хост шлёт его
+     * по тому же каналу раньше ответа.
+     */
+    async function updateConfiguration(
+        key: string,
+        value: unknown,
+        targetArg: unknown,
+        overrideInLanguage: boolean | undefined,
+        scope: unknown,
+        languageId: string | undefined,
+    ): Promise<void> {
+        const target = parseConfigurationTarget(targetArg);
+        // Секцию `"[lang]"` эталон выбирает, когда scope несёт язык и
+        // `overrideInLanguage` — либо явно `true`, либо не задан, а в целевом
+        // слое у языка уже есть своё значение. Такую запись мы пока не умеем —
+        // честный отказ, а не запись мимо секции, которую `get()` для языка
+        // всё равно перекроет.
+        if (languageId !== undefined) {
+            const layer = target === "user" ? "user" : "workspace";
+            const toSection = overrideInLanguage ?? configStore.hasLanguageOverride(key, languageId, layer);
+            if (toSection) {
+                throw new Error(
+                    `Unable to write ${key} to the "[${languageId}]" section: language-specific settings writes are not supported.`,
+                );
+            }
+        }
+        const resource = resourceOfScope(scope);
+        await rpc.request("configuration.update", {
+            key,
+            ...(value !== undefined ? { value } : {}),
+            ...(target !== undefined ? { target } : {}),
+            ...(resource !== undefined ? { resource } : {}),
+        });
     }
 
     function asRelativePath(pathOrUri: string | vscode.Uri, includeWorkspaceFolder?: boolean): string {

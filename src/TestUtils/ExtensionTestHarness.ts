@@ -35,6 +35,7 @@ import { documentRange, formatDocument, formatRange } from "../vs/editor/contrib
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
+import { InMemoryConfigurationService } from "../vs/platform/configuration/common/inMemoryConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../vs/platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { TrashService } from "../vs/platform/files/node/trashService.ts";
@@ -223,6 +224,15 @@ export interface IExtensionHarnessOptions {
      */
     readonly configurationService?: IConfigurationService;
     /**
+     * Сервис настроек, из которого субпроцесс получает слои и в который пишет
+     * `WorkspaceConfiguration.update` (в приложении это один сервис с ядром). По
+     * умолчанию — {@link InMemoryConfigurationService} над `configuration` и
+     * `workspaceConfiguration`: запись видна `get()` и шлёт `configurationChanged`,
+     * но не трогает диск. Тест, которому нужен файл, передаёт файловый сервис;
+     * `configuration`/`workspaceConfiguration` тогда не читаются.
+     */
+    readonly extensionConfigurationService?: IConfigurationService;
+    /**
      * Папки воркспейса (`workspace.workspaceFolders`). Строка — ПУТЬ на ФС
      * (тесту удобнее оперировать `tmpDir`, uri харнесс поднимет сам); объект —
      * готовый дескриптор, когда тесту нужна не-`file:` схема. По умолчанию —
@@ -391,15 +401,24 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         curatedConfigInjection(ext.id),
     ).apply();
     configurationRegistry.registerDefaultConfigurations(options.configurationDefaults ?? {});
-    const configurationData = {
-        defaults: configurationRegistry.getDefaultConfiguration(),
-        user: options.configuration ?? {},
-        workspace: options.workspaceConfiguration ?? {},
-    };
+    const extensionConfigurationService =
+        options.extensionConfigurationService ??
+        new InMemoryConfigurationService(
+            configurationRegistry,
+            options.configuration,
+            // Папки нет — и слоя воркспейса нет: запись туда отклоняется, как в пустом окне.
+            folders.length === 0 ? undefined : (options.workspaceConfiguration ?? {}),
+        );
+    // Адаптер — зеркально extensionHostModule.
     const configuration: IExtensionHostConfigProvider = {
-        getSnapshot: () => configurationData,
+        getSnapshot: () => extensionConfigurationService.getConfigurationData(),
         getWorkspaceFolders: () => folders,
-        onDidChange: () => ({ dispose: () => undefined }),
+        onDidChange: (cb) =>
+            extensionConfigurationService.onDidChangeConfiguration((event) => {
+                cb(event.affectedKeys);
+            }),
+        updateValue: (key, value, target) => extensionConfigurationService.updateValue(key, value, target),
+        getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
     };
     // Полоса групп — зеркально extensionHostModule (правило двух сим-точек).
     const editorLayout = new EditorLayoutServiceAdapter(group, group.editorGroups);

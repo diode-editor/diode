@@ -3,11 +3,13 @@ import * as path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { ConfigurationRegistry } from "../../platform/configuration/common/configurationRegistry.ts";
+import { InMemoryConfigurationService } from "../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
 import { ExtensionHostDIToken } from "../../workbench/services/extensions/node/extensionHost.ts";
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 
-import { extensionHostModule, workspaceFoldersProvider } from "./extensionHostModule.ts";
+import { extensionHostConfigProvider, extensionHostModule, workspaceFoldersProvider } from "./extensionHostModule.ts";
 import { createTestContainer } from "./testProfile.ts";
 
 /**
@@ -109,5 +111,34 @@ describe("workspaceFoldersProvider", () => {
 
         workspace.setWorkspaceFolder("/work/another");
         expect(getFolders()[0]?.name).toBe("another");
+    });
+});
+
+describe("extensionHostConfigProvider", () => {
+    function setup() {
+        const registry = new ConfigurationRegistry();
+        registry.registerExtensionConfiguration("t.ext", { "t.flag": { default: true, scope: "application" } });
+        const service = new InMemoryConfigurationService(registry, { "t.flag": false }, {});
+        const provider = extensionHostConfigProvider(service, registry, workspaceWithFolder("/work/project"));
+        return { service, provider };
+    }
+
+    it("слои, папки и scope реестра — из сервисов ядра", () => {
+        const { provider } = setup();
+        expect(provider.getSnapshot()).toMatchObject({ defaults: { t: { flag: true } }, user: { t: { flag: false } } });
+        expect(provider.getWorkspaceFolders()).toEqual([{ uri: "file:///work/project", name: "project", index: 0 }]);
+        expect(provider.getConfigurationScopes().get("t.flag")).toBe("application");
+    });
+
+    it("запись идёт в сервис ядра с целью, его отказ доходит, событие — ключами", async () => {
+        const { service, provider } = setup();
+        const changes: (readonly string[])[] = [];
+        provider.onDidChange((keys) => changes.push(keys));
+        await provider.updateValue("t.flag", true, "user");
+        expect(service.inspect("t.flag").user).toBe(true);
+        expect(changes).toEqual([["t.flag"]]);
+        await expect(provider.updateValue("t.flag", true, "workspace")).rejects.toThrow(
+            "can be written only into User settings",
+        );
     });
 });

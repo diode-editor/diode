@@ -68,6 +68,27 @@ export interface IWireConfigurationChanged {
     readonly affectedKeys: readonly string[];
 }
 
+/**
+ * Куда пишет `configuration.update` — `ConfigurationTarget` эталона на проводе
+ * (`parseConfigurationTarget` extHostConfiguration). Нет поля — цель не задана,
+ * её выводит хост (`deriveConfigurationTarget` эталона).
+ */
+export type WireConfigurationTarget = "user" | "workspace" | "workspaceFolder";
+
+/**
+ * Параметры `configuration.update` (subprocess → host):
+ * `WorkspaceConfiguration.update(...)`. Ключ — полный dotted (секция уже
+ * склеена); нет `value` — снять ключ (`$removeConfigurationOption` эталона).
+ * `resource` — uri из scope `getConfiguration` (у цели `workspaceFolder`
+ * по нему ищется папка).
+ */
+export interface IWireConfigurationUpdate {
+    readonly key: string;
+    readonly value?: unknown;
+    readonly target?: WireConfigurationTarget;
+    readonly resource?: string;
+}
+
 export function isFiniteNumber(v: unknown): v is number {
     return typeof v === "number" && Number.isFinite(v);
 }

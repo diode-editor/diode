@@ -79,6 +79,15 @@ export class WorkspaceConfigStore {
         return isPlainObject(node) ? Object.keys(node) : [];
     }
 
+    /**
+     * Есть ли у ключа своё значение в секции языка `languageId` слоя `layer`
+     * (`inspect(...).user/workspace.override` эталона) — по нему запись решает,
+     * писать ли в секцию языка.
+     */
+    public hasLanguageOverride(dottedKey: string, languageId: string, layer: "user" | "workspace"): boolean {
+        return this[layer].getOverride(languageId).get(dottedKey) !== undefined;
+    }
+
     private model(languageId: string | undefined): ConfigurationModel {
         // Stryker disable next-line ConditionalExpression: override() без секции и так отдаёт ту же модель — ветка нужна только типу
         return languageId === undefined ? this.merged : this.merged.override(languageId);
