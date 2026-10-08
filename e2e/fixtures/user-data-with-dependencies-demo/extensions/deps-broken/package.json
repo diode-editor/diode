@@ -1,0 +1,17 @@
+{
+    "name": "deps-broken",
+    "displayName": "Deps Broken",
+    "description": "Демо extensionDependencies: зависит от расширения, которого нет, — не активируется, а человек видит тост с причиной.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "extensionDependencies": [
+        "test.not-installed"
+    ]
+}
