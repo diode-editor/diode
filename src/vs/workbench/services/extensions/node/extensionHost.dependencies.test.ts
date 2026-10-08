@@ -53,6 +53,7 @@ const restoreEnv: (() => void)[] = [];
 afterEach(async () => {
     for (const harness of harnesses.splice(0)) await harness.dispose();
     for (const restore of restoreEnv.splice(0)) restore();
+    vi.unstubAllEnvs();
 });
 
 async function start(
@@ -76,6 +77,20 @@ async function start(
     });
     harnesses.push(harness);
     return { harness, logger, toasts };
+}
+
+/**
+ * Путь файла-маркера фикстуры во временном каталоге, переданный ей через
+ * переменную окружения `name` (субпроцесс наследует env на старте харнесса,
+ * поэтому звать ДО `start`). Каталог и переменная убираются после теста.
+ */
+function markerFile(name: string): string {
+    const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diode-deps-")), "marker");
+    vi.stubEnv(name, marker);
+    restoreEnv.push(() => {
+        fs.rmSync(path.dirname(marker), { recursive: true, force: true });
+    });
+    return marker;
 }
 
 function errorMessages(logger: LoggerSpy): string[] {
@@ -254,15 +269,25 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(toasts).toEqual([]);
     });
 
+    it("хост выключился, пока зависимость поднималась: зависимое тихо снимается, а не ждёт оживления", async () => {
+        const marker = markerFile("DIODE_TEST_HANG_MARKER");
+        const { harness, logger } = await start([dependent(["test.dep"]), dependency("hangsOnActivate.cjs")]);
+
+        const activation = harness.host.activateByEvent("onLanguage:java");
+        await expect.poll(() => fs.existsSync(marker)).toBe(true);
+        harness.host.dispose();
+        await activation;
+
+        expect(harness.host.hasExtension("test.dependent")).toBe(false);
+        // Возвращать к оживлению некого — хост выключен, регистрации сняты.
+        expect(logger.warn).not.toHaveBeenCalledWith(
+            'activation of "test.dependent" interrupted by extension host death — will retry',
+        );
+        expect(errorMessages(logger).filter((line) => line.startsWith("Cannot activate"))).toEqual([]);
+    });
+
     it("смерть субпроцесса на активации зависимости: зависимый не считается упавшим и оживает вместе с ней", async () => {
-        const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diode-deps-")), "crashed");
-        const previous = process.env.DIODE_TEST_EXIT_MARKER;
-        process.env.DIODE_TEST_EXIT_MARKER = marker;
-        restoreEnv.push(() => {
-            if (previous === undefined) delete process.env.DIODE_TEST_EXIT_MARKER;
-            else process.env.DIODE_TEST_EXIT_MARKER = previous;
-            fs.rmSync(path.dirname(marker), { recursive: true, force: true });
-        });
+        const marker = markerFile("DIODE_TEST_EXIT_MARKER");
         const { harness, logger } = await start([dependent(["test.dep"]), dependency("exitsOnFirstActivate.cjs")]);
 
         await harness.host.activateByEvent("onLanguage:java");
