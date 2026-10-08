@@ -232,7 +232,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     public dispose(): void {
         this.disposeProcess();
-        // Stryker disable next-line ExpressionStatement: освобождение ресурсов эмулятора снаружи не наблюдается
+        // Stryker disable next-line CallExpression: освобождение ресурсов эмулятора снаружи не наблюдается
         this.term.dispose();
     }
 
