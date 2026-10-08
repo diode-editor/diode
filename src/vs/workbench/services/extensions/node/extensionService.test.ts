@@ -45,6 +45,10 @@ class FakeHost implements IExtensionActivationHost {
         return undefined;
     }
 
+    public registerDeclarativeExtension(id: string): void {
+        this.log.push(`declarative:${id}`);
+    }
+
     public activateByEvent(event: string): Promise<void> {
         this.log.push(event);
         if (event === this.failOn) return Promise.reject(new Error("subprocess failed to start"));
@@ -79,7 +83,7 @@ afterEach(() => {
 });
 
 describe("ExtensionService", () => {
-    it("регистрирует набор по порядку, пропуская расширения без main; * и workspaceContains параллельно, onStartupFinished — после них", async () => {
+    it("регистрирует набор по порядку, расширения без main — декларативными (для extensionDependencies); * и workspaceContains параллельно, onStartupFinished — после них", async () => {
         const host = new FakeHost();
         const logger = recordingLogger();
         const service = new ExtensionService(
@@ -91,8 +95,15 @@ describe("ExtensionService", () => {
 
         await service.start();
 
-        expect(host.log).toEqual(["register:a", "register:git", "*", "workspaceContains", "onStartupFinished"]);
-        // Декларативное пропущено молча, а не «упало при регистрации».
+        expect(host.log).toEqual([
+            "register:a",
+            "declarative:decl",
+            "register:git",
+            "*",
+            "workspaceContains",
+            "onStartupFinished",
+        ]);
+        // Декларативное не «упало при регистрации».
         expect(logger.errors).toEqual([]);
     });
 

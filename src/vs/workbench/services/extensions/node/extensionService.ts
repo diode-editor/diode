@@ -16,6 +16,8 @@ export const STARTUP_FINISHED_TIMEOUT_MS = 10_000;
 /** Механика extension host'а, которой распоряжается сервис (`ExtensionHost`). */
 export interface IExtensionActivationHost {
     registerExtension(reg: IExtensionRegistration): unknown;
+    /** Установленное расширение без кода: регистрации нет, но зависимость на него удовлетворена. */
+    registerDeclarativeExtension(id: string): void;
     activateByEvent(event: string): Promise<void>;
     activateByWorkspaceContains(): Promise<void>;
 }
@@ -81,7 +83,10 @@ export class ExtensionService implements IExtensionService {
         for (const ext of this.extensions) {
             try {
                 const reg = await toExtensionRegistration(ext, this.registrationEnv);
-                if (reg !== null) this.host.registerExtension(reg);
+                // Без `main` регистрации нет, но хосту надо знать, что расширение
+                // установлено: `extensionDependencies` на него удовлетворены.
+                if (reg === null) this.host.registerDeclarativeExtension(ext.id);
+                else this.host.registerExtension(reg);
             } catch (err) {
                 this.logger.error(`${ext.id}: failed to register${ext.isBuiltin ? " (builtin)" : ""}`, err);
             }
