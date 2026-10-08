@@ -69,6 +69,7 @@ describe("parseWireTerminalCreate — pty", () => {
         expect(
             parseWireTerminalCreate({ extHostId: 2, pty: true, name: "log", shellPath: "/bin/sh", env: { A: "1" } }),
         ).toStrictEqual({ extHostId: 2, pty: true, name: "log" });
+        expect(parseWireTerminalCreate({ extHostId: 2, pty: true })).toStrictEqual({ extHostId: 2, pty: true });
         expect(parseWireTerminalCreate({ extHostId: 2, pty: true, name: "" })).toStrictEqual({
             extHostId: 2,
             pty: true,

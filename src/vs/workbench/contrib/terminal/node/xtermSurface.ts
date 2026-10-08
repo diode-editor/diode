@@ -135,11 +135,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     /** Включила ли программа в шелле mouse-tracking — тогда колесо принадлежит ей. */
     public get mouseEventsActive(): boolean {
-        const service = this.coreMouseService;
-        /* v8 ignore start -- defensive: a live xterm Terminal always exposes _core.coreMouseService, so this guard is only a safety net against a change in xterm internals */
-        if (!service) return false;
-        /* v8 ignore stop */
-        return service.areMouseEventsActive;
+        return this.coreMouseService.areMouseEventsActive;
     }
 
     /**
@@ -161,8 +157,9 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         const line = buffer.getLine(buffer.baseY - this.scrollOffset + y);
         if (!line) return false;
         const cell = line.getCell(x, this.cellBuffer);
-        if (cell) this.cellBuffer = cell;
         if (!cell) return false;
+        // Stryker disable next-line AssignmentExpression,ExpressionStatement: кэш переиспользуемой ячейки — без него только лишние аллокации, результат тот же
+        this.cellBuffer = cell;
         const width = cell.getWidth();
         if (width === 0) return false; // продолжение wide-char
         const chars = cell.getChars();
@@ -175,15 +172,14 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     }
 
     /**
-     * Позиция курсора в видимой области или `null`, когда координата вне диапазона
-     * либо мы смотрим в скролбэк (курсор живёт на дне — над историей он врёт).
+     * Позиция курсора в видимой области или `null`, когда мы смотрим в скролбэк
+     * (курсор живёт на дне — над историей он врёт) или строка дописана до края:
+     * xterm держит `cursorY` в `[0, rows)`, а `cursorX` до переноса — ровно `cols`.
      */
     public getCursor(): { x: number; y: number } | null {
         if (this.scrollOffset > 0) return null;
-        const buffer = this.term.buffer.active;
-        const x = buffer.cursorX;
-        const y = buffer.cursorY;
-        if (x < 0 || x >= this.cols || y < 0 || y >= this.rows) return null;
+        const { cursorX: x, cursorY: y } = this.term.buffer.active;
+        if (x >= this.cols) return null;
         return { x, y };
     }
 
@@ -202,9 +198,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         if (cols === this.cols && rows === this.rows) return;
         this.cols = cols;
         this.rows = rows;
+        // Рефлоу меняет длину скролбэка; смещение клампит геттер `scrollOffset`.
         this.term.resize(cols, rows);
-        // Рефлоу меняет длину скролбэка — подрезаем смещение под новый максимум.
-        this.setScrollOffset(this.scrollOffset);
         if (!this.exited) this.onDidResize(cols, rows);
     }
 
@@ -219,12 +214,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * напрямую. Координаты col/row — 0-based (как их отдал виджет).
      */
     public sendMouse(event: TerminalMouseEventData): void {
-        if (this.exited) return;
-        const service = this.coreMouseService;
-        /* v8 ignore start -- defensive: a live xterm Terminal always exposes _core.coreMouseService, so the optional chain and this guard are only a safety net against a change in xterm internals */
-        if (!service) return;
-        /* v8 ignore stop */
-        service.triggerMouseEvent({
+        // После выхода отчёт эмулятора упрётся в `write`, который мёртвому процессу не шлёт.
+        this.coreMouseService.triggerMouseEvent({
             col: event.col,
             row: event.row,
             button: mapButton(event.button),
@@ -241,6 +232,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     public dispose(): void {
         this.disposeProcess();
+        // Stryker disable next-line ExpressionStatement: освобождение ресурсов эмулятора снаружи не наблюдается
         this.term.dispose();
     }
 
@@ -257,8 +249,9 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * coreMouseService — внутренний (не публичный) сервис xterm; ходим к нему напрямую,
      * поэтому доступ спрятан в одно место.
      */
-    private get coreMouseService(): ICoreMouseService | undefined {
-        return (this.term as unknown as { _core?: { coreMouseService?: ICoreMouseService } })._core?.coreMouseService;
+    private get coreMouseService(): ICoreMouseService {
+        // Сменятся внутренности xterm — упадут тесты мыши, а не тихо погаснет колесо.
+        return (this.term as unknown as { _core: { coreMouseService: ICoreMouseService } })._core.coreMouseService;
     }
 
     private setScrollOffset(value: number): void {

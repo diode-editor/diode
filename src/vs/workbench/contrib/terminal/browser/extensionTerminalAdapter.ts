@@ -189,6 +189,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
      */
     private createPty(extHostId: number, name: string): void {
         // Id инстанса узнаём после createInstance; ввод и ресайз виджета раньше не случаются.
+        // Stryker disable next-line UnaryOperator: плейсхолдер до createInstance — колбэки сессии его не видят
         let instanceId = -1;
         const session = this.createPtySession({
             cols: INITIAL_COLS,

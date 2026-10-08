@@ -73,4 +73,57 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
         expect(exits).toHaveBeenCalledWith(3);
         session.dispose();
     });
+
+    it("ресайз: тот же размер — no-op; сменилась одна сторона — эмулятор и pty узнают", async () => {
+        const { session, onResize } = make(); // 30x4
+        session.resize(30, 4);
+        session.resize(30, 6);
+        session.resize(40, 6);
+        session.resize(0, 6);
+        session.resize(40, -1);
+        expect(onResize.mock.calls).toStrictEqual([
+            [30, 6],
+            [40, 6],
+        ]);
+        // Эмулятор стал шире: строка в 35 символов не переносится.
+        session.feed("x".repeat(35));
+        await vi.waitFor(() => {
+            expect(row(session, 0, 40)).toBe("x".repeat(35));
+        });
+        session.dispose();
+    });
+
+    it("курсор: позиция после вывода; строка до края (перенос ещё не случился) — курсора нет", async () => {
+        const { session } = make(); // 30x4
+        session.feed("abc\r\nde");
+        await vi.waitFor(() => {
+            expect(session.getCursor()).toStrictEqual({ x: 2, y: 1 });
+        });
+        session.feed(`\r${"y".repeat(30)}`);
+        await vi.waitFor(() => {
+            expect(session.getCursor()).toBeNull();
+        });
+        session.dispose();
+    });
+
+    it("мышь: без режима программы — молчит; с SGR-режимом — down/move/up уходят в pty", async () => {
+        const { session, onInput } = make();
+        expect(session.mouseEventsActive).toBe(false);
+        session.sendMouse({ col: 1, row: 0, button: "left", action: "down", ctrl: false, alt: false, shift: false });
+        expect(onInput).not.toHaveBeenCalled();
+        session.feed("\u001b[?1003h\u001b[?1006h");
+        await vi.waitFor(() => {
+            expect(session.mouseEventsActive).toBe(true);
+        });
+        const press = { button: "left", ctrl: false, alt: false, shift: false } as const;
+        session.sendMouse({ ...press, col: 2, row: 1, action: "down" });
+        session.sendMouse({ ...press, col: 3, row: 1, action: "move" });
+        session.sendMouse({ ...press, col: 3, row: 1, action: "up" });
+        expect(onInput.mock.calls.map(([d]) => d)).toStrictEqual([
+            "\u001b[<0;3;2M",
+            "\u001b[<32;4;2M",
+            "\u001b[<0;4;2m",
+        ]);
+        session.dispose();
+    });
 });

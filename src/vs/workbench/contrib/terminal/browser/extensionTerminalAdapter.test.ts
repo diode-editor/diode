@@ -219,6 +219,19 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
+    it("подписчик — последний: отписка прежнего не глушит нового; вывод в закрытый pty не идёт", () => {
+        const h = setup();
+        const second = { ...h.events, ptyStart: vi.fn<IExtensionTerminalEvents["ptyStart"]>() };
+        h.adapter.subscribe(second);
+        h.subscription.dispose();
+        h.adapter.create({ extHostId: 1, pty: true, name: "p" });
+        expect(second.ptyStart).toHaveBeenCalledTimes(1);
+        h.adapter.ptyExit({ extHostId: 1 }, 0);
+        h.adapter.ptyData({ id: 1 }, "late");
+        expect(h.ptySessions[0].fed).toStrictEqual([]);
+        h.service.dispose();
+    });
+
     it("без подписчика pty заводится молча; reset закрывает pty, шеллы живут", () => {
         const h = setup();
         h.subscription.dispose();

@@ -96,7 +96,11 @@ class ExtensionPty {
     public shutdown(): void {
         clearTimeout(this.timer);
         for (const sub of this.subscriptions) sub.dispose();
-        this.pty.close();
+        try {
+            this.pty.close();
+        } catch {
+            // `close()` расширения бросил — закрытию терминала это не помеха.
+        }
     }
 
     private flush(): void {
@@ -282,11 +286,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
             code: closed.code,
             reason: EXIT_REASONS[closed.reason] as unknown as vscode.TerminalExitReason,
         };
-        try {
-            record.pty?.shutdown();
-        } catch {
-            // `close()` расширения бросил — закрытию терминала это не помеха.
-        }
+        record.pty?.shutdown();
         onDidCloseTerminal.fire(record.value);
     });
 

@@ -523,6 +523,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TerminalSessionFactoryDIToken, () => (options) => new EmbeddedTerminalSession(options));
     // Pty-терминалы расширений (`window.createTerminal({ pty })`): только эмулятор,
     // процессом владеет субпроцесс расширений.
+    // Stryker disable next-line ArrowFunction: биндинг DI без юнита; сквозняк — e2e-сценарий extension-terminal
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);
     // Куда уходит фокус, когда последний шелл вышел и виджет ушёл со сцены.

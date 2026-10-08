@@ -287,6 +287,31 @@ describe("pty расширения — сторона субпроцесса", (
         expect((terminal.creationOptions as vscode.ExtensionTerminalOptions).pty).toBe(pty);
     });
 
+    it("pty без handleInput/setDimensions: ввод и ресайз молча; close() бросает — терминал закрыт", () => {
+        const { ns, stub } = setup();
+        const pty: vscode.Pseudoterminal = {
+            onDidWrite: () => ({ dispose: () => undefined }),
+            open: () => undefined,
+            close: () => {
+                throw new Error("boom");
+            },
+        };
+        const terminal = ns.createTerminal({ name: "min", pty });
+        ns.createTerminal("shell");
+        stub.fire("terminal.opened", { id: 1, extHostId: 1, name: "min", launch: {} });
+        stub.fire("terminal.opened", { id: 2, extHostId: 2, name: "shell", launch: {} });
+        stub.fire("terminal.pty.start", { id: 1, cols: 10, rows: 5 });
+        expect(() => {
+            stub.fire("terminal.pty.input", { id: 1, data: "x" });
+            stub.fire("terminal.pty.resize", { id: 1, cols: 12, rows: 6 });
+            stub.fire("terminal.closed", { id: 1, reason: "process" });
+            // Шелл без pty: закрытие не трогает pty-уборку.
+            stub.fire("terminal.closed", { id: 2, reason: "process" });
+        }).not.toThrow();
+        expect(terminal.exitStatus?.reason).toBe(TerminalExitReason.Process);
+        expect(ns.terminals).toStrictEqual([]);
+    });
+
     it("start/resize/input: битый конверт, незнакомый id и терминал без pty — мимо", () => {
         const { ns, stub } = setup();
         const { pty, log } = makePty();

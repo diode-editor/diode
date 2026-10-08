@@ -110,7 +110,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
     }
 
     protected disposeProcess(): void {
-        if (this.isExited) return;
+        // Уже вышедший процесс kill не найдёт — его отказ глотается здесь же.
         try {
             this.pty.kill();
         } catch {
