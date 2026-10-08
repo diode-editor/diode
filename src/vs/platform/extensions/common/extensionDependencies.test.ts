@@ -4,6 +4,7 @@ import {
     extensionFriendlyName,
     extensionKey,
     findDependencyLoop,
+    isBuiltinVSCodeExtension,
     readExtensionDependencies,
 } from "./extensionDependencies.ts";
 
@@ -27,6 +28,15 @@ describe("extensionFriendlyName", () => {
         expect(extensionFriendlyName("a.b", { displayName: "" })).toBe("a.b");
         expect(extensionFriendlyName("a.b", { displayName: 42 })).toBe("a.b");
         expect(extensionFriendlyName("a.b", {})).toBe("a.b");
+    });
+});
+
+describe("isBuiltinVSCodeExtension", () => {
+    it("издатель vscode, регистр не важен; остальные — нет", () => {
+        expect(isBuiltinVSCodeExtension("vscode.git")).toBe(true);
+        expect(isBuiltinVSCodeExtension("VSCode.Git")).toBe(true);
+        expect(isBuiltinVSCodeExtension("diode.git")).toBe(false);
+        expect(isBuiltinVSCodeExtension("myvscode.git")).toBe(false);
     });
 });
 

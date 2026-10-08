@@ -99,10 +99,13 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
      */
     public async install(id: string): Promise<IExtensionInstallResult> {
         try {
-            const { version } = await installFromRegistry(this.source, id, {
+            // Зависимости (`extensionDependencies`) ставятся вместе с ним, без
+            // вопросов, как в VS Code, — и тоже ждут перезагрузки окна.
+            const { version, dependencies } = await installFromRegistry(this.source, id, {
                 extensionsDir: this.extensionsDir,
                 host: this.host,
             });
+            for (const dep of dependencies) this.pendingReload.add(dep.id);
             this.markChanged(id);
             return { ok: true, version };
         } catch (error) {

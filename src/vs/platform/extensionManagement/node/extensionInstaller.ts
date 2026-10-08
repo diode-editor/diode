@@ -245,6 +245,71 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
 }
 
 /**
+ * Манифест (`extension/package.json`) из `.vsix` — без распаковки и без
+ * установки. Нужен до установки: зависимости расширения
+ * (`extensionDependencies`) резолвятся заранее, чтобы отказ зависимости не
+ * трогал диск (как `getAllDepsAndPackExtensions` эталона). Разбирает манифест
+ * так же, как {@link installVsix}: нет файла или не JSON-объект — та же ошибка.
+ */
+export async function readVsixManifest(vsixPath: string): Promise<Record<string, unknown>> {
+    const yauzl = await loadYauzl();
+    const malformed = (): Error =>
+        new Error(`Invalid .vsix: missing or malformed extension/package.json in ${vsixPath}`);
+    // Нет записи манифеста — пустой текст: разбор ниже отвергнет его той же
+    // ошибкой, что и битый JSON.
+    const text = await new Promise<string>((resolve, reject) => {
+        yauzl.open(vsixPath, { lazyEntries: true }, (openErr, zipfile) => {
+            if (openErr !== null) {
+                reject(new Error(`Not a valid .vsix (zip) archive: ${vsixPath}`));
+                return;
+            }
+            zipfile.on("error", (err: Error) => {
+                reject(err);
+            });
+            zipfile.on("end", () => {
+                // Stryker disable next-line StringLiteral: любой не-JSON текст разбор ниже отвергнет той же ошибкой — содержимое строки ненаблюдаемо
+                resolve("");
+            });
+            zipfile.on("entry", (entry: Entry) => {
+                if (entry.fileName !== `${EXTENSION_PREFIX}package.json`) {
+                    zipfile.readEntry();
+                    return;
+                }
+                zipfile.openReadStream(entry, (streamErr, readStream) => {
+                    /* v8 ignore start -- defensive: см. extractExtensionPayload */
+                    // Stryker disable all: openReadStream ошибается лишь на повреждённых/неподдерживаемых записях, что не воспроизводится в тестах (та же ветка, что в extractExtensionPayload)
+                    if (streamErr !== null) {
+                        zipfile.close();
+                        reject(streamErr);
+                        return;
+                    }
+                    // Stryker restore all
+                    /* v8 ignore stop */
+                    const chunks: Buffer[] = [];
+                    readStream.on("data", (chunk: Buffer) => chunks.push(chunk));
+                    // Stryker disable next-line StringLiteral,CallExpression: ошибка чтения уже открытой записи (сбой диска посреди чтения) в тестах не воспроизводится — та же защита, что в extractExtensionPayload
+                    readStream.on("error", reject);
+                    readStream.on("end", () => {
+                        // Stryker disable next-line CallExpression: гигиена дескриптора — на Linux незакрытый архив не мешает ни чтению, ни удалению каталога; наблюдаемо разве что на Windows
+                        zipfile.close();
+                        resolve(Buffer.concat(chunks).toString());
+                    });
+                });
+            });
+            zipfile.readEntry();
+        });
+    });
+    let parsed: unknown = undefined;
+    try {
+        parsed = JSON.parse(text);
+    } catch {
+        // Битый JSON — та же ошибка, что «не объект», ниже.
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw malformed();
+    return parsed as Record<string, unknown>;
+}
+
+/**
  * Устанавливает расширение из `.vsix` в `extensionsDir`. Распаковывает
  * `extension/**` во временный каталог, валидирует `package.json`, атомарно
  * переносит в `<extensionsDir>/<id>-<version>/` и удаляет прочие версии того же

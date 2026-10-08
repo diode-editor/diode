@@ -40,6 +40,18 @@ export function extensionKey(id: string): string {
 }
 
 /**
+ * Встроенное расширение VS Code (`vscode.git`, `vscode.typescript-language-features`):
+ * у эталона оно часть продукта и есть всегда, поэтому зависимость на него там
+ * никогда не «неизвестна». В Diode многих из них нет (`git` у нас — `diode.git`),
+ * а поставить их человеку неоткуда — в магазине их нет. Отступление от эталона:
+ * такая отсутствующая зависимость не срывает ни активацию, ни установку
+ * (стоковый Supermaven зависит от `vscode.git` и без него работает).
+ */
+export function isBuiltinVSCodeExtension(id: string): boolean {
+    return extensionKey(id).startsWith("vscode.");
+}
+
+/**
  * Цикл зависимостей, через который проходит `startId`: цепочка id от него
  * самого обратно к нему (`["a", "b", "a"]`), или `null`, если цикла нет.
  * `dependenciesOf` отдаёт зависимости известного расширения и `undefined` —

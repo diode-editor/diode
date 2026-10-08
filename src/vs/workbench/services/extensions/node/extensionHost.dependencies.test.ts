@@ -204,6 +204,21 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         ]);
     });
 
+    it("встроенного расширения VS Code (vscode.git) нет — отступление: зависимое поднимается без него, с предупреждением в лог", async () => {
+        // Как стоковый Supermaven: `extensionDependencies: ["vscode.git"]`, а
+        // git у Diode — `diode.git`.
+        const { harness, logger, toasts } = await start([dependent(["vscode.git"], "noopExtension.cjs")]);
+
+        await harness.host.activateByEvent("onLanguage:java");
+
+        expect(harness.host.hasExtension("test.dependent")).toBe(true);
+        expect(logger.warn).toHaveBeenCalledWith(
+            '"test.dependent" depends on built-in VS Code extension "vscode.git", which Diode does not ship — activating without it',
+        );
+        expect(errorMessages(logger)).toEqual([]);
+        expect(toasts).toEqual([]);
+    });
+
     it("декларативная зависимость (установлена, но без кода) удовлетворена сразу", async () => {
         const { harness, logger, toasts } = await start([dependent(["Test.Grammar"], "noopExtension.cjs")]);
         harness.host.registerDeclarativeExtension("test.grammar");

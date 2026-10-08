@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import yazl from "yazl";
 
 import { type IRegistryEngines, REGISTRY_SCHEMA_VERSION } from "../common/registryFormat.ts";
@@ -108,7 +108,13 @@ describe("installFromRegistry", () => {
 
         const result = await installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST });
 
-        expect(result).toEqual({ id: "acme.hello", version: "1.2.0", previous: [] });
+        expect(result).toEqual({
+            id: "acme.hello",
+            version: "1.2.0",
+            previous: [],
+            dependencies: [],
+            missingDependencies: [],
+        });
         expect(listInstalledExtensions(extensionsDir).map((e) => `${e.id}@${e.version}`)).toEqual(["acme.hello@1.2.0"]);
     });
 
@@ -126,7 +132,13 @@ describe("installFromRegistry", () => {
 
         const second = await installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST });
 
-        expect(second).toEqual({ id: "acme.hello", version: "1.1.0", previous: ["1.0.0"] });
+        expect(second).toEqual({
+            id: "acme.hello",
+            version: "1.1.0",
+            previous: ["1.0.0"],
+            dependencies: [],
+            missingDependencies: [],
+        });
         expect(listInstalledExtensions(extensionsDir).map((e) => e.version)).toEqual(["1.1.0"]);
     });
 
@@ -251,6 +263,15 @@ describe("installFromRegistry", () => {
         ["успешной установки", "1.0.0", false],
         ["провалившейся установки", "b".repeat(64), true],
     ] satisfies [string, string, boolean][])("temp-каталог не остаётся после %s", async (_label, seedSha, fails) => {
+        // Свой os.tmpdir() на тест: общий делят параллельные файлы, которые тоже
+        // ставят из реестра, и счёт каталогов в нём плыл бы.
+        const privateTmp = path.join(tempRoot, "tmp");
+        await fs.promises.mkdir(privateTmp);
+        for (const name of ["TMPDIR", "TMP", "TEMP"]) vi.stubEnv(name, privateTmp);
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+        expect(os.tmpdir()).toBe(privateTmp);
         const countTempDirs = async (): Promise<number> =>
             (await fs.promises.readdir(os.tmpdir())).filter((e) => e.startsWith("diode-registry-install-")).length;
 
@@ -269,7 +290,7 @@ describe("installFromRegistry", () => {
         expect(await countTempDirs()).toBe(before);
     });
 
-    it("реестр указывает на чужой .vsix — установка откатывается", async () => {
+    it("реестр указывает на чужой .vsix — он не ставится вовсе", async () => {
         // Манифест внутри артефакта принадлежит другому расширению.
         await seedExtension("acme", "hello", [
             {
@@ -279,7 +300,7 @@ describe("installFromRegistry", () => {
             },
         ]);
         await expect(installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST })).rejects.toThrow(
-            /points to a \.vsix of "evil\.impostor" — installation rolled back/,
+            /points to a \.vsix of "evil\.impostor" — refusing to install/,
         );
         expect(listInstalledExtensions(extensionsDir)).toEqual([]);
     });

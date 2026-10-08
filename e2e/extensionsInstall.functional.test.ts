@@ -38,7 +38,11 @@ const NAMES = {
     sample: { displayName: "Sample Lang", description: "Fixture language", readme: "Sample language readme" },
     legacy: { displayName: "Legacy Thing", description: "Needs a newer API" },
     broken: { displayName: "Broken Artifact", description: "Its bytes do not match the registry" },
+    pack: { displayName: "Lang Pack", description: "Depends on another extension" },
 } as const;
+
+/** Расширение без вкладов, зависящее от `test.sample-lang`. */
+const DEPENDENT_SOURCE = resolve(here, "marketplace", "dependent-extension");
 
 let registryRoot: string;
 let registry: string;
@@ -91,8 +95,16 @@ describe("Extensions install (functional e2e)", () => {
             // из вклада расширения, и по нему проверяется работа после перезагрузки.
             { id: "test.sample-lang", version: "0.0.1", sourceDir: SAMPLE_SOURCE, ...NAMES.sample },
             { id: "test.sample-lang", version: "0.0.2", sourceDir: SAMPLE_SOURCE, ...NAMES.sample },
-            { id: "old.legacy", version: "3.0.0", sourceDir: SAMPLE_SOURCE, engines: { vscode: "^99.0.0" }, ...NAMES.legacy },
+            {
+                id: "old.legacy",
+                version: "3.0.0",
+                sourceDir: SAMPLE_SOURCE,
+                engines: { vscode: "^99.0.0" },
+                ...NAMES.legacy,
+            },
             { id: "broken.artifact", version: "1.0.0", sourceDir: SAMPLE_SOURCE, corruptSha: true, ...NAMES.broken },
+            // Своих вкладов нет — только `extensionDependencies: ["test.sample-lang"]`.
+            { id: "test.lang-pack", version: "0.0.1", sourceDir: DEPENDENT_SOURCE, ...NAMES.pack },
         ]);
     }, 300_000);
 
@@ -113,7 +125,9 @@ describe("Extensions install (functional e2e)", () => {
             { label: "Uninstall", enabled: true },
         ]);
         expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.2"]);
-        expect(existsSync(join(app.env.userDataDir, "extensions", "test.sample-lang-0.0.2", "package.json"))).toBe(true);
+        expect(existsSync(join(app.env.userDataDir, "extensions", "test.sample-lang-0.0.2", "package.json"))).toBe(
+            true,
+        );
         // Сообщение о результате — в статус-баре, рядом с тем же приглашением.
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to activate");
     });
@@ -133,6 +147,23 @@ describe("Extensions install (functional e2e)", () => {
 
         // Новое окно: те же аргументы, восстановленная сессия и — главное —
         // язык из установленного расширения.
+        await app.session.waitForText((t) => t.includes("Diode Sample"), { timeoutMs: 60_000 });
+    });
+
+    it("Install ставит и extensionDependencies — без вопросов, как VS Code; после перезагрузки работает вклад зависимости", async () => {
+        const app = await openExtensions();
+        await openPage(app, "pack", "test-lang-pack");
+
+        await app.session.key("Enter");
+        await app.session.waitForText((t) => t.includes("Installed 0.0.1"));
+
+        // Зависимость — наивысшей совместимой версии реестра.
+        expect(installedDirs(app)).toEqual(["test.lang-pack-0.0.1", "test.sample-lang-0.0.2"]);
+
+        // Ответ на этот ввод может и не прийти: окно уходит на перезапуск вместе с сокетом.
+        await app.session.sendKey("Enter").catch(() => undefined);
+        await app.session.reconnect();
+        // Язык даёт только зависимость: сам Lang Pack вкладов не несёт.
         await app.session.waitForText((t) => t.includes("Diode Sample"), { timeoutMs: 60_000 });
     });
 
