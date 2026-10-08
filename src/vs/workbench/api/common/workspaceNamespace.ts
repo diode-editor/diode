@@ -177,9 +177,8 @@ function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undef
             return "workspace";
         case ConfigurationTarget.WorkspaceFolder:
             return "workspaceFolder";
-        default:
-            return undefined;
     }
+    return undefined;
 }
 
 export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode.workspace {

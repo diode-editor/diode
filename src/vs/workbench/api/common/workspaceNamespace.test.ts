@@ -181,9 +181,12 @@ describe("WorkspaceNamespace — configuration", () => {
         await workspace.getConfiguration("x", uri).update("y", 1);
         await workspace.getConfiguration("x", { uri: Uri.file("/ws"), name: "ws", index: 0 }).update("y", 1);
         await workspace.getConfiguration("x", { uri: "не-Uri" } as unknown as Uri).update("y", 1);
+        // scope `null` у эталона — «без ресурса»; запись не должна на нём падать.
+        await workspace.getConfiguration("x", null).update("y", 1);
         expect(stub.requests.map((r) => (r.params as { resource?: string }).resource)).toEqual([
             uri.toString(),
             Uri.file("/ws").toString(),
+            undefined,
             undefined,
         ]);
     });

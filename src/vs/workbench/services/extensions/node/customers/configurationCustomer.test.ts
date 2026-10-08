@@ -170,6 +170,28 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.inspect("t.window").user).toBe(2);
     });
 
+    it("цель-папка: снятие незарегистрированного ключа проходит (scope нет — проверять нечего)", async () => {
+        const h = setupWrite();
+        await h.update({ key: "t.nope", target: "workspaceFolder", resource: Uri.file("/ws").toString() });
+        expect(h.order).toEqual(["response"]);
+    });
+
+    it("цель-папка: ресурс ищется во всех папках, не только в первой", async () => {
+        const h = setupWrite({
+            folders: [
+                { uri: Uri.file("/first").toString(), name: "first", index: 0 },
+                { uri: Uri.file("/ws").toString(), name: "ws", index: 1 },
+            ],
+        });
+        await h.update({
+            key: "t.resource",
+            value: 3,
+            target: "workspaceFolder",
+            resource: Uri.file("/ws/a.ts").toString(),
+        });
+        expect(h.service.getConfigurationData().workspace).toMatchObject({ t: { resource: 3 } });
+    });
+
     it("цель-папка: ресурс внутри папки пишет в тот же файл воркспейса", async () => {
         const h = setupWrite();
         await h.update({

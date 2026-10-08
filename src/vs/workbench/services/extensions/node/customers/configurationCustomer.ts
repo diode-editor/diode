@@ -94,6 +94,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
                     `Unable to write to ${targetLabel(target)} because no workspace is opened. Please open a workspace first and try again.`,
                 );
             }
+            // Stryker disable next-line ConditionalExpression: без проверки `undefined` разбор пустого ресурса тоже не попадает ни в одну папку — ветка нужна типу
             if (request.resource === undefined || !isInFolders(request.resource, folders)) {
                 throw new Error("Unable to write to Folder Settings because no resource is provided.");
             }
@@ -104,7 +105,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
             }
         }
         // Мульти-рута нет: настройки единственной папки — тот же файл, что у воркспейса.
-        const serviceTarget: ConfigurationTarget = target === "user" ? "user" : "workspace";
+        const serviceTarget: ConfigurationTarget = target === "user" ? target : "workspace";
         await this.configuration.updateValue(key, value, serviceTarget);
     }
 }
@@ -130,7 +131,8 @@ function isInFolders(resource: string, folders: readonly IWorkspaceFolderInfo[])
     return folders.some((folder) => {
         const root = Uri.parse(folder.uri);
         if (root.scheme !== uri.scheme) return false;
+        // Сама папка даёт `""` — тоже «внутри».
         const relative = path.relative(root.fsPath, uri.fsPath);
-        return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+        return !relative.startsWith("..") && !path.isAbsolute(relative);
     });
 }

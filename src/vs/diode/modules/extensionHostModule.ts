@@ -2,7 +2,9 @@ import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageS
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import type { ConfigurationRegistry } from "../../platform/configuration/common/configurationRegistry.ts";
 import { ConfigurationRegistryDIToken } from "../../platform/configuration/common/configurationRegistryDIToken.ts";
+import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { IExtension } from "../../platform/extensions/common/iExtension.ts";
@@ -103,6 +105,32 @@ export function workspaceFoldersProvider(
             .folders.map((folder) => ({ uri: folder.uri.toString(), name: folder.name, index: folder.index }));
 }
 
+/**
+ * Провайдер конфигурации extension host'а: слои настроек, папки воркспейса (см.
+ * {@link workspaceFoldersProvider}), события смены и запись
+ * `WorkspaceConfiguration.update`. Слой Configuration не тянется в рантайм
+ * host'а — доступ идёт через этот тонкий адаптер над сервисом ядра.
+ */
+export function extensionHostConfigProvider(
+    configService: IConfigurationService,
+    configurationRegistry: ConfigurationRegistry,
+    workspaceContext: IWorkspaceContextService,
+): IExtensionHostConfigProvider {
+    return {
+        getSnapshot: () => configService.getConfigurationData(),
+        getWorkspaceFolders: workspaceFoldersProvider(workspaceContext),
+        onDidChange: (cb) =>
+            configService.onDidChangeConfiguration((event) => {
+                cb(event.affectedKeys);
+            }),
+        // Запись расширения — тот же сервис, что у ядра: очередь записей,
+        // отказы пустого окна и чужого scope.
+        updateValue: (key, value, target) => configService.updateValue(key, value, target),
+        // Тот же реестр, из которого собран defaults-слой (ядро + расширения на старте).
+        getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
+    };
+}
+
 /** Контекст модуля: набор расширений и сборка их регистраций (см. `main.ts`); корни хранения — из окружения. */
 export interface IExtensionHostModuleContext {
     /** Просканированный набор: пользовательские, затем встроенные. */
@@ -144,28 +172,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const wantStdio = (lg: typeof stdoutLogger): typeof stdoutLogger | undefined =>
             lg.isEnabled(LogLevel.Info) ? lg : undefined;
 
-        // Провайдер конфигурации: снапшот настроек + единственная папка воркспейса
-        // (пока нет multi-root) — см. {@link workspaceFoldersProvider}: он же держит
-        // ленивое чтение корня и пустой список для окна без папки. Слой Configuration
-        // не тянется в рантайм host'а — доступ идёт через этот тонкий адаптер.
         const configService = container.get(IConfigurationServiceDIToken);
-        const configurationRegistry = container.get(ConfigurationRegistryDIToken);
         const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
         const explorer = container.get(ExplorerServiceDIToken);
-        const configuration: IExtensionHostConfigProvider = {
-            // Stryker disable next-line ArrowFunction: production-проводка модуля; слои собирает и закрывает юнитами сервис настроек, сквозняк до расширения — e2e-сценарий inline-suggest-settings (расширение читает свою настройку через getConfiguration)
-            getSnapshot: () => configService.getConfigurationData(),
-            getWorkspaceFolders: workspaceFoldersProvider(workspaceContext),
-            onDidChange: (cb) =>
-                configService.onDidChangeConfiguration((event) => {
-                    cb(event.affectedKeys);
-                }),
-            // Запись расширения (`WorkspaceConfiguration.update`) — тот же сервис,
-            // что у ядра: очередь записей, отказы пустого окна и чужого scope.
-            updateValue: (key, value, target) => configService.updateValue(key, value, target),
-            // Тот же реестр, из которого собран defaults-слой (ядро + расширения на старте).
-            getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
-        };
+        const configuration = extensionHostConfigProvider(
+            configService,
+            container.get(ConfigurationRegistryDIToken),
+            workspaceContext,
+        );
 
         // Сток диагностик расширений → MarkerService: потребители (squiggle в
         // редакторе, панель Problems) слушают onDidChangeMarkers и правок не требуют.

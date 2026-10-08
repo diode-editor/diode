@@ -679,6 +679,7 @@ const WIRE_CONFIGURATION_TARGETS: readonly unknown[] = [
  * списка, `resource` не строка. Пустое `value` (поля нет) — снятие ключа.
  */
 export function parseWireConfigurationUpdate(raw: unknown): IWireConfigurationUpdate | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ключа ниже
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Partial<Record<keyof IWireConfigurationUpdate, unknown>>;
     if (typeof p.key !== "string" || p.key === "") return null;
