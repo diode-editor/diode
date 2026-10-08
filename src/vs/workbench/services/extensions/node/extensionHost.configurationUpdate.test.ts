@@ -131,4 +131,25 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
             });
         });
     });
+
+    it("харнесс по умолчанию (сервис в памяти): без папки слоя воркспейса нет — тот же отказ", async () => {
+        const fixture = extensionFixture(ID, "updatesConfiguration.cjs");
+        const harness = await createExtensionTestHarness({
+            extensions: [{ ...fixture, manifest: manifestWithDefaults(fixture.manifest, DEFAULTS) }],
+            workspaceFolders: [],
+        });
+        try {
+            expect(await update(harness, "test.update", "open", false, null)).toEqual({
+                error: "Unable to write to Workspace Settings because no workspace is opened. Please open a workspace first and try again.",
+            });
+            expect(await update(harness, "test.update", "open", false, true)).toEqual({
+                value: false,
+                globalValue: false,
+                workspaceValue: null,
+                changes: [true],
+            });
+        } finally {
+            await harness.dispose();
+        }
+    });
 });
