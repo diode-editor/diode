@@ -51,6 +51,7 @@ import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEdit
 import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
 import type {
     DiagnosticsSink,
+    INotificationSink,
     IOutputSink,
     IProgressSink,
     IQuickInputSink,
@@ -246,6 +247,11 @@ export interface IExtensionHarnessOptions {
      * не подключён — расширение мгновенно получает «отменено».
      */
     readonly quickInputSink?: IQuickInputSink;
+    /**
+     * Сток сообщений (`window.show*Message` и тосты самого хоста). По
+     * умолчанию не подключён — сообщения уходят только в лог.
+     */
+    readonly notificationSink?: INotificationSink;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -418,6 +424,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),
         ...(options.statusBarItemSink !== undefined ? { statusBarItemSink: options.statusBarItemSink } : {}),
         ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
+        ...(options.notificationSink !== undefined ? { notificationSink: options.notificationSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         // Дефолт — настоящий адаптер поверх `themeService` харнесса (зеркально

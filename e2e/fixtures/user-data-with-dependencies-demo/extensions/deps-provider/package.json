@@ -1,0 +1,14 @@
+{
+    "name": "deps-provider",
+    "displayName": "Deps Provider",
+    "description": "Демо extensionDependencies: зависимость, чьё собственное событие никогда не наступает, — поднять её может только зависимое расширение.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:never-happens"
+    ]
+}

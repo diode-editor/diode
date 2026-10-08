@@ -78,6 +78,12 @@ import {
     readCommandActivationIds,
     readWorkspaceContainsPatterns,
 } from "../common/activationEvents.ts";
+import {
+    extensionFriendlyName,
+    extensionKey,
+    findDependencyLoop,
+    readExtensionDependencies,
+} from "../common/extensionDependencies.ts";
 import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
 
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
@@ -229,7 +235,9 @@ export interface IExtensionHostOptions {
     /**
      * Сток сообщений расширений (`window.show*Message`). Если не передан —
      * сообщение уходит только в лог, а расширение мгновенно получает
-     * «закрыто без выбора» (`undefined`), а не зависает.
+     * «закрыто без выбора» (`undefined`), а не зависает. Тем же стоком хост
+     * сам говорит человеку, что расширение не поднялось из-за неизвестной
+     * зависимости (`extensionDependencies`), — как тост `unknownDep` эталона.
      */
     readonly notificationSink?: INotificationSink;
     /**
@@ -333,6 +341,11 @@ export interface IExtensionHostOptions {
  *   SIGKILL fallback; {@link ExtensionHost.shutdown} — то же, но отдаёт промис
  *   прощания (его ждёт `LifecycleService.onWillShutdown`).
  */
+/** Имя регистрации для сообщений человеку. */
+function friendlyName(reg: IExtensionRegistration): string {
+    return extensionFriendlyName(reg.id, reg.manifest);
+}
+
 export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly options: Required<
         Pick<IExtensionHostOptions, "spawnArgs" | "readyTimeoutMs" | "shutdownTimeoutMs" | "workspaceContainsTimeoutMs">
@@ -362,6 +375,20 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * не сразу при смерти, — краш-петлю не устраиваем.
      */
     private replayPending = false;
+    /**
+     * Ключи установленных расширений без кода (`main`): регистрации у них нет,
+     * но зависимость на такое расширение удовлетворена — активировать нечего
+     * (как `_isResolvedExtension` эталона).
+     */
+    private readonly declarativeExtensions = new Set<string>();
+    /** Сток тоста о неизвестной зависимости (см. {@link IExtensionHostOptions.notificationSink}). */
+    private readonly notificationSink: INotificationSink | undefined;
+    /**
+     * Адреса СВОИХ показов хоста в стоке сообщений: отрицательные, чтобы не
+     * пересечься с адресами `window.show*Message` субпроцесса (те растут от 1 и
+     * гасятся на его смерти, а тост хоста к субпроцессу отношения не имеет).
+     */
+    private nextHostMessageHandle = -1;
     /** Активации в полёте (id → регистрация и промис): их ждут и соседние вызовы. */
     private readonly activating = new Map<string, { reg: IExtensionRegistration; done: Promise<void> }>();
     /** Текущий субпроцесс: spawn, канал, выключение (см. {@link ExtensionHostProcess}). */
@@ -424,6 +451,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.stdoutLogger = options.stdoutLogger;
         this.stderrLogger = options.stderrLogger;
         this.configuration = options.configuration;
+        this.notificationSink = options.notificationSink;
         this.decorations = this.register(
             new DecorationsCustomer(
                 options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE,
@@ -533,6 +561,16 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 void this.unregisterExtension(reg.id);
             },
         };
+    }
+
+    /**
+     * Запоминает установленное расширение без кода (декларативный языковой
+     * пак, тема): в extension host'е его нет, но `extensionDependencies` на
+     * него удовлетворены сразу — иначе зависимое не поднялось бы с ошибкой
+     * «неизвестная зависимость».
+     */
+    public registerDeclarativeExtension(id: string): void {
+        this.declarativeExtensions.add(extensionKey(id));
     }
 
     /**
@@ -737,12 +775,114 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // вызов и дождётся (см. `activating`).
         if (!this.phases.takePending(reg.id)) return this.activating.get(reg.id)?.done ?? Promise.resolve();
         // Stryker disable next-line BlockStatement: гигиена — ждать завершённую (уже резолвленную) активацию мгновенно, а заново она встаёт в карту поверх старой записи; наблюдаемой разницы нет
-        const done = this.requestActivation(rpc, reg, reason).finally(() => {
+        const done = this.activateAfterDependencies(rpc, reg, reason).finally(() => {
             // Stryker disable next-line CallExpression: см. выше
             this.activating.delete(reg.id);
         });
         this.activating.set(reg.id, { reg, done });
         return done;
+    }
+
+    /**
+     * Зависимости — раньше зависимого (как `_handleActivationRequest` эталона):
+     * расширение в `activate()` вправе звать `extensions.getExtension(dep)` и
+     * читать его `exports`, поэтому к этому моменту они обязаны быть активны.
+     * Не вышло — зависимое НЕ активируется (эталон делает его
+     * `FailedExtension`): причина в лог, а неизвестная зависимость ещё и
+     * тостом. Оживить его может только перезагрузка окна, как и у эталона.
+     */
+    private async activateAfterDependencies(rpc: HostRpc, reg: IExtensionRegistration, reason: string): Promise<void> {
+        const outcome = await this.activateDependencies(rpc, reg, reason);
+        if (outcome === "ready") {
+            await this.requestActivation(rpc, reg, reason);
+            return;
+        }
+        if (outcome === "interrupted") {
+            // Субпроцесс умер, пока поднимались зависимости: зависимое не
+            // виновато — к оживлению вместе с ними (если его не сняли).
+            if (this.phases.returnInterrupted(reg)) {
+                // Stryker disable next-line OptionalChaining: логгер необязателен (у хоста в тестах его часто нет); сценарий смерти субпроцесса проверяется с логгером, а без него строка просто не пишется
+                this.logger?.warn(`activation of "${reg.id}" interrupted by extension host death — will retry`);
+            }
+            return;
+        }
+        // Stryker disable next-line OptionalChaining: см. выше — без логгера причина не пишется, наблюдаемое (зависимое не активно) проверено с ним
+        this.logger?.error(outcome.message);
+        if (outcome.notify) this.notifyHuman(outcome.message);
+    }
+
+    /**
+     * Поднимает `extensionDependencies` регистрации и говорит, можно ли
+     * активировать её саму. Зависимость ожидающая — активируется с причиной
+     * «зависимость такого-то», уже поднимающаяся — дожидается, активная — сразу
+     * годится, без кода (декларативная) — годится без активации.
+     */
+    private async activateDependencies(
+        rpc: HostRpc,
+        reg: IExtensionRegistration,
+        reason: string,
+    ): Promise<"ready" | "interrupted" | { readonly message: string; readonly notify: boolean }> {
+        const deps = readExtensionDependencies(reg.manifest);
+        // Stryker disable next-line ConditionalExpression: быстрый путь — без зависимостей проход ниже тоже дал бы "ready" (цикла нет, ждать нечего), только на лишний тик позже
+        if (deps.length === 0) return "ready";
+        const name = friendlyName(reg);
+        const loop = findDependencyLoop(reg.id, (key) => {
+            const known = this.findRegistration(key);
+            return known === undefined ? undefined : readExtensionDependencies(known.manifest);
+        });
+        if (loop !== null) {
+            return {
+                message: `Cannot activate the '${name}' extension because of a dependency loop: ${loop.join(" -> ")}`,
+                notify: false,
+            };
+        }
+        const found: IExtensionRegistration[] = [];
+        for (const dep of deps) {
+            const known = this.findRegistration(extensionKey(dep));
+            if (known !== undefined) {
+                found.push(known);
+                continue;
+            }
+            if (this.declarativeExtensions.has(extensionKey(dep))) continue;
+            return {
+                message: `Cannot activate the '${name}' extension because it depends on unknown extension '${dep}'`,
+                notify: true,
+            };
+        }
+        // `activateRegistration` сам разбирает фазу: ожидающую поднимет,
+        // поднимающуюся дождётся, активную или уже упавшую — пропустит.
+        await Promise.all(
+            found.map((dep) => this.activateRegistration(rpc, dep, `dependency of ${reg.id}, ${reason}`)),
+        );
+        if (rpc !== this.rpc) return "interrupted";
+        const failed = found.find((dep) => !this.phases.isActive(dep.id));
+        if (failed !== undefined) {
+            return {
+                message: `Cannot activate the '${name}' extension because its dependency '${friendlyName(failed)}' failed to activate`,
+                notify: false,
+            };
+        }
+        return "ready";
+    }
+
+    /** Известная хосту регистрация по ключу id (регистр не важен). */
+    private findRegistration(key: string): IExtensionRegistration | undefined {
+        for (const reg of this.phases.all()) {
+            if (extensionKey(reg.id) === key) return reg;
+        }
+        return undefined;
+    }
+
+    /** Тост ошибки от самого хоста (не от расширения); ответ не ждём. */
+    private notifyHuman(message: string): void {
+        // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо
+        const handle = this.nextHostMessageHandle--;
+        void this.notificationSink
+            ?.showMessage({ severity: "error", message, modal: false, items: [], handle })
+            .catch((error: unknown) => {
+                // Stryker disable next-line OptionalChaining: без логгера отказ стока глотается; мутант бросил бы внутри `.catch` — это только unhandled rejection, не наблюдаемое поведение хоста
+                this.logger?.error(`showMessage failed: ${String(error)}`);
+            });
     }
 
     private async requestActivation(rpc: HostRpc, reg: IExtensionRegistration, reason: string): Promise<void> {

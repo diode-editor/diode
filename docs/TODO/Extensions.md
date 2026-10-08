@@ -48,6 +48,13 @@
       повод считается по расширению и пересчитывается на открытии папки. Расхождение по глобам и детали —
       [arch/Extensions.md](../arch/Extensions.md#активация-activationevents).
       Остальные виды (`onUri`, `onDebug`, `onFileSystem`, `onView`, …) — по мере появления самих поверхностей.
+- [x] `extensionDependencies` на активации: зависимости поднимаются раньше зависимого; неизвестная, упавшая
+      или зацикленная зависимость — зависимое не активируется (лог, неизвестная — ещё и тост), как в эталоне.
+      Детали — [arch/Extensions.md](../arch/Extensions.md#активация-activationevents).
+- [ ] Кнопки на тосте неудовлетворённой зависимости, как у эталона (`mainThreadExtensionService`): «Install and
+      Reload» (зависимость есть в магазине), «Reload Window» (установлена, но не загружена). Сейчас тост без кнопок.
+- [ ] Установка из магазина ставит `extensionDependencies` следом (отдельный PR; эталон —
+      `getAllDepsAndPackExtensions`). `extensionPack` — после него.
 - [ ] `IDisposable`-цепочка: при unload корректно убираются все contributions (TokenizationRegistry, CommandRegistry, …).
 - [~] Reload расширения (dispose → re-register). Грубый ответ есть — **перезагрузка окна** (`workbench.action.reloadWindow`, `base/node/restartProcess.ts`): процесс поднимается заново с теми же аргументами, сессия восстанавливается, вклады сканируются на старте. Именно её просит магазин после установки. Горячий reload одного расширения без перезапуска — по-прежнему впереди и требует dispose-цепочки выше.
 
