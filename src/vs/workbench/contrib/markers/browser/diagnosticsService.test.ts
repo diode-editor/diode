@@ -241,3 +241,65 @@ describe("DiagnosticsService — settings.json validation", () => {
         expect(h.markerService.read({ resource: resourceOf(SETTINGS_PATH) })).toHaveLength(1);
     });
 });
+
+describe("DiagnosticsService — settings.json воркспейса", () => {
+    const FOLDER = "/ws/project";
+    const WORKSPACE_SETTINGS = "/ws/project/.diode/settings.json";
+
+    function createWorkspaceHarness(folders: readonly string[] = [FOLDER]): Harness {
+        const source = new FakeEditorSource();
+        const markerService = new MarkerService();
+        const service = new DiagnosticsService(
+            source,
+            markerService,
+            { settingsResource: SETTINGS_PATH },
+            appConfigurationRegistry(),
+            {
+                getWorkspace: () => ({
+                    id: null,
+                    folders: folders.map((folder, index) => ({ uri: Uri.file(folder), name: "project", index })),
+                }),
+            },
+        );
+        return { source, markerService, service };
+    }
+
+    it("файл воркспейса валидируется: неизвестный ключ — предупреждение, machine-ключ — подсказка эталона", () => {
+        const h = createWorkspaceHarness();
+        const text = ["{", '    "editor.tabSize": 2,', '    "terminal.tier": "kitty",', '    "nope.key": 1', "}"].join(
+            "\n",
+        );
+        h.source.open(new FakeEditor(WORKSPACE_SETTINGS, text));
+
+        const markers = h.markerService.read({ resource: resourceOf(WORKSPACE_SETTINGS) });
+        expect(markers.map((m) => [m.severity, m.message])).toEqual([
+            [
+                MarkerSeverity.Hint,
+                "This setting can only be applied in user settings in local window or in remote settings in remote window.",
+            ],
+            [MarkerSeverity.Warning, "Unknown Configuration Setting: nope.key"],
+        ]);
+        h.service.dispose();
+    });
+
+    it("в user settings.json тот же machine-ключ подсказки не получает", () => {
+        const h = createWorkspaceHarness();
+        h.source.open(new FakeEditor(SETTINGS_PATH, `{ "terminal.tier": "kitty" }`));
+
+        expect(h.markerService.read({ resource: resourceOf(SETTINGS_PATH) })).toEqual([]);
+        h.service.dispose();
+    });
+
+    it("settings.json чужой папки и .vscode/settings.json не валидируются; без папки — тоже", () => {
+        const h = createWorkspaceHarness();
+        h.source.open(new FakeEditor("/ws/other/.diode/settings.json", `{ "nope.key": 1 }`));
+        h.source.open(new FakeEditor("/ws/project/.vscode/settings.json", `{ "nope.key": 1 }`));
+        expect(h.markerService.read()).toEqual([]);
+        h.service.dispose();
+
+        const empty = createWorkspaceHarness([]);
+        empty.source.open(new FakeEditor(WORKSPACE_SETTINGS, `{ "nope.key": 1 }`));
+        expect(empty.markerService.read()).toEqual([]);
+        empty.service.dispose();
+    });
+});

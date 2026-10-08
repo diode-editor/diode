@@ -110,6 +110,28 @@ describe("WorkspaceNamespace — configuration", () => {
         const inspected = workspace.getConfiguration("editor").inspect("tabSize");
         expect(inspected?.defaultValue).toBe(4);
         expect(inspected?.globalValue).toBe(8);
+        expect(inspected?.workspaceValue).toBeUndefined();
+    });
+
+    it("inspect отдаёт workspaceValue слоя воркспейса, get — значение поверх user", () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("workspace.initialize", {
+            configuration: {
+                defaults: { editor: { tabSize: 4 } },
+                user: { editor: { tabSize: 8 } },
+                workspace: { editor: { tabSize: 2 } },
+            },
+            workspaceFolders: [],
+        });
+        const config = workspace.getConfiguration("editor");
+        expect(config.get("tabSize")).toBe(2);
+        expect(config.inspect("tabSize")).toEqual({
+            key: "editor.tabSize",
+            defaultValue: 4,
+            globalValue: 8,
+            workspaceValue: 2,
+            workspaceFolderValue: undefined,
+        });
     });
 
     it("update не поддержан — резолвится и показывает человеку warn", async () => {

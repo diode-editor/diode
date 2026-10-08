@@ -162,6 +162,8 @@ describe("loadConfiguration", () => {
         expect(cfg.getConfigurationData()).toEqual({
             defaults: { editor: { tabSize: 4, insertSpaces: true, cursorSurroundingLines: 3 } },
             user: { editor: { tabSize: "eight" }, git: { enabled: false } },
+            // Папка не открыта — слой воркспейса пуст.
+            workspace: {},
         });
     });
 

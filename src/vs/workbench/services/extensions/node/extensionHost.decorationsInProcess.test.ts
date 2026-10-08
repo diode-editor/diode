@@ -75,7 +75,7 @@ function makeHost(colors: Record<string, number>) {
     };
     const configListeners: ((keys: string[]) => void)[] = [];
     const configuration = {
-        getSnapshot: () => ({ defaults: {}, user: { some: "config" } }),
+        getSnapshot: () => ({ defaults: {}, user: { some: "config" }, workspace: {} }),
         getWorkspaceFolders: () => [],
         onDidChange: (cb: (keys: string[]) => void) => {
             configListeners.push(cb);
@@ -136,7 +136,7 @@ describe("ExtensionHost — обработчики хоста (in-process, deter
         h.fireConfig(["git.enabled"]);
         await flushMicrotasks(10);
         expect(h.configChanges.at(-1)).toEqual({
-            configuration: { defaults: {}, user: { some: "config" } },
+            configuration: { defaults: {}, user: { some: "config" }, workspace: {} },
             affectedKeys: ["git.enabled"],
         });
     });

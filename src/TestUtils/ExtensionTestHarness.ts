@@ -202,6 +202,11 @@ export interface IExtensionHarnessOptions {
      */
     readonly configuration?: Readonly<Record<string, unknown>>;
     /**
+     * Слой настроек воркспейса (дерево, как `.diode/settings.json` после
+     * фильтра по `scope`) — `inspect().workspaceValue` и перекрытие user-слоя.
+     */
+    readonly workspaceConfiguration?: Readonly<Record<string, unknown>>;
+    /**
      * Дополнительные переопределения дефолтов (dotted-ключи) — то, что в
      * приложении кладёт хост (`builtinConfigInjection`: пути вшитого tsserver).
      * Дефолты `contributes.configuration` зарегистрированных расширений и
@@ -383,6 +388,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const configurationData = {
         defaults: configurationRegistry.getDefaultConfiguration(),
         user: options.configuration ?? {},
+        workspace: options.workspaceConfiguration ?? {},
     };
     const configuration: IExtensionHostConfigProvider = {
         getSnapshot: () => configurationData,

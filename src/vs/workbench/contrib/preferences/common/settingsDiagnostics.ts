@@ -1,8 +1,25 @@
 import { parseTree } from "jsonc-parser";
 
 import { createRange } from "../../../../editor/common/core/iRange.ts";
+import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import type { IMarkerData } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
+
+/**
+ * Почему ключ не действует в settings.json воркспейса — тексты эталона
+ * (`generateUnsupportedApplicationSettingMarker` /
+ * `generateUnsupportedMachineSettingMarker`, `preferencesRenderers.ts`);
+ * `null` — ключ в воркспейсе действует (или он вне реестра).
+ */
+export function workspaceUnsupportedSettingMessage(scope: ConfigurationScope | undefined): string | null {
+    if (scope === "application") {
+        return "This setting has an application scope and can only be set in the settings file from the Default profile.";
+    }
+    if (scope === "machine") {
+        return "This setting can only be applied in user settings in local window or in remote settings in remote window.";
+    }
+    return null;
+}
 
 /**
  * Validates a `settings.json` document against the set of known configuration
@@ -14,8 +31,18 @@ import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
  * Pure and provider-agnostic: the caller supplies the `isKnownKey` predicate
  * (built from the app + extension configuration defaults), so this stays
  * decoupled from the Configuration layer and is trivially testable.
+ *
+ * `unsupportedMessage` — второй вопрос к известному ключу: может ли он
+ * действовать В ЭТОМ файле. Для settings.json воркспейса это ключи со `scope`
+ * `application`/`machine`: файл их не применяет, и эталон
+ * (`handleWorkspaceConfiguration` в `preferencesRenderers.ts`) ставит на них
+ * подсказку (`Hint`) с объяснением. `null` — ключ здесь действует.
  */
-export function validateSettingsJson(text: string, isKnownKey: (key: string) => boolean): IMarkerData[] {
+export function validateSettingsJson(
+    text: string,
+    isKnownKey: (key: string) => boolean,
+    unsupportedMessage: (key: string) => string | null = () => null,
+): IMarkerData[] {
     const root = parseTree(text);
     if (root?.type !== "object") return [];
 
@@ -32,10 +59,22 @@ export function validateSettingsJson(text: string, isKnownKey: (key: string) => 
         if (keyNode === undefined) continue;
         /* v8 ignore stop */
         const key = keyNode.value as string;
-        if (isKnownKey(key)) continue;
-
         const start = offsetToPosition(lineStarts, keyNode.offset);
         const end = offsetToPosition(lineStarts, keyNode.offset + keyNode.length);
+        if (isKnownKey(key)) {
+            const message = unsupportedMessage(key);
+            if (message !== null) {
+                markers.push({
+                    severity: MarkerSeverity.Hint,
+                    range: createRange(start.line, start.character, end.line, end.character),
+                    message,
+                    code: "unsupportedSetting",
+                    source: "json",
+                });
+            }
+            continue;
+        }
+
         markers.push({
             severity: MarkerSeverity.Warning,
             range: createRange(start.line, start.character, end.line, end.character),

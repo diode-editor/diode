@@ -9,6 +9,7 @@ import type { IContextKeyContributor } from "../../platform/contextkey/common/co
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
+import type { WorkbenchState } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IEditorGroupsService } from "../services/editor/common/editorGroupsService.ts";
 import { FocusTracker } from "../services/focus/browser/focusTracker.ts";
 import type { HistoryService } from "../services/history/browser/historyService.ts";
@@ -23,6 +24,8 @@ import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
  */
 function makeHarness(contributors: IContextKeyContributor[] = []) {
     const contextKeys = new ContextKeyService();
+    // Состояние окна — подменяемое тестом: папку «открывают» прямо в харнессе.
+    const workspace = { state: "empty" as WorkbenchState };
     // Контрибьюторы фич — по токену на каждого, accessor отдаёт их по токену.
     const contributorTokens = contributors.map((_, i) => token<IContextKeyContributor>(`Contributor${String(i)}`));
     const accessor = {
@@ -47,10 +50,12 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
         focusTracker,
         accessor,
         contributorTokens,
+        { getWorkbenchState: () => workspace.state },
     );
 
     return {
         service,
+        workspace,
         contextKeys,
         onDidChangeFocus,
         cancelPendingChord,
@@ -79,6 +84,19 @@ describe("WorkbenchContextKeys", () => {
 
         expect(h.contextKeys.get("editorGroupHasEditors")).toBe(false);
         expect(h.contextKeys.get("editorTabsMultiple")).toBe(false);
+    });
+
+    it("workbenchState — состояние окна из IWorkspaceContextService (upstream-ключ команд воркспейса)", () => {
+        const h = makeHarness();
+        h.service.update();
+        expect(h.contextKeys.get("workbenchState")).toBe("empty");
+        expect(h.contextKeys.evaluate("workbenchState != 'empty'")).toBe(false);
+
+        // Open Folder: следующий пересчёт ключей видит папку.
+        h.workspace.state = "folder";
+        h.service.update();
+        expect(h.contextKeys.get("workbenchState")).toBe("folder");
+        expect(h.contextKeys.evaluate("workbenchState != 'empty'")).toBe(true);
     });
 
     it("closes the dispatcher hook: updateContextKeys refreshes the keys", () => {

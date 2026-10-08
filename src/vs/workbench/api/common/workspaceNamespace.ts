@@ -405,7 +405,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
                     key: r.key,
                     defaultValue: r.defaultValue as T | undefined,
                     globalValue: r.globalValue as T | undefined,
-                    workspaceValue: undefined,
+                    workspaceValue: r.workspaceValue as T | undefined,
                     workspaceFolderValue: undefined,
                 };
             },

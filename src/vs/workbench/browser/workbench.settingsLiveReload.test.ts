@@ -8,6 +8,8 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { createConfigurationChangeEvent } from "../../platform/configuration/common/configurationChangeEvent.ts";
 import type {
     IConfigurationChangeEvent,
+    IConfigurationData,
+    IConfigurationInspectResult,
     IConfigurationService,
 } from "../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
@@ -29,15 +31,15 @@ class EmittingConfig implements IConfigurationService {
     public getValue(): unknown {
         return this.values;
     }
-    public inspect<T>(): { default: T | undefined; user: T | undefined; profile: T | undefined; value: T | undefined } {
+    public inspect<T>(): IConfigurationInspectResult<T> {
         return NULL_CONFIGURATION_SERVICE.inspect<T>("");
     }
     public onDidChangeConfiguration(listener: (e: IConfigurationChangeEvent) => void): { dispose: () => void } {
         this.listeners.push(listener);
         return { dispose: () => {} };
     }
-    public getConfigurationData(): { defaults: Record<string, unknown>; user: Record<string, unknown> } {
-        return { defaults: {}, user: this.values };
+    public getConfigurationData(): IConfigurationData {
+        return { defaults: {}, user: this.values, workspace: {} };
     }
     public updateValue(key: string, value: unknown): Promise<void> {
         this.values[key] = value;

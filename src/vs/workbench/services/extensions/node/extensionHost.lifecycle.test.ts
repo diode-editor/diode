@@ -1523,7 +1523,7 @@ describe("ExtensionHost — shutdown", () => {
 
 function makeConfigProvider() {
     let cb: ((keys: readonly string[]) => void) | null = null;
-    const snapshot = { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 2 } } };
+    const snapshot = { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 2 } }, workspace: {} };
     const provider: IExtensionHostConfigProvider = {
         getSnapshot: () => snapshot,
         getWorkspaceFolders: () => [{ uri: "/repo", name: "repo", index: 0 }],
@@ -1577,7 +1577,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         const init = child.sent.find((m) => m.kind === "notif" && m.method === "workspace.initialize");
         expect(init).toBeDefined();
         expect((init as { params: unknown }).params).toEqual({
-            configuration: { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 2 } } },
+            configuration: { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 2 } }, workspace: {} },
             workspaceFolders: [{ uri: "/repo", name: "repo", index: 0 }],
         });
 
@@ -1585,7 +1585,11 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         const changed = child.sent.filter((m) => m.kind === "notif" && m.method === "workspace.configurationChanged");
         expect(changed.at(-1)).toMatchObject({
             params: {
-                configuration: { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 2 } } },
+                configuration: {
+                    defaults: { editor: { tabSize: 4 } },
+                    user: { editor: { tabSize: 2 } },
+                    workspace: {},
+                },
                 affectedKeys: ["editor.tabSize"],
             },
         });

@@ -16,6 +16,8 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
+import type { IWorkspaceContextService } from "../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { IEditorGroupsService } from "../services/editor/common/editorGroupsService.ts";
 import { EditorGroupsServiceDIToken } from "../services/editor/common/editorGroupsService.ts";
 import type { FocusTracker } from "../services/focus/browser/focusTracker.ts";
@@ -54,6 +56,7 @@ export class WorkbenchContextKeys extends Disposable {
         FocusTrackerDIToken,
         ServiceAccessorDIToken,
         ContextKeyContributorsDIToken,
+        IWorkspaceContextServiceDIToken,
     ] as const;
 
     private view: BodyElement | null = null;
@@ -68,6 +71,7 @@ export class WorkbenchContextKeys extends Disposable {
         private readonly focusTracker: FocusTracker,
         accessor: ServiceAccessor,
         contributorTokens: readonly Token<IContextKeyContributor>[],
+        private readonly workspaceContext: Pick<IWorkspaceContextService, "getWorkbenchState">,
     ) {
         super();
         this.contributors = contributorTokens.map((contributor) => accessor.get(contributor));
@@ -132,6 +136,9 @@ export class WorkbenchContextKeys extends Disposable {
             this.groups.activeGroup === this.groups.groups[this.groups.groups.length - 1],
         );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
+        // Upstream-ключ: команды воркспейса (Open Workspace Settings) в палитре
+        // только при открытой папке.
+        this.contextKeys.set("workbenchState", this.workspaceContext.getWorkbenchState());
         // Ключи фич — у самих фич (IContextKeyContributor), тайминг тот же.
         for (const contributor of this.contributors) {
             contributor.updateContextKeys(this.contextKeys, active);

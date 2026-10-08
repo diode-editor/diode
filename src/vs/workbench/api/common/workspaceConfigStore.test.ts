@@ -38,7 +38,13 @@ describe("WorkspaceConfigStore", () => {
 
     it("inspect разделяет default и user слои", () => {
         const result = storeWith({ editor: { tabSize: 4 } }, { editor: { tabSize: 8 } }).inspect("editor.tabSize");
-        expect(result).toEqual({ key: "editor.tabSize", defaultValue: 4, globalValue: 8, value: 8 });
+        expect(result).toEqual({
+            key: "editor.tabSize",
+            defaultValue: 4,
+            globalValue: 8,
+            workspaceValue: undefined,
+            value: 8,
+        });
     });
 
     it("inspect для чисто дефолтного ключа не имеет globalValue", () => {
@@ -91,5 +97,33 @@ describe("WorkspaceConfigStore", () => {
 
     it("get по пути, уходящему за скаляр, возвращает undefined", () => {
         expect(storeWith({}, { editor: { tabSize: 2 } }).get("editor.tabSize.deeper")).toBeUndefined();
+    });
+});
+
+describe("WorkspaceConfigStore — слой воркспейса", () => {
+    it("перекрывает user; inspect отдаёт workspaceValue; секция языка из воркспейса действует", () => {
+        const store = new WorkspaceConfigStore();
+        store.setData({
+            defaults: { editor: { tabSize: 4 } },
+            user: { editor: { tabSize: 8 }, bazel: { projectview: { open: true } } },
+            workspace: { bazel: { projectview: { open: false } }, "[java]": { editor: { tabSize: 2 } } },
+        });
+
+        expect(store.get("bazel.projectview.open")).toBe(false);
+        expect(store.get("editor.tabSize")).toBe(8);
+        expect(store.get("editor.tabSize", undefined, "java")).toBe(2);
+        expect(store.inspect("bazel.projectview.open")).toEqual({
+            key: "bazel.projectview.open",
+            defaultValue: undefined,
+            globalValue: true,
+            workspaceValue: false,
+            value: false,
+        });
+    });
+
+    it("без workspace в данных (старый хост, пустое окно) слой пуст", () => {
+        const store = storeWith({}, { editor: { tabSize: 8 } });
+        expect(store.inspect("editor.tabSize").workspaceValue).toBeUndefined();
+        expect(store.get("editor.tabSize")).toBe(8);
     });
 });

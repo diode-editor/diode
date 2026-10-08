@@ -4,14 +4,20 @@ import * as path from "node:path";
 import { applyEdits, modify, parse as parseJsonc, type ParseError, printParseErrorCode } from "jsonc-parser";
 
 import { Emitter } from "../../../base/common/event.ts";
-import { Disposable } from "../../../base/common/lifecycle.ts";
+import { Disposable, MutableDisposable } from "../../../base/common/lifecycle.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { ConfigurationModel } from "../common/configurationModel.ts";
-import type { ConfigurationRegistry, IConfigurationPropertySchema } from "../common/configurationRegistry.ts";
-import { ConfigurationSnapshot } from "../common/configurationSnapshot.ts";
 import type {
+    ConfigurationRegistry,
+    ConfigurationScope,
+    IConfigurationPropertySchema,
+} from "../common/configurationRegistry.ts";
+import { ConfigurationSnapshot } from "../common/configurationSnapshot.ts";
+import { filterWorkspaceSettings } from "../common/configurationValidation.ts";
+import type {
+    ConfigurationTarget,
     IConfigurationChangeEvent,
     IConfigurationData,
     IConfigurationInspectResult,
@@ -19,6 +25,11 @@ import type {
     IConfigurationOverrides,
     IConfigurationService,
 } from "../common/iConfigurationService.ts";
+import {
+    NO_WORKSPACE_OPENED_ERROR,
+    workspaceScopeWriteError,
+    workspaceSettingsPath,
+} from "../common/workspaceSettings.ts";
 
 /**
  * Реализация {@link IConfigurationService}.
@@ -27,7 +38,12 @@ import type {
  *   1. defaults — из `ConfigurationRegistry` (узлы `CONFIGURATION_CONTRIBUTIONS`);
  *   2. user — `User/settings.json` (default-профиль);
  *   3. profile — `User/profiles/<name>/settings.json` (только если активный
- *      профиль не default, иначе пусто).
+ *      профиль не default, иначе пусто);
+ *   4. workspace — `<папка>/.diode/settings.json` открытой папки (у эталона —
+ *      `.vscode/settings.json`, см. `workspaceSettings.ts`) без ключей, чей
+ *      `scope` воркспейсу не положен. Папку сервису сообщают
+ *      {@link ConfigurationService.setWorkspaceFolders}: на старте и при Open
+ *      Folder. Без папки слой пуст.
  *
  * Live-reload: если в конструктор передан {@link IFileWatcher} и пути к
  * settings.json, сервис следит за файлом(-ами) и на изменение перечитывает
@@ -43,7 +59,20 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private readonly defaultsLayer: ConfigurationModel;
     private userLayer: ConfigurationModel;
     private profileLayer: ConfigurationModel;
+    private workspaceLayer = ConfigurationModel.EMPTY;
     private snapshot: ConfigurationSnapshot;
+    /** settings.json воркспейса открытой папки; `undefined` — папка не открыта. */
+    private workspaceSettingsFile: string | undefined;
+    /** Watch на settings.json воркспейса — меняется вместе с папкой. */
+    private readonly workspaceWatch = this.register(new MutableDisposable());
+    private readonly fileWatcher: IFileWatcher | undefined;
+    /**
+     * Поколение папки воркспейса: загрузка слоя, закончившаяся после следующей
+     * смены папки, результат не применяет.
+     */
+    private workspaceGeneration = 0;
+    /** Хвост очереди записей: read-modify-write одного файла не должны перекрываться. */
+    private writeQueue: Promise<void> = Promise.resolve();
     /**
      * settings.json активного профиля — цель для {@link updateValue}. Для
      * default-профиля это `User/settings.json` (совпадает с user-слоем); для
@@ -57,6 +86,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private readonly profileSettingsPath: string | undefined;
     private readonly logger: ILogger | undefined;
     private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
+    /** `scope` ключей ядра и расширений — фильтр и отказ записи в воркспейс. */
+    private readonly scopes: ReadonlyMap<string, ConfigurationScope>;
     private readonly onDidChangeConfigurationEmitter = new Emitter<IConfigurationChangeEvent>();
     public readonly onDidChangeConfiguration = this.onDidChangeConfigurationEmitter.event;
 
@@ -77,6 +108,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         readonly logger?: ILogger;
         /** Схемы ключей (из реестра): значение, не прошедшее схему, заменяется дефолтом. */
         readonly schemas?: ReadonlyMap<string, IConfigurationPropertySchema>;
+        /** `scope` ключей ядра и расширений (из реестра): какие ключи действуют в воркспейсе. */
+        readonly scopes?: ReadonlyMap<string, ConfigurationScope>;
     }) {
         super();
         this.defaultsLayer = input.defaultsLayer;
@@ -88,6 +121,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.profileSettingsPath = input.profileSettingsPath;
         this.logger = input.logger;
         this.schemas = input.schemas ?? new Map();
+        this.scopes = input.scopes ?? new Map();
+        this.fileWatcher = input.fileWatcher;
         this.snapshot = this.computeSnapshot();
 
         if (input.fileWatcher !== undefined) {
@@ -128,6 +163,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         return {
             defaults: this.defaultsLayer.toRaw(),
             user: ConfigurationModel.merge(this.userLayer, this.profileLayer).toRaw(),
+            workspace: this.workspaceLayer.toRaw(),
         };
     }
 
@@ -136,24 +172,26 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
             default: this.defaultsLayer.get<T>(key),
             user: this.userLayer.get<T>(key),
             profile: this.profileLayer.get<T>(key),
+            workspace: this.workspaceLayer.get<T>(key),
             value: this.snapshot.model(overrides).get<T>(key),
         };
     }
 
-    /**
-     * Перечитывает settings.json с диска (user + profile, если именованный
-     * профиль), пересобирает merged и эмитит `onDidChangeConfiguration` с
-     * диффом. Ошибки чтения/парсинга трактуются как пустой слой (тот же
-     * best-effort, что в bootstrap). Пустой дифф события не порождает.
-     */
     /** Слои по приоритету; чтение — через снапшот (схема, секции языков). */
     private computeSnapshot(): ConfigurationSnapshot {
         return new ConfigurationSnapshot(
-            ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer),
+            ConfigurationModel.merge(this.defaultsLayer, this.userLayer, this.profileLayer, this.workspaceLayer),
             this.schemas,
         );
     }
 
+    /**
+     * Перечитывает settings.json с диска (user + profile, если именованный
+     * профиль, + воркспейс, если открыта папка), пересобирает merged и эмитит
+     * `onDidChangeConfiguration` с диффом. Ошибки чтения/парсинга трактуются как
+     * пустой слой (тот же best-effort, что в bootstrap). Пустой дифф события не
+     * порождает.
+     */
     public async reload(): Promise<void> {
         const prev = this.snapshot;
         if (this.userSettingsPath !== undefined) {
@@ -162,7 +200,66 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         if (this.profileSettingsPath !== undefined) {
             this.profileLayer = await loadSettingsLayer(this.profileSettingsPath, this.logger);
         }
+        await this.reloadWorkspaceLayer();
         this.recompute(prev);
+    }
+
+    /**
+     * Папки воркспейса сменились (старт с папкой, Open Folder). Слой воркспейса
+     * перечитывается из `.diode/settings.json` первой папки, watch переезжает на
+     * её файл, событие изменения — по диффу, как при reload. Та же папка — no-op.
+     *
+     * Форма — список, как у `IWorkspace.folders`: при мульти-руте слой
+     * воркспейса станет `.code-workspace`, а папки получат свои слои
+     * (`docs/TODO/MultiRoot.md`, этапы D–E); сейчас папка не больше одной.
+     */
+    public async setWorkspaceFolders(folders: readonly string[]): Promise<void> {
+        const folder = folders.at(0);
+        const file = folder === undefined ? undefined : workspaceSettingsPath(path.resolve(folder));
+        if (file === this.workspaceSettingsFile) return;
+        this.workspaceSettingsFile = file;
+        // Stryker disable next-line UpdateOperator: поколению важна только смена значения, а не направление
+        const generation = ++this.workspaceGeneration;
+        this.workspaceWatch.value =
+            file === undefined
+                ? undefined
+                : this.fileWatcher?.watchFile(file, () => {
+                      void this.reloadWorkspace();
+                  });
+        const prev = this.snapshot;
+        const layer = file === undefined ? ConfigurationModel.EMPTY : await this.loadWorkspaceLayer(file);
+        if (generation !== this.workspaceGeneration) return;
+        this.workspaceLayer = layer;
+        this.recompute(prev);
+    }
+
+    /** Перечитать только слой воркспейса (watch его файла). */
+    private async reloadWorkspace(): Promise<void> {
+        const prev = this.snapshot;
+        await this.reloadWorkspaceLayer();
+        this.recompute(prev);
+    }
+
+    private async reloadWorkspaceLayer(): Promise<void> {
+        const file = this.workspaceSettingsFile;
+        if (file === undefined) return;
+        const generation = this.workspaceGeneration;
+        const layer = await this.loadWorkspaceLayer(file);
+        if (generation === this.workspaceGeneration) this.workspaceLayer = layer;
+    }
+
+    /** settings.json воркспейса без ключей чужого скоупа; отброшенные — warn в лог. */
+    private async loadWorkspaceLayer(file: string): Promise<ConfigurationModel> {
+        const { model, excludedKeys } = filterWorkspaceSettings(
+            await loadSettingsLayer(file, this.logger),
+            this.scopes,
+        );
+        if (excludedKeys.length > 0) {
+            this.logger?.warn(
+                `${file}: ignored settings that can be set only in User settings: ${excludedKeys.join(", ")}`,
+            );
+        }
+        return model;
     }
 
     /**
@@ -176,33 +273,33 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         if (event !== null) this.onDidChangeConfigurationEmitter.fire(event);
     }
 
-    public async updateValue(key: string, value: unknown): Promise<void> {
-        if (this.writeTargetPath === undefined) return;
+    // Stryker disable next-line StringLiteral: любая цель, кроме "workspace", пишет в user — дефолт виден только типу
+    public updateValue(key: string, value: unknown, target: ConfigurationTarget = "user"): Promise<void> {
+        // Записи идут друг за другом: две параллельные правки одного файла
+        // (расширения на старте) иначе прочитали бы одно и то же содержимое и
+        // вторая затёрла бы первую. Отказ одной записи очередь не рвёт.
+        const write = this.writeQueue.then(() => this.doUpdateValue(key, value, target));
+        this.writeQueue = write.catch(() => undefined);
+        return write;
+    }
 
-        let content = "";
-        try {
-            content = await fs.promises.readFile(this.writeTargetPath, "utf-8");
-        } catch (err) {
-            if (!isFileNotFound(err)) throw err;
-            // Файла ещё нет — стартуем с пустого объекта, каталог создаём ниже.
+    private async doUpdateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void> {
+        if (target === "workspace") {
+            const file = this.workspaceSettingsFile;
+            if (file === undefined) throw new Error(NO_WORKSPACE_OPENED_ERROR);
+            const scopeError = workspaceScopeWriteError(key, this.scopes.get(key));
+            if (scopeError !== null) throw new Error(scopeError);
+            const model = await writeSettingsKey(file, key, value);
+            const prev = this.snapshot;
+            this.workspaceLayer = filterWorkspaceSettings(model, this.scopes).model;
+            this.recompute(prev);
+            return;
         }
 
-        // Пишем плоский dotted-ключ (`"workbench.colorTheme": …`) — так же, как это
-        // делает VS Code и как выглядят фикстуры/дефолты. `ConfigurationModel`
-        // при чтении сам разворачивает точечные ключи во вложенное дерево. Поэтому
-        // ключ идёт ОДНИМ сегментом JSONPath, а не `key.split(".")`.
-        const edits = modify(content, [key], value, {
-            formattingOptions: { insertSpaces: true, tabSize: 4 },
-        });
-        const next = applyEdits(content, edits);
-
-        await fs.promises.mkdir(path.dirname(this.writeTargetPath), { recursive: true });
-        await fs.promises.writeFile(this.writeTargetPath, next, "utf-8");
-
+        if (this.writeTargetPath === undefined) return;
+        const model = await writeSettingsKey(this.writeTargetPath, key, value);
         // Обновляем in-memory слой, чтобы get/inspect сразу видели новое значение.
         const prev = this.snapshot;
-        const parsed: unknown = parseJsonc(next, [], { allowTrailingComma: true });
-        const model = ConfigurationModel.fromRaw(parsed);
         if (this.writesToProfileLayer) {
             this.profileLayer = model;
         } else {
@@ -212,6 +309,36 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         // событию файлового watcher'а даст пустой дифф → без повторного события.
         this.recompute(prev);
     }
+}
+
+/**
+ * JSONC-правка одного ключа в settings.json (с сохранением комментариев и
+ * форматирования); `value: undefined` снимает ключ. Файла или каталога нет —
+ * создаются. Возвращает модель нового содержимого.
+ */
+async function writeSettingsKey(filePath: string, key: string, value: unknown): Promise<ConfigurationModel> {
+    let content = "";
+    try {
+        content = await fs.promises.readFile(filePath, "utf-8");
+    } catch (err) {
+        if (!isFileNotFound(err)) throw err;
+        // Файла ещё нет — стартуем с пустого объекта, каталог создаём ниже.
+    }
+
+    // Пишем плоский dotted-ключ (`"workbench.colorTheme": …`) — так же, как это
+    // делает VS Code и как выглядят фикстуры/дефолты. `ConfigurationModel`
+    // при чтении сам разворачивает точечные ключи во вложенное дерево. Поэтому
+    // ключ идёт ОДНИМ сегментом JSONPath, а не `key.split(".")`.
+    const edits = modify(content, [key], value, {
+        formattingOptions: { insertSpaces: true, tabSize: 4 },
+    });
+    const next = applyEdits(content, edits);
+
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    // Stryker disable next-line StringLiteral: пустая кодировка у writeFile — та же utf-8 по умолчанию
+    await fs.promises.writeFile(filePath, next, "utf-8");
+    // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: ошибки разбора здесь не читаются, а парсер терпим к висячей запятой и без опции — модель та же
+    return ConfigurationModel.fromRaw(parseJsonc(next, [], { allowTrailingComma: true }));
 }
 
 /**
@@ -233,6 +360,12 @@ export async function loadConfiguration(
      * слоёв user/profile).
      */
     registry?: ConfigurationRegistry,
+    /**
+     * Папка воркспейса, если окно открывается с ней: слой `.diode/settings.json`
+     * читается ДО первого кадра (тема, `editor.*` проекта видны сразу). Смена
+     * папки потом — {@link ConfigurationService.setWorkspaceFolders}.
+     */
+    workspaceFolder?: string,
 ): Promise<ConfigurationService> {
     const defaultsLayer = ConfigurationModel.fromRaw(registry?.getDefaultConfiguration() ?? {});
 
@@ -245,7 +378,7 @@ export async function loadConfiguration(
         profileLayer = await loadSettingsLayer(profileSettingsPath, logger);
     }
 
-    return new ConfigurationService({
+    const service = new ConfigurationService({
         defaultsLayer,
         userLayer,
         profileLayer,
@@ -257,7 +390,11 @@ export async function loadConfiguration(
         fileWatcher,
         logger,
         schemas: registry?.getConfigurationProperties(),
+        scopes: registry?.getConfigurationScopes(),
     });
+    // Stryker disable next-line ConditionalExpression: `[undefined]` и `[]` для setWorkspaceFolders одно и то же — первая папка undefined
+    await service.setWorkspaceFolders(workspaceFolder === undefined ? [] : [workspaceFolder]);
+    return service;
 }
 
 async function loadSettingsLayer(filePath: string, logger: ILogger | undefined): Promise<ConfigurationModel> {
