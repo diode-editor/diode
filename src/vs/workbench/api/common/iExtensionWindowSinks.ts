@@ -1,8 +1,14 @@
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
+
 import type {
     IWireInputBoxRequest,
     IWireQuickPickRequest,
     IWireShowMessageRequest,
     IWireStatusBarItem,
+    IWireTerminalClosed,
+    IWireTerminalCreate,
+    IWireTerminalOpened,
+    IWireTerminalRef,
     IWireValidationMessage,
     WireMarker,
     WireOutputLevel,
@@ -103,4 +109,38 @@ export interface INotificationRequest extends IWireShowMessageRequest {
  */
 export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
     readonly validate?: (value: string) => Promise<IWireValidationMessage | null>;
+}
+
+/**
+ * События встроенного терминала, которые хост пересказывает субпроцессу
+ * (`$acceptTerminal*` эталона): заведён инстанс, снят инстанс, сменился активный.
+ */
+export interface IExtensionTerminalEvents {
+    opened(terminal: IWireTerminalOpened): void;
+    closed(terminal: IWireTerminalClosed): void;
+    activeChanged(id: number | null): void;
+}
+
+/**
+ * Сток терминалов расширений (`window.createTerminal` → `terminal.*`):
+ * потребитель (module/харнесс) заводит и водит инстансы встроенного терминала
+ * и пересказывает их жизнь — ВСЕХ, включая шеллы, открытые человеком, как
+ * `MainThreadTerminalService` эталона. Свой терминал субпроцесс адресует
+ * `extHostId`, пока не узнал хостовый `id`, поэтому сток помнит обе метки.
+ *
+ * `reset()` — субпроцесс умер: его `extHostId` больше ничего не значат.
+ * Шеллы, заведённые расширением, при этом живут дальше (у эталона тоже):
+ * новый субпроцесс увидит их в {@link snapshot} как чужие.
+ */
+export interface IExtensionTerminalSink {
+    /** Живые инстансы в порядке создания и активный — семя нового субпроцесса. */
+    snapshot(): { readonly terminals: readonly IWireTerminalOpened[]; readonly activeId: number | null };
+    /** Подписка на жизнь инстансов; события до неё — в {@link snapshot}. */
+    subscribe(events: IExtensionTerminalEvents): IDisposable;
+    create(request: IWireTerminalCreate): void;
+    show(terminal: IWireTerminalRef, preserveFocus: boolean): void;
+    hide(terminal: IWireTerminalRef): void;
+    sendText(terminal: IWireTerminalRef, text: string, shouldExecute: boolean): void;
+    dispose(terminal: IWireTerminalRef): void;
+    reset(): void;
 }

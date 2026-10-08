@@ -39,6 +39,8 @@ import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinp
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
+import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
+import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
@@ -282,6 +284,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                     container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
                     container.get(LayoutServiceDIToken).setPanelVisible(true);
                 },
+            ),
+            // createTerminal расширений → инстансы встроенного терминала; жизнь
+            // всех инстансов (и шеллов человека) — обратно в `window.terminals`.
+            terminalSink: new ExtensionTerminalAdapter(
+                container.get(TerminalServiceDIToken),
+                container.get(PanelServiceDIToken),
             ),
         });
 

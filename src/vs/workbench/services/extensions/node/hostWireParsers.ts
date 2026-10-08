@@ -34,12 +34,19 @@ import {
     type IWireShowTextDocumentParams,
     type IWireStatusBarItem,
     type IWireStatusBarItemDispose,
+    type IWireTerminalCreate,
+    type IWireTerminalRef,
+    type IWireTerminalSendText,
+    type IWireTerminalShow,
+    type IWireTerminalTarget,
     type IWireValidationMessage,
     type IWireWatcherCreate,
     type IWireWorkspaceEditOp,
     parseRange,
     parseWireSecretRef,
     parseWireSelections,
+    parseWireStringArray,
+    parseWireStringRecord,
     type SerializedColor,
     WIRE_LANGUAGE_FEATURE_KINDS,
     type WireConfigurationTarget,
@@ -258,6 +265,63 @@ export function parseWireStatusBarItemDispose(raw: unknown): IWireStatusBarItemD
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
     return { handle: p.handle };
+}
+
+// ─── Терминалы ──────────────────────────────────────────────────────────────
+
+/** Адрес терминала: хостовый `id` либо `extHostId` субпроцесса; иначе `null`. */
+function parseWireTerminalRef(raw: unknown): IWireTerminalRef | null {
+    const p = raw as TerminalEnvelope;
+    if (isFiniteNumber(p?.id)) return { id: p.id };
+    if (isFiniteNumber(p?.extHostId)) return { extHostId: p.extHostId };
+    return null;
+}
+
+/**
+ * Конверт `terminal.*` как объект «может быть»: поля читаются опциональной
+ * цепочкой — у примитива их нет так же, как у `null`.
+ */
+type TerminalEnvelope = Readonly<Record<string, unknown>> | null | undefined;
+
+/** Валидирует `terminal.create`; `null` без `extHostId`. Пустые строки — «не задано». */
+export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | null {
+    const p = raw as TerminalEnvelope;
+    if (!isFiniteNumber(p?.extHostId)) return null;
+    const shellArgs = parseWireStringArray(p.shellArgs);
+    const env = parseWireStringRecord(p.env);
+    return {
+        extHostId: p.extHostId,
+        ...(typeof p.name === "string" && p.name !== "" ? { name: p.name } : {}),
+        ...(typeof p.shellPath === "string" && p.shellPath !== "" ? { shellPath: p.shellPath } : {}),
+        ...(shellArgs !== undefined ? { shellArgs } : {}),
+        ...(typeof p.cwd === "string" && p.cwd !== "" ? { cwd: p.cwd } : {}),
+        ...(env !== undefined ? { env } : {}),
+        ...(p.strictEnv === true ? { strictEnv: true } : {}),
+        ...(p.hideFromUser === true ? { hideFromUser: true } : {}),
+        ...(typeof p.message === "string" ? { message: p.message } : {}),
+    };
+}
+
+/** Валидирует `terminal.hide` / `terminal.dispose`. */
+export function parseWireTerminalTarget(raw: unknown): IWireTerminalTarget | null {
+    const terminal = parseWireTerminalRef((raw as TerminalEnvelope)?.terminal);
+    return terminal === null ? null : { terminal };
+}
+
+/** Валидирует `terminal.show`; `preserveFocus` — только явное `true`. */
+export function parseWireTerminalShow(raw: unknown): IWireTerminalShow | null {
+    const target = parseWireTerminalTarget(raw);
+    if (target === null) return null;
+    return { terminal: target.terminal, preserveFocus: (raw as Record<string, unknown>).preserveFocus === true };
+}
+
+/** Валидирует `terminal.sendText`; `shouldExecute` — только явное `false` отключает Enter. */
+export function parseWireTerminalSendText(raw: unknown): IWireTerminalSendText | null {
+    const target = parseWireTerminalTarget(raw);
+    if (target === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.text !== "string") return null;
+    return { terminal: target.terminal, text: p.text, shouldExecute: p.shouldExecute !== false };
 }
 
 // ─── Output-каналы ──────────────────────────────────────────────────────────

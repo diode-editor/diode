@@ -70,8 +70,27 @@ export interface EmbeddedTerminalOptions {
     shell?: string;
     args?: string[];
     cwd?: string;
-    env?: Record<string, string>;
+    /** Поверх унаследованного окружения; `null` снимает переменную. */
+    env?: Record<string, string | null>;
+    /** Окружение — ровно `env`, без унаследованного от процесса. */
+    strictEnv?: boolean;
+    /** Строка в эмулятор до вывода шелла (с переводом строки); в шелл не уходит. */
+    message?: string;
     scrollback?: number;
+}
+
+/**
+ * Окружение шелла: база (унаследованное или пустое при `strictEnv`), поверх —
+ * `env` терминала (`null` снимает переменную, как `TerminalOptions.env`), и
+ * наше обязательное: `TERM` эмулятора, без `TMUX` (внутри собственного
+ * tmux-хоста он сбивает детект).
+ */
+export function buildEnv(
+    base: Record<string, string>,
+    overrides: Readonly<Record<string, string | null>> | undefined,
+): Record<string, string> {
+    const merged: Record<string, string | null> = { ...base, ...overrides, TERM: "xterm-256color", TMUX: null };
+    return Object.fromEntries(Object.entries(merged).filter((entry): entry is [string, string] => entry[1] !== null));
 }
 
 /** Отфильтровать `undefined`-значения из process.env (node-pty ждёт `Record<string,string>`). */
@@ -106,13 +125,7 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
 
         const shell = options.shell ?? getSystemShell();
         this.shell = shell;
-        const env: Record<string, string> = {
-            ...currentEnv(),
-            ...(options.env ?? {}),
-            TERM: "xterm-256color",
-            // Внутри собственного tmux-хоста $TMUX сбивает детект — убираем для чистоты.
-        };
-        delete env.TMUX;
+        const env = buildEnv(options.strictEnv === true ? {} : currentEnv(), options.env);
 
         this.term = new xtermHeadless.Terminal({
             cols: this.cols,
@@ -120,6 +133,13 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
             allowProposedApi: true,
             scrollback: options.scrollback ?? 1000,
         });
+        // `TerminalOptions.message` — `writeln` в эмулятор (`_writeInitialText`
+        // эталона) до первого вывода шелла: записи xterm идут по очереди.
+        if (options.message !== undefined) {
+            this.term.write(`${options.message}\r\n`, () => {
+                this.emitUpdate();
+            });
+        }
 
         const { spawn } = loadNodePty();
         this.pty = spawn(shell, options.args ?? [], {
@@ -151,6 +171,11 @@ export class EmbeddedTerminalSession implements ITerminalSurface, IDisposable {
             this.exited = true;
             this.onExitEmitter.fire(exitCode);
         });
+    }
+
+    /** Pid процесса шелла. */
+    public get pid(): number {
+        return this.pty.pid;
     }
 
     public get isExited(): boolean {

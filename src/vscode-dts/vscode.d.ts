@@ -855,6 +855,58 @@ declare module "vscode" {
 		 * An {@link Event} which fires when the active color theme is changed or has changes.
 		 */
 		export const onDidChangeActiveColorTheme: Event<ColorTheme>;
+
+		/**
+		 * The currently opened terminals or an empty array.
+		 */
+		export const terminals: readonly Terminal[];
+
+		/**
+		 * The currently active terminal or `undefined`. The active terminal is the one that
+		 * currently has focus or most recently had focus.
+		 */
+		export const activeTerminal: Terminal | undefined;
+
+		/**
+		 * An {@link Event} which fires when the {@link window.activeTerminal active terminal}
+		 * has changed. *Note* that the event also fires when the active terminal changes
+		 * to `undefined`.
+		 */
+		export const onDidChangeActiveTerminal: Event<Terminal | undefined>;
+
+		/**
+		 * An {@link Event} which fires when a terminal has been created, either through the
+		 * {@link window.createTerminal createTerminal} API or commands.
+		 */
+		export const onDidOpenTerminal: Event<Terminal>;
+
+		/**
+		 * An {@link Event} which fires when a terminal is disposed.
+		 */
+		export const onDidCloseTerminal: Event<Terminal>;
+
+		/**
+		 * Creates a {@link Terminal} with a backing shell process. The cwd of the terminal will be the workspace
+		 * directory if it exists.
+		 *
+		 * @param name Optional human-readable string which will be used to represent the terminal in the UI.
+		 * @param shellPath Optional path to a custom shell executable to be used in the terminal.
+		 * @param shellArgs Optional args for the custom shell executable. A string can be used on Windows only which
+		 * allows specifying shell args in
+		 * [command-line format](https://msdn.microsoft.com/en-au/08dfcab2-eb6e-49a4-80eb-87d4076c98c6).
+		 * @returns A new Terminal.
+		 * @throws When running in an environment where a new process cannot be started.
+		 */
+		export function createTerminal(name?: string, shellPath?: string, shellArgs?: readonly string[] | string): Terminal;
+
+		/**
+		 * Creates a {@link Terminal} with a backing shell process.
+		 *
+		 * @param options A TerminalOptions object describing the characteristics of the new terminal.
+		 * @returns A new Terminal.
+		 * @throws When running in an environment where a new process cannot be started.
+		 */
+		export function createTerminal(options: TerminalOptions): Terminal;
 	}
 
 	/**
@@ -7359,6 +7411,515 @@ declare module "vscode" {
 		export function openExternal(target: Uri): Thenable<boolean>;
 	}
 
+
+	/**
+	 * An individual terminal instance within the integrated terminal.
+	 */
+	export interface Terminal {
+
+		/**
+		 * The name of the terminal.
+		 */
+		readonly name: string;
+
+		/**
+		 * The process ID of the shell process.
+		 */
+		readonly processId: Thenable<number | undefined>;
+
+		/**
+		 * The object used to initialize the terminal, this is useful for example to detecting the
+		 * shell type of when the terminal was not launched by this extension or for detecting what
+		 * folder the shell was launched in.
+		 */
+		readonly creationOptions: Readonly<TerminalOptions | ExtensionTerminalOptions>;
+
+		/**
+		 * The exit status of the terminal, this will be undefined while the terminal is active.
+		 *
+		 * **Example:** Show a notification with the exit code when the terminal exits with a
+		 * non-zero exit code.
+		 * ```typescript
+		 * window.onDidCloseTerminal(t => {
+		 *   if (t.exitStatus && t.exitStatus.code) {
+		 *   	vscode.window.showInformationMessage(`Exit code: ${t.exitStatus.code}`);
+		 *   }
+		 * });
+		 * ```
+		 */
+		readonly exitStatus: TerminalExitStatus | undefined;
+
+		/**
+		 * The current state of the {@link Terminal}.
+		 */
+		readonly state: TerminalState;
+
+		/**
+		 * Send text to the terminal. The text is written to the stdin of the underlying pty process
+		 * (shell) of the terminal.
+		 *
+		 * @param text The text to send.
+		 * @param shouldExecute Indicates that the text being sent should be executed rather than just inserted in the terminal.
+		 * The character(s) added are `\n` or `\r\n`, depending on the platform. This defaults to `true`.
+		 */
+		sendText(text: string, shouldExecute?: boolean): void;
+
+		/**
+		 * Show the terminal panel and reveal this terminal in the UI.
+		 *
+		 * @param preserveFocus When `true` the terminal will not take focus.
+		 */
+		show(preserveFocus?: boolean): void;
+
+		/**
+		 * Hide the terminal panel if this terminal is currently showing.
+		 */
+		hide(): void;
+
+		/**
+		 * Dispose and free associated resources.
+		 */
+		dispose(): void;
+	}
+
+	/**
+	 * The location of the terminal.
+	 */
+	export enum TerminalLocation {
+		/**
+		 * In the terminal view
+		 */
+		Panel = 1,
+		/**
+		 * In the editor area
+		 */
+		Editor = 2,
+	}
+
+	/**
+	 * Assumes a {@link TerminalLocation} of editor and allows specifying a {@link ViewColumn} and
+	 * {@link TerminalEditorLocationOptions.preserveFocus preserveFocus } property
+	 */
+	export interface TerminalEditorLocationOptions {
+		/**
+		 * A view column in which the {@link Terminal terminal} should be shown in the editor area.
+		 * The default is the {@link ViewColumn.Active active}. Columns that do not exist
+		 * will be created as needed up to the maximum of {@linkcode ViewColumn.Nine}.
+		 * Use {@linkcode ViewColumn.Beside} to open the editor to the side of the currently
+		 * active one.
+		 */
+		viewColumn: ViewColumn;
+		/**
+		 * An optional flag that when `true` will stop the {@link Terminal} from taking focus.
+		 */
+		preserveFocus?: boolean;
+	}
+
+	/**
+	 * Uses the parent {@link Terminal}'s location for the terminal
+	 */
+	export interface TerminalSplitLocationOptions {
+		/**
+		 * The parent terminal to split this terminal beside. This works whether the parent terminal
+		 * is in the panel or the editor area.
+		 */
+		parentTerminal: Terminal;
+	}
+
+	/**
+	 * Represents the state of a {@link Terminal}.
+	 */
+	export interface TerminalState {
+		/**
+		 * Whether the {@link Terminal} has been interacted with. Interaction means that the
+		 * terminal has sent data to the process which depending on the terminal's _mode_. By
+		 * default input is sent when a key is pressed or when a command or extension sends text,
+		 * but based on the terminal's mode it can also happen on:
+		 *
+		 * - a pointer click event
+		 * - a pointer scroll event
+		 * - a pointer move event
+		 * - terminal focus in/out
+		 *
+		 * For more information on events that can send data see "DEC Private Mode Set (DECSET)" on
+		 * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+		 */
+		readonly isInteractedWith: boolean;
+
+		/**
+		 * The detected shell type of the {@link Terminal}. This will be `undefined` when there is
+		 * not a clear signal as to what the shell is, or the shell is not supported yet. This
+		 * value should change to the shell type of a sub-shell when launched (for example, running
+		 * `bash` inside `zsh`).
+		 *
+		 * Note that the possible values are currently defined as any of the following:
+		 * 'bash', 'cmd', 'csh', 'fish', 'gitbash', 'julia', 'ksh', 'node', 'nu', 'pwsh', 'python',
+		 * 'sh', 'wsl', 'xonsh', 'zsh'.
+		 */
+		readonly shell: string | undefined;
+	}
+
+	/**
+	 * Value-object describing what options a terminal should use.
+	 */
+	export interface TerminalOptions {
+		/**
+		 * A human-readable string which will be used to represent the terminal in the UI.
+		 */
+		name?: string;
+
+		/**
+		 * A path to a custom shell executable to be used in the terminal.
+		 */
+		shellPath?: string;
+
+		/**
+		 * Args for the custom shell executable. A string can be used on Windows only which allows
+		 * specifying shell args in [command-line format](https://msdn.microsoft.com/en-au/08dfcab2-eb6e-49a4-80eb-87d4076c98c6).
+		 */
+		shellArgs?: string[] | string;
+
+		/**
+		 * A path or Uri for the current working directory to be used for the terminal.
+		 */
+		cwd?: string | Uri;
+
+		/**
+		 * Object with environment variables that will be added to the editor process.
+		 */
+		env?: { [key: string]: string | null | undefined };
+
+		/**
+		 * Whether the terminal process environment should be exactly as provided in
+		 * `TerminalOptions.env`. When this is false (default), the environment will be based on the
+		 * window's environment and also apply configured platform settings like
+		 * `terminal.integrated.env.windows` on top. When this is true, the complete environment
+		 * must be provided as nothing will be inherited from the process or any configuration.
+		 */
+		strictEnv?: boolean;
+
+		/**
+		 * When enabled the terminal will run the process as normal but not be surfaced to the user
+		 * until `Terminal.show` is called. The typical usage for this is when you need to run
+		 * something that may need interactivity but only want to tell the user about it when
+		 * interaction is needed. Note that the terminals will still be exposed to all extensions
+		 * as normal. The hidden terminals will not be restored when the workspace is next opened.
+		 */
+		hideFromUser?: boolean;
+
+		/**
+		 * A message to write to the terminal on first launch, note that this is not sent to the
+		 * process but, rather written directly to the terminal. This supports escape sequences such
+		 * a setting text style.
+		 */
+		message?: string;
+
+		/**
+		 * The icon {@link ThemeColor} for the terminal.
+		 * The `terminal.ansi*` theme keys are
+		 * recommended for the best contrast and consistency across themes.
+		 */
+		color?: ThemeColor;
+
+		/**
+		 * The {@link TerminalLocation} or {@link TerminalEditorLocationOptions} or {@link TerminalSplitLocationOptions} for the terminal.
+		 */
+		location?: TerminalLocation | TerminalEditorLocationOptions | TerminalSplitLocationOptions;
+
+		/**
+		 * Opt-out of the default terminal persistence on restart and reload.
+		 * This will only take effect when `terminal.integrated.enablePersistentSessions` is enabled.
+		 */
+		isTransient?: boolean;
+
+		/**
+		 * The nonce to use to verify shell integration sequences are coming from a trusted source.
+		 * An example impact of UX of this is if the command line is reported with a nonce, it will
+		 * not need to verify with the user that the command line is correct before rerunning it
+		 * via the [shell integration command decoration](https://code.visualstudio.com/docs/terminal/shell-integration#_command-decorations-and-the-overview-ruler).
+		 *
+		 * This should be used if the terminal includes [custom shell integration support](https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences).
+		 * It should be set to a random GUID which will then set the `VSCODE_NONCE` environment
+		 * variable. Inside the shell, this should then be removed from the environment so as to
+		 * protect it from general access. Once that is done it can be passed through in the
+		 * relevant sequences to make them trusted.
+		 */
+		shellIntegrationNonce?: string;
+	}
+
+	/**
+	 * Value-object describing what options a virtual process terminal should use.
+	 */
+	export interface ExtensionTerminalOptions {
+		/**
+		 * A human-readable string which will be used to represent the terminal in the UI.
+		 */
+		name: string;
+
+		/**
+		 * An implementation of {@link Pseudoterminal} that allows an extension to
+		 * control a terminal.
+		 */
+		pty: Pseudoterminal;
+
+		/**
+		 * The icon {@link ThemeColor} for the terminal.
+		 * The standard `terminal.ansi*` theme keys are
+		 * recommended for the best contrast and consistency across themes.
+		 */
+		color?: ThemeColor;
+
+		/**
+		 * The {@link TerminalLocation} or {@link TerminalEditorLocationOptions} or {@link TerminalSplitLocationOptions} for the terminal.
+		 */
+		location?: TerminalLocation | TerminalEditorLocationOptions | TerminalSplitLocationOptions;
+
+		/**
+		 * Opt-out of the default terminal persistence on restart and reload.
+		 * This will only take effect when `terminal.integrated.enablePersistentSessions` is enabled.
+		 */
+		isTransient?: boolean;
+
+		/**
+		 * The nonce to use to verify shell integration sequences are coming from a trusted source.
+		 * An example impact of UX of this is if the command line is reported with a nonce, it will
+		 * not need to verify with the user that the command line is correct before rerunning it
+		 * via the [shell integration command decoration](https://code.visualstudio.com/docs/terminal/shell-integration#_command-decorations-and-the-overview-ruler).
+		 *
+		 * This should be used if the terminal includes [custom shell integration support](https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences).
+		 * It should be set to a random GUID. Inside the {@link Pseudoterminal} implementation, this value
+		 * can be passed through in the relevant sequences to make them trusted.
+		 */
+		shellIntegrationNonce?: string;
+	}
+
+	/**
+	 * Defines the interface of a terminal pty, enabling extensions to control a terminal.
+	 */
+	export interface Pseudoterminal {
+		/**
+		 * An event that when fired will write data to the terminal. Unlike
+		 * {@link Terminal.sendText} which sends text to the underlying child
+		 * pseudo-device (the child), this will write the text to parent pseudo-device (the
+		 * _terminal_ itself).
+		 *
+		 * Note writing `\n` will just move the cursor down 1 row, you need to write `\r` as well
+		 * to move the cursor to the left-most cell.
+		 *
+		 * Events fired before {@link Pseudoterminal.open} is called will be be ignored.
+		 *
+		 * **Example:** Write red text to the terminal
+		 * ```typescript
+		 * const writeEmitter = new vscode.EventEmitter<string>();
+		 * const pty: vscode.Pseudoterminal = {
+		 *   onDidWrite: writeEmitter.event,
+		 *   open: () => writeEmitter.fire('\x1b[31mHello world\x1b[0m'),
+		 *   close: () => {}
+		 * };
+		 * vscode.window.createTerminal({ name: 'My terminal', pty });
+		 * ```
+		 *
+		 * **Example:** Move the cursor to the 10th row and 20th column and write an asterisk
+		 * ```typescript
+		 * writeEmitter.fire('\x1b[10;20H*');
+		 * ```
+		 */
+		onDidWrite: Event<string>;
+
+		/**
+		 * An event that when fired allows overriding the {@link Pseudoterminal.setDimensions dimensions} of the
+		 * terminal. Note that when set, the overridden dimensions will only take effect when they
+		 * are lower than the actual dimensions of the terminal (ie. there will never be a scroll
+		 * bar). Set to `undefined` for the terminal to go back to the regular dimensions (fit to
+		 * the size of the panel).
+		 *
+		 * Events fired before {@link Pseudoterminal.open} is called will be be ignored.
+		 *
+		 * **Example:** Override the dimensions of a terminal to 20 columns and 10 rows
+		 * ```typescript
+		 * const dimensionsEmitter = new vscode.EventEmitter<vscode.TerminalDimensions>();
+		 * const pty: vscode.Pseudoterminal = {
+		 *   onDidWrite: writeEmitter.event,
+		 *   onDidOverrideDimensions: dimensionsEmitter.event,
+		 *   open: () => {
+		 *     dimensionsEmitter.fire({
+		 *       columns: 20,
+		 *       rows: 10
+		 *     });
+		 *   },
+		 *   close: () => {}
+		 * };
+		 * vscode.window.createTerminal({ name: 'My terminal', pty });
+		 * ```
+		 */
+		onDidOverrideDimensions?: Event<TerminalDimensions | undefined>;
+
+		/**
+		 * An event that when fired will signal that the pty is closed and dispose of the terminal.
+		 *
+		 * Events fired before {@link Pseudoterminal.open} is called will be be ignored.
+		 *
+		 * A number can be used to provide an exit code for the terminal. Exit codes must be
+		 * positive and a non-zero exit codes signals failure which shows a notification for a
+		 * regular terminal and allows dependent tasks to proceed when used with the
+		 * `CustomExecution` API.
+		 *
+		 * **Example:** Exit the terminal when "y" is pressed, otherwise show a notification.
+		 * ```typescript
+		 * const writeEmitter = new vscode.EventEmitter<string>();
+		 * const closeEmitter = new vscode.EventEmitter<void>();
+		 * const pty: vscode.Pseudoterminal = {
+		 *   onDidWrite: writeEmitter.event,
+		 *   onDidClose: closeEmitter.event,
+		 *   open: () => writeEmitter.fire('Press y to exit successfully'),
+		 *   close: () => {},
+		 *   handleInput: data => {
+		 *     if (data !== 'y') {
+		 *       vscode.window.showInformationMessage('Something went wrong');
+		 *     }
+		 *     closeEmitter.fire();
+		 *   }
+		 * };
+		 * const terminal = vscode.window.createTerminal({ name: 'Exit example', pty });
+		 * terminal.show(true);
+		 * ```
+		 */
+		onDidClose?: Event<void | number>;
+
+		/**
+		 * An event that when fired allows changing the name of the terminal.
+		 *
+		 * Events fired before {@link Pseudoterminal.open} is called will be be ignored.
+		 *
+		 * **Example:** Change the terminal name to "My new terminal".
+		 * ```typescript
+		 * const writeEmitter = new vscode.EventEmitter<string>();
+		 * const changeNameEmitter = new vscode.EventEmitter<string>();
+		 * const pty: vscode.Pseudoterminal = {
+		 *   onDidWrite: writeEmitter.event,
+		 *   onDidChangeName: changeNameEmitter.event,
+		 *   open: () => changeNameEmitter.fire('My new terminal'),
+		 *   close: () => {}
+		 * };
+		 * vscode.window.createTerminal({ name: 'My terminal', pty });
+		 * ```
+		 */
+		onDidChangeName?: Event<string>;
+
+		/**
+		 * Implement to handle when the pty is open and ready to start firing events.
+		 *
+		 * @param initialDimensions The dimensions of the terminal, this will be undefined if the
+		 * terminal panel has not been opened before this is called.
+		 */
+		open(initialDimensions: TerminalDimensions | undefined): void;
+
+		/**
+		 * Implement to handle when the terminal is closed by an act of the user.
+		 */
+		close(): void;
+
+		/**
+		 * Implement to handle incoming keystrokes in the terminal or when an extension calls
+		 * {@link Terminal.sendText}. `data` contains the keystrokes/text serialized into
+		 * their corresponding VT sequence representation.
+		 *
+		 * @param data The incoming data.
+		 *
+		 * **Example:** Echo input in the terminal. The sequence for enter (`\r`) is translated to
+		 * CRLF to go to a new line and move the cursor to the start of the line.
+		 * ```typescript
+		 * const writeEmitter = new vscode.EventEmitter<string>();
+		 * const pty: vscode.Pseudoterminal = {
+		 *   onDidWrite: writeEmitter.event,
+		 *   open: () => {},
+		 *   close: () => {},
+		 *   handleInput: data => writeEmitter.fire(data === '\r' ? '\r\n' : data)
+		 * };
+		 * vscode.window.createTerminal({ name: 'Local echo', pty });
+		 * ```
+		 */
+		handleInput?(data: string): void;
+
+		/**
+		 * Implement to handle when the number of rows and columns that fit into the terminal panel
+		 * changes, for example when font size changes or when the panel is resized. The initial
+		 * state of a terminal's dimensions should be treated as `undefined` until this is triggered
+		 * as the size of a terminal isn't known until it shows up in the user interface.
+		 *
+		 * When dimensions are overridden by
+		 * {@link Pseudoterminal.onDidOverrideDimensions onDidOverrideDimensions}, `setDimensions` will
+		 * continue to be called with the regular panel dimensions, allowing the extension continue
+		 * to react dimension changes.
+		 *
+		 * @param dimensions The new dimensions.
+		 */
+		setDimensions?(dimensions: TerminalDimensions): void;
+	}
+
+	/**
+	 * Represents the dimensions of a terminal.
+	 */
+	export interface TerminalDimensions {
+		/**
+		 * The number of columns in the terminal.
+		 */
+		readonly columns: number;
+
+		/**
+		 * The number of rows in the terminal.
+		 */
+		readonly rows: number;
+	}
+
+	/**
+	 * Represents how a terminal exited.
+	 */
+	export interface TerminalExitStatus {
+		/**
+		 * The exit code that a terminal exited with, it can have the following values:
+		 * - Zero: the terminal process or custom execution succeeded.
+		 * - Non-zero: the terminal process or custom execution failed.
+		 * - `undefined`: the user forcibly closed the terminal or a custom execution exited
+		 *   without providing an exit code.
+		 */
+		readonly code: number | undefined;
+
+		/**
+		 * The reason that triggered the exit of a terminal.
+		 */
+		readonly reason: TerminalExitReason;
+	}
+
+	/**
+	 * Terminal exit reason kind.
+	 */
+	export enum TerminalExitReason {
+		/**
+		 * Unknown reason.
+		 */
+		Unknown = 0,
+
+		/**
+		 * The window closed/reloaded.
+		 */
+		Shutdown = 1,
+
+		/**
+		 * The shell process exited.
+		 */
+		Process = 2,
+
+		/**
+		 * The user closed the terminal.
+		 */
+		User = 3,
+
+		/**
+		 * An extension disposed the terminal.
+		 */
+		Extension = 4,
+	}
 }
 
 /**

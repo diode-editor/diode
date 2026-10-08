@@ -35,6 +35,24 @@ function makeCtx() {
 }
 
 describe("WindowNamespace", () => {
+    it("терминалы: createTerminal, terminals, activeTerminal и события — одни на window", () => {
+        const { stub, window } = makeCtx();
+        const opened: vscode.Terminal[] = [];
+        const active: (vscode.Terminal | undefined)[] = [];
+        const closed: vscode.Terminal[] = [];
+        window.onDidOpenTerminal((t) => opened.push(t));
+        window.onDidChangeActiveTerminal((t) => active.push(t));
+        window.onDidCloseTerminal((t) => closed.push(t));
+        const terminal = window.createTerminal("t");
+        expect(window.terminals).toEqual([terminal]);
+        stub.fire("terminal.opened", { id: 1, extHostId: 1, name: "t", launch: {} });
+        stub.fire("terminal.activeChanged", { id: 1 });
+        expect(window.activeTerminal).toBe(terminal);
+        stub.fire("terminal.closed", { id: 1, reason: "user" });
+        expect([opened, active, closed]).toEqual([[terminal], [terminal], [terminal]]);
+        expect(window.terminals).toEqual([]);
+    });
+
     it("activeEditorChanged с meta прокидывает languageId/isDirty в документ", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", {

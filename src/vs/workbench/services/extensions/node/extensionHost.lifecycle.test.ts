@@ -1567,6 +1567,34 @@ describe("ExtensionHost — семена handshake", () => {
         ]);
         host.dispose();
     });
+
+    it("со стоком терминалов семя заканчивается снимком терминалов: все инстансы, затем активный", async () => {
+        // bazel-java в `activate()` ищет свой лог в `window.terminals` — снимок
+        // обязан успеть до первой активации, иначе он заведёт дубль.
+        const child = new FakeChild();
+        const terminal = { id: 4, name: "bash", pid: 10, launch: { shellPath: "/bin/bash" } };
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            terminalSink: {
+                snapshot: () => ({ terminals: [terminal], activeId: 4 }),
+                subscribe: () => ({ dispose: () => undefined }),
+                create: () => undefined,
+                show: () => undefined,
+                hide: () => undefined,
+                sendText: () => undefined,
+                dispose: () => undefined,
+                reset: () => undefined,
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        const firstActivation = child.sent.findIndex((m) => m.kind === "req" && m.method === "host.activateExtension");
+        const seeds = child.sent.slice(0, firstActivation).filter((m) => m.kind === "notif");
+        expect(seeds.slice(-2)).toEqual([
+            { kind: "notif", method: "terminal.opened", params: terminal },
+            { kind: "notif", method: "terminal.activeChanged", params: { id: 4 } },
+        ]);
+        host.dispose();
+    });
 });
 
 describe("ExtensionHost — WP3 config/window bridge", () => {

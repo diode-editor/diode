@@ -77,6 +77,13 @@ import type {
     IWireStatusBarItem,
     IWireStatusBarItemDispose,
     IWireSubscriptions,
+    IWireTerminalActive,
+    IWireTerminalClosed,
+    IWireTerminalCreate,
+    IWireTerminalOpened,
+    IWireTerminalSendText,
+    IWireTerminalShow,
+    IWireTerminalTarget,
     IWireTextContentResult,
     IWireUriParams,
     IWireValidationMessage,
@@ -165,6 +172,10 @@ export interface IHostToSubprocess {
 
         readonly "extensions.catalog": IWireExtensionCatalog;
         readonly "extensions.activated": IWireExtensionId;
+
+        readonly "terminal.opened": IWireTerminalOpened;
+        readonly "terminal.closed": IWireTerminalClosed;
+        readonly "terminal.activeChanged": IWireTerminalActive;
     };
 }
 
@@ -237,6 +248,12 @@ export interface ISubprocessToHost {
 
         readonly "output.append": IWireOutputAppend;
         readonly "output.show": IWireOutputShow;
+
+        readonly "terminal.create": IWireTerminalCreate;
+        readonly "terminal.show": IWireTerminalShow;
+        readonly "terminal.hide": IWireTerminalTarget;
+        readonly "terminal.sendText": IWireTerminalSendText;
+        readonly "terminal.dispose": IWireTerminalTarget;
 
         /** Сигнал готовности: можно слать `host.activateExtension`. */
         readonly "host.ready": null;

@@ -81,6 +81,8 @@ import {
     TabInputText,
     TabInputTextDiff,
     TabInputWebview,
+    TerminalExitReason,
+    TerminalLocation,
     TextDocumentChangeReason,
     TextDocumentSaveReason,
     TextEdit,
@@ -334,6 +336,10 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         // createStatusBarItem — без runtime-поля выравнивание всегда падало бы
         // в Left, а `item.alignment === vscode.StatusBarAlignment.Right` — в false.
         StatusBarAlignment,
+        // Терминалы: причина в `Terminal.exitStatus`; место принимается, но
+        // терминал всегда в панели.
+        TerminalExitReason,
+        TerminalLocation,
         // `switch (env.uiKind) { case vscode.UIKind.Desktop: ... }` — типовой
         // разбор окружения в `activate()`; без runtime-поля он падал бы на
         // чтении `Desktop` у undefined, унося с собой всю активацию.
