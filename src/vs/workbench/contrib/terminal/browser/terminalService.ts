@@ -305,7 +305,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
      * эталона): переводы строк — нажатия Enter (`\r`), `shouldExecute` добавляет
      * Enter в конец, если его там нет. Неизвестный id — no-op.
      */
-    public sendText(id: number, text: string, shouldExecute: boolean): void {
+    public sendText(id: number | undefined, text: string, shouldExecute: boolean): void {
         const instance = this.find(id);
         if (instance === undefined) return;
         const normalized = text.replace(/\r?\n/gu, "\r");
@@ -347,7 +347,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
      * убивать») — no-op.
      */
     public closeInstance(id: number | undefined, reason: TerminalExitReason = "user"): void {
-        this.removeInstance(id === undefined ? undefined : this.find(id), reason);
+        this.removeInstance(this.find(id), reason);
     }
 
     /** Сфокусировать активный терминал (если он есть). */
@@ -445,7 +445,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         for (const sub of instance.subscriptions) sub.dispose();
     }
 
-    private find(id: number): TerminalInstanceRecord | undefined {
+    private find(id: number | undefined): TerminalInstanceRecord | undefined {
         return this.instances.find((i) => i.id === id) ?? this.backgroundInstances.find((i) => i.id === id);
     }
 

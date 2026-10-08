@@ -22,7 +22,7 @@ import {
  */
 export class TerminalCustomer implements IExtensionHostCustomer {
     /** Живой спавн: его RPC и признак «снимок уже ушёл, события можно слать». */
-    private spawn: { readonly rpc: HostRpc; ready: boolean } | null = null;
+    private spawn: { readonly rpc: HostRpc; readonly sink: IExtensionTerminalSink; ready: boolean } | null = null;
 
     public constructor(private readonly sink: IExtensionTerminalSink | undefined) {}
 
@@ -30,7 +30,7 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         const store = new DisposableStore();
         const sink = this.sink;
         if (sink === undefined) return store;
-        const spawn = { rpc, ready: false };
+        const spawn = { rpc, sink, ready: false };
         this.spawn = spawn;
 
         store.add(
@@ -92,8 +92,9 @@ export class TerminalCustomer implements IExtensionHostCustomer {
      */
     public pushInitialState(): void {
         const spawn = this.spawn;
-        if (spawn === null || this.sink === undefined) return;
-        const { terminals, activeId } = this.sink.snapshot();
+        // Без стока attach спавна не заводит — семени нет.
+        if (spawn === null) return;
+        const { terminals, activeId } = spawn.sink.snapshot();
         for (const terminal of terminals) spawn.rpc.notify("terminal.opened", terminal);
         spawn.rpc.notify("terminal.activeChanged", { id: activeId });
         spawn.ready = true;

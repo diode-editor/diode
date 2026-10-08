@@ -163,15 +163,15 @@ describe("события от хоста", () => {
         expect(first).toBe(own);
         expect(onOpen).toHaveBeenCalledWith(foreign);
         expect(foreign.name).toBe("bash");
-        const options = foreign.creationOptions as vscode.TerminalOptions;
-        expect(options).toMatchObject({
+        const { cwd, ...options } = foreign.creationOptions as vscode.TerminalOptions;
+        expect(options).toStrictEqual({
             name: "bash",
             shellPath: "/bin/bash",
             shellArgs: ["-i"],
             env: { A: "1" },
             hideFromUser: false,
         });
-        expect((options.cwd as vscode.Uri).fsPath).toBe("/home/u");
+        expect((cwd as vscode.Uri).fsPath).toBe("/home/u");
         await expect(foreign.processId).resolves.toBeUndefined();
     });
 

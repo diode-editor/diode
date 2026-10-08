@@ -22,7 +22,7 @@ import { type ITerminalInstance, TERMINAL_VIEW_ID, type TerminalService } from "
  */
 export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
     /** `extHostId` субпроцесса → id инстанса. */
-    private readonly byExtHostId = new Map<number, number>();
+    private readonly byExtHostId = new Map<number | undefined, number>();
     /** Обратная метка — её несёт `opened` своего терминала. */
     private readonly extHostIdOf = new Map<number, number>();
     /**
@@ -60,10 +60,9 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
                     ...(instance.exitCode !== undefined ? { code: instance.exitCode } : {}),
                     reason: instance.exitReason,
                 });
-                const extHostId = this.extHostIdOf.get(instance.id);
-                if (extHostId === undefined) return;
+                // У чужого инстанса метки нет — удаление по `undefined` пустое.
+                this.byExtHostId.delete(this.extHostIdOf.get(instance.id));
                 this.extHostIdOf.delete(instance.id);
-                this.byExtHostId.delete(extHostId);
             }),
         );
         store.add(
@@ -111,24 +110,25 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
         if (!preserveFocus) this.terminals.focusActive();
     }
 
-    /** `Terminal.hide` (`$hide` эталона): прячет панель, только если показан именно этот терминал. */
+    /**
+     * `Terminal.hide` (`$hide` эталона): прячет панель, только если показан
+     * именно этот терминал (неразрешённый адрес не совпадёт ни с одним id).
+     */
     public hide(terminal: IWireTerminalRef): void {
-        const id = this.resolve(terminal);
-        if (id === undefined) return;
-        if (this.terminals.getActiveInstance()?.id !== id) return;
+        const active = this.terminals.getActiveInstance();
+        if (active === null || active.id !== this.resolve(terminal)) return;
         if (this.panel.getActiveViewId() !== TERMINAL_VIEW_ID) return;
         this.panel.setVisible(false);
     }
 
+    /** Неразрешённый адрес сервис пропускает молча. */
     public sendText(terminal: IWireTerminalRef, text: string, shouldExecute: boolean): void {
-        const id = this.resolve(terminal);
-        if (id !== undefined) this.terminals.sendText(id, text, shouldExecute);
+        this.terminals.sendText(this.resolve(terminal), text, shouldExecute);
     }
 
     /** `Terminal.dispose` (`$dispose` эталона): инстанс закрывается с причиной `extension`. */
     public dispose(terminal: IWireTerminalRef): void {
-        const id = this.resolve(terminal);
-        if (id !== undefined) this.terminals.closeInstance(id, "extension");
+        this.terminals.closeInstance(this.resolve(terminal), "extension");
     }
 
     public reset(): void {

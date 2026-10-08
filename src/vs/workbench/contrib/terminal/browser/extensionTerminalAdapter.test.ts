@@ -49,6 +49,16 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
+    it("hide без активного терминала панель не трогает", () => {
+        const h = setup();
+        h.views.panelService.setActiveView(TERMINAL_VIEW_ID);
+        h.views.panelService.setVisible(true);
+        h.adapter.hide({ extHostId: 42 });
+        h.adapter.hide({ id: 1 });
+        expect(h.views.panelService.visible).toBe(true);
+        h.service.dispose();
+    });
+
     it("повтор метки не заводит второй инстанс", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1, name: "a" });

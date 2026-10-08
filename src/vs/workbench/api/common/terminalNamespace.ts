@@ -102,7 +102,7 @@ class TerminalRecord {
 
     /** Метка субпроцесса — только у терминала, который он сам завёл. */
     public get extHostId(): number | undefined {
-        return "extHostId" in this.ref ? this.ref.extHostId : undefined;
+        return (this.ref as Partial<{ readonly extHostId: number }>).extHostId;
     }
 
     public settlePid(pid: number | undefined): void {

@@ -76,10 +76,28 @@ describe("EmbeddedTerminalSession — опции терминала расшир
         await awaitExit(session);
         await vi.waitFor(
             () => {
-                expect(screen(session, 6, 60)).toContain("[|mine]");
+                // Без `message` первой строкой идёт сразу вывод шелла.
+                expect(screen(session, 6, 60).split("\n")[0]).toBe("[|mine]");
             },
             { timeout: 5000, interval: 50 },
         );
+        session.dispose();
+    }, 15000);
+
+    it("message сам будит перерисовку — даже пока шелл молчит", async () => {
+        const session = new EmbeddedTerminalSession({
+            cols: 40,
+            rows: 4,
+            shell: "/bin/sh",
+            args: ["-c", "read line"],
+            message: "waiting",
+        });
+        const updates = vi.fn();
+        session.onUpdate(updates);
+        await vi.waitFor(() => {
+            expect(updates).toHaveBeenCalled();
+        });
+        expect(screen(session, 4, 40).split("\n")[0]).toBe("waiting");
         session.dispose();
     }, 15000);
 
