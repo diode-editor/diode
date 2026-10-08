@@ -120,7 +120,8 @@ function normalizeOptions(
     return {
         ...(nameOrOptions !== undefined ? { name: nameOrOptions } : {}),
         ...(shellPath !== undefined ? { shellPath } : {}),
-        ...(shellArgs !== undefined ? { shellArgs: typeof shellArgs === "string" ? shellArgs : [...shellArgs] } : {}),
+        // Как эталон: аргументы уходят как есть (`readonly` в сигнатуре — обещание не мутировать).
+        ...(shellArgs !== undefined ? { shellArgs: shellArgs as string[] | string } : {}),
     };
 }
 
