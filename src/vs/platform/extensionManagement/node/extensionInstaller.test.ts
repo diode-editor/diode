@@ -8,7 +8,7 @@ import yazl from "yazl";
 import { FsAssetAccess } from "../../../base/node/assets/fsAssetAccess.ts";
 import { scanExtensions } from "../../extensions/common/extensionScanner.ts";
 
-import { installVsix, listInstalledExtensions, uninstallExtension } from "./extensionInstaller.ts";
+import { installVsix, listInstalledExtensions, readVsixManifest, uninstallExtension } from "./extensionInstaller.ts";
 
 /** Каноничный набор записей внутри `.vsix` для расширения с заданным манифестом. */
 function vsixEntries(manifest: object, extra: Record<string, string> = {}): Record<string, string> {
@@ -432,4 +432,74 @@ describe("ExtensionInstaller", () => {
         await expect(installVsix(vsix, extensionsDir)).rejects.toThrow(/zip-slip|invalid relative path/i);
         expect(fs.existsSync(path.join(tempRoot, "evil.txt"))).toBe(false);
     });
+
+    describe("readVsixManifest", () => {
+        it("отдаёт манифест из extension/package.json и ничего не ставит", async () => {
+            const manifest = { name: "hello", publisher: "acme", version: "1.0.0", extensionDependencies: ["a.b"] };
+            // Запись ДО манифеста — её надо пропустить, а не принять за манифест.
+            const vsix = await makeVsix("acme.hello.vsix", {
+                "extension/readme.md": "# до манифеста",
+                ...vsixEntries(manifest, { "extension/zzz.txt": "после манифеста" }),
+            });
+
+            expect(await readVsixManifest(vsix)).toEqual(manifest);
+            expect(fs.existsSync(extensionsDir)).toBe(false);
+        });
+
+        it("нет manifest'а, не JSON или не объект — та же ошибка, что у установки", async () => {
+            const cases: Record<string, Record<string, string>> = {
+                "missing.vsix": { "extension/readme.md": "# no manifest" },
+                "broken.vsix": { "extension/package.json": "{ not json" },
+                "array.vsix": { "extension/package.json": "[1, 2]" },
+                "null.vsix": { "extension/package.json": "null" },
+            };
+            for (const [name, entries] of Object.entries(cases)) {
+                const vsix = await makeVsix(name, entries);
+                expect(await rejectionOf(readVsixManifest(vsix))).toEqual(
+                    new Error(`Invalid .vsix: missing or malformed extension/package.json in ${vsix}`),
+                );
+            }
+        });
+
+        it("битая запись архива (имя с `..`) — отказ ошибкой yauzl, а не зависание", async () => {
+            // Тот же приём, что в zip-slip-тесте: плейсхолдер той же длины → `..`.
+            const placeholder = "extension/aa/evil.txt";
+            const vsix = await makeVsix("evil.vsix", {
+                [placeholder]: "pwned",
+                "extension/package.json": JSON.stringify({ name: "hello", publisher: "acme", version: "1.0.0" }),
+            });
+            const buf = fs.readFileSync(vsix);
+            const from = Buffer.from(placeholder);
+            const to = Buffer.from("extension/../evil.txt");
+            for (let i = buf.indexOf(from); i !== -1; i = buf.indexOf(from, i + to.length)) to.copy(buf, i);
+            fs.writeFileSync(vsix, buf);
+
+            const error = await rejectionOf(readVsixManifest(vsix));
+            expect(error).toBeInstanceOf(Error);
+            expect((error as Error).message).toMatch(/invalid relative path/iu);
+        });
+
+        it("не zip — понятная ошибка", async () => {
+            const vsix = path.join(vsixDir, "not-a-zip.vsix");
+            await fs.promises.writeFile(vsix, "plain text");
+
+            expect(await rejectionOf(readVsixManifest(vsix))).toEqual(
+                new Error(`Not a valid .vsix (zip) archive: ${vsix}`),
+            );
+        });
+    });
+
+    /**
+     * Причина отказа промиса — чтобы проверить её ЦЕЛИКОМ: `rejects.toThrow(текст)`
+     * проходит и на отказе с `undefined` (замерено мутантом), то есть не видит,
+     * что вместо ошибки бросили пустоту.
+     */
+    async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
+        try {
+            await promise;
+        } catch (error) {
+            return error;
+        }
+        throw new Error("expected the promise to reject");
+    }
 });

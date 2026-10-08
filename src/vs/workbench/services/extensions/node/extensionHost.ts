@@ -41,6 +41,12 @@ import type {
     ConfigurationTarget,
     IConfigurationData,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import {
+    extensionFriendlyName,
+    extensionKey,
+    findDependencyLoop,
+    readExtensionDependencies,
+} from "../../../../platform/extensions/common/extensionDependencies.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
@@ -82,12 +88,6 @@ import {
     readCommandActivationIds,
     readWorkspaceContainsPatterns,
 } from "../common/activationEvents.ts";
-import {
-    extensionFriendlyName,
-    extensionKey,
-    findDependencyLoop,
-    readExtensionDependencies,
-} from "../common/extensionDependencies.ts";
 import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
 
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";

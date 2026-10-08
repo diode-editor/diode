@@ -10,6 +10,7 @@ import {
     type IRegistryExtensionMeta,
     type IRegistryIndex,
     type IRegistryIndexEntry,
+    type IRegistryVersion,
     REGISTRY_SCHEMA_VERSION,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
@@ -56,12 +57,10 @@ class FakeSource implements IExtensionRegistrySource {
         return Promise.resolve(this.metas[id]);
     }
 
-    /** Путь к настоящему `.vsix`, который отдаёт установке; `null` — артефактов нет. */
-    public artifact: string | null = null;
-
-    public fetchArtifact(): Promise<string> {
-        if (this.artifact === null) throw new Error("not used");
-        return Promise.resolve(this.artifact);
+    /** Артефакт версии — настоящий `.vsix` по абсолютному пути из её записи. */
+    public fetchArtifact(version: IRegistryVersion): Promise<string> {
+        if (version.artifact.type !== "path") throw new Error("not used");
+        return Promise.resolve(version.artifact.path);
     }
 }
 
@@ -359,18 +358,43 @@ describe("ExtensionsWorkbenchService", () => {
          */
         async function withInstallable(
             version = "1.0.0",
-            options: { sha256?: string } = {},
+            options: { sha256?: string; dependsOn?: string } = {},
         ): Promise<{ service: ExtensionsWorkbenchService; source: FakeSource }> {
+            const metas: Record<string, IRegistryExtensionMeta> = {
+                "acme.tools": await registryMeta(
+                    "acme.tools",
+                    version,
+                    options.dependsOn === undefined ? {} : { extensionDependencies: [options.dependsOn] },
+                    options.sha256,
+                ),
+            };
+            if (options.dependsOn !== undefined)
+                metas[options.dependsOn] = await registryMeta(options.dependsOn, "2.0.0");
+            const source = new FakeSource(
+                index(entry({ id: "acme.tools", latest: { version, engines: { vscode: "^1.90.0" } } })),
+                metas,
+            );
+            return { service: createService(source), source };
+        }
+
+        /** Запись реестра одной версии с настоящим `.vsix` во временном каталоге. */
+        async function registryMeta(
+            id: string,
+            version: string,
+            manifest: Record<string, unknown> = {},
+            sha256?: string,
+        ): Promise<IRegistryExtensionMeta> {
             ws ??= createTempWorkspace({ prefix: "diode-extensions-view-" });
-            const vsix = ws.path(`artifacts/acme.tools-${version}.vsix`);
+            const [publisher, name] = id.split(".");
+            const vsix = ws.path(`artifacts/${id}-${version}.vsix`);
             fs.mkdirSync(path.dirname(vsix), { recursive: true });
-            await buildVsix(vsix, { publisher: "acme", name: "tools", version });
-            const meta: IRegistryExtensionMeta = {
+            await buildVsix(vsix, { publisher, name, version, ...manifest });
+            return {
                 schemaVersion: REGISTRY_SCHEMA_VERSION,
-                id: "acme.tools",
-                publisher: "acme",
-                name: "tools",
-                displayName: "Acme Tools",
+                id,
+                publisher,
+                name,
+                displayName: id === "acme.tools" ? "Acme Tools" : name,
                 description: "",
                 kind: "native",
                 versions: [
@@ -378,19 +402,27 @@ describe("ExtensionsWorkbenchService", () => {
                         version,
                         engines: { vscode: "^1.90.0" },
                         artifact: { type: "path", path: vsix },
-                        sha256: options.sha256 ?? (await sha256File(vsix)),
+                        sha256: sha256 ?? (await sha256File(vsix)),
                     },
                 ],
             };
-            const source = new FakeSource(
-                index(entry({ id: "acme.tools", latest: { version, engines: { vscode: "^1.90.0" } } })),
-                {
-                    "acme.tools": meta,
-                },
-            );
-            source.artifact = vsix;
-            return { service: createService(source), source };
         }
+
+        it("зависимости ставятся вместе с расширением и тоже ждут перезагрузки", async () => {
+            const { service } = await withInstallable("1.0.0", { dependsOn: "acme.base" });
+            await service.ensureLoaded();
+
+            const result = await service.install("acme.tools");
+
+            expect(result).toEqual({ ok: true, version: "1.0.0" });
+            expect(fs.existsSync(ws!.path("extensions/acme.base-2.0.0/package.json"))).toBe(true);
+            // Зависимость не в каталоге реестра — её карточка «мимо магазина»,
+            // но с тем же бейджем перезагрузки, что у самого расширения.
+            const cards = new Map(service.getEntries().map((card) => [card.id, card]));
+            expect(cards.get("acme.tools")?.needsReload).toBe(true);
+            expect(cards.get("acme.base")?.installedVersion).toBe("2.0.0");
+            expect(cards.get("acme.base")?.needsReload).toBe(true);
+        });
 
         it("ставит расширение на диск и помечает карточку ожиданием перезагрузки", async () => {
             const { service } = await withInstallable();

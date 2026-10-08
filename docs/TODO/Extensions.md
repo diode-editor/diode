@@ -54,8 +54,10 @@
       Детали — [arch/Extensions.md](../arch/Extensions.md#активация-activationevents).
 - [ ] Кнопки на тосте неудовлетворённой зависимости, как у эталона (`mainThreadExtensionService`): «Install and
       Reload» (зависимость есть в магазине), «Reload Window» (установлена, но не загружена). Сейчас тост без кнопок.
-- [ ] Установка из магазина ставит `extensionDependencies` следом (отдельный PR; эталон —
-      `getAllDepsAndPackExtensions`). `extensionPack` — после него.
+- [x] Установка из магазина (CLI, страница расширения, `.vsix`) ставит `extensionDependencies` следом, как
+      `getAllDepsAndPackExtensions` эталона — [arch/Extensions.md](../arch/Extensions.md).
+- [ ] `extensionPack`: члены пака ставятся вместе с ним (несовместимый член — пропуск с логом, а не отказ, как у
+      эталона); страница расширения — вкладки Dependencies / Extension Pack.
 - [ ] `IDisposable`-цепочка: при unload корректно убираются все contributions (TokenizationRegistry, CommandRegistry, …).
 - [~] Reload расширения (dispose → re-register). Грубый ответ есть — **перезагрузка окна** (`workbench.action.reloadWindow`, `base/node/restartProcess.ts`): процесс поднимается заново с теми же аргументами, сессия восстанавливается, вклады сканируются на старте. Именно её просит магазин после установки. Горячий reload одного расширения без перезапуска — по-прежнему впереди и требует dispose-цепочки выше.
 

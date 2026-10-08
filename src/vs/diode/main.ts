@@ -35,14 +35,23 @@ import type { IStartupTargets } from "../platform/environment/node/startupTarget
 import { resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import type { IUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
+import type { IExtensionRegistrySource } from "../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import { createRegistrySource } from "../platform/extensionManagement/node/createRegistrySource.ts";
 import {
     installVsix,
     listInstalledExtensions,
+    readVsixManifest,
     uninstallExtension,
 } from "../platform/extensionManagement/node/extensionInstaller.ts";
-import { installFromRegistry } from "../platform/extensionManagement/node/installFromRegistry.ts";
+import {
+    describeDependencyInstall,
+    type IDependencyInstallResult,
+    type IInstalledFromRegistry,
+    installDependenciesFromRegistry,
+    installFromRegistry,
+} from "../platform/extensionManagement/node/installFromRegistry.ts";
 import { currentTargetPlatform } from "../platform/extensionManagement/node/targetPlatform.ts";
+import { readExtensionDependencies } from "../platform/extensions/common/extensionDependencies.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
@@ -580,23 +589,37 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
             // остальное — id `publisher.name` из реестра. По файловой системе не
             // гадаем: иначе файл с именем вида id, случайно лежащий в рабочем
             // каталоге, молча перехватывал бы установку из реестра.
-            let result: { id: string; version: string; previous: string[] };
-            if (target.endsWith(".vsix")) {
-                result = await installVsix(path.resolve(target), extensionsDir);
-            } else {
-                // Без --registry идём в публичный реестр Diode: установка по id — это
-                // и есть магазин, а локальный каталог/зеркало остаются флагом.
-                const source = createRegistrySource(cli.registry, (problem) => {
+            // Без --registry идём в публичный реестр Diode: установка по id — это
+            // и есть магазин, а локальный каталог/зеркало остаются флагом.
+            // Источник нужен и `.vsix`: его `extensionDependencies` тоже едут
+            // из реестра, как у VS Code.
+            const registry = (): IExtensionRegistrySource =>
+                createRegistrySource(cli.registry, (problem) => {
                     console.error(problem);
                 });
-                result = await installFromRegistry(source, target, {
-                    extensionsDir,
-                    host: {
-                        diode: DIODE_VERSION,
-                        vscode: VSCODE_SHIM_VERSION,
-                        targetPlatform: currentTargetPlatform(),
-                    },
-                });
+            const options = {
+                extensionsDir,
+                host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
+            };
+            let result: IInstalledFromRegistry;
+            let dependencies: IDependencyInstallResult = { dependencies: [], missingDependencies: [] };
+            if (target.endsWith(".vsix")) {
+                const vsixPath = path.resolve(target);
+                result = await installVsix(vsixPath, extensionsDir);
+                const manifest = await readVsixManifest(vsixPath);
+                if (readExtensionDependencies(manifest).length > 0) {
+                    try {
+                        dependencies = await installDependenciesFromRegistry(registry(), result.id, manifest, options);
+                    } catch (err) {
+                        // Как у VS Code для VSIX: само расширение уже стоит, сбой
+                        // зависимостей — предупреждение, а не отказ установки.
+                        console.error(`Warning: ${err instanceof Error ? err.message : String(err)}`);
+                    }
+                }
+            } else {
+                const installed = await installFromRegistry(registry(), target, options);
+                result = installed;
+                dependencies = installed;
             }
             const { id, version, previous } = result;
             console.log(`Installed ${id}@${version}`);
@@ -604,6 +627,9 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
             if (removed.length > 0) {
                 console.log(`Removed previous version(s): ${removed.join(", ")}`);
             }
+            const report = describeDependencyInstall(id, dependencies);
+            for (const line of report.info) console.log(line);
+            for (const line of report.warnings) console.error(line);
             return;
         }
 

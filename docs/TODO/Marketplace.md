@@ -103,7 +103,9 @@ views, Phase 9 — внешние расширения), [docs/arch/Extensions.m
 - [x] `FileExtensionRegistrySource` (`node/fileRegistrySource.ts`) — каталог в
   публикуемом формате, только `path`-артефакты.
 - [x] `installFromRegistry` (`node/installFromRegistry.ts`): мета → версия →
-  артефакт → `sha256` → `installVsix`; защита от id-mismatch с откатом.
+  артефакт → `sha256` → `installVsix`; защита от id-mismatch (артефакт чужого
+  расширения не ставится вовсе); `extensionDependencies` ставятся следом —
+  [arch/Extensions.md](../arch/Extensions.md).
 - [x] CLI: `--registry <path>` + `--install-extension <id>`; аргумент с суффиксом
   `.vsix` — путь к файлу, всё прочее — id из реестра (различение как у VS Code,
   без обращения к ФС: файл с именем вида id не должен перехватывать установку).

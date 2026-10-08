@@ -79,7 +79,10 @@ describe("SEA binary — install from file registry", () => {
             }),
             "extension.vsixmanifest": "<PackageManifest/>",
         });
-        const sha256 = crypto.createHash("sha256").update(await fs.promises.readFile(vsixPath)).digest("hex");
+        const sha256 = crypto
+            .createHash("sha256")
+            .update(await fs.promises.readFile(vsixPath))
+            .digest("hex");
         await fs.promises.writeFile(
             path.join(registryDir, "meta", "acme.demo.json"),
             JSON.stringify({
@@ -172,7 +175,9 @@ describe("SEA binary — install from file registry", () => {
             expect(install.stderr).toBe("");
             expect(install.code).toBe(0);
             expect(install.stdout).toContain("Installed acme.platformed@2.0.0");
-            expect(fs.existsSync(path.join(userData, "extensions", "acme.platformed-2.0.0", "package.json"))).toBe(true);
+            expect(fs.existsSync(path.join(userData, "extensions", "acme.platformed-2.0.0", "package.json"))).toBe(
+                true,
+            );
         },
     );
 
@@ -213,6 +218,119 @@ describe("SEA binary — install from file registry", () => {
         expect(install.stderr).toBe("");
         expect(install.code).toBe(0);
         expect(install.stdout).toContain("Installed acme.demo@1.2.3");
+    });
+
+    /** Публикует в файловый реестр расширение одной версии `1.0.0` с полями манифеста `extra`. */
+    async function publish(
+        id: string,
+        extra: Record<string, unknown>,
+        engines: Record<string, string> = { vscode: "*" },
+    ): Promise<void> {
+        const [publisher, name] = id.split(".");
+        const rel = `artifacts/${id}-1.0.0.vsix`;
+        const vsix = path.join(registryDir, rel);
+        await buildVsix(vsix, {
+            "extension/package.json": JSON.stringify({ name, publisher, version: "1.0.0", ...extra }),
+        });
+        const sha256 = crypto
+            .createHash("sha256")
+            .update(await fs.promises.readFile(vsix))
+            .digest("hex");
+        await fs.promises.writeFile(
+            path.join(registryDir, "meta", `${id}.json`),
+            JSON.stringify({
+                schemaVersion: 1,
+                id,
+                publisher,
+                name,
+                displayName: name,
+                description: "",
+                kind: "native",
+                versions: [{ version: "1.0.0", engines, artifact: { type: "path", path: rel }, sha256 }],
+            }),
+        );
+    }
+
+    it("installs extensionDependencies along with the extension; a dependency missing from the registry is a warning", async () => {
+        await publish("acme.plugin", { extensionDependencies: ["acme.demo", "acme.absent"] });
+        const userData = path.join(tempRoot, "user-data-deps");
+
+        const install = await runCli(binary, [
+            "--user-data-dir",
+            userData,
+            "--registry",
+            registryDir,
+            "--install-extension",
+            "acme.plugin",
+        ]);
+
+        expect(install.code).toBe(0);
+        expect(install.stdout).toContain("Installed acme.plugin@1.0.0");
+        expect(install.stdout).toContain("Installed acme.demo@1.2.3 (dependency of acme.plugin)");
+        expect(install.stderr).toContain(
+            'Warning: acme.plugin depends on "acme.absent", which is not in the registry — acme.plugin will not activate until it is installed',
+        );
+        const list = await runCli(binary, ["--user-data-dir", userData, "--list-extensions"]);
+        expect(list.stdout.trim().split(/\r?\n/u)).toEqual(["acme.demo@1.2.3", "acme.plugin@1.0.0"]);
+    });
+
+    it(".vsix with extensionDependencies pulls them from --registry", async () => {
+        const vsix = path.join(tempRoot, "acme.local-1.0.0.vsix");
+        await buildVsix(vsix, {
+            "extension/package.json": JSON.stringify({
+                name: "local",
+                publisher: "acme",
+                version: "1.0.0",
+                extensionDependencies: ["acme.demo"],
+            }),
+        });
+        const userData = path.join(tempRoot, "user-data-vsix-deps");
+
+        const install = await runCli(binary, [
+            "--user-data-dir",
+            userData,
+            "--registry",
+            registryDir,
+            "--install-extension",
+            vsix,
+        ]);
+
+        expect(install.stderr).toBe("");
+        expect(install.code).toBe(0);
+        expect(install.stdout).toContain("Installed acme.local@1.0.0");
+        expect(install.stdout).toContain("Installed acme.demo@1.2.3 (dependency of acme.local)");
+    });
+
+    it(".vsix whose dependency cannot be installed is still installed, with a warning", async () => {
+        // Запись реестра требует будущий vscode — совместимой версии нет.
+        await publish("acme.future", {}, { vscode: "^99.0.0" });
+        const vsix = path.join(tempRoot, "acme.needsfuture-1.0.0.vsix");
+        await buildVsix(vsix, {
+            "extension/package.json": JSON.stringify({
+                name: "needsfuture",
+                publisher: "acme",
+                version: "1.0.0",
+                extensionDependencies: ["acme.future"],
+            }),
+        });
+        const userData = path.join(tempRoot, "user-data-vsix-bad-dep");
+
+        const install = await runCli(binary, [
+            "--user-data-dir",
+            userData,
+            "--registry",
+            registryDir,
+            "--install-extension",
+            vsix,
+        ]);
+
+        expect(install.code).toBe(0);
+        expect(install.stdout).toContain("Installed acme.needsfuture@1.0.0");
+        expect(install.stderr).toContain(
+            'Warning: Cannot install acme.needsfuture: its dependency "acme.future" cannot be installed',
+        );
+        const list = await runCli(binary, ["--user-data-dir", userData, "--list-extensions"]);
+        expect(list.stdout.trim()).toBe("acme.needsfuture@1.0.0");
     });
 
     it("unknown id fails with a registry error", async () => {
