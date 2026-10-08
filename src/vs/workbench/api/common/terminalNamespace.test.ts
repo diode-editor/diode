@@ -17,10 +17,13 @@ describe("window.createTerminal — формы вызова уходят одн�
         const { ns, sent } = setup();
         ns.createTerminal("cleanup", "/bin/zsh", ["-l"]);
         ns.createTerminal();
+        ns.createTerminal("win", "cmd.exe", "/k echo");
         expect(sent("terminal.create")).toEqual([
             { extHostId: 1, name: "cleanup", shellPath: "/bin/zsh", shellArgs: ["-l"] },
             { extHostId: 2 },
+            { extHostId: 3, name: "win", shellPath: "cmd.exe", shellArgs: ["/k", "echo"] },
         ]);
+        expect(ns.terminals[2].creationOptions).toEqual({ name: "win", shellPath: "cmd.exe", shellArgs: "/k echo" });
     });
 
     it("TerminalOptions: cwd-Uri → путь, env без undefined, строковые shellArgs режутся по пробелам", () => {

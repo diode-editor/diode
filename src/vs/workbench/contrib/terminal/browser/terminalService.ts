@@ -78,6 +78,11 @@ export interface ITerminalInstance {
     readonly exitReason: TerminalExitReason | undefined;
 }
 
+/** Снятый инстанс: причина закрытия уже известна. */
+export interface IDisposedTerminalInstance extends ITerminalInstance {
+    readonly exitReason: TerminalExitReason;
+}
+
 /**
  * Чем терминал расширения (`window.createTerminal`) отличается от шелла по
  * умолчанию — `TerminalOptions` эталона в объёме, который понимает сессия.
@@ -143,7 +148,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private readonly onDidChangeActiveInstanceEmitter = this.register(new Emitter<ITerminalInstance | null>());
     private readonly onDidRequestFocusEmitter = this.register(new Emitter<void>());
     private readonly onDidCreateInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
-    private readonly onDidDisposeInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
+    private readonly onDidDisposeInstanceEmitter = this.register(new Emitter<IDisposedTerminalInstance>());
 
     public constructor(
         private readonly panelService: PanelService,
@@ -408,13 +413,14 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private removeInstance(instance: TerminalInstanceRecord | undefined, reason: TerminalExitReason): void {
         // Неизвестный id у closeInstance — инстанса нет в списке.
         if (instance === undefined) return;
-        instance.exitReason = reason;
+        // Причина — до любых событий: подписчики close/dispose её уже видят.
+        const disposed: IDisposedTerminalInstance = Object.assign(instance, { exitReason: reason });
         const background = this.backgroundInstances.indexOf(instance);
         if (background !== -1) {
             // Фонового нет ни в списке вкладок, ни среди активных — только снять.
             this.backgroundInstances.splice(background, 1);
             this.destroyInstance(instance);
-            this.onDidDisposeInstanceEmitter.fire(instance);
+            this.onDidDisposeInstanceEmitter.fire(disposed);
             return;
         }
         const index = this.instances.indexOf(instance);
@@ -422,7 +428,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.instances.splice(index, 1);
         this.destroyInstance(instance);
         this.onDidCloseInstanceEmitter.fire(instance);
-        this.onDidDisposeInstanceEmitter.fire(instance);
+        this.onDidDisposeInstanceEmitter.fire(disposed);
 
         if (!wasActive) return;
         const next = this.instances.at(Math.min(index, this.instances.length - 1)) ?? null;

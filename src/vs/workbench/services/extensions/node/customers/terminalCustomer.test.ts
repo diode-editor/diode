@@ -195,6 +195,34 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
+    it("до семени не уходят ни opened, ни closed, ни activeChanged", async () => {
+        const h = setup({ pushInitialState: false });
+        const sent: string[] = [];
+        vi.spyOn(h.hostRpc, "notify").mockImplementation((method) => {
+            sent.push(method);
+        });
+        h.service.newTerminal();
+        h.service.closeInstance(h.service.getActiveInstance()?.id);
+        expect(sent).toEqual([]);
+        h.customer.pushInitialState();
+        expect(sent).toEqual(["terminal.activeChanged"]);
+        h.service.dispose();
+    });
+
+    it("поздняя уборка прежнего спавна не трогает нового", async () => {
+        const h = setup();
+        const [a, b] = createInProcessChannelPair();
+        const ns2 = createTerminalNamespace(new RpcEndpoint(b) as unknown as SubprocessRpc);
+        h.customer.attach({ rpc: new RpcEndpoint(a) as unknown as HostRpc, logger: undefined });
+        h.attached.dispose();
+        // Семя уходит новому спавну — его не обнулила уборка старого.
+        h.customer.pushInitialState();
+        h.service.newTerminal();
+        await flush();
+        expect(ns2.terminals.map((t) => t.name)).toEqual(["bash"]);
+        h.service.dispose();
+    });
+
     it("смерть субпроцесса: шеллы расширения живут, метки забыты; события больше не уходят", async () => {
         const h = setup();
         const terminal = h.ns.createTerminal("t");

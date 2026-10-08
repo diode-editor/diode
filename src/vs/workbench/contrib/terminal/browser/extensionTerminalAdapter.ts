@@ -58,8 +58,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
                 events.closed({
                     id: instance.id,
                     ...(instance.exitCode !== undefined ? { code: instance.exitCode } : {}),
-                    // Инстанс снимается только с причиной; `unknown` — защитный.
-                    reason: instance.exitReason ?? "unknown",
+                    reason: instance.exitReason,
                 });
                 const extHostId = this.extHostIdOf.get(instance.id);
                 if (extHostId === undefined) return;
