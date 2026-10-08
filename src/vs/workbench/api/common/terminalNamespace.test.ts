@@ -367,7 +367,9 @@ describe("pty расширения — сторона субпроцесса", (
         write.fire("late");
         stub.fire("terminal.closed", { id: 1, reason: "process" });
         write.fire("later");
+        close.fire(0);
         await new Promise((r) => setTimeout(r, 20));
         expect(sent("terminal.pty.data")).toHaveLength(2);
+        expect(sent("terminal.pty.exit")).toHaveLength(2);
     });
 });

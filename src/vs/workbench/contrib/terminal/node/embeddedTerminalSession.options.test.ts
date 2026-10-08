@@ -123,4 +123,13 @@ describe("EmbeddedTerminalSession — опции терминала расшир
         expect(updates).toHaveBeenCalled();
         session.dispose();
     }, 15000);
+
+    it("dispose живой сессии убивает процесс шелла", async () => {
+        const session = new EmbeddedTerminalSession({ cols: 20, rows: 4, shell: "/bin/sh", args: ["-c", "sleep 30"] });
+        const { pid } = session;
+        const exited = awaitExit(session);
+        session.dispose();
+        await exited;
+        expect(() => process.kill(pid, 0)).toThrow();
+    }, 15000);
 });

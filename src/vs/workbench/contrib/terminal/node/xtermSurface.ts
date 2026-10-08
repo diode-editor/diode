@@ -267,24 +267,19 @@ function mapButton(button: TerminalMouseButton): number {
     return button === "wheel" ? WHEEL_BUTTON : CORE_BUTTON[button];
 }
 
-/** Семантическое действие → числовой CoreMouseAction xterm. */
+/** Семантическое действие → числовой CoreMouseAction xterm (таблица тотальна по типу). */
+const CORE_ACTION: Readonly<Record<TerminalMouseAction, number>> = {
+    down: ACTION_DOWN,
+    up: ACTION_UP,
+    move: ACTION_MOVE,
+    wheelUp: WHEEL_ACTION.up,
+    wheelDown: WHEEL_ACTION.down,
+    wheelLeft: WHEEL_ACTION.left,
+    wheelRight: WHEEL_ACTION.right,
+};
+
 function mapAction(action: TerminalMouseAction): number {
-    switch (action) {
-        case "down":
-            return ACTION_DOWN;
-        case "up":
-            return ACTION_UP;
-        case "move":
-            return ACTION_MOVE;
-        case "wheelUp":
-            return WHEEL_ACTION.up;
-        case "wheelDown":
-            return WHEEL_ACTION.down;
-        case "wheelLeft":
-            return WHEEL_ACTION.left;
-        case "wheelRight":
-            return WHEEL_ACTION.right;
-    }
+    return CORE_ACTION[action];
 }
 
 function resolveFg(cell: IBufferCell): number {

@@ -232,6 +232,14 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
+    it("reset закрывает pty-терминалы с причиной process", () => {
+        const h = setup();
+        h.adapter.create({ extHostId: 1, pty: true, name: "p" });
+        h.adapter.reset();
+        expect(h.events.closed.mock.calls.map(([c]) => c)).toStrictEqual([{ id: 1, reason: "process" }]);
+        h.service.dispose();
+    });
+
     it("без подписчика pty заводится молча; reset закрывает pty, шеллы живут", () => {
         const h = setup();
         h.subscription.dispose();
