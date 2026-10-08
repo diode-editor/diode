@@ -71,7 +71,7 @@ describe("терминалы расширений — сквозь провод"
         terminal.sendText('echo "==> step"');
         terminal.sendText("rm -rf '/tmp/x' && echo removed");
         await flush();
-        expect(h.sessions[0].writes).toEqual(['echo "==> step"\r', "rm -rf '/tmp/x' && echo removed\r"]);
+        expect(h.sessions[0].writes).toStrictEqual(['echo "==> step"\r', "rm -rf '/tmp/x' && echo removed\r"]);
         h.service.dispose();
     });
 
@@ -129,12 +129,12 @@ describe("терминалы расширений — сквозь провод"
         await flush();
         h.sessions[1].emitExit(3);
         await flush();
-        expect(h.service.getInstances()).toEqual([]);
+        expect(h.service.getInstances()).toStrictEqual([]);
         expect(h.sessions[0].disposed).toBe(true);
-        expect(disposed.exitStatus).toEqual({ code: undefined, reason: TerminalExitReason.Extension });
-        expect(exited.exitStatus).toEqual({ code: 3, reason: TerminalExitReason.Process });
-        expect(onClose.mock.calls.map(([t]) => (t as vscode.Terminal).name)).toEqual(["a", "b"]);
-        expect(h.ns.terminals).toEqual([]);
+        expect(disposed.exitStatus).toStrictEqual({ code: undefined, reason: TerminalExitReason.Extension });
+        expect(exited.exitStatus).toStrictEqual({ code: 3, reason: TerminalExitReason.Process });
+        expect(onClose.mock.calls.map(([t]) => (t as vscode.Terminal).name)).toStrictEqual(["a", "b"]);
+        expect(h.ns.terminals).toStrictEqual([]);
         h.service.dispose();
     });
 
@@ -152,13 +152,13 @@ describe("терминалы расширений — сквозь провод"
         const h = setup();
         h.service.newTerminal();
         await flush();
-        expect(h.ns.terminals.map((t) => t.name)).toEqual(["bash"]);
+        expect(h.ns.terminals.map((t) => t.name)).toStrictEqual(["bash"]);
         const [human] = h.ns.terminals;
         expect(h.ns.activeTerminal).toBe(human);
         expect((human.creationOptions as vscode.TerminalOptions).shellPath).toBe("/bin/bash");
         human.sendText("pwd");
         await flush();
-        expect(h.sessions[0].writes).toEqual(["pwd\r"]);
+        expect(h.sessions[0].writes).toStrictEqual(["pwd\r"]);
         h.service.dispose();
     });
 
@@ -168,11 +168,11 @@ describe("терминалы расширений — сквозь провод"
         const hidden = h.ns.createTerminal({ name: "bg", hideFromUser: true });
         await flush();
         expect(h.ns.terminals).toContain(hidden);
-        expect(h.service.getInstances().map((i) => i.title)).toEqual(["bash"]);
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["bash"]);
         expect(h.ns.activeTerminal?.name).toBe("bash");
         hidden.show();
         await flush();
-        expect(h.service.getInstances().map((i) => i.title)).toEqual(["bash", "bg"]);
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["bash", "bg"]);
         expect(h.ns.activeTerminal).toBe(hidden);
         h.service.dispose();
     });
@@ -185,11 +185,11 @@ describe("терминалы расширений — сквозь провод"
         h.service.setActiveInstance(1);
         // До семени события не уходят: у субпроцесса ещё нет обработчиков.
         await flush();
-        expect(h.ns.terminals).toEqual([]);
+        expect(h.ns.terminals).toStrictEqual([]);
 
         h.customer.pushInitialState();
         await flush();
-        expect(h.ns.terminals.map((t) => t.name)).toEqual(["bash", "bg", "bash"]);
+        expect(h.ns.terminals.map((t) => t.name)).toStrictEqual(["bash", "bg", "bash"]);
         expect((h.ns.terminals[1].creationOptions as vscode.TerminalOptions).hideFromUser).toBe(true);
         expect(h.ns.activeTerminal).toBe(h.ns.terminals[0]);
         h.service.dispose();
@@ -203,9 +203,9 @@ describe("терминалы расширений — сквозь провод"
         });
         h.service.newTerminal();
         h.service.closeInstance(h.service.getActiveInstance()?.id);
-        expect(sent).toEqual([]);
+        expect(sent).toStrictEqual([]);
         h.customer.pushInitialState();
-        expect(sent).toEqual(["terminal.activeChanged"]);
+        expect(sent).toStrictEqual(["terminal.activeChanged"]);
         h.service.dispose();
     });
 
@@ -219,7 +219,7 @@ describe("терминалы расширений — сквозь провод"
         h.customer.pushInitialState();
         h.service.newTerminal();
         await flush();
-        expect(ns2.terminals.map((t) => t.name)).toEqual(["bash"]);
+        expect(ns2.terminals.map((t) => t.name)).toStrictEqual(["bash"]);
         h.service.dispose();
     });
 
@@ -233,8 +233,8 @@ describe("терминалы расширений — сквозь провод"
         });
         h.attached.dispose();
         h.service.newTerminal();
-        expect(sentBefore).toEqual([]);
-        expect(h.service.getInstances().map((i) => i.title)).toEqual(["t", "bash"]);
+        expect(sentBefore).toStrictEqual([]);
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["t", "bash"]);
         spy.mockRestore();
 
         // Новый спавн: старая метка ничего не адресует, снимок отдаёт оба как чужие.
@@ -243,7 +243,7 @@ describe("терминалы расширений — сквозь провод"
         h.customer.attach({ rpc: new RpcEndpoint(a) as unknown as HostRpc, logger: undefined });
         h.customer.pushInitialState();
         await flush();
-        expect(ns2.terminals.map((t) => t.name)).toEqual(["t", "bash"]);
+        expect(ns2.terminals.map((t) => t.name)).toStrictEqual(["t", "bash"]);
         expect(ns2.terminals[0]).not.toBe(terminal);
         h.service.dispose();
     });
@@ -258,7 +258,7 @@ describe("терминалы расширений — сквозь провод"
         const terminal = ns.createTerminal("void");
         terminal.sendText("x");
         await flush();
-        expect(ns.terminals).toEqual([terminal]);
+        expect(ns.terminals).toStrictEqual([terminal]);
         attached.dispose();
     });
 
@@ -285,14 +285,14 @@ describe("терминалы расширений — сквозь провод"
         send("terminal.sendText", { terminal: { id: 1 } });
         send("terminal.dispose", { terminal: "x" });
         await flush();
-        expect(calls).toEqual([]);
+        expect(calls).toStrictEqual([]);
         send("terminal.create", { extHostId: 1 });
         send("terminal.show", { terminal: { id: 1 } });
         send("terminal.hide", { terminal: { extHostId: 1 } });
         send("terminal.sendText", { terminal: { id: 1 }, text: "t" });
         send("terminal.dispose", { terminal: { id: 1 } });
         await flush();
-        expect(calls).toEqual(["create", "show", "hide", "sendText", "dispose"]);
+        expect(calls).toStrictEqual(["create", "show", "hide", "sendText", "dispose"]);
         attached.dispose();
         expect(calls.at(-1)).toBe("reset");
     });

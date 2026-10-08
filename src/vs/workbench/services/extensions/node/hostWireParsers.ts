@@ -269,18 +269,22 @@ export function parseWireStatusBarItemDispose(raw: unknown): IWireStatusBarItemD
 
 /** Адрес терминала: хостовый `id` либо `extHostId` субпроцесса; иначе `null`. */
 function parseWireTerminalRef(raw: unknown): IWireTerminalRef | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (isFiniteNumber(p.id)) return { id: p.id };
-    if (isFiniteNumber(p.extHostId)) return { extHostId: p.extHostId };
+    const p = raw as TerminalEnvelope;
+    if (isFiniteNumber(p?.id)) return { id: p.id };
+    if (isFiniteNumber(p?.extHostId)) return { extHostId: p.extHostId };
     return null;
 }
 
+/**
+ * Конверт `terminal.*` как объект «может быть»: поля читаются опциональной
+ * цепочкой — у примитива их нет так же, как у `null`.
+ */
+type TerminalEnvelope = Readonly<Record<string, unknown>> | null | undefined;
+
 /** Валидирует `terminal.create`; `null` без `extHostId`. Пустые строки — «не задано». */
 export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isFiniteNumber(p.extHostId)) return null;
+    const p = raw as TerminalEnvelope;
+    if (!isFiniteNumber(p?.extHostId)) return null;
     const shellArgs = parseWireStringArray(p.shellArgs);
     const env = parseWireStringRecord(p.env);
     return {
@@ -298,8 +302,7 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
 
 /** Валидирует `terminal.hide` / `terminal.dispose`. */
 export function parseWireTerminalTarget(raw: unknown): IWireTerminalTarget | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const terminal = parseWireTerminalRef((raw as Record<string, unknown>).terminal);
+    const terminal = parseWireTerminalRef((raw as TerminalEnvelope)?.terminal);
     return terminal === null ? null : { terminal };
 }
 

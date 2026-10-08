@@ -50,7 +50,7 @@ describe("TerminalService — инстансы с опциями", () => {
             strictEnv: true,
             message: "hi",
         });
-        expect(h.factoryCalls).toEqual([
+        expect(h.factoryCalls).toStrictEqual([
             {
                 cols: 80,
                 rows: 24,
@@ -64,7 +64,7 @@ describe("TerminalService — инстансы с опциями", () => {
         ]);
         expect(instance.title).toBe("Bazel Java: cleanup");
         expect(instance.processId).toBe(100);
-        expect(instance.launch).toEqual({
+        expect(instance.launch).toStrictEqual({
             shellPath: "/bin/zsh",
             shellArgs: ["-l"],
             cwd: "/ws",
@@ -73,18 +73,18 @@ describe("TerminalService — инстансы с опциями", () => {
         });
         expect(instance.exitCode).toBeUndefined();
         expect(instance.exitReason).toBeUndefined();
-        expect(h.events).toEqual(["create:1", "open:1", "active:1"]);
+        expect(h.events).toStrictEqual(["create:1", "open:1", "active:1"]);
         h.service.dispose();
     });
 
     it("без опций — как шелл человека: имя процесса, cwd процесса, фабрике только размер", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ name: "", cwd: "/explicit" });
-        expect(h.factoryCalls).toEqual([{ cols: 80, rows: 24, cwd: "/explicit" }]);
+        expect(h.factoryCalls).toStrictEqual([{ cols: 80, rows: 24, cwd: "/explicit" }]);
         // Пустое имя у эталона — «не задано».
         expect(instance.title).toBe("bash");
         h.service.createInstance({ strictEnv: false });
-        expect(h.factoryCalls[1]).toEqual({ cols: 80, rows: 24, cwd: process.cwd() });
+        expect(h.factoryCalls[1]).toStrictEqual({ cols: 80, rows: 24, cwd: process.cwd() });
         h.service.dispose();
     });
 
@@ -96,7 +96,7 @@ describe("TerminalService — инстансы с опциями", () => {
         h.service.sendText(id, "partial", false);
         h.service.sendText(id, "run", true);
         h.service.sendText(999, "lost", true);
-        expect(h.sessions[0].writes).toEqual(["echo a\recho b\r", "ls\r", "partial", "run\r"]);
+        expect(h.sessions[0].writes).toStrictEqual(["echo a\recho b\r", "ls\r", "partial", "run\r"]);
         h.service.dispose();
     });
 });
@@ -107,15 +107,15 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         const visible = h.service.createInstance();
         h.events.length = 0;
         const hidden = h.service.createInstance({ hideFromUser: true });
-        expect(h.events).toEqual([`create:${String(hidden.id)}`]);
-        expect(h.service.getInstances()).toEqual([visible]);
-        expect(h.service.getBackgroundInstances()).toEqual([hidden]);
+        expect(h.events).toStrictEqual([`create:${String(hidden.id)}`]);
+        expect(h.service.getInstances()).toStrictEqual([visible]);
+        expect(h.service.getBackgroundInstances()).toStrictEqual([hidden]);
         expect(h.service.getActiveInstance()).toBe(visible);
         expect(h.service.getInstance(hidden.id)).toBe(hidden);
         expect(hidden.launch.hideFromUser).toBe(true);
         // Ввод в фоновый шелл доходит: процесс живой.
         h.service.sendText(hidden.id, "x", false);
-        expect(h.sessions[1].writes).toEqual(["x"]);
+        expect(h.sessions[1].writes).toStrictEqual(["x"]);
         h.service.dispose();
     });
 
@@ -125,9 +125,9 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         const hidden = h.service.createInstance({ hideFromUser: true });
         h.events.length = 0;
         h.service.showInstance(hidden.id);
-        expect(h.events).toEqual([`open:${String(hidden.id)}`, `active:${String(hidden.id)}`]);
+        expect(h.events).toStrictEqual([`open:${String(hidden.id)}`, `active:${String(hidden.id)}`]);
         expect(h.service.getInstances().at(-1)).toBe(hidden);
-        expect(h.service.getBackgroundInstances()).toEqual([]);
+        expect(h.service.getBackgroundInstances()).toStrictEqual([]);
         // Повторный показ уже видимого — только активация (здесь no-op).
         h.service.showInstance(hidden.id);
         h.service.showInstance(999);
@@ -141,11 +141,11 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         const hidden = h.service.createInstance({ hideFromUser: true });
         h.events.length = 0;
         h.sessions[1].emitExit(2);
-        expect(h.events).toEqual([`dispose:${String(hidden.id)}`]);
+        expect(h.events).toStrictEqual([`dispose:${String(hidden.id)}`]);
         expect(hidden.exitCode).toBe(2);
         expect(hidden.exitReason).toBe("process");
         expect(h.sessions[1].disposed).toBe(true);
-        expect(h.service.getBackgroundInstances()).toEqual([]);
+        expect(h.service.getBackgroundInstances()).toStrictEqual([]);
         expect(h.service.getInstance(hidden.id)).toBeNull();
         expect(h.service.getActiveInstance()).toBe(visible);
         h.service.dispose();
@@ -167,12 +167,12 @@ describe("TerminalService — причины закрытия", () => {
         h.service.onDidDisposeInstance((i) => seen(i.exitCode, i.exitReason));
         h.service.onDidCloseInstance((i) => seen(i.exitCode, i.exitReason));
         h.sessions[0].emitExit(7);
-        expect(seen.mock.calls).toEqual([
+        expect(seen.mock.calls).toStrictEqual([
             [7, "process"],
             [7, "process"],
         ]);
         expect(instance.exitCode).toBe(7);
-        expect(h.events).toEqual(["create:1", "open:1", "active:1", "close:1", "dispose:1", "active:null"]);
+        expect(h.events).toStrictEqual(["create:1", "open:1", "active:1", "close:1", "dispose:1", "active:null"]);
         h.service.dispose();
     });
 
@@ -184,10 +184,14 @@ describe("TerminalService — причины закрытия", () => {
         h.service.closeInstance(killed.id);
         h.service.closeInstance(disposed.id, "extension");
         h.service.closeInstance(hidden.id, "extension");
-        expect([killed.exitReason, disposed.exitReason, hidden.exitReason]).toEqual(["user", "extension", "extension"]);
-        expect([killed.exitCode, disposed.exitCode]).toEqual([undefined, undefined]);
-        expect(h.sessions.map((s) => s.disposed)).toEqual([true, true, true]);
-        expect(h.service.getInstances()).toEqual([]);
+        expect([killed.exitReason, disposed.exitReason, hidden.exitReason]).toStrictEqual([
+            "user",
+            "extension",
+            "extension",
+        ]);
+        expect([killed.exitCode, disposed.exitCode]).toStrictEqual([undefined, undefined]);
+        expect(h.sessions.map((s) => s.disposed)).toStrictEqual([true, true, true]);
+        expect(h.service.getInstances()).toStrictEqual([]);
         h.service.closeInstance(undefined);
         h.service.closeInstance(12345);
         h.service.dispose();

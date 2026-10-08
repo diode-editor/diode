@@ -28,7 +28,7 @@ describe("parseWireTerminalCreate", () => {
                 hideFromUser: true,
                 message: "",
             }),
-        ).toEqual({
+        ).toStrictEqual({
             extHostId: 3,
             name: "n",
             shellPath: "/bin/sh",
@@ -54,14 +54,14 @@ describe("parseWireTerminalCreate", () => {
                 hideFromUser: 1,
                 message: 5,
             }),
-        ).toEqual({ extHostId: 1 });
+        ).toStrictEqual({ extHostId: 1 });
     });
 });
 
 describe("адрес терминала в show/hide/dispose/sendText", () => {
     it("хостовый id побеждает метку; без обоих — null", () => {
-        expect(parseWireTerminalTarget({ terminal: { id: 2, extHostId: 9 } })).toEqual({ terminal: { id: 2 } });
-        expect(parseWireTerminalTarget({ terminal: { extHostId: 9 } })).toEqual({ terminal: { extHostId: 9 } });
+        expect(parseWireTerminalTarget({ terminal: { id: 2, extHostId: 9 } })).toStrictEqual({ terminal: { id: 2 } });
+        expect(parseWireTerminalTarget({ terminal: { extHostId: 9 } })).toStrictEqual({ terminal: { extHostId: 9 } });
         expect(parseWireTerminalTarget({ terminal: { id: "2" } })).toBeNull();
         expect(parseWireTerminalTarget({ terminal: null })).toBeNull();
         expect(parseWireTerminalTarget({})).toBeNull();
@@ -69,7 +69,7 @@ describe("адрес терминала в show/hide/dispose/sendText", () => {
     });
 
     it("show: preserveFocus — только явное true", () => {
-        expect(parseWireTerminalShow({ terminal: { id: 1 }, preserveFocus: true })).toEqual({
+        expect(parseWireTerminalShow({ terminal: { id: 1 }, preserveFocus: true })).toStrictEqual({
             terminal: { id: 1 },
             preserveFocus: true,
         });
@@ -78,7 +78,7 @@ describe("адрес терминала в show/hide/dispose/sendText", () => {
     });
 
     it("sendText: текст обязателен; Enter отключает только явное false", () => {
-        expect(parseWireTerminalSendText({ terminal: { id: 1 }, text: "ls" })).toEqual({
+        expect(parseWireTerminalSendText({ terminal: { id: 1 }, text: "ls" })).toStrictEqual({
             terminal: { id: 1 },
             text: "ls",
             shouldExecute: true,

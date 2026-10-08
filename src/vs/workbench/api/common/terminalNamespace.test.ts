@@ -18,12 +18,16 @@ describe("window.createTerminal — формы вызова уходят одн�
         ns.createTerminal("cleanup", "/bin/zsh", ["-l"]);
         ns.createTerminal();
         ns.createTerminal("win", "cmd.exe", "/k echo");
-        expect(sent("terminal.create")).toEqual([
+        expect(sent("terminal.create")).toStrictEqual([
             { extHostId: 1, name: "cleanup", shellPath: "/bin/zsh", shellArgs: ["-l"] },
             { extHostId: 2 },
             { extHostId: 3, name: "win", shellPath: "cmd.exe", shellArgs: ["/k", "echo"] },
         ]);
-        expect(ns.terminals[2].creationOptions).toEqual({ name: "win", shellPath: "cmd.exe", shellArgs: "/k echo" });
+        expect(ns.terminals[2].creationOptions).toStrictEqual({
+            name: "win",
+            shellPath: "cmd.exe",
+            shellArgs: "/k echo",
+        });
     });
 
     it("TerminalOptions: cwd-Uri → путь, env без undefined, строковые shellArgs режутся по пробелам", () => {
@@ -38,7 +42,7 @@ describe("window.createTerminal — формы вызова уходят одн�
             message: "hello",
         });
         ns.createTerminal({ cwd: "/plain", shellArgs: "single" });
-        expect(sent("terminal.create")).toEqual([
+        expect(sent("terminal.create")).toStrictEqual([
             {
                 extHostId: 1,
                 name: "build",
@@ -56,19 +60,19 @@ describe("window.createTerminal — формы вызова уходят одн�
     it("strictEnv/hideFromUser: false не уезжают; пустой env уезжает пустым", () => {
         const { ns, sent } = setup();
         ns.createTerminal({ strictEnv: false, hideFromUser: false, env: {} });
-        expect(sent("terminal.create")).toEqual([{ extHostId: 1, env: {} }]);
+        expect(sent("terminal.create")).toStrictEqual([{ extHostId: 1, env: {} }]);
     });
 
     it("терминал виден в terminals сразу, имя — заданное, creationOptions заморожены", () => {
         const { ns } = setup();
         const options: vscode.TerminalOptions = { name: "log" };
         const terminal = ns.createTerminal(options);
-        expect(ns.terminals).toEqual([terminal]);
+        expect(ns.terminals).toStrictEqual([terminal]);
         expect(terminal.name).toBe("log");
         expect(terminal.creationOptions).toBe(options);
         expect(Object.isFrozen(terminal.creationOptions)).toBe(true);
         expect(terminal.exitStatus).toBeUndefined();
-        expect(terminal.state).toEqual({ isInteractedWith: false, shell: undefined });
+        expect(terminal.state).toStrictEqual({ isInteractedWith: false, shell: undefined });
         expect(ns.createTerminal().name).toBe("");
     });
 });
@@ -86,7 +90,7 @@ describe("Terminal — методы", () => {
         terminal.dispose();
         terminal.dispose();
         const ref = { extHostId: 1 };
-        expect(stub.notifies).toEqual([
+        expect(stub.notifies).toStrictEqual([
             { method: "terminal.sendText", params: { terminal: ref, text: "ls", shouldExecute: true } },
             { method: "terminal.sendText", params: { terminal: ref, text: "partial", shouldExecute: false } },
             { method: "terminal.show", params: { terminal: ref, preserveFocus: false } },
@@ -116,7 +120,7 @@ describe("Terminal — методы", () => {
         stub.fire("terminal.opened", { id: 7, name: "bash", launch: {} });
         stub.notifies.length = 0;
         ns.terminals[0].sendText("pwd");
-        expect(stub.notifies).toEqual([
+        expect(stub.notifies).toStrictEqual([
             { method: "terminal.sendText", params: { terminal: { id: 7 }, text: "pwd", shouldExecute: true } },
         ]);
     });
@@ -132,7 +136,7 @@ describe("события от хоста", () => {
         stub.fire("terminal.opened", { id: 3, extHostId: 1, name: "zsh", pid: 4242, launch: {} });
         expect(onOpen).toHaveBeenCalledTimes(1);
         expect(onOpen).toHaveBeenCalledWith(terminal);
-        expect(ns.terminals).toEqual([terminal]);
+        expect(ns.terminals).toStrictEqual([terminal]);
         expect(terminal.name).toBe("zsh");
         await expect(terminal.processId).resolves.toBe(4242);
     });
@@ -176,8 +180,8 @@ describe("события от хоста", () => {
         stub.fire("terminal.opened", { id: 1, extHostId: 99, name: "x", launch: {} });
         stub.fire("terminal.opened", { name: "no id" });
         stub.fire("terminal.opened", null);
-        expect(ns.terminals.map((t) => t.name)).toEqual(["x"]);
-        expect(ns.terminals[0].creationOptions).toEqual({});
+        expect(ns.terminals.map((t) => t.name)).toStrictEqual(["x"]);
+        expect(ns.terminals[0].creationOptions).toStrictEqual({});
     });
 
     it("closed: exitStatus с кодом и причиной, выбывание из списка, событие; pid без открытия — undefined", async () => {
@@ -187,14 +191,16 @@ describe("события от хоста", () => {
         const terminal = ns.createTerminal("t");
         stub.fire("terminal.opened", { id: 5, extHostId: 1, name: "t", launch: {} });
         stub.fire("terminal.closed", { id: 5, code: 3, reason: "process" });
-        expect(ns.terminals).toEqual([]);
+        expect(ns.terminals).toStrictEqual([]);
         expect(onClose).toHaveBeenCalledWith(terminal);
-        expect(terminal.exitStatus).toEqual({ code: 3, reason: TerminalExitReason.Process });
+        expect(terminal.exitStatus).toStrictEqual({ code: 3, reason: TerminalExitReason.Process });
         await expect(terminal.processId).resolves.toBeUndefined();
 
         // Метка закрытого терминала больше ничего не значит: opened с ней — чужой.
         stub.fire("terminal.opened", { id: 6, extHostId: 1, name: "other", launch: {} });
+        expect(ns.terminals).toHaveLength(1);
         expect(ns.terminals[0]).not.toBe(terminal);
+        expect(ns.terminals[0].name).toBe("other");
     });
 
     it("closed без кода и с незнакомой причиной — code undefined, reason Unknown; чужой id — мимо", () => {
@@ -208,8 +214,8 @@ describe("события от хоста", () => {
         stub.fire("terminal.closed", { reason: "process" });
         expect(onClose).not.toHaveBeenCalled();
         stub.fire("terminal.closed", { id: 1, reason: "alien" });
-        expect(a.exitStatus).toEqual({ code: undefined, reason: TerminalExitReason.Unknown });
-        expect(ns.terminals.map((t) => t.name)).toEqual(["b"]);
+        expect(a.exitStatus).toStrictEqual({ code: undefined, reason: TerminalExitReason.Unknown });
+        expect(ns.terminals.map((t) => t.name)).toStrictEqual(["b"]);
     });
 
     it.each([

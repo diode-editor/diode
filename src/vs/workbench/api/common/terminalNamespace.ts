@@ -45,8 +45,8 @@ class TerminalRecord {
     public exitStatus: vscode.TerminalExitStatus | undefined;
     public disposed = false;
     public readonly value: vscode.Terminal;
-    private resolvePid: ((pid: number | undefined) => void) | undefined;
-    private readonly pid: Promise<number | undefined>;
+    /** `processId`: резолвится pid из `terminal.opened` (у pty и чужого без процесса — `undefined`). */
+    private readonly pid = Promise.withResolvers<number | undefined>();
 
     public constructor(
         /**
@@ -59,13 +59,10 @@ class TerminalRecord {
         rpc: SubprocessRpc,
     ) {
         this.name = name;
-        this.pid = new Promise((resolve) => {
-            this.resolvePid = resolve;
-        });
         const frozen = Object.freeze(creationOptions);
         // Геттеры объекта расширения читают запись через стрелки: `this` литерала — сам литерал.
         const name_ = (): string => this.name;
-        const pid = (): Promise<number | undefined> => this.pid;
+        const pid = (): Promise<number | undefined> => this.pid.promise;
         const exitStatus = (): vscode.TerminalExitStatus | undefined => this.exitStatus;
         const live = (): IWireTerminalRef => {
             // Как `_checkDisposed` эталона: у уже отпущенного терминала методы бросают.
@@ -109,8 +106,7 @@ class TerminalRecord {
     }
 
     public settlePid(pid: number | undefined): void {
-        this.resolvePid?.(pid);
-        this.resolvePid = undefined;
+        this.pid.resolve(pid);
     }
 }
 
@@ -135,12 +131,7 @@ function normalizeOptions(
  */
 function toWireCreate(extHostId: number, options: vscode.TerminalOptions): IWireTerminalCreate {
     const { shellArgs, cwd, env } = options;
-    const args =
-        shellArgs === undefined
-            ? undefined
-            : typeof shellArgs === "string"
-              ? shellArgs.split(/\s+/u).filter((a) => a !== "")
-              : shellArgs;
+    const args = typeof shellArgs === "string" ? shellArgs.split(/\s/u).filter((a) => a !== "") : shellArgs;
     const wireEnv: Record<string, string | null> = {};
     for (const [key, value] of Object.entries(env ?? {})) {
         if (value !== undefined) wireEnv[key] = value;
@@ -174,7 +165,8 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
     /** Порядок появления — им отдаётся `terminals`. */
     const order: TerminalRecord[] = [];
     const byId = new Map<number, TerminalRecord>();
-    const byExtHostId = new Map<number, TerminalRecord>();
+    /** Свои терминалы по метке; `get`/`delete` по `undefined` (чужой терминал) — пустые операции. */
+    const byExtHostId = new Map<number | undefined, TerminalRecord>();
     let nextExtHostId = 1;
     let active: TerminalRecord | undefined;
 
@@ -185,7 +177,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
     rpc.handleNotification("terminal.opened", (params) => {
         const opened = parseWireTerminalOpened(params);
         if (opened === null || byId.has(opened.id)) return;
-        const own = opened.extHostId === undefined ? undefined : byExtHostId.get(opened.extHostId);
+        const own = byExtHostId.get(opened.extHostId);
         const record = own ?? new TerminalRecord({ id: opened.id }, opened.name, fromWireLaunch(opened.launch), rpc);
         if (own === undefined) order.push(record);
         record.name = opened.name;
@@ -196,24 +188,24 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
 
     rpc.handleNotification("terminal.closed", (params) => {
         const closed = parseWireTerminalClosed(params);
-        const record = closed === null ? undefined : byId.get(closed.id);
-        if (closed === null || record === undefined) return;
+        if (closed === null) return;
+        const record = byId.get(closed.id);
+        if (record === undefined) return;
         byId.delete(closed.id);
-        if (record.extHostId !== undefined) byExtHostId.delete(record.extHostId);
+        byExtHostId.delete(record.extHostId);
         order.splice(order.indexOf(record), 1);
         record.exitStatus = {
             code: closed.code,
             reason: EXIT_REASONS[closed.reason] as unknown as vscode.TerminalExitReason,
         };
-        record.settlePid(undefined);
         onDidCloseTerminal.fire(record.value);
     });
 
     rpc.handleNotification("terminal.activeChanged", (params) => {
         const { id } = parseWireTerminalActive(params);
-        // Незнакомый id — как у эталона: активный не меняется.
         const next = id === null ? undefined : byId.get(id);
-        if (id !== null && next === undefined) return;
+        // Незнакомый id — как у эталона: активный не меняется.
+        if (next === undefined && id !== null) return;
         if (next === active) return;
         active = next;
         onDidChangeActiveTerminal.fire(next?.value);

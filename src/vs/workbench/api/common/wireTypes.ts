@@ -726,26 +726,32 @@ export function parseWireStringArray(raw: unknown): string[] | undefined {
     return Array.isArray(raw) ? raw.filter((a): a is string => typeof a === "string") : undefined;
 }
 
+/**
+ * Конверт провода как объект «может быть»: поля читаются опциональной цепочкой —
+ * у примитива их нет так же, как у `null`, и отдельная проверка «это объект»
+ * не нужна.
+ */
+type WireEnvelope = Readonly<Record<string, unknown>> | null | undefined;
+
 /** Разбор `creationOptions` чужого терминала: незнакомые поля отбрасываются. */
 function parseWireTerminalLaunch(raw: unknown): IWireTerminalLaunch {
-    const p = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
-    const shellArgs = parseWireStringArray(p.shellArgs);
-    const env = parseWireStringRecord(p.env);
+    const p = raw as WireEnvelope;
+    const shellArgs = parseWireStringArray(p?.shellArgs);
+    const env = parseWireStringRecord(p?.env);
     return {
-        ...(typeof p.name === "string" ? { name: p.name } : {}),
-        ...(typeof p.shellPath === "string" ? { shellPath: p.shellPath } : {}),
+        ...(typeof p?.name === "string" ? { name: p.name } : {}),
+        ...(typeof p?.shellPath === "string" ? { shellPath: p.shellPath } : {}),
         ...(shellArgs !== undefined ? { shellArgs } : {}),
-        ...(typeof p.cwd === "string" ? { cwd: p.cwd } : {}),
+        ...(typeof p?.cwd === "string" ? { cwd: p.cwd } : {}),
         ...(env !== undefined ? { env } : {}),
-        ...(typeof p.hideFromUser === "boolean" ? { hideFromUser: p.hideFromUser } : {}),
+        ...(typeof p?.hideFromUser === "boolean" ? { hideFromUser: p.hideFromUser } : {}),
     };
 }
 
 /** Валидирует `terminal.opened`; `null`, если нет `id` или имени. */
 export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (typeof p.id !== "number" || typeof p.name !== "string") return null;
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || typeof p.name !== "string") return null;
     return {
         id: p.id,
         name: p.name,
@@ -757,16 +763,15 @@ export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | nul
 
 /** Валидирует `terminal.closed`; незнакомая причина (хост новее) — `unknown`. */
 export function parseWireTerminalClosed(raw: unknown): IWireTerminalClosed | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (typeof p.id !== "number") return null;
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number") return null;
     const reason = WIRE_TERMINAL_EXIT_REASONS.find((r) => r === p.reason) ?? "unknown";
     return { id: p.id, ...(typeof p.code === "number" ? { code: p.code } : {}), reason };
 }
 
 /** Валидирует `terminal.activeChanged`: не число — «активного нет». */
 export function parseWireTerminalActive(raw: unknown): IWireTerminalActive {
-    const id = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).id : undefined;
+    const id = (raw as WireEnvelope)?.id;
     return { id: typeof id === "number" ? id : null };
 }
 

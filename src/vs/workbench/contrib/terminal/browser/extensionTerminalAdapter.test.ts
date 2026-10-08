@@ -44,7 +44,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.adapter.sendText(ghost, "x", true);
         h.adapter.dispose(ghost);
         expect(h.views.panelService.visible).toBe(false);
-        expect(h.sessions[0].writes).toEqual([]);
+        expect(h.sessions[0].writes).toStrictEqual([]);
         expect(h.service.getInstances()).toHaveLength(1);
         h.service.dispose();
     });
@@ -53,7 +53,7 @@ describe("ExtensionTerminalAdapter", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1, name: "a" });
         h.adapter.create({ extHostId: 1, name: "b" });
-        expect(h.service.getInstances().map((i) => i.title)).toEqual(["a"]);
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["a"]);
         h.service.dispose();
     });
 
@@ -88,7 +88,7 @@ describe("ExtensionTerminalAdapter", () => {
             hideFromUser: true,
         });
         h.service.newTerminal();
-        expect(h.factoryCalls[0]).toEqual({
+        expect(h.factoryCalls[0]).toStrictEqual({
             cols: 80,
             rows: 24,
             cwd: "/ws",
@@ -98,7 +98,7 @@ describe("ExtensionTerminalAdapter", () => {
             strictEnv: true,
             message: "hi",
         });
-        expect(h.events.opened.mock.calls.map(([o]) => o)).toEqual([
+        expect(h.events.opened.mock.calls.map(([o]) => o)).toStrictEqual([
             {
                 id: 1,
                 extHostId: 7,
@@ -123,7 +123,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.adapter.create({ extHostId: 1, name: "bg", hideFromUser: true });
         h.service.newTerminal();
         const { terminals, activeId } = h.adapter.snapshot();
-        expect(terminals.map((t) => [t.id, t.name, t.extHostId])).toEqual([
+        expect(terminals.map((t) => [t.id, t.name, t.extHostId])).toStrictEqual([
             [1, "bash", undefined],
             [2, "bg", 1],
             [3, "bash", undefined],
@@ -132,7 +132,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.adapter.reset();
         expect(h.adapter.snapshot().terminals[1].extHostId).toBeUndefined();
         h.service.dispose();
-        expect(h.adapter.snapshot()).toEqual({ terminals: [], activeId: null });
+        expect(h.adapter.snapshot()).toStrictEqual({ terminals: [], activeId: null });
     });
 
     it("closed: код выхода только у вышедшего шелла; после отписки событий нет", () => {
@@ -141,14 +141,14 @@ describe("ExtensionTerminalAdapter", () => {
         h.adapter.create({ extHostId: 2 });
         h.sessions[0].emitExit(9);
         h.adapter.dispose({ extHostId: 2 });
-        expect(h.events.closed.mock.calls.map(([c]) => c)).toEqual([
+        expect(h.events.closed.mock.calls.map(([c]) => c)).toStrictEqual([
             { id: 1, code: 9, reason: "process" },
             { id: 2, reason: "extension" },
         ]);
         // Метка закрытого больше ничего не адресует.
         h.adapter.create({ extHostId: 3 });
         h.adapter.sendText({ extHostId: 1 }, "x", true);
-        expect(h.sessions[2].writes).toEqual([]);
+        expect(h.sessions[2].writes).toStrictEqual([]);
 
         h.subscription.dispose();
         h.events.opened.mockClear();
