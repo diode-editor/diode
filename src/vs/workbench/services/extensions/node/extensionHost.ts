@@ -45,6 +45,7 @@ import {
     extensionFriendlyName,
     extensionKey,
     findDependencyLoop,
+    isBuiltinVSCodeExtension,
     readExtensionDependencies,
 } from "../../../../platform/extensions/common/extensionDependencies.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -859,6 +860,17 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 continue;
             }
             if (this.declarativeExtensions.has(extensionKey(dep))) continue;
+            if (isBuiltinVSCodeExtension(dep)) {
+                // Встроенного расширения VS Code у нас нет, и поставить его
+                // неоткуда: отступление — поднимаемся без него (см.
+                // `isBuiltinVSCodeExtension`); `getExtension(dep)` расширение
+                // увидит `undefined`.
+                // Stryker disable next-line OptionalChaining: логгер необязателен; без него строка просто не пишется, наблюдаемое (зависимое активно) проверено с ним
+                this.logger?.warn(
+                    `"${reg.id}" depends on built-in VS Code extension "${dep}", which Diode does not ship — activating without it`,
+                );
+                continue;
+            }
             return {
                 message: `Cannot activate the '${name}' extension because it depends on unknown extension '${dep}'`,
                 notify: true,

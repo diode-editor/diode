@@ -158,6 +158,55 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
     });
 
+    it("зависимость на встроенное расширение VS Code не ищется в магазине и не считается пропавшей", async () => {
+        // Как стоковый Supermaven: `extensionDependencies: ["vscode.git"]`.
+        await seed("acme.plugin", { manifest: { extensionDependencies: ["vscode.git", "acme.base"] } });
+        await seed("acme.base");
+        const files = source();
+        const asked: string[] = [];
+        const recording: IExtensionRegistrySource = {
+            getIndex: () => files.getIndex(),
+            getMeta: (id) => {
+                asked.push(id);
+                return files.getMeta(id);
+            },
+            fetchArtifact: (version, tempDir) => files.fetchArtifact(version, tempDir),
+        };
+
+        const result = await installFromRegistry(recording, "acme.plugin", { extensionsDir, host: HOST });
+
+        expect(result.missingDependencies).toEqual([]);
+        expect(asked).toEqual(["acme.plugin", "acme.base"]);
+        expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
+    });
+
+    it("артефакты качаются во временный каталог в os.tmpdir() — узнаваемый по имени, свой у каждого расширения", async () => {
+        await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
+        await seed("acme.base");
+        const files = source();
+        const artifactDirs: string[] = [];
+        const recording: IExtensionRegistrySource = {
+            getIndex: () => files.getIndex(),
+            getMeta: (id) => files.getMeta(id),
+            fetchArtifact: (version, tempDir) => {
+                artifactDirs.push(tempDir);
+                return files.fetchArtifact(version, tempDir);
+            },
+        };
+
+        await installFromRegistry(recording, "acme.plugin", { extensionsDir, host: HOST });
+
+        expect(artifactDirs).toHaveLength(2);
+        expect(new Set(artifactDirs).size).toBe(2);
+        for (const dir of artifactDirs) {
+            const installRoot = path.dirname(dir);
+            expect(path.dirname(installRoot)).toBe(os.tmpdir());
+            expect(path.basename(installRoot)).toMatch(/^diode-registry-install-/u);
+            // Убран после установки.
+            expect(fs.existsSync(installRoot)).toBe(false);
+        }
+    });
+
     it("точная версия — только для самого расширения, зависимость берётся наивысшей совместимой", async () => {
         await seed(
             "acme.plugin",

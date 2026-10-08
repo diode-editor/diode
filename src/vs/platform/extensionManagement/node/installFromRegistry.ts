@@ -3,7 +3,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { extensionKey, readExtensionDependencies } from "../../extensions/common/extensionDependencies.ts";
+import {
+    extensionKey,
+    isBuiltinVSCodeExtension,
+    readExtensionDependencies,
+} from "../../extensions/common/extensionDependencies.ts";
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import type { IRegistryExtensionMeta, IRegistryVersion } from "../common/registryFormat.ts";
 import {
@@ -187,7 +191,9 @@ async function prepareDependencies(
     const queue = [...readExtensionDependencies(rootManifest)];
     for (let dep = queue.shift(); dep !== undefined; dep = queue.shift()) {
         const key = extensionKey(dep);
-        if (visited.has(key) || installed.has(key)) continue;
+        // Встроенного расширения VS Code в магазине нет и не будет — не ищем и
+        // не предупреждаем (см. `isBuiltinVSCodeExtension`).
+        if (visited.has(key) || installed.has(key) || isBuiltinVSCodeExtension(dep)) continue;
         visited.add(key);
         const meta = await source.getMeta(dep);
         if (meta === undefined) {
