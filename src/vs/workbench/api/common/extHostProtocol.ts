@@ -24,6 +24,7 @@ import type {
     IWireCommandId,
     IWireCompletionParams,
     IWireConfigurationChanged,
+    IWireConfigurationUpdate,
     IWireCreateDecorationType,
     IWireDefinitionParams,
     IWireDiagnosticsPublish,
@@ -197,6 +198,12 @@ export interface ISubprocessToHost {
         readonly "secrets.delete": readonly [IWireSecretRef, null];
 
         readonly "memento.update": readonly [IWireMementoUpdate, null];
+
+        /**
+         * `WorkspaceConfiguration.update(...)` → settings.json цели. Ответ — после
+         * записи; новое значение приезжает раньше него `workspace.configurationChanged`.
+         */
+        readonly "configuration.update": readonly [IWireConfigurationUpdate, null];
     };
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;

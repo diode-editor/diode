@@ -1535,6 +1535,8 @@ function makeConfigProvider() {
                 },
             };
         },
+        updateValue: () => Promise.resolve(),
+        getConfigurationScopes: () => new Map(),
     };
     return { provider, fire: (keys: readonly string[]) => cb?.(keys) };
 }

@@ -1,0 +1,28 @@
+{
+    "name": "config-update-demo",
+    "displayName": "Config Update Demo",
+    "description": "Демо WorkspaceConfiguration.update: расширение пишет свою настройку в settings.json воркспейса, как Bazel-плагин гасит bazel.projectview.open.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "configUpdateDemo.dontOpen", "title": "Config Update Demo: Do Not Open Project View Again" },
+            { "command": "configUpdateDemo.writeUnknown", "title": "Config Update Demo: Write Unregistered Key" }
+        ],
+        "configuration": {
+            "title": "Config Update Demo",
+            "properties": {
+                "configUpdateDemo.projectview.open": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Open the project view file on startup."
+                }
+            }
+        }
+    }
+}

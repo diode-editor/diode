@@ -36,7 +36,11 @@ import type {
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
-import type { IConfigurationData } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
+import type {
+    ConfigurationTarget,
+    IConfigurationData,
+} from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
@@ -138,6 +142,17 @@ export interface IExtensionHostConfigProvider {
     getWorkspaceFolders(): readonly IWorkspaceFolderInfo[];
     /** Подписка на изменение настроек (live-reload); передаёт изменившиеся ключи. */
     onDidChange(cb: (affectedKeys: readonly string[]) => void): IDisposable;
+    /**
+     * Запись `WorkspaceConfiguration.update` (`IConfigurationService.updateValue`):
+     * к резолву промиса {@link onDidChange} уже отстрелял новым значением.
+     */
+    updateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void>;
+    /**
+     * `scope` зарегистрированных ключей — ядра и расширений
+     * (`ConfigurationRegistry.getConfigurationScopes`): по ним запись отличает
+     * неизвестный ключ и ключ, которому не место в настройках папки.
+     */
+    getConfigurationScopes(): ReadonlyMap<string, ConfigurationScope>;
 }
 
 export interface IExtensionHostOptions {

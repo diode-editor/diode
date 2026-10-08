@@ -12,6 +12,7 @@ import {
     isFiniteNumber,
     type IWireCloseGroupsParams,
     type IWireCloseTabsParams,
+    type IWireConfigurationUpdate,
     type IWireDiagnosticsPublish,
     type IWireEditorEdit,
     type IWireFileDecoration,
@@ -41,6 +42,7 @@ import {
     parseWireSelections,
     type SerializedColor,
     WIRE_LANGUAGE_FEATURE_KINDS,
+    type WireConfigurationTarget,
     type WireFoldingRange,
     type WireLanguageFeatureKind,
     type WireMarker,
@@ -664,4 +666,28 @@ export function parseWireMementoUpdate(raw: unknown): IWireMementoUpdate | null 
     if (typeof shared !== "boolean") return null;
     if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
     return { extensionId, shared, value: value as Record<string, unknown> };
+}
+
+const WIRE_CONFIGURATION_TARGETS: readonly unknown[] = [
+    "user",
+    "workspace",
+    "workspaceFolder",
+] satisfies readonly WireConfigurationTarget[];
+
+/**
+ * Разбирает `configuration.update`; `null` — форма чужая: нет ключа, цель вне
+ * списка, `resource` не строка. Пустое `value` (поля нет) — снятие ключа.
+ */
+export function parseWireConfigurationUpdate(raw: unknown): IWireConfigurationUpdate | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Partial<Record<keyof IWireConfigurationUpdate, unknown>>;
+    if (typeof p.key !== "string" || p.key === "") return null;
+    if (p.target !== undefined && !WIRE_CONFIGURATION_TARGETS.includes(p.target)) return null;
+    if (p.resource !== undefined && typeof p.resource !== "string") return null;
+    return {
+        key: p.key,
+        ...(p.value !== undefined ? { value: p.value } : {}),
+        ...(p.target !== undefined ? { target: p.target as WireConfigurationTarget } : {}),
+        ...(p.resource !== undefined ? { resource: p.resource } : {}),
+    };
 }

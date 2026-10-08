@@ -36,8 +36,9 @@
 
 Инфраструктура настроек готова, `contributes.configuration` расширений — в общем реестре ядра (см. [docs/arch/Configuration.md](../arch/Configuration.md), [docs/arch/Extensions.md](../arch/Extensions.md)). Остаётся:
 
-- [ ] Persistent storage и запись из UI/расширений (`update(key, value)`).
-- [ ] Workspace-слой (`.diode/settings.json` в корне проекта).
+- [x] Persistent storage и запись из расширений (`WorkspaceConfiguration.update`) — цели user/workspace/папка, отказы эталона; см. [arch/Configuration.md](../arch/Configuration.md#слой-воркспейса-diodesettingsjson).
+- [ ] Запись в секцию языка (`update(…, overrideInLanguage)`) — пока отказ.
+- [x] Workspace-слой (`.diode/settings.json` в корне проекта).
 
 ## Phase 7 — Активация и lifecycle
 

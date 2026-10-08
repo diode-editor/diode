@@ -10,7 +10,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
-import { EndOfLine, Position, Range, TextEdit, Uri } from "./vscodeTypes.ts";
+import { ConfigurationTarget, EndOfLine, Position, Range, TextEdit, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
@@ -134,14 +134,94 @@ describe("WorkspaceNamespace — configuration", () => {
         });
     });
 
-    it("update не поддержан — резолвится и показывает человеку warn", async () => {
+    it("update шлёт хосту configuration.update с полным ключом и без цели, если её не дали", async () => {
         const { stub, workspace } = makeCtx();
         await workspace.getConfiguration("editor").update("tabSize", 2);
-        // Предупреждение теперь ВИДНО (тост), поэтому это запрос, а не notify;
-        // ответа `update` не ждёт — кнопок у сообщения нет.
-        expect(stub.requests[0]?.method).toBe("window.showMessage");
-        expect((stub.requests[0]?.params as { severity: string }).severity).toBe("warn");
-        expect((stub.requests[0]?.params as { message: string }).message).toContain("editor.tabSize");
+        await workspace.getConfiguration().update("files.autoSave", "off");
+        expect(stub.requests).toStrictEqual([
+            { method: "configuration.update", params: { key: "editor.tabSize", value: 2 } },
+            { method: "configuration.update", params: { key: "files.autoSave", value: "off" } },
+        ]);
+        // Тоста больше нет: отказы — rejected promise, как у эталона (donotNotifyError).
+        expect(stub.notifies).toEqual([]);
+    });
+
+    it("цель: boolean и ConfigurationTarget — как parseConfigurationTarget эталона; прочее — не задана", async () => {
+        const { stub, workspace } = makeCtx();
+        const config = workspace.getConfiguration("bazel.projectview");
+        await config.update("open", false, true);
+        await config.update("open", false, false);
+        await config.update("open", false, ConfigurationTarget.Global);
+        await config.update("open", false, ConfigurationTarget.Workspace);
+        await config.update("open", false, ConfigurationTarget.WorkspaceFolder);
+        await config.update("open", false, null);
+        await config.update("open", false, 7 as ConfigurationTarget);
+        expect(stub.requests.map((r) => (r.params as { target?: string }).target)).toEqual([
+            "user",
+            "workspace",
+            "user",
+            "workspace",
+            "workspaceFolder",
+            undefined,
+            undefined,
+        ]);
+        // Не задана — поля нет вовсе (`toStrictEqual` различает `target: undefined`).
+        expect(stub.requests[5]?.params).toStrictEqual({ key: "bazel.projectview.open", value: false });
+    });
+
+    it("value undefined снимает ключ — поля value на проводе нет", async () => {
+        const { stub, workspace } = makeCtx();
+        await workspace.getConfiguration("bazel").update("projectview.open", undefined, true);
+        expect(stub.requests[0]?.params).toStrictEqual({ key: "bazel.projectview.open", target: "user" });
+    });
+
+    it("ресурс из scope (Uri, TextDocument, WorkspaceFolder) едет хосту строкой", async () => {
+        const { stub, workspace } = makeCtx();
+        const uri = Uri.file("/ws/a.ts");
+        await workspace.getConfiguration("x", uri).update("y", 1);
+        await workspace.getConfiguration("x", { uri: Uri.file("/ws"), name: "ws", index: 0 }).update("y", 1);
+        await workspace.getConfiguration("x", { uri: "не-Uri" } as unknown as Uri).update("y", 1);
+        expect(stub.requests.map((r) => (r.params as { resource?: string }).resource)).toEqual([
+            uri.toString(),
+            Uri.file("/ws").toString(),
+            undefined,
+        ]);
+    });
+
+    it("отказ хоста доходит до расширения rejected promise с его текстом", async () => {
+        const { stub, workspace } = makeCtx();
+        stub.responder = () =>
+            Promise.reject(
+                new Error("Unable to write to Workspace Settings because x is not a registered configuration."),
+            );
+        await expect(workspace.getConfiguration().update("x", 1)).rejects.toThrow("is not a registered configuration");
+    });
+
+    it("запись в секцию языка отклоняется, не дойдя до хоста", async () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: {}, user: { "[go]": { "editor.tabSize": 8 } }, workspace: {} },
+            workspaceFolders: [],
+        });
+        const goDoc = { uri: Uri.file("/ws/a.go"), languageId: "go" };
+        // Явно в секцию языка — отказ при любой цели.
+        await expect(workspace.getConfiguration("editor", goDoc).update("tabSize", 2, true, true)).rejects.toThrow(
+            'Unable to write editor.tabSize to the "[go]" section',
+        );
+        // Не задано, а у языка в целевом слое (user) своё значение — эталон пишет в секцию: отказ.
+        await expect(workspace.getConfiguration("editor", goDoc).update("tabSize", 2, true)).rejects.toThrow('"[go]"');
+        expect(stub.requests).toEqual([]);
+        // В слое воркспейса секции у go нет — обычная запись ключа.
+        await workspace.getConfiguration("editor", goDoc).update("tabSize", 2, false);
+        // Явно мимо секции — обычная запись даже при значении языка.
+        await workspace.getConfiguration("editor", goDoc).update("tabSize", 2, true, false);
+        expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace", "user"]);
+    });
+
+    it("overrideInLanguage без языка в scope пишет обычный ключ", async () => {
+        const { stub, workspace } = makeCtx();
+        await workspace.getConfiguration("editor", Uri.file("/ws/a.go")).update("tabSize", 2, true, true);
+        expect(stub.requests[0]?.params).toMatchObject({ key: "editor.tabSize", value: 2, target: "user" });
     });
 
     it("значение секции с именем как у метода (get/has) не затирает метод", () => {

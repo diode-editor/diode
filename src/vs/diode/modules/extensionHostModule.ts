@@ -2,6 +2,7 @@ import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageS
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { ConfigurationRegistryDIToken } from "../../platform/configuration/common/configurationRegistryDIToken.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import type { IExtension } from "../../platform/extensions/common/iExtension.ts";
@@ -148,6 +149,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // ленивое чтение корня и пустой список для окна без папки. Слой Configuration
         // не тянется в рантайм host'а — доступ идёт через этот тонкий адаптер.
         const configService = container.get(IConfigurationServiceDIToken);
+        const configurationRegistry = container.get(ConfigurationRegistryDIToken);
         const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
         const explorer = container.get(ExplorerServiceDIToken);
         const configuration: IExtensionHostConfigProvider = {
@@ -158,6 +160,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 configService.onDidChangeConfiguration((event) => {
                     cb(event.affectedKeys);
                 }),
+            // Запись расширения (`WorkspaceConfiguration.update`) — тот же сервис,
+            // что у ядра: очередь записей, отказы пустого окна и чужого scope.
+            updateValue: (key, value, target) => configService.updateValue(key, value, target),
+            // Тот же реестр, из которого собран defaults-слой (ядро + расширения на старте).
+            getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
         };
 
         // Сток диагностик расширений → MarkerService: потребители (squiggle в
