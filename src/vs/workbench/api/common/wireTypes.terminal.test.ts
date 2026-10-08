@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireTerminalActive, parseWireTerminalClosed, parseWireTerminalOpened } from "./wireTypes.ts";
+import {
+    parseWireTerminalActive,
+    parseWireTerminalClosed,
+    parseWireTerminalOpened,
+    parseWireTerminalPtyDimensions,
+    parseWireTerminalPtyInput,
+} from "./wireTypes.ts";
 
 describe("parseWireTerminalOpened", () => {
     it("без числового id или строкового имени — null", () => {
@@ -83,5 +89,27 @@ describe("parseWireTerminalClosed / parseWireTerminalActive", () => {
         expect(parseWireTerminalActive({ id: "4" })).toStrictEqual({ id: null });
         expect(parseWireTerminalActive(null)).toStrictEqual({ id: null });
         expect(parseWireTerminalActive(undefined)).toStrictEqual({ id: null });
+    });
+});
+
+describe("pty: start/resize/input", () => {
+    it("размер — положительные целые, id — число", () => {
+        expect(parseWireTerminalPtyDimensions({ id: 1, cols: 80, rows: 24 })).toStrictEqual({
+            id: 1,
+            cols: 80,
+            rows: 24,
+        });
+        expect(parseWireTerminalPtyDimensions({ id: "1", cols: 80, rows: 24 })).toBeNull();
+        expect(parseWireTerminalPtyDimensions({ id: 1, cols: 0, rows: 24 })).toBeNull();
+        expect(parseWireTerminalPtyDimensions({ id: 1, cols: 80, rows: 2.5 })).toBeNull();
+        expect(parseWireTerminalPtyDimensions({ id: 1, cols: "80", rows: 24 })).toBeNull();
+        expect(parseWireTerminalPtyDimensions(null)).toBeNull();
+    });
+
+    it("ввод — строка", () => {
+        expect(parseWireTerminalPtyInput({ id: 1, data: "x" })).toStrictEqual({ id: 1, data: "x" });
+        expect(parseWireTerminalPtyInput({ id: 1, data: 1 })).toBeNull();
+        expect(parseWireTerminalPtyInput({ data: "x" })).toBeNull();
+        expect(parseWireTerminalPtyInput(undefined)).toBeNull();
     });
 });

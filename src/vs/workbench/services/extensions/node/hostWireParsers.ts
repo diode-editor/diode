@@ -35,6 +35,8 @@ import {
     type IWireStatusBarItem,
     type IWireStatusBarItemDispose,
     type IWireTerminalCreate,
+    type IWireTerminalPtyData,
+    type IWireTerminalPtyExit,
     type IWireTerminalRef,
     type IWireTerminalSendText,
     type IWireTerminalShow,
@@ -287,6 +289,14 @@ type TerminalEnvelope = Readonly<Record<string, unknown>> | null | undefined;
 export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | null {
     const p = raw as TerminalEnvelope;
     if (!isFiniteNumber(p?.extHostId)) return null;
+    // Pty расширения: процесса на нашей стороне нет — шелловые опции не к чему.
+    if (p.pty === true) {
+        return {
+            extHostId: p.extHostId,
+            pty: true,
+            ...(typeof p.name === "string" && p.name !== "" ? { name: p.name } : {}),
+        };
+    }
     const shellArgs = parseWireStringArray(p.shellArgs);
     const env = parseWireStringRecord(p.env);
     return {
@@ -313,6 +323,22 @@ export function parseWireTerminalShow(raw: unknown): IWireTerminalShow | null {
     const target = parseWireTerminalTarget(raw);
     if (target === null) return null;
     return { terminal: target.terminal, preserveFocus: (raw as Record<string, unknown>).preserveFocus === true };
+}
+
+/** Валидирует `terminal.pty.data`: вывод — строка. */
+export function parseWireTerminalPtyData(raw: unknown): IWireTerminalPtyData | null {
+    const target = parseWireTerminalTarget(raw);
+    if (target === null) return null;
+    const { data } = raw as Record<string, unknown>;
+    return typeof data === "string" ? { terminal: target.terminal, data } : null;
+}
+
+/** Валидирует `terminal.pty.exit`: код — только число. */
+export function parseWireTerminalPtyExit(raw: unknown): IWireTerminalPtyExit | null {
+    const target = parseWireTerminalTarget(raw);
+    if (target === null) return null;
+    const { code } = raw as Record<string, unknown>;
+    return { terminal: target.terminal, ...(isFiniteNumber(code) ? { code } : {}) };
 }
 
 /** Валидирует `terminal.sendText`; `shouldExecute` — только явное `false` отключает Enter. */

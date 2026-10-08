@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { FakeExtensionPtySession } from "../../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createTestConfigurationService } from "../../../../../../TestUtils/testConfigurationService.ts";
 import type { HostRpc, SubprocessRpc } from "../../../../api/common/extHostProtocol.ts";
@@ -8,7 +9,7 @@ import type { IExtensionTerminalSink } from "../../../../api/common/iExtensionWi
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import { createTerminalNamespace } from "../../../../api/common/terminalNamespace.ts";
-import { TerminalExitReason } from "../../../../api/common/vscodeTypes.ts";
+import { EventEmitter, TerminalExitReason } from "../../../../api/common/vscodeTypes.ts";
 import { makeViewsHarness } from "../../../../browser/parts/views/viewsService.testUtils.ts";
 import { ExtensionTerminalAdapter } from "../../../../contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "../../../../contrib/terminal/browser/terminalService.ts";
@@ -35,7 +36,12 @@ function setup(options: { pushInitialState?: boolean } = {}) {
         return surface;
     });
     views.service.attachRegisteredContainers();
-    const adapter = new ExtensionTerminalAdapter(service, views.panelService);
+    const ptySessions: FakeExtensionPtySession[] = [];
+    const adapter = new ExtensionTerminalAdapter(service, views.panelService, (o) => {
+        const session = new FakeExtensionPtySession(o);
+        ptySessions.push(session);
+        return session;
+    });
     const customer = new TerminalCustomer(adapter);
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a) as unknown as HostRpc;
@@ -43,7 +49,7 @@ function setup(options: { pushInitialState?: boolean } = {}) {
     const ns = createTerminalNamespace(subRpc);
     const attached = customer.attach({ rpc: hostRpc, logger: undefined });
     if (options.pushInitialState !== false) customer.pushInitialState();
-    return { views, service, sessions, customer, ns, attached, hostRpc, subRpc };
+    return { views, service, sessions, ptySessions, customer, ns, attached, hostRpc, subRpc };
 }
 
 describe("терминалы расширений — сквозь провод", () => {
@@ -284,6 +290,8 @@ describe("терминалы расширений — сквозь провод"
             hide: () => calls.push("hide"),
             sendText: () => calls.push("sendText"),
             dispose: () => calls.push("dispose"),
+            ptyData: () => calls.push("ptyData"),
+            ptyExit: () => calls.push("ptyExit"),
             reset: () => calls.push("reset"),
         };
         const customer = new TerminalCustomer(sink);
@@ -307,6 +315,8 @@ describe("терминалы расширений — сквозь провод"
         send("terminal.hide", null);
         send("terminal.sendText", { terminal: { id: 1 } });
         send("terminal.dispose", { terminal: "x" });
+        send("terminal.pty.data", { terminal: { id: 1 }, data: 5 });
+        send("terminal.pty.exit", { terminal: {} });
         await flush();
         expect(calls).toStrictEqual([]);
         expect(warnings).toStrictEqual([]);
@@ -315,9 +325,177 @@ describe("терминалы расширений — сквозь провод"
         send("terminal.hide", { terminal: { extHostId: 1 } });
         send("terminal.sendText", { terminal: { id: 1 }, text: "t" });
         send("terminal.dispose", { terminal: { id: 1 } });
+        send("terminal.pty.data", { terminal: { id: 1 }, data: "x" });
+        send("terminal.pty.exit", { terminal: { id: 1 } });
         await flush();
-        expect(calls).toStrictEqual(["create", "show", "hide", "sendText", "dispose"]);
+        expect(calls).toStrictEqual(["create", "show", "hide", "sendText", "dispose", "ptyData", "ptyExit"]);
         attached.dispose();
         expect(calls.at(-1)).toBe("reset");
+    });
+});
+
+/** Pty расширения в духе `BazelTerminal` форка: эхо ввода с перекраской, журнал вызовов. */
+function makePty() {
+    const write = new EventEmitter<string>();
+    const close = new EventEmitter<number | undefined>();
+    const log: string[] = [];
+    const pty: vscode.Pseudoterminal = {
+        onDidWrite: write.event,
+        onDidClose: close.event,
+        open: (dims) => log.push(`open ${dims === undefined ? "-" : `${String(dims.columns)}x${String(dims.rows)}`}`),
+        close: () => log.push("close"),
+        handleInput: (data) => {
+            log.push(`input ${JSON.stringify(data)}`);
+            write.fire(data.replace(/(\r|\n)+/gu, "\r\n"));
+        },
+        setDimensions: (dims) => log.push(`dims ${String(dims.columns)}x${String(dims.rows)}`),
+    };
+    return { pty, write, close, log };
+}
+
+describe("pty расширения — сквозь провод", () => {
+    it("createTerminal({ pty }): эмулятор без процесса, open с размером, onDidOpenTerminal, pid нет", async () => {
+        const h = setup();
+        const p = makePty();
+        const onOpen = vi.fn();
+        h.ns.onDidOpenTerminal(onOpen);
+        const terminal = h.ns.createTerminal({ name: "Bazel Build Status", pty: p.pty });
+        await flush();
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["Bazel Build Status"]);
+        expect(h.ptySessions).toHaveLength(1);
+        expect(h.sessions).toStrictEqual([]);
+        expect(p.log).toStrictEqual(["open 80x24", "dims 80x24"]);
+        expect(onOpen).toHaveBeenCalledWith(terminal);
+        await expect(terminal.processId).resolves.toBeUndefined();
+        expect(h.ns.terminals.find((t) => t.name === "Bazel Build Status")).toBe(terminal);
+        h.service.dispose();
+    });
+
+    it("sendText сразу после создания доходит до handleInput ПОСЛЕ open, эхо — в эмулятор одной склейкой", async () => {
+        // Ровно так пишет лог BJLS: getBazelTerminal() и тут же sendText.
+        const h = setup();
+        const p = makePty();
+        const terminal = h.ns.createTerminal({ name: "Bazel Build Status", pty: p.pty });
+        terminal.sendText("\u001b[32mline one\u001b[0m");
+        terminal.sendText("line two");
+        await flush();
+        expect(p.log).toStrictEqual([
+            "open 80x24",
+            "dims 80x24",
+            `input ${JSON.stringify("\u001b[32mline one\u001b[0m\r")}`,
+            `input ${JSON.stringify("line two\r")}`,
+        ]);
+        await new Promise((r) => setTimeout(r, 20));
+        await flush();
+        expect(h.ptySessions[0].fed).toStrictEqual(["\u001b[32mline one\u001b[0m\r\nline two\r\n"]);
+        h.service.dispose();
+    });
+
+    it("набор человека в виджете и ресайз виджета доходят до pty", async () => {
+        const h = setup();
+        const p = makePty();
+        h.ns.createTerminal({ name: "t", pty: p.pty });
+        await flush();
+        h.ptySessions[0].write("q");
+        h.ptySessions[0].resize(100, 30);
+        await flush();
+        expect(p.log.slice(2)).toStrictEqual([`input ${JSON.stringify("q")}`, "dims 100x30"]);
+        h.service.dispose();
+    });
+
+    it("onDidClose pty: досланный вывод, затем закрытие с кодом; без кода — code undefined", async () => {
+        const h = setup();
+        const a = makePty();
+        const b = makePty();
+        const withCode = h.ns.createTerminal({ name: "a", pty: a.pty });
+        const noCode = h.ns.createTerminal({ name: "b", pty: b.pty });
+        await flush();
+        a.write.fire("bye");
+        a.close.fire(2);
+        b.close.fire(undefined);
+        await flush();
+        expect(h.ptySessions[0].fed).toStrictEqual(["bye"]);
+        expect(withCode.exitStatus).toStrictEqual({ code: 2, reason: TerminalExitReason.Process });
+        expect(noCode.exitStatus).toStrictEqual({ code: undefined, reason: TerminalExitReason.Process });
+        expect(h.service.getInstances()).toStrictEqual([]);
+        // Закрытие инстанса закрывает и pty — как `shutdown` эталона.
+        expect(a.log.at(-1)).toBe("close");
+        h.service.dispose();
+    });
+
+    it("dispose() расширения и Kill человека закрывают pty; поздний вывод не уходит", async () => {
+        const h = setup();
+        const a = makePty();
+        const b = makePty();
+        const disposed = h.ns.createTerminal({ name: "a", pty: a.pty });
+        h.ns.createTerminal({ name: "b", pty: b.pty });
+        await flush();
+        a.write.fire("late");
+        disposed.dispose();
+        await flush();
+        expect(a.log.at(-1)).toBe("close");
+        expect(disposed.exitStatus?.reason).toBe(TerminalExitReason.Extension);
+        await new Promise((r) => setTimeout(r, 20));
+        expect(h.ptySessions[0].fed).toStrictEqual([]);
+
+        h.service.closeInstance(h.service.getInstances()[0].id);
+        await flush();
+        expect(b.log.at(-1)).toBe("close");
+        h.service.dispose();
+    });
+
+    it("close() расширения бросает — терминал всё равно закрыт и событие ушло", async () => {
+        const h = setup();
+        const p = makePty();
+        p.pty.close = () => {
+            throw new Error("boom");
+        };
+        const onClose = vi.fn();
+        h.ns.onDidCloseTerminal(onClose);
+        const terminal = h.ns.createTerminal({ name: "t", pty: p.pty });
+        await flush();
+        terminal.dispose();
+        await flush();
+        expect(onClose).toHaveBeenCalledWith(terminal);
+        h.service.dispose();
+    });
+
+    it("pty без onDidClose/handleInput/setDimensions: open без размеров-эха, ввод и ресайз молча", async () => {
+        const h = setup();
+        const write = new EventEmitter<string>();
+        const opened: unknown[] = [];
+        const pty: vscode.Pseudoterminal = {
+            onDidWrite: write.event,
+            open: (dims) => opened.push(dims),
+            close: () => undefined,
+        };
+        h.ns.createTerminal({ name: "min", pty });
+        await flush();
+        expect(opened).toStrictEqual([{ columns: 80, rows: 24 }]);
+        h.ptySessions[0].write("x");
+        h.ptySessions[0].resize(90, 20);
+        await flush();
+        write.fire("ok");
+        await new Promise((r) => setTimeout(r, 20));
+        await flush();
+        expect(h.ptySessions[0].fed).toStrictEqual(["ok"]);
+        h.service.dispose();
+    });
+
+    it("смерть субпроцесса закрывает его pty-терминалы, шеллы живут", async () => {
+        const h = setup();
+        h.ns.createTerminal({ name: "log", pty: makePty().pty });
+        h.ns.createTerminal("shell");
+        await flush();
+        const sent: string[] = [];
+        vi.spyOn(h.hostRpc, "notify").mockImplementation((method) => {
+            sent.push(method);
+        });
+        h.attached.dispose();
+        // Закрытие pty умершего субпроцесса ему же не пересказывается.
+        expect(sent).toStrictEqual([]);
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["shell"]);
+        expect(h.ptySessions[0].disposed).toBe(true);
+        h.service.dispose();
     });
 });

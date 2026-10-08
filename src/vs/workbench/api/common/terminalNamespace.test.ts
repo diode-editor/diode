@@ -3,7 +3,7 @@ import type * as vscode from "vscode";
 
 import { createTerminalNamespace } from "./terminalNamespace.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import { TerminalExitReason, Uri } from "./vscodeTypes.ts";
+import { EventEmitter, TerminalExitReason, Uri } from "./vscodeTypes.ts";
 
 function setup() {
     const stub = makeStubRpc();
@@ -262,5 +262,114 @@ describe("события от хоста", () => {
         expect(onActive).toHaveBeenLastCalledWith(undefined);
         stub.fire("terminal.activeChanged", {});
         expect(onActive).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("pty расширения — сторона субпроцесса", () => {
+    function makePty() {
+        const log: string[] = [];
+        const pty: vscode.Pseudoterminal = {
+            onDidWrite: () => ({ dispose: () => undefined }),
+            open: () => log.push("open"),
+            close: () => log.push("close"),
+            handleInput: (data) => log.push(`input ${data}`),
+            setDimensions: (d) => log.push(`dims ${String(d.columns)}x${String(d.rows)}`),
+        };
+        return { pty, log };
+    }
+
+    it("create уезжает меткой с pty: true и именем; шелловых опций нет", () => {
+        const { ns, sent } = setup();
+        const { pty } = makePty();
+        const terminal = ns.createTerminal({ name: "log", pty });
+        expect(sent("terminal.create")).toStrictEqual([{ extHostId: 1, pty: true, name: "log" }]);
+        expect(terminal.name).toBe("log");
+        expect((terminal.creationOptions as vscode.ExtensionTerminalOptions).pty).toBe(pty);
+    });
+
+    it("pty без handleInput/setDimensions: ввод и ресайз молча; close() бросает — терминал закрыт", () => {
+        const { ns, stub } = setup();
+        const pty: vscode.Pseudoterminal = {
+            onDidWrite: () => ({ dispose: () => undefined }),
+            open: () => undefined,
+            close: () => {
+                throw new Error("boom");
+            },
+        };
+        const terminal = ns.createTerminal({ name: "min", pty });
+        ns.createTerminal("shell");
+        stub.fire("terminal.opened", { id: 1, extHostId: 1, name: "min", launch: {} });
+        stub.fire("terminal.opened", { id: 2, extHostId: 2, name: "shell", launch: {} });
+        stub.fire("terminal.pty.start", { id: 1, cols: 10, rows: 5 });
+        expect(() => {
+            stub.fire("terminal.pty.input", { id: 1, data: "x" });
+            stub.fire("terminal.pty.resize", { id: 1, cols: 12, rows: 6 });
+            stub.fire("terminal.closed", { id: 1, reason: "process" });
+            // Шелл без pty: закрытие не трогает pty-уборку.
+            stub.fire("terminal.closed", { id: 2, reason: "process" });
+        }).not.toThrow();
+        expect(terminal.exitStatus?.reason).toBe(TerminalExitReason.Process);
+        expect(ns.terminals).toStrictEqual([]);
+    });
+
+    it("start/resize/input: битый конверт, незнакомый id и терминал без pty — мимо", () => {
+        const { ns, stub } = setup();
+        const { pty, log } = makePty();
+        ns.createTerminal({ name: "log", pty });
+        ns.createTerminal("shell");
+        stub.fire("terminal.opened", { id: 1, extHostId: 1, name: "log", launch: {} });
+        stub.fire("terminal.opened", { id: 2, extHostId: 2, name: "shell", launch: {} });
+        for (const method of ["terminal.pty.start", "terminal.pty.resize"]) {
+            stub.fire(method, { id: 1, cols: 0, rows: 1 });
+            stub.fire(method, { id: 9, cols: 10, rows: 5 });
+            stub.fire(method, { id: 2, cols: 10, rows: 5 });
+        }
+        stub.fire("terminal.pty.input", { id: 1 });
+        stub.fire("terminal.pty.input", { id: 9, data: "x" });
+        stub.fire("terminal.pty.input", { id: 2, data: "x" });
+        expect(log).toStrictEqual([]);
+        stub.fire("terminal.pty.start", { id: 1, cols: 10, rows: 5 });
+        stub.fire("terminal.pty.resize", { id: 1, cols: 12, rows: 6 });
+        stub.fire("terminal.pty.input", { id: 1, data: "x" });
+        expect(log).toStrictEqual(["open", "dims 10x5", "dims 12x6", "input x"]);
+    });
+
+    it("вывод склеивается окном и уходит одним pty.data; выход — с кодом, без кода — без поля; после закрытия — тишина", async () => {
+        const { ns, stub, sent } = setup();
+        const write = new EventEmitter<string>();
+        const close = new EventEmitter<number | undefined>();
+        const pty: vscode.Pseudoterminal = {
+            onDidWrite: write.event,
+            onDidClose: close.event,
+            open: () => undefined,
+            close: () => undefined,
+        };
+        ns.createTerminal({ name: "a", pty });
+        stub.fire("terminal.opened", { id: 1, extHostId: 1, name: "a", launch: {} });
+        stub.fire("terminal.pty.start", { id: 1, cols: 10, rows: 5 });
+        write.fire("x");
+        write.fire("y");
+        expect(sent("terminal.pty.data")).toStrictEqual([]);
+        await new Promise((r) => setTimeout(r, 20));
+        expect(sent("terminal.pty.data")).toStrictEqual([{ terminal: { extHostId: 1 }, data: "xy" }]);
+
+        // Выход досылает склейку сразу; пустую — не шлёт.
+        write.fire("z");
+        close.fire(4);
+        close.fire(undefined);
+        expect(sent("terminal.pty.data")).toHaveLength(2);
+        expect(JSON.parse(JSON.stringify(sent("terminal.pty.exit")))).toStrictEqual([
+            { terminal: { extHostId: 1 }, code: 4 },
+            { terminal: { extHostId: 1 } },
+        ]);
+
+        // Закрытие инстанса: несработавший таймер снят, слушатели отписаны.
+        write.fire("late");
+        stub.fire("terminal.closed", { id: 1, reason: "process" });
+        write.fire("later");
+        close.fire(0);
+        await new Promise((r) => setTimeout(r, 20));
+        expect(sent("terminal.pty.data")).toHaveLength(2);
+        expect(sent("terminal.pty.exit")).toHaveLength(2);
     });
 });

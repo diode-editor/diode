@@ -119,6 +119,12 @@ export interface IExtensionTerminalEvents {
     opened(terminal: IWireTerminalOpened): void;
     closed(terminal: IWireTerminalClosed): void;
     activeChanged(id: number | null): void;
+    /** Эмулятор pty-терминала подключён — расширению пора звать `pty.open(dims)`. */
+    ptyStart(id: number, cols: number, rows: number): void;
+    /** Набор человека (и `sendText`) в pty-терминале → `pty.handleInput`. */
+    ptyInput(id: number, data: string): void;
+    /** Виджет pty-терминала изменил размер → `pty.setDimensions`. */
+    ptyResize(id: number, cols: number, rows: number): void;
 }
 
 /**
@@ -130,7 +136,8 @@ export interface IExtensionTerminalEvents {
  *
  * `reset()` — субпроцесс умер: его `extHostId` больше ничего не значат.
  * Шеллы, заведённые расширением, при этом живут дальше (у эталона тоже):
- * новый субпроцесс увидит их в {@link snapshot} как чужие.
+ * новый субпроцесс увидит их в {@link snapshot} как чужие. Pty-терминалы умершего
+ * субпроцесса закрываются — их процесс (объект расширения) умер вместе с ним.
  */
 export interface IExtensionTerminalSink {
     /** Живые инстансы в порядке создания и активный — семя нового субпроцесса. */
@@ -142,5 +149,9 @@ export interface IExtensionTerminalSink {
     hide(terminal: IWireTerminalRef): void;
     sendText(terminal: IWireTerminalRef, text: string, shouldExecute: boolean): void;
     dispose(terminal: IWireTerminalRef): void;
+    /** Вывод pty расширения → эмулятор терминала. */
+    ptyData(terminal: IWireTerminalRef, data: string): void;
+    /** Pty расширения закрылся сам → инстанс закрывается с его кодом. */
+    ptyExit(terminal: IWireTerminalRef, code: number | undefined): void;
     reset(): void;
 }

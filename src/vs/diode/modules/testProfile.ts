@@ -5,6 +5,7 @@ import * as path from "node:path";
 import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 
+import { FakeExtensionPtySession } from "../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { DIODE_VERSION } from "../../base/common/version.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../editor/common/languages/iLanguageConfigurationService.ts";
@@ -17,7 +18,10 @@ import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
-import { TerminalSessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
+import {
+    ExtensionPtySessionFactoryDIToken,
+    TerminalSessionFactoryDIToken,
+} from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { terminalEnvironmentModule } from "../../workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts";
 import { darkPlusTheme } from "../../workbench/services/themes/common/themes/darkPlus.ts";
 
@@ -132,6 +136,8 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
     // PTY. Каждый вызов возвращает свежий FakeTerminalSurface; тесты, которым нужен
     // доступ к созданным инстансам, перебивают биндинг локально своей фабрикой.
     container.bind(TerminalSessionFactoryDIToken, () => () => new FakeTerminalSurface());
+    // Pty-терминалы расширений — тот же фейк поверхности с входом `feed`.
+    container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new FakeExtensionPtySession(options));
 
     return {
         container,

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
     parseWireTerminalCreate,
+    parseWireTerminalPtyData,
+    parseWireTerminalPtyExit,
     parseWireTerminalSendText,
     parseWireTerminalShow,
     parseWireTerminalTarget,
@@ -62,6 +64,23 @@ describe("parseWireTerminalCreate", () => {
     });
 });
 
+describe("parseWireTerminalCreate — pty", () => {
+    it("pty: только метка и имя — шелловые опции отбрасываются", () => {
+        expect(
+            parseWireTerminalCreate({ extHostId: 2, pty: true, name: "log", shellPath: "/bin/sh", env: { A: "1" } }),
+        ).toStrictEqual({ extHostId: 2, pty: true, name: "log" });
+        expect(parseWireTerminalCreate({ extHostId: 2, pty: true })).toStrictEqual({ extHostId: 2, pty: true });
+        expect(parseWireTerminalCreate({ extHostId: 2, pty: true, name: "" })).toStrictEqual({
+            extHostId: 2,
+            pty: true,
+        });
+        expect(parseWireTerminalCreate({ extHostId: 2, pty: "yes", name: "x" })).toStrictEqual({
+            extHostId: 2,
+            name: "x",
+        });
+    });
+});
+
 describe("адрес терминала в show/hide/dispose/sendText", () => {
     it("хостовый id побеждает метку; без обоих — null", () => {
         expect(parseWireTerminalTarget({ terminal: { id: 2, extHostId: 9 } })).toStrictEqual({ terminal: { id: 2 } });
@@ -95,5 +114,25 @@ describe("адрес терминала в show/hide/dispose/sendText", () => {
         );
         expect(parseWireTerminalSendText({ terminal: { id: 1 }, text: 1 })).toBeNull();
         expect(parseWireTerminalSendText({ text: "ls" })).toBeNull();
+    });
+});
+
+describe("pty: data/exit", () => {
+    it("data — строка по адресу", () => {
+        expect(parseWireTerminalPtyData({ terminal: { extHostId: 1 }, data: "x" })).toStrictEqual({
+            terminal: { extHostId: 1 },
+            data: "x",
+        });
+        expect(parseWireTerminalPtyData({ terminal: { extHostId: 1 }, data: 1 })).toBeNull();
+        expect(parseWireTerminalPtyData({ data: "x" })).toBeNull();
+    });
+
+    it("exit — код только числом", () => {
+        expect(parseWireTerminalPtyExit({ terminal: { id: 1 }, code: 2 })).toStrictEqual({
+            terminal: { id: 1 },
+            code: 2,
+        });
+        expect(parseWireTerminalPtyExit({ terminal: { id: 1 }, code: "2" })).toStrictEqual({ terminal: { id: 1 } });
+        expect(parseWireTerminalPtyExit({ code: 2 })).toBeNull();
     });
 });

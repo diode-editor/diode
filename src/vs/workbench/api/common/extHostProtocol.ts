@@ -81,6 +81,10 @@ import type {
     IWireTerminalClosed,
     IWireTerminalCreate,
     IWireTerminalOpened,
+    IWireTerminalPtyData,
+    IWireTerminalPtyDimensions,
+    IWireTerminalPtyExit,
+    IWireTerminalPtyInput,
     IWireTerminalSendText,
     IWireTerminalShow,
     IWireTerminalTarget,
@@ -176,6 +180,9 @@ export interface IHostToSubprocess {
         readonly "terminal.opened": IWireTerminalOpened;
         readonly "terminal.closed": IWireTerminalClosed;
         readonly "terminal.activeChanged": IWireTerminalActive;
+        readonly "terminal.pty.start": IWireTerminalPtyDimensions;
+        readonly "terminal.pty.resize": IWireTerminalPtyDimensions;
+        readonly "terminal.pty.input": IWireTerminalPtyInput;
     };
 }
 
@@ -254,6 +261,8 @@ export interface ISubprocessToHost {
         readonly "terminal.hide": IWireTerminalTarget;
         readonly "terminal.sendText": IWireTerminalSendText;
         readonly "terminal.dispose": IWireTerminalTarget;
+        readonly "terminal.pty.data": IWireTerminalPtyData;
+        readonly "terminal.pty.exit": IWireTerminalPtyExit;
 
         /** Сигнал готовности: можно слать `host.activateExtension`. */
         readonly "host.ready": null;

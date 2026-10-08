@@ -235,8 +235,12 @@ import {
     TerminalPanelComponentDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalService, TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
-import { TerminalSessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
+import {
+    ExtensionPtySessionFactoryDIToken,
+    TerminalSessionFactoryDIToken,
+} from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { EmbeddedTerminalSession } from "../../workbench/contrib/terminal/node/embeddedTerminalSession.ts";
+import { ExtensionPtySession } from "../../workbench/contrib/terminal/node/extensionPtySession.ts";
 import {
     ThemeConfigContribution,
     ThemeConfigContributionDIToken,
@@ -517,6 +521,10 @@ export const workbenchModule: ContainerModule = (container) => {
     // Прод-фабрика сессий терминала: реальная связка node-pty + @xterm/headless.
     // Тестовый профиль перебивает биндинг на FakeTerminalSurface (см. TestProfile).
     container.bind(TerminalSessionFactoryDIToken, () => (options) => new EmbeddedTerminalSession(options));
+    // Pty-терминалы расширений (`window.createTerminal({ pty })`): только эмулятор,
+    // процессом владеет субпроцесс расширений.
+    // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита; сквозняк — e2e-сценарий extension-terminal
+    container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);
     // Куда уходит фокус, когда последний шелл вышел и виджет ушёл со сцены.
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));

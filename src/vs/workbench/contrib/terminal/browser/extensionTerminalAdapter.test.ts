@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { FakeExtensionPtySession } from "../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import type { IExtensionTerminalEvents } from "../../../api/common/iExtensionWindowSinks.ts";
@@ -24,14 +25,22 @@ function setup() {
         return surface;
     });
     views.service.attachRegisteredContainers();
-    const adapter = new ExtensionTerminalAdapter(service, views.panelService);
+    const ptySessions: FakeExtensionPtySession[] = [];
+    const adapter = new ExtensionTerminalAdapter(service, views.panelService, (o) => {
+        const session = new FakeExtensionPtySession(o);
+        ptySessions.push(session);
+        return session;
+    });
     const events = {
         opened: vi.fn<IExtensionTerminalEvents["opened"]>(),
         closed: vi.fn<IExtensionTerminalEvents["closed"]>(),
         activeChanged: vi.fn<IExtensionTerminalEvents["activeChanged"]>(),
+        ptyStart: vi.fn<IExtensionTerminalEvents["ptyStart"]>(),
+        ptyInput: vi.fn<IExtensionTerminalEvents["ptyInput"]>(),
+        ptyResize: vi.fn<IExtensionTerminalEvents["ptyResize"]>(),
     };
     const subscription = adapter.subscribe(events);
-    return { views, service, sessions, factoryCalls, adapter, events, subscription };
+    return { views, service, sessions, ptySessions, factoryCalls, adapter, events, subscription };
 }
 
 describe("ExtensionTerminalAdapter", () => {
@@ -169,6 +178,79 @@ describe("ExtensionTerminalAdapter", () => {
         h.events.opened.mockClear();
         h.service.newTerminal();
         expect(h.events.opened).not.toHaveBeenCalled();
+        h.service.dispose();
+    });
+
+    it("pty: имя или пустое, ptyStart сразу с начальным размером, вывод и выход по адресу", () => {
+        const h = setup();
+        h.adapter.create({ extHostId: 1, pty: true, name: "log" });
+        h.adapter.create({ extHostId: 2, pty: true });
+        const [log, unnamed] = h.service.getInstances();
+        expect([log.title, unnamed.title]).toStrictEqual(["log", ""]);
+        expect(log.processId).toBeUndefined();
+        expect(h.events.ptyStart.mock.calls).toStrictEqual([
+            [log.id, 80, 24],
+            [unnamed.id, 80, 24],
+        ]);
+        expect(h.sessions).toStrictEqual([]);
+
+        h.adapter.ptyData({ extHostId: 1 }, "hello");
+        h.adapter.ptyData({ extHostId: 9 }, "lost");
+        h.adapter.ptyData({ id: 12345 }, "lost");
+        expect(h.ptySessions[0].fed).toStrictEqual(["hello"]);
+
+        h.ptySessions[0].write("k");
+        h.ptySessions[0].resize(90, 20);
+        expect(h.events.ptyInput).toHaveBeenCalledWith(log.id, "k");
+        expect(h.events.ptyResize).toHaveBeenCalledWith(log.id, 90, 20);
+
+        h.adapter.ptyExit({ extHostId: 9 }, 1);
+        h.adapter.ptyExit({ extHostId: 1 }, 3);
+        h.adapter.ptyExit({ extHostId: 2 }, undefined);
+        expect(h.events.closed.mock.calls.map(([c]) => c)).toStrictEqual([
+            { id: log.id, code: 3, reason: "process" },
+            { id: unnamed.id, reason: "process" },
+        ]);
+        // Шелл не pty: ptyData/ptyExit мимо.
+        h.adapter.create({ extHostId: 3 });
+        h.adapter.ptyExit({ extHostId: 3 }, 0);
+        h.adapter.ptyData({ extHostId: 3 }, "x");
+        expect(h.service.getInstances()).toHaveLength(1);
+        h.service.dispose();
+    });
+
+    it("подписчик — последний: отписка прежнего не глушит нового; вывод в закрытый pty не идёт", () => {
+        const h = setup();
+        const second = { ...h.events, ptyStart: vi.fn<IExtensionTerminalEvents["ptyStart"]>() };
+        h.adapter.subscribe(second);
+        h.subscription.dispose();
+        h.adapter.create({ extHostId: 1, pty: true, name: "p" });
+        expect(second.ptyStart).toHaveBeenCalledTimes(1);
+        h.adapter.ptyExit({ extHostId: 1 }, 0);
+        h.adapter.ptyData({ id: 1 }, "late");
+        expect(h.ptySessions[0].fed).toStrictEqual([]);
+        h.service.dispose();
+    });
+
+    it("reset закрывает pty-терминалы с причиной process", () => {
+        const h = setup();
+        h.adapter.create({ extHostId: 1, pty: true, name: "p" });
+        h.adapter.reset();
+        expect(h.events.closed.mock.calls.map(([c]) => c)).toStrictEqual([{ id: 1, reason: "process" }]);
+        h.service.dispose();
+    });
+
+    it("без подписчика pty заводится молча; reset закрывает pty, шеллы живут", () => {
+        const h = setup();
+        h.subscription.dispose();
+        h.adapter.create({ extHostId: 1, pty: true, name: "p" });
+        h.adapter.create({ extHostId: 2, name: "s" });
+        h.ptySessions[0].write("k");
+        h.ptySessions[0].resize(90, 20);
+        expect(h.events.ptyStart).not.toHaveBeenCalled();
+        h.adapter.reset();
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["s"]);
+        expect(h.ptySessions[0].disposed).toBe(true);
         h.service.dispose();
     });
 });

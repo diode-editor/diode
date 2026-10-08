@@ -907,6 +907,15 @@ declare module "vscode" {
 		 * @throws When running in an environment where a new process cannot be started.
 		 */
 		export function createTerminal(options: TerminalOptions): Terminal;
+
+		/**
+		 * Creates a {@link Terminal} where an extension controls its input and output.
+		 *
+		 * @param options An {@link ExtensionTerminalOptions} object describing
+		 * the characteristics of the new terminal.
+		 * @returns A new Terminal.
+		 */
+		export function createTerminal(options: ExtensionTerminalOptions): Terminal;
 	}
 
 	/**

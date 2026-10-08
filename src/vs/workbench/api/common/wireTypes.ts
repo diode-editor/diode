@@ -658,6 +658,11 @@ export type IWireTerminalRef = { readonly id: number } | { readonly extHostId: n
  */
 export interface IWireTerminalCreate {
     readonly extHostId: number;
+    /**
+     * Процессом владеет расширение (`ExtensionTerminalOptions.pty`): хост держит
+     * только эмулятор, байты ходят `terminal.pty.*`. Шелловые опции тогда не шлются.
+     */
+    readonly pty?: true;
     readonly name?: string;
     readonly shellPath?: string;
     readonly shellArgs?: readonly string[];
@@ -707,6 +712,36 @@ export interface IWireTerminalOpened {
     readonly name: string;
     readonly pid?: number;
     readonly launch: IWireTerminalLaunch;
+}
+
+/** Вывод pty расширения в эмулятор хоста (`terminal.pty.data`, subprocess → host). */
+export interface IWireTerminalPtyData {
+    readonly terminal: IWireTerminalRef;
+    readonly data: string;
+}
+
+/** Pty расширения закрылся сам (`onDidClose`, `terminal.pty.exit`, subprocess → host). */
+export interface IWireTerminalPtyExit {
+    readonly terminal: IWireTerminalRef;
+    /** Без кода — `undefined` (по JSON не ездит). */
+    readonly code?: number | undefined;
+}
+
+/**
+ * Размер эмулятора pty-терминала (host → subprocess): `terminal.pty.start` —
+ * эмулятор подключён, пора звать `pty.open`; `terminal.pty.resize` — виджет
+ * изменил размер (`pty.setDimensions`).
+ */
+export interface IWireTerminalPtyDimensions {
+    readonly id: number;
+    readonly cols: number;
+    readonly rows: number;
+}
+
+/** Набор человека в pty-терминале (`terminal.pty.input`, host → subprocess) → `pty.handleInput`. */
+export interface IWireTerminalPtyInput {
+    readonly id: number;
+    readonly data: string;
 }
 
 /** Причина закрытия терминала — вид `vscode.TerminalExitReason` на проводе. */
@@ -788,6 +823,25 @@ export function parseWireTerminalClosed(raw: unknown): IWireTerminalClosed | nul
     if (typeof p?.id !== "number") return null;
     const reason = WIRE_TERMINAL_EXIT_REASONS.find((r) => r === p.reason) ?? "unknown";
     return { id: p.id, ...(typeof p.code === "number" ? { code: p.code } : {}), reason };
+}
+
+/** Валидирует `terminal.pty.start` / `terminal.pty.resize`; размер — положительные целые. */
+export function parseWireTerminalPtyDimensions(raw: unknown): IWireTerminalPtyDimensions | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || !isPositiveInteger(p.cols) || !isPositiveInteger(p.rows)) return null;
+    return { id: p.id, cols: p.cols, rows: p.rows };
+}
+
+/** `Number.isInteger` уже отсекает не-числа — отдельный `typeof` не нужен. */
+function isPositiveInteger(v: unknown): v is number {
+    return Number.isInteger(v) && (v as number) > 0;
+}
+
+/** Валидирует `terminal.pty.input`. */
+export function parseWireTerminalPtyInput(raw: unknown): IWireTerminalPtyInput | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || typeof p.data !== "string") return null;
+    return { id: p.id, data: p.data };
 }
 
 /** Валидирует `terminal.activeChanged`: не число — «активного нет». */
