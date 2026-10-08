@@ -10,6 +10,7 @@ import {
     type TerminalService,
     TerminalServiceDIToken,
 } from "../contrib/terminal/browser/terminalService.ts";
+import { ExtensionPtySessionFactoryDIToken } from "../contrib/terminal/common/terminalSessionFactory.ts";
 
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 
@@ -27,7 +28,11 @@ describe("Workbench — терминал расширения", () => {
         ws = createTempWorkspace({ prefix: "diode-ext-terminal-" });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         terminal = h.container.get(TerminalServiceDIToken);
-        adapter = new ExtensionTerminalAdapter(terminal, h.container.get(PanelServiceDIToken));
+        adapter = new ExtensionTerminalAdapter(
+            terminal,
+            h.container.get(PanelServiceDIToken),
+            h.container.get(ExtensionPtySessionFactoryDIToken),
+        );
     }
 
     const screen = (): string => {

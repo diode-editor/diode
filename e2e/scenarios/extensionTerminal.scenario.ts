@@ -10,7 +10,9 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // `activeTerminal`, события, `exitStatus`), оно пишет в свои пункты статус-бара.
 // Кадры: шелл расширения в панели с выводом его команды → шелл человека рядом,
 // оба в списке вкладок и в `window.terminals` → `dispose()` расширения закрыл
-// свой терминал с причиной Extension (4).
+// свой терминал с причиной Extension (4) → pty-терминал лога (форма
+// `Bazel Build Status` bazel-java): вывод pty в панели, повторный вызов находит
+// его в `window.terminals`, набор человека уходит в pty.
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-terminal-demo");
@@ -26,7 +28,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "extension-terminal",
-    title: "Терминал расширения: createTerminal + sendText + show в панели TERMINAL",
+    title: "Терминалы расширения: шелл и pty через window.createTerminal в панели TERMINAL",
     seedUserData: userData,
     open: [sampleFile],
     cols: 120,
@@ -53,5 +55,17 @@ export default defineScenario({
         await runCommand(editor, "Terminal Demo: Dispose");
         await editor.waitForText((t) => t.includes("ev:close4") && !t.includes("ls:Demo Runner"));
         await editor.capture("disposed");
+
+        // Pty расширения — форма лога bazel-java: terminals.find → createTerminal({ pty })
+        // → sendText → show. Вывод pty рисует эмулятор, sendText доходит до
+        // handleInput уже после open, набор человека — тоже в pty (эхо).
+        await runCommand(editor, "Terminal Demo: Show Log");
+        await editor.waitForText((t) => t.includes("log pty opened") && t.includes("log: build started"));
+        await editor.capture("pty-log");
+        await runCommand(editor, "Terminal Demo: Show Log");
+        await editor.waitForText((t) => t.split("log: build started").length === 3);
+        await editor.sendText("typed");
+        await editor.waitForText((t) => t.includes("typed"));
+        await editor.capture("pty-typed");
     },
 });

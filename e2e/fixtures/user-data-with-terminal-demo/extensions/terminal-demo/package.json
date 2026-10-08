@@ -1,19 +1,34 @@
 {
     "name": "terminal-demo",
     "displayName": "Terminal Demo",
-    "description": "Демо-расширение терминалов: createTerminal + sendText + show, как cleanup-команды bazel-java и Code Runner; window.terminals и события в строке статуса.",
+    "description": "Демо-расширение терминалов: createTerminal + sendText + show, как cleanup-команды bazel-java и Code Runner; pty-терминал лога, как Bazel Build Status; window.terminals и события в статус-баре.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
     "engines": {
         "vscode": "^1.0.0"
     },
-    "activationEvents": ["*"],
+    "activationEvents": [
+        "*"
+    ],
     "contributes": {
         "commands": [
-            { "command": "terminalDemo.run", "title": "Terminal Demo: Run in Terminal" },
-            { "command": "terminalDemo.list", "title": "Terminal Demo: List Terminals" },
-            { "command": "terminalDemo.dispose", "title": "Terminal Demo: Dispose" }
+            {
+                "command": "terminalDemo.run",
+                "title": "Terminal Demo: Run in Terminal"
+            },
+            {
+                "command": "terminalDemo.list",
+                "title": "Terminal Demo: List Terminals"
+            },
+            {
+                "command": "terminalDemo.dispose",
+                "title": "Terminal Demo: Dispose"
+            },
+            {
+                "command": "terminalDemo.log",
+                "title": "Terminal Demo: Show Log"
+            }
         ]
     }
 }

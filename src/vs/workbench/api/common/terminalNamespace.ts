@@ -9,6 +9,8 @@ import {
     parseWireTerminalActive,
     parseWireTerminalClosed,
     parseWireTerminalOpened,
+    parseWireTerminalPtyDimensions,
+    parseWireTerminalPtyInput,
     type WireTerminalExitReason,
 } from "./wireTypes.ts";
 
@@ -20,6 +22,13 @@ import {
  * (`TerminalCustomer` → встроенный терминал). Хост пересказывает жизнь ВСЕХ
  * инстансов, включая шеллы человека: `terminal.opened` (у своего терминала —
  * с `extHostId`), `terminal.closed`, `terminal.activeChanged`.
+ *
+ * Pty расширения (`ExtensionTerminalOptions`, `ExtHostPseudoterminal` эталона):
+ * процесс — объект расширения, хост держит только эмулятор. Хост зовёт
+ * `terminal.pty.start` при создании инстанса — тогда подключаются слушатели
+ * `onDidWrite`/`onDidClose` и вызывается `pty.open`; набор человека и
+ * `sendText` приходят `terminal.pty.input` (`sendText` идёт через хост, как в
+ * эталоне, — поэтому он не обгоняет `open`).
  */
 export interface ITerminalNamespace {
     readonly terminals: readonly vscode.Terminal[];
@@ -28,7 +37,78 @@ export interface ITerminalNamespace {
     readonly onDidCloseTerminal: vscode.Event<vscode.Terminal>;
     readonly onDidChangeActiveTerminal: vscode.Event<vscode.Terminal | undefined>;
     createTerminal(name?: string, shellPath?: string, shellArgs?: readonly string[] | string): vscode.Terminal;
-    createTerminal(options: vscode.TerminalOptions): vscode.Terminal;
+    createTerminal(options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions): vscode.Terminal;
+}
+
+/** Окно склейки вывода pty перед отправкой хосту (`TerminalDataBufferer` эталона). */
+export const PTY_DATA_BUFFER_MS = 5;
+
+/**
+ * Pty расширения на стороне субпроцесса (`ExtHostPseudoterminal` эталона):
+ * слушатели подключаются на `start`, вывод склеивается окном
+ * {@link PTY_DATA_BUFFER_MS} и уходит `terminal.pty.data`, собственный выход
+ * pty — `terminal.pty.exit` (склейка перед ним сбрасывается).
+ */
+class ExtensionPty {
+    private readonly subscriptions: vscode.Disposable[] = [];
+    private pending = "";
+    private timer: ReturnType<typeof setTimeout> | undefined;
+
+    public constructor(
+        private readonly pty: vscode.Pseudoterminal,
+        private readonly ref: IWireTerminalRef,
+        private readonly rpc: SubprocessRpc,
+    ) {}
+
+    public start(cols: number, rows: number): void {
+        this.subscriptions.push(
+            this.pty.onDidWrite((data) => {
+                this.pending += data;
+                this.timer ??= setTimeout(() => {
+                    this.flush();
+                }, PTY_DATA_BUFFER_MS);
+            }),
+        );
+        const onDidClose = this.pty.onDidClose;
+        if (onDidClose !== undefined) {
+            this.subscriptions.push(
+                onDidClose((code) => {
+                    this.flush();
+                    // `undefined` по JSON не ездит — выход без кода так и доходит.
+                    this.rpc.notify("terminal.pty.exit", { terminal: this.ref, code: code as number | undefined });
+                }),
+            );
+        }
+        const dimensions = { columns: cols, rows };
+        this.pty.open(dimensions);
+        this.pty.setDimensions?.(dimensions);
+    }
+
+    public input(data: string): void {
+        this.pty.handleInput?.(data);
+    }
+
+    public resize(cols: number, rows: number): void {
+        this.pty.setDimensions?.({ columns: cols, rows });
+    }
+
+    /** Инстанс снят: досылать нечего и некуда; pty закрывается (`shutdown` эталона). */
+    public shutdown(): void {
+        clearTimeout(this.timer);
+        for (const sub of this.subscriptions) sub.dispose();
+        this.pty.close();
+    }
+
+    private flush(): void {
+        // Из onDidClose таймер ещё взведён: не снять — он позже досылал бы
+        // уже следующую склейку мимо закрытия инстанса.
+        clearTimeout(this.timer);
+        this.timer = undefined;
+        if (this.pending === "") return;
+        const data = this.pending;
+        this.pending = "";
+        this.rpc.notify("terminal.pty.data", { terminal: this.ref, data });
+    }
 }
 
 const EXIT_REASONS: Readonly<Record<WireTerminalExitReason, TerminalExitReason>> = {
@@ -47,6 +127,8 @@ class TerminalRecord {
     public readonly value: vscode.Terminal;
     /** `processId`: резолвится pid из `terminal.opened` (у pty и чужого без процесса — `undefined`). */
     private readonly pid = Promise.withResolvers<number | undefined>();
+    /** Pty расширения — только у его pty-терминала. */
+    public pty: ExtensionPty | undefined;
 
     public constructor(
         /**
@@ -55,7 +137,7 @@ class TerminalRecord {
          */
         private readonly ref: IWireTerminalRef,
         name: string,
-        creationOptions: vscode.TerminalOptions,
+        creationOptions: vscode.TerminalOptions | vscode.ExtensionTerminalOptions,
         rpc: SubprocessRpc,
     ) {
         this.name = name;
@@ -200,7 +282,27 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
             code: closed.code,
             reason: EXIT_REASONS[closed.reason] as unknown as vscode.TerminalExitReason,
         };
+        try {
+            record.pty?.shutdown();
+        } catch {
+            // `close()` расширения бросил — закрытию терминала это не помеха.
+        }
         onDidCloseTerminal.fire(record.value);
+    });
+
+    rpc.handleNotification("terminal.pty.start", (params) => {
+        const start = parseWireTerminalPtyDimensions(params);
+        if (start !== null) byId.get(start.id)?.pty?.start(start.cols, start.rows);
+    });
+
+    rpc.handleNotification("terminal.pty.resize", (params) => {
+        const resize = parseWireTerminalPtyDimensions(params);
+        if (resize !== null) byId.get(resize.id)?.pty?.resize(resize.cols, resize.rows);
+    });
+
+    rpc.handleNotification("terminal.pty.input", (params) => {
+        const input = parseWireTerminalPtyInput(params);
+        if (input !== null) byId.get(input.id)?.pty?.input(input.data);
     });
 
     rpc.handleNotification("terminal.activeChanged", (params) => {
@@ -214,12 +316,21 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
     });
 
     function createTerminal(
-        nameOrOptions?: string | vscode.TerminalOptions,
+        nameOrOptions?: string | vscode.TerminalOptions | vscode.ExtensionTerminalOptions,
         shellPath?: string,
         shellArgs?: readonly string[] | string,
     ): vscode.Terminal {
-        const options = normalizeOptions(nameOrOptions, shellPath, shellArgs);
         const extHostId = nextExtHostId++;
+        // Как `window.createTerminal` эталона: объект с `pty` — терминал расширения.
+        if (typeof nameOrOptions === "object" && "pty" in nameOrOptions) {
+            const record = new TerminalRecord({ extHostId }, nameOrOptions.name, nameOrOptions, rpc);
+            record.pty = new ExtensionPty(nameOrOptions.pty, { extHostId }, rpc);
+            byExtHostId.set(extHostId, record);
+            order.push(record);
+            rpc.notify("terminal.create", { extHostId, pty: true, name: nameOrOptions.name });
+            return record.value;
+        }
+        const options = normalizeOptions(nameOrOptions, shellPath, shellArgs);
         const record = new TerminalRecord({ extHostId }, options.name ?? "", options, rpc);
         byExtHostId.set(extHostId, record);
         order.push(record);

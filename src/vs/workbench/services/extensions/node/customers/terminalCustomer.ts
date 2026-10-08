@@ -4,6 +4,8 @@ import type { IExtensionTerminalSink } from "../../../../api/common/iExtensionWi
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
     parseWireTerminalCreate,
+    parseWireTerminalPtyData,
+    parseWireTerminalPtyExit,
     parseWireTerminalSendText,
     parseWireTerminalShow,
     parseWireTerminalTarget,
@@ -21,8 +23,17 @@ import {
  * получает объект, но `onDidOpenTerminal` не стреляет.
  */
 export class TerminalCustomer implements IExtensionHostCustomer {
-    /** Живой спавн: его RPC и признак «снимок уже ушёл, события можно слать». */
-    private spawn: { readonly rpc: HostRpc; readonly sink: IExtensionTerminalSink; ready: boolean } | null = null;
+    /**
+     * Живой спавн: его RPC, сток, признак «снимок уже ушёл» и признак жизни —
+     * уборка при смерти субпроцесса закрывает его pty-терминалы, и их `closed`
+     * слать уже некому.
+     */
+    private spawn: {
+        readonly rpc: HostRpc;
+        readonly sink: IExtensionTerminalSink;
+        ready: boolean;
+        alive: boolean;
+    } | null = null;
 
     public constructor(private readonly sink: IExtensionTerminalSink | undefined) {}
 
@@ -30,19 +41,32 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         const store = new DisposableStore();
         const sink = this.sink;
         if (sink === undefined) return store;
-        const spawn = { rpc, sink, ready: false };
+        const spawn = { rpc, sink, ready: false, alive: true };
+        const seeded = (): boolean => spawn.alive && spawn.ready;
         this.spawn = spawn;
 
         store.add(
             sink.subscribe({
                 opened: (terminal) => {
-                    if (spawn.ready) rpc.notify("terminal.opened", terminal);
+                    if (seeded()) rpc.notify("terminal.opened", terminal);
                 },
                 closed: (terminal) => {
-                    if (spawn.ready) rpc.notify("terminal.closed", terminal);
+                    if (seeded()) rpc.notify("terminal.closed", terminal);
                 },
                 activeChanged: (id) => {
-                    if (spawn.ready) rpc.notify("terminal.activeChanged", { id });
+                    if (seeded()) rpc.notify("terminal.activeChanged", { id });
+                },
+                // Pty-терминал заводит только живой субпроцесс (снимок ему уже
+                // ушёл), а уборка его pty при смерти не вызывает ни старта, ни
+                // ввода, ни ресайза — гейт здесь не нужен.
+                ptyStart: (id, cols, rows) => {
+                    rpc.notify("terminal.pty.start", { id, cols, rows });
+                },
+                ptyInput: (id, data) => {
+                    rpc.notify("terminal.pty.input", { id, data });
+                },
+                ptyResize: (id, cols, rows) => {
+                    rpc.notify("terminal.pty.resize", { id, cols, rows });
                 },
             }),
         );
@@ -76,10 +100,24 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 if (request !== null) sink.dispose(request.terminal);
             }),
         );
+        store.add(
+            rpc.handleNotification("terminal.pty.data", (params) => {
+                const request = parseWireTerminalPtyData(params);
+                if (request !== null) sink.ptyData(request.terminal, request.data);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("terminal.pty.exit", (params) => {
+                const request = parseWireTerminalPtyExit(params);
+                if (request !== null) sink.ptyExit(request.terminal, request.code);
+            }),
+        );
         store.add({
             dispose: () => {
+                spawn.alive = false;
                 if (this.spawn === spawn) this.spawn = null;
-                // Метки умершего субпроцесса больше ничего не значат; шеллы живут.
+                // Метки умершего субпроцесса больше ничего не значат; шеллы живут,
+                // его pty-терминалы закрываются.
                 sink.reset();
             },
         });

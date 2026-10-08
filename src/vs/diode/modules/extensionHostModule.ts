@@ -41,6 +41,7 @@ import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/br
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
+import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
@@ -290,6 +291,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             terminalSink: new ExtensionTerminalAdapter(
                 container.get(TerminalServiceDIToken),
                 container.get(PanelServiceDIToken),
+                container.get(ExtensionPtySessionFactoryDIToken),
             ),
         });
 

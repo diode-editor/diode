@@ -73,9 +73,8 @@ diagnostic client»). Белого списка имён IDE в CLI нет: ва
 
 ### 2. Терминал для расширений (крупное)
 
-RPC-мост хост↔субпроцесс поверх `TerminalService` сделан для шеллов (устройство —
-docs/arch/Extensions.md, «Терминалы расширений»); pty расширения
-(`ExtensionTerminalOptions`) — следующим PR.
+RPC-мост хост↔субпроцесс поверх `TerminalService` сделан — и для шеллов, и для
+pty расширения (устройство — docs/arch/Extensions.md, «Терминалы расширений»).
 
 - [x] `window.createTerminal(options)`: `name`, `cwd`, `env` (`null` снимает),
       `strictEnv`, `shellPath`/`shellArgs`, `hideFromUser`, `message`;
@@ -84,8 +83,9 @@ docs/arch/Extensions.md, «Терминалы расширений»); pty ра�
 - [x] `Terminal.show`/`hide`/`sendText`/`dispose`, `processId`, `exitStatus`,
       `onDidCloseTerminal`, `onDidOpenTerminal`, `onDidChangeActiveTerminal`,
       `window.terminals` (все терминалы, как в эталоне), `window.activeTerminal`.
-- [ ] `ExtensionTerminalOptions.pty` (`Pseudoterminal`): эмулятор на хосте, байты по
-      проводу — лог BJLS у bazel-java.
+- [x] `ExtensionTerminalOptions.pty` (`Pseudoterminal`): эмулятор на хосте, байты по
+      проводу — лог BJLS у bazel-java. Не поддержаны `onDidOverrideDimensions`,
+      `onDidChangeName`; `open` получает начальный размер, настоящий — следом.
 - [ ] `ExtensionContext.environmentVariableCollection`: коллекции всех расширений
       вливаются в окружение **каждого** нашего терминала (так `claude`, набранный
       руками в нижней панели, тоже увидит IDE через `CLAUDE_CODE_SSE_PORT`).

@@ -105,11 +105,11 @@ export class EmbeddedTerminalSession extends XtermSurface {
     }
 
     /** Синхронный ресайз PTY (TIOCSWINSZ+SIGWINCH). */
-    protected override onDidResize(cols: number, rows: number): void {
+    protected onDidResize(cols: number, rows: number): void {
         this.pty.resize(cols, rows);
     }
 
-    protected override disposeProcess(): void {
+    protected disposeProcess(): void {
         if (this.isExited) return;
         try {
             this.pty.kill();

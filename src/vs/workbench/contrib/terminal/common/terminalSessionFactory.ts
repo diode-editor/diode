@@ -39,3 +39,27 @@ export type ITerminalSession = ITerminalSurface &
 export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSession;
 
 export const TerminalSessionFactoryDIToken = token<TerminalSessionFactory>("TerminalSessionFactory");
+
+/**
+ * Сессия терминала, процессом которого владеет расширение
+ * (`window.createTerminal({ pty })`): на нашей стороне только эмулятор. Вывод
+ * pty подаётся `feed`, набор человека уходит в `onInput`, смена размера
+ * виджета — в `onResize`, а `exit` закрывает сессию, когда pty закрылся сам.
+ */
+export interface IExtensionPtySession extends ITerminalSession {
+    feed(data: string): void;
+    exit(code: number | undefined): void;
+}
+
+export interface IExtensionPtySessionOptions {
+    cols: number;
+    rows: number;
+    /** Имя терминала — им сессия представляется вместо шелла (`shell`). */
+    name: string;
+    onInput(data: string): void;
+    onResize(cols: number, rows: number): void;
+}
+
+export type ExtensionPtySessionFactory = (options: IExtensionPtySessionOptions) => IExtensionPtySession;
+
+export const ExtensionPtySessionFactoryDIToken = token<ExtensionPtySessionFactory>("ExtensionPtySessionFactory");

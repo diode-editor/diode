@@ -94,14 +94,10 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     protected abstract sendInput(data: string): void;
 
     /** Размер эмулятора изменился — наследник передаёт его процессу (TIOCSWINSZ / setDimensions). */
-    protected onDidResize(_cols: number, _rows: number): void {
-        // по умолчанию процессу сообщать нечего
-    }
+    protected abstract onDidResize(cols: number, rows: number): void;
 
     /** Освобождение процесса наследника при dispose (убить PTY и т.п.). */
-    protected disposeProcess(): void {
-        // по умолчанию процесса нет
-    }
+    protected abstract disposeProcess(): void;
 
     /**
      * Вывод процесса → эмулятор → сигнал перерисовки контролу.

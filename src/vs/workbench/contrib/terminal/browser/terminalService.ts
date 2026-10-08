@@ -35,8 +35,8 @@ export const TERMINAL_VIEW_ID = "terminal";
 export const TerminalServiceDIToken = token<TerminalService>("TerminalService");
 
 /** Начальный размер PTY до первого performLayout (реальный размер придёт с ресайзом). */
-const INITIAL_COLS = 80;
-const INITIAL_ROWS = 24;
+export const INITIAL_COLS = 80;
+export const INITIAL_ROWS = 24;
 
 /**
  * Почему инстанс закрылся — `TerminalExitReason` эталона: шелл вышел сам
@@ -106,6 +106,13 @@ export interface ITerminalCreateOptions {
      * эталона.
      */
     readonly hideFromUser?: boolean;
+    /**
+     * Готовая сессия вместо шелла из фабрики (`customPtyImplementation`
+     * эталона): процессом владеет кто-то другой — pty расширения. Создаётся с
+     * размером {@link INITIAL_COLS}×{@link INITIAL_ROWS}; шелловые опции при
+     * ней не используются.
+     */
+    readonly session?: ITerminalSession;
 }
 
 interface TerminalInstanceRecord extends ITerminalInstance {
@@ -239,16 +246,18 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     public createInstance(options: ITerminalCreateOptions = {}): ITerminalInstance {
         const id = this.nextId++;
         const cwd = options.cwd ?? this.cwd ?? process.cwd();
-        const session = this.factory({
-            cols: INITIAL_COLS,
-            rows: INITIAL_ROWS,
-            cwd,
-            ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
-            ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),
-            ...(options.env !== undefined ? { env: { ...options.env } } : {}),
-            ...(options.strictEnv === true ? { strictEnv: true } : {}),
-            ...(options.message !== undefined ? { message: options.message } : {}),
-        });
+        const session =
+            options.session ??
+            this.factory({
+                cols: INITIAL_COLS,
+                rows: INITIAL_ROWS,
+                cwd,
+                ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
+                ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),
+                ...(options.env !== undefined ? { env: { ...options.env } } : {}),
+                ...(options.strictEnv === true ? { strictEnv: true } : {}),
+                ...(options.message !== undefined ? { message: options.message } : {}),
+            });
         const hideFromUser = options.hideFromUser === true;
         const instance: TerminalInstanceRecord = {
             id,
