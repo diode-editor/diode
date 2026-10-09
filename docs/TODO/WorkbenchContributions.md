@@ -11,11 +11,9 @@ co-location placement + живой `IMenu` + `enablement` (#166, #168),
 
 ## MenuRegistry → vscode-канон
 
-- [ ] **Серые пункты попапа «⋯»**: у `MenuItemEntry` в `@tuidom/elements` нет поля
-  `disabled` — попап рисует все пункты одинаково и даёт их выбирать. Нужна фича в
-  репозитории tuidom (`disabled` + пропуск в навигации), после неё
-  `IResolvedMenuItemEntry.enabled` доедет и до попапа. Сейчас недоступный пункт
-  выглядит обычным, но команда не исполняется.
+- [x] **Серые пункты попапа**: `MenuItemEntry.disabled` (`@tuidom/elements` 0.6.0) —
+  `MenuRegistry` отдаёт его по `enablement`; попап рисует пункт `disabledForeground`,
+  стрелки его пропускают, клик и Enter ничего не делают.
 
 - [ ] **Палитра не фильтрует по `when`** (по `enablement` — уже фильтрует):
   `CommandsQuickAccessProvider` перечисляет весь `CommandRegistry`.

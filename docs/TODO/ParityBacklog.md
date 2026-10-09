@@ -381,7 +381,7 @@ bulk-edit всё равно будут отвечать «failed»), плюс н
 эталону + ключи `editorHas*Provider` под честные `when` — **сделано**;
 (3) мост `contributes.menus`/`submenus` — **сделано**.
 
-Хвосты самого `MenuRegistry` (серые пункты попапа, `when`-фильтр палитры,
+Хвосты самого `MenuRegistry` (`when`-фильтр палитры,
 `alt`/hide-toggle/вложенные подменю) ведутся в
 [WorkbenchContributions.md](WorkbenchContributions.md) — этот узел их доедает.
 
