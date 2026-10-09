@@ -8,7 +8,7 @@
 Эталон — `src/vs/workbench/contrib/tasks/` и `api/{common,browser,node}/*Task*.ts`
 (`node scripts/vscode-ref.mjs`).
 
-## Первая итерация (одним PR)
+## Первая итерация — сделана (#572, `.diode/tasks.json` — #575)
 
 - [x] S1 «Tasks: Run Task» — двухуровневый пикер: configured из `.diode/tasks.json`,
   затем по пункту на тип провайдера (`contributes.taskDefinitions`) → задачи типа, «Go back ↩»;
