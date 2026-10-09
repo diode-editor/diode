@@ -245,6 +245,48 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         expect(delegate.traversals).toHaveLength(2);
     });
 
+    /** `<tmp>/repo` с каталогом `outside` рядом; `junction` — ссылка без прав админа на Windows. */
+    function withRepo(run: (repo: string, outside: string) => void): void {
+        const base = fs.mkdtempSync(path.join(os.tmpdir(), "diode-shared-link-"));
+        const repo = path.join(base, "repo");
+        const outside = path.join(base, "outside");
+        fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+        fs.mkdirSync(path.join(outside, "lib"), { recursive: true });
+        try {
+            run(repo, outside);
+        } finally {
+            fs.rmSync(base, { recursive: true, force: true });
+        }
+    }
+
+    it("база-симлинк получает свой обход: обход предка по ссылкам не ходит", () => {
+        withRepo((repo, outside) => {
+            fs.symlinkSync(outside, path.join(repo, "bazel-out"), "junction");
+            const delegate = new FakeTreeWatcher();
+            const shared = new SharedTreeWatcher(delegate);
+
+            shared.watchTree(repo, { recursive: true, excludes: [] }, () => undefined);
+            shared.watchTree(path.join(repo, "bazel-out"), { recursive: true, excludes: [] }, () => undefined);
+            shared.watchTree(path.join(repo, "src"), { recursive: true, excludes: [] }, () => undefined);
+
+            // Обычный каталог рядом по-прежнему едет на обходе корня.
+            expect(delegate.traversals.map((t) => t.root)).toEqual([repo, path.join(repo, "bazel-out")]);
+        });
+    });
+
+    it("симлинк по пути к базе тоже отменяет деление", () => {
+        withRepo((repo, outside) => {
+            fs.symlinkSync(outside, path.join(repo, "bazel-out"), "junction");
+            const delegate = new FakeTreeWatcher();
+            const shared = new SharedTreeWatcher(delegate);
+
+            shared.watchTree(repo, { recursive: true, excludes: [] }, () => undefined);
+            shared.watchTree(path.join(repo, "bazel-out", "lib"), { recursive: false, excludes: [] }, () => undefined);
+
+            expect(delegate.traversals).toHaveLength(2);
+        });
+    });
+
     it("не задетый excludes'ами вложенный путь обход делит", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
@@ -542,6 +584,36 @@ describe("SharedTreeWatcher — настоящий chokidar", () => {
         } finally {
             for (const subscription of subscriptions) subscription.dispose();
             fs.rmSync(root, { recursive: true, force: true });
+        }
+    }, 20000);
+
+    it("явный запрос на каталог-симлинк видит его события, обход корня — нет", async () => {
+        const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-shared-link-")));
+        const root = path.join(base, "repo");
+        const outside = path.join(base, "outside");
+        fs.mkdirSync(path.join(root, "src"), { recursive: true });
+        fs.mkdirSync(outside);
+        const link = path.join(root, "bazel-out");
+        fs.symlinkSync(outside, link, "junction");
+        const shared = new SharedTreeWatcher(new ChokidarTreeWatcher());
+        const all: string[] = [];
+        const linked: string[] = [];
+        const subscriptions = [
+            shared.watchTree(root, { recursive: true, excludes: [] }, (c) => all.push(...c.map((x) => x.path))),
+            shared.watchTree(link, { recursive: true, excludes: [] }, (c) => linked.push(...c.map((x) => x.path))),
+        ];
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+
+            fs.writeFileSync(path.join(outside, "BUILD.bazel"), "x");
+            fs.writeFileSync(path.join(root, "src", "a.ts"), "y");
+            await new Promise((resolve) => setTimeout(resolve, 800));
+
+            expect(linked).toEqual([path.join(link, "BUILD.bazel")]);
+            expect(all).toEqual([path.join(root, "src", "a.ts")]);
+        } finally {
+            for (const subscription of subscriptions) subscription.dispose();
+            fs.rmSync(base, { recursive: true, force: true });
         }
     }, 20000);
 });

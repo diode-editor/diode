@@ -20,8 +20,9 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  * - `explorer.*`, `files.enableTrash`, `workbench.colorTheme`,
  *   `workbench.editor.enablePreview` — `window`: у эталона скоуп не указан, то
  *   есть дефолтный `WINDOW` (одно значение на окно).
- * - `files.watcherExclude`, `scm.graph.pageSize` — `resource`: у эталона первый
- *   помечен `RESOURCE` явно, второй наследует `RESOURCE` от узла `scm`.
+ * - `files.watcherExclude`, `files.watcherInclude`, `scm.graph.pageSize` —
+ *   `resource`: у эталона первые два помечены `RESOURCE` явно, третий
+ *   наследует `RESOURCE` от узла `scm`.
  * - `files.exclude`, `search.exclude` — `resource`: у эталона оба помечены
  *   `RESOURCE` явно, и это та же семья, что `files.watcherExclude` — «что
  *   считать мусором» свойство ПАПКИ, а не окна: у python-проекта и у
@@ -61,6 +62,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "files.enableTrash": "window",
     "files.exclude": "resource",
     "files.watcherExclude": "resource",
+    "files.watcherInclude": "resource",
 
     "search.exclude": "resource",
 

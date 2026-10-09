@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 
 import chokidar, { type FSWatcher } from "chokidar";
@@ -36,6 +37,15 @@ const EVENT_TYPES: Partial<Record<string, TreeFileChangeType>> = {
  * Excludes отдаются chokidar как `ignored`-предикат, а не фильтруются после
  * события: предикат зовётся и на каталогах при обходе, поэтому в
  * `node_modules` watcher просто не заходит и не тратит на него inotify.
+ *
+ * По симлинкам внутри дерева обход не ходит — как parcel-watcher эталона
+ * («does not allow to recursively watch symbolic links»): ссылка видна как
+ * вход (создание/удаление/перенацеливание), но её цель не обходится. Иначе
+ * `bazel-out` и соседи тащат в обход весь кэш Bazel вне воркспейса, а события
+ * оттуда приходят расширениям как правки воркспейса. Следить за каталогом-
+ * ссылкой — явным запросом на него (`files.watcherInclude`, RelativePattern с
+ * такой базой): **корень** запроса разрешается до настоящего пути, а пути
+ * событий переписываются обратно на исходный — как `normalizePath` эталона.
  */
 export class ChokidarTreeWatcher implements ITreeFileWatcher {
     private readonly logger: ILogger | undefined;
@@ -49,7 +59,12 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
         options: ITreeFileWatchOptions,
         onChanges: (changes: readonly ITreeFileChange[]) => void,
     ): IDisposable {
-        const watcher = this.createWatcher(rootPath, options);
+        // Синхронно и один раз на запрос: обход всё равно начнётся позже, а
+        // watchTree обязан сразу вернуть disposable. Не разрешился (корня нет) —
+        // следим по исходному пути, chokidar сам дождётся появления.
+        const watchPath = realpathOrSelf(rootPath);
+        const watcher = this.createWatcher(watchPath, options);
+        const toOriginal = (changed: string): string => path.join(rootPath, path.relative(watchPath, changed));
         let pending: ITreeFileChange[] = [];
         let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -62,11 +77,21 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
             onChanges(batch);
         };
 
-        watcher.on("all", (event, changedPath) => {
+        // chokidar 5 с `followSymlinks: false` сообщает `add` на каждый симлинк,
+        // найденный НАЧАЛЬНЫМ обходом, мимо `ignoreInitial` (`_handleSymlink`
+        // эмитит сам, без флага initialAdd). Это не изменения — до `ready`
+        // такие `add` глушим; симлинк, созданный позже, приходит как обычно.
+        let ready = false;
+        watcher.on("ready", () => {
+            ready = true;
+        });
+
+        watcher.on("all", (event, changedPath, stats?: fs.Stats) => {
             const type = EVENT_TYPES[event];
             // `ready`/`raw` и прочие служебные события — не изменения файлов.
             if (type === undefined || typeof changedPath !== "string") return;
-            pending.push({ type, path: changedPath });
+            if (!ready && event === "add" && stats?.isSymbolicLink() === true) return;
+            pending.push({ type, path: toOriginal(changedPath) });
             timer ??= setTimeout(flush, COALESCE_MS);
         });
 
@@ -99,9 +124,20 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
         return chokidar.watch(rootPath, {
             ignoreInitial: true,
             depth: options.recursive ? undefined : 0,
+            // Дефолт chokidar — `true`; эталон по ссылкам не ходит (см. шапку класса).
+            followSymlinks: false,
             ignored:
                 excludes.length === 0 ? undefined : (candidate: string) => isExcluded(rootPath, candidate, excludes),
         });
+    }
+}
+
+/** Настоящий путь корня либо сам путь, если разрешить не вышло (нет такого). */
+function realpathOrSelf(rootPath: string): string {
+    try {
+        return fs.realpathSync.native(rootPath);
+    } catch {
+        return rootPath;
     }
 }
 
