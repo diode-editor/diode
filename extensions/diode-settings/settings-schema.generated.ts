@@ -184,6 +184,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Glob patterns to exclude from file watching. Patterns are matched relative to the watched folder.",
     },
     {
+        key: "files.watcherInclude",
+        type: "array",
+        default: [],
+        description:
+            "Configure extra paths to watch for changes inside the workspace. By default, all workspace folders will be watched recursively, except for folders that are symbolic links. You can explicitly add absolute or relative paths to support watching folders that are symbolic links. Relative paths will be resolved to an absolute path using the currently opened workspace.",
+    },
+    {
         key: "git.autorefresh",
         type: "boolean",
         default: true,

@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
@@ -143,7 +144,12 @@ function covers(traversal: ITraversal, base: string, recursive: boolean): boolea
  *   в `globToRegExp`);
  * - ни сама база, ни каталог по пути к ней не исключены у обхода — иначе
  *   chokidar до базы просто не дойдёт, а свой watcher за ней следил бы
- *   (корень никогда не исключается сам у себя).
+ *   (корень никогда не исключается сам у себя);
+ * - ни сама база, ни каталог по пути к ней не симлинк: по ссылкам обход не
+ *   ходит (как parcel-watcher эталона), а свой запрос на ссылку разрешается
+ *   до цели и следит за ней. Эталон так же не сливает явный запрос на ссылку с
+ *   обходом предка (`removeDuplicateRequests`, проверка `lstat`); ссылку
+ *   выше базы он не проверяет — мы проверяем, иначе событий не было бы вовсе.
  *
  * Не выполнилось — заводим свой обход: лишний обход дешевле молча не
  * доставленных событий.
@@ -157,7 +163,28 @@ function reanchorsCleanly(traversal: ITraversal, relativeBase: string): boolean 
         current = path.join(current, segment);
         if (isExcluded(traversal.root, current, traversal.excludes)) return false;
     }
-    return true;
+    return !passesThroughSymlink(traversal.root, relativeBase);
+}
+
+/**
+ * Лежит ли путь `root/relative` за симлинком (на Windows — и junction): сам он
+ * или каталог по пути к нему от `root`. За ссылку обход `root` не заходит.
+ * Синхронно: зовётся при заведении подписки, по `lstat` на сегмент. Пути нет —
+ * не ссылка: появится каталогом, и обход предка его увидит.
+ */
+export function passesThroughSymlink(root: string, relative: string): boolean {
+    let current = root;
+    for (const segment of relative.split(path.sep)) {
+        current = path.join(current, segment);
+        let stat: fs.Stats;
+        try {
+            stat = fs.lstatSync(current);
+        } catch {
+            return false;
+        }
+        if (stat.isSymbolicLink()) return true;
+    }
+    return false;
 }
 
 /** Шаблон вида `**\/<сегмент>` — тот, чей смысл не зависит от корня матчинга. */

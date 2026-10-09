@@ -45,6 +45,44 @@ describe("FileWatcherAdapter", () => {
         expect(watcher.calls.map((c) => c.options.excludes)).toEqual([["a/**"], ["b/**"]]);
     });
 
+    it("рекурсивный watcher следит и за include-путями под базой, с теми же excludes и колбэком", () => {
+        const watcher = makeWatcher();
+        const bases: string[] = [];
+        const adapter = new FileWatcherAdapter(
+            watcher,
+            () => ["**/x"],
+            (base) => {
+                bases.push(base);
+                return ["/repo/bazel-out", "/repo/bazel-bin"];
+            },
+        );
+        const onChanges = (): void => undefined;
+
+        const subscription = adapter.watch("/repo", true, onChanges);
+
+        expect(bases).toEqual(["/repo"]);
+        expect(watcher.calls).toEqual([
+            { root: "/repo", options: { recursive: true, excludes: ["**/x"] } },
+            { root: "/repo/bazel-out", options: { recursive: true, excludes: ["**/x"] } },
+            { root: "/repo/bazel-bin", options: { recursive: true, excludes: ["**/x"] } },
+        ]);
+        subscription.dispose();
+        expect(watcher.disposed).toBe(3);
+    });
+
+    it("нерекурсивному watcher'у include не нужен", () => {
+        const watcher = makeWatcher();
+        const adapter = new FileWatcherAdapter(
+            watcher,
+            () => [],
+            () => ["/repo/bazel-out"],
+        );
+
+        adapter.watch("/repo", false, () => undefined);
+
+        expect(watcher.calls.map((c) => c.root)).toEqual(["/repo"]);
+    });
+
     it("disposable отдаётся наружу как есть", () => {
         const watcher = makeWatcher();
         const adapter = new FileWatcherAdapter(watcher, () => []);

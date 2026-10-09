@@ -34,6 +34,7 @@ import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressSt
 import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
+import { WATCHER_INCLUDE_SETTING, watcherIncludesUnder } from "../../workbench/api/node/watcherIncludes.ts";
 import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
 import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
@@ -226,10 +227,20 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const editorLayout = new EditorLayoutServiceAdapter(group, container.get(EditorGroupsServiceDIToken));
 
         // Слежение за деревом для `workspace.createFileSystemWatcher`: сам обход
-        // ведёт ядро, excludes берутся из живой настройки `files.watcherExclude`.
-        const fileWatcher = new FileWatcherAdapter(container.get(ITreeFileWatcherDIToken), () =>
-            watcherExcludeGlobs(configService),
+        // ведёт ядро, excludes берутся из живой настройки `files.watcherExclude`,
+        // каталоги-симлинки под базой — из `files.watcherInclude`.
+        // Stryker disable ArrowFunction: production-проводка модуля; решения живут в `watcherExcludeGlobs`/`watcherIncludesUnder` и `FileWatcherAdapter` и закрыты юнитами, сквозняк — живой прогон на Bazel-воркспейсе
+        const fileWatcher = new FileWatcherAdapter(
+            container.get(ITreeFileWatcherDIToken),
+            () => watcherExcludeGlobs(configService),
+            (base) =>
+                watcherIncludesUnder(
+                    base,
+                    configService.get(WATCHER_INCLUDE_SETTING),
+                    workspaceContext.getWorkspace().folders.map((folder) => folder.uri.fsPath),
+                ),
         );
+        // Stryker restore ArrowFunction
 
         // Приватные каталоги расширений (`globalStorageUri`/`storageUri`/`logUri`).
         // Провайдер ЛЕНИВЫЙ по той же причине, что `getWorkspaceFolders` выше:

@@ -119,5 +119,18 @@ export const filesConfiguration = {
             description:
                 "Glob patterns to exclude from file watching. Patterns are matched relative to the watched folder.",
         },
+        // Каталоги-симлинки внутри воркспейса обход не обходит — как
+        // parcel-watcher эталона (иначе `bazel-out` тащит в слежение кэш Bazel
+        // вне воркспейса). Кому за таким каталогом следить нужно — перечисляет
+        // его здесь; ключ, дефолт, scope и описание — эталонные (`items:
+        // string` эталона наша схема не выражает). Потребитель —
+        // watcher'ы расширений (`watcherIncludesUnder`).
+        "files.watcherInclude": {
+            scope: "resource",
+            type: "array",
+            default: [],
+            description:
+                "Configure extra paths to watch for changes inside the workspace. By default, all workspace folders will be watched recursively, except for folders that are symbolic links. You can explicitly add absolute or relative paths to support watching folders that are symbolic links. Relative paths will be resolved to an absolute path using the currently opened workspace.",
+        },
     },
 } as const satisfies IConfigurationNode;

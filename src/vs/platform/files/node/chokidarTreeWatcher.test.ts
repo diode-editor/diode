@@ -33,7 +33,9 @@ class FakeWatcher extends EventEmitter {
 class TestTreeWatcher extends ChokidarTreeWatcher {
     public readonly created: FakeWatcher[] = [];
     public readonly options: ITreeFileWatchOptions[] = [];
-    protected override createWatcher(_rootPath: string, options: ITreeFileWatchOptions): FSWatcher {
+    public readonly roots: string[] = [];
+    protected override createWatcher(rootPath: string, options: ITreeFileWatchOptions): FSWatcher {
+        this.roots.push(rootPath);
         this.options.push(options);
         const watcher = new FakeWatcher();
         this.created.push(watcher);
@@ -139,6 +141,56 @@ describe("ChokidarTreeWatcher", () => {
         expect(entries.at(-1)?.message).toContain("max_user_watches");
     });
 
+    it("начальный `add` симлинка до `ready` глушится, после — доезжает", () => {
+        vi.useFakeTimers();
+        try {
+            const watcher = new TestTreeWatcher();
+            const batches: (readonly ITreeFileChange[])[] = [];
+            watcher.watchTree("/repo", { recursive: true, excludes: [] }, (changes) => batches.push(changes));
+            const link = { isSymbolicLink: () => true };
+            const file = { isSymbolicLink: () => false };
+
+            watcher.created[0].fire("add", "/repo/bazel-out", link); // начальный обход — не изменение
+            watcher.created[0].fire("unlink", "/repo/gone", link); // не `add` — доезжает и до `ready`
+            watcher.created[0].fire("add", "/repo/early.ts", file); // не симлинк — доезжает
+            watcher.created[0].fire("ready");
+            watcher.created[0].fire("add", "/repo/bazel-bin", link); // создан после старта
+            vi.advanceTimersByTime(50);
+
+            expect(batches).toEqual([
+                [
+                    { type: "deleted", path: "/repo/gone" },
+                    { type: "created", path: "/repo/early.ts" },
+                    { type: "created", path: "/repo/bazel-bin" },
+                ],
+            ]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("корень-симлинк: chokidar получает настоящий путь, события — под исходным", () => {
+        const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-root-")));
+        const real = path.join(base, "real");
+        const link = path.join(base, "link");
+        fs.mkdirSync(real);
+        fs.symlinkSync(real, link, "junction");
+        vi.useFakeTimers();
+        try {
+            const watcher = new TestTreeWatcher();
+            const batches: (readonly ITreeFileChange[])[] = [];
+            watcher.watchTree(link, { recursive: true, excludes: [] }, (changes) => batches.push(changes));
+            expect(watcher.roots).toEqual([real]);
+
+            watcher.created[0].fire("add", path.join(real, "a.ts"));
+            vi.advanceTimersByTime(50);
+            expect(batches).toEqual([[{ type: "created", path: path.join(link, "a.ts") }]]);
+        } finally {
+            vi.useRealTimers();
+            fs.rmSync(base, { recursive: true, force: true });
+        }
+    });
+
     it("рекурсивность прокидывается в опции chokidar", () => {
         const watcher = new TestTreeWatcher();
         watcher.watchTree("/repo", { recursive: false, excludes: [] }, () => {
@@ -173,6 +225,80 @@ describe("ChokidarTreeWatcher — настоящий chokidar", () => {
         } finally {
             subscription.dispose();
             fs.rmSync(root, { recursive: true, force: true });
+        }
+    }, 20000);
+});
+
+describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эталона)", () => {
+    /** Ждёт, пока в `seen` появится `expected` (позитивный маркер вместо слепой паузы). */
+    async function waitFor(seen: readonly string[], expected: string): Promise<void> {
+        const deadline = Date.now() + 10000;
+        while (!seen.includes(expected)) {
+            if (Date.now() > deadline) throw new Error(`не дождались события ${expected}; пришло: ${seen.join(", ")}`);
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+    }
+
+    /**
+     * Корень воркспейса и каталог вне его. `junction` — чтобы ссылка на каталог
+     * создавалась на Windows без прав администратора; на POSIX тип игнорируется.
+     */
+    function makeTree(): { base: string; root: string; outside: string } {
+        const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-link-")));
+        const root = path.join(base, "ws");
+        const outside = path.join(base, "cache");
+        fs.mkdirSync(path.join(root, "src"), { recursive: true });
+        fs.mkdirSync(path.join(outside, "pkg"), { recursive: true });
+        return { base, root, outside };
+    }
+
+    it("в каталог-симлинк внутри дерева не заходит (bazel-out → кэш вне воркспейса)", async () => {
+        const { base, root, outside } = makeTree();
+        fs.symlinkSync(outside, path.join(root, "bazel-out"), "junction");
+        const seen: string[] = [];
+        const subscription = new ChokidarTreeWatcher().watchTree(root, { recursive: true, excludes: [] }, (changes) =>
+            seen.push(...changes.map((c) => c.path)),
+        );
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 400)); // `ready`, см. тест выше
+
+            fs.writeFileSync(path.join(outside, "pkg", "BUILD.bazel"), "x");
+            const marker = path.join(root, "src", "BUILD.bazel");
+            fs.writeFileSync(marker, "y");
+            await waitFor(seen, marker);
+
+            expect(seen.filter((p) => p.includes("bazel-out"))).toEqual([]);
+        } finally {
+            subscription.dispose();
+            fs.rmSync(base, { recursive: true, force: true });
+        }
+    }, 20000);
+
+    it("корень-симлинк разрешается, события приходят под исходным путём", async () => {
+        const { base, root } = makeTree();
+        const linkedRoot = path.join(base, "ws-link");
+        fs.symlinkSync(root, linkedRoot, "junction");
+        const seen: string[] = [];
+        const subscription = new ChokidarTreeWatcher().watchTree(
+            linkedRoot,
+            { recursive: true, excludes: ["**/ignored"] },
+            (changes) => seen.push(...changes.map((c) => c.path)),
+        );
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+
+            fs.mkdirSync(path.join(root, "ignored"));
+            fs.writeFileSync(path.join(root, "ignored", "a.ts"), "x");
+            fs.writeFileSync(path.join(root, "src", "a.ts"), "y");
+            const expected = path.join(linkedRoot, "src", "a.ts");
+            await waitFor(seen, expected);
+
+            // Все пути — под исходным корнем, excludes якорятся от него же.
+            expect(seen.every((p) => p.startsWith(linkedRoot + path.sep))).toBe(true);
+            expect(seen.filter((p) => p.includes("ignored"))).toEqual([]);
+        } finally {
+            subscription.dispose();
+            fs.rmSync(base, { recursive: true, force: true });
         }
     }, 20000);
 });
