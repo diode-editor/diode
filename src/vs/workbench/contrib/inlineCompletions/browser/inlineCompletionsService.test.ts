@@ -10,6 +10,7 @@ import type {
 import { InlineCompletionTriggerKind } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
+import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { isValidConfigurationValue } from "../../../../platform/configuration/common/configurationValidation.ts";
 import type {
@@ -40,7 +41,9 @@ async function tick(ms = 5): Promise<void> {
 
 interface FakeEditor {
     editor: TextEditorPane;
-    applyExternalEdits: ReturnType<typeof vi.fn<(edits: ITextEdit[], label: string) => void>>;
+    applyExternalEdits: ReturnType<
+        typeof vi.fn<(edits: ITextEdit[], label: string, computeCursorState?: ICursorStateComputer) => void>
+    >;
     setGhostText: ReturnType<typeof vi.fn<(ghost: IGhostText | null) => void>>;
     /** Печать: обновляет строку/каретку и шлёт content+cursor (как typing). */
     type: (line: string, character: number) => void;
@@ -57,7 +60,8 @@ function makeEditor(lineContent: string, character: number): FakeEditor {
     let readOnly = false;
     const contentListeners: (() => void)[] = [];
     const cursorListeners: (() => void)[] = [];
-    const applyExternalEdits = vi.fn<(edits: ITextEdit[], label: string) => void>();
+    const applyExternalEdits =
+        vi.fn<(edits: ITextEdit[], label: string, computeCursorState?: ICursorStateComputer) => void>();
     const setGhostText = vi.fn<(ghost: IGhostText | null) => void>();
 
     const editor = {
@@ -1048,7 +1052,15 @@ describe("InlineCompletionsService — принятие", () => {
                 },
             ],
             "Accept Inline Suggestion",
+            expect.any(Function),
         );
+        // Каретка — одна, в конце вставки (обратная правка накрывает вставленное).
+        const computeCursorState = fake.applyExternalEdits.mock.calls[0][2];
+        expect(
+            computeCursorState?.([
+                { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 13 } }, text: "con" },
+            ]),
+        ).toEqual([{ anchor: { line: 0, character: 13 }, active: { line: 0, character: 13 } }]);
 
         // Правка accept шлёт content+cursor — подавленный авто-запрос не уходит.
         fake.type("console.log()", 13);
@@ -1108,6 +1120,7 @@ describe("InlineCompletionsService — каретка в середине стр
                 },
             ],
             "Accept Inline Suggestion",
+            expect.any(Function),
         );
         expect(service.isOpen()).toBe(false);
     });

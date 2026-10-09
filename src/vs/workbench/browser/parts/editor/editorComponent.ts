@@ -217,7 +217,8 @@ export class EditorComponent extends Component {
         // переживает пересоздание EditorElement при перечитке.
         this.editTargetValue = {
             cloneSelections: () => this.editorViewState.cloneSelections(),
-            applyEdits: (edits, label) => this.editorViewState.applyEdits(edits, label),
+            applyEdits: (edits, label, computeCursorState) =>
+                this.editorViewState.applyEdits(edits, label, computeCursorState),
             markDirty: () => {
                 this.editor.markDirty();
             },

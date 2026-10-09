@@ -10,6 +10,7 @@ import type { IUndoElement } from "../../../editor/common/model/iUndoElement.ts"
 import { TextDocument } from "../../../editor/common/model/textDocument.ts";
 import type { IUndoViewBinding, UndoStepToken } from "../../../editor/common/model/undoManager.ts";
 import { UndoManager } from "../../../editor/common/model/undoManager.ts";
+import type { ICursorStateComputer } from "../../../editor/common/viewModel/trackedSelections.ts";
 import type { IUndoRedoElement } from "../../../platform/undoRedo/common/iUndoRedoElement.ts";
 import type { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 
@@ -26,7 +27,11 @@ let nextUndoContextId = 1;
  */
 export interface ITextEditTarget {
     cloneSelections(): ISelection[];
-    applyEdits(edits: readonly ITextEdit[], label: string): IUndoElement | undefined;
+    applyEdits(
+        edits: readonly ITextEdit[],
+        label: string,
+        computeCursorState?: ICursorStateComputer,
+    ): IUndoElement | undefined;
     markDirty(): void;
 }
 
@@ -333,11 +338,18 @@ export abstract class BaseTextEditorModel extends Disposable {
      * dirtiness follows automatically from the version bump. `target` —
      * действующая вью: её view-state применяет правки (и пересчитывает свои
      * выделения точно); остальные вью ремапятся по событию документа.
+     * `computeCursorState` — выделения действующей вью после правки (см.
+     * `EditorViewState.applyEdits`); без него они сдвигаются вслед за правками.
      */
-    public applyExternalEdits(edits: readonly ITextEdit[], label: string, target?: ITextEditTarget): void {
+    public applyExternalEdits(
+        edits: readonly ITextEdit[],
+        label: string,
+        target?: ITextEditTarget,
+        computeCursorState?: ICursorStateComputer,
+    ): void {
         const acting = target ?? this.editTargets.at(0);
         if (acting === undefined) return;
-        const element = acting.applyEdits(edits, label);
+        const element = acting.applyEdits(edits, label, computeCursorState);
         if (element) this.undoManagerValue.pushUndoElement(element);
         this.broadcastMarkDirty();
     }

@@ -5,6 +5,7 @@ import { createTestActiveEditorService } from "../../../../../TestUtils/testActi
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
@@ -57,6 +58,27 @@ describe("WhitespaceActions — trimTrailingWhitespace", () => {
         const { editor, exec } = openEditor("a b  \nc\td\t\n  keep  x   ");
         exec(trimTrailingWhitespaceAction);
         expect(editor.getText()).toBe("a b\nc\td\n  keep  x");
+    });
+
+    it("не плодит каретки по числу строк: одна каретка остаётся одной и сдвигается к обрезанному концу", () => {
+        // Регрессия: батч ставил каретку в конец КАЖДОЙ правки — по каретке на
+        // каждую обрезанную строку. Как в эталоне, выделения лишь сдвигаются.
+        const { editor, exec } = openEditor("a  \nbb   \ncc\t\nd");
+        editor.viewState.selections = [createCursorSelection(1, 4)];
+
+        exec(trimTrailingWhitespaceAction);
+
+        expect(editor.getText()).toBe("a\nbb\ncc\nd");
+        expect(editor.viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[1, 2]]);
+    });
+
+    it("каретка вне обрезаемого хвоста остаётся на месте", () => {
+        const { editor, exec } = openEditor("a  \nbbb\ncc  ");
+        editor.viewState.selections = [createCursorSelection(1, 1)];
+
+        exec(trimTrailingWhitespaceAction);
+
+        expect(editor.viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[1, 1]]);
     });
 
     it("is a no-op on already-clean text (content and version unchanged)", () => {

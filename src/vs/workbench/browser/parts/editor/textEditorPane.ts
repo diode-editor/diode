@@ -15,6 +15,7 @@ import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
@@ -222,8 +223,17 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.getText();
     }
 
-    public applyExternalEdits(edits: readonly ITextEdit[], label: string): void {
-        this.model.applyExternalEdits(edits, label, this.component.editTarget);
+    /**
+     * Программный батч одним шагом истории. Выделения после него назначает
+     * `computeCursorState` (обратные правки — в порядке `edits`), без него они
+     * сдвигаются вслед за правками — как `editor.executeEdits` эталона.
+     */
+    public applyExternalEdits(
+        edits: readonly ITextEdit[],
+        label: string,
+        computeCursorState?: ICursorStateComputer,
+    ): void {
+        this.model.applyExternalEdits(edits, label, this.component.editTarget, computeCursorState);
     }
 
     /**
