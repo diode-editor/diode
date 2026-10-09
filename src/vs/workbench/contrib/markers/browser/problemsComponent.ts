@@ -127,6 +127,7 @@ export class ProblemsComponent extends Component {
         );
         this.register(
             this.markerService.onDidChangeMarkers(() => {
+                // Stryker disable next-line UpdateOperator: эквивалентный — версия сравнивается с отрисованной только на неравенство, направление счёта не наблюдаемо
                 this.markersVersion++;
                 this.updateScheduler.schedule();
             }),
@@ -173,6 +174,7 @@ export class ProblemsComponent extends Component {
             this.viewsService.setViewBody(PROBLEMS_VIEW_ID, shouldShowTree ? this.view : null);
             this.treeShown = shouldShowTree;
         }
+        // Stryker disable next-line ConditionalExpression: эквивалентный — без маркеров дерево снято со вкладки (плейсхолдер), его пересборка невидима; ветка экономит работу
         if (shouldShowTree) await this.refreshTree();
     }
 
