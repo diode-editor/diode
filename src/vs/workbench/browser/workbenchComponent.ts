@@ -181,6 +181,37 @@ export class WorkbenchComponent extends Component {
         // WorkbenchContextKeys) — сам сервис про view ничего не знает.
         this.dispatcher = this.register(accessor.get(KeybindingDispatcherDIToken));
         this.dispatcher.hasKeyboardCapturingOverlay = () => this.view.overlayLayer.hasKeyboardCapturingOverlay();
+        // Capture-phase listeners run before the focused widget (the target),
+        // so while a chord is in progress they can swallow keys entirely —
+        // keeping them out of the editor whether or not they match a command.
+        // Сама обработка живёт в KeybindingDispatcher; WorkbenchComponent лишь
+        // вешает его листенеры на корневое дерево, которым владеет. Вешаются
+        // ДО главного меню: мнемоники (Alt+буква) слушаются на том же корне в
+        // bubble-фазе, а слушатели одного узла идут в порядке подписки — так
+        // кейбинд (в т.ч. пользовательский `alt+<буква>`) сильнее мнемоники, как в
+        // VS Code; съевший клавишу диспетчер глушит остальных слушателей корня.
+        // Страховка dirty-гейта кадра ввода: съеденный кейбинд (defaultPrevented)
+        // мог выполнить команду, меняющую состояние мимо всех markDirty-сеттеров
+        // (scrollLineUp пишет viewState.scrollTop напрямую, unfold — регионы).
+        // Fallback-вариант под damage-tracking: срабатывает, только если ни один
+        // обработчик ничего не пометил, — иначе markDirty корня превращал бы
+        // каждую съеденную клавишу в полноэкранный damage. Команда, честно
+        // пометившая виджет, даёт частичный кадр; забытый markDirty по-прежнему
+        // даёт полный (rect корня накрывает всё).
+        const markIfConsumed =
+            (handler: (event: TUIKeyboardEvent) => void) =>
+            (event: TUIKeyboardEvent): void => {
+                handler(event);
+                if (event.defaultPrevented && !this.view.isLayoutDirty) this.view.markDirty();
+            };
+        // Stryker disable ObjectLiteral,BooleanLiteral: capture против bubble различим только для виджета, глушащего keydown в target-фазе посреди аккорда; печатные клавиши и дефолтные действия глушатся и так (keypress-capture, preventDefault), а модальные оверлеи диспетчер обходит
+        this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDownCapture), {
+            capture: true,
+        });
+        // Stryker restore ObjectLiteral,BooleanLiteral
+        this.view.addEventListener("keypress", this.dispatcher.handleKeyPressCapture, { capture: true });
+        this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDown));
+        this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
         // QuickInput-кластер: файловый индекс, общий виджет-компонент (host
         // прикрепляется ниже, после постройки view) и InputBox/list-pick сервис.
         // WorkbenchComponent владеет их жизнью.
@@ -269,32 +300,7 @@ export class WorkbenchComponent extends Component {
         // contribution'ы этой фазы (статус-бар и пр.). Между конструктором и mount
         // ни один редактор не открывается → эквивалентно прежней проводке в ctor.
         this.lifecycleService.setPhase("ready");
-        // Capture-phase listeners run before the focused widget (the target),
-        // so while a chord is in progress they can swallow keys entirely —
-        // keeping them out of the editor whether or not they match a command.
-        // Сама обработка живёт в KeybindingDispatcher; WorkbenchComponent лишь
-        // вешает его листенеры на корневое дерево, которым владеет. Фокус-
-        // события уходят в WorkbenchContextKeys (пересчёт контекст-ключей).
-        // Страховка dirty-гейта кадра ввода: съеденный кейбинд (defaultPrevented)
-        // мог выполнить команду, меняющую состояние мимо всех markDirty-сеттеров
-        // (scrollLineUp пишет viewState.scrollTop напрямую, unfold — регионы).
-        // Fallback-вариант под damage-tracking: срабатывает, только если ни один
-        // обработчик ничего не пометил, — иначе markDirty корня превращал бы
-        // каждую съеденную клавишу в полноэкранный damage. Команда, честно
-        // пометившая виджет, даёт частичный кадр; забытый markDirty по-прежнему
-        // даёт полный (rect корня накрывает всё).
-        const markIfConsumed =
-            (handler: (event: TUIKeyboardEvent) => void) =>
-            (event: TUIKeyboardEvent): void => {
-                handler(event);
-                if (event.defaultPrevented && !this.view.isLayoutDirty) this.view.markDirty();
-            };
-        this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDownCapture), {
-            capture: true,
-        });
-        this.view.addEventListener("keypress", this.dispatcher.handleKeyPressCapture, { capture: true });
-        this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDown));
-        this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
+        // Фокус-события уходят в WorkbenchContextKeys (пересчёт контекст-ключей).
         this.view.addEventListener("focus", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.view.addEventListener("blur", this.workbenchContextKeys.handleFocusChange, { capture: true });
         // Применяем сохранённый layout до первого кадра (run() идёт после mount()).
