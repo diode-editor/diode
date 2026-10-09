@@ -85,10 +85,11 @@ export function createTreeViewNoopMembers(rpc: SubprocessRpc): ITreeViewNoopMemb
             viewId: string,
             treeDataProvider: vscode.TreeDataProvider<T>,
         ): vscode.Disposable => {
-            const treeView = createTreeView(viewId, { treeDataProvider });
-            return new DisposableImpl(() => {
-                treeView.dispose();
-            });
+            // Через createTreeView, как эталон: проверка провайдера и строка в
+            // Output — общие. Эталон в dispose освобождает view; у инертного view
+            // освобождать нечего — честная проводка вернёт сюда `treeView.dispose()`.
+            createTreeView(viewId, { treeDataProvider });
+            return new DisposableImpl(() => undefined);
         },
         createTreeView,
     };
