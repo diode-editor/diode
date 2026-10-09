@@ -1,0 +1,30 @@
+{
+    // Задачи проекта для Diode (F1 → «Tasks: Run Task»). Для VS Code — .vscode/tasks.json.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "npm test",
+            "type": "shell",
+            "command": "npm test",
+            "detail": "vitest run"
+        },
+        {
+            "label": "npm lint",
+            "type": "shell",
+            "command": "npm run lint",
+            "detail": "eslint src/ extensions/ tools/"
+        },
+        {
+            "label": "npm lint:fix",
+            "type": "shell",
+            "command": "npm run lint:fix",
+            "detail": "eslint src/ extensions/ tools/ --fix"
+        },
+        {
+            "label": "npm typecheck",
+            "type": "shell",
+            "command": "npm run typecheck",
+            "detail": "tsc --noEmit"
+        }
+    ]
+}

@@ -1,4 +1,4 @@
-// Разбор `.vscode/tasks.json` (`taskConfiguration.ts` эталона) — подмножество
+// Разбор `.diode/tasks.json` (`taskConfiguration.ts` эталона) — подмножество
 // схемы 2.0.0 первой итерации: задачи `shell`/`process` с `command`/`args`/
 // `options`/`presentation`/`runOptions`, секции платформы
 // (`linux`/`osx`/`windows`), глобальные `options` и `presentation`.

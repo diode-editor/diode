@@ -1445,10 +1445,10 @@ hide-toggle (`isHiddenByDefault`). См.
   tasks.json — `$core.<label>` (у эталона — uuid по имени в пределах сессии), задачи провайдера —
   `${расширение}.${_key}`; «та же задача» — `getMapKey` (папка + id). Дефолты `presentation` и
   `runOptions` — эталонные.
-- **`.vscode/tasks.json`** (`common/taskConfiguration.ts`, решение человека В1): читаем ровно там же,
-  где эталон, — в отличие от `.diode/settings.json` (#566). Разница в том, кто пишет файл: настройки
-  проекта Diode пишет сам (и держит их в своём каталоге), а `tasks.json` он только читает — общий с
-  VS Code файл проекта переиспользуется как есть. Схема 2.0.0 в объёме первой итерации:
+- **`.diode/tasks.json`** (`common/taskConfiguration.ts`): каталог проекта — тот же, что у
+  `.diode/settings.json` (`platform/workspace/common/workspaceConfigFolder.ts`, у эталона —
+  `.vscode`); `.vscode/tasks.json` не читается, как и `.vscode/settings.json` (импорт настроек VS Code
+  — отдельной задачей). Схема 2.0.0 в объёме первой итерации:
   `shell`/`process`, `command` (строка, массив, `{value, quoting}`), `args`, `options`
   (`cwd`/`env`/`shell`), `presentation`, `runOptions`, `detail`, `hide`, `isBackground`, `group`
   (хранится), секции `linux`/`osx`/`windows`, глобальные `options`/`presentation`. Неподдержанное —

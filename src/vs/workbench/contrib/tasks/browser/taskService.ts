@@ -1,5 +1,5 @@
 // Сервис задач (`abstractTaskService.ts` эталона в объёме первой итерации):
-// задачи из `.vscode/tasks.json` и от провайдеров расширений, запуск через
+// задачи из `.diode/tasks.json` и от провайдеров расширений, запуск через
 // {@link TerminalTaskSystem}, Rerun / Restart / Terminate / Show Running,
 // политика повторного запуска (`instancePolicy`), `task.saveBeforeRun`,
 // активация провайдеров (`onTaskType:`) и ключ `taskRunning`.
@@ -24,6 +24,7 @@ import type {
     IWorkspaceFolder,
 } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { workspaceConfigFilePath } from "../../../../platform/workspace/common/workspaceConfigFolder.ts";
 import {
     createTaskIdentifier,
     type IKeyedTaskIdentifier,
@@ -84,7 +85,8 @@ export interface ITaskQuickPickEntry extends QuickPickItem {
 export const TASK_PROVIDER_TIMEOUT_MS = 5000;
 
 /** Где лежит конфигурация задач папки — как у эталона (Diode её только читает). */
-export const TASKS_JSON_PATH = ".vscode/tasks.json";
+/** tasks.json проекта относительно папки (у эталона — `.vscode/tasks.json`). */
+export const TASKS_JSON_PATH = workspaceConfigFilePath("tasks.json");
 
 export const TaskServiceDIToken = token<TaskService>("TaskService");
 

@@ -10,10 +10,10 @@
 
 ## Первая итерация (одним PR)
 
-- [x] S1 «Tasks: Run Task» — двухуровневый пикер: configured из `.vscode/tasks.json`,
+- [x] S1 «Tasks: Run Task» — двухуровневый пикер: configured из `.diode/tasks.json`,
   затем по пункту на тип провайдера (`contributes.taskDefinitions`) → задачи типа, «Go back ↩»;
   «Show All Tasks...».
-- [x] S2 задачи из `.vscode/tasks.json` (2.0.0): `type: shell|process`, `label`, `command`
+- [x] S2 задачи из `.diode/tasks.json` (2.0.0; каталог проекта Diode, `.vscode/` не читается): `type: shell|process`, `label`, `command`
   (строка | `{value, quoting}`), `args`, `options.cwd/env/shell{executable,args}`,
   `presentation`, `detail`, `isBackground`, `runOptions`, секции `linux`/`osx`/`windows`,
   глобальные `options`/`presentation`.
@@ -52,6 +52,7 @@
   расширения): такая запись — warn в лог `tasks`, в пикер не попадает.
 - [ ] `runOptions.instanceLimit` > 1 — одна копия задачи, лимит пишется предупреждением.
 - [ ] Мультирут: задачи берутся из первой папки воркспейса.
+- [ ] Импорт `.vscode/tasks.json` (вместе с настройками VS Code) — сейчас `.vscode/` не читается.
 - [ ] Повторное использование терминала между задачами РАЗНЫХ видов исполнения
   (шелл/процесс ↔ `CustomExecution`) — у эталона так можно, у нас такая задача получает новый
   терминал.
