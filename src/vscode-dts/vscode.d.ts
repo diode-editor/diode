@@ -916,6 +916,26 @@ declare module "vscode" {
 		 * @returns A new Terminal.
 		 */
 		export function createTerminal(options: ExtensionTerminalOptions): Terminal;
+
+		/**
+		 * Register a {@link TreeDataProvider} for the view contributed using the extension point `views`.
+		 * This will allow you to contribute data to the {@link TreeView} and update if the data changes.
+		 *
+		 * **Note:** To get access to the {@link TreeView} and perform operations on it, use {@link window.createTreeView createTreeView}.
+		 *
+		 * @param viewId Id of the view contributed using the extension point `views`.
+		 * @param treeDataProvider A {@link TreeDataProvider} that provides tree data for the view
+		 * @returns A {@link Disposable disposable} that unregisters the {@link TreeDataProvider}.
+		 */
+		export function registerTreeDataProvider<T>(viewId: string, treeDataProvider: TreeDataProvider<T>): Disposable;
+
+		/**
+		 * Create a {@link TreeView} for the view contributed using the extension point `views`.
+		 * @param viewId Id of the view contributed using the extension point `views`.
+		 * @param options Options for creating the {@link TreeView}
+		 * @returns a {@link TreeView}.
+		 */
+		export function createTreeView<T>(viewId: string, options: TreeViewOptions<T>): TreeView<T>;
 	}
 
 	/**
@@ -8647,6 +8667,503 @@ declare module "vscode" {
 		 * execute an underlying process.
 		 */
 		export const onDidEndTaskProcess: Event<TaskProcessEndEvent>;
+	}
+
+	/**
+	 * A reference to a named icon. Currently, {@link ThemeIcon.File File}, {@link ThemeIcon.Folder Folder},
+	 * and [ThemeIcon ids](https://code.visualstudio.com/api/references/icons-in-labels#icon-listing) are supported.
+	 * Using a theme icon is preferred over a custom icon as it gives product theme authors the possibility to change the icons.
+	 *
+	 * *Note* that theme icons can also be rendered inside labels and descriptions. Places that support theme icons spell this out
+	 * and they use the `$(<name>)`-syntax, for instance `quickPick.label = "Hello World $(globe)"`.
+	 */
+	export class ThemeIcon {
+		/**
+		 * Reference to an icon representing a file. The icon is taken from the current file icon theme or a placeholder icon is used.
+		 */
+		static readonly File: ThemeIcon;
+
+		/**
+		 * Reference to an icon representing a folder. The icon is taken from the current file icon theme or a placeholder icon is used.
+		 */
+		static readonly Folder: ThemeIcon;
+
+		/**
+		 * The id of the icon. The available icons are listed in https://code.visualstudio.com/api/references/icons-in-labels#icon-listing.
+		 */
+		readonly id: string;
+
+		/**
+		 * The optional ThemeColor of the icon. The color is currently only used in {@link TreeItem}.
+		 */
+		readonly color?: ThemeColor | undefined;
+
+		/**
+		 * Creates a reference to a theme icon.
+		 * @param id id of the icon. The available icons are listed in https://code.visualstudio.com/api/references/icons-in-labels#icon-listing.
+		 * @param color optional `ThemeColor` for the icon. The color is currently only used in {@link TreeItem}.
+		 */
+		constructor(id: string, color?: ThemeColor);
+	}
+
+	/**
+	 * Represents an icon in the UI. This is either an uri, separate uris for the light- and dark-themes,
+	 * or a {@link ThemeIcon theme icon}.
+	 */
+	export type IconPath = Uri | {
+		/**
+		 * The icon path for the light theme.
+		 */
+		light: Uri;
+		/**
+		 * The icon path for the dark theme.
+		 */
+		dark: Uri;
+	} | ThemeIcon;
+
+	/**
+	 * Options for creating a {@link TreeView}
+	 */
+	export interface TreeViewOptions<T> {
+
+		/**
+		 * A data provider that provides tree data.
+		 */
+		treeDataProvider: TreeDataProvider<T>;
+
+		/**
+		 * Whether to show collapse all action or not.
+		 */
+		showCollapseAll?: boolean;
+
+		/**
+		 * Whether the tree supports multi-select. When the tree supports multi-select and a command is executed from the tree,
+		 * the first argument to the command is the tree item that the command was executed on and the second argument is an
+		 * array containing all selected tree items.
+		 */
+		canSelectMany?: boolean;
+
+		/**
+		 * By default, when the children of a tree item have already been fetched, child checkboxes are automatically managed based on the checked state of the parent tree item.
+		 * If the tree item is collapsed by default (meaning that the children haven't yet been fetched) then child checkboxes will not be updated.
+		 * To override this behavior and manage child and parent checkbox state in the extension, set this to `true`.
+		 *
+		 * Examples where {@link TreeViewOptions.manageCheckboxStateManually} is false, the default behavior:
+		 *
+		 * 1. A tree item is checked, then its children are fetched. The children will be checked.
+		 *
+		 * 2. A tree item's parent is checked. The tree item and all of it's siblings will be checked.
+		 *   - [ ] Parent
+		 *     - [ ] Child 1
+		 *     - [ ] Child 2
+		 *   When the user checks Parent, the tree will look like this:
+		 *   - [x] Parent
+		 *     - [x] Child 1
+		 *     - [x] Child 2
+		 *
+		 * 3. A tree item and all of it's siblings are checked. The parent will be checked.
+		 *   - [ ] Parent
+		 *     - [ ] Child 1
+		 *     - [ ] Child 2
+		 *   When the user checks Child 1 and Child 2, the tree will look like this:
+		 *   - [x] Parent
+		 *     - [x] Child 1
+		 *     - [x] Child 2
+		 *
+		 * 4. A tree item is unchecked. The parent will be unchecked.
+		 *   - [x] Parent
+		 *     - [x] Child 1
+		 *     - [x] Child 2
+		 *   When the user unchecks Child 1, the tree will look like this:
+		 *   - [ ] Parent
+		 *     - [ ] Child 1
+		 *     - [x] Child 2
+		 */
+		manageCheckboxStateManually?: boolean;
+	}
+
+	/**
+	 * The event that is fired when an element in the {@link TreeView} is expanded or collapsed
+	 */
+	export interface TreeViewExpansionEvent<T> {
+
+		/**
+		 * Element that is expanded or collapsed.
+		 */
+		readonly element: T;
+
+	}
+
+	/**
+	 * The event that is fired when there is a change in {@link TreeView.selection tree view's selection}
+	 */
+	export interface TreeViewSelectionChangeEvent<T> {
+
+		/**
+		 * Selected elements.
+		 */
+		readonly selection: readonly T[];
+
+	}
+
+	/**
+	 * The event that is fired when there is a change in {@link TreeView.visible tree view's visibility}
+	 */
+	export interface TreeViewVisibilityChangeEvent {
+
+		/**
+		 * `true` if the {@link TreeView tree view} is visible otherwise `false`.
+		 */
+		readonly visible: boolean;
+	}
+
+	/**
+	 * A badge presenting a value for a view
+	 */
+	export interface ViewBadge {
+
+		/**
+		 * A label to present in tooltip for the badge.
+		 */
+		readonly tooltip: string;
+
+		/**
+		 * The value to present in the badge.
+		 */
+		readonly value: number;
+	}
+
+	/**
+	 * An event describing the change in a tree item's checkbox state.
+	 */
+	export interface TreeCheckboxChangeEvent<T> {
+		/**
+		 * The items that were checked or unchecked.
+		 */
+		readonly items: ReadonlyArray<[T, TreeItemCheckboxState]>;
+	}
+
+	/**
+	 * Represents a Tree view
+	 */
+	export interface TreeView<T> extends Disposable {
+
+		/**
+		 * Event that is fired when an element is expanded
+		 */
+		readonly onDidExpandElement: Event<TreeViewExpansionEvent<T>>;
+
+		/**
+		 * Event that is fired when an element is collapsed
+		 */
+		readonly onDidCollapseElement: Event<TreeViewExpansionEvent<T>>;
+
+		/**
+		 * Currently selected elements.
+		 */
+		readonly selection: readonly T[];
+
+		/**
+		 * Event that is fired when the {@link TreeView.selection selection} has changed
+		 */
+		readonly onDidChangeSelection: Event<TreeViewSelectionChangeEvent<T>>;
+
+		/**
+		 * `true` if the {@link TreeView tree view} is visible otherwise `false`.
+		 */
+		readonly visible: boolean;
+
+		/**
+		 * Event that is fired when {@link TreeView.visible visibility} has changed
+		 */
+		readonly onDidChangeVisibility: Event<TreeViewVisibilityChangeEvent>;
+
+		/**
+		 * An event to signal that an element or root has either been checked or unchecked.
+		 */
+		readonly onDidChangeCheckboxState: Event<TreeCheckboxChangeEvent<T>>;
+
+		/**
+		 * An optional human-readable message that will be rendered in the view.
+		 * Setting the message to null, undefined, or empty string will remove the message from the view.
+		 */
+		message?: string;
+
+		/**
+		 * The tree view title is initially taken from the extension package.json
+		 * Changes to the title property will be properly reflected in the UI in the title of the view.
+		 */
+		title?: string;
+
+		/**
+		 * An optional human-readable description which is rendered less prominently in the title of the view.
+		 * Setting the title description to null, undefined, or empty string will remove the description from the view.
+		 */
+		description?: string;
+
+		/**
+		 * The badge to display for this TreeView.
+		 * To remove the badge, set to undefined.
+		 */
+		badge?: ViewBadge | undefined;
+
+		/**
+		 * Reveals the given element in the tree view.
+		 * If the tree view is not visible then the tree view is shown and element is revealed.
+		 *
+		 * By default revealed element is selected.
+		 * In order to not to select, set the option `select` to `false`.
+		 * In order to focus, set the option `focus` to `true`.
+		 * In order to expand the revealed element, set the option `expand` to `true`. To expand recursively set `expand` to the number of levels to expand.
+		 *
+		 * * *NOTE:* You can expand only to 3 levels maximum.
+		 * * *NOTE:* The {@link TreeDataProvider} that the `TreeView` {@link window.createTreeView is registered with} with must implement {@link TreeDataProvider.getParent getParent} method to access this API.
+		 */
+		reveal(element: T, options?: {
+			/**
+			 * If true, then the element will be selected.
+			 */
+			readonly select?: boolean;
+			/**
+			 * If true, then the element will be focused.
+			 */
+			readonly focus?: boolean;
+			/**
+			 * If true, then the element will be expanded. If a number is passed, then up to that number of levels of children will be expanded
+			 */
+			readonly expand?: boolean | number;
+		}): Thenable<void>;
+	}
+
+	/**
+	 * A data provider that provides tree data
+	 */
+	export interface TreeDataProvider<T> {
+		/**
+		 * An optional event to signal that an element or root has changed.
+		 * This will trigger the view to update the changed element/root and its children recursively (if shown).
+		 * To signal that root has changed, do not pass any argument or pass `undefined` or `null`.
+		 */
+		onDidChangeTreeData?: Event<T | T[] | undefined | null | void>;
+
+		/**
+		 * Get {@link TreeItem} representation of the `element`
+		 *
+		 * @param element The element for which {@link TreeItem} representation is asked for.
+		 * @returns TreeItem representation of the element.
+		 */
+		getTreeItem(element: T): TreeItem | Thenable<TreeItem>;
+
+		/**
+		 * Get the children of `element` or root if no element is passed.
+		 *
+		 * *Note:* The result is not mutated by the API consumer; readonly arrays may be cast to `T[]`.
+		 *
+		 * @param element The element from which the provider gets children. Can be `undefined`.
+		 * @returns Children of `element` or root if no element is passed.
+		 */
+		getChildren(element?: T): ProviderResult<T[]>;
+
+		/**
+		 * Optional method to return the parent of `element`.
+		 * Return `null` or `undefined` if `element` is a child of root.
+		 *
+		 * **NOTE:** This method should be implemented in order to access {@link TreeView.reveal reveal} API.
+		 *
+		 * @param element The element for which the parent has to be returned.
+		 * @returns Parent of `element`.
+		 */
+		getParent?(element: T): ProviderResult<T>;
+
+		/**
+		 * Called on hover to resolve the {@link TreeItem.tooltip TreeItem} property if it is undefined.
+		 * Called on tree item click/open to resolve the {@link TreeItem.command TreeItem} property if it is undefined.
+		 * Only properties that were undefined can be resolved in `resolveTreeItem`.
+		 * Functionality may be expanded later to include being called to resolve other missing
+		 * properties on selection and/or on open.
+		 *
+		 * Will only ever be called once per TreeItem.
+		 *
+		 * onDidChangeTreeData should not be triggered from within resolveTreeItem.
+		 *
+		 * *Note* that this function is called when tree items are already showing in the UI.
+		 * Because of that, no property that changes the presentation (label, description, etc.)
+		 * can be changed.
+		 *
+		 * @param item Undefined properties of `item` should be set then `item` should be returned.
+		 * @param element The object associated with the TreeItem.
+		 * @param token A cancellation token.
+		 * @returns The resolved tree item or a thenable that resolves to such. It is OK to return the given
+		 * `item`. When no result is returned, the given `item` will be used.
+		 */
+		resolveTreeItem?(item: TreeItem, element: T, token: CancellationToken): ProviderResult<TreeItem>;
+	}
+
+	/**
+	 * A tree item is an UI element of the tree. Tree items are created by the {@link TreeDataProvider data provider}.
+	 */
+	export class TreeItem {
+		/**
+		 * A human-readable string describing this item. When `falsy`, it is derived from {@link TreeItem.resourceUri resourceUri}.
+		 */
+		label?: string | TreeItemLabel;
+
+		/**
+		 * Optional id for the tree item that has to be unique across tree. The id is used to preserve the selection and expansion state of the tree item.
+		 *
+		 * If not provided, an id is generated using the tree item's label. **Note** that when labels change, ids will change and that selection and expansion state cannot be kept stable anymore.
+		 */
+		id?: string;
+
+		/**
+		 * The icon path or {@link ThemeIcon} for the tree item.
+		 * When `falsy`, {@link ThemeIcon.Folder Folder Theme Icon} is assigned, if item is collapsible otherwise {@link ThemeIcon.File File Theme Icon}.
+		 * When a file or folder {@link ThemeIcon} is specified, icon is derived from the current file icon theme for the specified theme icon using {@link TreeItem.resourceUri resourceUri} (if provided).
+		 */
+		iconPath?: string | IconPath;
+
+		/**
+		 * A human-readable string which is rendered less prominent.
+		 * When `true`, it is derived from {@link TreeItem.resourceUri resourceUri} and when `falsy`, it is not shown.
+		 */
+		description?: string | boolean;
+
+		/**
+		 * A {@link Uri} representing the resource associated with this item.
+		 *
+		 * When set, this property is used to automatically derive several item properties if they are not explicitly provided:
+		 * - **Label**: Derived from the resource's file name when {@link TreeItem.label label} is not provided.
+		 * - **Description**: Derived from the resource's path when {@link TreeItem.description description} is set to `true`.
+		 * - **Icon**: Derived from the current file icon theme when {@link TreeItem.iconPath iconPath} is set to
+		 *   {@link ThemeIcon.File} or {@link ThemeIcon.Folder}.
+		 */
+		resourceUri?: Uri;
+
+		/**
+		 * The tooltip text when you hover over this item.
+		 */
+		tooltip?: string | MarkdownString | undefined;
+
+		/**
+		 * The {@link Command} that should be executed when the tree item is selected.
+		 *
+		 * Please use `vscode.open` or `vscode.diff` as command IDs when the tree item is opening
+		 * something in the editor. Using these commands ensures that the resulting editor will
+		 * appear consistent with how other built-in trees open editors.
+		 */
+		command?: Command;
+
+		/**
+		 * {@link TreeItemCollapsibleState} of the tree item.
+		 */
+		collapsibleState?: TreeItemCollapsibleState;
+
+		/**
+		 * Context value of the tree item. This can be used to contribute item specific actions in the tree.
+		 * For example, a tree item is given a context value as `folder`. When contributing actions to `view/item/context`
+		 * using `menus` extension point, you can specify context value for key `viewItem` in `when` expression like `viewItem == folder`.
+		 * ```json
+		 * "contributes": {
+		 *   "menus": {
+		 *     "view/item/context": [
+		 *       {
+		 *         "command": "extension.deleteFolder",
+		 *         "when": "viewItem == folder"
+		 *       }
+		 *     ]
+		 *   }
+		 * }
+		 * ```
+		 * This will show action `extension.deleteFolder` only for items with `contextValue` is `folder`.
+		 */
+		contextValue?: string;
+
+		/**
+		 * Accessibility information used when screen reader interacts with this tree item.
+		 * Generally, a TreeItem has no need to set the `role` of the accessibilityInformation;
+		 * however, there are cases where a TreeItem is not displayed in a tree-like way where setting the `role` may make sense.
+		 */
+		accessibilityInformation?: AccessibilityInformation;
+
+		/**
+		 * {@link TreeItemCheckboxState TreeItemCheckboxState} of the tree item.
+		 * {@link TreeDataProvider.onDidChangeTreeData onDidChangeTreeData} should be fired when {@link TreeItem.checkboxState checkboxState} changes.
+		 */
+		checkboxState?: TreeItemCheckboxState | {
+			/**
+			 * The {@link TreeItemCheckboxState} of the tree item
+			 */
+			readonly state: TreeItemCheckboxState;
+			/**
+			 * A tooltip for the checkbox
+			 */
+			readonly tooltip?: string;
+			/**
+			 * Accessibility information used when screen readers interact with this checkbox
+			 */
+			readonly accessibilityInformation?: AccessibilityInformation;
+		};
+
+		/**
+		 * @param label A human-readable string describing this item
+		 * @param collapsibleState {@link TreeItemCollapsibleState} of the tree item. Default is {@link TreeItemCollapsibleState.None}
+		 */
+		constructor(label: string | TreeItemLabel, collapsibleState?: TreeItemCollapsibleState);
+
+		/**
+		 * @param resourceUri The {@link Uri} of the resource representing this item.
+		 * @param collapsibleState {@link TreeItemCollapsibleState} of the tree item. Default is {@link TreeItemCollapsibleState.None}
+		 */
+		constructor(resourceUri: Uri, collapsibleState?: TreeItemCollapsibleState);
+	}
+
+	/**
+	 * Collapsible state of the tree item
+	 */
+	export enum TreeItemCollapsibleState {
+		/**
+		 * Determines an item can be neither collapsed nor expanded. Implies it has no children.
+		 */
+		None = 0,
+		/**
+		 * Determines an item is collapsed
+		 */
+		Collapsed = 1,
+		/**
+		 * Determines an item is expanded
+		 */
+		Expanded = 2
+	}
+
+	/**
+	 * Label describing the {@link TreeItem Tree item}
+	 */
+	export interface TreeItemLabel {
+
+		/**
+		 * A human-readable string describing the {@link TreeItem Tree item}.
+		 */
+		label: string;
+
+		/**
+		 * Ranges in the label to highlight. A range is defined as a tuple of two number where the
+		 * first is the inclusive start index and the second the exclusive end index
+		 */
+		highlights?: [number, number][];
+	}
+
+	/**
+	 * Checkbox state of the tree item
+	 */
+	export enum TreeItemCheckboxState {
+		/**
+		 * Determines an item is unchecked
+		 */
+		Unchecked = 0,
+		/**
+		 * Determines an item is checked
+		 */
+		Checked = 1
 	}
 }
 

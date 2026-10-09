@@ -1,0 +1,27 @@
+{
+    "name": "tree-outline",
+    "displayName": "Tree Outline",
+    "description": "E2E demo extension: a build-targets outline whose module extends vscode.TreeItem and whose activate() registers its tree first and everything else after it.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "commands": [
+            {
+                "command": "treeOutline.listTargets",
+                "title": "Tree Outline: List Targets"
+            }
+        ],
+        "views": {
+            "explorer": [
+                {
+                    "id": "treeOutline.targets",
+                    "name": "Run Targets"
+                }
+            ]
+        }
+    }
+}

@@ -1902,3 +1902,78 @@ export class Task implements vscode.Task {
             (value as vscode.RunOptions | null | undefined) ?? (Object.create(null) as vscode.RunOptions);
     }
 }
+
+// ── Деревья (`extHostTypes.ts` эталона) ───────────────────────────────────────
+
+/**
+ * Ссылка на codicon по id (`vscode.ThemeIcon`). Значки в TUI не рисуются, но
+ * класс обязан быть значением: расширения конструируют его при сборке
+ * `TreeItem` (`new ThemeIcon("sync~spin")`) и читают статики `File`/`Folder`.
+ * Без `isThemeIcon` эталона — им проверяет вход только рендер дерева.
+ */
+export class ThemeIcon implements vscode.ThemeIcon {
+    public static readonly File = new ThemeIcon("file");
+    public static readonly Folder = new ThemeIcon("folder");
+
+    public readonly id: string;
+    public readonly color?: vscode.ThemeColor;
+
+    public constructor(id: string, color?: vscode.ThemeColor) {
+        this.id = id;
+        this.color = color;
+    }
+}
+
+/** Состояние раскрытия узла дерева (`vscode.TreeItemCollapsibleState`). */
+export enum TreeItemCollapsibleState {
+    None = 0,
+    Collapsed = 1,
+    Expanded = 2,
+}
+
+/** Состояние чекбокса узла дерева (`vscode.TreeItemCheckboxState`). */
+export enum TreeItemCheckboxState {
+    Unchecked = 0,
+    Checked = 1,
+}
+
+/**
+ * Узел дерева (`vscode.TreeItem`). Деревья расширений пока не рисуются
+ * (`treeViewNoop.ts`), но класс обязан быть настоящим: провайдер объявляет
+ * `class Node extends vscode.TreeItem` на уровне модуля, и без значения точка
+ * входа расширения не загружается вовсе («Class extends value undefined»).
+ *
+ * Перегрузки и дефолт — эталонные: подпись (строка или `TreeItemLabel`) либо
+ * `Uri` ресурса, `collapsibleState` по умолчанию `None`. Необязательные поля —
+ * `declare`: у эталона (`useDefineForClassFields: false`) они не становятся
+ * собственными свойствами экземпляра, и геттер подкласса (`get tooltip()`) не
+ * затеняется `undefined`. Отступление: нет статического `isTreeItem` — им
+ * проверяет ответ провайдера только рендер дерева, которого у нас нет.
+ */
+export class TreeItem implements vscode.TreeItem {
+    declare public label?: string | vscode.TreeItemLabel;
+    declare public id?: string;
+    declare public iconPath?: string | vscode.IconPath;
+    declare public description?: string | boolean;
+    declare public resourceUri?: vscode.Uri;
+    declare public tooltip?: string | vscode.MarkdownString;
+    declare public command?: vscode.Command;
+    declare public contextValue?: string;
+    declare public accessibilityInformation?: vscode.AccessibilityInformation;
+    declare public checkboxState?: vscode.TreeItem["checkboxState"];
+    public collapsibleState?: vscode.TreeItemCollapsibleState;
+
+    // Две перегрузки эталона (подпись | Uri) — одной сигнатурой: так требует линт.
+    public constructor(
+        arg: string | vscode.TreeItemLabel | vscode.Uri,
+        collapsibleState: vscode.TreeItemCollapsibleState = TreeItemCollapsibleState.None,
+    ) {
+        this.collapsibleState = collapsibleState;
+        if (arg instanceof Uri) {
+            this.resourceUri = arg;
+        } else {
+            // `vscode.Uri` в d.ts — класс, и `instanceof` нашего `Uri` его не сужает.
+            this.label = arg as string | vscode.TreeItemLabel;
+        }
+    }
+}

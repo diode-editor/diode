@@ -108,10 +108,16 @@
 - [ ] Команда показа контейнера расширения (`workbench.view.<id>`) —
       activity bar'а нет, переключатель командный.
 - [ ] Активация `onView:<id>` (Phase 7 закрывает `onCommand:*`, это следующее).
-- [ ] TreeView-API поверх RPC: `window.registerTreeDataProvider`/`createTreeView`,
+- [~] TreeView-API поверх RPC: `window.registerTreeDataProvider`/`createTreeView`,
       `views.getChildren`/`getTreeItem` (pull, как у completion), рендер в
-      `TreeViewElement`; раскомментировать закрытие типов в `vscode.d.ts`
-      (`TreeDataProvider`, `TreeItem`, `TreeItemCollapsibleState`, `TreeView*`).
+      `TreeViewElement`. Сделано: закрытие типов в `vscode.d.ts` поднято
+      (`ThemeIcon`, `IconPath`, `TreeDataProvider`, `TreeItem*`, `TreeView*`,
+      `ViewBadge`; `TreeViewOptions` без `dragAndDropController`), значения
+      `TreeItem`/enum'ы/`ThemeIcon` — эталонные, а рантайм обеих функций —
+      заглушка `api/common/treeViewNoop.ts` (регистрация проходит, `TreeView`
+      инертный, одна строка в Output на view). Честная проводка заменяет
+      заглушку без смены поверхности. Первый стоковый потребитель — форк
+      bazel-java (`tihonove.bazel-java-tihonove`, view `bazelTaskOutline`).
 - [ ] `contributes.menus` для `view/title` и `view/item/context` — точки
       `MenuId.ViewTitle` / `MenuId.ViewContainerTitle` и императивная фильтрация
       по `menuContext` уже есть.
