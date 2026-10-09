@@ -67,13 +67,18 @@ describe("Workbench — Save As", () => {
         await vi.waitFor(() => {
             expect(fs.readFileSync(newPath, "utf-8")).toBe("Alpha content");
         });
-        h.testApp.render();
 
         // Файл переехал на новый путь той же вкладкой — второй не появилось.
+        // Ждём и метку: атомарная запись кладёт файл на диск раньше, чем
+        // `writeFile` вернётся и модель объявит о сохранении (под нагрузкой —
+        // заметно раньше), а вкладку переименовывает именно это событие.
         const tabStrip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
-        const labels = tabStrip.getItemElements().map((el) => el.getLabel());
-        expect(labels).toHaveLength(1);
-        expect(labels.some((l) => l.includes("renamed.md"))).toBe(true);
+        await vi.waitFor(() => {
+            h.testApp.render();
+            const labels = tabStrip.getItemElements().map((el) => el.getLabel());
+            expect(labels).toHaveLength(1);
+            expect(labels.some((l) => l.includes("renamed.md"))).toBe(true);
+        });
     });
 
     it("Save As в собственный путь сохраняет без вопроса о перезаписи", async () => {
