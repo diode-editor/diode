@@ -90,6 +90,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Distribution](Distribution.md) — каналы дистрибуции: `install.sh`, apt (плоский репозиторий на Releases), npm `@diode-editor/diode`, Homebrew tap, winget; код и воркфлоу готовы, осталось завести секреты/репозитории и выпустить первый релиз с ними
 - [~] [Folding](Folding.md) — indentation-фолдинг и API-провайдеры готовы; далее — region-маркеры/language-configuration, hover-контролы, персист свёрток
 - [~] [Uri](Uri.md) — ядро на `Uri` готово, виртуальные read-only документы (`registerTextDocumentContentProvider`) доведены до вкладки; далее — `untitled:`-провайдер, язык безымянных буферов, кэш содержимого
+- [~] [TrackedDecorations](TrackedDecorations.md) — декорации маркеров едут вместе с текстом (сделано); далее — `IntervalTree`, перевод поиска/SCM/диффа на декорации модели
 - [~] [Problems](Problems.md) — маркер-сервис, squiggle и панель готовы; далее — счётчик в статус-баре, доп. поставщики (расширения/matchers)
 - [~] [TerminalPanelBugs](TerminalPanelBugs.md) — баги панели/терминала из e2e-прогона MVP закрыты; осталась необработанная ошибка спавна шелла на неподдерживаемой платформе
 - [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), сплиты/rename терминалов, тема-реактивная ANSI-палитра, commandsToSkipShell

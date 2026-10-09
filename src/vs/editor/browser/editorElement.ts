@@ -59,7 +59,6 @@ import { TokenIndex } from "./tokenIndex.ts";
 const FIND_MATCH_BG = packRgb(98, 91, 23);
 const FIND_MATCH_CURRENT_BG = packRgb(168, 109, 0);
 const NO_RANGES: readonly IRange[] = [];
-const NO_MARKER_DECORATIONS: readonly IMarkerDecoration[] = [];
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
 // Change-bar glyph — VS Code's dirty-diff gutter paints a thin border; in a cell
 // grid we use the heavy box-drawing vertical so the bar sits centered in its
@@ -163,8 +162,19 @@ export class EditorElement extends TUIElement implements IScrollable {
      */
     public gutterBackgroundToken: string | null = "editorGutter.background";
 
-    /** Diagnostic squiggle decorations for the open document (pushed by the controller). */
-    public markerDecorations: readonly IMarkerDecoration[] = NO_MARKER_DECORATIONS;
+    /**
+     * Diagnostic squiggle decorations for the open document (pushed by the
+     * controller). Хранит их документ: диапазоны едут вместе с текстом при
+     * правках, чтение отдаёт уже сдвинутые (см. `EditorViewState.setMarkerDecorations`).
+     */
+    public get markerDecorations(): readonly IMarkerDecoration[] {
+        return this.viewState.getMarkerDecorations();
+    }
+
+    public set markerDecorations(decorations: readonly IMarkerDecoration[]) {
+        this.viewState.setMarkerDecorations(decorations);
+    }
+
     /** Gutter change-bar decorations (SCM/git dirty-diff) for the open document (pushed by the controller). */
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
     /** Внешние декорации владельца вью (дифф): фоны строк/диапазонов, маркеры, зоны. */

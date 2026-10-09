@@ -10,6 +10,7 @@ import { createTextEdit } from "../core/iTextEdit.ts";
 import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
 import type { IApplyEditsResult, ITextDocument } from "./iTextDocument.ts";
+import { type IModelDeltaDecoration, TrackedDecorations } from "./trackedDecorations.ts";
 
 /**
  * Simple array-backed implementation of ITextDocument.
@@ -30,6 +31,7 @@ export class TextDocument implements ITextDocument {
     private innerVersionId = 0;
     private eolValue: EndOfLine;
     private languageIdValue: string;
+    private readonly decorations = new TrackedDecorations();
 
     public constructor(text: string, languageId = "plaintext") {
         this.eolValue = detectEndOfLine(text);
@@ -100,6 +102,7 @@ export class TextDocument implements ITextDocument {
         this.innerVersionId++;
         this.eolValue = detectEndOfLine(text);
         this.lines = text.split(/\r\n|\n/);
+        this.decorations.acceptFlush(this);
         this.fireChange({
             startLine: 0,
             oldEndLine,
@@ -113,6 +116,14 @@ export class TextDocument implements ITextDocument {
             isFlush: true,
         });
         if (this.eolValue !== eolBefore) this.onDidChangeEolEmitter.fire();
+    }
+
+    public deltaDecorations(oldIds: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
+        return this.decorations.delta(oldIds, newDecorations, this);
+    }
+
+    public getDecorationRange(id: string): IRange | null {
+        return this.decorations.getRange(id);
     }
 
     public getTextInRange(range: IRange): string {
@@ -266,6 +277,11 @@ export class TextDocument implements ITextDocument {
         const suffix = this.lines[endLine].substring(endChar);
         const insertedText = prefix + text + suffix;
         const newLines = insertedText.split("\n");
+
+        // Декорации двигаются, пока строки ещё старые: смещения внутри
+        // заменяемого диапазона меряются по прежнему тексту (как `acceptReplace`
+        // дерева декораций эталона внутри `applyEdits`).
+        this.decorations.acceptEdit(edit, (line) => this.lines[line].length);
 
         // How many lines we delete vs insert
         const deletedLineCount = endLine - startLine + 1;

@@ -1,11 +1,14 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { createRange } from "../common/core/iRange.ts";
+import { createCursorSelection } from "../common/core/iSelection.ts";
+import { createTextEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../contrib/folding/foldingRangeProvider.ts";
@@ -71,6 +74,86 @@ describe("EditorElement — marker squiggle decorations", () => {
             app.render();
             expect(app.backend.getFgAt(new Point(editor.gutterWidth, 0))).toBe(color);
         }
+    });
+});
+
+// Догфудинг: «при редактировании подчёркивания ошибок не двигаются вместе с
+// текстом» — до новых диагностик провайдера squiggle стоял на старых
+// координатах и подчёркивал чужой текст. В эталоне маркеры — декорации модели
+// (stickiness NeverGrowsWhenTypingAtEdges) и едут вместе с правкой сразу.
+describe("EditorElement — squiggle едет вместе с текстом при правке", () => {
+    const ERROR_FG = packRgb(0xf1, 0x4c, 0x4c); // default editorError.foreground
+
+    function makeTracked(content: string): { app: TestApp; editor: EditorElement } {
+        const editor = makeEditor(content);
+        // Ошибка на «bad» второй строки.
+        editor.markerDecorations = [{ range: createRange(1, 4, 1, 7), severity: MarkerSeverity.Error }];
+        const app = TestApp.createWithContent(editor, new Size(40, 6));
+        app.render();
+        return { app, editor };
+    }
+
+    /** Ячейки строки `screenY` с волной — по одной букве. */
+    function squiggledText(app: TestApp, editor: EditorElement, screenY: number): string {
+        let text = "";
+        for (let x = editor.gutterWidth; x < 40; x++) {
+            const cell = app.app.screen.getCell(new Point(x, screenY));
+            if ((cell.style & StyleFlags.Undercurl) !== 0) text += cell.char;
+        }
+        return text;
+    }
+
+    function type(editor: EditorElement, line: number, character: number, keys: string): void {
+        editor.viewState.selections = [createCursorSelection(line, character)];
+        for (const key of keys) editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
+    }
+
+    it("набор левее на той же строке сдвигает волну вправо", () => {
+        const { app, editor } = makeTracked("ok\nlet bad = 1;");
+        type(editor, 1, 0, "xx");
+        app.render();
+        expect(squiggledText(app, editor, 1)).toBe("bad");
+        expect(app.backend.getFgAt(new Point(editor.gutterWidth + 6, 1))).toBe(ERROR_FG);
+    });
+
+    it("вставка строки выше уводит волну на строку ниже", () => {
+        const { app, editor } = makeTracked("ok\nlet bad = 1;");
+        editor.viewState.selections = [createCursorSelection(0, 2)];
+        editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+        app.render();
+        expect(squiggledText(app, editor, 1)).toBe("");
+        expect(squiggledText(app, editor, 2)).toBe("bad");
+    });
+
+    it("набор на краю не растягивает волну (NeverGrowsWhenTypingAtEdges)", () => {
+        const { app, editor } = makeTracked("ok\nlet bad = 1;");
+        type(editor, 1, 7, "X");
+        type(editor, 1, 4, "Y");
+        app.render();
+        expect(editor.viewState.document.getLineContent(1)).toBe("let YbadX = 1;");
+        expect(squiggledText(app, editor, 1)).toBe("bad");
+    });
+
+    it("набор внутри диапазона расширяет волну на вставленное", () => {
+        const { app, editor } = makeTracked("ok\nlet bad = 1;");
+        type(editor, 1, 5, "zz");
+        app.render();
+        expect(squiggledText(app, editor, 1)).toBe("bzzad");
+    });
+
+    it("удаление всего диапазона гасит волну", () => {
+        const { app, editor } = makeTracked("ok\nlet bad = 1;");
+        editor.viewState.document.applyEdits([createTextEdit(createRange(1, 4, 1, 7), "")]);
+        app.render();
+        expect(squiggledText(app, editor, 1)).toBe("");
+    });
+
+    it("новые маркеры провайдера заменяют сдвинутые", () => {
+        const { app, editor } = makeTracked("ok\nlet bad = 1;");
+        type(editor, 1, 0, "xx");
+        editor.markerDecorations = [{ range: createRange(1, 0, 1, 2), severity: MarkerSeverity.Error }];
+        app.render();
+        expect(squiggledText(app, editor, 1)).toBe("xx");
     });
 });
 
