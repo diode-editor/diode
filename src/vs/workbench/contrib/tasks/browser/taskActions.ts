@@ -16,7 +16,7 @@ import { TaskServiceDIToken } from "./taskService.ts";
 export const TERMINAL_MENU_RUN_GROUP = "3_run";
 export const TERMINAL_MENU_MANAGE_GROUP = "5_manage";
 
-/** `TASK_RUNNING_STATE` эталона: пункты «управления» недоступны, пока ничего не бежит (серыми их меню не рисует). */
+/** `TASK_RUNNING_STATE` эталона: пункты «управления» гаснут, пока ничего не бежит. */
 const TASK_RUNNING = "taskRunning";
 
 /** Сбой запуска уже показан человеку сервисом — обещание команды не отклоняется. */

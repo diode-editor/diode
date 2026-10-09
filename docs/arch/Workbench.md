@@ -1494,9 +1494,7 @@ hide-toggle (`isHiddenByDefault`). См.
 - **Команды** (`browser/taskActions.ts`): `workbench.action.tasks.{runTask,reRunTask,restartTask,
   terminate,showTasks}` с заголовками палитры эталона и аргументами (`runTask` — подпись или
   определение `{type,…}`, `terminate` — `'terminateAll'`); меню Terminal меню-бара (новое:
-  New Terminal, Run Task..., Show Running/Restart/Terminate — последние с `enablement:
-  taskRunning`: без бегущих задач клик ничего не делает, но серыми пункты не рисуются — у пункта
-  меню tuidom (`MenuItemEntry`) нет состояния «недоступен»).
+  New Terminal, Run Task..., Show Running/Restart/Terminate — последние гаснут без `taskRunning`).
   Команда кончается запуском, а не задачей.
 - **Статус-бар** (`browser/taskStatusBarContribution.ts`): `$(tools) N` бегущих, id
   `status.runningTasks`, клик — Show Running Tasks; подсказок у записей статус-бара нет.

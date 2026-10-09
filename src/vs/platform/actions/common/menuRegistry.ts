@@ -38,10 +38,9 @@ export const CHECKED_ICON = "\u2713"; // ✓
 export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
 
 /**
- * Пункт-команда с резолвнутой доступностью. У `MenuItemEntry` движка поля
- * `disabled` нет (серые пункты попапа — задача в tuidom), поэтому флаг живёт в
- * нашем надтипе: попап лишнее поле игнорирует, а заголовок view его читает и
- * рисует кнопку приглушённой.
+ * Пункт-команда с резолвнутой доступностью: `enabled` читает заголовок view
+ * (рисует кнопку приглушённой), `disabled` движка — попап (серый пункт,
+ * клавиатура его пропускает).
  */
 export interface IResolvedMenuItemEntry extends MenuItemEntry {
     readonly enabled: boolean;
@@ -261,6 +260,7 @@ export class MenuRegistry {
             label,
             id: item.command,
             enabled,
+            disabled: !enabled,
             shortcut: this.resolveShortcut(item),
             // `toggled` рисуется отметкой в колонке иконки — так VS Code помечает
             // включённый пункт (например текущий канал Output).

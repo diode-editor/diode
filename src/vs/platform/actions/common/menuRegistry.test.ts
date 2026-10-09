@@ -346,6 +346,7 @@ describe("MenuRegistry — enablement", () => {
 
     it("без enablement пункт доступен", () => {
         expect(entryOf(setup([item()])).enabled).toBe(true);
+        expect(entryOf(setup([item()])).disabled).toBe(false);
     });
 
     it("ложный enablement гасит пункт, но НЕ прячет его", () => {
@@ -356,6 +357,8 @@ describe("MenuRegistry — enablement", () => {
         // В отличие от `when`, пункт остаётся в списке — гасится, а не исчезает.
         expect(entries).toHaveLength(1);
         expect(entryOf(h).enabled).toBe(false);
+        // Попап движка рисует его серым и пропускает стрелками.
+        expect(entryOf(h).disabled).toBe(true);
     });
 
     it("погашенный пункт не исполняет команду", () => {
