@@ -78,3 +78,22 @@ describe("MenuRegistry — submenu-записи в getMenuItems", () => {
         expect(labels).toEqual(["Alpha"]);
     });
 });
+
+describe("MenuRegistry — submenu-выбор (isSelection)", () => {
+    it("пометка выбора доезжает до резолвнутой записи — по ней заголовок view не дублирует виджет", () => {
+        const registry = makeRegistry([
+            { menuId: TEST_MENU, submenu: TEST_SUB, title: "Switch", group: "navigation", isSelection: true },
+            { menuId: TEST_MENU, submenu: TEST_SUB, title: "Nested", group: "navigation", isSelection: false },
+        ]);
+
+        const [navigation] = registry.getMenuItemGroups(TEST_MENU, undefined, resolveAsEntry);
+        expect(navigation.entries[0]).toEqual({
+            type: "submenu",
+            label: "Switch",
+            entries: [{ label: "nested" }],
+            isSelection: true,
+        });
+        // Не-выбор пометки не несёт вовсе — ни `true`, ни ключа.
+        expect(Object.keys(navigation.entries[1])).not.toContain("isSelection");
+    });
+});

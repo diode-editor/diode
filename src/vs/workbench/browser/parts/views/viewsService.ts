@@ -702,10 +702,12 @@ export class ViewsService {
      * заголовок пересобирается только со сменой состава секций.
      */
     private hasOverflow(menuId: MenuId, context: unknown): boolean {
-        // Пункт группы `navigation` с иконкой уезжает в кнопку, а не в попап.
+        // Пункт группы `navigation` с иконкой уезжает в кнопку, а submenu-выбор
+        // той же группы — в виджет заголовка; ни тот, ни другой не в попапе.
         return this.menuService.hasItems(menuId, context, (item) => {
-            if (isSubmenuContribution(item)) return true;
-            return item.group !== NAVIGATION_GROUP || item.icon === undefined;
+            if (item.group !== NAVIGATION_GROUP) return true;
+            if (isSubmenuContribution(item)) return item.isSelection !== true;
+            return item.icon === undefined;
         });
     }
 
@@ -987,7 +989,8 @@ function containerPaneTitle(entry: ContainerEntry): string {
 /**
  * Inline-кнопки заголовка: группа `navigation`, у пунктов которой есть иконка.
  * Пункт без иконки кнопкой не нарисовать (в 30 колонок сайдбара не влезет
- * подпись), поэтому он остаётся в «⋯» — как и submenu-записи навигации.
+ * подпись), поэтому он остаётся в «⋯» — как и submenu-записи навигации
+ * (кроме submenu-выбора: оно — виджет заголовка, см. {@link overflowEntries}).
  */
 function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAction[] {
     const navigation = groups.find((group) => group.group === NAVIGATION_GROUP);
@@ -997,11 +1000,21 @@ function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAction[] {
         .map((entry) => ({ id: entry.id, icon: entry.icon, enabled: entry.enabled }));
 }
 
-/** Пункты попапа «⋯»: всё, что не уехало в inline-кнопки. */
+/**
+ * Пункты попапа «⋯»: всё, что не уехало в inline-кнопки и в виджет заголовка.
+ * Submenu-выбор группы `navigation` (`isSelection`) владелец view рисует сам
+ * выпадающим списком (`setViewTitleWidget`, селектор каналов Output) — как
+ * VS Code рисует его `SelectBox`'ом тулбара. Повторять его пунктом «⋯» значит
+ * показать рядом два одинаковых списка, а у вкладки — кнопку, которая только
+ * этот дубль и открывает.
+ */
 function overflowEntries(groups: readonly IMenuEntryGroup[]): MenuEntry[] {
     const rest = groups.map((group) =>
         group.group === NAVIGATION_GROUP
-            ? { group: group.group, entries: group.entries.filter((entry) => !isInlineItem(entry)) }
+            ? {
+                  group: group.group,
+                  entries: group.entries.filter((entry) => !isInlineItem(entry) && !isSelectionSubmenu(entry)),
+              }
             : group,
     );
     return joinMenuGroups(rest.filter((group) => group.entries.length > 0));
@@ -1022,6 +1035,10 @@ function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
             }
         }
     }
+}
+
+function isSelectionSubmenu(entry: ResolvedMenuEntry): boolean {
+    return entry.type === "submenu" && entry.isSelection === true;
 }
 
 function isInlineItem(entry: ResolvedMenuEntry): entry is IResolvedMenuItemEntry & { id: string; icon: string } {

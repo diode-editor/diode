@@ -40,6 +40,13 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("OUTPUT"));
         await editor.waitForText((t) => t.includes("[info] diode starting"));
         await editor.waitForText((t) => t.includes("Bootstrap"));
+        // Селектор каналов — единственный контрол шапки: «⋯», которая открывала
+        // лишь его копию «Switch Output ›», в таб-строке не рисуется (как в
+        // VS Code: submenu `isSelection` — это SelectBox, а не пункт overflow).
+        await editor.waitForText((t) => {
+            const tabRow = t.split("\n").find((line) => line.includes("PROBLEMS  OUTPUT  TERMINAL"));
+            return tabRow !== undefined && tabRow.includes("Bootstrap") && !tabRow.includes("⋯");
+        });
         await editor.capture("panel");
 
         // Переключение подсистемы: и содержимое, и подпись селектора идут за ним.
