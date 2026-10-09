@@ -36,19 +36,19 @@ export interface ITrackedEdit {
 /** Длина строки документа ДО правки — мерить смещения внутри заменяемого диапазона. */
 export type OldLineLength = (line: number) => number;
 
-/** Семантика сдвига маркера на границе правки — upstream `MarkerMoveSemantics`. */
-enum MarkerMoveSemantics {
-    MarkerDefined = 0,
-    ForceStay = 2,
-}
-
 /**
  * Маркер «до колонки» — upstream `adjustMarkerBeforeColumn`, но сравнение уже
  * посчитано вызывающим (`cmp` = маркер − колонка): у нас позиции, а не офсеты.
+ *
+ * `MarkerMoveSemantics` эталона здесь нет: `ForceMove` бывает только с
+ * `forceMoveMarkers`, а `ForceStay` (край ровно на начале удаления или на
+ * конце общей части) даёт ту же позицию, что и следующая ступень
+ * {@link adjustPosition}: смещение 0 от начала правки — это её начало, а конец
+ * общей части при удалении длиннее вставки — это конец вставленного.
  */
-function markerBefore(cmp: number, stickToPreviousCharacter: boolean, moveSemantics: MarkerMoveSemantics): boolean {
+function markerBefore(cmp: number, stickToPreviousCharacter: boolean): boolean {
+    // Stryker disable next-line EqualityOperator: при cmp !== 0 «< 0» и «<= 0» совпадают
     if (cmp !== 0) return cmp < 0;
-    if (moveSemantics === MarkerMoveSemantics.ForceStay) return true;
     return stickToPreviousCharacter;
 }
 
@@ -91,13 +91,14 @@ class EditGeometry {
 
     /** Позиция `offset` символов от начала правки внутри вставленного текста (новые координаты). */
     public positionInInserted(offset: number): IPosition {
+        // offset ≤ длины вставленного, поэтому цикл кончается не позже последней строки.
         let rest = offset;
-        for (let i = 0; i < this.insertedLines.length - 1; i++) {
-            const length = this.insertedLines[i].length;
-            if (rest <= length) return this.atInsertedLine(i, rest);
-            rest -= length + 1;
+        let index = 0;
+        while (rest > this.insertedLines[index].length) {
+            rest -= this.insertedLines[index].length + 1;
+            index++;
         }
-        return this.atInsertedLine(this.insertedLines.length - 1, rest);
+        return this.atInsertedLine(index, rest);
     }
 
     private atInsertedLine(index: number, character: number): IPosition {
@@ -119,21 +120,21 @@ class EditGeometry {
  * 4. край после правки — сдвигается на её разницу.
  */
 function adjustPosition(position: IPosition, stickToPreviousCharacter: boolean, edit: EditGeometry): IPosition {
-    const firstSemantics = edit.deleted > 0 ? MarkerMoveSemantics.ForceStay : MarkerMoveSemantics.MarkerDefined;
-    if (markerBefore(comparePositions(position, edit.start), stickToPreviousCharacter, firstSemantics)) {
+    if (markerBefore(comparePositions(position, edit.start), stickToPreviousCharacter)) {
         return position;
     }
     const afterEnd = comparePositions(position, edit.end);
-    const commonLength = Math.min(edit.deleted, edit.inserted);
-    if (commonLength > 0 && afterEnd <= 0) {
-        const commonSemantics =
-            edit.deleted > edit.inserted ? MarkerMoveSemantics.ForceStay : MarkerMoveSemantics.MarkerDefined;
+    // Охрана — только про цену: за концом правки смещение больше удалённого, а
+    // значит и общей части, и ступень 2 там всё равно не срабатывает; но мерить
+    // его пришлось бы по всем строкам до края.
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентна, см. выше
+    if (afterEnd <= 0) {
         const offset = edit.offsetInOld(position);
-        if (markerBefore(offset - commonLength, stickToPreviousCharacter, commonSemantics)) {
+        if (markerBefore(offset - Math.min(edit.deleted, edit.inserted), stickToPreviousCharacter)) {
             return edit.positionInInserted(offset);
         }
     }
-    if (markerBefore(afterEnd, stickToPreviousCharacter, MarkerMoveSemantics.MarkerDefined)) {
+    if (markerBefore(afterEnd, stickToPreviousCharacter)) {
         return edit.newEnd;
     }
     if (position.line === edit.end.line) {
@@ -152,6 +153,7 @@ function adjustRange(range: IRange, stickiness: TrackedRangeStickiness, edit: Ed
         stickiness === TrackedRangeStickiness.GrowsOnlyWhenTypingBefore;
     const start = adjustPosition(range.start, startStick, edit);
     const end = adjustPosition(range.end, endStick, edit);
+    // Stryker disable next-line EqualityOperator: при start == end обе ветки дают один диапазон
     return comparePositions(start, end) > 0 ? { start, end: start } : { start, end };
 }
 
@@ -182,6 +184,7 @@ export class TrackedDecorations {
     ): string[] {
         for (const id of oldIds) this.decorations.delete(id);
         return newDecorations.map((decoration) => {
+            // Stryker disable next-line UpdateOperator: id нужен лишь уникальный, «--» даёт такие же
             const id = String(++this.lastId);
             this.decorations.set(id, {
                 range: clampRange(document, decoration.range),
@@ -198,10 +201,12 @@ export class TrackedDecorations {
 
     /** Сдвигает все декорации по правке, применяемой к документу ПРЯМО СЕЙЧАС (строки ещё старые). */
     public acceptEdit(edit: ITrackedEdit, oldLineLength: OldLineLength): void {
+        // Stryker disable next-line ConditionalExpression: короткий путь ради цены — без декораций цикл пуст
         if (this.decorations.size === 0) return;
         const geometry = new EditGeometry(edit, oldLineLength);
         for (const decoration of this.decorations.values()) {
             // Правка целиком ниже декорации её не трогает — частый случай, без аллокаций.
+            // Stryker disable next-line ConditionalExpression: короткий путь ради цены — adjustRange вернул бы тот же диапазон
             if (comparePositions(decoration.range.end, edit.range.start) < 0) continue;
             decoration.range = adjustRange(decoration.range, decoration.stickiness, geometry);
         }

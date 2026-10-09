@@ -274,6 +274,7 @@ export class EditorViewState {
             decorations.map((decoration) => ({
                 range: decoration.range,
                 options: {
+                    // Stryker disable next-line StringLiteral: описание — только для отладки, как в эталоне
                     description: "marker-decoration",
                     stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
                 },

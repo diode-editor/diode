@@ -179,6 +179,32 @@ describe("TrackedDecorations — правки через строки", () => {
         ).toEqual(createRange(2, 2, 2, 5));
     });
 
+    it("в общей части край, попавший на конец не последней вставленной строки, остаётся на ней", () => {
+        // «My First Line» → «My First\nLine» той же длины: «First» (0,3)-(0,8) —
+        // конец ровно на конце первой вставленной строки, а не в начале второй.
+        expect(
+            decorationAfterEdit(
+                [0, 3, 0, 8],
+                TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                [0, 0, 0, 13],
+                "My First\nLine",
+            ),
+        ).toEqual(createRange(0, 3, 0, 8));
+    });
+
+    it("смещение внутри замены считает и целые строки между её краями", () => {
+        // Старое «ine\nMy Second Line\nThir» (23 символа) → 30 символов одной строкой:
+        // начало «rd» — 21-й символ замены (3 + 1 + 14 + 1 + 2), им и остаётся.
+        expect(
+            decorationAfterEdit(
+                [2, 2, 2, 10],
+                TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                [0, 10, 2, 4],
+                "abcdefghijklmnopqrstuvwxyz0123",
+            ),
+        ).toEqual(createRange(0, 31, 0, 46));
+    });
+
     it("батч правок двигает декорацию по каждой", () => {
         const { doc, id } = documentWithDecoration([2, 6, 2, 10]);
         doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "X\n"), createTextEdit(createRange(2, 0, 2, 0), "yy")]);
