@@ -242,6 +242,63 @@ describe("ViewsService — полоса контролов в таб-строк�
         ]);
     });
 
+    it("рядом с настоящим overflow submenu-выбор в попап «⋯» всё равно не попадает", () => {
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: CHANNELS,
+                    title: "Switch Output",
+                    group: "navigation",
+                    isSelection: true,
+                    visible: viewMenuVisible("output.view"),
+                },
+                channelItem,
+                {
+                    menuId: MenuId.ViewTitle,
+                    command: "output.save",
+                    title: "Save Output As...",
+                    group: "1_export",
+                    visible: viewMenuVisible("output.view"),
+                },
+            ],
+        );
+
+        h.header(OUTPUT)!.onMenu?.({ screenX: 0, screenY: 0 });
+        expect(h.shown.at(-1)!.getEntries!().map((e) => (e.type === "separator" ? "---" : e.label))).toEqual([
+            "Save Output As...",
+        ]);
+    });
+
+    /** Есть ли «⋯» в полосе таб-строки при единственном пункте `item`. */
+    function menuButtonShown(item: Partial<MenuContribution>): boolean {
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    command: "output.do",
+                    title: "Do",
+                    visible: viewMenuVisible("output.view"),
+                    ...item,
+                } as MenuContribution,
+            ],
+        );
+        const labels =
+            h
+                .tabActions(OUTPUT)
+                ?.querySelectorAll("TextLabelElement")
+                .map((l) => (l as TextLabelElement).getText().trim()) ?? [];
+        return labels.includes("⋯");
+    }
+
+    it("«⋯» зажигает пункт вне навигации и пункт навигации без иконки, но не кнопка", () => {
+        expect(menuButtonShown({ group: "navigation", icon: "D" })).toBe(false);
+        expect(menuButtonShown({ group: "navigation" })).toBe(true);
+        expect(menuButtonShown({ group: "2_more", icon: "D" })).toBe(true);
+    });
+
     it("одна лишь навигация из submenu-выбора «⋯» не зажигает", () => {
         // Статическая проверка (`hasOverflow`) обязана сходиться с попапом:
         // кнопка без пунктов выглядит сломанной.
