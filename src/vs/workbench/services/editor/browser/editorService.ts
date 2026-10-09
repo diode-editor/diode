@@ -23,7 +23,7 @@ import { ContextMenuControllerDIToken } from "../../../../editor/contrib/context
 import { hasDocumentFormatter } from "../../../../editor/contrib/format/format.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
+import { FileOperation, type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { FileService } from "../../../../platform/files/common/fileService.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { IFileWatcherDIToken } from "../../../../platform/files/common/iFileWatcherDIToken.ts";
@@ -80,6 +80,36 @@ const PREVIEW_SETTING_KEY = "workbench.editor.enablePreview";
  */
 function describeError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Позиция вкладки — прямым присваиванием, без reveal: она пришла из вкладки,
+ * где и так была видима.
+ */
+function applyViewState(editor: TextEditorPane, viewState: ITextEditorViewState): void {
+    editor.viewState.selections = [...viewState.selections];
+    editor.viewState.scrollTop = viewState.scrollTop;
+    editor.viewState.scrollLeft = viewState.scrollLeft;
+}
+
+/**
+ * Куда уехал ресурс при переносе `source` → `target`: сам файл — на `target`,
+ * файл внутри перенесённого каталога — на тот же относительный путь под
+ * `target`; `null` — перенос ресурс не задел (эталон: `isEqualOrParent` +
+ * `joinPath` в `EditorService.handleMovedFile`).
+ */
+export function movedResource(resource: Uri, source: Uri, target: Uri): Uri | null {
+    if (resource.scheme !== "file") return null;
+    const relative = path.relative(source.fsPath, resource.fsPath);
+    if (relative === "") return target;
+    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+    return Uri.file(path.join(target.fsPath, relative));
+}
+
+/** Внутри ли `view` сейчас фокус — по пути от активного элемента вверх. */
+function holdsFocus(view: IEditorPane["view"]): boolean {
+    const active = view.getRoot()?.focusManager?.activeElement ?? null;
+    return active?.getAncestorPath().includes(view) === true;
 }
 
 /**
@@ -350,6 +380,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 this.editorConfiguration.reapply();
             }),
         );
+        // Перенос файла или каталога через файловый сервис (rename/move
+        // проводника, их отмена, файловые операции `workspace.applyEdit`) —
+        // вкладки едут за ним. Эталон: `EditorService.onDidRunFileOperation` →
+        // `handleMovedFile`. Без этого вкладка оставалась на старом пути, и
+        // первое же сохранение воскрешало переименованный файл.
+        this.register(
+            fileService.onDidRunOperation((event) => {
+                if (event.operation === FileOperation.Move && event.target !== undefined) {
+                    this.handleMovedFile(event.resource, event.target);
+                }
+            }),
+        );
         // Выключили предпросмотр — висящие превью прикалываем, иначе следующее
         // открытие заместило бы вкладку при выключенной настройке (эталон
         // делает то же в onDidChangeEditorPartOptions).
@@ -461,6 +503,54 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         if (recipe !== undefined) void recipe.factory.open(recipe.descriptor, target);
     }
 
+    // ─── Перенос файла: вкладки едут за ним ──────────────────────────────────
+
+    /**
+     * Файл (или каталог) перенесли — каждая файловая вкладка, чей ресурс равен
+     * `source` или лежит под ним, замещается на том же месте вкладкой нового
+     * пути (VS Code `EditorService.handleMovedFile`): позиция в полосе,
+     * предпросмотр, активность, каретка и скролл — прежние, фокус остаётся,
+     * где был. Несохранённые правки переезжают в модель нового пути, а та
+     * остаётся изменённой (`TextFileEditorModelManager` эталона на MOVE).
+     *
+     * Вкладка именно замещается, а не переименовывается на месте: всё, что
+     * держит ресурс по uri (документы расширений, маркеры, quick diff), видит
+     * честные «закрыли старый — открыли новый», как в эталоне. Стороны
+     * дифф-вкладок не трогаем — их ресурсы фиксирует владелец диффа.
+     */
+    private handleMovedFile(source: Uri, target: Uri): void {
+        if (source.scheme !== "file" || target.scheme !== "file") return;
+        /** Модели нового пути, куда уже перелиты правки (файл в двух группах — одна модель). */
+        const restored = new Set<TextFileModel>();
+        for (const group of this.editorGroups.groups) {
+            let moved = false;
+            let focusActive = false;
+            for (const [index, pane] of [...group.getPanes()].entries()) {
+                if (!(pane instanceof TextEditorPane) || pane.fileModel === null) continue;
+                const resource = movedResource(pane.uri, source, target);
+                if (resource === null) continue;
+                const ref = this.textFileModels.acquire(resource);
+                if (pane.fileModel.isModified && !restored.has(ref.model)) {
+                    ref.model.restoreUnsavedContents(pane.fileModel.getText());
+                    restored.add(ref.model);
+                }
+                const editor = this.paneBuilder.build(ref.model, ref);
+                this.editorConfiguration.apply(editor);
+                applyViewState(editor, {
+                    selections: pane.viewState.cloneSelections(),
+                    scrollTop: pane.viewState.scrollTop,
+                    scrollLeft: pane.viewState.scrollLeft,
+                });
+                if (index === group.activeIndex && holdsFocus(pane.view)) focusActive = true;
+                group.replacePane(index, editor, { preview: !group.isPinned(pane) });
+                moved = true;
+            }
+            // Замещение событий не шлёт: перерисовку полосы и смену активного
+            // редактора даёт повторная активация текущей вкладки.
+            if (moved) group.activateTab(group.activeIndex, { focus: focusActive });
+        }
+    }
+
     // ─── Панели: generic-поверхность для группы и вкладок ─────────────────────
 
     /**
@@ -498,11 +588,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      */
     private focusedDetachedPane(): TextEditorPane | null {
         if (this.detachedPanes.length === 0) return null;
-        for (const pane of this.detachedPanes) {
-            const active = pane.view.getRoot()?.focusManager?.activeElement ?? null;
-            if (active?.getAncestorPath().includes(pane.view) === true) return pane;
-        }
-        return null;
+        return this.detachedPanes.find((pane) => holdsFocus(pane.view)) ?? null;
     }
 
     /**
@@ -747,13 +833,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 editor = this.paneBuilder.build(ref.model, ref);
                 this.editorConfiguration.apply(editor);
             }
-            // Прямое присваивание, без reveal: позиция пришла из вкладки, где
-            // она и так была видима.
-            if (viewState !== undefined) {
-                editor.viewState.selections = [...viewState.selections];
-                editor.viewState.scrollTop = viewState.scrollTop;
-                editor.viewState.scrollLeft = viewState.scrollLeft;
-            }
+            if (viewState !== undefined) applyViewState(editor, viewState);
             // Следующее превью занимает СЛОТ предыдущего: та же позиция в полосе
             // вместо «закрыли → открыли в конце» — иначе поехали бы порядок
             // вкладок и фокус.

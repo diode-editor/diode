@@ -248,8 +248,12 @@ export abstract class BaseTextEditorModel extends Disposable {
      * содержимого владельцем). Буфер после этого чистый и без истории; события
      * контента и EOL доходят до подписчиков модели уже после того, как она
      * согласовала «сохранённую» версию.
+     *
+     * `unsaved` — текст НЕ с диска (несохранённые правки, переехавшие за
+     * перенесённым файлом): история так же сбрасывается, но «сохранённой»
+     * остаётся прежняя версия, и буфер изменён против диска.
      */
-    protected replaceText(text: string): void {
+    protected replaceText(text: string, { unsaved = false }: { unsaved?: boolean } = {}): void {
         const eolBefore = this.doc.eol;
         this.replacingText = true;
         try {
@@ -257,7 +261,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         } finally {
             this.replacingText = false;
         }
-        this.markSaved();
+        if (!unsaved) this.markSaved();
         this.resetUndoHistory();
         this.onDidChangeContentEmitter.fire();
         if (this.doc.eol !== eolBefore) this.onDidChangeEolEmitter.fire();

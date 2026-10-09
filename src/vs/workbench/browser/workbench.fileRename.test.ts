@@ -11,6 +11,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { quickPickByTitle } from "../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 
@@ -57,6 +58,32 @@ describe("Workbench — Rename", () => {
             expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
         });
         expect(fs.readFileSync(ws.path("new.txt"), "utf-8")).toBe("hi");
+    });
+
+    it("открытый файл: вкладка в кадре едет за переименованием, сохранение не воскрешает старый", async () => {
+        h.container.get(EditorServiceDIToken).openFile(ws.path("old.txt"));
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).toContain("old.txt");
+
+        h.commands.execute("fileOperations.rename", ws.path("old.txt"));
+        h.testApp.render();
+        await typeInto(quickPickByTitle(h.testApp, "Rename"), "new.txt");
+        h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(fs.existsSync(ws.path("new.txt"))).toBe(true);
+        });
+        await flushMicrotasks(FLUSH_TURNS);
+        h.testApp.render();
+
+        // Ни дерево, ни полоса вкладок старого имени больше не показывают.
+        const frame = h.testApp.backend.screenToString();
+        expect(frame).toContain("new.txt");
+        expect(frame).not.toContain("old.txt");
+
+        const editor = h.container.get(EditorServiceDIToken).getActiveEditor();
+        expect(editor?.uri.fsPath).toBe(ws.path("new.txt"));
+        expect(await editor?.save()).toBe("saved");
+        expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
     });
 
     it("renames a directory in place", async () => {
