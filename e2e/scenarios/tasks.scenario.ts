@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Задачи из `.vscode/tasks.json`: F1 → «Tasks: Run Task» → пикер configured →
+// Задачи из `.diode/tasks.json`: F1 → «Tasks: Run Task» → пикер configured →
 // задача бежит в терминале с «Executing task: …» и после выхода ждёт клавишу
 // («Terminal will be reused by tasks, press any key to close it.»); падающая
 // показывает код выхода. Rerun Last Task переиспользует тот же терминал, долгая
@@ -38,7 +38,7 @@ export default defineScenario({
     // Задача — настоящий шелл в PTY: как extension-terminal, только Linux/macOS.
     skipOn: ["win32"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("tasks.json") || t.includes(".vscode"));
+        await editor.waitForText((t) => t.includes("tasks.json") || t.includes(".diode"));
 
         await runCommand(editor, "Tasks: Run Task");
         await editor.waitForText((t) => t.includes("Select the task to run") && t.includes("configured"));

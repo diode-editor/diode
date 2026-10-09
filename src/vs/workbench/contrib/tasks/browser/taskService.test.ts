@@ -29,11 +29,11 @@ afterEach(() => {
 });
 
 describe("TaskService — задачи tasks.json", () => {
-    it("читает .vscode/tasks.json первой папки", async () => {
+    it("читает .diode/tasks.json первой папки", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ label: "a", command: "x" }]) });
         const tasks = await h.service.getWorkspaceTasks();
         expect(tasks.map((t) => t._label)).toStrictEqual(["a"]);
-        expect(h.readFile.mock.calls[0][0].fsPath).toBe("/ws/.vscode/tasks.json");
+        expect(h.readFile.mock.calls[0][0].fsPath).toBe("/ws/.diode/tasks.json");
         h.dispose();
     });
 

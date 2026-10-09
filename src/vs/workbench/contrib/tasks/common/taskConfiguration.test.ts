@@ -6,7 +6,7 @@ import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWo
 import { currentTaskPlatform, parseTasksJson } from "./taskConfiguration.ts";
 import { DEFAULT_PRESENTATION, DEFAULT_RUN_OPTIONS } from "./tasks.ts";
 
-// Разбор `.vscode/tasks.json` — подмножество схемы 2.0.0 первой итерации.
+// Разбор `.diode/tasks.json` — подмножество схемы 2.0.0 первой итерации.
 
 const folder: IWorkspaceFolder = { uri: Uri.file("/ws"), name: "ws", index: 0 };
 

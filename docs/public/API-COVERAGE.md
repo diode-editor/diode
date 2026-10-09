@@ -158,7 +158,7 @@ output-каналы, декорации, пункты статус-бара и �
 🟡 **8/8** — namespace поднят целиком вместе с типами задач (`Task`, `TaskScope`, `TaskGroup`,
 `ShellExecution`, `ProcessExecution`, `CustomExecution`, `TaskDefinition`, `TaskProvider`,
 `TaskExecution`, события). Задачами владеет ядро Diode: Run Task, терминал задачи, Rerun /
-Restart / Terminate / Show Running Tasks — то же, что у задач из `.vscode/tasks.json`.
+Restart / Terminate / Show Running Tasks — то же, что у задач из `.diode/tasks.json` (у VS Code — `.vscode/tasks.json`).
 **Problem matchers не исполняются вовсе** — задача просто бежит до выхода процесса.
 
 | член | статус | комментарий |

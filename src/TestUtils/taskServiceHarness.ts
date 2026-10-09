@@ -29,7 +29,7 @@ import { createLoggerSpy } from "./themeExtensionFixture.ts";
 
 export interface ITaskServiceHarnessOptions {
     readonly settings?: Readonly<Record<string, unknown>>;
-    /** Текст `.vscode/tasks.json`; `undefined` — файла нет. */
+    /** Текст `.diode/tasks.json`; `undefined` — файла нет. */
     readonly tasksJson?: string;
     /** Папка воркспейса; `null` — окно без папки. */
     readonly folder?: IWorkspaceFolder | null;

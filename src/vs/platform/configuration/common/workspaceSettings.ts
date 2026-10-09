@@ -1,5 +1,7 @@
 import * as path from "node:path";
 
+import { workspaceConfigFilePath } from "../../workspace/common/workspaceConfigFolder.ts";
+
 import type { ConfigurationScope } from "./configurationRegistry.ts";
 
 /**
@@ -8,20 +10,17 @@ import type { ConfigurationScope } from "./configurationRegistry.ts";
  * Эталон в однопапочном окне держит в слое `workspace` файл
  * `<папка>/.vscode/settings.json` (`FOLDER_SETTINGS_PATH`,
  * `workbench/services/configuration/common/configuration.ts`). У нас каталог
- * свой — `.diode/`: настройки Diode не должны ни читать, ни перетирать файл
- * VS Code в том же проекте. Слой лежит выше профиля: проект уточняет
+ * свой — `.diode/` (`workspaceConfigFolder.ts`). Слой лежит выше профиля: проект уточняет
  * настройки человека, а не наоборот. Фильтр ключей по `scope` —
  * `filterWorkspaceSettings` в `configurationValidation.ts`.
  */
 
-/** Каталог настроек проекта в корне папки воркспейса (у эталона — `.vscode`). */
-export const WORKSPACE_CONFIG_FOLDER_NAME = ".diode";
 /** Файл настроек воркспейса относительно папки (у эталона — `.vscode/settings.json`). */
-export const WORKSPACE_SETTINGS_PATH = `${WORKSPACE_CONFIG_FOLDER_NAME}/settings.json`;
+export const WORKSPACE_SETTINGS_PATH = workspaceConfigFilePath("settings.json");
 
 /** Абсолютный путь к settings.json воркспейса для папки `folderPath`. */
 export function workspaceSettingsPath(folderPath: string): string {
-    return path.join(folderPath, WORKSPACE_CONFIG_FOLDER_NAME, "settings.json");
+    return path.join(folderPath, WORKSPACE_SETTINGS_PATH);
 }
 
 /**
