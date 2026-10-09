@@ -299,6 +299,27 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(menuButtonShown({ group: "2_more", icon: "D" })).toBe(true);
     });
 
+    it("обычное submenu навигации «⋯» зажигает — рисовать его, кроме как пунктом попапа, негде", () => {
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: CHANNELS,
+                    title: "Pick",
+                    group: "navigation",
+                    visible: viewMenuVisible("output.view"),
+                },
+                channelItem,
+            ],
+        );
+        const labels = h
+            .tabActions(OUTPUT)!
+            .querySelectorAll("TextLabelElement")
+            .map((l) => (l as TextLabelElement).getText().trim());
+        expect(labels).toContain("⋯");
+    });
+
     it("одна лишь навигация из submenu-выбора «⋯» не зажигает", () => {
         // Статическая проверка (`hasOverflow`) обязана сходиться с попапом:
         // кнопка без пунктов выглядит сломанной.

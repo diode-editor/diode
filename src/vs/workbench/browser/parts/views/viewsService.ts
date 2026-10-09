@@ -1038,6 +1038,7 @@ function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
 }
 
 function isSelectionSubmenu(entry: ResolvedMenuEntry): boolean {
+    // Stryker disable next-line ConditionalExpression: проверка типа — сужение для TS; пометку `isSelection` реестр ставит только submenu-записям, у пункта-команды её не бывает
     return entry.type === "submenu" && entry.isSelection === true;
 }
 
