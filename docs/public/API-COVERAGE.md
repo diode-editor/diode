@@ -31,7 +31,7 @@
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 12/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 21/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 28/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 30/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -44,7 +44,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 151/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 165/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
@@ -99,9 +99,10 @@ notebook-поверхность — нет.
 
 ## vscode.window
 
-🟡 **22/57.** Редакторы (включая событие выделения), активная тема, сообщения, прогресс,
+🟡 **30/57.** Редакторы (включая событие выделения), активная тема, сообщения, прогресс,
 output-каналы, декорации, пункты статус-бара и ввод (строка + выбор из списка) — рабочие;
-диалоги файлов, терминал и деревья пока не отданы расширениям; webview — потолок.
+терминалы расширений; диалоги файлов пока не отданы расширениям, деревья — заглушка без панели;
+webview — потолок.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -122,7 +123,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `setStatusBarMessage` | 🕐 | |
 | `createTerminal`, `terminals`, `activeTerminal`, `onDidOpenTerminal`, `onDidCloseTerminal`, `onDidChangeActiveTerminal` | 🟡 | терминал расширения — настоящий шелл встроенного терминала в нижней панели (вкладка в списке терминалов). Позиционная форма и `TerminalOptions`: `name`, `shellPath`, `shellArgs`, `cwd`, `env` (`null` снимает переменную), `strictEnv`, `hideFromUser` (фоновый терминал: в `terminals` есть, во вкладках — после `show()`), `message`. `terminals` — все терминалы, включая шеллы, открытые человеком (у них `creationOptions` — чем их запустили); `activeTerminal` и события — тоже по всем. `Terminal`: `sendText` (переводы строк — Enter, как в эталоне), `show(preserveFocus)` открывает панель на вкладке TERMINAL, `hide` прячет её, только если показан этот терминал, `dispose`, `processId`, `exitStatus` с причиной (`Process` — шелл вышел, `User` — Kill, `Extension` — `dispose()`). После `dispose()` методы бросают, как в эталоне. `ExtensionTerminalOptions` (`pty`): процессом владеет расширение, хост держит эмулятор — `onDidWrite` рисуется в панели (склейка вывода 5 мс, как в эталоне), `open` зовётся сразу при создании, набор человека и `sendText` приходят в `handleInput` (после `open`), размер виджета — в `setDimensions`, `onDidClose` закрывает терминал с его кодом, закрытие терминала зовёт `close()`; смерть субпроцесса расширений закрывает его pty-терминалы. `open` получает начальный размер 80×24, настоящий размер виджета приезжает следом `setDimensions`; `onDidOverrideDimensions` и `onDidChangeName` не поддержаны. Не поддержаны: `location`/`color`/`isTransient`/`shellIntegrationNonce` принимаются и игнорируются (терминал всегда в панели); `state.isInteractedWith` всегда `false`; строковые `shellArgs` режутся по пробелам; имя терминала не следует за заголовком процесса |
 | `onDidChangeTerminalState`, shell integration (3 события), `registerTerminalLinkProvider`, `registerTerminalProfileProvider` | 🕐 | |
-| деревья (`registerTreeDataProvider`, `createTreeView`) | 🕐 | |
+| деревья (`registerTreeDataProvider`, `createTreeView`) | 🟡 | декларации подняты, рантайм — заглушка: дерево пока не рисуется, провайдер никто не зовёт. Регистрация проходит (иначе расширение с деревом умирало на активации целиком), в Output — одна строка на view, что панели не будет. `createTreeView` без `treeDataProvider` бросает, как эталон; `TreeView` инертный: `visible` — `false`, `selection` пустой, события не стреляют, `reveal` сразу резолвится, `title`/`message`/`description`/`badge` записываются и ни на что не влияют. Значения `TreeItem` (дефолт `collapsibleState` — `None`), `TreeItemCollapsibleState`, `TreeItemCheckboxState`, `ThemeIcon` — настоящие |
 | `onDidChangeTextEditorSelection` | ✅ | каждое движение каретки/смена выделения в редакторе; `kind` едет от жеста — набор и кейбинд дают `Keyboard`, мышь `Mouse`, команда расширения `Command`, остальное (undo/redo, find, фолдинг, программная правка) — `undefined`, как и разрешает upstream. Выделение, которое расширение поставило само, эхом не возвращается |
 | события редактора (`onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
 | notebook-редакторы (7 членов) | 🕐 | |
@@ -269,7 +270,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## Типы с неполной поверхностью
 
-Активно 151 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 165 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.
@@ -280,7 +281,8 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `TextDocument` | 19/19 | — (класс документа проверяется компилятором: `implements vscode.TextDocument`). 🟡 `save` — всегда `false` («не сохранено»), у закрытого документа — отказ, как upstream: запроса «сохранить документ по uri» к хосту пока нет. `getWordRangeAtPosition` — дефолтное определение слова upstream (`DEFAULT_WORD_REGEXP`) либо регекс расширения; языковых word-definition (`wordPattern`) нет, регекс, матчащий пустую строку, — исключение. Рабочие и `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
 | `Terminal` | 9/10 | `shellIntegration` |
-| `TerminalOptions` | 12/13 | `iconPath` (тянет `ThemeIcon`) |
+| `TerminalOptions` | 12/13 | `iconPath` |
+| `TreeViewOptions` | 4/5 | `dragAndDropController` (drag-and-drop в TUI нет) |
 | `ExtensionTerminalOptions` | 6/7 | `iconPath` |
 | `ExtensionContext` | 15/17 | `environmentVariableCollection`, `languageModelAccessInformation`. Из активных: `extension` — запись самого расширения из каталога `vscode.extensions` (телеметрии читают по ней `packageJSON.version`); `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
 | `WorkspaceEdit` | 11/11 | — |

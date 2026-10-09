@@ -12,6 +12,7 @@ import {
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
+import { createTreeViewNoopMembers } from "./treeViewNoop.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     ColorThemeKind,
@@ -622,6 +623,9 @@ export function createWindowNamespace(
         // Webview — не будет by design, но члены обязаны существовать: без них
         // расширение с чат-панелью умирало на активации ЦЕЛИКОМ (см. webviewNoop.ts).
         ...createWebviewNoopMembers(rpc),
+        // Деревья пока не рисуются (Phase 8b), но регистрация обязана проходить:
+        // без неё расширение с деревом целей умирало на активации (см. treeViewNoop.ts).
+        ...createTreeViewNoopMembers(rpc),
 
         get activeTextEditor(): vscode.TextEditor | undefined {
             if (activeEditorUri === null) return undefined;

@@ -99,6 +99,10 @@ import {
     TextEdit,
     TextEditorSelectionChangeKind,
     ThemeColor,
+    ThemeIcon,
+    TreeItem,
+    TreeItemCheckboxState,
+    TreeItemCollapsibleState,
     TypeHierarchyItem,
     UIKind,
     Uri,
@@ -405,6 +409,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         ShellQuoting,
         ProcessExecution,
         CustomExecution,
+        // Деревья: `class Node extends vscode.TreeItem` стоит на уровне модуля
+        // провайдера — без значения точка входа расширения не загружается вовсе.
+        // Само дерево пока не рисуется (treeViewNoop.ts).
+        TreeItem,
+        TreeItemCollapsibleState,
+        TreeItemCheckboxState,
+        ThemeIcon,
     };
 
     return {
