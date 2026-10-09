@@ -1,0 +1,25 @@
+{
+    // Задачи e2e-сценариев tasks / extension-tasks и ручной проверки:
+    //   diode e2e/fixtures/tasks → F1 «Tasks: Run Task».
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "echo building ${workspaceFolderBasename}",
+            "detail": "Prints the folder name"
+        },
+        {
+            "label": "fail",
+            "type": "shell",
+            "command": "echo about to fail in $$; exit 3"
+        },
+        {
+            "label": "watch",
+            "type": "process",
+            "command": "sleep",
+            "args": ["600"],
+            "isBackground": true
+        }
+    ]
+}

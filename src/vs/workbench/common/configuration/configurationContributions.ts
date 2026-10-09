@@ -5,6 +5,7 @@ import { explorerConfiguration } from "./explorerConfiguration.ts";
 import { filesConfiguration } from "./filesConfiguration.ts";
 import { scmConfiguration } from "./scmConfiguration.ts";
 import { searchConfiguration } from "./searchConfiguration.ts";
+import { tasksConfiguration } from "./tasksConfiguration.ts";
 import { terminalConfiguration } from "./terminalConfiguration.ts";
 import { workbenchConfiguration } from "./workbenchConfiguration.ts";
 
@@ -28,6 +29,7 @@ export const CONFIGURATION_CONTRIBUTIONS = [
     scmConfiguration,
     searchConfiguration,
     terminalConfiguration,
+    tasksConfiguration,
 ] as const satisfies readonly IConfigurationNode[];
 
 /** Значение одного JSON-schema типа. */

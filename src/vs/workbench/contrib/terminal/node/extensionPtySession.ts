@@ -46,4 +46,12 @@ export class ExtensionPtySession extends XtermSurface implements IExtensionPtySe
     protected disposeProcess(): void {
         // убивать на нашей стороне нечего
     }
+
+    /**
+     * Новый pty подключит расширение (`CustomExecution` при повторном запуске
+     * задачи): сессии достаточно снова принимать вывод и ввод.
+     */
+    protected relaunchProcess(): void {
+        // запускать на нашей стороне нечего
+    }
 }

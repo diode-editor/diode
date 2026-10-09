@@ -453,6 +453,36 @@ describe("EditorService", () => {
         });
     });
 
+    describe("saveAll (перед запуском задачи)", () => {
+        it("сохраняет несохранённые файлы по одному разу на документ, чистые не трогает", async () => {
+            const ctrl = createEditorService();
+            const dirty = writeFile("dirty.ts", "a\nb");
+            const clean = writeFile("clean.ts", "c");
+            ctrl.openFile(dirty);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            ctrl.openFile(clean);
+
+            await ctrl.saveAll();
+
+            expect(fs.readFileSync(dirty, "utf8")).toBe("a\r\nb");
+            expect(fs.readFileSync(clean, "utf8")).toBe("c");
+            expect(ctrl.collectDirty()).toStrictEqual([]);
+        });
+
+        it("файл, изменённый на диске, не перезаписывает", async () => {
+            const ctrl = createEditorService();
+            const file = writeFile("a.ts", "a\nb");
+            ctrl.openFile(file);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            fs.writeFileSync(file, "changed outside");
+
+            await ctrl.saveAll();
+
+            expect(fs.readFileSync(file, "utf8")).toBe("changed outside");
+            expect(ctrl.collectDirty()).toHaveLength(1);
+        });
+    });
+
     describe("activate", () => {
         it("activates every open editor without throwing", async () => {
             const ctrl = createEditorService();

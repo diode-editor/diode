@@ -256,6 +256,41 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
     },
     {
+        key: "task.autoDetect",
+        type: "string",
+        default: "on",
+        description:
+            "Controls enablement of `provideTasks` for all task provider extension. If the Tasks: Run Task command is slow, disabling auto detect for task providers may help. Individual extensions may also provide settings that disable auto detection.",
+        enum: ["on", "off"],
+    },
+    {
+        key: "task.quickOpen.detail",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether to show the task detail for tasks that have a detail in task quick picks, such as Run Task.",
+    },
+    {
+        key: "task.quickOpen.skip",
+        type: "boolean",
+        default: false,
+        description: "Controls whether the task quick pick is skipped when there is only one task to pick from.",
+    },
+    {
+        key: "task.saveBeforeRun",
+        type: "string",
+        default: "always",
+        description: "Save all dirty editors before running a task.",
+        enum: ["always", "never", "prompt"],
+    },
+    {
+        key: "task.slowProviderWarning",
+        type: "boolean | array",
+        default: true,
+        description: "Configures whether a warning is shown when a provider is slow",
+    },
+    { key: "task.verboseLogging", type: "boolean", default: false, description: "Enable verbose logging for tasks." },
+    {
         key: "terminal.capabilities",
         type: "object",
         default: {},

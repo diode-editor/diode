@@ -101,6 +101,8 @@ export const newTerminalAction: CommandAction = {
             icon: PLUS_ICON,
             visible: viewMenuVisible(TERMINAL_VIEW_ID),
         },
+        // Меню Terminal меню-бара (`TerminalMenuBarGroup.Create` эталона).
+        { menuId: MenuId.MenubarTerminalMenu, group: "1_create", order: 1 },
     ],
     run(accessor) {
         accessor.get(PanelServiceDIToken).setActiveView(TERMINAL_VIEW_ID);

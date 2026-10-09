@@ -8,6 +8,19 @@
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreRenameLocation } from "../../../../editor/common/languages/iRenameSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
+import type {
+    IWireShellQuotedString,
+    IWireShellQuotingOptions,
+    IWireTask,
+    IWireTaskDefinition,
+    IWireTaskExecutionId,
+    IWireTaskFilter,
+    IWireTaskPresentation,
+    IWireTaskProviderHandle,
+    IWireTaskProviderRegistration,
+    WireTaskExecuteRequest,
+    WireTaskExecutionKind,
+} from "../../../api/common/taskWireTypes.ts";
 import {
     isFiniteNumber,
     type IWireCloseGroupsParams,
@@ -781,4 +794,172 @@ export function parseWireConfigurationUpdate(raw: unknown): IWireConfigurationUp
         ...(p.target !== undefined ? { target: p.target as WireConfigurationTarget } : {}),
         ...(p.resource !== undefined ? { resource: p.resource } : {}),
     };
+}
+
+// ── Задачи (`tasks.*`) ────────────────────────────────────────────────────────
+
+type TaskEnvelope = Readonly<Record<string, unknown>> | null | undefined;
+
+/** Окружение задачи — только строковые значения. */
+function parseTaskEnv(raw: unknown): Record<string, string> | undefined {
+    const record = parseWireStringRecord(raw);
+    if (record === undefined) return undefined;
+    return Object.fromEntries(Object.entries(record).filter((entry): entry is [string, string] => entry[1] !== null));
+}
+
+function parseQuotedString(raw: unknown): string | IWireShellQuotedString | undefined {
+    if (typeof raw === "string") return raw;
+    const p = raw as TaskEnvelope;
+    if (typeof p?.value !== "string" || !isFiniteNumber(p.quoting)) return undefined;
+    return { value: p.value, quoting: p.quoting };
+}
+
+function parseShellQuoting(raw: unknown): IWireShellQuotingOptions | undefined {
+    const p = raw as TaskEnvelope;
+    if (p === null || typeof p !== "object") return undefined;
+    const escape = p.escape as TaskEnvelope | string;
+    return {
+        ...(typeof escape === "string" ? { escape } : {}),
+        ...(typeof escape === "object" &&
+        escape !== null &&
+        typeof escape.escapeChar === "string" &&
+        typeof escape.charsToEscape === "string"
+            ? { escape: { escapeChar: escape.escapeChar, charsToEscape: escape.charsToEscape } }
+            : {}),
+        ...(typeof p.strong === "string" ? { strong: p.strong } : {}),
+        ...(typeof p.weak === "string" ? { weak: p.weak } : {}),
+    };
+}
+
+/** Исполнение задачи: процесс, шелл или метка `CustomExecution`; иначе — `undefined`. */
+function parseTaskExecution(raw: unknown): WireTaskExecutionKind | undefined {
+    const p = raw as TaskEnvelope;
+    if (p?.customExecution === "customExecution") return { customExecution: "customExecution" };
+    const options = p?.options as TaskEnvelope;
+    const cwd = typeof options?.cwd === "string" ? { cwd: options.cwd } : {};
+    const env = parseTaskEnv(options?.env);
+    const common = { ...cwd, ...(env !== undefined ? { env } : {}) };
+    if (typeof p?.process === "string") {
+        return {
+            process: p.process,
+            args: parseWireStringArray(p.args) ?? [],
+            ...(options !== undefined && options !== null ? { options: common } : {}),
+        };
+    }
+    const commandLine = typeof p?.commandLine === "string" ? p.commandLine : undefined;
+    const command = parseQuotedString(p?.command);
+    if (commandLine === undefined && command === undefined) return undefined;
+    const shellArgs = parseWireStringArray(options?.shellArgs);
+    const shellQuoting = parseShellQuoting(options?.shellQuoting);
+    const shellOptions = {
+        ...common,
+        ...(typeof options?.executable === "string" ? { executable: options.executable } : {}),
+        ...(shellArgs !== undefined ? { shellArgs } : {}),
+        ...(shellQuoting !== undefined ? { shellQuoting } : {}),
+    };
+    // Stryker disable next-line OptionalChaining: эквивалентный — без `p` сюда не дойти (нет ни commandLine, ни command — выход выше); `?.` — для типа
+    const args = Array.isArray(p?.args)
+        ? (p.args as readonly unknown[]).map(parseQuotedString).filter((a) => a !== undefined)
+        : undefined;
+    return {
+        ...(commandLine !== undefined ? { commandLine } : {}),
+        ...(command !== undefined ? { command } : {}),
+        ...(args !== undefined ? { args } : {}),
+        ...(options !== undefined && options !== null ? { options: shellOptions } : {}),
+    };
+}
+
+function parseTaskPresentation(raw: unknown): IWireTaskPresentation | undefined {
+    const p = raw as TaskEnvelope;
+    if (p === null || typeof p !== "object") return undefined;
+    const out: Record<string, unknown> = {};
+    for (const key of ["reveal", "panel"] as const) if (isFiniteNumber(p[key])) out[key] = p[key];
+    for (const key of ["echo", "focus", "showReuseMessage", "clear", "close"] as const) {
+        if (typeof p[key] === "boolean") out[key] = p[key];
+    }
+    if (typeof p.group === "string") out.group = p.group;
+    return out as IWireTaskPresentation;
+}
+
+/**
+ * Задача от субпроцесса (ответ провайдера, описание для `tasks.execute`):
+ * без имени, определения с типом или источника — `null`; лишнее и битое в
+ * необязательных полях отбрасывается.
+ */
+export function parseWireTaskFromSubprocess(raw: unknown): IWireTask | null {
+    const p = raw as TaskEnvelope;
+    const definition = p?.definition as TaskEnvelope;
+    const source = p?.source as TaskEnvelope;
+    if (typeof p?.name !== "string" || typeof definition?.type !== "string") return null;
+    if (typeof source?.label !== "string" || typeof source.extensionId !== "string") return null;
+    const scopeFolder = (source.scope as TaskEnvelope)?.folder;
+    const scope = isFiniteNumber(source.scope)
+        ? source.scope
+        : typeof scopeFolder === "string"
+          ? { folder: scopeFolder }
+          : null;
+    if (scope === null) return null;
+    const group = p.group as TaskEnvelope;
+    const presentationOptions = parseTaskPresentation(p.presentationOptions);
+    const runOptions = p.runOptions as TaskEnvelope;
+    return {
+        ...(typeof p.id === "string" ? { id: p.id } : {}),
+        name: p.name,
+        execution: parseTaskExecution(p.execution),
+        definition: definition as IWireTaskDefinition,
+        isBackground: p.isBackground === true,
+        source: { label: source.label, extensionId: source.extensionId, scope },
+        ...(typeof group?.id === "string"
+            ? {
+                  group: {
+                      id: group.id,
+                      ...(typeof group.isDefault === "boolean" ? { isDefault: group.isDefault } : {}),
+                  },
+              }
+            : {}),
+        ...(typeof p.detail === "string" ? { detail: p.detail } : {}),
+        ...(presentationOptions !== undefined ? { presentationOptions } : {}),
+        problemMatchers: parseWireStringArray(p.problemMatchers) ?? [],
+        hasDefinedMatchers: p.hasDefinedMatchers === true,
+        ...(typeof runOptions?.reevaluateOnRerun === "boolean"
+            ? { runOptions: { reevaluateOnRerun: runOptions.reevaluateOnRerun } }
+            : {}),
+    };
+}
+
+/** Ответ провайдера: массив задач, битые выпадают. */
+export function parseWireTasksFromSubprocess(raw: unknown): IWireTask[] {
+    if (!Array.isArray(raw)) return [];
+    return (raw as readonly unknown[])
+        .map(parseWireTaskFromSubprocess)
+        .filter((task): task is IWireTask => task !== null);
+}
+
+export function parseWireTaskProviderRegistration(raw: unknown): IWireTaskProviderRegistration | null {
+    const p = raw as TaskEnvelope;
+    if (!isFiniteNumber(p?.handle) || typeof p.type !== "string" || typeof p.extensionId !== "string") return null;
+    return { handle: p.handle, type: p.type, extensionId: p.extensionId };
+}
+
+export function parseWireTaskProviderHandle(raw: unknown): IWireTaskProviderHandle | null {
+    const p = raw as TaskEnvelope;
+    return isFiniteNumber(p?.handle) ? { handle: p.handle } : null;
+}
+
+export function parseWireTaskFilter(raw: unknown): IWireTaskFilter {
+    const type = (raw as TaskEnvelope)?.type;
+    return typeof type === "string" ? { type } : {};
+}
+
+/** `tasks.execute`: id задачи ядра или описание целиком; иначе — `null`. */
+export function parseWireTaskExecuteRequest(raw: unknown): WireTaskExecuteRequest | null {
+    const p = raw as TaskEnvelope;
+    if (typeof p?.id === "string") return { id: p.id };
+    const task = parseWireTaskFromSubprocess(p?.task);
+    return task === null ? null : { task };
+}
+
+export function parseWireTaskExecutionId(raw: unknown): IWireTaskExecutionId | null {
+    const id = (raw as TaskEnvelope)?.id;
+    return typeof id === "string" ? { id } : null;
 }

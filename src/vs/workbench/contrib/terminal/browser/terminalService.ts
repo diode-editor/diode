@@ -19,12 +19,14 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import {
     type ITerminalSession,
+    type ITerminalSessionOptions,
     type TerminalSessionFactory,
     TerminalSessionFactoryDIToken,
 } from "../common/terminalSessionFactory.ts";
@@ -110,16 +112,40 @@ export interface ITerminalCreateOptions {
      * Готовая сессия вместо шелла из фабрики (`customPtyImplementation`
      * эталона): процессом владеет кто-то другой — pty расширения. Создаётся с
      * размером {@link INITIAL_COLS}×{@link INITIAL_ROWS}; шелловые опции при
-     * ней не используются.
+     * ней не используются, кроме `message` — его сервис печатает в сессию сам.
      */
     readonly session?: ITerminalSession;
+    /**
+     * Не снимать инстанс, когда процесс вышел (`waitOnExit` эталона): терминал
+     * остаётся с выводом, печатает сообщение о коде выхода (если он не 0) и
+     * `waitOnExit` — строку как есть, функцию — по коду выхода; `true` — молча.
+     * Закрывает его любая клавиша человека или Kill. Терминалы задач.
+     */
+    readonly waitOnExit?: TerminalWaitOnExit;
+}
+
+/** Ждать ли после выхода процесса и что тогда напечатать (см. {@link ITerminalCreateOptions.waitOnExit}). */
+export type TerminalWaitOnExit = boolean | string | ((exitCode: number) => string);
+
+/** С чем перезапускается инстанс, ждущий после выхода ({@link TerminalService.relaunchInstance}). */
+export interface ITerminalRelaunchInstanceOptions extends Omit<ITerminalCreateOptions, "session" | "hideFromUser"> {
+    /** Стереть вывод прежнего процесса (`presentation.clear` задачи). */
+    readonly clear?: boolean;
 }
 
 interface TerminalInstanceRecord extends ITerminalInstance {
     readonly session: ITerminalSession;
     readonly subscriptions: IDisposable[];
+    title: string;
+    processId: number | undefined;
+    launch: ITerminalLaunchInfo;
     exitCode: number | undefined;
     exitReason: TerminalExitReason | undefined;
+    waitOnExit: TerminalWaitOnExit | undefined;
+    /** Процесс вышел, инстанс ждёт клавишу (`waitOnExit`); его можно перезапустить. */
+    waiting: boolean;
+    /** Процессом владеет не сессия, а pty расширения — командной строки у него нет. */
+    readonly external: boolean;
 }
 
 /**
@@ -156,6 +182,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private readonly onDidRequestFocusEmitter = this.register(new Emitter<void>());
     private readonly onDidCreateInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
     private readonly onDidDisposeInstanceEmitter = this.register(new Emitter<IDisposedTerminalInstance>());
+    private readonly onDidExitInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
+    private readonly onDidChangeInstanceTitleEmitter = this.register(new Emitter<ITerminalInstance>());
 
     public constructor(
         private readonly panelService: PanelService,
@@ -248,36 +276,31 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const cwd = options.cwd ?? this.cwd ?? process.cwd();
         const session =
             options.session ??
-            this.factory({
-                cols: INITIAL_COLS,
-                rows: INITIAL_ROWS,
-                cwd,
-                ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
-                ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),
-                ...(options.env !== undefined ? { env: { ...options.env } } : {}),
-                ...(options.strictEnv === true ? { strictEnv: true } : {}),
-                ...(options.message !== undefined ? { message: options.message } : {}),
-            });
+            this.factory({ cols: INITIAL_COLS, rows: INITIAL_ROWS, ...sessionOptions(options, cwd) });
+        // Готовой сессии `message` печатаем сами — шелловая печатает его при спавне.
+        if (options.session !== undefined && options.message !== undefined)
+            session.printMessage(`${options.message}\r\n`);
         const hideFromUser = options.hideFromUser === true;
         const instance: TerminalInstanceRecord = {
             id,
-            // Пустое имя у эталона — «не задано»: заголовок по процессу.
-            title: options.name !== undefined && options.name !== "" ? options.name : basename(session.shell),
+            title: titleOf(options, session),
             session,
             processId: session.pid,
-            launch: {
-                shellPath: session.shell,
-                shellArgs: options.shellArgs,
-                cwd,
-                env: options.env,
-                hideFromUser,
-            },
+            launch: launchInfo(options, session, cwd, hideFromUser),
             exitCode: undefined,
             exitReason: undefined,
+            waitOnExit: options.waitOnExit,
+            waiting: false,
+            external: options.session !== undefined,
             subscriptions: [
                 session.onExit((code) => {
-                    instance.exitCode = code;
-                    this.removeInstance(instance, "process");
+                    this.handleProcessExit(instance, code);
+                }),
+                // Клавиша после выхода закрывает только ждущий терминал: у
+                // прочих вышедших процесса инстанс к этому моменту уже снят.
+                session.onDidInputAfterExit(() => {
+                    // Stryker disable next-line ConditionalExpression: эквивалентный — вышедший не ждущий инстанс снят на выходе вместе с этой подпиской; проверка — страховка
+                    if (instance.waiting) this.removeInstance(instance, "user");
                 }),
             ],
         };
@@ -291,6 +314,33 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.onDidCreateInstanceEmitter.fire(instance);
         this.onDidOpenInstanceEmitter.fire(instance);
         this.onDidChangeActiveInstanceEmitter.fire(instance);
+        return instance;
+    }
+
+    /**
+     * Перезапустить процесс инстанса, который ждёт после выхода
+     * (`reuseTerminal` эталона — так задачи переиспользуют свой терминал):
+     * эмулятор, вкладка и id те же, процесс — новый, заголовок — новое имя.
+     * Инстанс, который не ждёт (жив или снят), не трогается — `undefined`.
+     */
+    public relaunchInstance(id: number, options: ITerminalRelaunchInstanceOptions = {}): ITerminalInstance | undefined {
+        const instance = this.find(id);
+        if (instance?.waiting !== true) return undefined;
+        const cwd = options.cwd ?? this.cwd ?? process.cwd();
+        instance.waiting = false;
+        instance.exitCode = undefined;
+        instance.waitOnExit = options.waitOnExit;
+        instance.session.relaunch({
+            ...sessionOptions(options, cwd),
+            ...(options.clear === true ? { clear: true } : {}),
+        });
+        instance.processId = instance.session.pid;
+        instance.launch = launchInfo(options, instance.session, cwd, instance.launch.hideFromUser);
+        const title = titleOf(options, instance.session);
+        if (title !== instance.title) {
+            instance.title = title;
+            this.onDidChangeInstanceTitleEmitter.fire(instance);
+        }
         return instance;
     }
 
@@ -376,6 +426,17 @@ export class TerminalService extends Disposable implements IContextKeyContributo
      */
     public readonly onDidDisposeInstance = this.onDidDisposeInstanceEmitter.event;
 
+    /**
+     * Процесс инстанса вышел (`onExit` эталона) — раньше снятия инстанса;
+     * `exitCode` уже заполнен. У ждущего (`waitOnExit`) инстанс после этого
+     * остаётся, у прочих следом приходит {@link onDidDisposeInstance}.
+     * Закрытие Kill'ом/расширением этим событием не сообщается.
+     */
+    public readonly onDidExitInstance = this.onDidExitInstanceEmitter.event;
+
+    /** Сменился заголовок инстанса (перезапуск под другим именем). */
+    public readonly onDidChangeInstanceTitle = this.onDidChangeInstanceTitleEmitter.event;
+
     /** Инстанс появился в списке вкладок (компонент строит по нему виджет). */
     public readonly onDidOpenInstance = this.onDidOpenInstanceEmitter.event;
 
@@ -411,6 +472,27 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const current = this.instances.findIndex((i) => i.id === this.activeId);
         const next = this.instances[(current + offset + count) % count];
         this.setActiveInstance(next.id);
+    }
+
+    /**
+     * Процесс инстанса вышел: без `waitOnExit` инстанс снимается, с ним —
+     * остаётся ждать клавишу; перед этим печатается сообщение о ненулевом коде
+     * выхода и текст `waitOnExit` (`_onProcessExit` эталона).
+     */
+    private handleProcessExit(instance: TerminalInstanceRecord, code: number): void {
+        instance.exitCode = code;
+        this.onDidExitInstanceEmitter.fire(instance);
+        const { waitOnExit } = instance;
+        if (waitOnExit === undefined || waitOnExit === false) {
+            this.removeInstance(instance, "process");
+            return;
+        }
+        if (code !== 0) instance.session.printMessage(formatMessageForTerminal(exitMessage(instance, code)));
+        const message = typeof waitOnExit === "function" ? waitOnExit(code) : waitOnExit;
+        if (typeof message === "string") {
+            instance.session.printMessage(formatMessageForTerminal(message, { excludeLeadingNewLine: true }));
+        }
+        instance.waiting = true;
     }
 
     /**
@@ -465,4 +547,44 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private fireFocus(): void {
         this.onDidRequestFocusEmitter.fire();
     }
+}
+
+/** Опции сессии из опций инстанса: только заданные поля, cwd уже разрешён. */
+function sessionOptions(
+    options: ITerminalRelaunchInstanceOptions,
+    cwd: string,
+): Omit<ITerminalSessionOptions, "cols" | "rows"> {
+    return {
+        cwd,
+        ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
+        ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),
+        ...(options.env !== undefined ? { env: { ...options.env } } : {}),
+        ...(options.strictEnv === true ? { strictEnv: true } : {}),
+        ...(options.message !== undefined ? { message: options.message } : {}),
+    };
+}
+
+/** Пустое имя у эталона — «не задано»: заголовок по процессу. */
+function titleOf(options: ITerminalRelaunchInstanceOptions, session: ITerminalSession): string {
+    return options.name !== undefined && options.name !== "" ? options.name : basename(session.shell);
+}
+
+function launchInfo(
+    options: ITerminalRelaunchInstanceOptions,
+    session: ITerminalSession,
+    cwd: string,
+    hideFromUser: boolean,
+): ITerminalLaunchInfo {
+    return { shellPath: session.shell, shellArgs: options.shellArgs, cwd, env: options.env, hideFromUser };
+}
+
+/**
+ * Сообщение о ненулевом коде выхода (`parseExitResult` эталона): с командной
+ * строкой процесса — исполняемый файл и аргументы в кавычках через запятую,
+ * как печатает эталон; у pty расширения процесса нет — без неё.
+ */
+function exitMessage(instance: TerminalInstanceRecord, code: number): string {
+    if (instance.external) return `The terminal process terminated with exit code: ${code}.`;
+    const args = (instance.launch.shellArgs ?? []).map((a) => ` '${a}'`).join();
+    return `The terminal process "${instance.launch.shellPath}${args}" terminated with exit code: ${code}.`;
 }

@@ -213,7 +213,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 | `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
 | `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
 | `workbench/browser/workbenchComponent.ts` | корень дерева Explorer и cwd терминала в `setWorkspaceFolder` | подписки explorer и терминала на смену папки, explorer как `IActivatable` — после того как путь папки перестанет терять регистр буквы диска (см. TODO); храповик направления, контейнеры у владельцев, хост оверлеев через `LayoutService`, фаза `blockStartup` и агрегатор `workbench.common.main.ts` уже сделаны | E4 |
-| `workbench/common/configuration/{scm,terminal,explorer,files,search}Configuration.ts` | узлы настроек фич | `contrib/<f>/common/` вместе с переездом `CONFIGURATION_CONTRIBUTIONS` в агрегатор | H6, необязательно |
+| `workbench/common/configuration/{scm,terminal,explorer,files,search,tasks}Configuration.ts` | узлы настроек фич | `contrib/<f>/common/` вместе с переездом `CONFIGURATION_CONTRIBUTIONS` в агрегатор | H6, необязательно |
 | `src/vs/diode/modules/workbenchModule.ts` | DI-биндинги фич | дескриптор фичи `contrib/<f>/browser/<f>.contribution.ts` | H6/C5, необязательно, после F2, E4 и F3 |
 | `contrib/diff/browser/compareActions.ts` | команды ревизий scm; из-за них цикл diff ↔ scm | `contrib/scm` | H6, необязательно |
 
@@ -1433,6 +1433,83 @@ hide-toggle (`isHiddenByDefault`). См.
     Ctrl+Shift+` на tier kitty/csi-u) — поверх LayoutService/PanelService/
     TerminalService/WorkbenchContextKeys.
 - `Components/` — UI-компоненты: `StatusBar/` (пилот), `Dialogs/`, `Panel/`, `Explorer/`, `QuickInput/`, `Editor/` и `Shell/` (корневой `WorkbenchComponent` + меню-бар).
+
+## Задачи (tasks)
+
+Фича `contrib/tasks/` — задачи VS Code (`contrib/tasks` эталона: `abstractTaskService` +
+`terminalTaskSystem` + `taskQuickPick`), первая итерация — только запуск; трекер и границы —
+[TODO/Tasks.md](../TODO/Tasks.md), API расширений — [Extensions.md](Extensions.md) («Задачи расширений»).
+
+- **Модель** (`common/tasks.ts`): задача tasks.json (`CustomTask` эталона) и задача провайдера
+  (`ContributedTask`) — одна форма `ITask` с источником (`workspace` | `extension`). Id задачи
+  tasks.json — `$core.<label>` (у эталона — uuid по имени в пределах сессии), задачи провайдера —
+  `${расширение}.${_key}`; «та же задача» — `getMapKey` (папка + id). Дефолты `presentation` и
+  `runOptions` — эталонные.
+- **`.vscode/tasks.json`** (`common/taskConfiguration.ts`, решение человека В1): читаем ровно там же,
+  где эталон, — в отличие от `.diode/settings.json` (#566). Разница в том, кто пишет файл: настройки
+  проекта Diode пишет сам (и держит их в своём каталоге), а `tasks.json` он только читает — общий с
+  VS Code файл проекта переиспользуется как есть. Схема 2.0.0 в объёме первой итерации:
+  `shell`/`process`, `command` (строка, массив, `{value, quoting}`), `args`, `options`
+  (`cwd`/`env`/`shell`), `presentation`, `runOptions`, `detail`, `hide`, `isBackground`, `group`
+  (хранится), секции `linux`/`osx`/`windows`, глобальные `options`/`presentation`. Неподдержанное —
+  предупреждение в лог `Tasks` (тексты эталона, где они есть), задача не падает; запись с типом
+  провайдера пропускается (В4: `resolveTask` отложен). Файл перечитывается на каждом запросе
+  задач (дёшево; правка применяется без вотчера), о проблемах одного и того же текста говорится
+  один раз.
+- **Переменные** (`common/taskVariables.ts`) — с нуля по `variableResolver.ts` эталона:
+  `workspaceFolder[Basename]`, `workspaceRoot`, `cwd` (у задачи с папкой — папка, как у эталона),
+  `env:`, `config:`, `userHome`, `pathSeparator`/`/`, переменные активного файла (`file`,
+  `fileBasename[NoExtension]`, `fileExtname`, `fileDirname`, `relativeFile[Dirname]`, `lineNumber`).
+  Неизвестная — как есть (эталон), `${input:}`/`${command:}` — явный отказ, а не запуск с литералом.
+- **Исполнение** (`browser/terminalTaskSystem.ts`): шелл по умолчанию — `DefaultShellResolverDIToken`
+  (`getSystemShell`; шов в `terminal/common`, потому что имя шелла нужно до создания терминала),
+  `-c` + командная строка `_buildShellCommandLine` с таблицей экранирования эталона; процесс —
+  исполняемый файл с аргументами. «Executing task: …» (`formatMessageForTerminal`) при `echo`.
+  Терминал задачи — `waitOnExit` (`getWaitOnExitValue`): после выхода печатает код выхода и
+  «Terminal will be reused by tasks, press any key to close it.» и ждёт; **честный reuse** (В5):
+  ждущий терминал перезапускается на месте `TerminalService.relaunchInstance` — `dedicated` берёт
+  свой, `shared` — свой или последний освободившийся той же `presentation.group`, `new` — всегда
+  новый; `clear` стирает вывод. События — в порядке эталона: Start → Active → ProcessStarted →
+  ProcessEnded → Inactive → End (+ Terminated, если терминал закрыли), плюс `changed` на смену
+  набора бегущих. `reveal` always/silent (показать при коде ≠ 0)/never, `focus`.
+- **Сервис** (`browser/taskService.ts`): списки (tasks.json + провайдеры с таймаутом 5 с,
+  `task.autoDetect`, `when` типа из `contributes.taskDefinitions`), запуск с `task.saveBeforeRun`
+  (`prompt` — модальный `DialogService.confirm`, как `dialogService.confirm` эталона; безымянные
+  буферы не сохраняются — Save As посреди запуска задачи не открываем), политика повторного
+  запуска (`instancePolicy`: prompt — пикер «Select an instance to terminate», terminateNewest/
+  Oldest — перезапуск, warn, silent), Rerun (редакторы сохраняются всегда; нечего — Run Task),
+  Restart (задача tasks.json — в нынешнем виде файла), Show Running Tasks, ключ `taskRunning`
+  (сервис выставляет его сам на каждом событии системы задач, а не опросом на нажатии).
+  Ошибки разбора tasks.json (не предупреждения) — строкой в лог `Tasks` и тостом эталона «There
+  are task errors. See the output for details.» с «Show Output» (панель Output на канале Tasks),
+  один раз на текст файла.
+  Активатор провайдеров, типы задач и мост pty `CustomExecution` ставит проводка extension host'а
+  (`bindExtensionTasks`) — без неё сервис работает с одним tasks.json.
+- **Пикер Run Task** (`browser/taskQuickPick.ts`): первый уровень — configured и по строке на тип
+  (`$(folder) <type>`) + «Show All Tasks...», второй — задачи типа + «Go back ↩». Разделителей
+  групп у нашего quick pick нет — подпись группы («configured»/«contributed») стоит подсказкой
+  справа у первой строки группы; второй строки нет — `detail` (`task.quickOpen.detail`) идёт в
+  описание строки. «Configure a Task» эталона нет (tasks.json не пишем) — при пустом списке
+  строка «No tasks found».
+- **Команды** (`browser/taskActions.ts`): `workbench.action.tasks.{runTask,reRunTask,restartTask,
+  terminate,showTasks}` с заголовками палитры эталона и аргументами (`runTask` — подпись или
+  определение `{type,…}`, `terminate` — `'terminateAll'`); меню Terminal меню-бара (новое:
+  New Terminal, Run Task..., Show Running/Restart/Terminate — последние с `enablement:
+  taskRunning`: без бегущих задач клик ничего не делает, но серыми пункты не рисуются — у пункта
+  меню tuidom (`MenuItemEntry`) нет состояния «недоступен»).
+  Команда кончается запуском, а не задачей.
+- **Статус-бар** (`browser/taskStatusBarContribution.ts`): `$(tools) N` бегущих, id
+  `status.runningTasks`, клик — Show Running Tasks; подсказок у записей статус-бара нет.
+- **Настройки** — узел `workbench/common/configuration/tasksConfiguration.ts` (центрально, как
+  остальные узлы фич — см. таблицу долга выше).
+
+**Отступления от эталона** (сверх «не входит» трекера): нет workspace trust — Run Task ничего не
+спрашивает; мультирута нет — задачи первой папки; reuse терминала только между задачами одного
+вида исполнения (шелл/процесс ↔ `CustomExecution` — новый терминал); задачи tasks.json получают id
+по метке, а не uuid; на Windows аргументы шелла уходят массивом (у эталона для cmd/powershell —
+одной строкой); пикер второго уровня на время загрузки провайдеров (до 5 с) не показывается —
+busy-состояния (`picker.busy` эталона) у нашего quick pick нет; `markdownDescription` настроек —
+обычным `description` (реестр настроек markdown-описаний не знает).
 
 ## Конвенции системы команд
 

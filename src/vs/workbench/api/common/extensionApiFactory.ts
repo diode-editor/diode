@@ -49,10 +49,16 @@ export const OWNED_MEMBERS = {
         "registerSignatureHelpProvider",
     ],
     commands: ["registerCommand", "registerTextEditorCommand"],
+    // Источник задачи (`extensionId` в описании) и id задачи провайдера —
+    // по расширению, которое зовёт.
+    tasks: ["registerTaskProvider", "executeTask"],
+    workspace: ["registerTaskProvider"],
 } as const satisfies {
     readonly window: readonly (keyof typeof vscode.window)[];
     readonly languages: readonly (keyof typeof vscode.languages)[];
     readonly commands: readonly (keyof typeof vscode.commands)[];
+    readonly tasks: readonly (keyof typeof vscode.tasks)[];
+    readonly workspace: readonly (keyof typeof vscode.workspace)[];
 };
 
 /** URL виртуального ESM-модуля `"vscode"` без владельца (общий namespace). */
@@ -104,6 +110,8 @@ export function createExtensionApi(shared: typeof vscode, owner: ExtensionOwner,
         window: { value: ownedNamespace(shared.window, OWNED_MEMBERS.window, owner, id) },
         languages: { value: ownedNamespace(shared.languages, OWNED_MEMBERS.languages, owner, id) },
         commands: { value: ownedNamespace(shared.commands, OWNED_MEMBERS.commands, owner, id) },
+        tasks: { value: ownedNamespace(shared.tasks, OWNED_MEMBERS.tasks, owner, id) },
+        workspace: { value: ownedNamespace(shared.workspace, OWNED_MEMBERS.workspace, owner, id) },
     });
     return api;
 }

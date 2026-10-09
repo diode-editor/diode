@@ -91,6 +91,8 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     getTextSurfaces(): readonly TextEditorPane[];
     /** Пути открытых файлов всех групп в порядке вкладок (без безымянных и недисковых). */
     getOpenFilePaths(): string[];
+    /** Сохранить все несохранённые документы с путём; изменённые на диске — не перезаписывать. */
+    saveAll(): Promise<void>;
     /** Вкладки, метки или активная вкладка поменялись. */
     readonly onDidChangeEditors: Event<void>;
     /** Сохранение любого редактора. */

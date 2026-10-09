@@ -36,6 +36,14 @@ describe("EmbeddedTerminalSession", () => {
         system.dispose();
     });
 
+    it("без args шелл стартует интерактивно, без аргументов", async () => {
+        const session = new EmbeddedTerminalSession({ cols: 40, rows: 6, shell: "/bin/sh" });
+        const exited = awaitExit(session);
+        session.write("exit 5\r");
+        expect(await exited).toBe(5);
+        session.dispose();
+    }, 15000);
+
     it("captures shell output via readCell and reports the exit code", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,

@@ -14,7 +14,9 @@ import type {
     IEditorOptionsService,
     IEditorOptionsState,
 } from "../../../api/common/iEditorOptionsService.ts";
+import type { IExtensionTaskEvents } from "../../../api/common/iExtensionTaskSink.ts";
 import type { IProtocolMessage, IRequestMessage } from "../../../api/common/rpcEndpoint.ts";
+import type { IWireTaskExecution } from "../../../api/common/taskWireTypes.ts";
 
 import { ExtensionHost, type IExtensionHostConfigProvider } from "./extensionHost.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
@@ -1593,6 +1595,60 @@ describe("ExtensionHost — семена handshake", () => {
             { kind: "notif", method: "terminal.opened", params: terminal },
             { kind: "notif", method: "terminal.activeChanged", params: { id: 4 } },
         ]);
+        host.dispose();
+    });
+});
+
+describe("ExtensionHost — провод задач (taskSink)", () => {
+    it("события задач ядра уходят субпроцессу tasks.*; регистрация провайдера субпроцесса — в сток; смерть снимает её", async () => {
+        const child = new FakeChild();
+        let events: IExtensionTaskEvents | null = null;
+        const unregistered = vi.fn();
+        const registered: string[] = [];
+        const execution = { id: "x", task: { name: "t" } } as unknown as IWireTaskExecution;
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            taskSink: {
+                subscribe: (e: IExtensionTaskEvents) => {
+                    events = e;
+                    return { dispose: () => undefined };
+                },
+                registerProvider: (extensionId: string, type: string) => {
+                    registered.push(`${extensionId}:${type}`);
+                    return { dispose: unregistered };
+                },
+                fetch: () => Promise.resolve([]),
+                execute: () => Promise.reject(new Error("no")),
+                terminate: () => undefined,
+            },
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        const sink = events as IExtensionTaskEvents | null;
+        if (sink === null) throw new Error("no subscription");
+        sink.started(execution, 3, { type: "t" });
+        sink.processStarted("x", 42);
+        sink.processEnded("x", 1);
+        sink.processEnded("x", undefined);
+        sink.ended(execution);
+        const tasks = child.sent.filter((m) => m.kind === "notif" && m.method.startsWith("tasks."));
+        expect(tasks).toEqual([
+            {
+                kind: "notif",
+                method: "tasks.didStart",
+                params: { execution, terminalId: 3, resolvedDefinition: { type: "t" } },
+            },
+            { kind: "notif", method: "tasks.didStartProcess", params: { id: "x", processId: 42 } },
+            { kind: "notif", method: "tasks.didEndProcess", params: { id: "x", exitCode: 1 } },
+            { kind: "notif", method: "tasks.didEndProcess", params: { id: "x" } },
+            { kind: "notif", method: "tasks.didEnd", params: { execution } },
+        ]);
+        child.receiveFromHostPeer({
+            kind: "notif",
+            method: "tasks.registerProvider",
+            params: { handle: 0, type: "demo", extensionId: "ext.a" },
+        });
+        expect(registered).toEqual(["ext.a:demo"]);
+        child.simulateExit(1);
+        expect(unregistered).toHaveBeenCalledTimes(1);
         host.dispose();
     });
 });

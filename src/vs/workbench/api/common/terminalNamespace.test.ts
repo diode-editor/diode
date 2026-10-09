@@ -373,3 +373,54 @@ describe("pty расширения — сторона субпроцесса", (
         expect(sent("terminal.pty.exit")).toHaveLength(2);
     });
 });
+
+describe("attachPty — pty задачи с CustomExecution к терминалу ядра", () => {
+    function makePty(name: string, log: string[]) {
+        const write = new EventEmitter<string>();
+        const pty: vscode.Pseudoterminal = {
+            onDidWrite: write.event,
+            open: (d) => log.push(`${name} open ${String(d?.columns)}x${String(d?.rows)}`),
+            close: () => log.push(`${name} close`),
+            handleInput: (data) => log.push(`${name} input ${data}`),
+        };
+        return { pty, write };
+    }
+
+    it("стартует с размером, присланным хостом до подключения; ввод и вывод — по id инстанса", async () => {
+        const { ns, stub, sent } = setup();
+        const log: string[] = [];
+        stub.fire("terminal.opened", { id: 5, name: "task", launch: {} });
+        stub.fire("terminal.pty.start", { id: 5, cols: 90, rows: 30 });
+        stub.fire("terminal.pty.resize", { id: 5, cols: 100, rows: 40 });
+        const { pty, write } = makePty("a", log);
+        ns.attachPty(5, pty);
+        stub.fire("terminal.pty.input", { id: 5, data: "k" });
+        write.fire("out");
+        await new Promise((r) => setTimeout(r, 20));
+        expect(log).toStrictEqual(["a open 100x40", "a input k"]);
+        expect(sent("terminal.pty.data")).toStrictEqual([{ terminal: { id: 5 }, data: "out" }]);
+    });
+
+    it("без присланного размера — 80×24; повторное подключение отцепляет прежний pty без close()", async () => {
+        const { ns, stub, sent } = setup();
+        const log: string[] = [];
+        stub.fire("terminal.opened", { id: 5, name: "task", launch: {} });
+        const first = makePty("a", log);
+        ns.attachPty(5, first.pty);
+        const second = makePty("b", log);
+        ns.attachPty(5, second.pty);
+        first.write.fire("stale");
+        second.write.fire("fresh");
+        stub.fire("terminal.pty.input", { id: 5, data: "k" });
+        await new Promise((r) => setTimeout(r, 20));
+        expect(log).toStrictEqual(["a open 80x24", "b open 80x24", "b input k"]);
+        expect(sent("terminal.pty.data")).toStrictEqual([{ terminal: { id: 5 }, data: "fresh" }]);
+    });
+
+    it("неизвестный терминал — исключение эталона", () => {
+        const { ns } = setup();
+        expect(() => {
+            ns.attachPty(9, makePty("x", []).pty);
+        }).toThrow("Cannot resolve terminal with id 9 for virtual process");
+    });
+});

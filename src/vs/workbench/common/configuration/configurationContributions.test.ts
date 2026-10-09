@@ -77,6 +77,14 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.tabs.location": "window",
     "terminal.integrated.tabs.focusMode": "window",
     "terminal.integrated.hideOnLastClosed": "window",
+
+    // Задачи: у эталона без `scope` — значит `window`.
+    "task.autoDetect": "window",
+    "task.slowProviderWarning": "window",
+    "task.quickOpen.detail": "window",
+    "task.quickOpen.skip": "window",
+    "task.saveBeforeRun": "window",
+    "task.verboseLogging": "window",
 };
 
 const registered = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();

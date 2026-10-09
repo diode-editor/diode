@@ -30,13 +30,13 @@
 | поверхность | статус | члены |
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 12/40 |
-| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 20/45 |
+| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 21/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 28/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
 | [`vscode.env`](#vscodeenv) | 🟡 | 11/21 |
-| [`vscode.tasks`](#пока-не-поднятые-namespace) | 🕐 | 0/8 |
+| [`vscode.tasks`](#vscodetasks) | 🟡 | 8/8 |
 | [`vscode.debug`](#пока-не-поднятые-namespace) | 🕐 | 0/18 |
 | [`vscode.scm`](#пока-не-поднятые-namespace) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#пока-не-поднятые-namespace) | 🕐 | 0/3 |
@@ -44,8 +44,8 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 128/424 |
-| [события активации](#события-активации-activationevents) | 🟡 | 5/32 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 151/424 |
+| [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
 
@@ -94,7 +94,8 @@ notebook-поверхность — нет.
 | `getWorkspaceFolder` | ✅ | работает в рантайме: матч по границе сегмента пути, файл **вне** папок воркспейса — `undefined`, как в эталоне (fallback на первую папку убран); декларация в `vscode.d.ts` ещё не поднята |
 | события папок и файловых операций (`onDidChangeWorkspaceFolders`, `onWill/onDid{Create,Delete,Rename}Files`) | 🕐 | подписка принимается (no-op), событие не стреляет |
 | notebook-поверхность (8 членов: `notebookDocuments`, `openNotebookDocument`, `registerNotebookSerializer`, события) | 🕐 | |
-| `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `save`, `saveAs`, `saveAll`, `registerTaskProvider`, `decode`, `encode` | 🕐 | |
+| `registerTaskProvider` | ✅ | устаревший двойник `tasks.registerTaskProvider` — тот же вызов |
+| `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `save`, `saveAs`, `saveAll`, `decode`, `encode` | 🕐 | |
 
 ## vscode.window
 
@@ -152,6 +153,35 @@ output-каналы, декорации, пункты статус-бара и �
 | `all` | 🟡 | весь состав, известный extension host'у, **кроме декларативных расширений** — языковые паки без `main` в extension host не регистрируются и в `all` не попадают (в эталоне попадают) |
 | `onDidChange` | ✅ | стреляет на смену состава (регистрация/снятие расширения); на активацию — нет, как в эталоне |
 
+## vscode.tasks
+
+🟡 **8/8** — namespace поднят целиком вместе с типами задач (`Task`, `TaskScope`, `TaskGroup`,
+`ShellExecution`, `ProcessExecution`, `CustomExecution`, `TaskDefinition`, `TaskProvider`,
+`TaskExecution`, события). Задачами владеет ядро Diode: Run Task, терминал задачи, Rerun /
+Restart / Terminate / Show Running Tasks — то же, что у задач из `.vscode/tasks.json`.
+**Problem matchers не исполняются вовсе** — задача просто бежит до выхода процесса.
+
+| член | статус | комментарий |
+| --- | :-: | --- |
+| `registerTaskProvider` | ✅ | задачи провайдера — в Run Task (тип из `contributes.taskDefinitions` — второй уровень пикера), id задачи — `${расширение}.${ключ определения}`, как у эталона. Провайдера ждут не дольше 5 с; `task.autoDetect: off` его не спрашивает. `resolveTask` не зовётся: записи `tasks.json` с типом провайдера (кастомизация задачи расширения) пока пропускаются с предупреждением в лог `Tasks` |
+| `fetchTasks` | ✅ | задачи `tasks.json` и всех провайдеров; с `{ type }` — только провайдеров этого типа |
+| `executeTask` | ✅ | своя задача приходит в событиях тем же объектом; задача из `fetchTasks` исполняется по id ядра, изменённая — описанием целиком. Срабатывают `task.saveBeforeRun` и политика повторного запуска (`instancePolicy`) |
+| `taskExecutions` | ✅ | все бегущие задачи — и запущенные из палитры или другим расширением (тогда `task` — новый объект с `name`/`source` провайдера) |
+| `onDidStartTask`, `onDidEndTask` | ✅ | для всех задач, в том числе запущенных из палитры |
+| `onDidStartTaskProcess` | 🟡 | pid процесса шелла; у задачи на `CustomExecution` — `-1` (как у эталона: процесса нет) |
+| `onDidEndTaskProcess` | ✅ | код выхода; `undefined` — терминал задачи закрыли (Terminate) |
+
+Типы задач — по контракту, с отличиями:
+
+| символ | отличие |
+| --- | --- |
+| `Task.group`, `TaskGroup` | хранится и уезжает ядру, но групп build/test (Run Build Task, Ctrl+Shift+B) пока нет — на запуск не влияет |
+| `Task.problemMatchers` | хранится, не исполняется (problem matchers не поддержаны) |
+| `TaskScope.Global` | задача без папки — как у эталона, где область `Global` в документации «пока не поддержана», но исполняется как есть |
+| `RunOptions` | `reevaluateOnRerun` работает (Rerun Last Task); у задач `tasks.json` — ещё `instancePolicy`; `instanceLimit` больше 1 — одна копия, `runOn: folderOpen` — не запускается сам |
+| `TaskPresentationOptions` | `reveal`, `focus`, `echo`, `panel` (dedicated/shared/new — с переиспользованием терминала задачи), `showReuseMessage`, `clear`, `group`, `close` |
+| `CustomExecution` | pty расширения подключается к терминалу задачи; при повторном запуске — тот же терминал, новый pty |
+
 ## vscode.l10n
 
 🟡 **3/3** — задекларирован целиком; бандлов переводов нет.
@@ -187,7 +217,7 @@ output-каналы, декорации, пункты статус-бара и �
 решает, запустится ли расширение вообще. Расширение, чьи события не поддержаны, устанавливается,
 показывается в каталоге — и молчит навсегда.
 
-Активно **5 из 32** видов событий upstream 1.127.0 (`*` плюс 31 именованный вид из схемы
+Активно **6 из 32** видов событий upstream 1.127.0 (`*` плюс 31 именованный вид из схемы
 `activationEvents`). Строки ниже перечисляют все; неподдержанные сгруппированы по поверхности,
 которой они ждут.
 
@@ -202,7 +232,7 @@ output-каналы, декорации, пункты статус-бара и �
 | `onView:<id>`, `onWalkthrough:<id>` | 🕐 | ждут своих поверхностей (`contributes.views`, walkthrough) |
 | `onWebviewPanel:<id>`, `onCustomEditor:<id>`, `onRenderer:<id>` | ⛔ | поверхности webview-природы — см. [потолок](#не-будет-by-design) |
 | `onDebug`, `onDebugInitialConfigurations`, `onDebugDynamicConfigurations`, `onDebugResolve:<type>`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | вместе с `vscode.debug` |
-| `onTaskType:<type>` | 🕐 | вместе с `vscode.tasks` |
+| `onTaskType:<type>` | ✅ | Run Task поднимает провайдеров перед тем, как спросить задачи (`onCommand:workbench.action.tasks.runTask` и `onTaskType:<type>`; без типа — все типы из `contributes.taskDefinitions`), плюс **неявное** `onTaskType:<type>` из `contributes.taskDefinitions` |
 | `onNotebook:<type>` | 🕐 | вместе с `vscode.notebooks` |
 | `onAuthenticationRequest:<id>` | 🕐 | вместе с `vscode.authentication` |
 | `onChatParticipant:<id>`, `onChatContextProvider:<id>`, `onLanguageModelChatProvider:<id>`, `onLanguageModelTool:<id>` | 🕐 | вместе с `vscode.chat` / `vscode.lm` |
@@ -213,7 +243,6 @@ output-каналы, декорации, пункты статус-бара и �
 
 | namespace | статус | комментарий |
 | --- | :-: | --- |
-| `vscode.tasks` | 🕐 | таск-раннер |
 | `vscode.debug` | 🕐 | DAP — в заявленном стеке проекта, поверхность появится вместе с дебаггером |
 | `vscode.scm` | 🕐 | source control |
 | `vscode.notebooks` | 🕐 | сериализация — возможна; рендеры ячеек — webview, их не будет |
@@ -240,7 +269,7 @@ output-каналы, декорации, пункты статус-бара и �
 
 ## Типы с неполной поверхностью
 
-Активно 128 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 151 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.

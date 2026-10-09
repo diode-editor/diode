@@ -60,6 +60,7 @@ import {
 import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../api/common/iEditorLayoutService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
+import type { IExtensionTaskSink } from "../../../api/common/iExtensionTaskSink.ts";
 import type {
     DiagnosticsSink,
     IExtensionTerminalSink,
@@ -101,6 +102,7 @@ import { EnvCustomer } from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
+import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
@@ -265,6 +267,13 @@ export interface IExtensionHostOptions {
      * `onDidOpenTerminal` не стреляет и список пуст.
      */
     readonly terminalSink?: IExtensionTerminalSink;
+    /**
+     * Сток задач расширений (`vscode.tasks`: провайдеры, `fetchTasks`,
+     * `executeTask`, события исполнений) — мост к сервису задач ядра. Если не
+     * передан — провайдеры никуда не регистрируются, `fetchTasks` пуст,
+     * `executeTask` отклоняется.
+     */
+    readonly taskSink?: IExtensionTaskSink;
     /**
      * Буфер обмена для `env.clipboard`. Если не передан — чтение отдаёт пустую
      * строку, запись молча теряется (как было до появления провода).
@@ -523,6 +532,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 notificationSink: options.notificationSink,
             }),
             this.terminals,
+            new TasksCustomer(options.taskSink),
         ];
     }
 

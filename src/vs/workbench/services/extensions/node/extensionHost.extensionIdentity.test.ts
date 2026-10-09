@@ -51,7 +51,7 @@ function builtinRegistration(): IExtensionRegistration {
 interface IComparison {
     readonly distinctWindow: boolean;
     readonly samePosition: boolean;
-    readonly sameWorkspace: boolean;
+    readonly sameEnv: boolean;
     readonly activeFile: string | null;
 }
 
@@ -60,7 +60,7 @@ interface IReport {
     readonly distinctCommands: boolean;
     readonly helperSame: boolean;
     readonly samePosition: boolean;
-    readonly sameWorkspace: boolean;
+    readonly sameEnv: boolean;
     readonly activeAlpha: string | null;
     readonly activeBeta: string | null;
     readonly esm: IComparison | null;
@@ -92,11 +92,11 @@ for (const loader of LOADERS) {
                     distinctCommands: true,
                     helperSame: true,
                     samePosition: true,
-                    sameWorkspace: true,
+                    sameEnv: true,
                     activeAlpha: first,
                     activeBeta: first,
-                    esm: { distinctWindow: true, samePosition: true, sameWorkspace: true, activeFile: first },
-                    builtin: { distinctWindow: true, samePosition: true, sameWorkspace: true, activeFile: first },
+                    esm: { distinctWindow: true, samePosition: true, sameEnv: true, activeFile: first },
+                    builtin: { distinctWindow: true, samePosition: true, sameEnv: true, activeFile: first },
                 });
 
                 // Геттер читается на каждом обращении, а не снимается при сборке оверлея.

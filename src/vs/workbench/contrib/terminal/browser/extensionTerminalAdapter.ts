@@ -7,11 +7,13 @@ import type {
     IWireTerminalRef,
 } from "../../../api/common/wireTypes.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
+import type { IExtensionPtyTerminalOptions, IExtensionPtyTerminals } from "../common/extensionPtyTerminals.ts";
 import type { ExtensionPtySessionFactory, IExtensionPtySession } from "../common/terminalSessionFactory.ts";
 
 import {
     INITIAL_COLS,
     INITIAL_ROWS,
+    type ITerminalCreateOptions,
     type ITerminalInstance,
     TERMINAL_VIEW_ID,
     type TerminalService,
@@ -32,7 +34,7 @@ import {
  * pty приезжает `ptyData`, набор человека и размер виджета уходят подписчику
  * `ptyInput`/`ptyResize`, а `ptyStart` зовёт `pty.open` сразу после создания.
  */
-export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
+export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtensionPtyTerminals {
     /** `extHostId` субпроцесса → id инстанса (терминалов единицы — обратный поиск перебором). */
     private readonly byExtHostId = new Map<number, number>();
     /**
@@ -164,8 +166,20 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
         const id = this.resolve(terminal);
         const session = this.ptySessions.get(id);
         if (session === undefined) return;
+        // Терминал задачи переживает выход pty и запускается заново — признак
+        // «без кода» относится к последнему выходу.
         if (code === undefined) this.ptyExitedWithoutCode.add(id);
+        else this.ptyExitedWithoutCode.delete(id);
         session.exit(code);
+    }
+
+    /**
+     * Pty-терминал, который заводит ядро (терминал задачи с `CustomExecution`):
+     * сам pty субпроцесс подключит по id инстанса, когда узнает о старте
+     * задачи, — `ptyStart` с размером уходит сразу, субпроцесс его запомнит.
+     */
+    public createPtyInstance(options: IExtensionPtyTerminalOptions): number {
+        return this.createPtySessionInstance(options.name, options);
     }
 
     /**
@@ -188,6 +202,13 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
      * инстанса. Настоящий размер виджета придёт `ptyResize` после раскладки.
      */
     private createPty(extHostId: number, name: string): void {
+        this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}));
+    }
+
+    private createPtySessionInstance(
+        name: string,
+        extra: Pick<ITerminalCreateOptions, "message" | "waitOnExit">,
+    ): number {
         // Id инстанса узнаём после createInstance; ввод и ресайз виджета раньше не случаются.
         // Stryker disable next-line UnaryOperator: плейсхолдер до createInstance — колбэки сессии его не видят
         let instanceId = -1;
@@ -203,11 +224,11 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink {
             },
         });
         // Пустое имя сервис и так считает «не задано».
-        const instance = this.terminals.createInstance({ name, session });
+        const instance = this.terminals.createInstance({ ...extra, name, session });
         instanceId = instance.id;
-        this.byExtHostId.set(extHostId, instance.id);
         this.ptySessions.set(instance.id, session);
         this.events?.ptyStart(instance.id, INITIAL_COLS, INITIAL_ROWS);
+        return instance.id;
     }
 
     private resolve(terminal: IWireTerminalRef): number | undefined {

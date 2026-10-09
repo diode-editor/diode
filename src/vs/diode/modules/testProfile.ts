@@ -18,6 +18,7 @@ import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
+import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import {
     ExtensionPtySessionFactoryDIToken,
     TerminalSessionFactoryDIToken,
@@ -138,6 +139,8 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
     container.bind(TerminalSessionFactoryDIToken, () => () => new FakeTerminalSurface());
     // Pty-терминалы расширений — тот же фейк поверхности с входом `feed`.
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new FakeExtensionPtySession(options));
+    // Шелл задач — фиксированный: тестам не важно, что стоит в $SHELL машины.
+    container.bind(DefaultShellResolverDIToken, () => () => "/bin/bash");
 
     return {
         container,

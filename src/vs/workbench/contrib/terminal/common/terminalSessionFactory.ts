@@ -4,6 +4,7 @@
 
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
+import type { Event } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
@@ -29,11 +30,35 @@ export interface ITerminalSessionOptions {
  * (`shell` — по нему вкладка получает заголовок; какой шелл запускать, решает
  * node-слой, `getSystemShell`; `pid` — его процесс).
  */
+/**
+ * С чем перезапускается процесс сессии на месте ({@link ITerminalSession.relaunch}):
+ * те же поля, что при создании, кроме размера — он остаётся у эмулятора.
+ */
+export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "rows"> & {
+    /** Очистить буфер эмулятора перед новым процессом (`presentation.clear` задачи). */
+    clear?: boolean;
+};
+
 export type ITerminalSession = ITerminalSurface &
     IDisposable & {
         readonly shell: string;
         /** Pid процесса шелла; `undefined`, если процесса на нашей стороне нет. */
         readonly pid: number | undefined;
+        /**
+         * Процесс уже вышел — запустить новый в том же эмуляторе
+         * (`reuseTerminal` эталона): вывод прежнего остаётся выше (или
+         * стирается при `clear`), `message` печатается перед выводом нового.
+         * Сессия pty расширения шелловые поля пропускает — её новый процесс
+         * подключит расширение.
+         */
+        relaunch(options: ITerminalRelaunchOptions): void;
+        /** Напечатать текст в эмулятор как вывод (в процесс он не уходит). */
+        printMessage(text: string): void;
+        /**
+         * Ввод человека после выхода процесса — клавиша «press any key to
+         * close» терминала, который ждёт после выхода (`waitOnExit` эталона).
+         */
+        readonly onDidInputAfterExit: Event<void>;
     };
 
 export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSession;

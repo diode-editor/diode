@@ -1,0 +1,42 @@
+{
+    "name": "task-demo",
+    "displayName": "Task Demo",
+    "description": "Демо-расширение задач: провайдер типа demo (ShellExecution и CustomExecution), executeTask своей задачи, fetchTasks, terminate и события исполнений в статус-баре — форма провайдера bazel-java.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "*"
+    ],
+    "contributes": {
+        "taskDefinitions": [
+            {
+                "type": "demo",
+                "required": ["target"],
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "What to run."
+                    }
+                }
+            }
+        ],
+        "commands": [
+            {
+                "command": "taskDemo.execute",
+                "title": "Task Demo: Execute Own Task"
+            },
+            {
+                "command": "taskDemo.fetch",
+                "title": "Task Demo: Fetch Tasks"
+            },
+            {
+                "command": "taskDemo.terminate",
+                "title": "Task Demo: Terminate Running"
+            }
+        ]
+    }
+}

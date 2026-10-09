@@ -12,6 +12,19 @@ import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSigna
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type {
+    IWireTask,
+    IWireTaskEnded,
+    IWireTaskExecution,
+    IWireTaskExecutionId,
+    IWireTaskFilter,
+    IWireTaskProcessEnded,
+    IWireTaskProcessStarted,
+    IWireTaskProviderHandle,
+    IWireTaskProviderRegistration,
+    IWireTaskStarted,
+    WireTaskExecuteRequest,
+} from "./taskWireTypes.ts";
+import type {
     IWireActivateExtensionParams,
     IWireApplyEditParams,
     IWireApplyWorkspaceEditParams,
@@ -152,6 +165,9 @@ export interface IHostToSubprocess {
 
         readonly "window.inputBox.validate": readonly [IWireInputBoxValidate, IWireValidationMessage | null];
 
+        /** Задачи провайдера расширения (`$provideTasks`). */
+        readonly "tasks.provideTasks": readonly [IWireTaskProviderHandle, IWireTask[]];
+
         readonly "host.activateExtension": readonly [IWireActivateExtensionParams, null];
         readonly "host.deactivateExtension": readonly [IWireExtensionId, null];
         readonly "host.shutdown": readonly [undefined, null];
@@ -183,6 +199,11 @@ export interface IHostToSubprocess {
         readonly "terminal.pty.start": IWireTerminalPtyDimensions;
         readonly "terminal.pty.resize": IWireTerminalPtyDimensions;
         readonly "terminal.pty.input": IWireTerminalPtyInput;
+
+        readonly "tasks.didStart": IWireTaskStarted;
+        readonly "tasks.didStartProcess": IWireTaskProcessStarted;
+        readonly "tasks.didEndProcess": IWireTaskProcessEnded;
+        readonly "tasks.didEnd": IWireTaskEnded;
     };
 }
 
@@ -222,6 +243,14 @@ export interface ISubprocessToHost {
          * записи; новое значение приезжает раньше него `workspace.configurationChanged`.
          */
         readonly "configuration.update": readonly [IWireConfigurationUpdate, null];
+
+        /** `tasks.fetchTasks` (`$fetchTasks`). */
+        readonly "tasks.fetch": readonly [IWireTaskFilter, IWireTask[]];
+        /**
+         * `tasks.executeTask` (`$getTaskExecution` + `$executeTask`): ответ — когда
+         * задача запущена, а не когда кончилась.
+         */
+        readonly "tasks.execute": readonly [WireTaskExecuteRequest, IWireTaskExecution];
     };
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;
@@ -263,6 +292,11 @@ export interface ISubprocessToHost {
         readonly "terminal.dispose": IWireTerminalTarget;
         readonly "terminal.pty.data": IWireTerminalPtyData;
         readonly "terminal.pty.exit": IWireTerminalPtyExit;
+
+        readonly "tasks.registerProvider": IWireTaskProviderRegistration;
+        readonly "tasks.unregisterProvider": IWireTaskProviderHandle;
+        /** `TaskExecution.terminate()` (`$terminateTask`). */
+        readonly "tasks.terminate": IWireTaskExecutionId;
 
         /** Сигнал готовности: можно слать `host.activateExtension`. */
         readonly "host.ready": null;

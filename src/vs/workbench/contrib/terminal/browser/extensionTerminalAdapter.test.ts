@@ -254,3 +254,41 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 });
+
+describe("ExtensionTerminalAdapter — pty-терминал задачи (CustomExecution)", () => {
+    it("инстанс на pty: имя, сообщение, ожидание после выхода; ptyStart сразу; чужой для субпроцесса (без метки)", () => {
+        const h = setup();
+        const id = h.adapter.createPtyInstance({ name: "pty task", message: "Executing", waitOnExit: "bye" });
+        const instance = h.service.getInstance(id);
+        expect(instance?.title).toBe("pty task");
+        expect(h.ptySessions[0].printed).toStrictEqual(["Executing\r\n"]);
+        expect(h.events.ptyStart).toHaveBeenCalledWith(id, 80, 24);
+        expect(h.events.opened.mock.calls[0][0]).not.toHaveProperty("extHostId");
+        // Выход pty — инстанс ждёт (waitOnExit), а не закрывается.
+        h.adapter.ptyExit({ id }, 1);
+        expect(h.service.getInstance(id)).toBe(instance);
+        h.service.dispose();
+    });
+
+    it("код выхода — о последнем выходе pty: «без кода» после перезапуска с кодом забывается", () => {
+        const h = setup();
+        const id = h.adapter.createPtyInstance({ name: "t", waitOnExit: true });
+        h.adapter.ptyExit({ id }, undefined);
+        h.service.relaunchInstance(id, { name: "t", waitOnExit: true });
+        h.adapter.ptyExit({ id }, 5);
+        h.service.closeInstance(id);
+        expect(h.events.closed).toHaveBeenCalledWith({ id, code: 5, reason: "user" });
+        h.service.dispose();
+    });
+
+    it("без кода на последнем выходе — closed без кода", () => {
+        const h = setup();
+        const id = h.adapter.createPtyInstance({ name: "t", waitOnExit: true });
+        h.adapter.ptyExit({ id }, 3);
+        h.service.relaunchInstance(id, { name: "t", waitOnExit: true });
+        h.adapter.ptyExit({ id }, undefined);
+        h.service.closeInstance(id);
+        expect(h.events.closed).toHaveBeenCalledWith({ id, reason: "user" });
+        h.service.dispose();
+    });
+});

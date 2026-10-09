@@ -50,7 +50,9 @@ const NO_CONTRIBUTIONS: readonly never[] = [];
  * Явный список генераторов (без синглтон-реестра с саморегистрацией):
  * - `commands` ⇒ `onCommand:<id>` — иначе видимая в палитре команда не-eager
  *   расширения была бы вечным no-op;
- * - `languages` ⇒ `onLanguage:<id>` — расширение, принёсшее язык, встаёт на нём.
+ * - `languages` ⇒ `onLanguage:<id>` — расширение, принёсшее язык, встаёт на нём;
+ * - `taskDefinitions` ⇒ `onTaskType:<type>` — провайдер задач встаёт, когда
+ *   Run Task спрашивает задачи его типа.
  *
  * Генераторы для поверхностей, которых у нас нет (`onView`, `onUri`, …),
  * появятся вместе с поверхностью.
@@ -69,6 +71,17 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
         *generate(contributes) {
             for (const language of contributes.languages ?? NO_CONTRIBUTIONS) {
                 if (typeof language.id === "string") yield `${ON_LANGUAGE_PREFIX}${language.id}`;
+            }
+        },
+    },
+    {
+        // Тип задачи ⇒ `onTaskType:<type>` (`activationEventsGenerator` у
+        // `taskDefinitions` эталона): Run Task поднимает провайдера по типу.
+        point: "taskDefinitions",
+        *generate(contributes) {
+            for (const definition of contributes.taskDefinitions ?? NO_CONTRIBUTIONS) {
+                if (typeof definition.type === "string" && definition.type !== "")
+                    yield `onTaskType:${definition.type}`;
             }
         },
     },

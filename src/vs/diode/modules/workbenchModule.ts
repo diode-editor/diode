@@ -1,3 +1,4 @@
+import { getSystemShell } from "../../base/node/shell.ts";
 import {
     ContextMenuController as EditorContextMenuController,
     ContextMenuControllerDIToken as EditorContextMenuControllerDIToken,
@@ -229,12 +230,18 @@ import {
     CompletionServiceDIToken,
 } from "../../workbench/contrib/suggest/browser/completionService.ts";
 import { SuggestComponent, SuggestComponentDIToken } from "../../workbench/contrib/suggest/browser/suggestComponent.ts";
+import { TaskService, TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
+import {
+    TaskStatusBarContribution,
+    TaskStatusBarContributionDIToken,
+} from "../../workbench/contrib/tasks/browser/taskStatusBarContribution.ts";
 import {
     TerminalFocusFallbackDIToken,
     TerminalPanelComponent,
     TerminalPanelComponentDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalService, TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
+import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import {
     ExtensionPtySessionFactoryDIToken,
     TerminalSessionFactoryDIToken,
@@ -526,6 +533,12 @@ export const workbenchModule: ContainerModule = (container) => {
     // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита; сквозняк — e2e-сценарий extension-terminal
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);
+    // Шелл задач (`bash -c "<команда>"`) — тот же, что у терминала без shellPath.
+    // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита (профиль тестов ставит свой шелл); сквозняк — e2e-сценарий tasks
+    container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
+    // Задачи: сервис (Run Task и соседи) и сегмент бегущих задач в статус-баре.
+    container.bind(TaskServiceDIToken, TaskService);
+    container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     // Куда уходит фокус, когда последний шелл вышел и виджет ушёл со сцены.
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalPanelComponentDIToken, TerminalPanelComponent);
