@@ -104,17 +104,20 @@ describe("KeybindingDispatcher — одиночные биндинги", () => {
         expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "x" }))).toBe(false);
     });
 
-    it("bubble-обработчик вызывает preventDefault только для consumed-события", () => {
+    it("bubble-обработчик гасит (preventDefault + stopImmediatePropagation) только consumed-событие", () => {
         const h = createHarness();
         h.bind("ctrl+s", "test.save");
 
         const matched = keyDown({ key: "s", ctrlKey: true });
         h.dispatcher.handleKeyDown(matched);
         expect(matched.defaultPrevented).toBe(true);
+        // Прочие слушатели корня (мнемоники меню) съеденную клавишу не видят.
+        expect(matched.immediatePropagationStopped).toBe(true);
 
         const unmatched = keyDown({ key: "x" });
         h.dispatcher.handleKeyDown(unmatched);
         expect(unmatched.defaultPrevented).toBe(false);
+        expect(unmatched.immediatePropagationStopped).toBe(false);
     });
 
     it("зовёт хук updateContextKeys перед резолвом when-клаузы", () => {

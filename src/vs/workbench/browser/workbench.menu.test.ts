@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
+import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
 import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
 /** Open a top-level menu by mnemonic (Alt+<letter>) and return the live popup element. */
@@ -565,5 +566,26 @@ describe("Workbench — editor context menu", () => {
         palette.onSelect?.();
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.showCommands");
+    });
+});
+
+describe("Workbench — keybinding vs menu mnemonic", () => {
+    it("кейбинд на Alt+буква сильнее мнемоники меню (как в VS Code): команда, а не меню View", () => {
+        const { testApp, commands } = createAppTestHarness({
+            containerOverrides: (container) => {
+                container.bind(UserKeybindingsDIToken, () => [
+                    { key: "alt+v", command: "workbench.action.togglePanel" },
+                ]);
+            },
+        });
+        const executeSpy = vi.spyOn(commands, "execute");
+
+        testApp.sendKey("Alt+V");
+
+        expect(executeSpy).toHaveBeenCalledWith("workbench.action.togglePanel");
+        expect(testApp.querySelector("PopupMenuElement")).toBeNull();
+        // Без кейбинда мнемоника жива.
+        testApp.sendKey("Alt+G");
+        expect(testApp.querySelector("PopupMenuElement")).not.toBeNull();
     });
 });

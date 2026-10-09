@@ -1165,7 +1165,10 @@ hide-toggle (`isHiddenByDefault`). См.
     (`LayoutService.attachRoot` — хост оверлеев фич), затем late-init швы
     (`DialogService`/`QuickInputComponent`/`TabSwitcherComponent`/`NotificationsComponent`
     `attachHost(BodyElement)`, `LayoutService.attachLayout`, `WorkbenchContextKeys.attachView`), вешает
-    листенеры `KeybindingDispatcher` и фокус-хуки, регистрирует список
+    листенеры `KeybindingDispatcher` (клавишные — в конструкторе, ДО `MenuBarComponent`:
+    мнемоники меню слушают тот же корень в bubble-фазе, а съеденную кейбиндом клавишу
+    диспетчер гасит `stopImmediatePropagation` — кейбинд на Alt+буква сильнее мнемоники,
+    как в VS Code) и фокус-хуки, регистрирует список
     `WORKBENCH_ACTIONS` одним циклом (получает его токеном `CommandActionsDIToken`). Фич-компоненты и их сервисы он не резолвит —
     их инстанцирует реестр contribution'ов в фазе `blockStartup` (в конструкторе
     корня); фич-проводка (autoReveal, live-reload темы, контекст-меню редактора,

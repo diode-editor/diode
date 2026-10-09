@@ -189,6 +189,8 @@ export class KeybindingDispatcher extends Disposable {
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
         if (this.dispatchKeyDown(event)) {
             event.preventDefault();
+            // Съеденная клавиша не доходит до прочих слушателей корня — мнемоник меню.
+            event.stopImmediatePropagation();
         }
     };
 
