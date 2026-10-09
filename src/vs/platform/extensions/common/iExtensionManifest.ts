@@ -156,6 +156,13 @@ export interface IExtensionContributions {
      */
     readonly submenus?: readonly IExtensionSubmenuContribution[];
 
+    /**
+     * Типы задач расширения (`contributes.taskDefinitions`): схема определения
+     * задачи типа — по ней ядро считает ключ задачи провайдера — и неявное
+     * событие активации `onTaskType:<type>`.
+     */
+    readonly taskDefinitions?: readonly ITaskDefinitionContribution[];
+
     // ── TODO(extensions phase 2+): раскомментировать по мере реализации ──
     //
     // readonly iconThemes?: readonly IIconThemeContribution[];
@@ -171,7 +178,6 @@ export interface IExtensionContributions {
     //
     // readonly debuggers?: readonly IDebuggerContribution[];
     // readonly breakpoints?: readonly IBreakpointContribution[];
-    // readonly taskDefinitions?: readonly ITaskDefinitionContribution[];
     // readonly problemMatchers?: readonly IProblemMatcherContribution[];
     // readonly problemPatterns?: readonly IProblemPatternContribution[];
     //
@@ -273,4 +279,12 @@ export interface IConfigurationPropertySchema {
     readonly default?: unknown;
     readonly description?: string;
     readonly [key: string]: unknown;
+}
+
+/** Тип задачи из `contributes.taskDefinitions` (`ITaskDefinition` схемы эталона). */
+export interface ITaskDefinitionContribution {
+    readonly type?: string;
+    readonly required?: readonly string[];
+    readonly properties?: Readonly<Record<string, unknown>>;
+    readonly when?: string;
 }

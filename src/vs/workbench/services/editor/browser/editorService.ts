@@ -989,25 +989,40 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      * внешних изменениях — выбор пользователя не должен пропасть.
      */
     public collectDirty(): readonly IShutdownDirtyItem[] {
-        const items: IShutdownDirtyItem[] = [];
-        // Дедуп по модели: документ, открытый в нескольких вкладках, — одни
-        // несохранённые правки и ОДИН диалог, а не по числу вкладок.
+        return this.dirtyEditors().map((editor) => ({
+            name: this.displayName(editor),
+            isStillDirty: () =>
+                [...this.textPanes(), ...this.diffSidePanes()].some((pane) => pane.model === editor.model),
+            save: async () => (await editor.save({ overwrite: true })) === "saved",
+        }));
+    }
+
+    /**
+     * Сохранить все несохранённые документы (`saveAll` эталона — перед запуском
+     * задачи). Безымянный буфер пути не имеет и пропускается (диалог Save As
+     * посреди запуска задачи не открываем); файл, изменённый на диске,
+     * не перезаписывается — его сохранит человек сам.
+     */
+    public async saveAll(): Promise<void> {
+        for (const editor of this.dirtyEditors()) await editor.save();
+    }
+
+    /**
+     * Несохранённые редакторы, по одному на модель: документ, открытый в
+     * нескольких вкладках, — одни несохранённые правки. Стороны диффа — после
+     * вкладок: у вкладки метка красивее, а модель у них общая, так что дифф
+     * добавляет только СВОИ dirty-буферы (untitled-стороны, файл без обычной
+     * вкладки).
+     */
+    private dirtyEditors(): TextEditorPane[] {
         const seenModels = new Set<BaseTextEditorModel>();
-        // Стороны диффа — после вкладок: у вкладки метка красивее, а модель
-        // у них общая, так что дифф добавляет только СВОИ dirty-буферы
-        // (untitled-стороны, файл без обычной вкладки).
+        const editors: TextEditorPane[] = [];
         for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
-            if (!editor.isModified) continue;
-            if (seenModels.has(editor.model)) continue;
+            if (!editor.isModified || seenModels.has(editor.model)) continue;
             seenModels.add(editor.model);
-            items.push({
-                name: this.displayName(editor),
-                isStillDirty: () =>
-                    [...this.textPanes(), ...this.diffSidePanes()].some((pane) => pane.model === editor.model),
-                save: async () => (await editor.save({ overwrite: true })) === "saved",
-            });
+            editors.push(editor);
         }
-        return items;
+        return editors;
     }
 
     /**

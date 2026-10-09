@@ -138,6 +138,23 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
 `tabs.enableAnimation`, `tabs.allowAgentCliTitle`, `confirmOnKill`. Нет и узкого «иконочного» режима
 списка (`singleTerminalOrNarrow` сведён к `singleTerminal`) и перетаскиваемой ширины списка.
 
+## Терминал задачи: ожидание после выхода и перезапуск на месте
+
+Для задач (docs/TODO/Tasks.md) инстанс умеет то же, что `TerminalInstance` эталона:
+- **`waitOnExit`** (`ITerminalCreateOptions`): процесс вышел — инстанс не снимается, печатается
+  сообщение о ненулевом коде («The terminal process "…" terminated with exit code: N.»,
+  `parseExitResult`) и текст ожидания (`formatMessageForTerminal`, перенос
+  `platform/terminal/common/terminalStrings.ts`); любая клавиша (`onDidInputAfterExit` сессии)
+  закрывает терминал с причиной `user`, Kill — тоже `user`, без сообщения.
+- **`onDidExitInstance`** — выход процесса раньше снятия инстанса (`onExit` эталона): по нему
+  задача кончается, а терминал остаётся.
+- **`relaunchInstance`** (`reuseTerminal` эталона): новый процесс в том же эмуляторе — сессия
+  `relaunch` (`XtermSurface`: вывод прежнего выше с новой строки или стёрт при `clear`, сообщение
+  перед выводом, `relaunchProcess` наследника: новый PTY у шелла, «снова принимать» у pty
+  расширения). Новое имя — новый заголовок вкладки (`onDidChangeInstanceTitle`). Перезапускается
+  только ждущий инстанс.
+- Готовой сессии (pty расширения) `message` печатает сам сервис (`printMessage`).
+
 ## Кросс-платформенность и тестирование
 
 Интеграция и упаковка проверены **только на linux-x64**. Риск делится на две части:

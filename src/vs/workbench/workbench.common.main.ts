@@ -179,6 +179,9 @@ import { SearchComponentDIToken } from "./contrib/search/browser/searchComponent
 import { CompletionServiceDIToken } from "./contrib/suggest/browser/completionService.ts";
 import { SUGGEST_ACTIONS } from "./contrib/suggest/browser/suggestActions.ts";
 import { SuggestComponentDIToken } from "./contrib/suggest/browser/suggestComponent.ts";
+import { TASKS_ACTIONS } from "./contrib/tasks/browser/taskActions.ts";
+import { TaskServiceDIToken } from "./contrib/tasks/browser/taskService.ts";
+import { TaskStatusBarContributionDIToken } from "./contrib/tasks/browser/taskStatusBarContribution.ts";
 import { TERMINAL_ACTIONS } from "./contrib/terminal/browser/terminalActions.ts";
 import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
@@ -244,6 +247,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Терминал: сервис (вкладка TERMINAL, сессии) и его view.
     { token: TerminalServiceDIToken, phase: "blockStartup" },
     { token: TerminalPanelComponentDIToken, phase: "blockStartup" },
+    // Задачи: провайдеры расширений регистрируются в сервисе с первой активацией.
+    { token: TaskServiceDIToken, phase: "blockStartup" },
     // Модальные оверлеи вкладки Keyboard Shortcuts и Keyboard Doctor (сессию
     // создают лениво, при первом показе).
     // Stryker disable next-line ObjectLiteral,StringLiteral: без записи рекордер резолвится лениво первой же командой записи — запись лишь передаёт владение жизнью
@@ -297,6 +302,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Ключ занятости git: на нём висит enablement мутирующих команд.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
+    // `$(tools) N` бегущих задач.
+    { token: TaskStatusBarContributionDIToken, phase: "ready" },
 ];
 
 /**
@@ -425,6 +432,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     toggleProblemsAction,
     ...OUTPUT_ACTIONS,
     ...TERMINAL_ACTIONS,
+    ...TASKS_ACTIONS,
     clearNotificationsAction,
     focusNotificationAction,
     ...COMPARE_ACTIONS,

@@ -21,7 +21,7 @@ function compare(other) {
     return {
         distinctWindow: other.window !== probes.alpha.window && other.window !== vscode.window,
         samePosition: other.Position === vscode.Position,
-        sameWorkspace: other.workspace === vscode.workspace,
+        sameEnv: other.env === vscode.env,
         activeFile: activeFile(other),
     };
 }
@@ -35,7 +35,7 @@ exports.activate = function activate(context) {
                 distinctCommands: alpha.commands !== vscode.commands,
                 helperSame: probes.alphaHelper === alpha,
                 samePosition: alpha.Position === vscode.Position,
-                sameWorkspace: alpha.workspace === vscode.workspace,
+                sameEnv: alpha.env === vscode.env,
                 activeAlpha: activeFile(alpha),
                 activeBeta: activeFile(vscode),
                 esm: compare(probes.esm),

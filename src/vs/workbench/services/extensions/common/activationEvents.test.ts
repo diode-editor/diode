@@ -41,6 +41,15 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onStartupFinished", "onLanguage:toml", "onLanguage:ini"]);
     });
 
+    it("каждый contributes.taskDefinitions добавляет НЕЯВНОЕ onTaskType:<type>; без типа или с пустым — нет", () => {
+        expect(
+            computeActivationEvents({
+                activationEvents: ["onStartupFinished"],
+                contributes: { taskDefinitions: [{ type: "bazel" }, {}, { type: "" }, { type: "npm" }] },
+            }),
+        ).toEqual(["onStartupFinished", "onTaskType:bazel", "onTaskType:npm"]);
+    });
+
     it("неявное событие не дублирует уже объявленное руками", () => {
         expect(
             computeActivationEvents({
@@ -69,7 +78,11 @@ describe("computeActivationEvents", () => {
     });
 
     it("генераторы перечислены явно — по точке расширения на каждый", () => {
-        expect(IMPLICIT_ACTIVATION_EVENT_GENERATORS.map((g) => g.point)).toEqual(["commands", "languages"]);
+        expect(IMPLICIT_ACTIVATION_EVENT_GENERATORS.map((g) => g.point)).toEqual([
+            "commands",
+            "languages",
+            "taskDefinitions",
+        ]);
     });
 });
 

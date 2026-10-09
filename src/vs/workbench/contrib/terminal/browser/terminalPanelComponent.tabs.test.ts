@@ -135,6 +135,20 @@ describe("TerminalPanelComponent — tabs list in the frame", () => {
         h.dispose();
     });
 
+    it("renames the tab when a waiting task terminal is relaunched under another name", () => {
+        const h = buildHarness({}, ["/bin/bash"]);
+        const instance = h.service.createInstance({ name: "build", waitOnExit: true });
+        h.views.panelService.setActiveView(TERMINAL_VIEW_ID);
+        h.views.panelService.setVisible(true);
+        expect(h.lines().find((line) => line.includes("TERMINAL"))).toContain("build");
+        h.sessions[0].emitExit(0);
+        h.service.relaunchInstance(instance.id, { name: "test" });
+        const tabRow = h.lines().find((line) => line.includes("TERMINAL")) ?? "";
+        expect(tabRow).toContain("test");
+        expect(tabRow).not.toContain("build");
+        h.dispose();
+    });
+
     it("shows every terminal as a row of the list on the right once there are two", () => {
         const h = buildHarness({}, ["/bin/bash", "/usr/bin/zsh"]);
         h.service.newTerminal();

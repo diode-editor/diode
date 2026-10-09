@@ -11,7 +11,7 @@ import {
 } from "./extHostTypeConverters.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
-import { createTerminalNamespace } from "./terminalNamespace.ts";
+import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     ColorThemeKind,
@@ -98,7 +98,14 @@ export function slugifyChannelName(name: string): string {
     return slugify(name, "channel");
 }
 
-export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.window {
+/**
+ * `terminals` — терминальная часть, если её делит с `window` кто-то ещё
+ * (`vscode.tasks` подключает к терминалу задачи pty `CustomExecution`).
+ */
+export function createWindowNamespace(
+    ctx: IVscodeHostContext,
+    terminals: ITerminalNamespace = createTerminalNamespace(ctx.rpc),
+): typeof vscode.window {
     const { rpc, registry, owner } = ctx;
 
     // Ввод/выбор у человека: собственный модуль — у него своя проводка
@@ -108,8 +115,6 @@ export function createWindowNamespace(ctx: IVscodeHostContext): typeof vscode.wi
     // перегрузок (`MessageOptions` первым аргументом, кнопки строками или
     // `MessageItem`-ами) и возврат расширению ЕГО предмета.
     const messages = createMessageApi(rpc);
-    // Терминалы: состояние здесь, инстансы — у хоста (встроенный терминал).
-    const terminals = createTerminalNamespace(rpc);
 
     let activeEditorUri: string | null = null;
     /** Группа активного редактора (из меты); null — до первой меты с группой. */

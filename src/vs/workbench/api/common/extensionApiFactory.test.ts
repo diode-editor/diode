@@ -57,7 +57,9 @@ function makeShared(owner: ExtensionOwner): {
     const shared = {
         version: "1.0.0",
         Position: FakePosition,
-        workspace: { name: "ws" },
+        workspace: withMembers(OWNED_MEMBERS.workspace, { name: "ws" }),
+        tasks: withMembers(OWNED_MEMBERS.tasks, { fetchTasks: recorder("fetchTasks") }),
+        env: { appName: "Diode" },
         window,
         languages: withMembers(OWNED_MEMBERS.languages, { match: recorder("match") }),
         commands: withMembers(OWNED_MEMBERS.commands, { executeCommand: recorder("executeCommand") }),
@@ -98,7 +100,10 @@ describe("createExtensionApi — оверлей поверх общего namesp
         expect(api).not.toBe(shared);
         expect(api.Position).toBe(shared.Position);
         expect(api.version).toBe("1.0.0");
-        expect(api.workspace).toBe(shared.workspace);
+        expect(api.env).toBe(shared.env);
+        expect(api.workspace).not.toBe(shared.workspace);
+        expect(api.workspace.name).toBe("ws");
+        expect(api.tasks).not.toBe(shared.tasks);
         expect(api.window).not.toBe(shared.window);
         expect(api.languages).not.toBe(shared.languages);
         expect(api.commands).not.toBe(shared.commands);
@@ -175,6 +180,8 @@ describe("createExtensionApi — оверлей поверх общего namesp
             },
             languages: {},
             commands: {},
+            tasks: {},
+            workspace: {},
         } as unknown as typeof vscode;
         const api = createExtensionApi(shared, owner, "pub.a");
         owner.runAs("pub.outer", () => {

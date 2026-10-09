@@ -49,6 +49,8 @@ export class MenuId {
     public static readonly MenubarSelectionMenu = new MenuId("MenubarSelectionMenu");
     public static readonly MenubarViewMenu = new MenuId("MenubarViewMenu");
     public static readonly MenubarGoMenu = new MenuId("MenubarGoMenu");
+    /** Меню Terminal меню-бара: терминалы и задачи (как у эталона). */
+    public static readonly MenubarTerminalMenu = new MenuId("MenubarTerminalMenu");
     public static readonly MenubarHelpMenu = new MenuId("MenubarHelpMenu");
 
     public constructor(public readonly id: string) {

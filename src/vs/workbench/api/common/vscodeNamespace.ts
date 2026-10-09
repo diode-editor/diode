@@ -13,6 +13,8 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
+import { createTasksNamespace } from "./tasksNamespace.ts";
+import { createTerminalNamespace } from "./terminalNamespace.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -30,6 +32,7 @@ import {
     CompletionList,
     CompletionTriggerKind,
     ConfigurationTarget,
+    CustomExecution,
     DecorationRangeBehavior,
     Diagnostic,
     DiagnosticRelatedInformation,
@@ -61,10 +64,13 @@ import {
     OverviewRulerLane,
     ParameterInformation,
     Position,
+    ProcessExecution,
     ProgressLocation,
     Range,
     RelativePattern,
     Selection,
+    ShellExecution,
+    ShellQuoting,
     SignatureHelp,
     SignatureHelpTriggerKind,
     SignatureInformation,
@@ -81,6 +87,11 @@ import {
     TabInputText,
     TabInputTextDiff,
     TabInputWebview,
+    Task,
+    TaskGroup,
+    TaskPanelKind,
+    TaskRevealKind,
+    TaskScope,
     TerminalExitReason,
     TerminalLocation,
     TextDocumentChangeReason,
@@ -145,8 +156,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         owner: new ExtensionOwner(),
     };
 
-    const window = createWindowNamespace(ctx);
-    const workspace = createWorkspaceNamespace(ctx);
+    // Терминалы (состояние — здесь, инстансы — у хоста) делят `window` и
+    // `tasks`: pty `CustomExecution` подключается к терминалу задачи.
+    const terminals = createTerminalNamespace(rpc);
+    const window = createWindowNamespace(ctx, terminals);
+    // `workspace.registerTaskProvider` (устаревший) — тот же вызов, что у
+    // `tasks`; `tasks` ещё не собран (ему нужны папки `workspace`).
+    const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
     // WP4: commands bridge поверх симметричного rpc (локальная Map команд +
     // прокси в host CommandRegistry). Геттер активного редактора нужен
     // registerTextEditorCommand — команда исполняется только при активном редакторе.
@@ -231,17 +247,17 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     // владеет user-data, в которой они переживают перезапуск.
     const secrets = createExtensionSecretsFactory(rpc);
 
-    // Наивный `tasks` — провайдер регистрируется в никуда: слоя тасков в ядре
-    // нет, и provideTasks никто никогда не позовёт (типовой потребитель —
-    // vscode-eslint при `eslint.lintTask.enable: true`; без стаба включённая
-    // пользователем настройка роняла бы клиент целиком). Настоящая проводка —
-    // вместе со слоем тасков.
-    const tasks = {
-        registerTaskProvider: (): vscode.Disposable => new DisposableImpl(() => undefined),
-        taskExecutions: [] as const,
-        onDidStartTask: new EventEmitter<never>().event,
-        onDidEndTask: new EventEmitter<never>().event,
-    };
+    // Задачи (`ExtHostTask` эталона): провайдеры, исполнение и события жизни
+    // задач ядра — см. tasksNamespace.ts.
+    const tasks = createTasksNamespace({
+        rpc,
+        owner: ctx.owner,
+        workspaceFolders: () => workspace.workspaceFolders,
+        attachPty: (terminalId, pty) => {
+            terminals.attachPty(terminalId, pty);
+        },
+        onDidReceiveCatalog,
+    });
 
     const namespace = {
         // vscode-languageclient требует валидный VS Code semver (^1.91.0).
@@ -377,8 +393,18 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         // l10n без бандлов переводов: t подставляет плейсхолдеры, bundle/uri
         // честно undefined (ruff зовёт t на каждое пользовательское сообщение).
         l10n: createL10nNamespace(),
-        // `tasks` в активном d.ts ещё не объявлен — проверять не против чего.
-        tasks,
+        tasks: implementsApi<typeof vscode.tasks>()(tasks),
+        // Задачи: value-типы, которые провайдер конструирует сам
+        // (`new Task(def, TaskScope.Workspace, name, source, new ShellExecution(cmd))`).
+        Task,
+        TaskScope,
+        TaskGroup,
+        TaskRevealKind,
+        TaskPanelKind,
+        ShellExecution,
+        ShellQuoting,
+        ProcessExecution,
+        CustomExecution,
     };
 
     return {

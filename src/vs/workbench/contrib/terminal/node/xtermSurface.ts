@@ -23,6 +23,7 @@ import xtermHeadless from "@xterm/headless";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 import { xtermPaletteToRgb } from "../common/xtermPalette.ts";
 
 /** Событие для внутреннего coreMouseService xterm (значения enum-ов — как в xterm). */
@@ -56,6 +57,11 @@ const ACTION_DOWN = 1;
 const ACTION_MOVE = 32;
 const WHEEL_ACTION: Record<"up" | "down" | "left" | "right", number> = { up: 0, down: 1, left: 2, right: 3 };
 
+/** Новый процесс в переиспользуемом терминале начинается с новой строки (`'\n\x1b[G'` эталона). */
+const NEW_LINE_AT_START = "\n\x1b[G";
+/** Стереть экран и скролбэк, курсор — в начало (`presentation.clear` задачи). */
+const CLEAR_ALL = "\x1b[2J\x1b[3J\x1b[H";
+
 export interface XtermSurfaceOptions {
     cols: number;
     rows: number;
@@ -66,6 +72,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     protected readonly term: Terminal;
     private readonly onUpdateEmitter = new Emitter<void>();
     private readonly onExitEmitter = new Emitter<number>();
+    private readonly onDidInputAfterExitEmitter = new Emitter<void>();
     // Переиспользуемая ячейка — getCell(x, cell) не аллоцирует новый объект на каждую ячейку.
     private cellBuffer: IBufferCell | undefined;
     protected cols: number;
@@ -99,6 +106,9 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     /** Освобождение процесса наследника при dispose (убить PTY и т.п.). */
     protected abstract disposeProcess(): void;
 
+    /** Запустить новый процесс вместо вышедшего (см. {@link relaunch}). */
+    protected abstract relaunchProcess(options: ITerminalRelaunchOptions): void;
+
     /**
      * Вывод процесса → эмулятор → сигнал перерисовки контролу.
      * ВАЖНО: term.write() асинхронный (парсер обрабатывает буфер отложенно), поэтому
@@ -123,6 +133,24 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     public get isExited(): boolean {
         return this.exited;
+    }
+
+    /**
+     * Новый процесс в том же эмуляторе (`reuseTerminal` эталона): вывод прежнего
+     * остаётся выше — новый начнётся с новой строки — либо стирается целиком
+     * при `clear` (экран и скролбэк); `message` печатается перед выводом нового
+     * процесса. Звать после выхода прежнего.
+     */
+    public relaunch(options: ITerminalRelaunchOptions): void {
+        this.feedOutput(options.clear === true ? CLEAR_ALL : NEW_LINE_AT_START);
+        if (options.message !== undefined) this.feedOutput(`${options.message}\r\n`);
+        this.exited = false;
+        this.relaunchProcess(options);
+    }
+
+    /** Текст в эмулятор как вывод процесса; в сам процесс не уходит. */
+    public printMessage(text: string): void {
+        this.feedOutput(text);
     }
 
     /**
@@ -189,7 +217,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      */
     public write(data: string): void {
         this.setScrollOffset(0);
-        if (!this.exited) this.sendInput(data);
+        if (this.exited) this.onDidInputAfterExitEmitter.fire();
+        else this.sendInput(data);
     }
 
     /** Синхронный ресайз эмулятора (и процесса — через `onDidResize`); no-op при совпадении. */
@@ -229,6 +258,9 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     public readonly onUpdate = this.onUpdateEmitter.event;
 
     public readonly onExit = this.onExitEmitter.event;
+
+    /** Ввод после выхода процесса (клавиша «press any key to close» у `waitOnExit`). */
+    public readonly onDidInputAfterExit = this.onDidInputAfterExitEmitter.event;
 
     public dispose(): void {
         this.disposeProcess();

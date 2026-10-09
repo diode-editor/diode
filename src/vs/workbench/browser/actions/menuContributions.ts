@@ -37,5 +37,12 @@ export const MENUBAR_SUBMENUS: readonly ISubmenuContribution[] = [
     },
     { menuId: MenuId.MenubarMainMenu, submenu: MenuId.MenubarViewMenu, title: "View", mnemonic: "v", order: 40 },
     { menuId: MenuId.MenubarMainMenu, submenu: MenuId.MenubarGoMenu, title: "Go", mnemonic: "g", order: 50 },
+    {
+        menuId: MenuId.MenubarMainMenu,
+        submenu: MenuId.MenubarTerminalMenu,
+        title: "Terminal",
+        mnemonic: "t",
+        order: 55,
+    },
     { menuId: MenuId.MenubarMainMenu, submenu: MenuId.MenubarHelpMenu, title: "Help", mnemonic: "h", order: 60 },
 ];

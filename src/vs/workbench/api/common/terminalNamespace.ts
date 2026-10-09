@@ -38,6 +38,14 @@ export interface ITerminalNamespace {
     readonly onDidChangeActiveTerminal: vscode.Event<vscode.Terminal | undefined>;
     createTerminal(name?: string, shellPath?: string, shellArgs?: readonly string[] | string): vscode.Terminal;
     createTerminal(options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions): vscode.Terminal;
+    /**
+     * Подключить pty к терминалу, который завело ядро (`attachPtyToTerminal`
+     * эталона) — терминалу задачи с `CustomExecution`. Прежний pty того же
+     * терминала (повторный запуск задачи) отцепляется без `close()`: он уже
+     * закрылся сам. Размер — последний, что прислал хост; неизвестный id —
+     * исключение, как у эталона.
+     */
+    attachPty(terminalId: number, pty: vscode.Pseudoterminal): void;
 }
 
 /** Окно склейки вывода pty перед отправкой хосту (`TerminalDataBufferer` эталона). */
@@ -94,13 +102,18 @@ class ExtensionPty {
 
     /** Инстанс снят: досылать нечего и некуда; pty закрывается (`shutdown` эталона). */
     public shutdown(): void {
-        clearTimeout(this.timer);
-        for (const sub of this.subscriptions) sub.dispose();
+        this.detach();
         try {
             this.pty.close();
         } catch {
             // `close()` расширения бросил — закрытию терминала это не помеха.
         }
+    }
+
+    /** Отцепить слушатели pty, не закрывая его (его место занимает новый pty). */
+    public detach(): void {
+        clearTimeout(this.timer);
+        for (const sub of this.subscriptions) sub.dispose();
     }
 
     private flush(): void {
@@ -133,6 +146,11 @@ class TerminalRecord {
     private readonly pid = Promise.withResolvers<number | undefined>();
     /** Pty расширения — только у его pty-терминала. */
     public pty: ExtensionPty | undefined;
+    /**
+     * Размер pty-терминала, который хост прислал (`pty.start`/`pty.resize`), —
+     * у терминала задачи pty подключается позже и стартует с ним.
+     */
+    public dimensions: { cols: number; rows: number } | undefined;
 
     public constructor(
         /**
@@ -292,12 +310,20 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
 
     rpc.handleNotification("terminal.pty.start", (params) => {
         const start = parseWireTerminalPtyDimensions(params);
-        if (start !== null) byId.get(start.id)?.pty?.start(start.cols, start.rows);
+        if (start === null) return;
+        const record = byId.get(start.id);
+        if (record === undefined) return;
+        record.dimensions = { cols: start.cols, rows: start.rows };
+        record.pty?.start(start.cols, start.rows);
     });
 
     rpc.handleNotification("terminal.pty.resize", (params) => {
         const resize = parseWireTerminalPtyDimensions(params);
-        if (resize !== null) byId.get(resize.id)?.pty?.resize(resize.cols, resize.rows);
+        if (resize === null) return;
+        const record = byId.get(resize.id);
+        if (record === undefined) return;
+        record.dimensions = { cols: resize.cols, rows: resize.rows };
+        record.pty?.resize(resize.cols, resize.rows);
     });
 
     rpc.handleNotification("terminal.pty.input", (params) => {
@@ -338,7 +364,19 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         return record.value;
     }
 
+    function attachPty(terminalId: number, pty: vscode.Pseudoterminal): void {
+        const record = byId.get(terminalId);
+        if (record === undefined)
+            throw new Error(`Cannot resolve terminal with id ${String(terminalId)} for virtual process`);
+        record.pty?.detach();
+        record.pty = new ExtensionPty(pty, { id: terminalId }, rpc);
+        // Хост шлёт `pty.start` при создании инстанса — к подключению размер уже известен.
+        const { cols, rows } = record.dimensions ?? { cols: 80, rows: 24 };
+        record.pty.start(cols, rows);
+    }
+
     return {
+        attachPty,
         get terminals(): readonly vscode.Terminal[] {
             return order.map((r) => r.value);
         },

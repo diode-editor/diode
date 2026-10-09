@@ -1431,3 +1431,474 @@ export enum InputBoxValidationSeverity {
     Warning = 2,
     Error = 3,
 }
+
+// ── Задачи (`extHostTypes.ts` эталона) ────────────────────────────────────────
+
+/** Когда показывать терминал задачи (`vscode.TaskRevealKind`). */
+export enum TaskRevealKind {
+    Always = 1,
+    Silent = 2,
+    Never = 3,
+}
+
+/** Чей терминал занимает задача (`vscode.TaskPanelKind`). */
+export enum TaskPanelKind {
+    Shared = 1,
+    Dedicated = 2,
+    New = 3,
+}
+
+/** Правило экранирования аргумента шелла (`vscode.ShellQuoting`). */
+export enum ShellQuoting {
+    Escape = 1,
+    Strong = 2,
+    Weak = 3,
+}
+
+/** Область задачи (`vscode.TaskScope`); `Global` (пользовательские задачи) не поддержан. */
+export enum TaskScope {
+    Global = 1,
+    Workspace = 2,
+}
+
+function illegalTaskArgument(name: string): Error {
+    return new Error(`Illegal argument: ${name}`);
+}
+
+/**
+ * Группа задачи (`vscode.TaskGroup`). Хранится и уезжает в ядро, но групп
+ * build/test у нас пока нет — на запуск она не влияет (docs/TODO/Tasks.md).
+ */
+export class TaskGroup implements vscode.TaskGroup {
+    public isDefault: boolean | undefined;
+    private readonly groupId: string;
+
+    public static Clean: TaskGroup = new TaskGroup("clean", "Clean");
+    public static Build: TaskGroup = new TaskGroup("build", "Build");
+    public static Rebuild: TaskGroup = new TaskGroup("rebuild", "Rebuild");
+    public static Test: TaskGroup = new TaskGroup("test", "Test");
+
+    public static from(value: string): TaskGroup | undefined {
+        return BUILTIN_TASK_GROUPS.get(value);
+    }
+
+    public constructor(
+        id: string,
+        public readonly label: string,
+    ) {
+        if (typeof id !== "string") throw illegalTaskArgument("name");
+        if (typeof label !== "string") throw illegalTaskArgument("name");
+        this.groupId = id;
+    }
+
+    public get id(): string {
+        return this.groupId;
+    }
+}
+
+const BUILTIN_TASK_GROUPS: ReadonlyMap<string, TaskGroup> = new Map([
+    ["clean", TaskGroup.Clean],
+    ["build", TaskGroup.Build],
+    ["rebuild", TaskGroup.Rebuild],
+    ["test", TaskGroup.Test],
+]);
+
+/** `computeTaskExecutionId` эталона: значения через запятую, свои запятые удвоены. */
+function computeTaskExecutionId(values: readonly string[]): string {
+    return values.map((value) => `${value.replace(/,/g, ",,")},`).join("");
+}
+
+/** Задача — процесс без шелла (`vscode.ProcessExecution`). */
+export class ProcessExecution implements vscode.ProcessExecution {
+    private processValue: string;
+    private argsValue: string[] = [];
+    private optionsValue: vscode.ProcessExecutionOptions | undefined;
+
+    public constructor(process: string, options?: vscode.ProcessExecutionOptions);
+    public constructor(process: string, args: string[], options?: vscode.ProcessExecutionOptions);
+    public constructor(
+        process: string,
+        varg1?: string[] | vscode.ProcessExecutionOptions,
+        varg2?: vscode.ProcessExecutionOptions,
+    ) {
+        if (typeof process !== "string") throw illegalTaskArgument("process");
+        this.processValue = process;
+        if (Array.isArray(varg1)) {
+            this.argsValue = varg1;
+            this.optionsValue = varg2;
+        } else {
+            this.optionsValue = varg1;
+        }
+    }
+
+    public get process(): string {
+        return this.processValue;
+    }
+
+    public set process(value: string) {
+        if (typeof value !== "string") throw illegalTaskArgument("process");
+        this.processValue = value;
+    }
+
+    public get args(): string[] {
+        return this.argsValue;
+    }
+
+    public set args(value: string[]) {
+        this.argsValue = Array.isArray(value) ? value : [];
+    }
+
+    public get options(): vscode.ProcessExecutionOptions | undefined {
+        return this.optionsValue;
+    }
+
+    public set options(value: vscode.ProcessExecutionOptions | undefined) {
+        this.optionsValue = value;
+    }
+
+    public computeId(): string {
+        return computeTaskExecutionId(["process", this.processValue, ...this.argsValue]);
+    }
+}
+
+/** Задача — командная строка шелла или команда с аргументами (`vscode.ShellExecution`). */
+export class ShellExecution implements vscode.ShellExecution {
+    private commandLineValue: string | undefined;
+    private commandValue: string | vscode.ShellQuotedString | undefined;
+    private argsValue: (string | vscode.ShellQuotedString)[] = [];
+    private optionsValue: vscode.ShellExecutionOptions | undefined;
+
+    public constructor(commandLine: string, options?: vscode.ShellExecutionOptions);
+    public constructor(
+        command: string | vscode.ShellQuotedString,
+        args: (string | vscode.ShellQuotedString)[],
+        options?: vscode.ShellExecutionOptions,
+    );
+    public constructor(
+        arg0: string | vscode.ShellQuotedString,
+        arg1?: vscode.ShellExecutionOptions | (string | vscode.ShellQuotedString)[],
+        arg2?: vscode.ShellExecutionOptions,
+    ) {
+        if (Array.isArray(arg1)) {
+            if (
+                typeof arg0 !== "string" &&
+                typeof (arg0 as Partial<vscode.ShellQuotedString> | null)?.value !== "string"
+            ) {
+                throw illegalTaskArgument("command");
+            }
+            if (arg0 === "") throw illegalTaskArgument("command can't be undefined or null");
+            this.commandValue = arg0;
+            this.argsValue = arg1;
+            this.optionsValue = arg2;
+        } else {
+            if (typeof arg0 !== "string") throw illegalTaskArgument("commandLine");
+            this.commandLineValue = arg0;
+            this.optionsValue = arg1;
+        }
+    }
+
+    public get commandLine(): string | undefined {
+        return this.commandLineValue;
+    }
+
+    public set commandLine(value: string | undefined) {
+        if (typeof value !== "string") throw illegalTaskArgument("commandLine");
+        this.commandLineValue = value;
+    }
+
+    public get command(): string | vscode.ShellQuotedString {
+        return this.commandValue ?? "";
+    }
+
+    public set command(value: string | vscode.ShellQuotedString) {
+        if (
+            typeof value !== "string" &&
+            typeof (value as Partial<vscode.ShellQuotedString> | null)?.value !== "string"
+        ) {
+            throw illegalTaskArgument("command");
+        }
+        this.commandValue = value;
+    }
+
+    public get args(): (string | vscode.ShellQuotedString)[] {
+        return this.argsValue;
+    }
+
+    public set args(value: (string | vscode.ShellQuotedString)[] | undefined) {
+        this.argsValue = value ?? [];
+    }
+
+    public get options(): vscode.ShellExecutionOptions | undefined {
+        return this.optionsValue;
+    }
+
+    public set options(value: vscode.ShellExecutionOptions | undefined) {
+        this.optionsValue = value;
+    }
+
+    public computeId(): string {
+        const values = ["shell"];
+        if (this.commandLineValue !== undefined) values.push(this.commandLineValue);
+        if (this.commandValue !== undefined) {
+            values.push(typeof this.commandValue === "string" ? this.commandValue : this.commandValue.value);
+        }
+        for (const arg of this.argsValue) values.push(typeof arg === "string" ? arg : arg.value);
+        return computeTaskExecutionId(values);
+    }
+}
+
+/** Задача, процессом которой владеет расширение — pty из колбэка (`vscode.CustomExecution`). */
+export class CustomExecution implements vscode.CustomExecution {
+    public constructor(
+        public callback: (resolvedDefinition: vscode.TaskDefinition) => Thenable<vscode.Pseudoterminal>,
+    ) {}
+
+    public computeId(): string {
+        return `customExecution${globalThis.crypto.randomUUID()}`;
+    }
+}
+
+/** Исполнение задачи: свои классы и любые объекты той же формы (`instanceof` проверяет класс). */
+type TaskExecutionKind = vscode.ProcessExecution | vscode.ShellExecution | vscode.CustomExecution;
+type TaskScopeValue = vscode.TaskScope.Global | vscode.TaskScope.Workspace | vscode.WorkspaceFolder;
+
+/**
+ * Задача (`vscode.Task`, `Task` в `extHostTypes.ts` эталона). `handleId` —
+ * id задачи у ядра (`_id` эталона): он есть у задачи, пришедшей из ядра
+ * (`fetchTasks`, событие старта), и по нему её исполняют без пересылки
+ * описания. Любой сеттер его сбрасывает (`clear` эталона): изменённая задача
+ * — уже другая, и уезжает описанием целиком; определение «встроенного» типа
+ * (`shell`/`process`/`$empty`) тогда пересчитывается по исполнению.
+ */
+export class Task implements vscode.Task {
+    private static readonly ExtensionCallbackType = "customExecution";
+    private static readonly ProcessType = "process";
+    private static readonly ShellType = "shell";
+    private static readonly EmptyType = "$empty";
+
+    private idValue: string | undefined;
+    private readonly deprecatedValue: boolean = false;
+    private definitionValue: vscode.TaskDefinition;
+    private scopeValue: TaskScopeValue | undefined;
+    private nameValue: string;
+    private executionValue: TaskExecutionKind | undefined;
+    private problemMatchersValue: string[];
+    private hasDefinedMatchersValue: boolean;
+    private isBackgroundValue = false;
+    private sourceValue: string;
+    private groupValue: vscode.TaskGroup | undefined;
+    private presentationOptionsValue: vscode.TaskPresentationOptions = Object.create(
+        null,
+    ) as vscode.TaskPresentationOptions;
+    private runOptionsValue: vscode.RunOptions = Object.create(null) as vscode.RunOptions;
+    private detailValue: string | undefined;
+
+    public constructor(
+        definition: vscode.TaskDefinition,
+        name: string,
+        source: string,
+        execution?: TaskExecutionKind,
+        problemMatchers?: string | string[],
+    );
+    public constructor(
+        definition: vscode.TaskDefinition,
+        scope: TaskScopeValue,
+        name: string,
+        source: string,
+        execution?: TaskExecutionKind,
+        problemMatchers?: string | string[],
+    );
+    public constructor(
+        definition: vscode.TaskDefinition,
+        arg2: string | TaskScopeValue,
+        arg3: string,
+        arg4?: string | TaskExecutionKind,
+        arg5?: TaskExecutionKind | string | string[],
+        arg6?: string | string[],
+    ) {
+        this.definitionValue = definition;
+        this.definition = definition;
+        let problemMatchers: string | string[] | undefined;
+        if (typeof arg2 === "string") {
+            this.nameValue = arg2;
+            this.sourceValue = arg3;
+            this.execution = arg4 as TaskExecutionKind | undefined;
+            problemMatchers = arg5 as string | string[] | undefined;
+            this.deprecatedValue = true;
+        } else {
+            this.scopeValue = arg2;
+            this.nameValue = arg3;
+            this.sourceValue = arg4 as string;
+            this.execution = arg5 as TaskExecutionKind | undefined;
+            problemMatchers = arg6;
+        }
+        this.name = this.nameValue;
+        this.source = this.sourceValue;
+        this.problemMatchersValue = typeof problemMatchers === "string" ? [problemMatchers] : (problemMatchers ?? []);
+        this.hasDefinedMatchersValue = problemMatchers !== undefined;
+    }
+
+    /** Id задачи у ядра (`_id` эталона); `undefined` — задача своя или изменена. */
+    public get handleId(): string | undefined {
+        return this.idValue;
+    }
+
+    public set handleId(value: string | undefined) {
+        this.idValue = value;
+    }
+
+    /** Создана устаревшим конструктором без области. */
+    public get deprecated(): boolean {
+        return this.deprecatedValue;
+    }
+
+    private clear(): void {
+        if (this.idValue === undefined) return;
+        this.idValue = undefined;
+        this.scopeValue = undefined;
+        this.computeDefinitionBasedOnExecution();
+    }
+
+    private computeDefinitionBasedOnExecution(): void {
+        const execution = this.executionValue;
+        if (execution instanceof ProcessExecution) {
+            this.definitionValue = { type: Task.ProcessType, id: execution.computeId() };
+        } else if (execution instanceof ShellExecution) {
+            this.definitionValue = { type: Task.ShellType, id: execution.computeId() };
+        } else if (execution instanceof CustomExecution) {
+            this.definitionValue = { type: Task.ExtensionCallbackType, id: execution.computeId() };
+        } else {
+            this.definitionValue = { type: Task.EmptyType, id: globalThis.crypto.randomUUID() };
+        }
+    }
+
+    public get definition(): vscode.TaskDefinition {
+        return this.definitionValue;
+    }
+
+    public set definition(value: vscode.TaskDefinition) {
+        if ((value as vscode.TaskDefinition | null | undefined) === undefined || (value as unknown) === null) {
+            throw illegalTaskArgument("Kind can't be undefined or null");
+        }
+        this.clear();
+        this.definitionValue = value;
+    }
+
+    public get scope(): TaskScopeValue | undefined {
+        return this.scopeValue;
+    }
+
+    /** Область задачи (`target` эталона): ядро ставит её задачам из своих DTO. */
+    public set target(value: TaskScopeValue) {
+        this.clear();
+        this.scopeValue = value;
+    }
+
+    public get name(): string {
+        return this.nameValue;
+    }
+
+    public set name(value: string) {
+        if (typeof value !== "string") throw illegalTaskArgument("name");
+        this.clear();
+        this.nameValue = value;
+    }
+
+    public get execution(): TaskExecutionKind | undefined {
+        return this.executionValue;
+    }
+
+    public set execution(value: TaskExecutionKind | undefined) {
+        this.clear();
+        this.executionValue = value ?? undefined;
+        const type = this.definitionValue.type;
+        if (
+            Task.EmptyType === type ||
+            Task.ProcessType === type ||
+            Task.ShellType === type ||
+            Task.ExtensionCallbackType === type
+        ) {
+            this.computeDefinitionBasedOnExecution();
+        }
+    }
+
+    public get problemMatchers(): string[] {
+        return this.problemMatchersValue;
+    }
+
+    public set problemMatchers(value: string[]) {
+        this.clear();
+        if (!Array.isArray(value)) {
+            this.problemMatchersValue = [];
+            this.hasDefinedMatchersValue = false;
+            return;
+        }
+        this.problemMatchersValue = value;
+        this.hasDefinedMatchersValue = true;
+    }
+
+    public get hasDefinedMatchers(): boolean {
+        return this.hasDefinedMatchersValue;
+    }
+
+    public get isBackground(): boolean {
+        return this.isBackgroundValue;
+    }
+
+    public set isBackground(value: boolean) {
+        this.clear();
+        // Не-булево от расширения без типов — `false`, как у эталона.
+        this.isBackgroundValue = (value as unknown) === true;
+    }
+
+    public get source(): string {
+        return this.sourceValue;
+    }
+
+    public set source(value: string) {
+        if (typeof value !== "string" || value.length === 0) {
+            throw illegalTaskArgument("source must be a string of length > 0");
+        }
+        this.clear();
+        this.sourceValue = value;
+    }
+
+    public get group(): vscode.TaskGroup | undefined {
+        return this.groupValue;
+    }
+
+    public set group(value: vscode.TaskGroup | undefined) {
+        this.clear();
+        this.groupValue = value ?? undefined;
+    }
+
+    public get detail(): string | undefined {
+        return this.detailValue;
+    }
+
+    public set detail(value: string | undefined) {
+        this.detailValue = value ?? undefined;
+    }
+
+    public get presentationOptions(): vscode.TaskPresentationOptions {
+        return this.presentationOptionsValue;
+    }
+
+    public set presentationOptions(value: vscode.TaskPresentationOptions) {
+        this.clear();
+        // Расширение без типов может прислать null/undefined — эталон заменяет пустым.
+        this.presentationOptionsValue =
+            (value as vscode.TaskPresentationOptions | null | undefined) ??
+            (Object.create(null) as vscode.TaskPresentationOptions);
+    }
+
+    public get runOptions(): vscode.RunOptions {
+        return this.runOptionsValue;
+    }
+
+    public set runOptions(value: vscode.RunOptions) {
+        this.clear();
+        this.runOptionsValue =
+            (value as vscode.RunOptions | null | undefined) ?? (Object.create(null) as vscode.RunOptions);
+    }
+}

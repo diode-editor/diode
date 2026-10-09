@@ -84,7 +84,8 @@ describe("оверлей поверх настоящего namespace", () => {
         const b = createExtensionApi(namespace, owner, "pub.b");
         expect(a.Position).toBe(b.Position);
         expect(new a.Range(0, 0, 0, 1)).toBeInstanceOf(b.Range);
-        expect(a.workspace).toBe(b.workspace);
+        expect(a.env).toBe(b.env);
+        expect(a.Task).toBe(b.Task);
     });
 });
 

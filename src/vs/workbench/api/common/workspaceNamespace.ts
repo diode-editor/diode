@@ -181,7 +181,17 @@ function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undef
     return undefined;
 }
 
-export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode.workspace {
+/**
+ * `registerTaskProvider` — устаревший двойник `tasks.registerTaskProvider`
+ * (у эталона тот же вызов): `tasks` собирается позже `workspace` и ждёт его
+ * папки, поэтому член приходит снаружи. Без него (тесты `workspace`) —
+ * регистрация в никуда.
+ */
+export function createWorkspaceNamespace(
+    ctx: IVscodeHostContext,
+    registerTaskProvider: (type: string, provider: vscode.TaskProvider) => vscode.Disposable = () =>
+        new DisposableImpl(() => undefined),
+): typeof vscode.workspace {
     const { rpc, registry, documentSync, configStore } = ctx;
 
     let workspaceFolders: IWorkspaceFolder[] = [];
@@ -545,6 +555,7 @@ export function createWorkspaceNamespace(ctx: IVscodeHostContext): typeof vscode
     }
 
     const workspaceNs = {
+        registerTaskProvider,
         get workspaceFolders(): readonly vscode.WorkspaceFolder[] | undefined {
             return workspaceFolders.length === 0 ? undefined : workspaceFolders;
         },

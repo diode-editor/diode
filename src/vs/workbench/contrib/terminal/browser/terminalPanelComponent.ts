@@ -138,6 +138,12 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                 this.handleActiveChange(instance);
             }),
         );
+        // Терминал задачи, перезапущенный под другим именем, — новая подпись вкладки.
+        this.register(
+            terminalService.onDidChangeInstanceTitle(() => {
+                this.syncChrome();
+            }),
+        );
         this.register(
             terminalService.onDidRequestFocus(() => {
                 this.activeWidget?.focus();

@@ -15,6 +15,7 @@
 import type { IPty } from "node-pty";
 
 import { getSystemShell } from "../../../../base/node/shell.ts";
+import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";
 import { XtermSurface } from "./xtermSurface.ts";
@@ -63,36 +64,18 @@ function currentEnv(): Record<string, string> {
 
 export class EmbeddedTerminalSession extends XtermSurface {
     /** Запущенный шелл — по нему вкладка терминала получает заголовок. */
-    public readonly shell: string;
-    private readonly pty: IPty;
+    public shell: string;
+    private pty: IPty;
 
     public constructor(options: EmbeddedTerminalOptions) {
         super({ cols: options.cols, rows: options.rows, scrollback: options.scrollback });
-
-        const shell = options.shell ?? getSystemShell();
-        this.shell = shell;
-        const env = buildEnv(options.strictEnv === true ? {} : currentEnv(), options.env);
 
         // `TerminalOptions.message` — `writeln` в эмулятор (`_writeInitialText`
         // эталона) до первого вывода шелла: записи xterm идут по очереди.
         if (options.message !== undefined) this.feedOutput(`${options.message}\r\n`);
 
-        const { spawn } = loadNodePty();
-        this.pty = spawn(shell, options.args ?? [], {
-            name: "xterm-256color",
-            cols: options.cols,
-            rows: options.rows,
-            cwd: options.cwd ?? process.cwd(),
-            env,
-        });
-
-        // Вывод шелла → эмулятор → сигнал перерисовки контролу (см. feedOutput).
-        this.pty.onData((data) => {
-            this.feedOutput(data);
-        });
-        this.pty.onExit(({ exitCode }) => {
-            this.markExited(exitCode);
-        });
+        this.shell = options.shell ?? getSystemShell();
+        this.pty = this.spawn(this.shell, options);
     }
 
     /** Pid процесса шелла. */
@@ -116,5 +99,35 @@ export class EmbeddedTerminalSession extends XtermSurface {
         } catch {
             // процесс мог уже завершиться
         }
+    }
+
+    /**
+     * Новый PTY с текущим размером эмулятора. Прежний уже вышел: его `onExit`
+     * отстрелял, и подписки на него больше не сработают — снимать нечего.
+     */
+    protected relaunchProcess(options: ITerminalRelaunchOptions): void {
+        this.shell = options.shell ?? getSystemShell();
+        this.pty = this.spawn(this.shell, { ...options, cols: this.cols, rows: this.rows });
+    }
+
+    private spawn(shell: string, options: EmbeddedTerminalOptions): IPty {
+        const env = buildEnv(options.strictEnv === true ? {} : currentEnv(), options.env);
+        const { spawn } = loadNodePty();
+        const pty = spawn(shell, options.args ?? [], {
+            // Stryker disable next-line StringLiteral: эквивалентный — TERM уже задан в env (buildEnv), node-pty берёт его при пустом name
+            name: "xterm-256color",
+            cols: options.cols,
+            rows: options.rows,
+            cwd: options.cwd ?? process.cwd(),
+            env,
+        });
+        // Вывод шелла → эмулятор → сигнал перерисовки контролу (см. feedOutput).
+        pty.onData((data) => {
+            this.feedOutput(data);
+        });
+        pty.onExit(({ exitCode }) => {
+            this.markExited(exitCode);
+        });
+        return pty;
     }
 }

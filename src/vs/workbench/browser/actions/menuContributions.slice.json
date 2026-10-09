@@ -240,6 +240,7 @@
             "submenu:MenubarSelectionMenu",
             "submenu:MenubarViewMenu",
             "submenu:MenubarGoMenu",
+            "submenu:MenubarTerminalMenu",
             "submenu:MenubarHelpMenu"
         ]
     },
@@ -268,6 +269,19 @@
             "editor.action.moveSelectionToNextFindMatch",
             "editor.action.moveSelectionToPreviousFindMatch",
             "editor.action.selectHighlights"
+        ]
+    },
+    "MenubarTerminalMenu": {
+        "1_create": [
+            "workbench.action.terminal.new"
+        ],
+        "3_run": [
+            "workbench.action.tasks.runTask"
+        ],
+        "5_manage": [
+            "workbench.action.tasks.showTasks",
+            "workbench.action.tasks.restartTask",
+            "workbench.action.tasks.terminate"
         ]
     },
     "MenubarViewMenu": {

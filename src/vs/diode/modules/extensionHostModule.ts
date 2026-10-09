@@ -39,6 +39,11 @@ import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinp
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
+import {
+    bindExtensionTasks,
+    ExtensionTaskAdapter,
+} from "../../workbench/contrib/tasks/browser/extensionTaskAdapter.ts";
+import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
 import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
@@ -153,6 +158,17 @@ export interface IExtensionHostModuleContext {
  * `isEnabled` всегда `false`, поэтому stdio остаётся в режиме `"inherit"`.
  */
 export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> = (container, ctx) => {
+    // Мост терминалов расширений — ещё и pty для задач с `CustomExecution`
+    // (их связывает сервис расширений ниже, когда есть кого активировать).
+    let terminalAdapter: ExtensionTerminalAdapter | undefined;
+    // Stryker disable ArrowFunction,AssignmentOperator: production-проводка модуля (один мост на хост и задачи); сквозняк — e2e-сценарии extension-terminal и extension-tasks
+    const terminals = (): ExtensionTerminalAdapter =>
+        (terminalAdapter ??= new ExtensionTerminalAdapter(
+            container.get(TerminalServiceDIToken),
+            container.get(PanelServiceDIToken),
+            container.get(ExtensionPtySessionFactoryDIToken),
+        ));
+    // Stryker restore ArrowFunction,AssignmentOperator
     container.bind(ExtensionHostDIToken, () => {
         // Корни хранения расширений (`globalStorageUri`/`storageUri`/`logUri`, секреты) — из окружения.
         const environment = container.get(IEnvironmentServiceDIToken);
@@ -288,10 +304,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             ),
             // createTerminal расширений → инстансы встроенного терминала; жизнь
             // всех инстансов (и шеллов человека) — обратно в `window.terminals`.
-            terminalSink: new ExtensionTerminalAdapter(
-                container.get(TerminalServiceDIToken),
-                container.get(PanelServiceDIToken),
-                container.get(ExtensionPtySessionFactoryDIToken),
+            terminalSink: terminals(),
+            // vscode.tasks: провайдеры и исполнение — сервис задач ядра; жизнь
+            // задач (и запущенных из палитры) — обратно расширениям.
+            taskSink: new ExtensionTaskAdapter(
+                container.get(TaskServiceDIToken),
+                workspaceContext,
+                // Stryker disable next-line StringLiteral,ObjectLiteral: имя и подпись канала лога задач — проводка; канал «Tasks» виден в e2e-сценарии tasks
+                logService.createLogger("tasks", { label: "Tasks" }),
             ),
         });
 
@@ -376,6 +396,17 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             void service.activateByEvent(`onLanguage:${languageId}`);
             void service.activateByEvent("onLanguage");
         });
+
+        // Задачи расширений: типы из `contributes.taskDefinitions`, активация
+        // провайдеров по `onTaskType:` перед Run Task, pty для `CustomExecution`.
+        // Stryker disable next-line CallExpression: production-проводка модуля; поведение закрыто юнитами bindExtensionTasks и e2e-сценарием extension-tasks
+        bindExtensionTasks(
+            container.get(TaskServiceDIToken),
+            service,
+            terminals(),
+            // Stryker disable next-line StringLiteral,ObjectLiteral: имя и подпись канала лога задач — проводка; канал «Tasks» виден в e2e-сценарии tasks
+            logService.createLogger("tasks", { label: "Tasks" }),
+        );
 
         // `workspaceContains:<паттерн>` по смене набора папок: папка может
         // открыться ПОЗЖЕ старта, и событие «в проекте есть pom.xml» иначе

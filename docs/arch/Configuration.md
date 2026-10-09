@@ -56,6 +56,8 @@
 
 ## Слой воркспейса (`.diode/settings.json`)
 
+> Задачи проекта читаются из `.vscode/tasks.json`, а не из `.diode/` — Diode этот файл только читает, общий с VS Code файл переиспользуется как есть; настройки же Diode пишет сам и держит в своём каталоге. Подробности — [Workbench.md](Workbench.md#задачи-tasks).
+
 Эталон в однопапочном окне держит в слое `workspace` файл `<папка>/.vscode/settings.json`. У нас каталог свой — **`.diode/`**: настройки Diode не читают и не перетирают файл VS Code в том же проекте (`.vscode/settings.json` игнорируется). Константы и пути — `platform/configuration/common/workspaceSettings.ts`.
 
 - **Место в стеке** — выше профиля: defaults → user → profile → workspace, как у эталона (проект уточняет настройки человека).

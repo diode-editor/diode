@@ -769,3 +769,18 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         });
     });
 });
+
+describe("WorkspaceNamespace — registerTaskProvider без задач", () => {
+    it("без моста задач регистрация — пустой Disposable, хосту ничего не уходит", () => {
+        const { stub, workspace } = makeCtx();
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- проверяется именно устаревший `workspace.registerTaskProvider`
+        const registration = workspace.registerTaskProvider("demo", {
+            provideTasks: () => [],
+            resolveTask: () => undefined,
+        });
+        expect(() => {
+            registration.dispose();
+        }).not.toThrow();
+        expect(stub.notifies).toStrictEqual([]);
+    });
+});
