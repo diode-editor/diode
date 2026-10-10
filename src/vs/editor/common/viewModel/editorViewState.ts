@@ -40,6 +40,12 @@ import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./l
 /** Режим переноса строк — значения `editor.wordWrap` (VS Code). */
 export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
 
+/** Squiggle-декорация вью: id декорации в документе + серьёзность маркера. */
+interface IViewMarkerDecoration {
+    readonly id: string;
+    readonly severity: IMarkerDecoration["severity"];
+}
+
 /**
  * Проекция документа на ряды вью. Параллельные массивы, а не массив объектов:
  * проекция — длиной с документ, аллокация объекта на ряд ударила бы по большим
@@ -242,8 +248,7 @@ export class EditorViewState {
     private readonly docContentSubscription: IDisposable;
     /** Squiggle-декорации этой вью: id декорации в документе + серьёзность маркера. */
     // Stryker disable next-line ArrayDeclaration: мусорный элемент без id документ не знает — getDecorationRange даёт null
-    private markerDecorationIds: readonly { readonly id: string; readonly severity: IMarkerDecoration["severity"] }[] =
-        [];
+    private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
 
     public constructor(document: ITextDocument, selections?: ISelection[]) {
         this.document = document;
