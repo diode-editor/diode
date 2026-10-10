@@ -57,6 +57,7 @@ export function planTrackedSelections(
 ): ITrackedSelectionsPlan {
     return {
         selections: selections.map((sel) => {
+            // Stryker disable next-line EqualityOperator: равенство — схлопнутая каретка, у неё направления нет
             const reversed = comparePositions(sel.active, sel.anchor) < 0;
             const start = reversed ? sel.active : sel.anchor;
             const end = reversed ? sel.anchor : sel.active;
@@ -101,11 +102,13 @@ function planMarker(
     const first = firstEditEndingAtOrAfter(edits, position);
     let last = first - 1;
     while (last + 1 < edits.length && comparePositions(edits[last + 1].range.start, position) <= 0) last++;
+    // Stryker disable next-line StringLiteral: resolveMarker различает только "inEdit", любая другая метка — сдвиг
     if (last < first) return { kind: "shift", edit: first - 1, position };
 
     // Маркер накрыт правками first..last: у всех, кроме, может быть, первой,
     // начало ровно на маркере (стык). Эталон применяет батч снизу вверх:
     // правка, сдвинувшая маркер в свою вставку, уводит его за конец нижних.
+    // Stryker disable next-line EqualityOperator: на j === first смещение 0 даёт не-0 только вставке ровно в маркер, где и полное смещение — 0
     for (let j = last; j > first; j--) {
         const offset = offsetAfterEdit(source, edits[j], 0, stickToPrevious);
         if (offset !== 0) return { kind: "inEdit", edit: j, offset };
@@ -129,11 +132,12 @@ function offsetAfterEdit(
 ): number {
     const deleting = positionsEqual(edit.range.start, edit.range.end) ? 0 : source.getTextInRange(edit.range).length;
     const inserting = edit.text.length;
-    if (markerOffset === 0 && (deleting > 0 || stickToPrevious)) return 0;
+    // Внутри общей части маркер держит смещение; на её конце — только липкий
+    // влево. Удаление, начинающееся на маркере, и конец общей части, совпавший
+    // с концом вставки, сюда же: «остаться» и «уехать в конец вставки» там —
+    // одна и та же точка.
     const common = Math.min(deleting, inserting);
-    const staysInCommon =
-        markerOffset < common || (markerOffset === common && (deleting > inserting || stickToPrevious));
-    return common > 0 && staysInCommon ? markerOffset : inserting;
+    return markerOffset < common || (markerOffset === common && stickToPrevious) ? markerOffset : inserting;
 }
 
 /** Индекс первой правки, чей конец не раньше `position` (концы правок без перекрытий отсортированы). */

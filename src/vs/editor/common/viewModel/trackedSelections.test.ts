@@ -136,6 +136,27 @@ describe("trackedSelections: каретки сдвигаются вслед за
         expect(flat(result.selections)).toEqual([[0, 5, 0, 3]]);
     });
 
+    it("у обратного выделения липнет влево его начало — active, а не anchor", () => {
+        // Вставка в правый край (anchor) растит выделение, в левый (active) — нет.
+        const result = track("abcdef", [insert(0, 1, "<"), insert(0, 4, ">")], [createSelection(0, 4, 0, 1)]);
+        expect(result.text).toBe("a<bcd>ef");
+        expect(flat(result.selections)).toEqual([[0, 6, 0, 1]]);
+    });
+
+    it("правка на строке ниже нулевой сдвигает строки каретки на свою разницу строк", () => {
+        const result = track("a\nb\nc\nd", [insert(1, 0, "X\nY\n")], [caret(3, 1)]);
+        expect(result.text).toBe("a\nX\nY\nb\nc\nd");
+        expect(flat(result.selections)).toEqual([[5, 1, 5, 1]]);
+    });
+
+    it("стык замены и удаления: начало выделения остаётся в общей части замены", () => {
+        // «ab» → «abXY» и удаление «cd» встык: удаление начало не двигает, решает замена.
+        const edits = [replace(0, 0, 0, 2, "abXY"), replace(0, 2, 0, 4, "")];
+        const result = track("abcdefgh", edits, [createSelection(0, 2, 0, 6)]);
+        expect(result.text).toBe("abXYefgh");
+        expect(flat(result.selections)).toEqual([[0, 2, 0, 6]]);
+    });
+
     it("стык удаления и вставки: каретка встаёт за вставку, начало выделения — перед ней", () => {
         // Удаление «bc» и вставка «XY» в точку его конца.
         const edits = [replace(0, 1, 0, 3, ""), insert(0, 3, "XY")];

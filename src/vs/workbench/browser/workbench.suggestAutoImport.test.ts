@@ -81,3 +81,61 @@ describe("Workbench — accept автодополнения с авто-импо
         expect(editor().viewState.document.getText()).toBe(`${IMPORT}greetx\n`);
     });
 });
+
+/**
+ * Каретку после accept ставит основная вставка, а не сдвиг вслед за правкой.
+ * Разница видна, когда диапазон пункта (replace-режим) уходит правее каретки:
+ * сдвиг маркера оставил бы каретку внутри вставки, на месте набранного префикса.
+ */
+describe("Workbench — accept пункта с диапазоном замены правее каретки", () => {
+    let ws: ITempWorkspace;
+    let h: IAppHarness;
+
+    function editor(): EditorElement {
+        return h.testApp.querySelector("EditorElement") as EditorElement;
+    }
+
+    function settle(): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    beforeEach(() => {
+        ws = createTempWorkspace({ prefix: "diode-suggest-replace-", files: { "a.ts": "Xyz\n" } });
+        h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: ws.path("a.ts") });
+        h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
+            triggerCharacters: [],
+            // Диапазон — от начала строки по «Xyz» за кареткой включительно.
+            provideCompletionItems: (request) =>
+                Promise.resolve({
+                    items: [
+                        {
+                            label: "greet",
+                            insertText: "greet",
+                            kind: 2,
+                            range: {
+                                start: { line: request.line, character: 0 },
+                                end: { line: request.line, character: request.character + 3 },
+                            },
+                        },
+                    ],
+                    isIncomplete: false,
+                }),
+        });
+        h.workbench.focusEditor();
+    });
+
+    afterEach(() => {
+        h.dispose();
+        ws.dispose();
+    });
+
+    it("каретка встаёт в конец вставки, а не на место префикса", async () => {
+        for (const char of "gre") h.testApp.sendKey(char);
+        await settle();
+        h.testApp.sendKey("Enter");
+        await settle();
+
+        expect(editor().viewState.document.getText()).toBe("greet\n");
+        expect(editor().viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[0, 5]]);
+    });
+});

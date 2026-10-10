@@ -1066,6 +1066,7 @@ export class EditorViewState {
         const tracked = planTrackedSelections(this.document, sorted, this.selections);
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
+        // Stryker disable next-line ArrayDeclaration: order — перестановка индексов edits, каждый слот перезаписывается
         const inverseInInputOrder: ITextEdit[] = [];
         order.forEach((input, k) => (inverseInInputOrder[input] = inverseEdits[k]));
         this.selections =
