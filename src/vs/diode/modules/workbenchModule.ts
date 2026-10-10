@@ -3,6 +3,10 @@ import {
     ContextMenuController as EditorContextMenuController,
     ContextMenuControllerDIToken as EditorContextMenuControllerDIToken,
 } from "../../editor/contrib/contextmenu/browser/contextMenuController.ts";
+import {
+    DocumentSemanticTokensFeature,
+    DocumentSemanticTokensFeatureDIToken,
+} from "../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import { CommandActionsDIToken } from "../../platform/actions/common/commandAction.ts";
 import { MenuContributionsDIToken } from "../../platform/actions/common/iMenuContribution.ts";
 import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
@@ -431,6 +435,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // группам и диффу они нужны без полосы вкладок.
     container.bind(TextFileModelServiceDIToken, TextFileModelService);
     container.bind(TextEditorPaneBuilderDIToken, TextEditorPaneBuilder);
+    // Семантическая подсветка: хранилище токенов на документ и запросы к
+    // провайдерам расширений — общие для всех вью документа.
+    container.bind(DocumentSemanticTokensFeatureDIToken, DocumentSemanticTokensFeature);
     // Полоса групп — отдельно от «редакторов» (E1): структура групп нужна
     // view-части и командам групп, а не всем потребителям активного редактора.
     container.bind(EditorGroupsServiceDIToken, EditorGroupsService);

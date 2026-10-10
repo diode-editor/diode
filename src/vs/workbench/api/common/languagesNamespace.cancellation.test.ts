@@ -55,6 +55,14 @@ interface ICase {
     readonly prepare?: (request: (method: string, params: unknown) => Promise<unknown>) => Promise<unknown>;
     /** Имя в строке stderr при сбое провайдера. */
     readonly failure: string;
+    /** Отказ провайдера уходит хосту исключением, а не пустым ответом (семантические токены). */
+    readonly rethrows?: boolean;
+}
+
+/** Дожидается запроса; у случаев с `rethrows` он обязан кончиться отказом. */
+async function settle(c: ICase, request: Promise<unknown>): Promise<void> {
+    if (c.rethrows === true) await expect(request, c.name).rejects.toBeInstanceOf(Error);
+    else await request;
 }
 
 const CASES: readonly ICase[] = [
@@ -200,6 +208,36 @@ const CASES: readonly ICase[] = [
         params: () => ({ ...POS, newName: "c" }),
         failure: "",
     },
+    {
+        name: "document semantic tokens",
+        method: "languages.provideDocumentSemanticTokens",
+        register: (l, call) =>
+            l.registerDocumentSemanticTokensProvider(
+                SELECTOR,
+                { provideDocumentSemanticTokens: (_d, t) => call(t) as never },
+                { tokenTypes: ["class"], tokenModifiers: [] },
+            ),
+        params: () => ({ ...DOC, handle: 0, previousResultId: 0 }),
+        failure: "provideDocumentSemanticTokens",
+        rethrows: true,
+    },
+    {
+        name: "range semantic tokens",
+        method: "languages.provideDocumentRangeSemanticTokens",
+        register: (l, call) =>
+            l.registerDocumentRangeSemanticTokensProvider(
+                SELECTOR,
+                { provideDocumentRangeSemanticTokens: (_d, _r, t) => call(t) as never },
+                { tokenTypes: ["class"], tokenModifiers: [] },
+            ),
+        params: () => ({
+            ...DOC,
+            handle: 0,
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+        }),
+        failure: "provideDocumentRangeSemanticTokens",
+        rethrows: true,
+    },
 ];
 
 describe("LanguagesNamespace — срок ответа хоста отменяет токен провайдера", () => {
@@ -262,7 +300,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
         vi.restoreAllMocks();
     });
 
-    it("исключение провайдера — строка с методом и стеком; ответ — как у пустого провайдера", async () => {
+    it("исключение провайдера — строка с методом и стеком; ответ — как у пустого провайдера (или отказ)", async () => {
         for (const c of CASES) {
             errors = [];
             const { stub, languages } = makeStubCtx();
@@ -271,7 +309,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
                 throw failure;
             });
             const prepared = await c.prepare?.((m, p) => stub.callRequest(m, p));
-            await stub.callRequest(c.method, c.params(prepared));
+            await settle(c, stub.callRequest(c.method, c.params(prepared)));
             expect(errors, c.name).toEqual(
                 c.failure === "" ? [] : [[`[ext-host] ${c.failure} failed: ${String(failure.stack)}`]],
             );
@@ -291,7 +329,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
                 });
             });
             const prepared = await c.prepare?.((m, p) => stub.callRequest(m, p));
-            await stub.callRequest(c.method, c.params(prepared));
+            await settle(c, stub.callRequest(c.method, c.params(prepared)));
             expect(errors, c.name).toEqual(
                 c.failure === "" ? [] : [[`[ext-host] [pub.owned] ${c.failure} failed: ${String(failure.stack)}`]],
             );
@@ -321,7 +359,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
             const { stub, languages } = makeStubCtx();
             c.register(languages, () => Promise.reject(new CancellationError()));
             const prepared = await c.prepare?.((m, p) => stub.callRequest(m, p));
-            await stub.callRequest(c.method, c.params(prepared));
+            await settle(c, stub.callRequest(c.method, c.params(prepared)));
             expect(errors, c.name).toEqual([]);
         }
     });

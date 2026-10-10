@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 
+import type { CellSnapshot, GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
+
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
@@ -21,9 +23,26 @@ const appFile = resolve(sampleDir, "src", "main", "java", "demo", "App.java");
 /** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) — сигнал «сервер поднялся». */
 const UNDERCURL = 8;
 
+/**
+ * Цвет параметра в Dark Modern (`variable.parameter` → #9CDCFE). Использование
+ * `who` в `return "hello, " + who;` TextMate-грамматика Java не размечает (цвет
+ * текста #CCCCCC) — параметром его делает только семантический токен jdt.ls.
+ */
+const PARAMETER_FG = 0x9cdcfe;
+
+/** Ячейка первой буквы последнего вхождения `needle` в строке кадра, где оно есть. */
+function findCell(frame: GridSnapshot, needle: string): CellSnapshot | undefined {
+    for (let row = 0; row < frame.rows; row++) {
+        const cells = frame.cells.slice(row * frame.cols, (row + 1) * frame.cols);
+        const index = cells.map((cell) => cell.char || " ").join("").lastIndexOf(needle);
+        if (index !== -1) return cells[index];
+    }
+    return undefined;
+}
+
 export default defineScenario({
     name: "java-lsp",
-    title: "Java из коробки: jdt.ls — squiggle, code actions, переход в JDK",
+    title: "Java из коробки: jdt.ls — squiggle, семантическая подсветка, code actions, переход в JDK",
     // Папка ПЕРВОЙ: у redhat.java есть только `workspaceContains:`-события,
     // без папки воркспейса расширение не активируется вовсе.
     open: [sampleDir, appFile],
@@ -53,6 +72,15 @@ export default defineScenario({
             { describe: "undercurl squiggle от jdt.ls", timeoutMs: 300_000, intervalMs: 1000 },
         );
         await editor.capture("diagnostics");
+
+        // Семантическая подсветка jdt.ls поверх TextMate: `who` в теле метода
+        // перекрашивается в цвет параметра, когда приходят semantic tokens.
+        await waitUntil(
+            () => editor.captureFrame(),
+            (frame) => findCell(frame, "who;")?.fg === PARAMETER_FG,
+            { describe: "семантический цвет параметра `who`", timeoutMs: 120_000, intervalMs: 1000 },
+        );
+        await editor.capture("semantic-tokens");
 
         // Каретка на `int broken = message;` (строка 10) → меню code actions
         // (Ctrl+K Ctrl+Q — досягаемый везде чорд): фиксы настоящего jdt.ls.

@@ -44,6 +44,7 @@ import type {
     IWireDidSaveParams,
     IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
+    IWireDocumentSemanticTokensParams,
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
     IWireExecuteCommandParams,
@@ -67,11 +68,14 @@ import type {
     IWireProgressEnd,
     IWireProgressReport,
     IWireProgressStart,
+    IWireProviderHandle,
     IWireQuickInputCancel,
     IWireQuickPickRequest,
     IWireQuickPickResult,
+    IWireRangeSemanticTokensParams,
     IWireReadFileResult,
     IWireReferenceParams,
+    IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireSchemes,
     IWireSecretKeys,
@@ -113,6 +117,7 @@ import type {
     WireFoldingRange,
     WireRenamePrepare,
     WireRenameResult,
+    WireSemanticTokensResult,
     WireTextEdit,
 } from "./wireTypes.ts";
 
@@ -146,6 +151,14 @@ export interface IHostToSubprocess {
             ICoreInlineCompletionItem[][],
         ];
         readonly "languages.provideFoldingRanges": readonly [IWireFoldingParams, WireFoldingRange[][]];
+        readonly "languages.provideDocumentSemanticTokens": readonly [
+            IWireDocumentSemanticTokensParams,
+            WireSemanticTokensResult | null,
+        ];
+        readonly "languages.provideDocumentRangeSemanticTokens": readonly [
+            IWireRangeSemanticTokensParams,
+            WireSemanticTokensResult | null,
+        ];
         readonly "languages.provideDefinition": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
         readonly "languages.provideHover": readonly [IWireHoverParams, ICoreHover | null];
         readonly "languages.provideReferences": readonly [IWireReferenceParams, ICoreReference[]];
@@ -173,6 +186,8 @@ export interface IHostToSubprocess {
         readonly "host.shutdown": readonly [undefined, null];
     };
     readonly notifications: {
+        readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
+
         readonly "workspace.initialize": IWireWorkspaceInitialize;
         readonly "workspace.configurationChanged": IWireConfigurationChanged;
         readonly "workspace.didSaveTextDocument": IWireDidSaveParams;
@@ -255,6 +270,8 @@ export interface ISubprocessToHost {
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
+        /** `onDidChangeSemanticTokens` провайдера `handle` (upstream `$emitDocumentSemanticTokensEvent`). */
+        readonly "languages.didChangeSemanticTokens": IWireProviderHandle;
 
         readonly "workspace.fileSystemProvidersChanged": IWireSchemes;
         readonly "workspace.fs.didChangeFile": IWireChangedFiles;

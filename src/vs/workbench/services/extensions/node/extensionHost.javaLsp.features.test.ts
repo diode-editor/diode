@@ -21,10 +21,22 @@ import {
     JAVA_LANGUAGE_SERVICE,
 } from "../../../../../TestUtils/javaFixture.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreDefinitionLocation } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
+import { isSemanticTokensEdits } from "../../../../editor/common/languages/iSemanticTokensSource.ts";
+import { decodeSemanticTokens } from "../../../../editor/common/tokens/semanticTokensLines.ts";
+import { getDocumentSemanticTokens } from "../../../../editor/contrib/semanticTokens/common/getSemanticTokens.ts";
+import type { IExtensionManifest } from "../../../../platform/extensions/common/iExtensionManifest.ts";
+import { parseHexColor } from "../../../../platform/theme/common/colorUtils.ts";
+import { createDefaultTokenClassificationRegistry } from "../../../../platform/theme/common/tokenClassificationRegistry.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { IWireStatusBarItem } from "../../../api/common/wireTypes.ts";
+import { SemanticTokenStyleResolver } from "../../themes/common/semanticTokenStyleResolver.ts";
+import { darkModernTheme } from "../../themes/common/themes/darkModern.ts";
+import { TokenThemeResolver } from "../../themes/common/tokenThemeResolver.ts";
+import { registerExtensionSemanticTokens } from "../common/extensionSemanticTokensContributor.ts";
 
 // Фич-матрица Java на НАСТОЯЩЕМ jdt.ls: hover, автодополнение, definition внутри
 // проекта, references и пункт статус-бара. Базовый сьют (extensionHost.javaLsp)
@@ -200,6 +212,78 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         expect(ready.id).toBe("redhat.java.java.serverStatus");
         expect(ready.alignment).toBe("left");
     });
+
+    it(
+        "семантические токены: тип и модификаторы из jdt.ls, дельта на повторный запрос",
+        { timeout: 120_000 },
+        async () => {
+            expect(harness).toBeDefined();
+            const registry = harness!.languageFeatures.documentSemanticTokensProvider;
+            const target = { uri: Uri.parse(appUri), languageId: "java" };
+            const request = () => ({ uri: appUri, languageId: "java", versionId: documentVersion(harness!, appUri) });
+            // Сервер отвечает пустым, пока строит AST — ждём ответа с токенами.
+            const first = await until(
+                "semantic tokens документа",
+                async () => {
+                    const result = await getDocumentSemanticTokens(
+                        registry,
+                        target,
+                        request(),
+                        null,
+                        null,
+                        CancellationTokenNone,
+                    );
+                    return result?.tokens && !isSemanticTokensEdits(result.tokens) && result.tokens.data.length > 0
+                        ? { provider: result.provider, tokens: result.tokens }
+                        : null;
+                },
+                60_000,
+            );
+            const legend = first.provider.getLegend();
+            const lines = decodeSemanticTokens(first.tokens.data, legend);
+            const classify = (line: number, char: number): string | undefined => {
+                const tokens = lines.getLine(line)?.tokens ?? [];
+                for (let i = 0; i < tokens.length; i += 4) {
+                    if (tokens[i] <= char && char < tokens[i + 1]) {
+                        const modifiers = legend.tokenModifiers.filter((_, bit) => (tokens[i + 3] & (1 << bit)) !== 0);
+                        return [legend.tokenTypes[tokens[i + 2]], ...modifiers].join(".");
+                    }
+                }
+                return undefined;
+            };
+            // `who` в `return "hello, " + who;` — параметр: TextMate этого не знает.
+            expect(classify(4, 27)).toMatch(/^parameter/);
+            // `greet(` в `String message = greet("world");` — статический метод.
+            expect(classify(8, 25)).toMatch(/^method\..*static/);
+
+            // Повторный запрос с resultId прошлого ответа — дельта (текст тот же — правок нет).
+            const second = await getDocumentSemanticTokens(
+                registry,
+                target,
+                request(),
+                first.provider,
+                first.tokens.resultId ?? null,
+                CancellationTokenNone,
+            );
+            expect(second?.tokens && isSemanticTokensEdits(second.tokens) ? second.tokens.edits : null).toEqual([]);
+
+            // Стиль в Dark Modern: параметр — цвет `variable.parameter`, а не дефолт текста.
+            const theme = createDefaultTokenClassificationRegistry();
+            const { id, manifest } = installed!.registration;
+            registerExtensionSemanticTokens(
+                [{ id, manifest: manifest as IExtensionManifest, location: "", isBuiltin: false }],
+                theme,
+            );
+            const tokenTheme = WorkbenchTheme.fromThemeFile(darkModernTheme).tokenTheme;
+            const styles = new SemanticTokenStyleResolver(theme, tokenTheme);
+            expect(styles.resolve("parameter", [], "java")?.fg).toBe(parseHexColor("#9CDCFE"));
+            // Java-тип из contributes.semanticTokenTypes/Scopes расширения:
+            // annotation красится как TextMate-скоуп `storage.type.annotation.java`.
+            const annotationFg = new TokenThemeResolver(tokenTheme).resolve(["storage.type.annotation.java"]).fg;
+            expect(annotationFg).toBeDefined();
+            expect(styles.resolve("annotation", [], "java")?.fg).toBe(annotationFg);
+        },
+    );
 
     it("конвертеры стокового клиента не падали молча", () => {
         const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));

@@ -26,6 +26,7 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import { provideFoldingRanges } from "../../../../editor/contrib/folding/syntaxRangeProvider.ts";
+import type { DocumentSemanticTokensFeature } from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { BaseTextEditorModel, ITextEditTarget } from "../../../common/editor/textEditorModel.ts";
@@ -186,6 +187,7 @@ export class EditorComponent extends Component {
         model: BaseTextEditorModel,
         languageConfiguration: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
         foldingProviders = new LanguageFeatureRegistry<FoldingRangeProvider>(),
+        semanticTokens?: DocumentSemanticTokensFeature,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -196,7 +198,11 @@ export class EditorComponent extends Component {
         this.languageConfiguration = languageConfiguration;
 
         this.editorViewState = new EditorViewState(model.document);
-        this.tokenStore = new DocumentTokenStore(model.document, this.ensureTokenizerForLanguage(model.languageId));
+        // Кеш TM-токенов подписан на документ, который переживает вью: без
+        // dispose подписка висела бы на модели после закрытия вкладки.
+        this.tokenStore = this.register(
+            new DocumentTokenStore(model.document, this.ensureTokenizerForLanguage(model.languageId)),
+        );
         this.editorViewState.tokenStore = this.tokenStore;
         this.editor = new EditorElement(this.editorViewState);
         this.editor.tokenStyleResolver = tokenStyleResolver;
@@ -210,6 +216,7 @@ export class EditorComponent extends Component {
         this.attachSelectionForwarding();
         this.attachTypeForwarding();
         this.view = new ScrollBarDecorator(this.editor);
+        if (semanticTokens !== undefined) this.attachSemanticTokens(semanticTokens);
 
         // Шов модели к редактирующей поверхности этой вью: правки, которые модель
         // применяет сама (save-участник, setEol, applyExternalEdits), идут через
@@ -273,6 +280,42 @@ export class EditorComponent extends Component {
             },
         });
         this.recomputeFoldingRegions();
+    }
+
+    /**
+     * Семантические токены документа (общие для его вью) — вторым слоем поверх
+     * TextMate; видимую область этой вью, пока нет полного набора, докрашивает
+     * range-провайдер. Пришли токены — перерисовка.
+     */
+    private attachSemanticTokens(feature: DocumentSemanticTokensFeature): void {
+        const reference = this.register(feature.attach(this.model));
+        this.editorViewState.semanticTokens = reference.store;
+        this.editor.semanticTokenStyleResolver = feature.styleResolver;
+        this.register(
+            reference.store.onDidChange(() => {
+                this.editor.markDirty();
+            }),
+        );
+        this.register(
+            feature.styleResolver.onDidChange(() => {
+                this.editor.markDirty();
+            }),
+        );
+        this.register(
+            reference.attachViewport({
+                getVisibleLineRange: () => {
+                    const viewState = this.editorViewState;
+                    const lastViewLine = viewState.getViewLineCount() - 1;
+                    const top = Math.min(viewState.scrollTop, lastViewLine);
+                    const bottom = Math.min(top + Math.max(viewState.viewportHeight, 1) - 1, lastViewLine);
+                    return {
+                        startLine: viewState.docLineForViewLine(top),
+                        endLine: viewState.docLineForViewLine(bottom),
+                    };
+                },
+                onDidChangeVisibleRange: this.editorViewState.onDidChangeView,
+            }),
+        );
     }
 
     /**

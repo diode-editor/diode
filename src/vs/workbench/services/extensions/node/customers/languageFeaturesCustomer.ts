@@ -25,6 +25,13 @@ import type {
     ICoreRenameResult,
     IRenameRequest,
 } from "../../../../../editor/common/languages/iRenameSource.ts";
+import {
+    type IRangeSemanticTokensRequest,
+    type ISemanticTokens,
+    type ISemanticTokensEdits,
+    type ISemanticTokensRequest,
+    isSemanticTokensEdits,
+} from "../../../../../editor/common/languages/iSemanticTokensSource.ts";
 import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
@@ -43,8 +50,10 @@ import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
 import {
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
+    parseWireProviderHandle,
     wireToCoreFoldingRegions,
     wireToCoreRenameLocation,
+    wireToCoreSemanticTokens,
 } from "../hostWireParsers.ts";
 import { loggingRequest, type RequestTimeouts, type TimedRequestMethod } from "../requestPolicy.ts";
 
@@ -58,7 +67,9 @@ const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete
  */
 type LanguageRequestMethod =
     | Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">
-    | "languages.provideCompletionItems";
+    | "languages.provideCompletionItems"
+    | "languages.provideDocumentSemanticTokens"
+    | "languages.provideDocumentRangeSemanticTokens";
 
 /** Ответ языкового запроса — форма из карты протокола. */
 type LanguageResult<K extends LanguageRequestMethod> = RequestResult<IHostToSubprocess, K>;
@@ -73,6 +84,11 @@ interface ILanguageRequestOptions<K extends LanguageRequestMethod> {
     readonly timeoutMs?: number | undefined;
     /** Отмена «сверху»: ответ перестал быть нужен (новый запрос, закрытый попап, правка). */
     readonly token?: ICancellationToken | undefined;
+    /**
+     * Отказ RPC (сбой, отмена) — исключением, а не `empty`: семантические
+     * токены по сбою оставляют прежнюю раскраску, а по пустому ответу стирают.
+     */
+    readonly rethrow?: boolean;
 }
 
 /**
@@ -88,6 +104,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
 
     /** Состав провайдеров изменился: регистрация, снятие или смерть субпроцесса. */
     public readonly onProvidersChanged = this.onProvidersChangedEmitter.event;
+    private readonly onDidChangeSemanticTokensEmitter = this.register(new Emitter<number>());
+    /** `onDidChangeSemanticTokens` провайдера (handle) — из `languages.didChangeSemanticTokens`. */
+    public readonly onDidChangeSemanticTokens = this.onDidChangeSemanticTokensEmitter.event;
     /** Канал текущего спавна; `null` — спавна нет. */
     private rpc: HostRpc | null = null;
     /** Вызовы inline-прокси с одним запросом — одним RPC (см. `provideInlineCompletions`). */
@@ -472,6 +491,51 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 
     /**
+     * Токены документа от провайдера `handle` (`languages.provideDocumentSemanticTokens`):
+     * полный ответ или дельта к ответу `previousResultId`; `resultId` ответа —
+     * его id в субпроцессе строкой (upstream `MainThreadDocumentSemanticTokensProvider`).
+     * `null` — спрашивать некого или провайдер ничего не дал; отказ RPC —
+     * исключение. Срока нет, как в upstream: ненужный запрос отменяет токен.
+     */
+    public async provideDocumentSemanticTokens(
+        handle: number,
+        req: ISemanticTokensRequest,
+        previousResultId: number,
+        token?: ICancellationToken,
+    ): Promise<ISemanticTokens | ISemanticTokensEdits | null> {
+        const result = await this.request(
+            "languages.provideDocumentSemanticTokens",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId, previousResultId },
+            null,
+            { token, rethrow: true },
+        );
+        return wireToCoreSemanticTokens(result);
+    }
+
+    /** Токены диапазона от провайдера `handle`; ответ всегда полный. */
+    public async provideDocumentRangeSemanticTokens(
+        handle: number,
+        req: IRangeSemanticTokensRequest,
+        token?: ICancellationToken,
+    ): Promise<ISemanticTokens | null> {
+        const result = wireToCoreSemanticTokens(
+            await this.request(
+                "languages.provideDocumentRangeSemanticTokens",
+                { handle, uri: req.uri, languageId: req.languageId, version: req.versionId, range: req.range },
+                null,
+                { token, rethrow: true },
+            ),
+        );
+        if (result !== null && isSemanticTokensEdits(result)) throw new Error("Unexpected");
+        return result;
+    }
+
+    /** Ответ `resultId` провайдера `handle` ядру больше не нужен. */
+    public releaseDocumentSemanticTokens(handle: number, resultId: number): void {
+        this.rpc?.notify("languages.releaseDocumentSemanticTokens", { handle, resultId });
+    }
+
+    /**
      * Языковой запрос субпроцессу — общий путь всех `provide*`. Ответ —
      * форма из карты протокола: её гарантирует сериализатор субпроцесса, и
      * хост ответ своей второй половины не перепроверяет. `empty` — ответ,
@@ -503,7 +567,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 timeoutMs,
                 ...(token === undefined ? {} : { token }),
             });
-        } catch {
+        } catch (err) {
+            if (options.rethrow === true) throw err;
             return empty;
         }
     }
@@ -518,6 +583,14 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 if (registration === null) return;
                 this.providers.set(registration.handle, registration);
                 this.onProvidersChangedEmitter.fire();
+            }),
+        );
+        store.add(
+            rpc.handleNotification("languages.didChangeSemanticTokens", (params) => {
+                const parsed = parseWireProviderHandle(params);
+                if (parsed !== null && this.providers.has(parsed.handle)) {
+                    this.onDidChangeSemanticTokensEmitter.fire(parsed.handle);
+                }
             }),
         );
         store.add(

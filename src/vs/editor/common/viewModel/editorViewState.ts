@@ -23,6 +23,8 @@ import type { ITextDocument } from "../model/iTextDocument.ts";
 import type { IUndoElement } from "../model/iUndoElement.ts";
 import { TrackedRangeStickiness } from "../model/trackedDecorations.ts";
 import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
+import type { ISemanticLineTokens } from "../tokens/semanticTokensLines.ts";
+import type { SemanticTokensStore } from "../tokens/semanticTokensStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
 import { LineBreaksCache } from "./lineBreaksCache.ts";
@@ -203,6 +205,11 @@ export class EditorViewState {
      * calling `tokenStore.tokenizeUpTo(visibleBottom)` before reading tokens.
      */
     public tokenStore: DocumentTokenStore | undefined;
+    /**
+     * Семантические токены документа — второй слой поверх {@link tokenStore}
+     * (общий для всех вью документа). Нет — рисуется только TextMate.
+     */
+    public semanticTokens: SemanticTokensStore | undefined;
 
     /**
      * Живая сессия семейства «выделить следующее вхождение» (Ctrl+D). Состояние лежит
@@ -829,6 +836,12 @@ export class EditorViewState {
             return undefined;
         }
         return this.tokenStore.getLineTokens(logicalLine);
+    }
+
+    /** Семантические токены строки документа, на которой лежит визуальная строка. */
+    public getViewLineSemanticTokens(visualLineNumber: number): ISemanticLineTokens | undefined {
+        if (!this.semanticTokens) return undefined;
+        return this.semanticTokens.getLineTokens(this.visualToLogicalLine(visualLineNumber));
     }
 
     // ─── Line Mapping ───────────────────────────────────────

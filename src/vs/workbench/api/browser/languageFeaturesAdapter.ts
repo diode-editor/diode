@@ -1,7 +1,14 @@
+import type { Event } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ILanguageFeaturesService } from "../../../editor/common/services/languageFeatures.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
-import type { IWireLanguageProviderRegistration, WireLanguageFeatureKind } from "../common/wireTypes.ts";
+import type {
+    IWireLanguageProviderRegistration,
+    IWireSemanticTokensLegend,
+    WireLanguageFeatureKind,
+} from "../common/wireTypes.ts";
+
+const EMPTY_LEGEND: IWireSemanticTokensLegend = { tokenTypes: [], tokenModifiers: [] };
 
 interface ILiveRegistration {
     readonly source: IWireLanguageProviderRegistration;
@@ -117,7 +124,41 @@ export class LanguageFeaturesAdapter extends Disposable {
                 prepareRename: (request) => this.bridge.prepareRename(handle, request),
                 provideRenameEdits: (request, newName) => this.bridge.provideRenameEdits(handle, request, newName),
             }),
+        // Upstream `MainThreadDocumentSemanticTokensProvider`: id ответа ходит
+        // строкой в ядре и числом по проводу, «нет прошлого» — 0.
+        semanticTokens: ({ handle, selector, legend = EMPTY_LEGEND, hasOnDidChange }) =>
+            this.languageFeatures.documentSemanticTokensProvider.register(selector, {
+                ...(hasOnDidChange === true ? { onDidChange: this.semanticTokensChangeEvent(handle) } : {}),
+                getLegend: () => legend,
+                provideDocumentSemanticTokens: (request, lastResultId, token) =>
+                    this.bridge.provideDocumentSemanticTokens(
+                        handle,
+                        request,
+                        lastResultId === null ? 0 : parseInt(lastResultId, 10),
+                        token,
+                    ),
+                releaseDocumentSemanticTokens: (resultId) => {
+                    if (resultId !== undefined && resultId !== "") {
+                        this.bridge.releaseDocumentSemanticTokens(handle, parseInt(resultId, 10));
+                    }
+                },
+            }),
+        rangeSemanticTokens: ({ handle, selector, legend = EMPTY_LEGEND, hasOnDidChange }) =>
+            this.languageFeatures.documentRangeSemanticTokensProvider.register(selector, {
+                ...(hasOnDidChange === true ? { onDidChange: this.semanticTokensChangeEvent(handle) } : {}),
+                getLegend: () => legend,
+                provideDocumentRangeSemanticTokens: (request, token) =>
+                    this.bridge.provideDocumentRangeSemanticTokens(handle, request, token),
+            }),
     };
+
+    /** `onDidChangeSemanticTokens` одного провайдера — срез общего события моста по handle. */
+    private semanticTokensChangeEvent(handle: number): Event<void> {
+        return (listener) =>
+            this.bridge.onDidChangeSemanticTokens((changed) => {
+                if (changed === handle) listener();
+            });
+    }
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {
         return this.proxyFactories[reg.kind](reg);

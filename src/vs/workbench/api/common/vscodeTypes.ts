@@ -366,6 +366,212 @@ export class FoldingRange implements vscode.FoldingRange {
     }
 }
 
+// ─── Semantic coloring (перенос `extHostTypes.ts` эталона) ───────────────────
+// vscode-languageclient конструирует эти классы в конвертере ответа сервера:
+// без них ответ semanticTokens падал бы на «is not a constructor».
+
+/** Легенда: индекс типа и бит модификатора в `SemanticTokens.data`. */
+export class SemanticTokensLegend implements vscode.SemanticTokensLegend {
+    public readonly tokenTypes: string[];
+    public readonly tokenModifiers: string[];
+
+    public constructor(tokenTypes: string[], tokenModifiers: string[] = []) {
+        this.tokenTypes = tokenTypes;
+        this.tokenModifiers = tokenModifiers;
+    }
+}
+
+function isPositionLike(arg: unknown): arg is vscode.Position {
+    const p = arg as Partial<vscode.Position> | null | undefined;
+    return typeof p?.line === "number" && typeof p.character === "number";
+}
+
+/** `Range.isRange` эталона: экземпляр или объект с позициями `start`/`end`. */
+function isRangeLike(arg: unknown): arg is vscode.Range {
+    if (arg instanceof Range) return true;
+    const r = arg as Partial<vscode.Range> | null | undefined;
+    return isPositionLike(r?.start) && isPositionLike(r.end);
+}
+
+function isStrArrayOrUndefined(arg: unknown): arg is string[] | undefined {
+    return arg === undefined || (Array.isArray(arg) && (arg as unknown[]).every((a) => typeof a === "string"));
+}
+
+/**
+ * Сборщик `data`: токены дельта-кодируются по мере `push`; первый токен не по
+ * порядку снимает кодирование, и `build()` сортирует и кодирует заново.
+ */
+export class SemanticTokensBuilder implements vscode.SemanticTokensBuilder {
+    private prevLine = 0;
+    private prevChar = 0;
+    private dataIsSortedAndDeltaEncoded = true;
+    private readonly data: number[] = [];
+    private readonly tokenTypeStrToInt = new Map<string, number>();
+    private readonly tokenModifierStrToInt = new Map<string, number>();
+    private readonly hasLegend: boolean;
+
+    public constructor(legend?: vscode.SemanticTokensLegend) {
+        this.hasLegend = legend !== undefined;
+        if (legend) {
+            legend.tokenTypes.forEach((type, i) => this.tokenTypeStrToInt.set(type, i));
+            legend.tokenModifiers.forEach((modifier, i) => this.tokenModifierStrToInt.set(modifier, i));
+        }
+    }
+
+    public push(line: number, char: number, length: number, tokenType: number, tokenModifiers?: number): void;
+    public push(range: vscode.Range, tokenType: string, tokenModifiers?: readonly string[]): void;
+    public push(arg0: unknown, arg1: unknown, arg2?: unknown, arg3?: unknown, arg4?: unknown): void {
+        if (
+            typeof arg0 === "number" &&
+            typeof arg1 === "number" &&
+            typeof arg2 === "number" &&
+            typeof arg3 === "number" &&
+            (typeof arg4 === "number" || arg4 === undefined)
+        ) {
+            this.pushEncoded(arg0, arg1, arg2, arg3, arg4 ?? 0);
+            return;
+        }
+        if (isRangeLike(arg0) && typeof arg1 === "string" && isStrArrayOrUndefined(arg2)) {
+            this.pushRange(arg0, arg1, arg2);
+            return;
+        }
+        throw new Error("Illegal argument");
+    }
+
+    public build(resultId?: string): SemanticTokens {
+        if (!this.dataIsSortedAndDeltaEncoded) {
+            return new SemanticTokens(SemanticTokensBuilder.sortAndDeltaEncode(this.data), resultId);
+        }
+        return new SemanticTokens(new Uint32Array(this.data), resultId);
+    }
+
+    private pushRange(range: vscode.Range, tokenType: string, tokenModifiers: readonly string[] | undefined): void {
+        if (!this.hasLegend) {
+            throw new Error("Legend must be provided in constructor");
+        }
+        if (range.start.line !== range.end.line) {
+            throw new Error("`range` cannot span multiple lines");
+        }
+        const nTokenType = this.tokenTypeStrToInt.get(tokenType);
+        if (nTokenType === undefined) {
+            throw new Error("`tokenType` is not in the provided legend");
+        }
+        let nTokenModifiers = 0;
+        for (const tokenModifier of tokenModifiers ?? []) {
+            const nTokenModifier = this.tokenModifierStrToInt.get(tokenModifier);
+            if (nTokenModifier === undefined) {
+                throw new Error("`tokenModifier` is not in the provided legend");
+            }
+            nTokenModifiers |= (1 << nTokenModifier) >>> 0;
+        }
+        this.pushEncoded(
+            range.start.line,
+            range.start.character,
+            range.end.character - range.start.character,
+            nTokenType,
+            nTokenModifiers,
+        );
+    }
+
+    private pushEncoded(line: number, char: number, length: number, tokenType: number, tokenModifiers: number): void {
+        if (
+            this.dataIsSortedAndDeltaEncoded &&
+            (line < this.prevLine || (line === this.prevLine && char < this.prevChar))
+        ) {
+            // push calls were ordered and are no longer ordered
+            this.dataIsSortedAndDeltaEncoded = false;
+            // Remove delta encoding from data
+            let prevLine = 0;
+            let prevChar = 0;
+            for (let i = 0; i < this.data.length; i += 5) {
+                let tokenLine = this.data[i];
+                let tokenChar = this.data[i + 1];
+                if (tokenLine === 0) {
+                    // on the same line as previous token
+                    tokenLine = prevLine;
+                    tokenChar += prevChar;
+                } else {
+                    // on a different line than previous token
+                    tokenLine += prevLine;
+                }
+                this.data[i] = tokenLine;
+                this.data[i + 1] = tokenChar;
+                prevLine = tokenLine;
+                prevChar = tokenChar;
+            }
+        }
+
+        let pushLine = line;
+        let pushChar = char;
+        if (this.dataIsSortedAndDeltaEncoded && this.data.length > 0) {
+            pushLine -= this.prevLine;
+            if (pushLine === 0) {
+                pushChar -= this.prevChar;
+            }
+        }
+        this.data.push(pushLine, pushChar, length, tokenType, tokenModifiers);
+        this.prevLine = line;
+        this.prevChar = char;
+    }
+
+    private static sortAndDeltaEncode(data: readonly number[]): Uint32Array {
+        const tokenCount = data.length / 5;
+        const pos = Array.from({ length: tokenCount }, (_, i) => i);
+        pos.sort((a, b) => {
+            const lineDiff = data[5 * a] - data[5 * b];
+            return lineDiff !== 0 ? lineDiff : data[5 * a + 1] - data[5 * b + 1];
+        });
+        const result = new Uint32Array(data.length);
+        let prevLine = 0;
+        let prevChar = 0;
+        pos.forEach((src, i) => {
+            const line = data[5 * src];
+            const char = data[5 * src + 1];
+            const pushLine = line - prevLine;
+            result[5 * i] = pushLine;
+            result[5 * i + 1] = pushLine === 0 ? char - prevChar : char;
+            result[5 * i + 2] = data[5 * src + 2];
+            result[5 * i + 3] = data[5 * src + 3];
+            result[5 * i + 4] = data[5 * src + 4];
+            prevLine = line;
+            prevChar = char;
+        });
+        return result;
+    }
+}
+
+export class SemanticTokens implements vscode.SemanticTokens {
+    public readonly resultId: string | undefined;
+    public readonly data: Uint32Array;
+
+    public constructor(data: Uint32Array, resultId?: string) {
+        this.resultId = resultId;
+        this.data = data;
+    }
+}
+
+export class SemanticTokensEdit implements vscode.SemanticTokensEdit {
+    public readonly start: number;
+    public readonly deleteCount: number;
+    public readonly data: Uint32Array | undefined;
+
+    public constructor(start: number, deleteCount: number, data?: Uint32Array) {
+        this.start = start;
+        this.deleteCount = deleteCount;
+        this.data = data;
+    }
+}
+
+export class SemanticTokensEdits implements vscode.SemanticTokensEdits {
+    public readonly resultId: string | undefined;
+    public readonly edits: SemanticTokensEdit[];
+
+    public constructor(edits: SemanticTokensEdit[], resultId?: string) {
+        this.resultId = resultId;
+        this.edits = edits;
+    }
+}
+
 /**
  * URI ресурса — ре-экспорт ядрового {@link Uri} (`Common/Uri.ts`, upstream
  * `vscode-uri`). Раньше здесь жил самописный file-only шим: он не разбирал схемы

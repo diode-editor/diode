@@ -121,6 +121,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls the delay in milliseconds after which quick suggestions will show up.",
     },
     {
+        key: "editor.semanticHighlighting.enabled",
+        type: "boolean | string",
+        default: "configuredByTheme",
+        description: "Controls whether the semanticHighlighting is shown for the languages that support it.",
+        enum: [true, false, "configuredByTheme"],
+    },
+    {
         key: "editor.suggestOnTriggerCharacters",
         type: "boolean",
         default: true,
