@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -34,16 +34,21 @@ function createService(options?: {
 function fakeView(overrides?: Partial<IExplorerView>): IExplorerView & {
     refreshCount: number;
     revealed: FileTreeNode[][];
+    expanded: string[];
     focused: number;
     cutKeys: Set<string> | null;
 } {
     const view = {
         refreshCount: 0,
         revealed: [] as FileTreeNode[][],
+        expanded: [] as string[],
         focused: 0,
         cutKeys: null as Set<string> | null,
         refresh: async () => {
             view.refreshCount++;
+        },
+        expand: async (element: FileTreeNode) => {
+            view.expanded.push(element.path);
         },
         reveal: async (chain: FileTreeNode[]) => {
             view.revealed.push(chain);
@@ -204,6 +209,9 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
                 { name: "x.ts", path: target, isDirectory: false },
             ],
         ]);
+        // Предков раскрывают по ходу, до reveal: от раскрытия зависит,
+        // какая строка следующая (компактные цепочки).
+        expect(view.expanded).toEqual([path.join(ws.dir, "src"), path.join(ws.dir, "src", "deep")]);
         service.dispose();
         ws.dispose();
     });
@@ -214,7 +222,7 @@ describe("ExplorerService — autoRevealActiveFile", () => {
         return createTestConfigurationService(autoReveal === undefined ? {} : { "explorer.autoReveal": autoReveal });
     }
 
-    it("reveals the active file when explorer.autoReveal is on (default)", () => {
+    it("reveals the active file when explorer.autoReveal is on (default)", async () => {
         const ws = createTempWorkspace({ prefix: "diode-explorer-svc-auto-" });
         const service = createService({ configurationService: configWith(undefined) });
         service.setRootPath(ws.dir);
@@ -222,7 +230,10 @@ describe("ExplorerService — autoRevealActiveFile", () => {
         service.attachView(view);
 
         service.autoRevealActiveFile(path.join(ws.dir, "a.ts"));
-        expect(view.revealed).toHaveLength(1);
+        // reveal асинхронный: предков раскрывают по ходу (компактные цепочки).
+        await vi.waitFor(() => {
+            expect(view.revealed).toHaveLength(1);
+        });
         service.dispose();
         ws.dispose();
     });

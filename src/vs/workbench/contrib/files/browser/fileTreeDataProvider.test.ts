@@ -51,13 +51,22 @@ describe("FileTreeDataProvider", () => {
     let watcher: ReturnType<typeof fakeTreeWatcher>;
     /** Шаблоны `files.exclude`: меняются по ходу теста — настройка живая. */
     let excludes: string[];
+    /** `explorer.compactFolders`: здесь выключена — сжатие проверяет fileTreeDataProvider.compactFolders.test.ts. */
+    let compact: boolean;
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-test-" });
         excludes = [];
+        compact = false;
         files = diskFileService();
         watcher = fakeTreeWatcher();
-        provider = new FileTreeDataProvider(ws.dir, () => excludes, files, watcher);
+        provider = new FileTreeDataProvider(
+            ws.dir,
+            () => excludes,
+            files,
+            watcher,
+            () => compact,
+        );
     });
 
     afterEach(() => {

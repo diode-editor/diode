@@ -10,10 +10,51 @@ import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFi
 import { isExcludedPath } from "../../../common/configuration/excludeSettings.ts";
 
 export interface FileTreeNode {
+    /** Имя последнего сегмента (у компактного узла — последней папки цепочки). */
     name: string;
+    /**
+     * Путь узла. У компактного узла — путь ПОСЛЕДНЕЙ папки цепочки: на неё
+     * смотрят действия, вставка, контекстное меню и декорации — как у эталона,
+     * где «текущим» сегментом компактного узла по умолчанию стоит последний.
+     */
     path: string;
     isDirectory: boolean;
     isSymbolicLink?: boolean;
+    /**
+     * `explorer.compactFolders`: свёрнутые в эту строку папки-предки — от
+     * головы цепочки до родителя `path`. Голова — ключ узла в дереве, поэтому
+     * раскрытие переживает и удлинение, и разрыв цепочки.
+     */
+    compactParents?: readonly string[];
+}
+
+/** Ключ узла в дереве: голова компактной цепочки, у обычного узла — его путь. */
+function nodeKey(node: FileTreeNode): string {
+    return node.compactParents?.[0] ?? node.path;
+}
+
+/** Папки, которые показывает строка узла: от головы цепочки до `path` включительно. */
+function nodeSegments(node: FileTreeNode): readonly string[] {
+    return node.compactParents ? [...node.compactParents, node.path] : [node.path];
+}
+
+/** Переписывает узел под цепочку: голова остаётся ключом, `path` — последняя папка. */
+function applyChain(node: FileTreeNode, segments: readonly string[]): void {
+    const last = segments[segments.length - 1];
+    node.path = last;
+    node.name = path.basename(last);
+    if (segments.length > 1) {
+        node.compactParents = segments.slice(0, -1);
+    } else {
+        delete node.compactParents;
+    }
+}
+
+interface IDirectoryEntry {
+    readonly name: string;
+    readonly path: string;
+    readonly isDirectory: boolean;
+    readonly isSymbolicLink: boolean;
 }
 
 export class FileTreeDataProvider extends Disposable implements ITreeDataProvider<FileTreeNode> {
@@ -25,6 +66,23 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
     // ExplorerService.setFileDecorations; git/RPC-логика живёт выше и цвета уже
     // приходят резолвнутыми.
     private gitStatus = new Map<string, { color?: number; badge?: string }>();
+    /**
+     * `explorer.compactFolders`: известные цепочки по голове — папки от головы
+     * до последней включительно. Цепочку узнаём лениво, как эталон: когда
+     * голову раскрывают ({@link getChildren}), а не заглядывая заранее в
+     * каждый каталог листинга.
+     */
+    private readonly chains = new Map<string, readonly string[]>();
+    /** Папка любой известной цепочки → её голова. */
+    private readonly chainHeads = new Map<string, string>();
+    /**
+     * Узлы-каталоги последнего листинга по ключу: строку дерева держит именно
+     * этот объект, поэтому найденная при раскрытии цепочка пишется в него, и
+     * уведомление об изменении уходит с ним же.
+     */
+    private readonly directoryNodes = new Map<string, FileTreeNode>();
+    /** Раскрытые узлы (по ключу) → папки, за которыми для них следим. */
+    private readonly watchedChains = new Map<string, readonly string[]>();
 
     public onChange?: (element?: FileTreeNode) => void;
 
@@ -36,12 +94,14 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
      * @param files Чтение каталогов — через файловый сервис.
      * @param treeWatcher Слежение за раскрытыми каталогами — общий наблюдатель
      * дерева (обход делится с git и LSP, ошибки ОС пишет он сам в `files.watcher`).
+     * @param compactFolders `explorer.compactFolders` — живая, как и `excludes`.
      */
     public constructor(
         rootPath: string,
         private readonly excludes: () => readonly string[],
         private readonly files: IFileService,
         private readonly treeWatcher: ITreeFileWatcher,
+        private readonly compactFolders: () => boolean,
     ) {
         super();
         this.rootPath = rootPath;
@@ -58,7 +118,13 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         const badge = status?.badge && `${status.badge} `;
         if (element.isDirectory) {
             return {
-                label: element.name,
+                // Компактная цепочка — одной меткой «a/b/c»; сегменты по
+                // отдельности не выбираются (у эталона — выбираются).
+                label: element.compactParents
+                    ? nodeSegments(element)
+                          .map((segment) => path.basename(segment))
+                          .join("/")
+                    : element.name,
                 collapsible: true,
                 symlink: element.isSymbolicLink,
                 labelColor: status?.color,
@@ -85,13 +151,66 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         this.gitStatus = new Map(map);
     }
 
-    public getChildren(element?: FileTreeNode): Promise<FileTreeNode[]> {
-        const dirPath = element ? element.path : this.rootPath;
-        return this.readDirectory(dirPath);
+    public async getChildren(element?: FileTreeNode): Promise<FileTreeNode[]> {
+        if (!element) return this.toNodes(await this.readDirectory(this.rootPath));
+        // Раскрытие (или перечитывание раскрытого) узла заново проходит его
+        // цепочку от головы: пока у папки единственный ребёнок — каталог,
+        // спускаемся в него. Так цепочка и растёт, и рвётся по факту ФС.
+        // В симлинк не спускаемся: ссылка на предка зациклила бы спуск.
+        const head = nodeKey(element);
+        const segments = [head];
+        let entries = await this.readDirectory(head);
+        while (this.compactFolders() && entries.length === 1 && entries[0].isDirectory && !entries[0].isSymbolicLink) {
+            segments.push(entries[0].path);
+            entries = await this.readDirectory(entries[0].path);
+        }
+        this.setChain(head, segments);
+        applyChain(element, segments);
+        this.syncWatch(head, segments);
+        return this.toNodes(entries);
     }
 
     public getKey(element: FileTreeNode): string {
-        return element.path;
+        return nodeKey(element);
+    }
+
+    /**
+     * Строка дерева, которая показывает каталог `dirPath` (он сам либо любая
+     * папка его компактной цепочки) — тот самый объект, что держит дерево.
+     * Нужен reveal'у: раскрывать надо его, иначе найденная цепочка не попадёт в строку.
+     */
+    public findNode(dirPath: string): FileTreeNode | undefined {
+        return this.directoryNodes.get(this.keyForPath(dirPath));
+    }
+
+    /** Ключ строки дерева, которая показывает путь (папка цепочки → её голова). */
+    public keyForPath(filePath: string): string {
+        return this.chainHeads.get(filePath) ?? filePath;
+    }
+
+    /**
+     * Забыть найденные цепочки: после смены `explorer.compactFolders` или
+     * `files.exclude` (она решает, единственный ли ребёнок) их ищут заново.
+     * Раскрытые узлы перестроятся на ближайшем `refresh()`.
+     */
+    public resetCompactFolders(): void {
+        this.chains.clear();
+        this.chainHeads.clear();
+    }
+
+    /** Следить за раскрытым узлом — за каждой папкой его цепочки. */
+    public watchNode(node: FileTreeNode): void {
+        const segments = nodeSegments(node);
+        this.watchedChains.set(nodeKey(node), segments);
+        for (const segment of segments) this.watchDirectory(segment);
+    }
+
+    /** Снять слежение со свёрнутого узла. */
+    public unwatchNode(node: FileTreeNode): void {
+        const key = nodeKey(node);
+        const segments = this.watchedChains.get(key) ?? nodeSegments(node);
+        this.watchedChains.delete(key);
+        for (const segment of segments) this.unwatchDirectory(segment);
     }
 
     public watchDirectory(dirPath: string): void {
@@ -135,7 +254,38 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         return isExcludedPath(relative, excludes);
     }
 
-    private async readDirectory(dirPath: string): Promise<FileTreeNode[]> {
+    /** Узлы листинга: каталог с уже известной цепочкой сразу показывается компактным. */
+    private toNodes(entries: readonly IDirectoryEntry[]): FileTreeNode[] {
+        return entries.map((entry) => {
+            const node: FileTreeNode = { ...entry };
+            if (!entry.isDirectory) return node;
+            const chain = this.chains.get(entry.path);
+            if (chain) applyChain(node, chain);
+            this.directoryNodes.set(entry.path, node);
+            return node;
+        });
+    }
+
+    private setChain(head: string, segments: readonly string[]): void {
+        for (const segment of this.chains.get(head) ?? []) this.chainHeads.delete(segment);
+        this.chains.delete(head);
+        if (segments.length < 2) return;
+        this.chains.set(head, segments);
+        for (const segment of segments) this.chainHeads.set(segment, head);
+    }
+
+    /** Цепочка раскрытого узла сменилась — слежка переезжает на её новые папки. */
+    private syncWatch(key: string, segments: readonly string[]): void {
+        const previous = this.watchedChains.get(key);
+        if (!previous) return;
+        for (const segment of previous) {
+            if (!segments.includes(segment)) this.unwatchDirectory(segment);
+        }
+        for (const segment of segments) this.watchDirectory(segment);
+        this.watchedChains.set(key, segments);
+    }
+
+    private async readDirectory(dirPath: string): Promise<IDirectoryEntry[]> {
         let children;
         try {
             children = (await this.files.resolve(Uri.file(dirPath))).children;
@@ -143,7 +293,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
             return [];
         }
 
-        const nodes: FileTreeNode[] = [];
+        const nodes: IDirectoryEntry[] = [];
         const excludes = this.excludes();
         for (const child of children) {
             const fullPath = path.join(dirPath, child.name);
@@ -174,13 +324,33 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
             dirPath,
             setTimeout(() => {
                 this.debounceTimers.delete(dirPath);
-                const node: FileTreeNode = {
-                    name: path.basename(dirPath),
-                    path: dirPath,
-                    isDirectory: true,
-                };
-                this.onChange?.(node);
+                this.notifyChanged(dirPath);
             }, 300),
         );
+    }
+
+    /**
+     * Перечитать то, что показывает изменившийся каталог. Последняя папка
+     * цепочки — это дети компактного узла: перечитываем его. Промежуточная —
+     * у неё мог появиться второй ребёнок, и цепочка, возможно, рвётся:
+     * забываем её и перечитываем родителя головы — узел соберётся заново.
+     */
+    private notifyChanged(dirPath: string): void {
+        const head = this.chainHeads.get(dirPath);
+        const chain = head === undefined ? undefined : this.chains.get(head);
+        if (head === undefined || chain === undefined || chain[chain.length - 1] === dirPath) {
+            this.onChange?.(
+                this.findNode(dirPath) ?? { name: path.basename(dirPath), path: dirPath, isDirectory: true },
+            );
+            return;
+        }
+        this.setChain(head, [head]);
+        // Хвост ниже изменившейся папки по-прежнему цепочка: строка, которая от
+        // неё отделится, сразу покажется компактной (раскрытие она не наследует —
+        // её ключ теперь своя голова).
+        const tail = chain.slice(chain.indexOf(dirPath) + 1);
+        this.setChain(tail[0], tail);
+        const parent = path.dirname(head);
+        this.onChange?.(parent === this.rootPath ? undefined : this.findNode(parent));
     }
 }

@@ -16,6 +16,8 @@ import { FileTreeDataProvider, type FileTreeNode } from "./fileTreeDataProvider.
 
 export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
 
+const COMPACT_FOLDERS_SETTING = "explorer.compactFolders";
+
 /**
  * Минимальный срез дерева Explorer'а, нужный сервису: refresh/reveal/фокус,
  * выбор и подсветка «вырезанных». `TreeViewElement<FileTreeNode>` соответствует
@@ -24,6 +26,7 @@ export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
  */
 export interface IExplorerView {
     refresh(): Promise<void>;
+    expand(element: FileTreeNode): Promise<void>;
     reveal(chain: FileTreeNode[]): Promise<void>;
     focus(): void;
     getSelectedNode(): FileTreeNode | null;
@@ -78,9 +81,17 @@ export class ExplorerService extends Disposable {
         // перечитать дерево ему никто не скажет — говорим здесь. Сам набор
         // шаблонов в сравнении не участвует: дифф ключей уже посчитал
         // ConfigurationService, а лишний refresh дешевле пропущенного.
+        // `explorer.compactFolders` — так же: найденные цепочки собираются
+        // заново (от `files.exclude` зависит, единственный ли ребёнок у папки).
         this.register(
             configurationService.onDidChangeConfiguration((event) => {
-                if (!event.affectsConfiguration(FILES_EXCLUDE_SETTING)) return;
+                if (
+                    !event.affectsConfiguration(FILES_EXCLUDE_SETTING) &&
+                    !event.affectsConfiguration(COMPACT_FOLDERS_SETTING)
+                ) {
+                    return;
+                }
+                this.provider?.resetCompactFolders();
                 void this.refresh();
             }),
         );
@@ -97,6 +108,7 @@ export class ExplorerService extends Disposable {
                 () => filesExcludeGlobs(this.configurationService),
                 this.files,
                 this.treeWatcher,
+                () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
             ),
         );
         this.onDidChangeRootEmitter.fire();
@@ -128,16 +140,40 @@ export class ExplorerService extends Disposable {
         if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
             return false;
         }
-        const segments = relative.split(path.sep);
-        const chain: FileTreeNode[] = [];
-        let current = this.rootPath;
-        for (let i = 0; i < segments.length; i++) {
-            current = path.join(current, segments[i]);
-            const isLast = i === segments.length - 1;
-            chain.push({ name: segments[i], path: current, isDirectory: !isLast });
-        }
-        await this.view.reveal(chain);
+        await this.view.reveal(await this.revealChain(this.view, this.rootPath, filePath));
         return true;
+    }
+
+    /**
+     * Цепочка строк дерева от корня до `filePath`. Предков раскрываем по ходу:
+     * компактную цепочку (`explorer.compactFolders`) провайдер узнаёт, только
+     * когда её голову раскрыли, а она решает, какая строка следующая. Цель
+     * внутри компактной строки (промежуточная папка) — сама эта строка, как у
+     * эталона: тот выделяет компактный узел и ставит «текущим» нужный сегмент
+     * (сегменты по отдельности мы не выделяем).
+     */
+    private async revealChain(view: IExplorerView, rootPath: string, filePath: string): Promise<FileTreeNode[]> {
+        const chain: FileTreeNode[] = [];
+        let dir = rootPath;
+        for (;;) {
+            const name = path.relative(dir, filePath).split(path.sep)[0];
+            const childPath = path.join(dir, name);
+            if (childPath === filePath) {
+                chain.push(this.provider?.findNode(childPath) ?? { name, path: childPath, isDirectory: false });
+                return chain;
+            }
+            const node = this.provider?.findNode(childPath) ?? { name, path: childPath, isDirectory: true };
+            chain.push(node);
+            await view.expand(node);
+            // После раскрытия `node.path` — последняя папка его цепочки. Цель
+            // среди свёрнутых в строку папок — выделяем саму строку.
+            if (node.path === filePath || node.compactParents?.includes(filePath)) return chain;
+            // Цель не под последней папкой — цепочка устарела (вход появился в
+            // промежуточной папке, а наблюдатель ещё не дошёл): выделяем
+            // ближайшую строку, которая её содержит.
+            if (!filePath.startsWith(node.path + path.sep)) return chain;
+            dir = node.path;
+        }
     }
 
     /**
@@ -194,7 +230,9 @@ export class ExplorerService extends Disposable {
         if (paths.length === 0) {
             this.view.clearCutKeys();
         } else {
-            this.view.setCutKeys(new Set(paths));
+            // Ключ строки — голова компактной цепочки, а путь узла — её последняя папка.
+            const keys = paths.map((p) => this.provider?.keyForPath(p) ?? p);
+            this.view.setCutKeys(new Set(keys));
         }
     }
 }

@@ -18,7 +18,13 @@ export function fileTree(ctx: StoryContext): void {
     const rootPath = ctx.args[0] ?? path.resolve(".");
 
     // Живого слежения у истории нет: каталоги читаются при раскрытии.
-    const provider = new FileTreeDataProvider(rootPath, () => [], diskFileService(), NULL_TREE_FILE_WATCHER);
+    const provider = new FileTreeDataProvider(
+        rootPath,
+        () => [],
+        diskFileService(),
+        NULL_TREE_FILE_WATCHER,
+        () => true,
+    );
     const tree = new TreeViewElement<FileTreeNode>(provider);
     tree.onExpandedChanged = (node, expanded) => {
         if (expanded) {

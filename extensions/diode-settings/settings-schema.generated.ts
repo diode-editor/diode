@@ -156,6 +156,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Automatically reveal and select the active file in the explorer tree.",
     },
     {
+        key: "explorer.compactFolders",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether the Explorer should render folders in a compact form. In such a form, single child folders will be compressed in a combined tree element. Useful for Java package structures, for example.",
+    },
+    {
         key: "explorer.confirmDelete",
         type: "boolean",
         default: true,

@@ -23,5 +23,14 @@ export const explorerConfiguration = {
             default: true,
             description: "Automatically reveal and select the active file in the explorer tree.",
         },
+        // Сжатая цепочка — одна метка «a/b/c»: выбирать её сегменты по
+        // отдельности (как в эталоне) не умеем, действия бьют в последнюю папку.
+        "explorer.compactFolders": {
+            scope: "window",
+            type: "boolean",
+            description:
+                "Controls whether the Explorer should render folders in a compact form. In such a form, single child folders will be compressed in a combined tree element. Useful for Java package structures, for example.",
+            default: true,
+        },
     },
 } as const satisfies IConfigurationNode;
