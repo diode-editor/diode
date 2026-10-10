@@ -12,6 +12,7 @@ function query(overrides: Partial<ITextSearchQuery> = {}): ITextSearchQuery {
         isWholeWord: false,
         includes: [],
         excludes: [],
+        useIgnoreFiles: { local: true, parent: false, global: false },
         ...overrides,
     };
 }
@@ -90,6 +91,22 @@ describe("buildRgArgs", () => {
     it("ignores empty glob entries", () => {
         const args = buildRgArgs(query({ includes: [""], excludes: [""] }), ROOT)!;
         expect(args).not.toContain("--glob");
+    });
+
+    // ── Ignore files / hidden ───────────────────────────────────────────────────
+
+    it("searches dot-files and passes the ignore-file flags before the path", () => {
+        const args = buildRgArgs(query({ useIgnoreFiles: { local: false, parent: false, global: false } }), ROOT)!;
+        expect(args).toContain("--hidden");
+        const tail = args.slice(args.indexOf("--no-require-git"));
+        expect(tail).toEqual(["--no-require-git", "--no-config", "--no-ignore", "--", ROOT]);
+    });
+
+    it("default ignore settings skip only parent and global ignore files", () => {
+        const args = buildRgArgs(query(), ROOT)!;
+        expect(args).toContain("--no-ignore-parent");
+        expect(args).toContain("--no-ignore-global");
+        expect(args).not.toContain("--no-ignore");
     });
 });
 

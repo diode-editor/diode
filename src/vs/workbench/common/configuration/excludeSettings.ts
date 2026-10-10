@@ -90,3 +90,43 @@ export function isExcludedPath(relativePath: string, globs: readonly string[]): 
     if (relativePath === "") return false;
     return matchAnyGlob(globs, relativePath);
 }
+
+/** Ключ: уважать ли `.gitignore`/`.ignore` в поиске (по именам и по содержимому). */
+export const SEARCH_USE_IGNORE_FILES_SETTING = "search.useIgnoreFiles";
+
+/** Ключ: уважать ли ignore-файлы РОДИТЕЛЬСКИХ каталогов корня. */
+export const SEARCH_USE_PARENT_IGNORE_FILES_SETTING = "search.useParentIgnoreFiles";
+
+/** Ключ: уважать ли глобальный gitignore (`core.excludesFile`). */
+export const SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING = "search.useGlobalIgnoreFiles";
+
+/** Все ключи ignore-файлов: правка любого из них меняет набор файлов поиска. */
+export const SEARCH_IGNORE_FILES_SETTINGS = [
+    SEARCH_USE_IGNORE_FILES_SETTING,
+    SEARCH_USE_PARENT_IGNORE_FILES_SETTING,
+    SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING,
+] as const;
+
+/**
+ * Какие ignore-файлы уважает поиск — форма `useIgnoreFiles` эталона
+ * (`folderOptions.useIgnoreFiles` в `ripgrepTextSearchEngine.ts`). `parent` и
+ * `global` без `local` не значат ничего: «Requires search.useIgnoreFiles».
+ */
+export interface IUseIgnoreFiles {
+    readonly local: boolean;
+    readonly parent: boolean;
+    readonly global: boolean;
+}
+
+/**
+ * Читает три настройки ignore-файлов. Дефолты — эталона, и они же действуют
+ * при отсутствующем или битом значении: `local` выключает только явный
+ * `false`, `parent`/`global` включает только явный `true`.
+ */
+export function readUseIgnoreFiles(config: IExcludeConfigReader): IUseIgnoreFiles {
+    return {
+        local: config.get(SEARCH_USE_IGNORE_FILES_SETTING) !== false,
+        parent: config.get(SEARCH_USE_PARENT_IGNORE_FILES_SETTING) === true,
+        global: config.get(SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING) === true,
+    };
+}

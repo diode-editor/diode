@@ -1,15 +1,17 @@
-import * as fs from "node:fs";
+import { spawn } from "node:child_process";
 import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { charMask, fuzzyMatchPreparedLower, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { GuardedChildProcess, splitLines } from "../../../../base/node/childProcessGuard.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import {
     FILES_EXCLUDE_SETTING,
-    isExcludedPath,
+    readUseIgnoreFiles,
     SEARCH_EXCLUDE_SETTING,
+    SEARCH_IGNORE_FILES_SETTINGS,
     searchExcludeGlobs,
 } from "../../../common/configuration/excludeSettings.ts";
 import {
@@ -18,6 +20,9 @@ import {
     type FileSearchResult,
     type IFileSearchService,
 } from "../common/fileSearch.ts";
+import { buildRgFilesArgs } from "../common/ripgrepArgs.ts";
+
+import { loadRipgrepPath } from "./loadRipgrep.ts";
 
 /** Debounce for onIndexChanged so a background walk does not spam subscribers. */
 const NOTIFY_DEBOUNCE_MS = 50;
@@ -28,8 +33,8 @@ const STALE_AFTER_MS = 10_000;
 /**
  * In-memory file index for Quick Open.
  *
- * The index is built **in the background**, yielding to the event loop between
- * directories so the editor stays responsive even on huge trees. There is no
+ * The index is built **in the background** from `rg --files` output, parsed as
+ * it streams in, so the editor stays responsive even on huge trees. There is no
  * always-on recursive filesystem watcher (it used to starve the render/input
  * loop); freshness is best-effort via `refreshIfStale()` (called when Quick Open
  * opens). A just-created file may therefore appear with a small delay.
@@ -54,24 +59,29 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     private lastIndexedAt = 0;
     private readyPromise: Promise<void> = Promise.resolve();
     private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Идущий `rg --files`; снимается, когда его обход отменён. */
+    private walker: GuardedChildProcess | null = null;
+    private resolvedRgPath: string | null;
 
     /**
      * @param configurationService Источник `files.exclude`/`search.exclude` —
      * индекс режет по обоим наборам (поиск по именам файлов это ПОИСК, см.
-     * `searchExcludeGlobs`). Набор читается на каждый обход, а правка настройки
-     * пересобирает индекс сразу: иначе исключённое висело бы в Quick Open до
-     * перезапуска.
+     * `searchExcludeGlobs`) — и `search.useIgnoreFiles` с соседями. Настройки
+     * читаются на каждый обход, а их правка пересобирает индекс сразу: иначе
+     * исключённое висело бы в Quick Open до перезапуска.
+     * @param ripgrepPath Явный путь к `rg` (тесты). В проде не передаётся —
+     * резолвится лениво через {@link loadRipgrepPath}.
      */
-    public constructor(private readonly configurationService: IConfigurationService) {
+    public constructor(
+        private readonly configurationService: IConfigurationService,
+        ripgrepPath?: string,
+    ) {
         super();
+        this.resolvedRgPath = ripgrepPath ?? null;
+        const affecting = [FILES_EXCLUDE_SETTING, SEARCH_EXCLUDE_SETTING, ...SEARCH_IGNORE_FILES_SETTINGS];
         this.register(
             configurationService.onDidChangeConfiguration((event) => {
-                if (
-                    !event.affectsConfiguration(FILES_EXCLUDE_SETTING) &&
-                    !event.affectsConfiguration(SEARCH_EXCLUDE_SETTING)
-                ) {
-                    return;
-                }
+                if (!affecting.some((key) => event.affectsConfiguration(key))) return;
                 if (this.isDisposedLocal) return;
                 // Снимаем throttle: индекс устарел по содержанию, а не по
                 // времени. Окно без папки отсеет сам `startIndexing`.
@@ -177,6 +187,7 @@ export class FileSearchService extends Disposable implements IFileSearchService 
 
     public override dispose(): void {
         this.isDisposedLocal = true;
+        this.killWalker();
         if (this.notifyTimer !== null) {
             clearTimeout(this.notifyTimer);
             this.notifyTimer = null;
@@ -193,22 +204,33 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         if (this.rootPath === null) return Promise.resolve();
         const root = this.rootPath;
         const generation = ++this.walkGeneration;
+        // Вывод прежнего обхода уже никому не нужен — снимаем его rg сразу.
+        this.killWalker();
         this.indexing = true;
         this.isIndexed = false;
 
-        // Defer the first batch so app.run()/the first render happen before the
-        // walk starts consuming the event loop.
-        return new Promise<void>((resolve) => {
-            setImmediate(() => {
-                void this.walk(root, generation).finally(() => {
-                    if (generation === this.walkGeneration) this.indexing = false;
-                    resolve();
-                });
+        // Defer the walk so app.run()/the first render happen before it starts
+        // consuming the event loop.
+        return new Promise<void>((resolve) => setImmediate(resolve))
+            .then(() => this.walk(root, generation))
+            .catch(() => {
+                /* rg не загрузился (битый ассет сборки) — индекс пуст, редактор жив */
+            })
+            .finally(() => {
+                if (generation === this.walkGeneration) this.indexing = false;
             });
-        });
     }
 
-    private async walk(root: string, generation: number): Promise<void> {
+    /**
+     * Список файлов — `rg --files`, как у эталона (`ripgrepFileSearch.ts`):
+     * ripgrep уважает ignore-файлы (`search.useIgnoreFiles` и соседи) и режет
+     * исключённые ветки до спуска в них. Свой обход ФС ignore-файлов не знал —
+     * в Quick Open ехало всё, что игнорирует git. Вывод разбирается построчно по
+     * мере прихода: индекс растёт вживую, цикл событий между кусками stdout
+     * свободен.
+     */
+    private walk(root: string, generation: number): Promise<void> {
+        if (this.cancelled(generation)) return Promise.resolve();
         const next: FileSearchEntry[] = [];
         // When the index is empty (initial build) publish `next` immediately so
         // results grow live. On a refresh keep the old list and swap at the end
@@ -216,46 +238,57 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         const live = this.entries.length === 0;
         if (live) this.entries = next;
 
-        // Набор шаблонов — один на обход: правка настройки пересобирает индекс
-        // целиком (см. конструктор), поэтому перечитывать его на каждый вход
-        // незачем, а половина обхода по старому набору была бы хуже.
-        const excludes = searchExcludeGlobs(this.configurationService);
+        // Настройки — одни на обход: правка любой из них пересобирает индекс
+        // целиком (см. конструктор), а половина обхода по старому набору была
+        // бы хуже.
+        const args = buildRgFilesArgs(
+            searchExcludeGlobs(this.configurationService),
+            readUseIgnoreFiles(this.configurationService),
+        );
+        const child = spawn(this.rgPath(), args, { cwd: root });
+        // Конец — по `close`: после `exit` в stdout ещё могут оставаться строки.
+        // Stryker disable next-line StringLiteral: логгера у сервиса нет — метка в лог не попадает
+        const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
+        this.walker = guard;
 
-        const stack: string[] = [root];
-        for (let dir = stack.pop(); dir !== undefined; dir = stack.pop()) {
+        splitLines(child.stdout, (line) => {
             if (this.cancelled(generation)) return;
-
-            let dirents: fs.Dirent[];
-            try {
-                dirents = await fs.promises.readdir(dir, { withFileTypes: true });
-            } catch {
-                continue;
-            }
-
-            for (const dirent of dirents) {
-                const absPath = path.join(dir, dirent.name);
-                // Шаблон вида `**/node_modules` совпадает с самим каталогом —
-                // ветка отсекается ДО спуска в неё, а не поштучно по файлам.
-                if (isExcludedPath(path.relative(root, absPath).split(path.sep).join("/"), excludes)) continue;
-                if (dirent.isDirectory()) {
-                    stack.push(absPath);
-                } else if (dirent.isFile()) {
-                    next.push(this.makeEntry(root, absPath, dirent.name));
-                }
-            }
-
+            const absPath = path.join(root, line);
+            next.push(this.makeEntry(root, absPath, path.basename(absPath)));
             this.scheduleNotify();
-            // Yield to the event loop after each directory.
-            await new Promise<void>((resolve) => setImmediate(resolve));
-        }
+        });
 
-        /* v8 ignore start -- race guard: reaching this requires disposal/regeneration during the last directory's setImmediate yield; not deterministically reachable in a unit test */
-        if (this.cancelled(generation)) return;
-        /* v8 ignore stop */
-        if (!live) this.entries = next;
-        this.isIndexed = true;
-        this.lastIndexedAt = Date.now();
-        this.flushNotify();
+        return new Promise<void>((resolve) => {
+            guard.onDidEnd(() => {
+                // `walker` не обнуляем: `kill` вышедшему безвреден (см. killWalker).
+                // Код выхода не смотрим: 1 — «файлов нет», 2 — rg упёрся в
+                // нечитаемый каталог, но остальное перечислил; несуществующий
+                // корень (`error` спавна) — пустой индекс, а не отказ.
+                if (!this.cancelled(generation)) {
+                    // При живом наполнении `entries` уже и есть `next`.
+                    this.entries = next;
+                    this.isIndexed = true;
+                    this.lastIndexedAt = Date.now();
+                    this.flushNotify();
+                }
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Снимает идущий `rg --files` (уже вышедшему — безвредно). `kill`, а не
+     * `dispose` guard'а: dispose гасит и `onDidEnd`, и промис обхода (а с ним
+     * `ready`) не дорешился бы никогда.
+     */
+    private killWalker(): void {
+        this.walker?.child.kill();
+        this.walker = null;
+    }
+
+    private rgPath(): string {
+        this.resolvedRgPath ??= loadRipgrepPath();
+        return this.resolvedRgPath;
     }
 
     private cancelled(generation: number): boolean {

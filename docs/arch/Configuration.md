@@ -98,6 +98,28 @@
 внутрь. Шаблон матчится против пути ОТНОСИТЕЛЬНО корня — так же, как его матчат
 watcher (`isExcluded`) и ripgrep (`--glob !<pattern>`).
 
+### Ignore-файлы поиска
+
+`search.useIgnoreFiles` (дефолт `true`), `search.useParentIgnoreFiles` и
+`search.useGlobalIgnoreFiles` (оба `false`) — как у эталона: поиск уважает
+`.gitignore`/`.ignore` папки, по желанию — родительских каталогов и глобальный
+gitignore. Действуют на оба поиска: индекс Quick Open строится `rg --files`
+(`FileSearchService`), содержимое ищет `rg --json` (сервис текстового поиска), и
+флаги обоим собирает один код — `rgIgnoreFilesArgs` в
+`services/search/common/ripgrepArgs.ts` (`--no-ignore` / `--no-ignore-parent` /
+`--no-ignore-global`, плюс всегда `--no-require-git` и `--no-config`, как у
+эталона). Чтение — `readUseIgnoreFiles` в `excludeSettings.ts`.
+
+Для Quick Open шаблоны exclude-настроек якорятся к корню (`anchorRgGlob`, как
+`anchorGlob` эталона): у rg шаблон без `/` действует на любой глубине, а у нас
+`out` — только `<корень>/out`. Поиск по содержимому пока передаёт шаблоны как
+есть: туда же идёт поле «files to exclude», где `foo` значит «на любой глубине».
+
+`explorer.excludeGitIgnore` эталона не заведён: дерево Explorer'а читает ФС само,
+и для него нужен свой разбор `.gitignore` (у эталона —
+`services/search/common/ignoreFile.ts`), а не флаг rg. Трекер —
+[docs/TODO/FileTreePerformance.md](../TODO/FileTreePerformance.md).
+
 `search.exclude` не входит в дефолты `workspace.findFiles` сознательно — так в
 контракте эталона: расширение ищет файл, чтобы с ним работать, а не чтобы
 показать человеку результат поиска. Набор шаблонов едет в субпроцесс в общем

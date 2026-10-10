@@ -30,7 +30,7 @@ import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyVi
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { IViewWelcomeBlock } from "../../../browser/parts/views/viewWelcomeElement.ts";
-import { searchExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
+import { readUseIgnoreFiles, searchExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 import { SEARCH_QUERY_DETAILS_STATE, SEARCH_VIEW_MODE_STATE, type SearchViewMode } from "../../../common/stateKeys.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
@@ -769,6 +769,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
                 ...searchExcludeGlobs(this.configurationService),
                 ...splitGlobs(this.excludeInput.inputState.value),
             ],
+            useIgnoreFiles: readUseIgnoreFiles(this.configurationService),
         };
     }
 

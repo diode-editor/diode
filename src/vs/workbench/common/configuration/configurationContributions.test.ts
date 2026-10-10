@@ -27,7 +27,7 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  *   `RESOURCE` явно, и это та же семья, что `files.watcherExclude` — «что
  *   считать мусором» свойство ПАПКИ, а не окна: у python-проекта и у
  *   node-проекта наборы разные, и в мульти-руте они должны уехать вместе с
- *   папкой.
+ *   папкой. Туда же `search.use*IgnoreFiles` — у эталона `RESOURCE` явно.
  * - `terminal.tier`, `keyboard.platform`, `terminal.capabilities`,
  *   `terminal.modes` — `machine`: это свойства терминала и клавиатуры машины,
  *   а не проекта (`keyboard.platform` ставят как раз из-за ssh с другой ОС),
@@ -70,6 +70,9 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "files.watcherInclude": "resource",
 
     "search.exclude": "resource",
+    "search.useIgnoreFiles": "resource",
+    "search.useGlobalIgnoreFiles": "resource",
+    "search.useParentIgnoreFiles": "resource",
 
     "scm.graph.pageSize": "resource",
 

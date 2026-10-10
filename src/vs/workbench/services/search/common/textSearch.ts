@@ -14,6 +14,9 @@
  */
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IUseIgnoreFiles } from "../../../common/configuration/excludeSettings.ts";
+
+import { rgIgnoreFilesArgs } from "./ripgrepArgs.ts";
 
 /** A single content-search request, one per query/toggle change. */
 export interface ITextSearchQuery {
@@ -29,6 +32,8 @@ export interface ITextSearchQuery {
     includes: readonly string[];
     /** Exclude globs (`rg --glob !<g>`). */
     excludes: readonly string[];
+    /** Which ignore files rg honours (`search.useIgnoreFiles` and friends). */
+    useIgnoreFiles: IUseIgnoreFiles;
 }
 
 /** One matched span on one line, with a split preview for highlighting. */
@@ -128,6 +133,9 @@ export function buildRgArgs(query: ITextSearchQuery, searchPath: string): string
     for (const glob of query.excludes) {
         if (glob !== "") args.push("--glob", `!${glob}`);
     }
+    // `--hidden`, как у эталона и у Quick Open (`buildRgFilesArgs`): dot-файлы
+    // режут `files.exclude` и ignore-файлы, а не точка в имени.
+    args.push("--hidden", ...rgIgnoreFilesArgs(query.useIgnoreFiles));
 
     args.push("--", searchPath);
     return args;

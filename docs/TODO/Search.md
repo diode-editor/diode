@@ -48,5 +48,10 @@
 
 - **Кросс-платформенный rg** — бандл/распаковка верифицированы на linux-x64; macOS/
   Windows — как у node-pty, отдельной задачей (CI-матрица).
-- Прочее из VS Code: replace, подсветка контекста, `search.exclude`/`files.exclude`
-  из настроек, история запросов, счётчик в статус-баре.
+- Прочее из VS Code: replace, подсветка контекста, история запросов, счётчик в
+  статус-баре. (`search.exclude`/`files.exclude` и `search.use*IgnoreFiles` —
+  сделаны, см. [docs/arch/Configuration.md](../arch/Configuration.md).)
+- `--hidden` в поиске по содержимому — как у эталона и у Quick Open; якорение
+  шаблонов exclude-настроек (`anchorRgGlob`) — пока только у Quick Open: поле
+  «files to exclude» идёт тем же списком, и для него эталон разворачивает `foo`
+  в `**/foo` — развести наборы, тогда якорить и здесь.

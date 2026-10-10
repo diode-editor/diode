@@ -11,7 +11,13 @@ import type {
     IConfigurationInspectResult,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { FILES_EXCLUDE_SETTING, SEARCH_EXCLUDE_SETTING } from "../../../common/configuration/excludeSettings.ts";
+import {
+    FILES_EXCLUDE_SETTING,
+    SEARCH_EXCLUDE_SETTING,
+    SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING,
+    SEARCH_USE_IGNORE_FILES_SETTING,
+    SEARCH_USE_PARENT_IGNORE_FILES_SETTING,
+} from "../../../common/configuration/excludeSettings.ts";
 
 import { FileSearchService } from "./fileSearchService.ts";
 
@@ -81,6 +87,7 @@ describe("FileSearchService — indexing", () => {
         service.dispose();
         ws.dispose();
         vi.useRealTimers();
+        vi.unstubAllEnvs();
     });
 
     describe("activate()", () => {
@@ -275,15 +282,12 @@ describe("FileSearchService — indexing", () => {
             });
         });
 
-        it("в исключённый каталог обход не заходит вовсе", async () => {
-            config.values[SEARCH_EXCLUDE_SETTING] = { "**/node_modules": true };
-            const readdir = vi.spyOn(fs.promises, "readdir");
-            ws.writeFile("node_modules/some-pkg/index.js", "");
+        it("dot-файлы индексируются: служебное режут настройки, а не точка в имени", async () => {
+            ws.writeFile(".github/workflows/ci.yml", "");
+            ws.writeFile(".editorconfig", "");
             await service.activate(ws.dir);
 
-            const visited = readdir.mock.calls.map(([dir]) => String(dir));
-            expect(visited.some((dir) => dir.includes("node_modules"))).toBe(false);
-            readdir.mockRestore();
+            expect(indexedPaths(service).toSorted()).toEqual([".editorconfig", ".github/workflows/ci.yml"]);
         });
 
         it("без настроек не исключает ничего — захардкоженного списка больше нет", async () => {
@@ -360,6 +364,86 @@ describe("FileSearchService — indexing", () => {
             config.set(FILES_EXCLUDE_SETTING, { "**/app.py": true });
 
             expect(service.ready).toBe(before);
+        });
+    });
+
+    describe("ignore-файлы (search.useIgnoreFiles и соседи)", () => {
+        it("по умолчанию .gitignore режет индекс — и вне git-репозитория", async () => {
+            // Временный каталог — не репозиторий: без `--no-require-git` rg
+            // `.gitignore` здесь бы не читал, а у эталона он действует.
+            ws.writeFile(".gitignore", "dist/\n*.log\n");
+            ws.writeFile("dist/bundle.js", "");
+            ws.writeFile("debug.log", "");
+            ws.writeFile("src/main.ts", "");
+            await service.activate(ws.dir);
+
+            expect(indexedPaths(service).toSorted()).toEqual([".gitignore", "src/main.ts"]);
+        });
+
+        it(".ignore во вложенном каталоге действует на его поддерево", async () => {
+            ws.writeFile("pkg/.ignore", "generated/\n");
+            ws.writeFile("pkg/generated/api.ts", "");
+            ws.writeFile("pkg/index.ts", "");
+            ws.writeFile("generated/keep.ts", "");
+            await service.activate(ws.dir);
+
+            expect(indexedPaths(service).toSorted()).toEqual(["generated/keep.ts", "pkg/.ignore", "pkg/index.ts"]);
+        });
+
+        it("useIgnoreFiles: false — проигнорированное возвращается, exclude-настройки при этом действуют", async () => {
+            config.values[SEARCH_USE_IGNORE_FILES_SETTING] = false;
+            config.values[SEARCH_EXCLUDE_SETTING] = { "**/node_modules": true };
+            ws.writeFile(".gitignore", "dist/\n");
+            ws.writeFile("dist/bundle.js", "");
+            ws.writeFile("node_modules/pkg/index.js", "");
+            await service.activate(ws.dir);
+
+            expect(indexedPaths(service).toSorted()).toEqual([".gitignore", "dist/bundle.js"]);
+        });
+
+        it("ignore-файл родителя корня — только при useParentIgnoreFiles", async () => {
+            ws.writeFile(".gitignore", "*.log\n");
+            ws.writeFile("project/debug.log", "");
+            ws.writeFile("project/main.ts", "");
+            const root = ws.path("project");
+
+            await service.activate(root);
+            expect(indexedPaths(service).toSorted()).toEqual(["debug.log", "main.ts"]);
+
+            config.set(SEARCH_USE_PARENT_IGNORE_FILES_SETTING, true);
+            await service.ready;
+            expect(indexedPaths(service)).toEqual(["main.ts"]);
+        });
+
+        it("глобальный gitignore — только при useGlobalIgnoreFiles", async () => {
+            // rg ищет его в `$XDG_CONFIG_HOME/git/ignore` (если в `~/.gitconfig`
+            // нет `core.excludesFile`) — оба подменены на временные, чтобы
+            // настройки машины не влияли на тест.
+            // Снимает `vi.unstubAllEnvs()` в afterEach.
+            vi.stubEnv("HOME", ws.path("home"));
+            vi.stubEnv("XDG_CONFIG_HOME", ws.path("xdg"));
+            ws.writeFile("xdg/git/ignore", "*.secret\n");
+            ws.writeFile("project/key.secret", "");
+            ws.writeFile("project/main.ts", "");
+            const root = ws.path("project");
+
+            await service.activate(root);
+            expect(indexedPaths(service).toSorted()).toEqual(["key.secret", "main.ts"]);
+
+            config.set(SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING, true);
+            await service.ready;
+            expect(indexedPaths(service)).toEqual(["main.ts"]);
+        });
+
+        it("правка useIgnoreFiles пересобирает индекс сразу", async () => {
+            ws.writeFile(".gitignore", "dist/\n");
+            ws.writeFile("dist/bundle.js", "");
+            await service.activate(ws.dir);
+            expect(indexedPaths(service)).toEqual([".gitignore"]);
+
+            config.set(SEARCH_USE_IGNORE_FILES_SETTING, false);
+            await service.ready;
+            expect(indexedPaths(service).toSorted()).toEqual([".gitignore", "dist/bundle.js"]);
         });
     });
 });

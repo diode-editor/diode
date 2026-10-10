@@ -51,5 +51,30 @@ export const searchConfiguration = {
             description:
                 "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
         },
+        // Три настройки ignore-файлов — дословно из `search.contribution.ts`
+        // эталона (`markdownDescription` идёт в `description`, `{0}` подставлен).
+        // Действуют на ОБА поиска — по именам файлов (Quick Open, `rg --files`)
+        // и по содержимому (Search view): флаги rg собирает один код,
+        // `rgIgnoreFilesArgs` в `services/search/common/ripgrepArgs.ts`.
+        "search.useIgnoreFiles": {
+            scope: "resource",
+            type: "boolean",
+            default: true,
+            description: "Controls whether to use `.gitignore` and `.ignore` files when searching for files.",
+        },
+        "search.useGlobalIgnoreFiles": {
+            scope: "resource",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether to use your global gitignore file (for example, from `$HOME/.config/git/ignore`) when searching for files. Requires `#search.useIgnoreFiles#` to be enabled.",
+        },
+        "search.useParentIgnoreFiles": {
+            scope: "resource",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether to use `.gitignore` and `.ignore` files in parent directories when searching for files. Requires `#search.useIgnoreFiles#` to be enabled.",
+        },
     },
 } as const satisfies IConfigurationNode;

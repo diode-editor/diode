@@ -10,7 +10,11 @@ import {
     type IExcludeConfigReader,
     isExcludedPath,
     parseExcludeSetting,
+    readUseIgnoreFiles,
     SEARCH_EXCLUDE_SETTING,
+    SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING,
+    SEARCH_USE_IGNORE_FILES_SETTING,
+    SEARCH_USE_PARENT_IGNORE_FILES_SETTING,
     searchExcludeGlobs,
     WATCHER_EXCLUDE_SETTING,
     watcherExcludeGlobs,
@@ -221,5 +225,46 @@ describe("дефолты files.exclude / search.exclude", () => {
             expect(glob.startsWith("**/"), glob).toBe(true);
             expect(glob.endsWith("/**"), glob).toBe(false);
         }
+    });
+});
+
+describe("readUseIgnoreFiles", () => {
+    it("без значений — дефолты эталона: свои ignore-файлы да, родительские и глобальный нет", () => {
+        expect(readUseIgnoreFiles(reader({}))).toEqual({ local: true, parent: false, global: false });
+    });
+
+    it("зарегистрированные дефолты дают то же самое", () => {
+        const defaults = ConfigurationModel.fromRaw(
+            new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getDefaultConfiguration(),
+        );
+        expect(readUseIgnoreFiles({ get: (key) => defaults.get(key) })).toEqual({
+            local: true,
+            parent: false,
+            global: false,
+        });
+    });
+
+    it("читает все три ключа", () => {
+        expect(
+            readUseIgnoreFiles(
+                reader({
+                    [SEARCH_USE_IGNORE_FILES_SETTING]: false,
+                    [SEARCH_USE_PARENT_IGNORE_FILES_SETTING]: true,
+                    [SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING]: true,
+                }),
+            ),
+        ).toEqual({ local: false, parent: true, global: true });
+    });
+
+    it("битое значение — дефолт, а не включение и не выключение", () => {
+        expect(
+            readUseIgnoreFiles(
+                reader({
+                    [SEARCH_USE_IGNORE_FILES_SETTING]: "no",
+                    [SEARCH_USE_PARENT_IGNORE_FILES_SETTING]: "yes",
+                    [SEARCH_USE_GLOBAL_IGNORE_FILES_SETTING]: 1,
+                }),
+            ),
+        ).toEqual({ local: true, parent: false, global: false });
     });
 });

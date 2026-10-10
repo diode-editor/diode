@@ -553,7 +553,8 @@ hide-toggle (`isHiddenByDefault`). См.
     `accept` (пункт без `accept` — информационный хинт, пикер не закрывает).
     Встроенные провайдеры: `FilesQuickAccessProvider` (`""` — дефолтный:
     фоновый индекс за портом `IFileSearchService` (`services/search/common/fileSearch.ts`;
-    реализация — `search/node/fileSearchService.ts`), `debounceQuery`, live-refresh по
+    реализация — `search/node/fileSearchService.ts`, список файлов — `rg --files`
+    с exclude-настройками и ignore-файлами), `debounceQuery`, live-refresh по
     `onIndexChanged` с сохранением курсора, `file:line[:col]`-суффикс через
     `QuickOpenParsing`), `CommandsQuickAccessProvider` (`>`:
     `CommandRegistry.listCommands` + шорткаты из
