@@ -2,6 +2,7 @@ import { DisplayLine } from "@tuidom/core/common/displayLine";
 
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import type { IMarkerDecoration } from "../../../platform/markers/common/iMarker.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IMultiCursorFindSession } from "../../contrib/multicursor/iMultiCursorFindSession.ts";
 import type { IPosition } from "../core/iPosition.ts";
@@ -20,6 +21,7 @@ import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts"
 import { detectIndentation } from "../model/indentationDetector.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 import type { IUndoElement } from "../model/iUndoElement.ts";
+import { TrackedRangeStickiness } from "../model/trackedDecorations.ts";
 import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
@@ -39,6 +41,12 @@ import { planTrackedSelections, resolveTrackedSelections } from "./trackedSelect
 
 /** Режим переноса строк — значения `editor.wordWrap` (VS Code). */
 export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
+
+/** Squiggle-декорация вью: id декорации в документе + серьёзность маркера. */
+interface IViewMarkerDecoration {
+    readonly id: string;
+    readonly severity: IMarkerDecoration["severity"];
+}
 
 /**
  * Проекция документа на ряды вью. Параллельные массивы, а не массив объектов:
@@ -240,6 +248,9 @@ export class EditorViewState {
      */
     private applyingOwnEdits = false;
     private readonly docContentSubscription: IDisposable;
+    /** Squiggle-декорации этой вью: id декорации в документе + серьёзность маркера. */
+    // Stryker disable next-line ArrayDeclaration: мусорный элемент без id документ не знает — getDecorationRange даёт null
+    private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
 
     public constructor(document: ITextDocument, selections?: ISelection[]) {
         this.document = document;
@@ -253,7 +264,43 @@ export class EditorViewState {
     /** Отписка от документа. Зовёт владелец view-state при пересоздании/закрытии вью. */
     public dispose(): void {
         this.docContentSubscription.dispose();
+        this.setMarkerDecorations([]);
         this.lineBreaksCacheValue?.dispose();
+    }
+
+    // ─── Marker decorations ─────────────────────────────────
+
+    /**
+     * Заменяет squiggle-декорации диагностик. Диапазоны становятся декорациями
+     * документа и дальше едут вместе с текстом при правках — до следующего
+     * набора маркеров от провайдера (upstream `MarkerDecorations.update`,
+     * stickiness `NeverGrowsWhenTypingAtEdges`).
+     */
+    public setMarkerDecorations(decorations: readonly IMarkerDecoration[]): void {
+        const ids = this.document.deltaDecorations(
+            this.markerDecorationIds.map((decoration) => decoration.id),
+            decorations.map((decoration) => ({
+                range: decoration.range,
+                options: {
+                    // Stryker disable next-line StringLiteral: описание — только для отладки, как в эталоне
+                    description: "marker-decoration",
+                    stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                },
+            })),
+        );
+        this.markerDecorationIds = ids.map((id, i) => ({ id, severity: decorations[i].severity }));
+    }
+
+    /** Squiggle-декорации с диапазонами, сдвинутыми всеми правками после {@link setMarkerDecorations}. */
+    public getMarkerDecorations(): IMarkerDecoration[] {
+        const result: IMarkerDecoration[] = [];
+        for (const { id, severity } of this.markerDecorationIds) {
+            const range = this.document.getDecorationRange(id);
+            // Декорации вью снимает только она сама, так что null — лишь защита от чужого id.
+            // Stryker disable next-line ConditionalExpression: см. выше — снаружи её id никто не снимает
+            if (range !== null) result.push({ range, severity });
+        }
+        return result;
     }
 
     // ─── Word wrap ──────────────────────────────────────────

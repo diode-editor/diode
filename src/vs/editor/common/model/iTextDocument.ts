@@ -5,6 +5,7 @@ import type { ITextEdit } from "../core/iTextEdit.ts";
 
 import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
+import type { IModelDeltaDecoration } from "./trackedDecorations.ts";
 
 export interface IApplyEditsResult {
     readonly appliedVersion: number;
@@ -44,6 +45,17 @@ export interface ITextDocument {
     setEol(eol: EndOfLine): void;
 
     applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult;
+
+    /**
+     * Декорации, которые едут вместе с текстом (upstream `deltaDecorations`):
+     * снимает `oldIds`, добавляет `newDecorations` (диапазоны приводятся к
+     * документу) и возвращает их id. Каждая правка {@link applyEdits} сдвигает
+     * их до своих событий по правилам `stickiness`; {@link setText} правок не
+     * несёт — диапазоны остаются на месте, приведённые к новому тексту.
+     */
+    deltaDecorations(oldIds: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[];
+    /** Текущий диапазон декорации; `null` — снята. */
+    getDecorationRange(id: string): IRange | null;
 
     /**
      * Меняет язык документа. No-op при совпадении с текущим. Не меняет
