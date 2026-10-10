@@ -295,6 +295,24 @@ describe("ProblemsComponent", () => {
             expect(refresh).toHaveBeenCalledTimes(2);
         });
 
+        it("файлы раскрываются одной пачкой, а не expand на каждый (иначе пересборка списка на файл)", async () => {
+            const expandElements = vi.spyOn(component.tree, "expandElements");
+            const expand = vi.spyOn(component.tree, "expand");
+            for (let i = 0; i < 5; i++) {
+                markerService.changeOne("java", `/ws/F${String(i)}.java`, [warning(`err ${String(i)}`)]);
+            }
+
+            await settleMarkers();
+
+            expect(expand).not.toHaveBeenCalled();
+            expect(expandElements).toHaveBeenCalledTimes(1);
+            expect(expandElements.mock.calls[0][0]).toHaveLength(5);
+            testApp.render();
+            const screen = testApp.backend.screenToString();
+            expect(screen).toContain("err 0");
+            expect(screen).toContain("err 4");
+        });
+
         it("после dispose отложенный пересчёт не выполняется", async () => {
             const refresh = vi.spyOn(component.tree, "refresh");
             markerService.changeOne("java", "/ws/A.java", [warning("x")]);

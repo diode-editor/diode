@@ -181,9 +181,9 @@ export class ProblemsComponent extends Component {
     /** Rebuilds the tree and auto-expands each file node (like VS Code's Problems view). */
     private async refreshTree(): Promise<void> {
         await this.tree.refresh();
-        for (const file of this.provider.getChildren()) {
-            await this.tree.expand(file);
-        }
+        // Пачкой, а не `expand` на файл: каждый `expand` пересобирает весь
+        // плоский список, и на тысячах файлов это минуты.
+        await this.tree.expandElements(this.provider.getChildren());
     }
 
     private async revealMarker(node: ProblemNode): Promise<void> {
