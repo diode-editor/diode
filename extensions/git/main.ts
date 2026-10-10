@@ -21,7 +21,7 @@ import { fromGitUri, GIT_SCHEME, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./l
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
 import type { IStatusDecoration } from "./lib/map.ts";
 import { statusToDecoration, xyToResourceStates } from "./lib/map.ts";
-import { parsePorcelainStatus } from "./lib/porcelain.ts";
+import { parsePorcelainStatus, pathAtHead } from "./lib/porcelain.ts";
 import type { GitOpResult, IGitCommitParams } from "./lib/protocol.ts";
 import { GIT_OP_COMMAND } from "./lib/protocol.ts";
 import { FOR_EACH_REF_FORMAT, parseForEachRefZ, parseStashListZ, STASH_LIST_FORMAT } from "./lib/queryParse.ts";
@@ -117,6 +117,11 @@ interface IStatusEntry {
     readonly xy: string;
     /** Путь относительно корня репозитория (из porcelain, всегда через `/`). */
     readonly relPath: string;
+    /**
+     * Путь того же файла в HEAD, относительно корня: у переименования —
+     * исходный, иначе совпадает с {@link relPath} (см. {@link pathAtHead}).
+     */
+    readonly headRelPath: string;
     readonly deco: IStatusDecoration;
 }
 
@@ -208,8 +213,17 @@ class GitDecorations {
                 // запрошенного ref проверка неприменима — статус рабочего дерева
                 // ничего не говорит о наличии файла в произвольной ревизии
                 // («файла на ref нет» ядро увидит пустой стороной при чтении).
-                if (rawRef === undefined && this.status.get(absPath)?.xy.startsWith("?") === true) return null;
-                return vscode.Uri.parse(rawUri).with(toGitUri(uri, ref)).toString();
+                const entry = this.status.get(absPath);
+                if (rawRef === undefined && entry?.xy.startsWith("?") === true) return null;
+                // Переименованный файл в HEAD лежит по СТАРОМУ пути — с ним и
+                // сравниваем (`getLeftResource` эталона: HEAD от `resource.original`).
+                // Только для HEAD: про произвольный ref статус рабочего дерева
+                // ничего не знает.
+                const source =
+                    ref === "HEAD" && entry !== undefined && entry.headRelPath !== entry.relPath
+                        ? vscode.Uri.file(path.join(this.repoRoot, entry.headRelPath))
+                        : uri;
+                return vscode.Uri.parse(rawUri).with(toGitUri(source, ref)).toString();
             }),
         );
 
@@ -488,6 +502,7 @@ class GitDecorations {
                     next.set(path.join(this.repoRoot, e.path), {
                         xy: e.xy,
                         relPath: e.path,
+                        headRelPath: pathAtHead(e),
                         deco: statusToDecoration(e.xy),
                     });
                 }

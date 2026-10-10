@@ -690,6 +690,54 @@ describe("builtin git plugin (integration)", () => {
         expect(await harness.commandRegistry.execute("diode.scm.originalResource", 42)).toBeNull();
     });
 
+    it("переименованный в индексе файл сравнивается с HEAD по старому пути (git mv + правка)", async () => {
+        const published: unknown[] = [];
+        harness = await createExtensionTestHarness({
+            editorDecorations: makeEditorSpy().service,
+            fileDecorations: makeFileSpy().service,
+            themeColorResolver: makeThemeResolver(),
+        });
+        harness.commandRegistry.register(PUBLISH_CHANGES_COMMAND, (payload) => {
+            published.push(payload);
+        });
+        makeRepo(harness.tmpDir);
+        git(harness.tmpDir, "checkout", "-q", "--", "tracked.txt");
+        git(harness.tmpDir, "mv", "tracked.txt", "moved.txt");
+        fs.appendFileSync(path.join(harness.tmpDir, "moved.txt"), "d\n");
+        harness.group.openFile(path.join(harness.tmpDir, "moved.txt"));
+        await registerAndActivate(harness.host, gitRegistration());
+
+        interface Change {
+            uri: string;
+            status: string;
+            path: string;
+            group: string;
+        }
+        const latest = (): Change[] | undefined => published.at(-1) as Change[] | undefined;
+        expect(await waitFor(() => latest()?.some((r) => r.status === "R") ?? false)).toBe(true);
+        // Как в VS Code: одна запись R в индексе и M в рабочем дереве — обе по
+        // НОВОМУ пути; старый путь отдельной записью (и тем более M) не всплывает.
+        expect(latest()!.filter((r) => r.path !== "untracked.txt")).toEqual([
+            expect.objectContaining({ path: "moved.txt", status: "R", group: "index" }),
+            expect.objectContaining({ path: "moved.txt", status: "M", group: "worktree" }),
+        ]);
+
+        // Левая сторона диффа и гуттера — HEAD:tracked.txt, а не пустота от
+        // несуществующего HEAD:moved.txt (иначе весь файл выглядел бы новым).
+        const movedUri = Uri.file(path.join(harness.tmpDir, "moved.txt")).toString();
+        const originalUri = (await harness.commandRegistry.execute("diode.scm.originalResource", movedUri)) as
+            | string
+            | null;
+        expect(originalUri).toMatch(/^git:/);
+        const bytes = await harness.host.readProvidedFile(Uri.parse(originalUri!));
+        expect(new TextDecoder().decode(bytes)).toBe(TRACKED_AT_HEAD);
+
+        // Явно выбранный ref — не HEAD: про него статус рабочего дерева ничего
+        // не знает, путь остаётся новым.
+        const atRef = (await harness.commandRegistry.execute("diode.scm.originalResource", movedUri, "main")) as string;
+        expect(Uri.parse(atRef).query).toContain("moved.txt");
+    });
+
     it("stays inert (no throw, no decorations) outside a git repository", async () => {
         const editorSpy = makeEditorSpy();
         const fileSpy = makeFileSpy();
