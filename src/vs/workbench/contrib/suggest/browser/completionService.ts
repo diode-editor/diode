@@ -3,8 +3,8 @@ import type { CompletionListItem } from "@tuidom/elements/completionlist/complet
 
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
-import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Emitter, type Event } from "../../../../base/common/event.ts";
+import { Disposable, DisposableStore, type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -22,6 +22,8 @@ import type { ILanguageFeaturesService } from "../../../../editor/common/service
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -37,6 +39,14 @@ import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracke
 
 import { collectWordCompletions } from "./collectWordCompletions.ts";
 import { type ICompletionsFromProviders, provideCompletions } from "./provideCompletions.ts";
+import {
+    type IQuickSuggestionsOptions,
+    readQuickSuggestions,
+    shouldAutoTrigger,
+    type StandardTokenType,
+    standardTokenTypeAt,
+    valueFor,
+} from "./quickSuggestions.ts";
 import type { SuggestComponent } from "./suggestComponent.ts";
 import { SuggestComponentDIToken } from "./suggestComponent.ts";
 
@@ -51,6 +61,38 @@ const KIND_TEXT = 0;
 /** Сколько ждём resolve перед вставкой (правки авто-импорта). */
 const ACCEPT_RESOLVE_TIMEOUT_MS = 300;
 
+/**
+ * Сколько quick suggest ждёт призрачную подсказку в режиме
+ * `offWhenInlineCompletions`, прежде чем открыть попап всё равно (upstream
+ * `_waitForInlineCompletionsAndTrigger`: 750 мс).
+ */
+const INLINE_COMPLETIONS_WAIT_MS = 750;
+
+/**
+ * Настройка включения AI-подсказок продукта (`product.defaultChatAgent
+ * .completionsEnablementSetting` эталона — `github.copilot.enable`): объект
+ * «язык → включено», `"*"` — для всех. По ней эталон решает, гасить ли слова
+ * из буфера в режиме `offWithInlineSuggestions` (`isCompletionsEnabled…`).
+ */
+const COMPLETIONS_ENABLEMENT_SETTING = "github.copilot.enable";
+
+/**
+ * Состояние призрачных подсказок глазами suggest — то, что upstream
+ * `SuggestModel` читает у `InlineCompletionsController` (`canShowQuickSuggest`,
+ * `_waitForInlineCompletionsAndTrigger`). Сервис призраков сам зависит от
+ * {@link CompletionService}, поэтому не инъектируется, а регистрируется в нём.
+ */
+export interface IInlineSuggestionsState {
+    /** Призрак на экране (`inlineSuggestionVisible`). */
+    isVisible(): boolean;
+    /** Ответа ещё ждём: запрос отложен дебаунсом или в полёте (upstream status `loading`). */
+    isLoading(): boolean;
+    /** Бросить автоматический запрос (upstream `inlineModel.stop('automatic')`). */
+    stopAutomatic(): void;
+    /** Сменилось что-то из {@link isVisible}/{@link isLoading}. */
+    readonly onDidChange: Event<void>;
+}
+
 /** Ответ «провайдеров для документа нет». */
 const EMPTY_RESULT: ICompletionsFromProviders = { items: [], isIncomplete: false, providerOf: new Map() };
 
@@ -64,6 +106,7 @@ const EMPTY_RESULT: ICompletionsFromProviders = { items: [], isIncomplete: false
  */
 export class CompletionService extends Disposable implements IContextKeyContributor {
     private readonly onDidCloseEmitter = this.register(new Emitter<void>());
+    private readonly onDidShowEmitter = this.register(new Emitter<void>());
     public static dependencies = [
         SuggestComponentDIToken,
         EditorServiceDIToken,
@@ -71,24 +114,26 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         StateServiceDIToken,
         FocusTrackerDIToken,
         LanguageFeaturesServiceDIToken,
+        IConfigurationServiceDIToken,
     ] as const;
-
-    /**
-     * Задержка авто-suggest (мс) перед запросом провайдеров после набора буквы.
-     * Инъектируется в тестах (`0` — сразу на следующем тике).
-     */
-    public autoSuggestDelayMs = 120;
 
     private readonly component: SuggestComponent;
     private readonly group: IEditorService;
     private readonly commands: CommandRegistry;
     private readonly state: IStateService;
     private readonly languageFeatures: ILanguageFeaturesService;
+    private readonly configuration: IConfigurationService;
+    private inlineSuggestions: IInlineSuggestionsState | null = null;
+    // Ожидание призрака перед quick suggest (offWhenInlineCompletions).
+    private readonly waitForInline = this.register(new MutableDisposable<DisposableStore>());
     private activeEditor: TextEditorPane | null = null;
     private prefixRange: IRange | null = null;
     // Границу префикса задал провайдер (а не наш wordStart) — её нельзя
     // пересчитывать при доборе символов, см. refilterOpen.
     private prefixFromProvider = false;
+    // Попап открыт не явной командой (набор, триггер-символ) — см. trigger().
+    // Stryker disable next-line BooleanLiteral: значение до первого trigger() не читается — refilterOpen работает только при открытом попапе, а открывает его trigger(), выставляя поле
+    private autoSession = false;
     // Каретка на момент запроса провайдеров. Провайдерский `range` — снапшот той же
     // позиции, поэтому по нему мы отслеживаем, сколько символов добрали с триггера.
     private triggerCaret: IPosition | null = null;
@@ -97,16 +142,16 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // см. cancelRequestIfCaretLeft. После ответа отмена по ней холостая.
     private requestCaret: IPosition | null = null;
 
-    // Отложенный авто-запрос по набору; символ, которым он спровоцирован (`.`),
-    // лежит в pendingTriggerCharacter.
+    // Отложенное авто-действие по набору: quick suggest, запрос по
+    // триггер-символу или перезапрос неполного списка — что именно, лежит в
+    // pendingAutoSuggest (задержки у них разные).
     private readonly autoSuggest = this.register(
         new RunOnceScheduler(() => {
-            const character = this.pendingTriggerCharacter;
-            this.pendingTriggerCharacter = undefined;
-            void this.trigger(character);
-        }, this.autoSuggestDelayMs),
+            this.pendingAutoSuggest();
+        }, 0),
     );
-    private pendingTriggerCharacter: string | undefined = undefined;
+    // Stryker disable next-line ArrowFunction: заглушка до первого scheduleAuto не вызывается — планировщик срабатывает только после него
+    private pendingAutoSuggest: () => void = () => undefined;
     // Последний запрос к источнику: ответ перебитого запроса устарел.
     private readonly latest = new LatestRequest();
     // Последний ответ был неполным (сервер отфильтровал список под префикс) —
@@ -125,8 +170,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         state: IStateService,
         focusTracker: FocusTracker,
         languageFeatures: ILanguageFeaturesService,
+        configuration: IConfigurationService,
     ) {
         super();
+        this.configuration = configuration;
         this.component = component;
         this.group = group;
         this.commands = commands;
@@ -173,9 +220,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * Запрашивает автодополнения для текущей позиции курсора и показывает попап.
      * No-op, если нет активного редактора, источника, или каретка вне вьюпорта.
      * `triggerCharacter` — символ, которым набор спровоцировал открытие (`.`):
-     * серверы отвечают на него не тем же, чем на Ctrl+Space.
+     * серверы отвечают на него не тем же, чем на Ctrl+Space. `auto` — quick
+     * suggest (набор слова, не явная команда): такой попап, как у эталона,
+     * не показывается, если под набранное ничего не подошло, и закрывается,
+     * когда добор отфильтровал список в ноль.
      */
-    public async trigger(triggerCharacter?: string): Promise<void> {
+    public async trigger(triggerCharacter?: string, auto = false): Promise<void> {
         this.cancelAutoSuggest();
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
@@ -242,7 +292,9 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // Слова из буфера подмешиваем только там, где провайдер не задал своего
         // диапазона: после точки они были бы шумом поверх членов типа.
         const items =
-            providerStart === null ? [...extensionItems, ...this.wordItems(prefix, extensionItems)] : extensionItems;
+            providerStart === null
+                ? [...extensionItems, ...this.wordItems(editor, prefix, extensionItems)]
+                : extensionItems;
         if (items.length === 0) return;
 
         const anchor = editor.getCaretAnchor();
@@ -256,15 +308,27 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.triggerCaret = { line: active.line, character: active.character };
         this.isIncomplete = result.isIncomplete;
         this.providerOf = result.providerOf;
+        this.autoSession = auto;
 
         const view = this.component.view;
         view.setItems(items.map(toListItem));
         view.setFilter(prefix);
-        // Если префикс отфильтровал всё — показываем полный список (можно добрать).
-        if (view.items.length === 0) view.setFilter("");
+        if (view.items.length === 0) {
+            // Авто-запрос, под набранное ничего не подошло, — попапа нет
+            // (upstream `_onNewContext`: «nothing left» → cancel). Иначе любое
+            // слово открывало бы весь список слов буфера.
+            if (auto) {
+                this.close();
+                return;
+            }
+            // Явный Ctrl+Space — полный список (можно добрать).
+            view.setFilter("");
+        }
 
         // Фокус попап не забирает — редактор остаётся активным (VS Code-like).
+        const wasOpen = this.isOpen();
         this.component.openAt(anchor);
+        if (!wasOpen) this.onDidShowEmitter.fire();
     }
 
     public close(): void {
@@ -294,6 +358,26 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * попап и так был закрыт.
      */
     public readonly onDidClose = this.onDidCloseEmitter.event;
+
+    /**
+     * Попап открылся (был закрыт). Призрачная подсказка на это время уходит с
+     * экрана: у upstream при открытом виджете ghost text — только продолжение
+     * выбранного пункта, а не своя подсказка.
+     */
+    public readonly onDidShow = this.onDidShowEmitter.event;
+
+    /**
+     * Подключает состояние призрачных подсказок: по нему quick suggest уступает
+     * призраку (`offWhenInlineCompletions`, `editor.inlineSuggest.suppressSuggestions`).
+     */
+    public setInlineSuggestionsState(state: IInlineSuggestionsState): IDisposable {
+        this.inlineSuggestions = state;
+        return {
+            dispose: () => {
+                if (this.inlineSuggestions === state) this.inlineSuggestions = null;
+            },
+        };
+    }
 
     /** Открыт ли попап (для `suggestWidgetVisible` и делегаторов команд). */
     public isOpen(): boolean {
@@ -402,24 +486,46 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * upstream). Приходит ПОСЛЕ события каретки той же правки. Триггер-символ
      * сервера (`.`) переоткрывает список у новой границы слова, даже если попап
      * висел: после точки это другой запрос (`TriggerCharacter`), а не сужение
-     * прежнего. Word-символ при закрытом попапе авто-открывает его.
+     * прежнего. Остальной набор при закрытом попапе планирует quick suggest —
+     * откроется ли он, решают его гейты (`doQuickSuggest`).
      */
     private onDidType(editor: TextEditorPane, text: string): void {
-        // Мультикурсор и выделение отсекает сам trigger(): попап привязан к одной каретке.
-        // Символы — метаданные провайдеров, подошедших именно этому документу:
-        // «.» сервера TypeScript не открывает попап в markdown.
-        const triggers = this.languageFeatures.completionProvider
-            .ordered(editor)
-            .flatMap((provider) => provider.triggerCharacters);
-        if (triggers.includes(text)) {
+        if (this.isTriggerCharacterCase(editor, text)) {
+            // upstream `canShowSuggestOnTriggerCharacters`: призрак на экране и
+            // `suppressSuggestions` — попап по символу не открывается.
+            if (!this.canShowSuggestWithInline(editor.languageId)) return;
             if (this.isOpen()) this.component.close();
             // Запрос «в полёте» — про слово ДО символа: его ответ поднял бы
             // прежний список на время ожидания нового.
             this.latest.cancel();
-            this.scheduleAutoSuggest(text);
-        } else if (!this.isOpen() && WORD_CHAR.test(text)) {
-            this.scheduleAutoSuggest();
+            // Эталон запрашивает по символу сразу; мы — следующим тиком, вне
+            // стека правки.
+            // Не `auto`: наш префикс после символа захватывает и его (`d.` —
+            // WORD_CHAR включает точку), и без провайдерского range под ним не
+            // подошло бы ничего — такой список держится полным, как явный.
+            this.scheduleAuto(() => void this.trigger(text), 0);
+        } else if (!this.isOpen()) {
+            this.scheduleQuickSuggest(editor);
         }
+    }
+
+    /**
+     * Набранное — повод для запроса по триггер-символу (upstream
+     * `_triggerCharacterListener`): символ объявлен провайдером, подошедшим
+     * именно этому документу («.» сервера TypeScript не открывает попап в
+     * markdown), `editor.suggestOnTriggerCharacters` включён, и это не случай
+     * quick suggest — символ-буква, продолжающая слово, идёт тем путём.
+     * Мультикурсор и выделение отсекает сам trigger().
+     */
+    private isTriggerCharacterCase(editor: TextEditorPane, text: string): boolean {
+        const triggers = this.languageFeatures.completionProvider
+            .ordered(editor)
+            .flatMap((provider) => provider.triggerCharacters);
+        if (!triggers.includes(text)) return false;
+        if (!this.configuration.get("editor.suggestOnTriggerCharacters", { overrideIdentifier: editor.languageId }))
+            return false;
+        const caret = editor.viewState.selections[0].active;
+        return !shouldAutoTrigger(editor.viewState.document.getLineContent(caret.line), caret.character);
     }
 
     /** Re-filter при открытом попапе (закрывает при уходе каретки из слова). */
@@ -471,33 +577,207 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             return;
         }
         const prefix = line.slice(prefixStart, active.character);
-        this.component.view.refineFilter(prefix);
+        const view = this.component.view;
+        if (this.autoSession && !this.isIncomplete) {
+            // Авто-попап, добор отфильтровал всё — закрываем (upstream: «nothing
+            // left» → cancel). Явный держит последний непустой список.
+            view.setFilter(prefix);
+            if (view.items.length === 0) {
+                this.close();
+                return;
+            }
+        } else {
+            view.refineFilter(prefix);
+        }
         this.prefixRange = createRange(prefixRange.start.line, prefixStart, active.line, active.character);
         this.component.setAnchor(anchor);
 
         // Неполный список сервер отфильтровал под ПРЕЖНИЙ префикс — локальное
         // сужение по нему врёт (пунктов, подходящих под новый, в нём может не
         // быть вовсе). Показываем сужение сразу, а следом перезапрашиваем.
-        if (this.isIncomplete) this.scheduleAutoSuggest();
+        if (this.isIncomplete) {
+            const auto = this.autoSession;
+            this.scheduleAuto(() => void this.trigger(undefined, auto), 0);
+        }
     }
 
-    private scheduleAutoSuggest(triggerCharacter?: string): void {
-        this.pendingTriggerCharacter = triggerCharacter;
-        this.autoSuggest.schedule(this.autoSuggestDelayMs);
+    private scheduleAuto(run: () => void, delayMs: number): void {
+        // Stryker disable next-line CallExpression: ожидание прежнего цикла и так не откроет попап — новый набор сменил версию документа, а это проверяет finish; снимаем его сразу, чтобы не держать таймер и подписку
+        this.waitForInline.clear();
+        this.pendingAutoSuggest = run;
+        this.autoSuggest.schedule(delayMs);
     }
 
     private cancelAutoSuggest(): void {
         this.autoSuggest.cancel();
-        this.pendingTriggerCharacter = undefined;
+        this.waitForInline.clear();
+    }
+
+    // ─── Quick suggest (upstream SuggestModel._doTriggerQuickSuggest) ────────
+
+    /** `editor.quickSuggestions` для языка документа, нормализованная. */
+    private quickSuggestions(languageId: string): IQuickSuggestionsOptions {
+        return readQuickSuggestions(
+            this.configuration.get("editor.quickSuggestions", { overrideIdentifier: languageId }),
+        );
     }
 
     /**
-     * Word-based элементы из текста всех открытых редакторов (всех групп), без
-     * дублей с элементами провайдеров. Большие файлы отсекаются внутри
-     * {@link collectWordCompletions}.
+     * Планирует quick suggest через `editor.quickSuggestionsDelay`. Гейты
+     * проверяются на срабатывании — по состоянию, до которого человек успел
+     * допечатать.
      */
-    private wordItems(prefix: string, extensionItems: readonly ICoreCompletionItem[]): ICoreCompletionItem[] {
-        const texts = this.group.getEditors().map((editor) => editor.getText());
+    private scheduleQuickSuggest(editor: TextEditorPane): void {
+        const delay = this.configuration.get("editor.quickSuggestionsDelay", { overrideIdentifier: editor.languageId });
+        this.scheduleAuto(() => {
+            this.doQuickSuggest(editor);
+        }, delay);
+    }
+
+    /**
+     * Срабатывание quick suggest: попап открывается, только если каретка в
+     * конце слова (не числа), режим для вида токена под ней не `off`/`inline`,
+     * и призрак не против. В режиме `offWhenInlineCompletions` при живом
+     * inline-провайдере сначала дожидается призрака: появился — попап не нужен.
+     */
+    private doQuickSuggest(editor: TextEditorPane): void {
+        // Набор при открытом попапе его сужает (refilterOpen), а не открывает заново.
+        // Stryker disable next-line ConditionalExpression: планирование и так идёт только при закрытом попапе; гард — на случай открытия между планом и срабатыванием
+        if (this.isOpen()) return;
+        // Смена активного редактора снимает план (bindActiveEditor → close);
+        // гард — на тихую смену без события.
+        // Stryker disable next-line ConditionalExpression: тихая смена между планом и срабатыванием в тестах не воспроизводится, а trigger() всё равно берёт активный редактор
+        if (this.group.getActiveEditor() !== editor) return;
+        // Выделение и мультикурсор отсекают trigger() и finish ожидания.
+        const caret = editor.viewState.selections[0].active;
+        if (!shouldAutoTrigger(editor.viewState.document.getLineContent(caret.line), caret.character)) return;
+
+        const languageId = editor.languageId;
+        // Эталон пропускает токенизацию, когда всё `on`/всё `off`; здесь режим
+        // берётся всегда — каретка во вьюпорте, строка уже размечена рендером.
+        const value = valueFor(this.quickSuggestions(languageId), this.tokenTypeBefore(editor, caret));
+        if (value === "off" || value === "inline") return;
+        const waitForInline =
+            value === "offWhenInlineCompletions" &&
+            this.languageFeatures.inlineCompletionsProvider.has(editor) &&
+            this.configuration.get("editor.inlineSuggest.enabled", { overrideIdentifier: languageId });
+        // upstream `canShowQuickSuggest`: призрак на экране и suppressSuggestions.
+        if (!this.canShowSuggestWithInline(languageId)) return;
+
+        if (waitForInline) {
+            this.waitForInlineAndTrigger(editor, caret);
+        } else {
+            void this.trigger(undefined, true);
+        }
+    }
+
+    /**
+     * Вид токена перед кареткой (upstream берёт символ слева: `column - 2`).
+     * Токенизация до строки каретки — как у рендера (`tokenizeUpTo`): каретка
+     * почти всегда во вьюпорте, и строки до неё уже размечены.
+     */
+    private tokenTypeBefore(editor: TextEditorPane, caret: IPosition): StandardTokenType {
+        const store = editor.viewState.tokenStore;
+        store?.tokenizeUpTo(caret.line);
+        return standardTokenTypeAt(store?.getLineTokens(caret.line), Math.max(caret.character - 1, 0));
+    }
+
+    /**
+     * Можно ли авто-открыть попап при призраке на экране (upstream
+     * `canShowQuickSuggest` / `canShowSuggestOnTriggerCharacters`): призрака
+     * нет — можно; есть — решает `editor.inlineSuggest.suppressSuggestions`.
+     */
+    private canShowSuggestWithInline(languageId: string): boolean {
+        if (this.inlineSuggestions?.isVisible() !== true) return true;
+        return !this.configuration.get("editor.inlineSuggest.suppressSuggestions", { overrideIdentifier: languageId });
+    }
+
+    /**
+     * Ждёт исхода запроса призрака и открывает попап, только если призрака
+     * нет (upstream `_waitForInlineCompletionsAndTrigger`). Призрак уже на
+     * экране — попап не нужен вовсе. Не дождались за
+     * {@link INLINE_COMPLETIONS_WAIT_MS} — попап открывается, а запрос призрака
+     * бросается. Открытие — только если с начала ожидания ни текст, ни каретка
+     * не сдвинулись (иначе это уже следующий цикл набора).
+     */
+    private waitForInlineAndTrigger(editor: TextEditorPane, caret: IPosition): void {
+        const inline = this.inlineSuggestions;
+        if (inline === null) {
+            void this.trigger(undefined, true);
+            return;
+        }
+        const versionId = editor.model.document.versionId;
+        const store = new DisposableStore();
+        this.waitForInline.value = store;
+        // Призрак уже на экране — check() закончит ожидание сразу, без попапа.
+        const finish = (doTrigger: boolean): void => {
+            this.waitForInline.clear();
+            if (!doTrigger || this.isOpen()) return;
+            const selections = editor.viewState.selections;
+            if (
+                this.group.getActiveEditor() === editor &&
+                editor.model.document.versionId === versionId &&
+                // Stryker disable next-line ConditionalExpression: мульти-каретку trigger() отсекает сам; гард — чтобы не читать selections[0] пустого списка
+                selections.length === 1 &&
+                isSelectionCollapsed(selections[0]) &&
+                selections[0].active.line === caret.line &&
+                selections[0].active.character === caret.character
+            ) {
+                void this.trigger(undefined, true);
+            }
+        };
+        const check = (): void => {
+            if (inline.isVisible()) {
+                finish(false);
+            } else if (!inline.isLoading()) {
+                finish(true);
+            }
+        };
+        const timer = setTimeout(() => {
+            finish(true);
+            inline.stopAutomatic();
+        }, INLINE_COMPLETIONS_WAIT_MS);
+        store.add({
+            dispose: () => {
+                clearTimeout(timer);
+            },
+        });
+        store.add(inline.onDidChange(check));
+        check();
+    }
+
+    /**
+     * Word-based элементы без дублей с элементами провайдеров. Из каких
+     * документов — по `editor.wordBasedSuggestions` (upstream
+     * `WordBasedCompletionItemProvider`): только активный, открытые того же
+     * языка (по умолчанию) или все открытые (всех групп). Большие файлы
+     * отсекаются внутри {@link collectWordCompletions}.
+     */
+    private wordItems(
+        editor: TextEditorPane,
+        prefix: string,
+        extensionItems: readonly ICoreCompletionItem[],
+    ): ICoreCompletionItem[] {
+        const languageId = editor.languageId;
+        const mode = this.configuration.get("editor.wordBasedSuggestions", { overrideIdentifier: languageId });
+        if (mode === "off") return [];
+        if (
+            mode === "offWithInlineSuggestions" &&
+            this.languageFeatures.inlineCompletionsProvider.has(editor) &&
+            isCompletionsEnabled(this.configuration.get<unknown>(COMPLETIONS_ENABLEMENT_SETTING), languageId)
+        ) {
+            return [];
+        }
+        // Stryker disable next-line ConditionalExpression,MethodExpression: эквивалентный — collectWordCompletions дедупит слова, активный документ дважды ничего не меняет
+        const others = this.group.getEditors().filter((candidate) => candidate !== editor);
+        const sources =
+            mode === "currentDocument"
+                ? [editor]
+                : [
+                      editor,
+                      ...others.filter((candidate) => mode === "allDocuments" || candidate.languageId === languageId),
+                  ];
+        const texts = sources.map((source) => source.getText());
         const existing = new Set(extensionItems.map((item) => item.label));
         return collectWordCompletions(texts, prefix)
             .filter((word) => !existing.has(word))
@@ -672,6 +952,18 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             }),
         ]);
     }
+}
+
+/**
+ * Включены ли AI-подсказки продукта для языка (upstream
+ * `isCompletionsEnabledFromObject`): значение — объект «язык → bool»; ключ
+ * языка главнее `"*"`; не объект (настройки нет) — выключены.
+ */
+function isCompletionsEnabled(setting: unknown, languageId: string): boolean {
+    if (typeof setting !== "object" || setting === null || Array.isArray(setting)) return false;
+    const byLanguage = setting as Readonly<Record<string, unknown>>;
+    if (byLanguage[languageId] !== undefined) return Boolean(byLanguage[languageId]);
+    return Boolean(byLanguage["*"]);
 }
 
 /** Все ли символы куска — «словесные» (см. {@link WORD_CHAR}); пустой кусок — да. */

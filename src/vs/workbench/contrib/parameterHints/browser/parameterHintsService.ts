@@ -47,7 +47,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         LanguageFeaturesServiceDIToken,
     ] as const;
 
-    /** Задержка авто-запроса, мс (в тестах — 0). Как `autoSuggestDelayMs` у suggest. */
+    /** Задержка авто-запроса, мс (в тестах — 0). У suggest её роль играет настройка `editor.quickSuggestionsDelay`. */
     public triggerDelayMs = 120;
 
     /** Guard от устаревших ответов: пока ходили за подсказкой, запрос мог смениться. */

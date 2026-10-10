@@ -73,6 +73,60 @@
 - **US-16. Демо.** Скриншот-сценарий `lsp-completion` (кадры `completion`,
   `completion-details`).
 
+### Авто-открытие при наборе (quick suggest)
+
+Жалоба из догфудинга: попап вываливался на любой word-символ через 120 мс — даже
+когда под набранное не подходило ничего (тогда показывался полный список слов
+буфера), а при inline-провайдере (Supermaven) перебивал призрачную подсказку, и та
+приходила только после закрытия попапа. Приведено к эталону:
+`SuggestModel._doTriggerQuickSuggest`, `LineContext.shouldAutoTrigger`,
+`_waitForInlineCompletionsAndTrigger`, `_onNewContext`
+(`editor/contrib/suggest/browser/suggestModel.ts`). Код — `quickSuggestions.ts` +
+`CompletionService.doQuickSuggest`.
+
+- **US-18. Слово, а не символ.** Попап открывается, только если каретка в конце слова
+  (или сразу за его первым символом — буква перед словом) и слово не число. Слово — по
+  дефолтному определению эталона (`DEFAULT_WORD_REGEXP`): пробел, скобка, `.`, `-`,
+  `42`, `1.5` попап не открывают; кириллица — открывает.
+- **US-19. Где открывается — `editor.quickSuggestions`.** Дефолт эталона: код —
+  `offWhenInlineCompletions`, комментарии и строки — `off`. Вид токена — по
+  TextMate-скоупам символа перед кареткой (`comment` / `string`; `meta.embedded` —
+  снова код), как `STANDARD_TOKEN_TYPE_REGEXP` vscode-textmate. Для `[json]`/`[jsonc]`
+  строки включены `configurationDefaults` расширения `diode-settings` (у эталона — то
+  же у json-language-features), иначе ключи settings.json не подсказывались бы.
+  `true`/`false`, строка-режим и объект — как `validate` эталона, мусор — дефолт.
+- **US-20. Ничего не подошло — попапа нет.** Авто-запрос, под набранное префикс
+  которого ни один пункт не подходит, попап не открывает; авто-попап закрывается, когда
+  добор отфильтровал список в ноль (неполный список — перезапрашивается). Явный
+  Ctrl+Space по-прежнему показывает полный список и держит последний непустой.
+  **Отступление:** попап по триггер-символу ведёт себя как явный — наш префикс после
+  символа включает его (`d.`: `WORD_CHAR` берёт точку ради ключей settings.json), и
+  без провайдерского `range` под ним не подошло бы ничего.
+- **US-21. Задержка — `editor.quickSuggestionsDelay`**, 10 мс (было зашито 120 мс).
+  Запрос по триггер-символу — следующим тиком (эталон — сразу).
+- **US-22. Уступает призраку.** В режиме `offWhenInlineCompletions` при inline-провайдере
+  документа и `editor.inlineSuggest.enabled` quick suggest сначала ждёт исхода запроса
+  призрака: призрак показан — попапа нет; пусто — попап открывается; ответа нет
+  750 мс — попап открывается, а запрос призрака бросается. Призрак уже на экране —
+  не ждёт вовсе. Набор, правка или уход каретки за время ожидания снимают его.
+- **US-23. `editor.inlineSuggest.suppressSuggestions`** (дефолт `false`): при `true` и
+  призраке на экране попап не открывается ни набором, ни триггер-символом.
+- **US-24. `editor.suggestOnTriggerCharacters`** (дефолт `true`). Триггер-символ,
+  который продолжает слово (`shouldAutoTrigger`), идёт путём quick suggest, как у эталона.
+- **US-25. `editor.wordBasedSuggestions`** — все пять режимов эталона; дефолт
+  `offWithInlineSuggestions` ведёт себя как `matchingDocuments` (раньше слова шли из
+  всех открытых документов любого языка). Гашение `offWithInlineSuggestions` — как у
+  эталона: только при inline-провайдере документа И включённых AI-подсказках продукта
+  (`github.copilot.enable`, объект «язык → bool»). С Supermaven без Copilot слова
+  остаются — так же и в vscode.
+
+Не сделано: режим `inline` (quick suggestions призраком из пунктов suggest —
+`SuggestInlineCompletions` эталона) попап просто не открывает; провайдерский ключ
+`suppressSuggestions` (`InlineCompletionContextKeys.suppressSuggestions`) не читается;
+`editor.suggest.snippetsPreventQuickSuggestions` — нет сниппет-сессии; языковой
+`wordPattern` для `shouldAutoTrigger` — нет, всегда дефолтное определение слова;
+«retrigger при переходе к новому слову» из `_onNewContext` — нет.
+
 ## Грабли, найденные на живом приложении
 
 Обе не видны юнит-тестам: данные и раскладка корректны, а на экране — не то.

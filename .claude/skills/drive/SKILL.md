@@ -87,6 +87,11 @@ npm run -s drive -- stop                       # и ни одного проце
   `tree`. Лучше `click --node SEL` или `click --text "…"`, чем литерал.
 - **Глифы codicon'ов в тексте кадра неразличимы** — смотри `cell x y` (код-пойнт,
   fg/bg `#rrggbb`, стиль: `undercurl` = живая диагностика LSP).
+- **`extension host subprocess did not become ready in 5000ms`** в канале Extensions
+  при старте из исходников — субпроцесс расширений под tsx не уложился в зашитые 5 с
+  (`readyTimeoutMs` в `extensionHost.ts`): машину грузит чужой тяжёлый прогон
+  (`uptime`, `claude-lease status`). Расширений в сессии нет вовсе. Дождись, пока
+  нагрузка спадёт, или временно подними таймаут локально — и верни перед коммитом.
 - **Шум dev-режима:** `vscode.git-base: failed to register … out/extension.js` в
   канале Extensions из исходников — известное (у стокового git-base нет сборки в
   dev), к твоей правке не относится.

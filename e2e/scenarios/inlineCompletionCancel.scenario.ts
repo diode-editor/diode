@@ -36,6 +36,11 @@ export default defineScenario({
         // Провайдер тянет с ответом заметно для глаза: иначе запрос успевает
         // договорить раньше следующего символа, и отменять будет нечего.
         "inlineGhost.responseDelay": 900,
+        // Quick suggest ждёт призрака не дольше 750 мс и бросает его запрос
+        // (как `_waitForInlineCompletionsAndTrigger` эталона): 900 мс фикстуры
+        // туда не влезают, и призрак не дожил бы до кадра. Сценарий — про отмену
+        // запросов набором, поэтому авто-попап выключен.
+        "editor.quickSuggestions": "off",
     },
     open: [repoRoot, sampleFile],
     cols: 100,

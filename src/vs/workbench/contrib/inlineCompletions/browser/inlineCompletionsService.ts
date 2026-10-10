@@ -1,5 +1,6 @@
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -65,6 +66,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     private readonly languageFeatures: ILanguageFeaturesService;
 
     private session: IInlineSession | null = null;
+    // Смена «показан / ждём ответа» — её ждёт quick suggest (offWhenInlineCompletions).
+    private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());
     /** Гейт Tab против отступа — см. context key `inlineSuggestionHasIndentationLessThanTabSize`. */
     // Stryker disable next-line BooleanLiteral: значение инициализатора никогда не читается — show() переписывает поле до появления сессии, hide() возвращает true
     private indentationLessThanTabSize = true;
@@ -117,14 +120,40 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
                 );
             }),
         );
+        // Пока открыт suggest-попап, призрак не рисуется, но сессия живёт (и
+        // ответ, пришедший под попапом, не выбрасывается): у upstream при
+        // открытом виджете ghost text — только продолжение выбранного пункта.
+        this.register(
+            this.completionService.onDidShow(() => {
+                this.session?.editor.setGhostText(null);
+                this.onDidChangeStateEmitter.fire();
+            }),
+        );
         // Попап закрылся (Esc, accept, уход из слова) — место освободилось:
-        // перезапрашиваем подсказку, иначе призрак появился бы только на
-        // следующей правке (VS Code на закрытии виджета так же пересеивает
-        // inline-состояние). Дебаунс-планировщик, а не прямой trigger: сам
-        // trigger перепроверит все гейты (редактор, каретка в конце строки).
+        // годная сессия возвращается на экран сразу, без перезапроса (upstream
+        // так же показывает закэшированный ответ, когда уходит выбранный пункт).
+        // Сессии нет или она испорчена — перезапрос. Дебаунс-планировщик, а не
+        // прямой trigger: сам trigger перепроверит все гейты.
         this.register(
             this.completionService.onDidClose(() => {
+                const session = this.session;
+                if (session !== null && this.validCaretForSession(session, this.group.getActiveEditor()) !== null) {
+                    this.show(session);
+                    return;
+                }
+                this.clearSession();
                 this.scheduleAutoTrigger();
+            }),
+        );
+        // Quick suggest смотрит на призрака: уступает ему место и ждёт его ответа.
+        this.register(
+            this.completionService.setInlineSuggestionsState({
+                isVisible: () => this.isOpen(),
+                isLoading: () => this.autoTrigger.isScheduled() || this.latest.pending,
+                stopAutomatic: () => {
+                    this.hide();
+                },
+                onDidChange: this.onDidChangeStateEmitter.event,
             }),
         );
         this.register({
@@ -135,9 +164,12 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         });
     }
 
-    /** Показана ли подсказка (context key `inlineSuggestionVisible`). */
+    /**
+     * Показана ли подсказка (context key `inlineSuggestionVisible`): сессия есть
+     * и её не прячет открытый suggest-попап.
+     */
     public isOpen(): boolean {
-        return this.session !== null;
+        return this.session !== null && !this.completionService.isOpen();
     }
 
     /** IContextKeyContributor: гейты Tab/Escape призрака. */
@@ -175,14 +207,25 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
      * Запрашивает подсказку для текущей позиции каретки и показывает её.
      * No-op без активного редактора и подошедших документу провайдеров; подсказка показывается при
      * единственной схлопнутой каретке (в том числе в СЕРЕДИНЕ строки — рендер
-     * вклеивает фантомные колонки в layout строки, и её хвост уезжает вправо) и
-     * закрытом suggest-попапе.
+     * вклеивает фантомные колонки в layout строки, и её хвост уезжает вправо).
+     * Под открытым suggest-попапом запрос тоже идёт (как у upstream), а ответ
+     * ждёт закрытия попапа невидимым — после Esc призрак появляется сразу.
      *
      * `editor.inlineSuggest.enabled: false` гасит только АВТО-запрос (как в
      * VS Code): явный `Invoke` из команды `editor.action.inlineSuggest.trigger`
      * проходит и при выключенной настройке — это и есть ручной режим.
      */
     public async trigger(triggerKind: InlineCompletionTriggerKind = InlineCompletionTriggerKind.Invoke): Promise<void> {
+        try {
+            await this.request(triggerKind);
+        } finally {
+            // Любой исход (показ, «нечего», отсев, отказ гейта) — конец ожидания
+            // для quick suggest.
+            this.onDidChangeStateEmitter.fire();
+        }
+    }
+
+    private async request(triggerKind: InlineCompletionTriggerKind): Promise<void> {
         this.cancelAutoTrigger();
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
@@ -191,7 +234,6 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         if (editor.readOnly) return;
         if (triggerKind === InlineCompletionTriggerKind.Automatic && !this.autoTriggerEnabled(editor.languageId))
             return;
-        if (this.completionService.isOpen()) return;
 
         const selections = editor.viewState.selections;
         if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
@@ -218,13 +260,12 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         // Запрос отработал — отменять больше нечего.
         ticket.done();
         // Пока ходили за ответом: правка или уход каретки делают снапшот
-        // недействительным; открывшийся попап — гейт показа.
+        // недействительным.
         if (this.group.getActiveEditor() !== editor) return;
         if (editor.viewState.document.versionId !== versionId) return;
         const current = editor.viewState.selections;
         if (current.length !== 1 || !isSelectionCollapsed(current[0])) return;
         if (current[0].active.line !== caret.line || current[0].active.character !== caret.character) return;
-        if (this.completionService.isOpen()) return;
         // Отдельный гейт от всех, что выше: новый запрос обгоняет старый, а
         // Escape (и смена активного редактора без события) гасит запрос, НЕ
         // меняя ни текста, ни каретки, — все эти пути отменяют билет. Провайдер,
@@ -266,7 +307,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     /** Принимает показанную подсказку: одна undoable-правка, каретка в конец. */
     public acceptCurrent(): void {
         const session = this.session;
-        if (session === null) return;
+        // Спрятанную под попапом подсказку не принимаем: человек её не видит.
+        if (session === null || this.completionService.isOpen()) return;
         const editor = this.group.getActiveEditor();
         const caret = this.validCaretForSession(session, editor);
         /* v8 ignore start -- defensive: onCaretChanged гасит сессию раньше, чем
@@ -304,6 +346,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         this.latest.cancel();
         this.cancelAutoTrigger();
         this.clearSession();
+        this.onDidChangeStateEmitter.fire();
     }
 
     // ─── Private ─────────────────────────────────────────────────────────────
@@ -365,7 +408,10 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         return caret;
     }
 
-    /** Показывает сессию: ghost = хвост `insertText` за набранным. */
+    /**
+     * Показывает сессию: ghost = хвост `insertText` за набранным. Под открытым
+     * suggest-попапом сессия запоминается, но не рисуется.
+     */
     private show(session: IInlineSession): void {
         const caretCharacter = session.editor.viewState.selections[0].active.character;
         const remainder = session.insertText.slice(caretCharacter - session.startCharacter);
@@ -377,7 +423,9 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
             lines[0],
             session.editor.viewState.tabSize,
         );
-        session.editor.setGhostText({ line: session.line, character: caretCharacter, lines });
+        session.editor.setGhostText(
+            this.completionService.isOpen() ? null : { line: session.line, character: caretCharacter, lines },
+        );
     }
 
     /**

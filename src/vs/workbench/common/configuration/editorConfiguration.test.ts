@@ -41,6 +41,33 @@ describe("editorConfiguration — призрачные подсказки", () =
     });
 });
 
+describe("editorConfiguration — авто-открытие suggest (дефолты эталона)", () => {
+    it("quickSuggestions: в коде уступает призраку, в комментариях и строках выключен", () => {
+        const schema = editorConfiguration.properties["editor.quickSuggestions"];
+        expect(schema.type).toEqual(["boolean", "string", "object"]);
+        expect(schema.default).toEqual({ other: "offWhenInlineCompletions", comments: "off", strings: "off" });
+    });
+
+    it("quickSuggestionsDelay 10 мс, suggestOnTriggerCharacters вкл, suppressSuggestions выкл", () => {
+        expect(editorConfiguration.properties["editor.quickSuggestionsDelay"].default).toBe(10);
+        expect(editorConfiguration.properties["editor.suggestOnTriggerCharacters"].default).toBe(true);
+        expect(editorConfiguration.properties["editor.inlineSuggest.suppressSuggestions"].default).toBe(false);
+    });
+
+    it("wordBasedSuggestions: пять режимов эталона, дефолт offWithInlineSuggestions", () => {
+        const schema = editorConfiguration.properties["editor.wordBasedSuggestions"];
+        expect(schema.enum).toEqual([
+            "off",
+            "offWithInlineSuggestions",
+            "currentDocument",
+            "matchingDocuments",
+            "allDocuments",
+        ]);
+        expect(schema.enumDescriptions).toHaveLength(5);
+        expect(schema.default).toBe("offWithInlineSuggestions");
+    });
+});
+
 describe("editorConfiguration — onSave-настройки", () => {
     it("editor.formatOnSave: boolean, выключен по умолчанию", () => {
         const schema = editorConfiguration.properties["editor.formatOnSave"];

@@ -28,6 +28,9 @@ const describeLinuxOnly = process.platform === "linux" ? describe : describe.ski
  * после открытия файла), а запрос, ушедший до регистрации провайдера,
  * возвращает пусто. Backspace+символ — новая правка → новый авто-запрос
  * (паттерн region-folding: retry до признака, который даёт только провайдер).
+ * Escape перед перепечаткой закрывает suggest-попап: пока провайдера призрака
+ * не было, quick suggest не ждал его и мог открыть попап по словам буфера, а
+ * под открытым попапом призрак не рисуется.
  */
 async function waitForGhostRetyping(
     session: {
@@ -47,6 +50,7 @@ async function waitForGhostRetyping(
             });
         } catch (error) {
             if (attempt >= 10) throw error;
+            await session.key("Escape");
             await session.key("Backspace");
             await session.key(lastChar);
         }
@@ -98,6 +102,36 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.waitForState("EditorElement", (s) => s?.lineCount === 3, { timeoutMs: 5000 });
     }, 120_000);
 
+    // Догфудинг: попап по словам буфера перебивал призрака на каждом символе.
+    // Эталон (`editor.quickSuggestions` → `offWhenInlineCompletions`): quick
+    // suggest ждёт исхода запроса призрака — пришёл призрак, попапа нет; нечего
+    // предложить — попап открывается.
+    it("quick suggest уступает призраку: есть подсказка — попапа нет, нет — попап открывается", async () => {
+        const { session } = await useHeadlessApp({
+            seedUserData: userData,
+            // «fibber» в буфере: без уступки на «fi»/«fib» открывался бы попап.
+            files: { "sample.ts": "// fibber demo\n" },
+            open: ["sample.ts"],
+        });
+        await session.waitForNode("EditorElement");
+        await session.key("End");
+        await session.key("Enter");
+        await session.text("function fib");
+
+        await waitForGhostRetyping(session, "b");
+        // Дольше окна ожидания quick suggest (750 мс): попап так и не открылся.
+        await new Promise((r) => setTimeout(r, 1500));
+        expect(await session.node("CompletionListElement")).toBeFalsy();
+        expect(((await session.node("EditorElement"))?.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
+
+        // Провайдеру нечего сказать на «fibb» — попап по словам открывается
+        // после его пустого ответа.
+        await session.key("b");
+        await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
+        const editor = await session.node("EditorElement");
+        expect(editor?.state?.ghostText ?? null).toBeNull();
+    }, 120_000);
+
     it("Esc закрывает suggest-попап — и призрак появляется без дополнительной правки", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
@@ -116,21 +150,20 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.key("Ctrl+Space");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
 
-        // Правка при открытом попапе: запрос призрака дропается гейтом —
-        // подсказка НЕ показывается, попап остаётся («fib» всё ещё префикс).
+        // Правка при открытом попапе: запрос призрака уходит, но ответ под
+        // попапом не рисуется — попап остаётся («fib» всё ещё префикс).
         await session.key("b");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
         const held = await session.node("EditorElement");
         expect(held?.state?.ghostText ?? null).toBeNull();
 
-        // Esc закрывает попап; повторный запрос уходит сам — БЕЗ новой правки.
+        // Esc закрывает попап — призрак появляется БЕЗ новой правки: готовый
+        // ответ возвращается на экран сразу, иначе запрос уходит сам.
         await session.key("Escape");
         await session.waitForNoNode("CompletionListElement", { timeoutMs: 5000 });
-        const withGhost = await session.waitForState(
-            "EditorElement",
-            (s) => (s?.ghostText ?? null) !== null,
-            { timeoutMs: 5000 },
-        );
+        const withGhost = await session.waitForState("EditorElement", (s) => (s?.ghostText ?? null) !== null, {
+            timeoutMs: 5000,
+        });
         expect((withGhost.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
     }, 120_000);
 
@@ -222,11 +255,9 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         for (let attempt = 0; attempt < 15 && ghost === null; attempt++) {
             await session.key("Alt+\\");
             try {
-                const shown = await session.waitForState(
-                    "EditorElement",
-                    (s) => (s?.ghostText ?? null) !== null,
-                    { timeoutMs: 2000 },
-                );
+                const shown = await session.waitForState("EditorElement", (s) => (s?.ghostText ?? null) !== null, {
+                    timeoutMs: 2000,
+                });
                 ghost = shown.state?.ghostText as IGhostState;
             } catch {
                 // провайдер ещё не зарегистрирован — пробуем ещё раз
@@ -263,6 +294,10 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
                 // Фикстура отвечает через 7 с — дефолтные 5000 мс это не переживают.
                 "inlineGhost.responseDelay": 7000,
                 "editor.inlineSuggest.requestTimeout": 20000,
+                // Quick suggest ждёт призрака не дольше 750 мс (как эталон), а
+                // потом открывает попап по словам буфера («Fibonacci») и
+                // бросает запрос призрака — здесь проверяется таймаут, не это.
+                "editor.quickSuggestions": false,
             },
             files: { "sample.ts": "// Fibonacci demo\n" },
             open: ["sample.ts"],
@@ -277,16 +312,13 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         let ghost: IGhostState | null = null;
         for (let attempt = 0; attempt < 3 && ghost === null; attempt++) {
             try {
-                const shown = await session.waitForState(
-                    "EditorElement",
-                    (s) => (s?.ghostText ?? null) !== null,
-                    { timeoutMs: 12_000 },
-                );
+                const shown = await session.waitForState("EditorElement", (s) => (s?.ghostText ?? null) !== null, {
+                    timeoutMs: 12_000,
+                });
                 ghost = shown.state?.ghostText as IGhostState;
             } catch {
                 await session.key("Backspace");
                 await session.key("b");
-                await session.key("Escape");
             }
         }
         if (ghost === null) throw new Error("медленный провайдер так и не дождался показа");
