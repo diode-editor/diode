@@ -142,6 +142,20 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a/b")]);
     });
 
+    it("reveal входа, о котором цепочка ещё не знает, выделяет ближайшую компактную строку", async () => {
+        app.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(rows().join("\n")).toContain("pkg/a/b");
+        });
+        app.sendKey("ArrowDown");
+
+        // Файл лёг в промежуточную папку, а перечитывания ещё не было.
+        ws.writeFile("pkg/a/x.ts", "");
+        expect(await service.revealPath(ws.path("pkg/a/x.ts"))).toBe(true);
+
+        expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a/b")]);
+    });
+
     it("второй вход в промежуточной папке рвёт цепочку на перечитывании", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {

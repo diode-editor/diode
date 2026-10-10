@@ -197,6 +197,15 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(watcher.live()).toEqual([]);
         });
 
+        it("unwatchNode без записи о слежке снимает папки самого узла", async () => {
+            const pkg = await pkgNode();
+            await provider.getChildren(pkg);
+            for (const dir of ["pkg", "pkg/a", "pkg/a/b", "README.md"]) provider.watchDirectory(ws.path(dir));
+
+            provider.unwatchNode(pkg);
+            expect(watcher.live()).toEqual([ws.path("README.md")]);
+        });
+
         it("изменение в последней папке — перечитывается сам компактный узел (объект строки)", async () => {
             vi.useFakeTimers();
             const pkg = await pkgNode();
