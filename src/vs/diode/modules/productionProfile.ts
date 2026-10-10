@@ -3,6 +3,7 @@ import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 
 import type { ILanguageConfigurationService } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../editor/common/languages/iLanguageService.ts";
+import type { ISemanticTokenStyleResolver } from "../../editor/common/languages/iSemanticTokenStyleResolver.ts";
 import type { ITokenStyleResolver } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
 import type { IClipboard } from "../../platform/clipboard/common/iClipboard.ts";
@@ -48,6 +49,7 @@ export interface ProductionProfileContext {
     clipboard: IClipboard;
     tokenizationRegistry: TokenizationRegistry;
     tokenStyleResolver: ITokenStyleResolver;
+    semanticTokenStyleResolver: ISemanticTokenStyleResolver;
     languageService: ILanguageService;
     languageConfigurationService: ILanguageConfigurationService;
     configurationService: IConfigurationService;
@@ -82,6 +84,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         .use(tokenizationModule, {
             tokenizationRegistry: ctx.tokenizationRegistry,
             tokenStyleResolver: ctx.tokenStyleResolver,
+            semanticTokenStyleResolver: ctx.semanticTokenStyleResolver,
             languageService: ctx.languageService,
             languageConfigurationService: ctx.languageConfigurationService,
         })

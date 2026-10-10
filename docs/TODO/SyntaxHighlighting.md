@@ -34,7 +34,11 @@ EditorElement.render() ── ITokenStyleResolver ── (Theme) TokenThemeResol
 
 **Что не делать:** полный TM scope selector grammar (group, `|` внутри селектора) — этого нет даже у VS Code. Достаточно того, что использует Dark+/Light+.
 
-### [ ] Async-токенизация (LSP semantic tokens)
+### [~] Async-токенизация (LSP semantic tokens)
+
+Ход: PR1 — тема (`semanticTokenColors`/`semanticHighlighting`), `TokenClassificationRegistry` +
+`contributes.semanticToken*`, `SemanticTokenStyleResolver` (стили есть, потребителя ещё нет). PR2 —
+API/RPC провайдеров, хранилище, рендер, настройка `editor.semanticHighlighting.enabled`.
 Расширить пайплайн новым источником токенов поверх синхронного TM.
 
 **План:**

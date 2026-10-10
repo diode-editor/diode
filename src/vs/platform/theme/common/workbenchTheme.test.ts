@@ -99,4 +99,18 @@ describe("WorkbenchTheme", () => {
         const theme = WorkbenchTheme.fromThemeFile({ colors: {} });
         expect(theme.tokenTheme.rules).toEqual([]);
     });
+
+    it("несёт семантику темы в tokenTheme; без неё — выключено и без правил", () => {
+        const rules = [{ selector: "variable", settings: { foreground: "#FF0000" } }];
+        const theme = WorkbenchTheme.fromThemeFile({
+            colors: {},
+            semanticHighlighting: true,
+            semanticTokenRules: rules,
+        });
+        expect(theme.tokenTheme.semanticHighlighting).toBe(true);
+        expect(theme.tokenTheme.semanticTokenRules).toEqual(rules);
+        const bare = WorkbenchTheme.fromThemeFile({ colors: {} });
+        expect(bare.tokenTheme.semanticHighlighting).toBe(false);
+        expect(bare.tokenTheme.semanticTokenRules).toEqual([]);
+    });
 });

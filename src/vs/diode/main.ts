@@ -63,12 +63,14 @@ import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
 import { FileSink } from "../platform/log/node/fileSink.ts";
 import { loadState } from "../platform/state/node/stateService.ts";
+import { createDefaultTokenClassificationRegistry } from "../platform/theme/common/tokenClassificationRegistry.ts";
 import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
 import { ExtensionConfigurationContributor } from "../workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import { ExtensionServiceDIToken } from "../workbench/services/extensions/common/extensions.ts";
+import { registerExtensionSemanticTokens } from "../workbench/services/extensions/common/extensionSemanticTokensContributor.ts";
 import { ExtensionThemeContributor } from "../workbench/services/extensions/common/extensionThemeContributor.ts";
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
 import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
@@ -77,6 +79,7 @@ import { LanguageConfigurationService } from "../workbench/services/language/com
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
+import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
 import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/builtinThemes.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
@@ -343,6 +346,14 @@ async function runEditor(): Promise<void> {
 
     // ── Bootstrap через DI-контейнер ────────────────────────────
     const tokenStyleResolver = new TokenThemeResolver(initialTheme.tokenTheme);
+    // Семантические токены: стандартная классификация эталона + вклад
+    // расширений (`semanticTokenTypes`/`Modifiers`/`Scopes`), стиль — из той же темы.
+    const tokenClassificationRegistry = createDefaultTokenClassificationRegistry();
+    registerExtensionSemanticTokens(allExtensions, tokenClassificationRegistry, extensionsLogger);
+    const semanticTokenStyleResolver = new SemanticTokenStyleResolver(
+        tokenClassificationRegistry,
+        initialTheme.tokenTheme,
+    );
 
     const container = createProductionContainer({
         app: application,
@@ -352,6 +363,7 @@ async function runEditor(): Promise<void> {
         clipboard,
         tokenizationRegistry,
         tokenStyleResolver,
+        semanticTokenStyleResolver,
         languageService: languageRegistry,
         languageConfigurationService,
         configurationService,
@@ -441,6 +453,7 @@ async function runEditor(): Promise<void> {
     // обновить резолвер в этом же broadcast'е.
     container.get(ThemeServiceDIToken).onThemeChange((theme) => {
         tokenStyleResolver.setTheme(theme.tokenTheme);
+        semanticTokenStyleResolver.setTheme(theme.tokenTheme);
     });
 
     const app = container.get(TuiApplicationDIToken);

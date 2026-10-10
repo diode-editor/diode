@@ -683,4 +683,55 @@ export const darkModernTheme: IThemeFile = {
             scope: "entity.name.label",
         },
     ],
+    semanticHighlighting: true,
+    semanticTokenRules: [
+        {
+            selector: "newOperator",
+            settings: {
+                foreground: "#d4d4d4",
+            },
+        },
+        {
+            selector: "stringLiteral",
+            settings: {
+                foreground: "#ce9178",
+            },
+        },
+        {
+            selector: "customLiteral",
+            settings: {
+                foreground: "#D4D4D4",
+            },
+        },
+        {
+            selector: "numberLiteral",
+            settings: {
+                foreground: "#b5cea8",
+            },
+        },
+        {
+            selector: "newOperator",
+            settings: {
+                foreground: "#C586C0",
+            },
+        },
+        {
+            selector: "stringLiteral",
+            settings: {
+                foreground: "#ce9178",
+            },
+        },
+        {
+            selector: "customLiteral",
+            settings: {
+                foreground: "#DCDCAA",
+            },
+        },
+        {
+            selector: "numberLiteral",
+            settings: {
+                foreground: "#b5cea8",
+            },
+        },
+    ],
 };

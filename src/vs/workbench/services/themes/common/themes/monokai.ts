@@ -481,4 +481,5 @@ export const monokaiTheme: IThemeFile = {
             scope: "variable.language",
         },
     ],
+    semanticHighlighting: true,
 };
