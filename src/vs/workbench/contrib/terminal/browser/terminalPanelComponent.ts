@@ -150,6 +150,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                 for (const [id, widget] of this.widgets) {
                     const instance = this.terminalService.getInstance(id);
                     /* v8 ignore start -- defensive: виджет снимается в handleClose вместе с инстансом */
+                    // Stryker disable next-line ConditionalExpression: ветка недостижима (см. выше) — эквивалентный мутант
                     if (instance === null) continue;
                     /* v8 ignore stop */
                     applyTerminalColors(instance, widget, next);

@@ -38,7 +38,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
 
         // Маркер собран из двух кусков: целиком он есть только в выводе, не в эхо команды.
-        await editor.sendText(`printf 'ansi""-colors\\n${swatches(40)}\\n${swatches(100)}\\n'`);
+        await editor.sendText(`printf 'ansi''-colors\\n${swatches(40)}\\n${swatches(100)}\\n'`);
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("ansi-colors") && t.includes(" 7 "));
         await editor.capture("dark");
