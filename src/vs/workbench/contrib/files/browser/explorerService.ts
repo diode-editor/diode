@@ -19,6 +19,39 @@ export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
 const COMPACT_FOLDERS_SETTING = "explorer.compactFolders";
 
 /**
+ * Цепочка строк дерева от корня до `filePath`. Предков раскрываем по ходу:
+ * компактную цепочку (`explorer.compactFolders`) провайдер узнаёт, только
+ * когда её голову раскрыли, а она решает, какая строка следующая.
+ */
+async function revealChain(
+    view: IExplorerView,
+    provider: FileTreeDataProvider,
+    filePath: string,
+): Promise<FileTreeNode[]> {
+    const chain: FileTreeNode[] = [];
+    let dir = provider.rootPath;
+    for (;;) {
+        const name = path.relative(dir, filePath).split(path.sep)[0];
+        const childPath = path.join(dir, name);
+        if (childPath === filePath) {
+            chain.push(provider.findNode(childPath) ?? { name, path: childPath, isDirectory: false });
+            return chain;
+        }
+        const node = provider.findNode(childPath) ?? { name, path: childPath, isDirectory: true };
+        chain.push(node);
+        await view.expand(node);
+        // После раскрытия `node.path` — последняя папка его цепочки. Цель не
+        // под ней — значит, цель и есть эта строка: сама последняя папка или
+        // промежуточная, свёрнутая в строку (эталон выделяет компактный узел и
+        // ставит «текущим» её сегмент; сегменты по отдельности мы не выделяем).
+        // Так же — устаревшая цепочка (вход появился в промежуточной папке, а
+        // наблюдатель ещё не дошёл): выделяем ближайшую строку, что его содержит.
+        if (!filePath.startsWith(node.path + path.sep)) return chain;
+        dir = node.path;
+    }
+}
+
+/**
  * Минимальный срез дерева Explorer'а, нужный сервису: refresh/reveal/фокус,
  * выбор и подсветка «вырезанных». `TreeViewElement<FileTreeNode>` соответствует
  * ему структурно; регистрирует его `ExplorerComponent` через {@link ExplorerService.attachView}
@@ -134,46 +167,16 @@ export class ExplorerService extends Disposable {
      * Возвращает `true`, если файл лежит внутри корня (и попытка раскрытия выполнена).
      */
     public async revealPath(filePath: string): Promise<boolean> {
-        if (!this.view || this.rootPath === null) return false;
-        const relative = path.relative(this.rootPath, filePath);
+        // Провайдер есть ровно тогда, когда есть корень (оба ставит setRootPath).
+        const provider = this.provider;
+        if (!this.view || !provider) return false;
+        const relative = path.relative(provider.rootPath, filePath);
         /* v8 ignore next -- isAbsolute(relative) is Windows-only (cross-drive paths); unreachable on POSIX CI */
         if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
             return false;
         }
-        await this.view.reveal(await this.revealChain(this.view, this.rootPath, filePath));
+        await this.view.reveal(await revealChain(this.view, provider, filePath));
         return true;
-    }
-
-    /**
-     * Цепочка строк дерева от корня до `filePath`. Предков раскрываем по ходу:
-     * компактную цепочку (`explorer.compactFolders`) провайдер узнаёт, только
-     * когда её голову раскрыли, а она решает, какая строка следующая. Цель
-     * внутри компактной строки (промежуточная папка) — сама эта строка, как у
-     * эталона: тот выделяет компактный узел и ставит «текущим» нужный сегмент
-     * (сегменты по отдельности мы не выделяем).
-     */
-    private async revealChain(view: IExplorerView, rootPath: string, filePath: string): Promise<FileTreeNode[]> {
-        const chain: FileTreeNode[] = [];
-        let dir = rootPath;
-        for (;;) {
-            const name = path.relative(dir, filePath).split(path.sep)[0];
-            const childPath = path.join(dir, name);
-            if (childPath === filePath) {
-                chain.push(this.provider?.findNode(childPath) ?? { name, path: childPath, isDirectory: false });
-                return chain;
-            }
-            const node = this.provider?.findNode(childPath) ?? { name, path: childPath, isDirectory: true };
-            chain.push(node);
-            await view.expand(node);
-            // После раскрытия `node.path` — последняя папка его цепочки. Цель
-            // среди свёрнутых в строку папок — выделяем саму строку.
-            if (node.path === filePath || node.compactParents?.includes(filePath)) return chain;
-            // Цель не под последней папкой — цепочка устарела (вход появился в
-            // промежуточной папке, а наблюдатель ещё не дошёл): выделяем
-            // ближайшую строку, которая её содержит.
-            if (!filePath.startsWith(node.path + path.sep)) return chain;
-            dir = node.path;
-        }
     }
 
     /**

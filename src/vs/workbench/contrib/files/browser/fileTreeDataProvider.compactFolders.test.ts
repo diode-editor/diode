@@ -111,6 +111,28 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.keyForPath(ws.path("README.md"))).toBe(ws.path("README.md"));
     });
 
+    it("цепочка сжалась до одной папки — тот же узел снова обычный, и листинг родителя тоже", async () => {
+        const pkg = await pkgNode();
+        await provider.getChildren(pkg);
+        expect(provider.getTreeItem(pkg).label).toBe("pkg/a/b");
+
+        ws.writeFile("pkg/x.ts", "");
+        expect((await provider.getChildren(pkg)).map((child) => child.name)).toEqual(["a", "x.ts"]);
+        expect(pkg.compactParents).toBeUndefined();
+        expect(pkg.path).toBe(ws.path("pkg"));
+        expect(provider.getTreeItem(pkg).label).toBe("pkg");
+
+        const again = await pkgNode();
+        expect(provider.getTreeItem(again).label).toBe("pkg");
+        expect(provider.keyForPath(ws.path("pkg/a/b"))).toBe(ws.path("pkg/a/b"));
+    });
+
+    it("findNode знает только каталоги", async () => {
+        await provider.getChildren();
+        expect(provider.findNode(ws.path("pkg"))).toBeDefined();
+        expect(provider.findNode(ws.path("README.md"))).toBeUndefined();
+    });
+
     it("выключенная настройка — без спуска", async () => {
         compact = false;
         const pkg = await pkgNode();
@@ -189,12 +211,51 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
 
             provider.unwatchNode(pkg);
             expect(watcher.live()).toEqual([]);
+            // Папки, что остались в цепочке, не переподписывались: по одной
+            // подписке на `pkg` и `pkg/a` за весь тест.
+            expect(watcher.watches.filter((watch) => watch.path === ws.path("pkg"))).toHaveLength(1);
+            expect(watcher.watches.filter((watch) => watch.path === ws.path("pkg/a"))).toHaveLength(1);
+        });
+
+        it("цепочка выросла после подписки — свёрнутый узел снимает и новую папку", async () => {
+            ws.writeFile("pkg/a/x.ts", "");
+            const pkg = await pkgNode();
+            await provider.getChildren(pkg);
+            provider.watchNode(pkg);
+            expect(watcher.live()).toEqual([ws.path("pkg"), ws.path("pkg/a")]);
+
+            fs.rmSync(ws.path("pkg/a/x.ts"));
+            await provider.getChildren(pkg);
+            provider.unwatchNode(pkg);
+
+            expect(watcher.live()).toEqual([]);
         });
 
         it("свёрнутый узел перечитывание не подписывает", async () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
             expect(watcher.live()).toEqual([]);
+        });
+
+        it("после unwatchNode перечитывание узла слежку не возвращает", async () => {
+            const pkg = await pkgNode();
+            await provider.getChildren(pkg);
+            provider.watchNode(pkg);
+            provider.unwatchNode(pkg);
+
+            await provider.getChildren(pkg);
+            expect(watcher.live()).toEqual([]);
+        });
+
+        it("без подписчика уведомления не падают", async () => {
+            vi.useFakeTimers();
+            const pkg = await pkgNode();
+            await provider.getChildren(pkg);
+            provider.watchNode(pkg);
+
+            watcher.watches.find((watch) => watch.path === ws.path("pkg/a/b"))?.fire([ws.path("pkg/a/b/E.java")]);
+            watcher.watches.find((watch) => watch.path === ws.path("pkg/a"))?.fire([ws.path("pkg/a/x.ts")]);
+            expect(() => vi.advanceTimersByTime(300)).not.toThrow();
         });
 
         it("unwatchNode без записи о слежке снимает папки самого узла", async () => {

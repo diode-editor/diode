@@ -58,7 +58,7 @@ interface IDirectoryEntry {
 }
 
 export class FileTreeDataProvider extends Disposable implements ITreeDataProvider<FileTreeNode> {
-    private rootPath: string;
+    public readonly rootPath: string;
     /** Слежение за раскрытыми каталогами (по одному на каталог, без рекурсии). */
     private readonly watchers = this.register(new DisposableMap<string>());
     private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -73,8 +73,8 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
      * каждый каталог листинга.
      */
     private readonly chains = new Map<string, readonly string[]>();
-    /** Папка любой известной цепочки → её голова. */
-    private readonly chainHeads = new Map<string, string>();
+    /** Папка любой известной цепочки → сама цепочка. */
+    private readonly chainOf = new Map<string, readonly string[]>();
     /**
      * Узлы-каталоги последнего листинга по ключу: строку дерева держит именно
      * этот объект, поэтому найденная при раскрытии цепочка пишется в него, и
@@ -164,7 +164,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
             segments.push(entries[0].path);
             entries = await this.readDirectory(entries[0].path);
         }
-        this.setChain(head, segments);
+        this.setChain(segments);
         applyChain(element, segments);
         this.syncWatch(head, segments);
         return this.toNodes(entries);
@@ -185,7 +185,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
 
     /** Ключ строки дерева, которая показывает путь (папка цепочки → её голова). */
     public keyForPath(filePath: string): string {
-        return this.chainHeads.get(filePath) ?? filePath;
+        return this.chainOf.get(filePath)?.[0] ?? filePath;
     }
 
     /**
@@ -195,7 +195,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
      */
     public resetCompactFolders(): void {
         this.chains.clear();
-        this.chainHeads.clear();
+        this.chainOf.clear();
     }
 
     /** Следить за раскрытым узлом — за каждой папкой его цепочки. */
@@ -266,12 +266,20 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         });
     }
 
-    private setChain(head: string, segments: readonly string[]): void {
-        for (const segment of this.chains.get(head) ?? []) this.chainHeads.delete(segment);
-        this.chains.delete(head);
+    /** Запомнить цепочку (папки от головы до последней), заменив прежнюю с той же головой. */
+    private setChain(segments: readonly string[]): void {
+        this.deleteChain(segments[0]);
+        // Stryker disable next-line ConditionalExpression: цепочка из одной папки ведёт себя как её отсутствие (узел без compactParents, ключ — сам путь); не храним её, чтобы не держать запись на каждый раскрытый каталог
         if (segments.length < 2) return;
-        this.chains.set(head, segments);
-        for (const segment of segments) this.chainHeads.set(segment, head);
+        this.chains.set(segments[0], segments);
+        for (const segment of segments) this.chainOf.set(segment, segments);
+    }
+
+    private deleteChain(head: string): void {
+        const chain = this.chains.get(head);
+        if (!chain) return;
+        this.chains.delete(head);
+        for (const segment of chain) this.chainOf.delete(segment);
     }
 
     /** Цепочка раскрытого узла сменилась — слежка переезжает на её новые папки. */
@@ -336,21 +344,19 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
      * забываем её и перечитываем родителя головы — узел соберётся заново.
      */
     private notifyChanged(dirPath: string): void {
-        const head = this.chainHeads.get(dirPath);
-        const chain = head === undefined ? undefined : this.chains.get(head);
-        if (head === undefined || chain === undefined || chain[chain.length - 1] === dirPath) {
+        const chain = this.chainOf.get(dirPath);
+        if (!chain || chain[chain.length - 1] === dirPath) {
             this.onChange?.(
                 this.findNode(dirPath) ?? { name: path.basename(dirPath), path: dirPath, isDirectory: true },
             );
             return;
         }
-        this.setChain(head, [head]);
+        this.deleteChain(chain[0]);
         // Хвост ниже изменившейся папки по-прежнему цепочка: строка, которая от
         // неё отделится, сразу покажется компактной (раскрытие она не наследует —
         // её ключ теперь своя голова).
-        const tail = chain.slice(chain.indexOf(dirPath) + 1);
-        this.setChain(tail[0], tail);
-        const parent = path.dirname(head);
-        this.onChange?.(parent === this.rootPath ? undefined : this.findNode(parent));
+        this.setChain(chain.slice(chain.indexOf(dirPath) + 1));
+        // Голова в корне — узла у корня нет, `undefined` перечитывает всё дерево.
+        this.onChange?.(this.findNode(path.dirname(chain[0])));
     }
 }

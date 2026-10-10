@@ -14,7 +14,7 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import type { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
-import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
+import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
@@ -33,6 +33,8 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
     let service: ExplorerService;
     let component: ExplorerComponent;
     let app: TestApp;
+    /** Каталоги, за которыми сейчас следит провайдер дерева. */
+    let watched: Set<string>;
 
     /** Строки кадра без пустых хвостов. */
     function rows(): string[] {
@@ -51,7 +53,19 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         });
         config = createTestConfigurationService();
         clipboard = new InMemoryFileClipboard();
-        service = new ExplorerService(clipboard, config, diskFileService(), NULL_TREE_FILE_WATCHER);
+        watched = new Set();
+        // Наблюдатель, который только помнит живые подписки (событий не шлёт).
+        const watcher: ITreeFileWatcher = {
+            watchTree: (dirPath) => {
+                watched.add(dirPath);
+                return {
+                    dispose: () => {
+                        watched.delete(dirPath);
+                    },
+                };
+            },
+        };
+        service = new ExplorerService(clipboard, config, diskFileService(), watcher);
         const commands = new CommandRegistry();
         component = new ExplorerComponent(
             service,
@@ -109,6 +123,19 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         const last = ws.path("pkg/a/b");
         expect(service.getSelectedPaths()).toEqual([last]);
         expect(service.getPasteTargetDir()).toBe(last);
+    });
+
+    it("раскрытая компактная строка следит за каждой своей папкой, свёрнутая — ни за одной", async () => {
+        app.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(rows().join("\n")).toContain("pkg/a/b");
+        });
+        expect([...watched].sort()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
+
+        app.sendKey("ArrowLeft");
+        await vi.waitFor(() => {
+            expect(watched.size).toBe(0);
+        });
     });
 
     it("свернул и снова раскрыл — строка остаётся компактной", async () => {
