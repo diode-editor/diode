@@ -242,6 +242,19 @@ describe("Workbench — Output: селектор канала", () => {
         expect(frame()).not.toContain("PROBLEMS  OUTPUT  TERMINAL   bootstrap");
     });
 
+    it("селектор в шапке не дублируется кнопкой «⋯» с тем же списком", () => {
+        // Догфудинг: «⋯» у одной только вкладки OUTPUT открывала меню из
+        // единственного пункта «Switch Output ›» — копию селектора рядом. В
+        // VS Code submenu с `isSelection` рисуется SelectBox'ом и в «Views and
+        // More Actions...» не попадает; других пунктов overflow у нас нет —
+        // значит, и кнопки нет.
+        const tabRow = frame()
+            .split("\n")
+            .find((line) => line.includes("PROBLEMS  OUTPUT  TERMINAL"));
+        expect(tabRow).toContain("Bootstrap");
+        expect(tabRow).not.toContain("⋯");
+    });
+
     it("подпись идёт за сменой канала", () => {
         h.container.get(OutputServiceDIToken).showChannel("configuration");
 

@@ -47,7 +47,16 @@ export interface IResolvedMenuItemEntry extends MenuItemEntry {
 }
 
 /** `MenuEntry` движка, у которого пункты-команды несут резолвнутую доступность. */
-export type ResolvedMenuEntry = IResolvedMenuItemEntry | MenuSeparatorEntry | MenuSubmenuEntry;
+export type ResolvedMenuEntry = IResolvedMenuItemEntry | MenuSeparatorEntry | IResolvedSubmenuEntry;
+
+/**
+ * Подменю с пометкой контрибуции «выбор» (`isSelection`): заголовок view рисует
+ * его не пунктом попапа «⋯», а выпадающим списком рядом с кнопками — как
+ * VS Code превращает такое submenu в `SelectBox` тулбара.
+ */
+export interface IResolvedSubmenuEntry extends MenuSubmenuEntry {
+    readonly isSelection?: boolean;
+}
 
 /** Непустая группа пунктов одной точки меню (см. {@link MenuRegistry.getMenuItemGroups}). */
 export interface IMenuEntryGroup {
@@ -194,7 +203,8 @@ export class MenuRegistry {
                     // резолвер здесь заведомо есть: без него submenu-записи
                     // отсеял фильтр выше, и «нет резолвера» = тот же выброс.
                     const entry = resolveSubmenu?.(this.toSubmenuEntry(item)) ?? null;
-                    if (entry !== null) groupEntries.push(entry);
+                    if (entry !== null)
+                        groupEntries.push(item.isSelection === true ? { ...entry, isSelection: true } : entry);
                 } else {
                     groupEntries.push(this.toEntry(item, context));
                 }

@@ -10,6 +10,10 @@ import type { IViewsHarness } from "./viewsService.testUtils.ts";
 import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
 
 const OUTPUT = "workbench.panel.output";
+const CHANNELS = new MenuId("test.panel.channels");
+const LEVELS = new MenuId("test.panel.levels");
+/** Пункт подменю каналов: пустое подменю резолвер выбрасывает. */
+const channelItem: MenuContribution = { menuId: CHANNELS, command: "output.show.main", title: "Main" };
 
 /**
  * Контейнер в нижней панели — та же модель, что вьюлет сайдбара, только место
@@ -175,6 +179,165 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(h.shown.at(-1)!.getEntries!().map((e) => (e.type === "separator" ? "---" : e.label))).toEqual([
             "Open Output in Editor",
         ]);
+    });
+
+    it("submenu-выбор навигации — это виджет, а не пункт «⋯»: кнопки ради него нет", () => {
+        // Догфудинг: у OUTPUT «⋯» открывала один пункт «Switch Output ›» —
+        // копию селектора каналов рядом с ней.
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: CHANNELS,
+                    title: "Switch Output",
+                    group: "navigation",
+                    isSelection: true,
+                    visible: viewMenuVisible("output.view"),
+                },
+                channelItem,
+            ],
+        );
+        const widget = new FillerElement();
+        h.service.setViewTitleWidget("output.view", widget);
+
+        const labels = h
+            .tabActions(OUTPUT)!
+            .querySelectorAll("TextLabelElement")
+            .map((l) => (l as TextLabelElement).getText().trim());
+        expect(labels).toEqual([""]);
+    });
+
+    it("submenu-выбор вне навигации и обычное submenu навигации остаются в «⋯»", () => {
+        // В VS Code в тулбар (а значит, в SelectBox) уходит только группа
+        // `navigation`; остальное — пункты «Views and More Actions...».
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: CHANNELS,
+                    title: "Pick",
+                    group: "navigation",
+                    visible: viewMenuVisible("output.view"),
+                },
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: LEVELS,
+                    title: "Choose",
+                    group: "2_more",
+                    isSelection: true,
+                    visible: viewMenuVisible("output.view"),
+                },
+                channelItem,
+                { menuId: LEVELS, command: "output.level.info", title: "Info" },
+            ],
+        );
+
+        h.header(OUTPUT)!.onMenu?.({ screenX: 0, screenY: 0 });
+        expect(h.shown.at(-1)!.getEntries!().map((e) => (e.type === "separator" ? "---" : e.label))).toEqual([
+            "Pick",
+            "---",
+            "Choose",
+        ]);
+    });
+
+    it("рядом с настоящим overflow submenu-выбор в попап «⋯» всё равно не попадает", () => {
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: CHANNELS,
+                    title: "Switch Output",
+                    group: "navigation",
+                    isSelection: true,
+                    visible: viewMenuVisible("output.view"),
+                },
+                channelItem,
+                {
+                    menuId: MenuId.ViewTitle,
+                    command: "output.save",
+                    title: "Save Output As...",
+                    group: "1_export",
+                    visible: viewMenuVisible("output.view"),
+                },
+            ],
+        );
+
+        h.header(OUTPUT)!.onMenu?.({ screenX: 0, screenY: 0 });
+        expect(h.shown.at(-1)!.getEntries!().map((e) => (e.type === "separator" ? "---" : e.label))).toEqual([
+            "Save Output As...",
+        ]);
+    });
+
+    /** Есть ли «⋯» в полосе таб-строки при единственном пункте `item`. */
+    function menuButtonShown(item: Partial<MenuContribution>): boolean {
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    command: "output.do",
+                    title: "Do",
+                    visible: viewMenuVisible("output.view"),
+                    ...item,
+                } as MenuContribution,
+            ],
+        );
+        const labels =
+            h
+                .tabActions(OUTPUT)
+                ?.querySelectorAll("TextLabelElement")
+                .map((l) => (l as TextLabelElement).getText().trim()) ?? [];
+        return labels.includes("⋯");
+    }
+
+    it("«⋯» зажигает пункт вне навигации и пункт навигации без иконки, но не кнопка", () => {
+        expect(menuButtonShown({ group: "navigation", icon: "D" })).toBe(false);
+        expect(menuButtonShown({ group: "navigation" })).toBe(true);
+        expect(menuButtonShown({ group: "2_more", icon: "D" })).toBe(true);
+    });
+
+    it("обычное submenu навигации «⋯» зажигает — рисовать его, кроме как пунктом попапа, негде", () => {
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: CHANNELS,
+                    title: "Pick",
+                    group: "navigation",
+                    visible: viewMenuVisible("output.view"),
+                },
+                channelItem,
+            ],
+        );
+        const labels = h
+            .tabActions(OUTPUT)!
+            .querySelectorAll("TextLabelElement")
+            .map((l) => (l as TextLabelElement).getText().trim());
+        expect(labels).toContain("⋯");
+    });
+
+    it("одна лишь навигация из submenu-выбора «⋯» не зажигает", () => {
+        // Статическая проверка (`hasOverflow`) обязана сходиться с попапом:
+        // кнопка без пунктов выглядит сломанной.
+        const h = panelHarness(
+            ["output.view"],
+            [
+                {
+                    menuId: MenuId.ViewTitle,
+                    submenu: CHANNELS,
+                    title: "Switch Output",
+                    group: "navigation",
+                    isSelection: true,
+                    visible: viewMenuVisible("output.view"),
+                },
+                channelItem,
+            ],
+        );
+        expect(h.tabActions(OUTPUT)).toBeNull();
     });
 
     it("при двух секциях полоса несёт команды контейнера и переключатель секций", () => {
