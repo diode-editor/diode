@@ -22,7 +22,7 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
-import type { CompletionService } from "../../suggest/browser/completionService.ts";
+import type { CompletionService, IInlineSuggestionsState } from "../../suggest/browser/completionService.ts";
 
 import { computeIndentationLessThanTabSize, InlineCompletionsService } from "./inlineCompletionsService.ts";
 
@@ -188,19 +188,38 @@ interface ServiceOptions {
     languages?: Readonly<Record<string, Omit<ServiceOptions, "popupOpen" | "languages" | "languageFeatures">>>;
 }
 
+/** Сервис с ручками фейкового suggest: события попапа и зарегистрированное в нём состояние. */
+type TestInlineService = InlineCompletionsService & {
+    firePopupClose: () => void;
+    firePopupShow: () => void;
+    /** Что сервис зарегистрировал в CompletionService (`null` — снято при dispose). */
+    inlineState: () => IInlineSuggestionsState | null;
+};
+
 /** Схемы ключей приложения — по ним заглушка конфига отбраковывает мусор, как настоящий сервис. */
 const APP_SCHEMAS = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
 
-function makeService(
-    group: IEditorService,
-    options: ServiceOptions = {},
-): InlineCompletionsService & { firePopupClose: () => void } {
+function makeService(group: IEditorService, options: ServiceOptions = {}): TestInlineService {
     const closeListeners: (() => void)[] = [];
+    const showListeners: (() => void)[] = [];
+    let inlineState: IInlineSuggestionsState | null = null;
     const completion = {
         isOpen: options.popupOpen ?? (() => false),
         onDidClose: (l: () => void) => {
             closeListeners.push(l);
             return { dispose: () => closeListeners.splice(closeListeners.indexOf(l), 1) };
+        },
+        onDidShow: (l: () => void) => {
+            showListeners.push(l);
+            return { dispose: () => showListeners.splice(showListeners.indexOf(l), 1) };
+        },
+        setInlineSuggestionsState: (state: IInlineSuggestionsState) => {
+            inlineState = state;
+            return {
+                dispose: () => {
+                    inlineState = null;
+                },
+            };
         },
     } as unknown as CompletionService;
     // Живой конфиг: читается на каждом обращении, значения берутся из `options`
@@ -237,12 +256,14 @@ function makeService(
         completion,
         configuration,
         languageFeatures,
-    ) as InlineCompletionsService & {
-        firePopupClose: () => void;
-    };
+    ) as TestInlineService;
     service.firePopupClose = () => {
         for (const l of [...closeListeners]) l();
     };
+    service.firePopupShow = () => {
+        for (const l of [...showListeners]) l();
+    };
+    service.inlineState = () => inlineState;
     return service;
 }
 
@@ -470,7 +491,7 @@ describe("InlineCompletionsService — показ", () => {
 });
 
 describe("InlineCompletionsService — гейты", () => {
-    it("не запрашивает: выделение, мультикурсор, read-only, попап", async () => {
+    it("не запрашивает: выделение, мультикурсор, read-only", async () => {
         const source = vi.fn(items({ insertText: "x" }));
 
         const withSelection = makeEditor("abc", 3);
@@ -484,9 +505,6 @@ describe("InlineCompletionsService — гейты", () => {
         const readOnly = makeEditor("abc", 3);
         readOnly.setReadOnly(true);
         await makeService(makeGroup(readOnly.editor, source).group).trigger();
-
-        const popup = makeEditor("abc", 3);
-        await makeService(makeGroup(popup.editor, source).group, { popupOpen: () => true }).trigger();
 
         expect(source).not.toHaveBeenCalled();
     });
@@ -605,7 +623,8 @@ describe("InlineCompletionsService — гейты", () => {
         await p4;
         expect(s4.isOpen()).toBe(false);
 
-        // Suggest-попап открылся за время запроса.
+        // Suggest-попап открылся за время запроса: ответ не выбрасывается, а
+        // ждёт закрытия попапа невидимым (см. «жизнь сессии»).
         const popup = makeEditor("ab", 2);
         const d5 = deferred();
         let popupOpen = false;
@@ -615,6 +634,7 @@ describe("InlineCompletionsService — гейты", () => {
         d5.resolvers[0](ITEM);
         await p5;
         expect(s5.isOpen()).toBe(false);
+        expect(popup.setGhostText).toHaveBeenLastCalledWith(null);
 
         // Каретка ушла на другую строку (та же колонка — ловит именно строка).
         const movedLine = makeEditor("ab", 2);
@@ -771,25 +791,87 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("закрытие suggest-попапа перезапрашивает подсказку без правки (Esc → призрак)", async () => {
+    it("под открытым suggest-попапом ответ прячется, а Esc по попапу показывает его сразу, без перезапроса", async () => {
         const fake = makeEditor("con", 3);
         const source = vi.fn(items({ insertText: "sole.log();" }));
         let popupOpen = true;
         const service = makeService(makeGroup(fake.editor, source).group, { popupOpen: () => popupOpen });
 
-        // Пока попап открыт — запросов нет.
+        // Попап открыт — запрос всё равно идёт (как у upstream), но призрак не
+        // рисуется, и Tab/Escape ему не достаются.
         fake.type("con", 3);
         await tick();
-        expect(source).not.toHaveBeenCalled();
+        expect(source).toHaveBeenCalledTimes(1);
+        expect(service.isOpen()).toBe(false);
+        expect(contextKey(service, "inlineSuggestionVisible")).toBe(false);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+        service.acceptCurrent();
+        expect(fake.applyExternalEdits).not.toHaveBeenCalled();
 
-        // Esc закрыл попап: подписка обязана перезапросить и показать призрака.
+        // Esc закрыл попап: готовый ответ — на экран в том же такте.
         popupOpen = false;
         service.firePopupClose();
-        await tick();
-
-        expect(source).toHaveBeenCalledTimes(1);
         expect(service.isOpen()).toBe(true);
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 3, lines: ["sole.log();"] });
+        await tick();
+        expect(source).toHaveBeenCalledTimes(1);
+    });
+
+    it("открывшийся suggest-попап прячет показанный призрак, закрывшийся — возвращает", async () => {
+        const fake = makeEditor("con", 3);
+        let popupOpen = false;
+        const service = makeService(makeGroup(fake.editor, items({ insertText: "sole" })).group, {
+            popupOpen: () => popupOpen,
+        });
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        popupOpen = true;
+        service.firePopupShow();
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+        expect(service.isOpen()).toBe(false);
+
+        // Набор, совпадающий с подсказкой, под попапом сессию держит, но не рисует.
+        fake.type("cons", 4);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+
+        popupOpen = false;
+        service.firePopupClose();
+        expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 4, lines: ["ole"] });
+    });
+
+    it("закрытие попапа, когда сессия протухла без события (тихая смена редактора), её не показывает", async () => {
+        const fake = makeEditor("con", 3);
+        let popupOpen = false;
+        const g = makeGroup(fake.editor, items({ insertText: "sole" }));
+        const service = makeService(g.group, { popupOpen: () => popupOpen });
+        await service.trigger();
+        popupOpen = true;
+        service.firePopupShow();
+
+        g.setActiveEditorSilently(null);
+        popupOpen = false;
+        service.firePopupClose();
+        expect(service.isOpen()).toBe(false);
+        expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
+    });
+
+    it("закрытие попапа с испорченной сессией гасит её и перезапрашивает", async () => {
+        const fake = makeEditor("con", 3);
+        const source = vi.fn(items({ insertText: "sole" }));
+        let popupOpen = false;
+        const service = makeService(makeGroup(fake.editor, source).group, { popupOpen: () => popupOpen });
+        await service.trigger();
+        popupOpen = true;
+        service.firePopupShow();
+
+        // Под попапом каретку увели — сессия больше не годна.
+        fake.move(0, 1);
+        popupOpen = false;
+        service.firePopupClose();
+        expect(service.isOpen()).toBe(false);
+        await tick();
+        expect(source).toHaveBeenCalledTimes(2);
     });
 
     it("закрытие попапа без активного редактора — no-op (trigger сам гейтит)", async () => {
@@ -1456,5 +1538,89 @@ describe("computeIndentationLessThanTabSize", () => {
         // «В отступе» — про текст ДО каретки: непробельный хвост правее каретки
         // не выводит её из отступа.
         expect(computeIndentationLessThanTabSize("  xx", 2, "    y", 4)).toBe(false);
+    });
+});
+
+describe("InlineCompletionsService — состояние для quick suggest", () => {
+    it("регистрируется в suggest и снимается на dispose", () => {
+        const fake = makeEditor("a", 1);
+        const service = makeService(makeGroup(fake.editor, items()).group);
+        expect(service.inlineState()).not.toBeNull();
+        service.dispose();
+        expect(service.inlineState()).toBeNull();
+    });
+
+    it("loading: отложенный и летящий запрос; событие на исходе; visible — показанный призрак", async () => {
+        const fake = makeEditor("con", 3);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group, { delay: 20 });
+        const state = service.inlineState()!;
+        const changed = vi.fn();
+        state.onDidChange(changed);
+        expect(state.isLoading()).toBe(false);
+
+        fake.type("cons", 4); // запрос отложен дебаунсом
+        expect(state.isLoading()).toBe(true);
+        await tick(30); // ушёл к провайдеру
+        expect(pending.tokens).toHaveLength(1);
+        expect(state.isLoading()).toBe(true);
+        expect(state.isVisible()).toBe(false);
+        changed.mockClear();
+
+        pending.respond(0, [{ insertText: "ole" }]);
+        await tick();
+        expect(state.isLoading()).toBe(false);
+        expect(state.isVisible()).toBe(true);
+        expect(changed).toHaveBeenCalled();
+    });
+
+    it("пустой ответ — тоже исход: событие есть, призрака нет", async () => {
+        const fake = makeEditor("con", 3);
+        const service = makeService(makeGroup(fake.editor, items()).group);
+        const state = service.inlineState()!;
+        const changed = vi.fn();
+        state.onDidChange(changed);
+        await service.trigger();
+        expect(changed).toHaveBeenCalled();
+        expect(state.isVisible()).toBe(false);
+        expect(state.isLoading()).toBe(false);
+    });
+
+    it("stopAutomatic отменяет летящий запрос (тайм-аут ожидания у suggest)", () => {
+        const fake = makeEditor("con", 3);
+        const pending = pendingSource();
+        const service = makeService(makeGroup(fake.editor, pending.source).group);
+        const state = service.inlineState()!;
+        const changed = vi.fn();
+        state.onDidChange(changed);
+        void service.trigger();
+        expect(state.isLoading()).toBe(true);
+        state.stopAutomatic();
+        expect(pending.tokens[0].isCancellationRequested).toBe(true);
+        expect(state.isLoading()).toBe(false);
+        expect(changed).toHaveBeenCalled();
+    });
+
+    it("открытие попапа — событие состояния (призрак ушёл с экрана)", async () => {
+        const fake = makeEditor("con", 3);
+        let popupOpen = false;
+        const service = makeService(makeGroup(fake.editor, items({ insertText: "sole" })).group, {
+            popupOpen: () => popupOpen,
+        });
+        await service.trigger();
+        const state = service.inlineState()!;
+        const changed = vi.fn();
+        state.onDidChange(changed);
+        popupOpen = true;
+        service.firePopupShow();
+        expect(changed).toHaveBeenCalledTimes(1);
+        expect(state.isVisible()).toBe(false);
+    });
+
+    it("открытие попапа без сессии ничего не рисует", () => {
+        const fake = makeEditor("con", 3);
+        const service = makeService(makeGroup(fake.editor, items()).group, { popupOpen: () => true });
+        service.firePopupShow();
+        expect(fake.setGhostText).not.toHaveBeenCalled();
     });
 });

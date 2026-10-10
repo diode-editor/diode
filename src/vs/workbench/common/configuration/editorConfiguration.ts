@@ -83,6 +83,65 @@ export const editorConfiguration = {
             default: true,
             description: "Controls whether to automatically show inline suggestions in the editor.",
         },
+        // Эталон: `editor.inlineSuggest.suppressSuggestions` (editorOptions.ts). Гейт
+        // авто-открытия suggest-попапа, пока призрак на экране (`canShowQuickSuggest`).
+        "editor.inlineSuggest.suppressSuggestions": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls how inline suggestions interact with the suggest widget. If enabled, the suggest widget is " +
+                "not shown automatically when inline suggestions are available.",
+        },
+        // Эталон: EditorQuickSuggestions (editorOptions.ts). Схема эталона — anyOf
+        // boolean | строка-режим | объект `{other, comments, strings}`; у нас anyOf
+        // нет, поэтому три типа без enum, а режимы проверяет
+        // `readQuickSuggestions` (тот же `validate`, что у эталона: мусор → дефолт).
+        "editor.quickSuggestions": {
+            scope: "language-overridable",
+            type: ["boolean", "string", "object"],
+            default: { other: "offWhenInlineCompletions", comments: "off", strings: "off" },
+            description:
+                "Controls whether suggestions should automatically show up while typing. This can be controlled for " +
+                "typing in comments, strings, and other code. Quick suggestion can be configured to show as ghost " +
+                "text or with the suggest widget. Also be aware of the `#editor.suggestOnTriggerCharacters#`-setting " +
+                "which controls if suggestions are triggered by special characters.",
+        },
+        "editor.quickSuggestionsDelay": {
+            scope: "language-overridable",
+            type: "number",
+            default: 10,
+            minimum: 0,
+            // Constants.MAX_SAFE_SMALL_INTEGER эталона (1 << 30).
+            maximum: 1073741824,
+            description: "Controls the delay in milliseconds after which quick suggestions will show up.",
+        },
+        "editor.suggestOnTriggerCharacters": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether suggestions should automatically show up when typing trigger characters.",
+        },
+        // Эталон: editorConfigurationSchema.ts. `offWithInlineSuggestions` там
+        // смотрит не на `editor.inlineSuggest.enabled`, а на настройку включения
+        // Copilot из product.json (`github.copilot.enable`) — так и у нас, см.
+        // `CompletionService.wordBasedSuggestionsOff`.
+        "editor.wordBasedSuggestions": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["off", "offWithInlineSuggestions", "currentDocument", "matchingDocuments", "allDocuments"],
+            enumDescriptions: [
+                "Turn off Word Based Suggestions.",
+                "Turn off Word Based Suggestions when Inline Suggestions are present.",
+                "Only suggest words from the active document.",
+                "Suggest words from all open documents of the same language.",
+                "Suggest words from all open documents.",
+            ],
+            default: "offWithInlineSuggestions",
+            description:
+                "Controls whether completions should be computed based on words in the document and from which " +
+                "documents they are computed.",
+        },
         // Наши ключи в vscode-неймспейсе (в upstream дебаунс адаптивный и зашит
         // константой, а таймаута ответа нет вовсе — там CancellationToken).
         // Имя `delay` — по образцу `editor.quickSuggestionsDelay`.

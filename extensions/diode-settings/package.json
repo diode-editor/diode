@@ -16,5 +16,19 @@
     "onLanguage:json",
     "onLanguage:jsonc"
   ],
+  "contributes": {
+    "configurationDefaults": {
+      "[json]": {
+        "editor.quickSuggestions": {
+          "strings": true
+        }
+      },
+      "[jsonc]": {
+        "editor.quickSuggestions": {
+          "strings": true
+        }
+      }
+    }
+  },
   "main": "./out/extension.cjs"
 }

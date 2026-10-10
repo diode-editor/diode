@@ -92,6 +92,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description:
             "Milliseconds to wait for an inline suggestion provider to answer. After that the request is given up on and no suggestion is shown.",
     },
+    {
+        key: "editor.inlineSuggest.suppressSuggestions",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls how inline suggestions interact with the suggest widget. If enabled, the suggest widget is not shown automatically when inline suggestions are available.",
+    },
     { key: "editor.insertSpaces", type: "boolean", default: true, description: "Insert spaces when pressing Tab." },
     {
         key: "editor.occurrencesHighlight",
@@ -100,7 +107,34 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls whether the editor highlights semantic symbol occurrences.",
         enum: ["off", "singleFile", "multiFile"],
     },
+    {
+        key: "editor.quickSuggestions",
+        type: "boolean | string | object",
+        default: { other: "offWhenInlineCompletions", comments: "off", strings: "off" },
+        description:
+            "Controls whether suggestions should automatically show up while typing. This can be controlled for typing in comments, strings, and other code. Quick suggestion can be configured to show as ghost text or with the suggest widget. Also be aware of the `#editor.suggestOnTriggerCharacters#`-setting which controls if suggestions are triggered by special characters.",
+    },
+    {
+        key: "editor.quickSuggestionsDelay",
+        type: "number",
+        default: 10,
+        description: "Controls the delay in milliseconds after which quick suggestions will show up.",
+    },
+    {
+        key: "editor.suggestOnTriggerCharacters",
+        type: "boolean",
+        default: true,
+        description: "Controls whether suggestions should automatically show up when typing trigger characters.",
+    },
     { key: "editor.tabSize", type: "number", default: 4, description: "The number of spaces a tab is equal to." },
+    {
+        key: "editor.wordBasedSuggestions",
+        type: "string",
+        default: "offWithInlineSuggestions",
+        description:
+            "Controls whether completions should be computed based on words in the document and from which documents they are computed.",
+        enum: ["off", "offWithInlineSuggestions", "currentDocument", "matchingDocuments", "allDocuments"],
+    },
     {
         key: "editor.wordWrap",
         type: "string",

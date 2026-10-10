@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
-import { Event } from "../../../../base/common/event.ts";
+import { Emitter, Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -18,17 +18,26 @@ import type {
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type { ILineTokens } from "../../../../editor/common/languages/iLineTokens.ts";
+import { createLineTokens, createToken } from "../../../../editor/common/languages/iLineTokens.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
+import { isValidConfigurationValue } from "../../../../platform/configuration/common/configurationValidation.ts";
+import type {
+    IConfigurationOverrides,
+    IConfigurationService,
+} from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 
-import { CompletionService } from "./completionService.ts";
+import { CompletionService, type IInlineSuggestionsState } from "./completionService.ts";
 import { SuggestComponent } from "./suggestComponent.ts";
 
 interface FakeEditor {
@@ -50,10 +59,18 @@ interface FakeEditor {
     /** Мультикурсор: сколько кареток отдаёт `viewState.selections`. */
     setCursorCount: (count: number) => void;
     setAnchorNull: (value: boolean) => void;
+    /** Токены строки каретки (как их отдаёт `viewState.tokenStore`); `undefined` — стора нет. */
+    setTokens: (tokens: ILineTokens | undefined) => void;
 }
 
 function makeEditor(lineContent: string, character: number, docText = lineContent, anchorChar = character): FakeEditor {
-    const state = { line: lineContent, lineNo: 0, anchorChar, activeChar: character };
+    const state: {
+        line: string;
+        lineNo: number;
+        anchorChar: number;
+        activeChar: number;
+        tokens: ILineTokens | undefined;
+    } = { line: lineContent, lineNo: 0, anchorChar, activeChar: character, tokens: undefined };
     // Версия модели: запрос к провайдеру несёт её вместо текста; печать её поднимает.
     const document = { versionId: 1 };
     let anchorNull = false;
@@ -71,6 +88,10 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
                     active: { line: state.lineNo + i, character: state.activeChar },
                 })),
                 document: { getLineContent: (_line: number) => state.line },
+                tokenStore:
+                    state.tokens === undefined
+                        ? undefined
+                        : { tokenizeUpTo: () => undefined, getLineTokens: () => state.tokens },
             };
         },
         getText: () => docText,
@@ -139,6 +160,9 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
         },
         setAnchorNull: (value) => {
             anchorNull = value;
+        },
+        setTokens: (tokens) => {
+            state.tokens = tokens;
         },
     };
 }
@@ -215,10 +239,76 @@ function makeStateService(): IStateService {
     };
 }
 
+/** Схемы ключей приложения — по ним заглушка конфига отдаёт дефолты и отбраковывает мусор. */
+const APP_SCHEMAS = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
+
+/**
+ * Настройки теста: плоские ключи и секции языков (`"[json]": {…}`). Живые —
+ * сервис читает их на каждом обращении, тест вправе менять по ходу.
+ */
+type TestSettings = Record<string, unknown>;
+
+const settingsOf = new WeakMap<CompletionService, TestSettings>();
+
+/**
+ * Конфиг поверх {@link TestSettings}: значение секции языка главнее плоского,
+ * значение вне схемы ключа (и отсутствующее) — дефолт схемы, как у настоящего сервиса.
+ */
+function makeConfiguration(settings: TestSettings): IConfigurationService {
+    return {
+        get: (key: string, overrides?: IConfigurationOverrides): unknown => {
+            const section =
+                overrides?.overrideIdentifier === undefined
+                    ? undefined
+                    : (settings[`[${overrides.overrideIdentifier}]`] as TestSettings | undefined);
+            const raw = section?.[key] ?? settings[key];
+            const schema = APP_SCHEMAS.get(key);
+            if (schema === undefined) return raw;
+            return raw !== undefined && isValidConfigurationValue(schema, raw) ? raw : schema.default;
+        },
+    } as unknown as IConfigurationService;
+}
+
+/** Меняет настройку уже созданного сервиса (live-reload в проде). */
+function setSetting(service: CompletionService, key: string, value: unknown): void {
+    const settings = settingsOf.get(service);
+    if (settings === undefined) throw new Error("сервис создан мимо createService");
+    settings[key] = value;
+}
+
+/**
+ * Сервис с конфигом теста. Дефолт задержки quick suggest — 0: авто-suggest
+ * детерминированно срабатывает на следующем тике.
+ */
+function newService(
+    component: SuggestComponent,
+    group: IEditorService,
+    commands: CommandRegistry,
+    state: IStateService,
+    focusTracker: FocusTracker,
+    languageFeatures: LanguageFeaturesService,
+    initial: TestSettings = {},
+): CompletionService {
+    const settings: TestSettings = { "editor.quickSuggestionsDelay": 0, ...initial };
+    const service = new CompletionService(
+        component,
+        group,
+        commands,
+        state,
+        focusTracker,
+        languageFeatures,
+        makeConfiguration(settings),
+    );
+    settingsOf.set(service, settings);
+    return service;
+}
+
 /** Пара component+service с фейковым CommandRegistry (шпион `execute`). */
 function createService(
     group: IEditorService,
     state: IStateService = makeStateService(),
+    settings: TestSettings = {},
+    languageFeatures: LanguageFeaturesService = languageFeaturesOf(group),
 ): {
     service: CompletionService;
     component: SuggestComponent;
@@ -232,7 +322,7 @@ function createService(
     const body = new BodyElement();
     const component = new SuggestComponent(testLayoutService(body));
     const focusTracker = new FocusTracker();
-    const service = new CompletionService(component, group, commands, state, focusTracker, languageFeaturesOf(group));
+    const service = newService(component, group, commands, state, focusTracker, languageFeatures, settings);
     return { service, component, body, execute, focusTracker };
 }
 
@@ -242,7 +332,6 @@ function setup(items: readonly ICoreCompletionItem[], lineContent = "ind", chara
     const group = makeGroup(fake.editor, source);
 
     const { service, component, execute, focusTracker, body } = createService(group);
-    service.autoSuggestDelayMs = 0; // детерминированный авто-suggest в тестах
     const testApp = TestApp.create(body, new Size(80, 24));
     return { service, component, body, testApp, fake, source, execute, focusTracker, editor: fake.editor };
 }
@@ -728,7 +817,6 @@ describe("CompletionService", () => {
         const group = makeGroup(fake.editor, source);
         (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
         const { service, component, body } = createService(group);
-        service.autoSuggestDelayMs = 0;
         TestApp.create(body, new Size(80, 24));
 
         fake.type("d.", 2);
@@ -756,7 +844,7 @@ describe("CompletionService", () => {
         const body = new BodyElement();
         const component = new SuggestComponent(testLayoutService(body));
         const commands = { execute: vi.fn() } as unknown as CommandRegistry;
-        const service = new CompletionService(
+        const service = newService(
             component,
             group,
             commands,
@@ -764,7 +852,6 @@ describe("CompletionService", () => {
             new FocusTracker(),
             languageFeatures,
         );
-        service.autoSuggestDelayMs = 0;
         TestApp.create(body, new Size(80, 24));
 
         fake.type("d.", 2);
@@ -780,7 +867,6 @@ describe("CompletionService", () => {
         const group = makeGroup(fake.editor, source);
         (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
         const { service, component, body } = createService(group);
-        service.autoSuggestDelayMs = 0;
         TestApp.create(body, new Size(80, 24));
 
         // Вставка блока (не набор) — не триггер, хотя кончается на `.`.
@@ -858,7 +944,7 @@ describe("CompletionService", () => {
         const group = makeGroup(fake.editor, source);
         (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
         const { service, component, body } = createService(group);
-        service.autoSuggestDelayMs = 5;
+        setSetting(service, "editor.quickSuggestionsDelay", 5);
         TestApp.create(body, new Size(80, 24));
 
         await service.trigger(); // попап открыт
@@ -876,7 +962,7 @@ describe("CompletionService", () => {
 
     it("явный Ctrl+Space отменяет уже запланированный авто-запрос", async () => {
         const { service, source, fake } = setup(ITEMS);
-        service.autoSuggestDelayMs = 50; // достаточно, чтобы успеть отменить
+        setSetting(service, "editor.quickSuggestionsDelay", 50); // достаточно, чтобы успеть отменить
 
         fake.type("inde", 4); // запланировали авто-suggest
         await service.trigger(); // ручной триггер отменяет отложенный
@@ -906,7 +992,6 @@ describe("CompletionService", () => {
         const fake = makeEditor("ind", 3, "ind");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS, true)));
         const { service, component, body } = createService(makeGroup(fake.editor, source));
-        service.autoSuggestDelayMs = 0;
         TestApp.create(body, new Size(80, 24));
 
         await service.trigger();
@@ -1002,7 +1087,7 @@ describe("CompletionService", () => {
             const group = makeGroup(fake.editor, source);
             const { service, component, body, focusTracker } = createService(group);
             // Перезапрос по набору в этих тестах не нужен: смотрим на судьбу ПЕРВОГО запроса.
-            service.autoSuggestDelayMs = 10_000;
+            setSetting(service, "editor.quickSuggestionsDelay", 10_000);
             TestApp.create(body, new Size(80, 24));
             const cancelled = (): boolean[] => tokens.map((token) => token.isCancellationRequested);
             return { fake, service, component, focusTracker, group, source, answers, cancelled };
@@ -1314,6 +1399,19 @@ describe("CompletionService", () => {
         expect(component.view.items[0].kind).toBe(0);
     });
 
+    it("word-based: слова не подмешиваются к пунктам с провайдерским range", async () => {
+        const items: ICoreCompletionItem[] = [
+            {
+                label: "indent_style",
+                insertText: "indent_style",
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+            },
+        ];
+        const { service, component } = setup(items, "ind", 3, "ind indigo");
+        await service.trigger();
+        expect(component.view.items.map((i) => i.label)).toEqual(["indent_style"]);
+    });
+
     it("word-based: собирает слова из всех открытых редакторов и дедупит с провайдерами", async () => {
         const fake = makeEditor("", 0, "alpha beta");
         const other = makeEditor("", 0, "beta gamma indent_style");
@@ -1413,7 +1511,7 @@ describe("CompletionService", () => {
     it("набор без совпадений оставляет последний непустой список (не закрывает)", async () => {
         const { service, component, fake } = setup(ITEMS);
         await service.trigger();
-        fake.type("indz", 4); // ничего не матчит
+        fake.type("indq", 4); // ничего не матчит
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
         expect(service.isOpen()).toBe(true);
     });
@@ -1467,7 +1565,7 @@ describe("CompletionService", () => {
 
     it("движение каретки при закрытом попапе не снимает запланированный авто-запрос", async () => {
         const { service, fake, source } = setup(ITEMS);
-        service.autoSuggestDelayMs = 20;
+        setSetting(service, "editor.quickSuggestionsDelay", 20);
         fake.type("inde", 4); // запланировали авто-suggest
         fake.move(0, 4); // каретка дёрнулась до срабатывания таймера
         await new Promise((resolve) => setTimeout(resolve, 60));
@@ -1618,5 +1716,637 @@ describe("CompletionService", () => {
         const fake = makeEditor("ind", 3, "ind", 1); // anchor=1, active=3 (не collapsed)
         const { service } = createService(makeGroup(fake.editor, undefined));
         expect(service.isOpen()).toBe(false);
+    });
+});
+
+/** Состояние призрака, которым управляет тест (как его видит suggest). */
+function fakeInlineState(): IInlineSuggestionsState & {
+    visible: boolean;
+    loading: boolean;
+    stopped: number;
+    change: (patch: { visible?: boolean; loading?: boolean }) => void;
+} {
+    const emitter = new Emitter<void>();
+    const state = {
+        visible: false,
+        loading: false,
+        stopped: 0,
+        isVisible: () => state.visible,
+        isLoading: () => state.loading,
+        stopAutomatic: () => {
+            state.stopped++;
+            state.loading = false;
+        },
+        onDidChange: emitter.event,
+        change: (patch: { visible?: boolean; loading?: boolean }) => {
+            Object.assign(state, patch);
+            emitter.fire();
+        },
+    };
+    return state;
+}
+
+/**
+ * Сервис с источником автодополнения и (по желанию) inline-провайдером в реестре
+ * — под ним действует режим `offWhenInlineCompletions`.
+ */
+function quickSetup(options: { line?: string; character?: number; settings?: TestSettings; inline?: boolean } = {}) {
+    const line = options.line ?? "ind";
+    const fake = makeEditor(line, options.character ?? line.length, line);
+    const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+    const group = makeGroup(fake.editor, source);
+    const languageFeatures = languageFeaturesOf(group);
+    if (options.inline === true) {
+        languageFeatures.inlineCompletionsProvider.register("*", {
+            provideInlineCompletions: () => Promise.resolve([]),
+        });
+    }
+    const { service, body } = createService(group, makeStateService(), options.settings, languageFeatures);
+    TestApp.create(body, new Size(80, 24));
+    const inline = fakeInlineState();
+    const registration = service.setInlineSuggestionsState(inline);
+    return { service, fake, source, inline, registration, group };
+}
+
+describe("CompletionService — quick suggest (эталон suggestModel)", () => {
+    it("открывается, только когда каретка в конце слова, которое не число", async () => {
+        const { service, fake, source } = quickSetup({ line: "x", character: 1 });
+        for (const [line, character] of [
+            ["x ", 2],
+            ["x (", 3],
+            ["x (4", 4],
+            ["x (42", 5],
+        ] as const) {
+            fake.type(line, character);
+            await flushTimers();
+            expect(source).not.toHaveBeenCalled();
+        }
+        // Буква после числа — уже слово `42a`, не число: запрос уходит.
+        fake.type("x (42a", 6);
+        await flushTimers();
+        expect(source).toHaveBeenCalled();
+        void service;
+    });
+
+    it("не-ASCII буква тоже открывает: слово — по определению эталона, а не по \\w", async () => {
+        const { service, fake } = quickSetup({ line: "", character: 0 });
+        fake.type("п", 1);
+        await flushTimers();
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("набор внутри слова — нет, а буква перед словом — да", async () => {
+        const inside = quickSetup({ line: "indent", character: 3 });
+        inside.fake.type("indeent", 4);
+        await flushTimers();
+        expect(inside.source).not.toHaveBeenCalled();
+
+        const before = quickSetup({ line: "dent", character: 0 });
+        before.fake.type("ident", 1);
+        await flushTimers();
+        expect(before.service.isOpen()).toBe(true);
+    });
+
+    it("editor.quickSuggestions: false — набор не открывает, Ctrl+Space работает", async () => {
+        const { service, fake, source } = quickSetup({ settings: { "editor.quickSuggestions": false } });
+        fake.type("inde", 4);
+        await flushTimers();
+        expect(source).not.toHaveBeenCalled();
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("режим берётся для вида токена перед кареткой: строки и комментарии по умолчанию off", async () => {
+        const { service, fake, source } = quickSetup({ line: '"ind', character: 4 });
+        const stringTokens = createLineTokens([createToken(0, ["source.json", "string.quoted.double.json"])]);
+        fake.setTokens(stringTokens);
+        fake.type('"inde', 5);
+        await flushTimers();
+        expect(source).not.toHaveBeenCalled();
+
+        fake.setTokens(createLineTokens([createToken(0, ["source.ts", "comment.line.ts"])]));
+        fake.type('"inden', 6);
+        await flushTimers();
+        expect(source).not.toHaveBeenCalled();
+
+        // Код — открывается.
+        fake.setTokens(createLineTokens([createToken(0, ["source.ts"])]));
+        fake.type('"indent', 7);
+        await flushTimers();
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("вид токена — у символа СЛЕВА от каретки, а не под ней", async () => {
+        // `"ind"`: кавычки — строка, `ind` — код; каретка между `d` и закрывающей кавычкой.
+        const { service, fake } = quickSetup({ line: '"in"', character: 3 });
+        fake.setTokens(
+            createLineTokens([
+                createToken(0, ["source.json", "string.quoted.double.json"]),
+                createToken(1, ["source.json"]),
+                createToken(4, ["source.json", "string.quoted.double.json"]),
+            ]),
+        );
+        fake.type('"ind"', 4);
+        await flushTimers();
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("секция языка включает строки (как `[json]` у json-language-features)", async () => {
+        const { service, fake } = quickSetup({
+            line: '"ind',
+            settings: { "[editorconfig]": { "editor.quickSuggestions": { strings: true } } },
+        });
+        fake.setTokens(createLineTokens([createToken(0, ["source.json", "string.quoted.double.json"])]));
+        fake.type('"inde', 5);
+        await flushTimers();
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("режим inline попап не открывает (ghost из пунктов suggest не поддержан)", async () => {
+        const { fake, source } = quickSetup({ settings: { "editor.quickSuggestions": "inline" } });
+        fake.type("inde", 4);
+        await flushTimers();
+        expect(source).not.toHaveBeenCalled();
+    });
+
+    it("editor.quickSuggestionsDelay: попап ждёт задержку", async () => {
+        // Секция языка — настройка читается для языка документа.
+        const { service, fake } = quickSetup({
+            settings: { "[editorconfig]": { "editor.quickSuggestionsDelay": 40 } },
+        });
+        fake.type("inde", 4);
+        await flushTimers();
+        expect(service.isOpen()).toBe(false);
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("дефолт задержки — 10 мс, как quickSuggestionsDelay эталона", async () => {
+        const { service, fake } = quickSetup();
+        setSetting(service, "editor.quickSuggestionsDelay", undefined);
+        fake.type("inde", 4);
+        await new Promise((resolve) => setTimeout(resolve, 2));
+        expect(service.isOpen()).toBe(false);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        expect(service.isOpen()).toBe(true);
+    });
+
+    describe("offWhenInlineCompletions — уступает призраку", () => {
+        it("призрак уже на экране — попап не открывается", async () => {
+            const { fake, source, inline } = quickSetup({ inline: true });
+            inline.visible = true;
+            fake.type("inde", 4);
+            await flushTimers();
+            expect(source).not.toHaveBeenCalled();
+        });
+
+        it("ждёт ответа призрака: пришёл призрак — попапа нет", async () => {
+            const { fake, source, inline } = quickSetup({ inline: true });
+            inline.loading = true;
+            fake.type("inde", 4);
+            await flushTimers();
+            expect(source).not.toHaveBeenCalled();
+
+            inline.change({ visible: true, loading: false });
+            await flushTimers();
+            expect(source).not.toHaveBeenCalled();
+        });
+
+        it("ждёт ответа призрака: призрака нет — попап открывается", async () => {
+            const { service, fake, inline } = quickSetup({ inline: true });
+            inline.loading = true;
+            fake.type("inde", 4);
+            await flushTimers();
+            expect(service.isOpen()).toBe(false);
+
+            // Событие без исхода (ещё грузится) ожидания не заканчивает.
+            inline.change({});
+            await flushTimers();
+            expect(service.isOpen()).toBe(false);
+
+            inline.change({ loading: false });
+            await flushTimers();
+            expect(service.isOpen()).toBe(true);
+        });
+
+        it("призрак не ответил за 750 мс — попап открывается, а запрос призрака бросается", async () => {
+            vi.useFakeTimers();
+            try {
+                const { service, fake, inline } = quickSetup({ inline: true });
+                inline.loading = true;
+                fake.type("inde", 4);
+                await vi.advanceTimersByTimeAsync(749);
+                expect(service.isOpen()).toBe(false);
+                expect(inline.stopped).toBe(0);
+                await vi.advanceTimersByTimeAsync(1);
+                expect(inline.stopped).toBe(1);
+                expect(service.isOpen()).toBe(true);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it("исход ожидания окончателен: таймер после пришедшего призрака не открывает попап", async () => {
+            vi.useFakeTimers();
+            try {
+                const { service, fake, inline } = quickSetup({ inline: true });
+                inline.loading = true;
+                fake.type("inde", 4);
+                await vi.advanceTimersByTimeAsync(5);
+                inline.change({ visible: true, loading: false });
+                // Призрак погасили — событие снова есть, но ожидание уже снято.
+                inline.change({ visible: false });
+                await vi.advanceTimersByTimeAsync(1000);
+                expect(service.isOpen()).toBe(false);
+                expect(inline.stopped).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it("набор за время ожидания: старое ожидание не открывает попап", async () => {
+            const { fake, source, inline } = quickSetup({
+                inline: true,
+                settings: { "editor.quickSuggestionsDelay": 30 },
+            });
+            inline.loading = true;
+            fake.type("inde", 4);
+            await new Promise((resolve) => setTimeout(resolve, 40)); // ждёт призрака
+            fake.type("inde ", 5); // следующий цикл: не слово — его quick suggest не откроет
+            inline.change({ loading: false });
+            await new Promise((resolve) => setTimeout(resolve, 40));
+            expect(source).not.toHaveBeenCalled();
+        });
+
+        it("правка и уход каретки, пока ждали, — попап не открывается", async () => {
+            const edited = quickSetup({ inline: true });
+            edited.inline.loading = true;
+            edited.fake.type("inde", 4);
+            await flushTimers();
+            edited.fake.edit("indent", 4); // вставка без набора: версия другая
+            edited.inline.change({ loading: false });
+            await flushTimers();
+            expect(edited.source).not.toHaveBeenCalled();
+
+            const moved = quickSetup({ inline: true });
+            moved.inline.loading = true;
+            moved.fake.type("inde", 4);
+            await flushTimers();
+            moved.fake.move(0, 2);
+            moved.inline.change({ loading: false });
+            await flushTimers();
+            expect(moved.source).not.toHaveBeenCalled();
+
+            const lined = quickSetup({ inline: true });
+            lined.inline.loading = true;
+            lined.fake.type("inde", 4);
+            await flushTimers();
+            lined.fake.move(1, 4);
+            lined.inline.change({ loading: false });
+            await flushTimers();
+            expect(lined.source).not.toHaveBeenCalled();
+
+            const multi = quickSetup({ inline: true });
+            multi.inline.loading = true;
+            multi.fake.type("inde", 4);
+            await flushTimers();
+            multi.fake.setCursorCount(2);
+            multi.inline.change({ loading: false });
+            await flushTimers();
+            expect(multi.source).not.toHaveBeenCalled();
+
+            const selected = quickSetup({ inline: true });
+            selected.inline.loading = true;
+            selected.fake.type("inde", 4);
+            await flushTimers();
+            selected.fake.setSelection(0, 4);
+            selected.inline.change({ loading: false });
+            await flushTimers();
+            expect(selected.source).not.toHaveBeenCalled();
+        });
+
+        it("закрытие (Esc) снимает ожидание: ответ призрака попап не поднимает", async () => {
+            const { service, fake, source, inline } = quickSetup({ inline: true });
+            inline.loading = true;
+            fake.type("inde", 4);
+            await flushTimers();
+            service.close();
+            inline.change({ loading: false });
+            await flushTimers();
+            expect(source).not.toHaveBeenCalled();
+        });
+
+        it("призрака нет и запрос не идёт — попап открывается сразу, без ожидания", async () => {
+            vi.useFakeTimers();
+            try {
+                const { service, fake } = quickSetup({ inline: true });
+                fake.type("inde", 4);
+                await vi.advanceTimersByTimeAsync(20);
+                expect(service.isOpen()).toBe(true);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it("после ожидания запрос остаётся авто: под набранное ничего не подошло — попапа нет", async () => {
+            const { service, fake, source, inline } = quickSetup({ inline: true, line: "inde " });
+            inline.loading = true;
+            fake.type("inde q", 6);
+            await flushTimers();
+            expect(source).not.toHaveBeenCalled();
+            inline.change({ loading: false });
+            await flushTimers();
+            expect(source).toHaveBeenCalledTimes(1);
+            expect(service.isOpen()).toBe(false);
+        });
+
+        it("смена активного редактора за время ожидания — попап не открывается ни в одном", async () => {
+            const { fake, source, inline, group } = quickSetup({ inline: true });
+            const other = makeEditor("indent", 6);
+            inline.loading = true;
+            fake.type("inde", 4);
+            await flushTimers();
+            Object.assign(group, { getActiveEditor: () => other.editor });
+            inline.change({ loading: false });
+            await flushTimers();
+            expect(source).not.toHaveBeenCalled();
+        });
+
+        it("попап, открытый за время ожидания, не открывается повторно", async () => {
+            const { service, fake, source, inline } = quickSetup({ inline: true });
+            inline.loading = true;
+            fake.type("inde", 4);
+            await flushTimers();
+            // Ctrl+Space, а ожидание ещё висит: trigger() снимает его.
+            await service.trigger();
+            inline.change({ loading: false });
+            await flushTimers();
+            expect(source).toHaveBeenCalledTimes(1);
+        });
+
+        it("без inline-провайдера или при editor.inlineSuggest.enabled: false — не ждёт", async () => {
+            const noProvider = quickSetup();
+            noProvider.inline.loading = true;
+            noProvider.fake.type("inde", 4);
+            await flushTimers();
+            expect(noProvider.service.isOpen()).toBe(true);
+
+            const disabled = quickSetup({
+                inline: true,
+                settings: { "[editorconfig]": { "editor.inlineSuggest.enabled": false } },
+            });
+            disabled.inline.loading = true;
+            disabled.fake.type("inde", 4);
+            await flushTimers();
+            expect(disabled.service.isOpen()).toBe(true);
+        });
+
+        it("состояние призрака не подключено — открывает сразу, по тем же правилам авто-запроса", async () => {
+            const { service, fake, inline, registration } = quickSetup({ inline: true });
+            // Снятое состояние «грузится» вечно: если бы оно осталось подключённым,
+            // попап ждал бы его.
+            inline.loading = true;
+            registration.dispose();
+            fake.type("inde", 4);
+            await flushTimers();
+            expect(service.isOpen()).toBe(true);
+
+            // Авто-запрос: под набранное ничего не подошло — попапа нет.
+            service.close();
+            fake.type("inde q", 6);
+            await flushTimers();
+            expect(service.isOpen()).toBe(false);
+        });
+
+        it("dispose устаревшей регистрации не снимает текущую", async () => {
+            const { service, fake, registration } = quickSetup({ inline: true });
+            const current = fakeInlineState();
+            current.visible = true;
+            service.setInlineSuggestionsState(current);
+            registration.dispose(); // прежняя регистрация — уже не текущая
+            fake.type("inde", 4);
+            await flushTimers();
+            // Текущее состояние на месте: призрак на экране — попапа нет.
+            expect(service.isOpen()).toBe(false);
+        });
+
+        it("режим on не ждёт призрака и открывает поверх него", async () => {
+            const { service, fake, inline } = quickSetup({
+                inline: true,
+                settings: { "editor.quickSuggestions": true },
+            });
+            inline.visible = true;
+            inline.loading = true;
+            fake.type("inde", 4);
+            await flushTimers();
+            expect(service.isOpen()).toBe(true);
+        });
+    });
+
+    it("editor.inlineSuggest.suppressSuggestions: призрак на экране гасит авто-открытие (и по набору, и по символу)", async () => {
+        const settings = {
+            "editor.quickSuggestions": true,
+            "[editorconfig]": { "editor.inlineSuggest.suppressSuggestions": true },
+        };
+        const { service, fake, source, inline, group } = quickSetup({ inline: true, settings });
+        inline.visible = true;
+        fake.type("inde", 4);
+        await flushTimers();
+        expect(source).not.toHaveBeenCalled();
+
+        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
+        fake.type("inde.", 5);
+        await flushTimers();
+        expect(source).not.toHaveBeenCalled();
+
+        // Призрака нет — по символу открывается.
+        inline.visible = false;
+        fake.type("inde..", 6);
+        await flushTimers();
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("editor.suggestOnTriggerCharacters: false — символ не открывает попап", async () => {
+        const fake = makeEditor("d", 1, "d");
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const group = makeGroup(fake.editor, source);
+        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
+        const { service, body } = createService(group, makeStateService(), {
+            "[editorconfig]": { "editor.suggestOnTriggerCharacters": false },
+        });
+        TestApp.create(body, new Size(80, 24));
+        fake.type("d.", 2);
+        await flushTimers();
+        expect(source).not.toHaveBeenCalled();
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("триггер-символ, продолжающий слово, идёт путём quick suggest (Invoke, не TriggerCharacter)", async () => {
+        const fake = makeEditor("d", 1, "d");
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const group = makeGroup(fake.editor, source);
+        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["a"];
+        const { service, body } = createService(group);
+        TestApp.create(body, new Size(80, 24));
+        fake.type("da", 2);
+        await flushTimers();
+        void service;
+        expect(source).toHaveBeenCalledWith(
+            expect.objectContaining({ triggerKind: CompletionTriggerKind.Invoke }),
+            expect.anything(),
+        );
+    });
+
+    it("под набранное ничего не подошло — авто-попапа нет, Ctrl+Space показывает весь список", async () => {
+        const { service, fake, source } = quickSetup({ line: "", character: 0 });
+        fake.type("q", 1);
+        await flushTimers();
+        expect(source).toHaveBeenCalledTimes(1);
+        expect(service.isOpen()).toBe(false);
+
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("авто-попап закрывается, когда добор отфильтровал всё; явный держит список", async () => {
+        const auto = quickSetup({ line: "in", character: 2 });
+        auto.fake.type("ind", 3);
+        await flushTimers();
+        expect(auto.service.isOpen()).toBe(true);
+        auto.fake.type("indq", 4);
+        expect(auto.service.isOpen()).toBe(false);
+
+        const explicit = quickSetup({ line: "ind", character: 3 });
+        await explicit.service.trigger();
+        explicit.fake.type("indq", 4);
+        expect(explicit.service.isOpen()).toBe(true);
+    });
+
+    it("неполный авто-список перезапрашивается авто-запросом: пустой ответ закрывает попап", async () => {
+        const fake = makeEditor("in", 2, "in");
+        const source = vi
+            .fn<() => Promise<ICoreCompletionResult>>()
+            .mockResolvedValueOnce(completionResult(ITEMS, true))
+            .mockResolvedValue(completionResult([], false));
+        const { service, body } = createService(makeGroup(fake.editor, source));
+        TestApp.create(body, new Size(80, 24));
+        fake.type("ind", 3);
+        await flushTimers();
+        expect(service.isOpen()).toBe(true);
+        // Добор при неполном списке не закрывает локально, а перезапрашивает.
+        fake.type("indq", 4);
+        expect(service.isOpen()).toBe(true);
+        await flushTimers();
+        expect(source).toHaveBeenCalledTimes(2);
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("onDidShow — один раз на открытие закрытого попапа", async () => {
+        const { service } = quickSetup();
+        const shown = vi.fn();
+        service.onDidShow(shown);
+        await service.trigger();
+        await service.trigger(); // перезапрос открытого — не открытие
+        expect(shown).toHaveBeenCalledTimes(1);
+        service.close();
+        await service.trigger();
+        expect(shown).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("CompletionService — editor.wordBasedSuggestions", () => {
+    function wordSetup(settings: TestSettings, options: { inline?: boolean; otherLanguage?: string } = {}) {
+        const fake = makeEditor("", 0, "alpha beta");
+        const sameLanguage = makeEditor("", 0, "gamma");
+        const otherLanguage = makeEditor("", 0, "delta");
+        Object.assign(otherLanguage.editor, { languageId: options.otherLanguage ?? "python" });
+        const group = makeGroup(fake.editor, undefined, [sameLanguage.editor, otherLanguage.editor]);
+        const languageFeatures = new LanguageFeaturesService();
+        if (options.inline === true) {
+            languageFeatures.inlineCompletionsProvider.register("*", {
+                provideInlineCompletions: () => Promise.resolve([]),
+            });
+        }
+        const { service, component, body } = createService(group, makeStateService(), settings, languageFeatures);
+        TestApp.create(body, new Size(80, 24));
+        const labels = async (): Promise<string[]> => {
+            await service.trigger();
+            return component.view.items.map((i) => i.label);
+        };
+        return { service, labels };
+    }
+
+    it("по умолчанию — открытые документы того же языка", async () => {
+        expect(await wordSetup({}).labels()).toEqual(["alpha", "beta", "gamma"]);
+        expect(await wordSetup({ "editor.wordBasedSuggestions": "matchingDocuments" }).labels()).toEqual([
+            "alpha",
+            "beta",
+            "gamma",
+        ]);
+    });
+
+    it("allDocuments — все открытые; currentDocument — только активный; off — ничего", async () => {
+        expect(await wordSetup({ "editor.wordBasedSuggestions": "allDocuments" }).labels()).toEqual([
+            "alpha",
+            "beta",
+            "gamma",
+            "delta",
+        ]);
+        expect(await wordSetup({ "editor.wordBasedSuggestions": "currentDocument" }).labels()).toEqual([
+            "alpha",
+            "beta",
+        ]);
+        const off = wordSetup({ "editor.wordBasedSuggestions": "off" });
+        expect(await off.labels()).toEqual([]);
+        expect(off.service.isOpen()).toBe(false);
+    });
+
+    it("режим читается для языка документа; гашение — только в режиме offWithInlineSuggestions", async () => {
+        expect(
+            await wordSetup({ "[editorconfig]": { "editor.wordBasedSuggestions": "currentDocument" } }).labels(),
+        ).toEqual(["alpha", "beta"]);
+        // matchingDocuments при inline-провайдере и включённых AI-подсказках слова не гасит.
+        expect(
+            await wordSetup(
+                { "editor.wordBasedSuggestions": "matchingDocuments", "github.copilot.enable": { "*": true } },
+                { inline: true },
+            ).labels(),
+        ).toEqual(["alpha", "beta", "gamma"]);
+    });
+
+    it("offWithInlineSuggestions гасит слова, только если есть inline-провайдер И включены AI-подсказки продукта", async () => {
+        // Inline-провайдер есть, но `github.copilot.enable` не задан — слова остаются (как у эталона без Copilot).
+        expect(await wordSetup({}, { inline: true }).labels()).toEqual(["alpha", "beta", "gamma"]);
+        // Включены для всех языков — слов нет.
+        expect(await wordSetup({ "github.copilot.enable": { "*": true } }, { inline: true }).labels()).toEqual([]);
+        // Без inline-провайдера настройка Copilot ничего не гасит.
+        expect(await wordSetup({ "github.copilot.enable": { "*": true } }).labels()).toEqual([
+            "alpha",
+            "beta",
+            "gamma",
+        ]);
+        // Ключ языка главнее `*`.
+        expect(
+            await wordSetup({ "github.copilot.enable": { "*": true, editorconfig: false } }, { inline: true }).labels(),
+        ).toEqual(["alpha", "beta", "gamma"]);
+        expect(
+            await wordSetup({ "github.copilot.enable": { "*": false, editorconfig: true } }, { inline: true }).labels(),
+        ).toEqual([]);
+        // Не объект — выключены.
+        expect(await wordSetup({ "github.copilot.enable": null }, { inline: true }).labels()).toEqual([
+            "alpha",
+            "beta",
+            "gamma",
+        ]);
+        expect(await wordSetup({ "github.copilot.enable": true }, { inline: true }).labels()).toEqual([
+            "alpha",
+            "beta",
+            "gamma",
+        ]);
+        expect(await wordSetup({ "github.copilot.enable": ["*"] }, { inline: true }).labels()).toEqual([
+            "alpha",
+            "beta",
+            "gamma",
+        ]);
     });
 });

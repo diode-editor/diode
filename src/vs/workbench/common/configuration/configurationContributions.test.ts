@@ -52,6 +52,11 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.inlineSuggest.enabled": "language-overridable",
     "editor.inlineSuggest.delay": "language-overridable",
     "editor.inlineSuggest.requestTimeout": "language-overridable",
+    "editor.inlineSuggest.suppressSuggestions": "language-overridable",
+    "editor.quickSuggestions": "language-overridable",
+    "editor.quickSuggestionsDelay": "language-overridable",
+    "editor.suggestOnTriggerCharacters": "language-overridable",
+    "editor.wordBasedSuggestions": "language-overridable",
     "editor.occurrencesHighlight": "language-overridable",
     "editor.codeActionsOnSave": "language-overridable",
 

@@ -97,12 +97,32 @@ docs/arch/Extensions.md («Inline-completion seam»).
     аппаратного курсора на кадр (фантом рисуется в конце предыдущего ряда, а
     каретка адресуется следующим — то же отсутствие cursor affinity, что в
     docs/TODO/WordWrap.md).
-- **`selectedCompletionInfo` не поддержан.** При открытом suggest-попапе ghost
-  не запрашивается (показанный ДО попапа — остаётся); закрытие попапа
-  (`CompletionService.onDidClose`) перезапрашивает подсказку, так что Esc по
-  попапу сразу приводит призрака. Upstream идёт дальше: показывает
-  «augmentation» выбранного пункта и пере-запрашивает провайдеров на каждую
-  смену выбора.
+- **Взаимодействие с suggest-попапом** — как у эталона:
+  - quick suggest уступает призраку: `editor.quickSuggestions` в режиме
+    `offWhenInlineCompletions` ждёт исхода запроса призрака до 750 мс, призрак
+    показан — попап не открывается ([Suggest.md](Suggest.md), US-22). Сервис
+    призраков отдаёт suggest своё состояние (`IInlineSuggestionsState`: показан /
+    ждём ответа / бросить запрос);
+  - `editor.inlineSuggest.suppressSuggestions` (дефолт `false`);
+  - под открытым попапом запрос призрака идёт, а ответ **не выбрасывается**:
+    сессия живёт невидимой (`inlineSuggestionVisible` ложен, Tab ей не достаётся),
+    открытие попапа прячет уже показанного призрака. Закрытие попапа (Esc, уход
+    из слова) возвращает годную сессию на экран в том же такте, без перезапроса;
+    испорченную — гасит и перезапрашивает.
+- **Не сделано — `selectedCompletionInfo` / augmentation.** Upstream при открытом
+  виджете шлёт провайдерам выбранный пункт (`context.selectedCompletionInfo`),
+  перезапрашивает их на каждую смену выбора и показывает ghost text, только если
+  подсказка **продолжает** выбранный пункт (`_computeAugmentation`,
+  `singleTextEditAugments`); принятие пункта оставляет продолжение
+  (`handleSuggestAccepted`). Плюс `editor.suggest.preview` (выбранный пункт сам
+  призраком, дефолт `false`) и экспериментальный
+  `editor.inlineSuggest.experimental.showOnSuggestConflict`. У нас провайдер
+  получает `selectedCompletionInfo: undefined`, а под попапом призрак не рисуется.
+  Что нужно: поле в `IInlineCompletionRequest` + конвертер в
+  `languagesNamespace.ts` (range+text выбранного пункта — как `resolveAcceptRange`),
+  событие смены выбора от `CompletionService` → перезапрос, матчинг augmentation в
+  `sessionFromItem`, принятие пункта, не гасящее продолжение. Ценно для
+  Copilot-подобных провайдеров, читающих выбранный пункт.
 - **Lifecycle-хуки не реализованы**: `handleItemDidShow` / `handlePartialAccept`
   / `handleEndOfLifetime` / `$freeInlineCompletionsList`, идентичность
   `(pid, idx)`. Нужны провайдерам с телеметрией (Copilot); потребуют bucket-кэш
@@ -129,9 +149,9 @@ docs/arch/Extensions.md («Inline-completion seam»).
   игнорируют `scrollLeft` и клиппятся по JS-символам (унаследовано от
   zone-рендера — см. Editor.md). В `lines[0]` этого люфта больше нет: она часть
   композитной строки, и таб добивает до экранной границы.
-- **Настройки** — `enabled`, `delay`, `requestTimeout` (см. выше);
-  `.showToolbar`, `.syntaxHighlightingEnabled` (подсветка фантома
-  токенизатором), `.suppressSuggestions`, `.suppressInSnippetMode`,
+- **Настройки** — `enabled`, `delay`, `requestTimeout` (см. выше),
+  `.suppressSuggestions`; `.showToolbar`, `.syntaxHighlightingEnabled` (подсветка
+  фантома токенизатором), `.suppressInSnippetMode`,
   `.minShowDelay`, `.fontFamily` и inline edits (NES) — нет. Графической
   страницы настроек нет — только `settings.json` и его автодополнение.
 

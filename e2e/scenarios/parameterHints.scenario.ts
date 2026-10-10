@@ -55,16 +55,16 @@ export default defineScenario({
         );
 
         // Набираем вызов перегруженной функции в конце файла: «(» — триггер-символ
-        // сервера, подсказка открывается сама. Рядом всплывает и попап
-        // автодополнения — они намеренно расходятся по разные стороны каретки.
+        // сервера, подсказка открывается сама. Попап автодополнения после «(» не
+        // открывается (quick suggest — только в конце слова, как в VS Code).
         await editor.sendKey("Ctrl+End");
         await type_(editor, "describe(");
         await editor.waitForText((t) => t.includes("1/2 describe(what: string): string"), { timeoutMs: 60_000 });
         await editor.capture("parameter-hints");
 
-        // Escape принадлежит попапу автодополнения, пока тот показан, — подсказка
-        // остаётся; стрелка вниз листает перегрузки (счётчик 1/2 → 2/2).
-        await editor.sendKey("Escape");
+        // Стрелка вниз листает перегрузки (счётчик 1/2 → 2/2). Escape здесь
+        // закрыл бы саму подсказку: попапа автодополнения, которому он достался
+        // бы раньше, после «(» больше нет.
         await editor.sendKey("ArrowDown");
         await editor.waitForText((t) => t.includes("2/2 describe(what: string, times: number): string"), {
             timeoutMs: 60_000,

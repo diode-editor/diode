@@ -37,24 +37,21 @@ export default defineScenario({
         // активируется асинхронно — при неудаче перепечатываем последний символ
         // (новая правка → новый авто-запрос), паттерн region-folding.
         //
-        // Esc после перепечатки — обязателен, а не подстраховка: набор `b`
-        // поднимает word-based попап («Fibonacci» лежит в самом буфере), а
-        // `InlineCompletionsService.trigger` при открытом попапе выходит сразу —
-        // призраку некуда встать. Без Esc первая же ретрая гасила подсказку
-        // навсегда, и все 10 попыток крутились впустую: сценарий проходил
-        // только когда призрак успевал к ПЕРВОМУ ожиданию (на загруженной
-        // машине — примерно в двух прогонах из трёх). Esc закрывает попап, а
-        // закрытие пере-сеет inline-состояние (onDidClose) — это штатный путь
-        // «Esc по попапу приводит призрака».
+        // Word-based попап («Fibonacci» лежит в самом буфере) призраку не
+        // мешает: quick suggest в режиме `offWhenInlineCompletions` ждёт ответа
+        // провайдера призрака и, раз призрак пришёл, не открывается вовсе.
+        // Esc перед перепечаткой — только против гонки активации: пока
+        // провайдера ещё нет, ждать нечего, и попап по словам открывается, а
+        // под открытым попапом призрак не рисуется.
         let ghostShown = false;
         for (let attempt = 0; attempt < 10 && !ghostShown; attempt++) {
             try {
                 await editor.waitForText((t) => t.includes("return fibonacci(n - 1)"), { timeoutMs: 2000 });
                 ghostShown = true;
             } catch {
+                await editor.sendKey("Escape");
                 await editor.sendKey("Backspace");
                 await editor.sendKey("b");
-                await editor.sendKey("Escape");
             }
         }
         if (!ghostShown) throw new Error("inline-completion: ghost text не появился за 10 попыток");
@@ -76,9 +73,6 @@ export default defineScenario({
         await editor.sendText("// greeting for the demo");
         await editor.sendKey("Home");
         await editor.sendText("const greeting");
-        // Esc закрывает word-based попап (см. выше) — при открытом попапе
-        // inline-подсказка не запрашивается.
-        await editor.sendKey("Escape");
         let midLineShown = false;
         for (let attempt = 0; attempt < 10 && !midLineShown; attempt++) {
             try {
@@ -87,9 +81,9 @@ export default defineScenario({
                 });
                 midLineShown = true;
             } catch {
+                await editor.sendKey("Escape");
                 await editor.sendKey("Backspace");
                 await editor.sendKey("g");
-                await editor.sendKey("Escape");
             }
         }
         if (!midLineShown) throw new Error("inline-completion: призрак в середине строки не появился за 10 попыток");
