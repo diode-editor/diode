@@ -11,10 +11,11 @@ import { EditorViewState } from "./editorViewState.ts";
 
 /**
  * Каретки после БАТЧА правок — там, где батч приходит целиком: от расширения
- * (WorkspaceEdit, quick fix), от save-участника, от мультикурсорной команды.
- * Каждая каретка обязана встать в конец своего вставленного текста и остаться
- * ВНУТРИ документа: колонка за концом строки роняла рендер на highlight
- * вхождений (`isWordChar` читал `undefined`), а отрицательная — тем же местом.
+ * (WorkspaceEdit, quick fix), от save-участника, от автоимпорта. Как у
+ * `editor.executeEdits` эталона без cursor computer, каретки НЕ множатся по
+ * числу правок, а сдвигаются вслед за ними и остаются ВНУТРИ документа:
+ * колонка за концом строки роняла рендер на highlight вхождений
+ * (`isWordChar` читал `undefined`), а отрицательная — тем же местом.
  */
 describe("EditorViewState: каретки после батча правок", () => {
     function carets(state: EditorViewState): [number, number][] {
@@ -32,13 +33,31 @@ describe("EditorViewState: каретки после батча правок", (
         }
     }
 
-    it("многострочная правка и правка правее неё на той же строке: обе каретки точны", () => {
+    it("батч из нескольких правок не плодит каретки: одна каретка остаётся одной", () => {
+        const doc = new TextDocument("import a;\n\nfoo");
+        const state = new EditorViewState(doc);
+        state.selections = [createCursorSelection(2, 3)];
+
+        state.applyEdits(
+            [createTextEdit(createRange(2, 0, 2, 3), "fooBar"), createTextEdit(createRange(0, 0, 0, 0), "import b;\n")],
+            "batch",
+        );
+
+        expect(doc.getText()).toBe("import b;\nimport a;\n\nfooBar");
+        expect(carets(state)).toEqual([[3, 6]]);
+    });
+
+    it("многострочная правка и правка правее неё на той же строке: каретки сдвигаются точно", () => {
         const doc = new TextDocument("hello\nhello baz\nx");
         const state = new EditorViewState(doc);
+        // Внутри заменяемого «el», на его конце, на конце удаляемого «o» и ниже.
+        state.selections = [
+            createCursorSelection(0, 2),
+            createCursorSelection(0, 3),
+            createCursorSelection(0, 5),
+            createCursorSelection(1, 9),
+        ];
 
-        // Батч в исходных координатах: замена «el» многострочным текстом и
-        // удаление «o» правее неё. Прежний расчёт по накопленным сдвигам сажал
-        // вторую каретку на строку 2 в колонку 4 — за конец строки «zl».
         state.applyEdits(
             [createTextEdit(createRange(0, 1, 0, 3), "x\ny\nz"), createTextEdit(createRange(0, 4, 0, 5), "")],
             "batch",
@@ -46,8 +65,10 @@ describe("EditorViewState: каретки после батча правок", (
 
         expect(doc.getText()).toBe("hx\ny\nzl\nhello baz\nx");
         expect(carets(state)).toEqual([
+            [0, 2],
             [2, 1],
             [2, 2],
+            [3, 9],
         ]);
         assertInsideDocument(state, doc);
     });
@@ -55,6 +76,7 @@ describe("EditorViewState: каретки после батча правок", (
     it("правка ниже многострочной: каретка едет вместе со своей строкой", () => {
         const doc = new TextDocument("one\ntwo\nthree");
         const state = new EditorViewState(doc);
+        state.selections = [createCursorSelection(1, 2), createCursorSelection(2, 0), createCursorSelection(2, 5)];
 
         state.applyEdits(
             [createTextEdit(createRange(0, 0, 0, 3), "1\n2"), createTextEdit(createRange(2, 0, 2, 5), "x")],
@@ -63,10 +85,42 @@ describe("EditorViewState: каретки после батча правок", (
 
         expect(doc.getText()).toBe("1\n2\ntwo\nx");
         expect(carets(state)).toEqual([
-            [1, 1],
+            [2, 2],
+            [3, 0],
             [3, 1],
         ]);
         assertInsideDocument(state, doc);
+    });
+
+    it("computeCursorState назначает выделения по обратным правкам в порядке батча", () => {
+        const doc = new TextDocument("x\nfoo");
+        const state = new EditorViewState(doc);
+        state.selections = [createCursorSelection(1, 3)];
+        const seen: string[] = [];
+
+        state.applyEdits(
+            [createTextEdit(createRange(1, 0, 1, 3), "fooBar"), createTextEdit(createRange(0, 0, 0, 0), "a\n")],
+            "batch",
+            (inverse) => {
+                seen.push(...inverse.map((edit) => doc.getTextInRange(edit.range)));
+                return [createCursorSelection(inverse[0].range.end.line, inverse[0].range.end.character)];
+            },
+        );
+
+        // Правка основной вставки шла в батче первой — и обратная ей первая,
+        // хотя документ применял импорт выше раньше по порядку.
+        expect(seen).toEqual(["fooBar", "a\n"]);
+        expect(carets(state)).toEqual([[2, 6]]);
+    });
+
+    it("computeCursorState вернул null — выделения сдвигаются как без него", () => {
+        const doc = new TextDocument("foo");
+        const state = new EditorViewState(doc);
+        state.selections = [createCursorSelection(0, 1)];
+
+        state.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "a\nb")], "batch", () => null);
+
+        expect(carets(state)).toEqual([[1, 2]]);
     });
 
     it("undo батча возвращает и текст, и прежние каретки", () => {

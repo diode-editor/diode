@@ -9,7 +9,7 @@ import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
-import { isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
+import { createCursorSelection, isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
@@ -570,7 +570,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * Применяет вставку выбранного пункта вместе с правками-спутниками ОДНОЙ
      * транзакцией: `import` сверху файла и сам символ обязаны откатываться
      * одним Undo. Порядок правок не важен — модель сортирует их и применяет
-     * снизу вверх.
+     * снизу вверх. Каретка — одна, в конце вставленного символа (с учётом
+     * строк, которые добавил импорт выше): так эталон ставит курсор основной
+     * вставкой, а `additionalTextEdits` курсоры лишь сдвигают
+     * (`suggestController` — `executeEdits` без cursor computer).
      */
     private applyAccept(
         editor: TextEditorPane,
@@ -579,7 +582,11 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         additionalEdits: readonly ITextEdit[],
     ): void {
         // Правка ниже синхронно вызовет onCaretChanged — не даём ей авто-переоткрыть попап.
-        editor.applyExternalEdits([createTextEdit(range, core.insertText), ...additionalEdits], "Accept Completion");
+        editor.applyExternalEdits(
+            [createTextEdit(range, core.insertText), ...additionalEdits],
+            "Accept Completion",
+            ([inserted]) => [createCursorSelection(inserted.range.end.line, inserted.range.end.character)],
+        );
 
         const command = core.command;
         if (command !== undefined) {

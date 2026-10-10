@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { createRange } from "./iRange.ts";
-import { createDeleteEdit, createInsertEdit, createTextEdit, hasOverlappingEdits } from "./iTextEdit.ts";
+import {
+    compareTextEditsInDocumentOrder,
+    createDeleteEdit,
+    createInsertEdit,
+    createTextEdit,
+    hasOverlappingEdits,
+} from "./iTextEdit.ts";
 
 /**
  * Непересечение правок в батче — условие контракта `applyEdits` документа.
@@ -61,5 +67,21 @@ describe("hasOverlappingEdits", () => {
                 createDeleteEdit(2, 2, 2, 6),
             ]),
         ).toBe(true);
+    });
+});
+
+describe("compareTextEditsInDocumentOrder", () => {
+    it("сначала по началу, даже когда концы совпадают", () => {
+        const replace = createTextEdit(createRange(0, 0, 0, 2), "X");
+        const insertAtEnd = createTextEdit(createRange(0, 2, 0, 2), "Y");
+        expect(compareTextEditsInDocumentOrder(replace, insertAtEnd)).toBeLessThan(0);
+        expect(compareTextEditsInDocumentOrder(insertAtEnd, replace)).toBeGreaterThan(0);
+    });
+
+    it("при равных началах — по концу", () => {
+        const insert = createTextEdit(createRange(0, 1, 0, 1), "X");
+        const replace = createTextEdit(createRange(0, 1, 0, 3), "Y");
+        expect(compareTextEditsInDocumentOrder(insert, replace)).toBeLessThan(0);
+        expect(compareTextEditsInDocumentOrder(insert, insert)).toBe(0);
     });
 });

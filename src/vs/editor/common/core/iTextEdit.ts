@@ -35,6 +35,17 @@ export function createDeleteEdit(
 }
 
 /**
+ * Документный порядок правок батча: по началу, при равных началах — по концу.
+ * Его держит `ITextDocument.applyEdits` (и в нём же отдаёт обратные правки),
+ * поэтому кто зипует свои правки с обратными, сортирует тем же компаратором.
+ */
+export function compareTextEditsInDocumentOrder(a: ITextEdit, b: ITextEdit): number {
+    const cmp = comparePositions(a.range.start, b.range.start);
+    if (cmp !== 0) return cmp;
+    return comparePositions(a.range.end, b.range.end);
+}
+
+/**
  * Есть ли в батче правки, чьи диапазоны пересекаются.
  *
  * Непересечение — условие контракта `ITextDocument.applyEdits`: он применяет

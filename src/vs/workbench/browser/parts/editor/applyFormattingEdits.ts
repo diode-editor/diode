@@ -15,8 +15,8 @@ export interface IFormattableEditor {
 /**
  * Применяет правки форматтера одним undoable-батчем и схлопывает выделения в
  * ОДНУ каретку на прежнем месте (клампнутом к новому тексту, как VS Code):
- * `applyEdits` ставит каретку на каждую правку (мультикурсорная семантика
- * batch-редактирования), а у форматтера их десятки. Общий хвост команд
+ * `applyEdits` лишь сдвигает выделения вслед за правками, и каретку внутри
+ * крупной замены форматтера увело бы в конец вставки. Общий хвост команд
  * Format Document/Selection и участника format-on-save.
  */
 export function applyFormattingEdits(editor: IFormattableEditor, edits: readonly ITextEdit[], label: string): void {

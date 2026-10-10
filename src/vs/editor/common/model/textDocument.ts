@@ -1,11 +1,10 @@
 import { Emitter } from "../../../base/common/event.ts";
 import { detectEndOfLine, EndOfLine, eolToSequence } from "../core/endOfLine.ts";
 import type { IPosition } from "../core/iPosition.ts";
-import { comparePositions } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
 import { createRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
-import { createTextEdit } from "../core/iTextEdit.ts";
+import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEdit.ts";
 
 import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
@@ -137,11 +136,7 @@ export class TextDocument implements ITextDocument {
         this.innerVersionId++;
 
         // Sort edits in document order (ascending) to collect old texts
-        const docOrder = [...edits].sort((a, b) => {
-            const cmp = comparePositions(a.range.start, b.range.start);
-            if (cmp !== 0) return cmp;
-            return comparePositions(a.range.end, b.range.end);
-        });
+        const docOrder = [...edits].sort(compareTextEditsInDocumentOrder);
 
         // Collect old texts BEFORE applying any edits
         const oldTexts = docOrder.map((edit) => this.getTextInRange(edit.range));

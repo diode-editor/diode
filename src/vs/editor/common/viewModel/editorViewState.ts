@@ -11,7 +11,7 @@ import { createRange, rangeContainsPosition } from "../core/iRange.ts";
 import type { ISelection } from "../core/iSelection.ts";
 import { createCursorSelection, createSelection, isSelectionCollapsed, selectionToRange } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
-import { createTextEdit } from "../core/iTextEdit.ts";
+import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEdit.ts";
 import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { computeNewLinePlan } from "../languages/autoIndent.ts";
@@ -34,6 +34,8 @@ import {
     computeTextToCopy,
 } from "./lineOperations.ts";
 import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
+import type { ICursorStateComputer } from "./trackedSelections.ts";
+import { planTrackedSelections, resolveTrackedSelections } from "./trackedSelections.ts";
 
 /** Режим переноса строк — значения `editor.wordWrap` (VS Code). */
 export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
@@ -1042,14 +1044,33 @@ export class EditorViewState {
      * edits (e.g. trim-trailing-whitespace, save participants). Returns an
      * {@link IUndoElement} to push onto the undo stack, or `undefined` when
      * there is nothing to apply.
+     *
+     * Выделения после правки — как у `editor.executeEdits` эталона: их
+     * назначает `computeCursorState` (обратные правки — в порядке `edits`), а
+     * без него или при его `null` прежние выделения сдвигаются вслед за
+     * правками ({@link planTrackedSelections}). Каретку на каждую правку батч
+     * не ставит: у автоимпорта и Trim Trailing Whitespace правок несколько, а
+     * каретка у пользователя одна.
      */
-    public applyEdits(edits: readonly ITextEdit[], label: string): IUndoElement | undefined {
+    public applyEdits(
+        edits: readonly ITextEdit[],
+        label: string,
+        computeCursorState?: ICursorStateComputer,
+    ): IUndoElement | undefined {
         if (this.readOnly || edits.length === 0) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
+        // Документный порядок — тот же, в котором документ вернёт обратные правки.
+        const order = edits.map((_, i) => i).sort((a, b) => compareTextEditsInDocumentOrder(edits[a], edits[b]));
+        const sorted = order.map((i) => edits[i]);
+        const tracked = planTrackedSelections(this.document, sorted, this.selections);
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        this.selections = this.selectionsAfterEdits(inverseEdits);
+        // Stryker disable next-line ArrayDeclaration: order — перестановка индексов edits, каждый слот перезаписывается
+        const inverseInInputOrder: ITextEdit[] = [];
+        order.forEach((input, k) => (inverseInInputOrder[input] = inverseEdits[k]));
+        this.selections =
+            computeCursorState?.(inverseInInputOrder) ?? resolveTrackedSelections(tracked, sorted, inverseEdits);
         this.ensureCursorVisible();
         return {
             label,
@@ -1983,7 +2004,7 @@ export class EditorViewState {
     /**
      * Общий финал строчных операций: применить готовые правки, сдвинуть фолды
      * и поставить ЗАРАНЕЕ посчитанные выделения (в отличие от
-     * {@link applyEdits}, где каретка встаёт в конец каждой правки). Позиции
+     * {@link applyEdits}, где выделения сдвигаются вслед за правками). Позиции
      * клампятся к документу: чистые функции держат колонку каретки, а строка
      * под ней могла стать короче.
      */
