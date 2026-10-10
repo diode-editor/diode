@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
@@ -33,6 +34,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
     let service: ExplorerService;
     let component: ExplorerComponent;
     let app: TestApp;
+    let contextMenuService: ContextMenuService;
     /** Каталоги, за которыми сейчас следит провайдер дерева. */
     let watched: Set<string>;
 
@@ -67,17 +69,12 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         };
         service = new ExplorerService(clipboard, config, diskFileService(), watcher);
         const commands = new CommandRegistry();
-        component = new ExplorerComponent(
-            service,
-            commands,
-            clipboard,
-            new ContextMenuService(
-                new MenuService(
-                    new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
-                ),
+        contextMenuService = new ContextMenuService(
+            new MenuService(
+                new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
             ),
-            makeViewsHarness().service,
         );
+        component = new ExplorerComponent(service, commands, clipboard, contextMenuService, makeViewsHarness().service);
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(40, 12));
         service.focus();
@@ -132,7 +129,8 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         });
         expect([...watched].sort()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
 
-        app.sendKey("ArrowLeft");
+        // Left сначала проходит сегменты b → a → pkg, на первом — сворачивает.
+        for (let i = 0; i < 3; i++) app.sendKey("ArrowLeft");
         await vi.waitFor(() => {
             expect(watched.size).toBe(0);
         });
@@ -143,11 +141,73 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("C.java");
         });
-        app.sendKey("ArrowLeft");
+        for (let i = 0; i < 3; i++) app.sendKey("ArrowLeft");
         await vi.waitFor(() => {
             expect(rows().join("\n")).not.toContain("C.java");
         });
         expect(rows()[0]).toContain("pkg/a/b");
+    });
+
+    it("правый клик по сегменту открывает меню про его папку и делает его текущим", async () => {
+        const show = vi.spyOn(contextMenuService, "showContextMenu").mockImplementation(() => {});
+        app.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(rows().join("\n")).toContain("pkg/a/b");
+        });
+        // Строка « pkg/a/b»: отступ 1, шеврон, пробел — «a» в колонке 7.
+        app.focusedElement?.dispatchEvent(
+            new TUIContextMenuEvent({
+                trigger: "mouse",
+                button: "right",
+                screenX: 7,
+                screenY: 0,
+                localX: 7,
+                localY: 0,
+            }),
+        );
+        expect(show.mock.calls.at(-1)?.[0]).toMatchObject({ menuContext: { path: ws.path("pkg/a") } });
+        expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a")]);
+    });
+
+    it("контекст-ключи explorerViewletCompressed* следуют за текущим сегментом", async () => {
+        const keys = new ContextKeyService();
+        const update = () => {
+            component.updateContextKeys(keys, app.focusedElement);
+            return [
+                keys.get("explorerViewletCompressedFocus"),
+                keys.get("explorerViewletCompressedFirstFocus"),
+                keys.get("explorerViewletCompressedLastFocus"),
+            ];
+        };
+        // Цепочка ещё не найдена (строка «pkg» не раскрыта) — строка обычная.
+        expect(update()).toEqual([false, false, false]);
+        app.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(rows().join("\n")).toContain("pkg/a/b");
+        });
+        expect(update()).toEqual([true, false, true]);
+        service.moveCompressedFocus("first");
+        expect(update()).toEqual([true, true, false]);
+    });
+
+    it("Left/Right выбирают сегмент, действия идут в его папку", async () => {
+        app.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(rows().join("\n")).toContain("C.java");
+        });
+        app.sendKey("ArrowLeft");
+        expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a")]);
+        expect(service.getPasteTargetDir()).toBe(ws.path("pkg/a"));
+        expect(service.getCompressedFocus()).toEqual({ first: false, last: false });
+        // Строка не свернулась: Left ушёл в сегмент.
+        expect(rows().join("\n")).toContain("C.java");
+
+        app.sendKey("ArrowLeft");
+        expect(service.getCompressedFocus()).toEqual({ first: true, last: false });
+        app.sendKey("ArrowRight");
+        app.sendKey("ArrowRight");
+        expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a/b")]);
+        expect(service.getCompressedFocus()).toEqual({ first: false, last: true });
     });
 
     it("reveal файла внутри цепочки раскрывает компактную строку и выделяет файл", async () => {
