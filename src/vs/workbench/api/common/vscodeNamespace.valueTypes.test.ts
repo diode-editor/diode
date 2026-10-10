@@ -24,4 +24,11 @@ describe("vscode — value-типы, найденные проверкой по�
         expect(namespace.TextDocumentChangeReason.Undo).toBe(1);
         expect(namespace.TextDocumentChangeReason.Redo).toBe(2);
     });
+
+    it("TelemetryTrustedValue — конструируемый класс с меткой эталона", () => {
+        const { namespace } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk());
+        const trusted = new namespace.TelemetryTrustedValue("v1");
+        expect(trusted.value).toBe("v1");
+        expect(trusted).toMatchObject({ isTrustedTelemetryValue: true });
+    });
 });

@@ -7744,6 +7744,15 @@ declare module "vscode" {
 		 * @returns A promise indicating if open was successful.
 		 */
 		export function openExternal(target: Uri): Thenable<boolean>;
+
+		/**
+		 * Creates a new {@link TelemetryLogger telemetry logger}.
+		 *
+		 * @param sender The telemetry sender that is used by the telemetry logger.
+		 * @param options Options for the telemetry logger.
+		 * @returns A new telemetry logger
+		 */
+		export function createTelemetryLogger(sender: TelemetrySender, options?: TelemetryLoggerOptions): TelemetryLogger;
 	}
 
 
@@ -9459,6 +9468,525 @@ declare module "vscode" {
 		 * Determines an item is checked
 		 */
 		Checked = 1
+	}
+
+	/**
+	 * A special value wrapper denoting a value that is safe to not clean.
+	 * This is to be used when you can guarantee no identifiable information is contained in the value and the cleaning is improperly redacting it.
+	 */
+	export class TelemetryTrustedValue<T = any> {
+
+		/**
+		 * The value that is trusted to not contain PII.
+		 */
+		readonly value: T;
+
+		/**
+		 * Creates a new telemetry trusted value.
+		 *
+		 * @param value A value to trust
+		 */
+		constructor(value: T);
+	}
+
+	/**
+	 * A telemetry logger which can be used by extensions to log usage and error telemetry.
+	 *
+	 * A logger wraps around an {@link TelemetrySender sender} but it guarantees that
+	 * - user settings to disable or tweak telemetry are respected, and that
+	 * - potential sensitive data is removed
+	 *
+	 * It also enables an "echo UI" that prints whatever data is send and it allows the editor
+	 * to forward unhandled errors to the respective extensions.
+	 *
+	 * To get an instance of a `TelemetryLogger`, use
+	 * {@link env.createTelemetryLogger `createTelemetryLogger`}.
+	 */
+	export interface TelemetryLogger {
+
+		/**
+		 * An {@link Event} which fires when the enablement state of usage or error telemetry changes.
+		 */
+		readonly onDidChangeEnableStates: Event<TelemetryLogger>;
+
+		/**
+		 * Whether or not usage telemetry is enabled for this logger.
+		 */
+		readonly isUsageEnabled: boolean;
+
+		/**
+		 * Whether or not error telemetry is enabled for this logger.
+		 */
+		readonly isErrorsEnabled: boolean;
+
+		/**
+		 * Log a usage event.
+		 *
+		 * After completing cleaning, telemetry setting checks, and data mix-in calls `TelemetrySender.sendEventData` to log the event.
+		 * Automatically supports echoing to extension telemetry output channel.
+		 * @param eventName The event name to log
+		 * @param data The data to log
+		 */
+		logUsage(eventName: string, data?: Record<string, any | TelemetryTrustedValue>): void;
+
+		/**
+		 * Log an error event.
+		 *
+		 * After completing cleaning, telemetry setting checks, and data mix-in calls `TelemetrySender.sendEventData` to log the event. Differs from `logUsage` in that it will log the event if the telemetry setting is Error+.
+		 * Automatically supports echoing to extension telemetry output channel.
+		 * @param eventName The event name to log
+		 * @param data The data to log
+		 */
+		logError(eventName: string, data?: Record<string, any | TelemetryTrustedValue>): void;
+
+		/**
+		 * Log an error event.
+		 *
+		 * Calls `TelemetrySender.sendErrorData`. Does cleaning, telemetry checks, and data mix-in.
+		 * Automatically supports echoing to extension telemetry output channel.
+		 * Will also automatically log any exceptions thrown within the extension host process.
+		 * @param error The error object which contains the stack trace cleaned of PII
+		 * @param data Additional data to log alongside the stack trace
+		 */
+		logError(error: Error, data?: Record<string, any | TelemetryTrustedValue>): void;
+
+		/**
+		 * Dispose this object and free resources.
+		 */
+		dispose(): void;
+	}
+
+	/**
+	 * The telemetry sender is the contract between a telemetry logger and some telemetry service. **Note** that extensions must NOT
+	 * call the methods of their sender directly as the logger provides extra guards and cleaning.
+	 *
+	 * ```js
+	 * const sender: vscode.TelemetrySender = {...};
+	 * const logger = vscode.env.createTelemetryLogger(sender);
+	 *
+	 * // GOOD - uses the logger
+	 * logger.logUsage('myEvent', { myData: 'myValue' });
+	 *
+	 * // BAD - uses the sender directly: no data cleansing, ignores user settings, no echoing to the telemetry output channel etc
+	 * sender.logEvent('myEvent', { myData: 'myValue' });
+	 * ```
+	 */
+	export interface TelemetrySender {
+		/**
+		 * Function to send event data without a stacktrace. Used within a {@link TelemetryLogger}
+		 *
+		 * @param eventName The name of the event which you are logging
+		 * @param data A serializable key value pair that is being logged
+		 */
+		sendEventData(eventName: string, data?: Record<string, any>): void;
+
+		/**
+		 * Function to send an error. Used within a {@link TelemetryLogger}
+		 *
+		 * @param error The error being logged
+		 * @param data Any additional data to be collected with the exception
+		 */
+		sendErrorData(error: Error, data?: Record<string, any>): void;
+
+		/**
+		 * Optional flush function which will give this sender a chance to send any remaining events
+		 * as its {@link TelemetryLogger} is being disposed
+		 */
+		flush?(): void | Thenable<void>;
+	}
+
+	/**
+	 * Options for creating a {@link TelemetryLogger}
+	 */
+	export interface TelemetryLoggerOptions {
+		/**
+		 * Whether or not you want to avoid having the built-in common properties such as os, extension name, etc injected into the data object.
+		 * Defaults to `false` if not defined.
+		 */
+		readonly ignoreBuiltInCommonProperties?: boolean;
+
+		/**
+		 * Whether or not unhandled errors on the extension host caused by your extension should be logged to your sender.
+		 * Defaults to `false` if not defined.
+		 */
+		readonly ignoreUnhandledErrors?: boolean;
+
+		/**
+		 * Any additional common properties which should be injected into the data object.
+		 */
+		readonly additionalCommonProperties?: Record<string, any>;
+	}
+
+	/**
+	 * Represents a session of a currently logged in user.
+	 */
+	export interface AuthenticationSession {
+		/**
+		 * The identifier of the authentication session.
+		 */
+		readonly id: string;
+
+		/**
+		 * The access token. This token should be used to authenticate requests to a service. Popularized by OAuth.
+		 * @reference https://oauth.net/2/access-tokens/
+		 */
+		readonly accessToken: string;
+
+		/**
+		 * The ID token. This token contains identity information about the user. Popularized by OpenID Connect.
+		 * @reference https://openid.net/specs/openid-connect-core-1_0.html#IDToken
+		 */
+		readonly idToken?: string;
+
+		/**
+		 * The account associated with the session.
+		 */
+		readonly account: AuthenticationSessionAccountInformation;
+
+		/**
+		 * The permissions granted by the session's access token. Available scopes
+		 * are defined by the {@link AuthenticationProvider}.
+		 */
+		readonly scopes: readonly string[];
+	}
+
+	/**
+	 * The information of an account associated with an {@link AuthenticationSession}.
+	 */
+	export interface AuthenticationSessionAccountInformation {
+		/**
+		 * The unique identifier of the account.
+		 */
+		readonly id: string;
+
+		/**
+		 * The human-readable name of the account.
+		 */
+		readonly label: string;
+	}
+
+	/**
+	 * Optional options to be used when calling {@link authentication.getSession} with interactive options `forceNewSession` & `createIfNone`.
+	 */
+	export interface AuthenticationGetSessionPresentationOptions {
+		/**
+		 * An optional message that will be displayed to the user when we ask to re-authenticate. Providing additional context
+		 * as to why you are asking a user to re-authenticate can help increase the odds that they will accept.
+		 */
+		detail?: string;
+	}
+
+	/**
+	 * Optional options to be used when calling {@link authentication.getSession} with the flag `forceNewSession`.
+	 * @deprecated Use {@link AuthenticationGetSessionPresentationOptions} instead.
+	 */
+	export type AuthenticationForceNewSessionOptions = AuthenticationGetSessionPresentationOptions;
+
+	/**
+	 * Options to be used when getting an {@link AuthenticationSession} from an {@link AuthenticationProvider}.
+	 */
+	export interface AuthenticationGetSessionOptions {
+		/**
+		 * Whether the existing session preference should be cleared.
+		 *
+		 * For authentication providers that support being signed into multiple accounts at once, the user will be
+		 * prompted to select an account to use when {@link authentication.getSession getSession} is called. This preference
+		 * is remembered until {@link authentication.getSession getSession} is called with this flag.
+		 *
+		 * Note:
+		 * The preference is extension specific. So if one extension calls {@link authentication.getSession getSession}, it will not
+		 * affect the session preference for another extension calling {@link authentication.getSession getSession}. Additionally,
+		 * the preference is set for the current workspace and also globally. This means that new workspaces will use the "global"
+		 * value at first and then when this flag is provided, a new value can be set for that workspace. This also means
+		 * that pre-existing workspaces will not lose their preference if a new workspace sets this flag.
+		 *
+		 * Defaults to false.
+		 */
+		clearSessionPreference?: boolean;
+
+		/**
+		 * Whether login should be performed if there is no matching session.
+		 *
+		 * If true, a modal dialog will be shown asking the user to sign in. If false, a numbered badge will be shown
+		 * on the accounts activity bar icon. An entry for the extension will be added under the menu to sign in. This
+		 * allows quietly prompting the user to sign in.
+		 *
+		 * If you provide options, you will also see the dialog but with the additional context provided.
+		 *
+		 * If there is a matching session but the extension has not been granted access to it, setting this to true
+		 * will also result in an immediate modal dialog, and false will add a numbered badge to the accounts icon.
+		 *
+		 * Defaults to false.
+		 *
+		 * Note: you cannot use this option with {@link AuthenticationGetSessionOptions.silent silent}.
+		 */
+		createIfNone?: boolean | AuthenticationGetSessionPresentationOptions;
+
+		/**
+		 * Whether we should attempt to reauthenticate even if there is already a session available.
+		 *
+		 * If true, a modal dialog will be shown asking the user to sign in again. This is mostly used for scenarios
+		 * where the token needs to be re minted because it has lost some authorization.
+		 *
+		 * If you provide options, you will also see the dialog but with the additional context provided.
+		 *
+		 * If there are no existing sessions and forceNewSession is true, it will behave identically to
+		 * {@link AuthenticationGetSessionOptions.createIfNone createIfNone}.
+		 *
+		 * This defaults to false.
+		 */
+		forceNewSession?: boolean | AuthenticationGetSessionPresentationOptions | AuthenticationForceNewSessionOptions;
+
+		/**
+		 * Whether we should show the indication to sign in in the Accounts menu.
+		 *
+		 * If false, the user will be shown a badge on the Accounts menu with an option to sign in for the extension.
+		 * If true, no indication will be shown.
+		 *
+		 * Defaults to false.
+		 *
+		 * Note: you cannot use this option with any other options that prompt the user like {@link AuthenticationGetSessionOptions.createIfNone createIfNone}.
+		 */
+		silent?: boolean;
+
+		/**
+		 * The account that you would like to get a session for. This is passed down to the Authentication Provider to be used for creating the correct session.
+		 */
+		account?: AuthenticationSessionAccountInformation;
+	}
+
+	/**
+	 * Represents parameters for creating a session based on a WWW-Authenticate header value.
+	 * This is used when an API returns a 401 with a WWW-Authenticate header indicating
+	 * that additional authentication is required. The details of which will be passed down
+	 * to the authentication provider to create a session.
+	 *
+	 * @note The authorization provider must support handling challenges and specifically
+	 * the challenges in this WWW-Authenticate value.
+	 * @note For more information on WWW-Authenticate please see https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/WWW-Authenticate
+	 */
+	export interface AuthenticationWwwAuthenticateRequest {
+		/**
+		 * The raw WWW-Authenticate header value that triggered this challenge.
+		 * This will be parsed by the authentication provider to extract the necessary
+		 * challenge information.
+		 */
+		readonly wwwAuthenticate: string;
+
+		/**
+		 * The fallback scopes to use if no scopes are found in the WWW-Authenticate header.
+		 */
+		readonly fallbackScopes?: readonly string[];
+	}
+
+	/**
+	 * Basic information about an {@link AuthenticationProvider}
+	 */
+	export interface AuthenticationProviderInformation {
+		/**
+		 * The unique identifier of the authentication provider.
+		 */
+		readonly id: string;
+
+		/**
+		 * The human-readable name of the authentication provider.
+		 */
+		readonly label: string;
+	}
+
+	/**
+	 * An {@link Event} which fires when an {@link AuthenticationSession} is added, removed, or changed.
+	 */
+	export interface AuthenticationSessionsChangeEvent {
+		/**
+		 * The {@link AuthenticationProvider} that has had its sessions change.
+		 */
+		readonly provider: AuthenticationProviderInformation;
+	}
+
+	/**
+	 * Options for creating an {@link AuthenticationProvider}.
+	 */
+	export interface AuthenticationProviderOptions {
+		/**
+		 * Whether it is possible to be signed into multiple accounts at once with this provider.
+		 * If not specified, will default to false.
+		 */
+		readonly supportsMultipleAccounts?: boolean;
+	}
+
+	/**
+	 * An {@link Event} which fires when an {@link AuthenticationSession} is added, removed, or changed.
+	 */
+	export interface AuthenticationProviderAuthenticationSessionsChangeEvent {
+		/**
+		 * The {@link AuthenticationSession AuthenticationSessions} of the {@link AuthenticationProvider} that have been added.
+		 */
+		readonly added: readonly AuthenticationSession[] | undefined;
+
+		/**
+		 * The {@link AuthenticationSession AuthenticationSessions} of the {@link AuthenticationProvider} that have been removed.
+		 */
+		readonly removed: readonly AuthenticationSession[] | undefined;
+
+		/**
+		 * The {@link AuthenticationSession AuthenticationSessions} of the {@link AuthenticationProvider} that have been changed.
+		 * A session changes when its data excluding the id are updated. An example of this is a session refresh that results in a new
+		 * access token being set for the session.
+		 */
+		readonly changed: readonly AuthenticationSession[] | undefined;
+	}
+
+	/**
+	 * The options passed in to the {@link AuthenticationProvider.getSessions} and
+	 * {@link AuthenticationProvider.createSession} call.
+	 */
+	export interface AuthenticationProviderSessionOptions {
+		/**
+		 * The account that is being asked about. If this is passed in, the provider should
+		 * attempt to return the sessions that are only related to this account.
+		 */
+		account?: AuthenticationSessionAccountInformation;
+	}
+
+	/**
+	 * A provider for performing authentication to a service.
+	 */
+	export interface AuthenticationProvider {
+		/**
+		 * An {@link Event} which fires when the array of sessions has changed, or data
+		 * within a session has changed.
+		 */
+		readonly onDidChangeSessions: Event<AuthenticationProviderAuthenticationSessionsChangeEvent>;
+
+		/**
+		 * Get a list of sessions.
+		 * @param scopes An optional list of scopes. If provided, the sessions returned should match
+		 * these permissions, otherwise all sessions should be returned.
+		 * @param options Additional options for getting sessions.
+		 * @returns A promise that resolves to an array of authentication sessions.
+		 */
+		getSessions(scopes: readonly string[] | undefined, options: AuthenticationProviderSessionOptions): Thenable<AuthenticationSession[]>;
+
+		/**
+		 * Prompts a user to login.
+		 *
+		 * If login is successful, the onDidChangeSessions event should be fired.
+		 *
+		 * If login fails, a rejected promise should be returned.
+		 *
+		 * If the provider has specified that it does not support multiple accounts,
+		 * then this should never be called if there is already an existing session matching these
+		 * scopes.
+		 * @param scopes A list of scopes, permissions, that the new session should be created with.
+		 * @param options Additional options for creating a session.
+		 * @returns A promise that resolves to an authentication session.
+		 */
+		createSession(scopes: readonly string[], options: AuthenticationProviderSessionOptions): Thenable<AuthenticationSession>;
+
+		/**
+		 * Removes the session corresponding to session id.
+		 *
+		 * If the removal is successful, the onDidChangeSessions event should be fired.
+		 *
+		 * If a session cannot be removed, the provider should reject with an error message.
+		 * @param sessionId The id of the session to remove.
+		 */
+		removeSession(sessionId: string): Thenable<void>;
+	}
+
+	/**
+	 * Namespace for authentication.
+	 */
+	export namespace authentication {
+		/**
+		 * Get an authentication session matching the desired scopes or satisfying the WWW-Authenticate request. Rejects if
+		 * a provider with providerId is not registered, or if the user does not consent to sharing authentication information
+		 * with the extension. If there are multiple sessions with the same scopes, the user will be shown a quickpick to
+		 * select which account they would like to use.
+		 *
+		 * Built-in auth providers include:
+		 * * 'github' - For GitHub.com
+		 * * 'microsoft' For both personal & organizational Microsoft accounts
+		 * * (less common) 'github-enterprise' - for alternative GitHub hostings, GHE.com, GitHub Enterprise Server
+		 * * (less common) 'microsoft-sovereign-cloud' - for alternative Microsoft clouds
+		 *
+		 * @param providerId The id of the provider to use
+		 * @param scopeListOrRequest A scope list of permissions requested or a WWW-Authenticate request. These are dependent on the authentication provider.
+		 * @param options The {@link AuthenticationGetSessionOptions} to use
+		 * @returns A thenable that resolves to an authentication session
+		 */
+		export function getSession(providerId: string, scopeListOrRequest: ReadonlyArray<string> | AuthenticationWwwAuthenticateRequest, options: AuthenticationGetSessionOptions & { /** */createIfNone: true | AuthenticationGetSessionPresentationOptions }): Thenable<AuthenticationSession>;
+
+		/**
+		 * Get an authentication session matching the desired scopes or request. Rejects if a provider with providerId is not
+		 * registered, or if the user does not consent to sharing authentication information with the extension. If there
+		 * are multiple sessions with the same scopes, the user will be shown a quickpick to select which account they would like to use.
+		 *
+		 * Built-in auth providers include:
+		 * * 'github' - For GitHub.com
+		 * * 'microsoft' For both personal & organizational Microsoft accounts
+		 * * (less common) 'github-enterprise' - for alternative GitHub hostings, GHE.com, GitHub Enterprise Server
+		 * * (less common) 'microsoft-sovereign-cloud' - for alternative Microsoft clouds
+		 *
+		 * @param providerId The id of the provider to use
+		 * @param scopeListOrRequest A scope list of permissions requested or a WWW-Authenticate request. These are dependent on the authentication provider.
+		 * @param options The {@link AuthenticationGetSessionOptions} to use
+		 * @returns A thenable that resolves to an authentication session
+		 */
+		export function getSession(providerId: string, scopeListOrRequest: ReadonlyArray<string> | AuthenticationWwwAuthenticateRequest, options: AuthenticationGetSessionOptions & { /** literal-type defines return type */forceNewSession: true | AuthenticationGetSessionPresentationOptions | AuthenticationForceNewSessionOptions }): Thenable<AuthenticationSession>;
+
+		/**
+		 * Get an authentication session matching the desired scopes or request. Rejects if a provider with providerId is not
+		 * registered, or if the user does not consent to sharing authentication information with the extension. If there
+		 * are multiple sessions with the same scopes, the user will be shown a quickpick to select which account they would like to use.
+		 *
+		 * Built-in auth providers include:
+		 * * 'github' - For GitHub.com
+		 * * 'microsoft' For both personal & organizational Microsoft accounts
+		 * * (less common) 'github-enterprise' - for alternative GitHub hostings, GHE.com, GitHub Enterprise Server
+		 * * (less common) 'microsoft-sovereign-cloud' - for alternative Microsoft clouds
+		 *
+		 * @param providerId The id of the provider to use
+		 * @param scopeListOrRequest A scope list of permissions requested or a WWW-Authenticate request. These are dependent on the authentication provider.
+		 * @param options The {@link AuthenticationGetSessionOptions} to use
+		 * @returns A thenable that resolves to an authentication session or undefined if a silent flow was used and no session was found
+		 */
+		export function getSession(providerId: string, scopeListOrRequest: ReadonlyArray<string> | AuthenticationWwwAuthenticateRequest, options?: AuthenticationGetSessionOptions): Thenable<AuthenticationSession | undefined>;
+
+		/**
+		 * Get all accounts that the user is logged in to for the specified provider.
+		 * Use this paired with {@link getSession} in order to get an authentication session for a specific account.
+		 *
+		 * Currently, there are only two authentication providers that are contributed from built in extensions
+		 * to the editor that implement GitHub and Microsoft authentication: their providerId's are 'github' and 'microsoft'.
+		 *
+		 * Note: Getting accounts does not imply that your extension has access to that account or its authentication sessions. You can verify access to the account by calling {@link getSession}.
+		 *
+		 * @param providerId The id of the provider to use
+		 * @returns A thenable that resolves to a readonly array of authentication accounts.
+		 */
+		export function getAccounts(providerId: string): Thenable<readonly AuthenticationSessionAccountInformation[]>;
+
+		/**
+		 * An {@link Event} which fires when the authentication sessions of an authentication provider have
+		 * been added, removed, or changed.
+		 */
+		export const onDidChangeSessions: Event<AuthenticationSessionsChangeEvent>;
+
+		/**
+		 * Register an authentication provider.
+		 *
+		 * There can only be one provider per id and an error is being thrown when an id
+		 * has already been used by another provider. Ids are case-sensitive.
+		 *
+		 * @param id The unique identifier of the provider.
+		 * @param label The human-readable name of the provider.
+		 * @param provider The authentication provider provider.
+		 * @param options Additional options for the provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerAuthenticationProvider(id: string, label: string, provider: AuthenticationProvider, options?: AuthenticationProviderOptions): Disposable;
 	}
 }
 

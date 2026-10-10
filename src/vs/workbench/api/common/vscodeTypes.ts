@@ -2128,3 +2128,20 @@ export class TreeItem implements vscode.TreeItem {
         }
     }
 }
+
+// ── Телеметрия (`telemetryUtils.ts` эталона) ─────────────────────────────────
+
+/**
+ * Обёртка «значение не чистить» (`vscode.TelemetryTrustedValue`). Телеметрии в
+ * Diode нет, и логгер данных не читает, но класс обязан быть значением:
+ * расширения конструируют его прямо при вызове `logUsage`.
+ */
+export class TelemetryTrustedValue<T = unknown> implements vscode.TelemetryTrustedValue<T> {
+    // Метка эталона: экземпляр теряется на сериализации, флаг — нет.
+    public readonly isTrustedTelemetryValue = true;
+    public readonly value: T;
+
+    public constructor(value: T) {
+        this.value = value;
+    }
+}
