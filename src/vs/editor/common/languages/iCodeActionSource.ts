@@ -39,6 +39,12 @@ export interface ICoreCodeAction {
     readonly kind?: string;
     /** Провайдер пометил действие предпочтительным (auto-fix выбирает его). */
     readonly isPreferred?: boolean;
+    /**
+     * Причина, по которой действие сейчас неприменимо (`CodeAction.disabled`):
+     * такое действие меню показывает неактивным с причиной вместо заголовка, а
+     * авто-применение (organize imports, on save) его пропускает — как эталон.
+     */
+    readonly disabled?: string;
 }
 
 /**

@@ -163,6 +163,14 @@ export interface IExtensionContributions {
      */
     readonly taskDefinitions?: readonly ITaskDefinitionContribution[];
 
+    /**
+     * Виды расширения (`contributes.views`): ключ — контейнер (`explorer`,
+     * `scm` или свой из `viewsContainers`), значение — его виды. Сами виды пока
+     * не рисуются (Phase 8b, docs/TODO/Extensions.md) — из объявления берётся
+     * только эталонная команда `<id>.focus` (см. `extensionViewFocusCommands.ts`).
+     */
+    readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
+
     // ── TODO(extensions phase 2+): раскомментировать по мере реализации ──
     //
     // readonly iconThemes?: readonly IIconThemeContribution[];
@@ -170,7 +178,6 @@ export interface IExtensionContributions {
     //
     // readonly snippets?: readonly ISnippetContribution[];
     //
-    // readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
     // readonly viewsContainers?: Readonly<Record<string, readonly IViewContainerContribution[]>>;
     // readonly viewsWelcome?: readonly IViewWelcomeContribution[];
     //
@@ -278,6 +285,18 @@ export interface IConfigurationPropertySchema {
     readonly type?: string | readonly string[];
     readonly default?: unknown;
     readonly description?: string;
+    readonly [key: string]: unknown;
+}
+
+/**
+ * Вид из `contributes.views` (схема эталона `viewsExtensionPoint.ts`). `type` —
+ * `"tree"` (по умолчанию) или `"webview"`; `name` приезжает уже локализованным.
+ */
+export interface IViewContribution {
+    readonly id: string;
+    readonly name?: string;
+    readonly type?: string;
+    readonly when?: string;
     readonly [key: string]: unknown;
 }
 

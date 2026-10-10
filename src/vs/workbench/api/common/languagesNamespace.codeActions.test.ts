@@ -166,6 +166,28 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(contexts[0].triggerKind).toBe(1); // Invoke
     });
 
+    it("disabled: причина едет строкой; без строковой причины поле не едет", async () => {
+        const { stub, languages } = makeCtx();
+        const disabled = editAction("Extract", "refactor.extract");
+        disabled.disabled = { reason: "Selection is not an expression" };
+        const garbage = editAction("Inline", "refactor.inline");
+        garbage.disabled = { reason: 42 } as unknown as { reason: string };
+        languages.registerCodeActionsProvider("python", {
+            provideCodeActions: () => [disabled, garbage],
+        } as unknown as vscode.CodeActionProvider);
+
+        const result = (await stub.callRequest("languages.provideCodeActions", requestParams())) as unknown[];
+        expect(result).toEqual([
+            {
+                id: expect.stringMatching(/\.0$/) as unknown,
+                title: "Extract",
+                kind: "refactor.extract",
+                disabled: "Selection is not an expression",
+            },
+            { id: expect.stringMatching(/\.1$/) as unknown, title: "Inline", kind: "refactor.inline" },
+        ]);
+    });
+
     it("границы пересечения: касание конца диапазона включается, старт за концом — нет", async () => {
         const { stub, languages } = makeCtx();
         const collection = languages.createDiagnosticCollection("bounds");
@@ -623,5 +645,46 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         await provideAndPick(stub);
         await provideAndPick(stub);
         expect(await stub.callRequest("languages.applyCodeAction", { id: stale })).toBe(false);
+    });
+
+    it("кэш — на провайдера: меню из трёх провайдеров применяет действие самого быстрого", async () => {
+        // Регрессия «Fix with Supermaven → Code action failed»: ядро спрашивает
+        // каждого провайдера отдельным запросом, и общая глубина кэша 2
+        // вытесняла ведро первого ответившего, пока отвечали остальные.
+        const { stub, languages, executed } = makeCtx();
+        for (const title of ["Fast", "Second", "Third"]) {
+            languages.registerCodeActionsProvider("python", {
+                provideCodeActions: () => [{ title, command: `test.${title}` }],
+            } as unknown as vscode.CodeActionProvider);
+        }
+
+        const menu = await Promise.all([0, 1, 2].map((handle) => provideAndPick(stub, 0, requestParams({ handle }))));
+        expect(await stub.callRequest("languages.applyCodeAction", { id: menu[0] })).toBe(true);
+        expect(executed).toEqual([{ command: "test.Fast", args: [] }]);
+
+        // Глубина своя у каждого: два новых ответа ОДНОГО провайдера вытесняют его
+        // старое ведро, но не трогают вёдра соседей.
+        await provideAndPick(stub, 0, requestParams({ handle: 0 }));
+        await provideAndPick(stub, 0, requestParams({ handle: 0 }));
+        expect(await stub.callRequest("languages.applyCodeAction", { id: menu[0] })).toBe(false);
+        expect(await stub.callRequest("languages.applyCodeAction", { id: menu[1] })).toBe(true);
+        expect(executed.map((e) => e.command)).toEqual(["test.Fast", "test.Second"]);
+    });
+
+    it("снятый провайдер уносит свой кэш: его действие больше не применяется, соседнее — да", async () => {
+        const { stub, languages, executed } = makeCtx();
+        const removed = languages.registerCodeActionsProvider("python", {
+            provideCodeActions: () => [{ title: "Gone", command: "test.gone" }],
+        } as unknown as vscode.CodeActionProvider);
+        languages.registerCodeActionsProvider("python", {
+            provideCodeActions: () => [{ title: "Kept", command: "test.kept" }],
+        } as unknown as vscode.CodeActionProvider);
+        const gone = await provideAndPick(stub, 0, requestParams({ handle: 0 }));
+        const kept = await provideAndPick(stub, 0, requestParams({ handle: 1 }));
+
+        removed.dispose();
+        expect(await stub.callRequest("languages.applyCodeAction", { id: gone })).toBe(false);
+        expect(await stub.callRequest("languages.applyCodeAction", { id: kept })).toBe(true);
+        expect(executed).toEqual([{ command: "test.kept", args: [] }]);
     });
 });

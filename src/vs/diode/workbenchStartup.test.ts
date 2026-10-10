@@ -8,6 +8,7 @@ import { TestApp } from "../../TestUtils/TestApp.ts";
 import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../base/common/performance.ts";
 import { MenuId } from "../platform/actions/common/menuId.ts";
 import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
+import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
 import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
@@ -22,6 +23,7 @@ import { TextEditorPane } from "../workbench/browser/parts/editor/textEditorPane
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/common/editorService.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
+import { NotificationServiceDIToken } from "../workbench/services/notification/browser/notificationService.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
 
 import { createTestContainer } from "./modules/testProfile.ts";
@@ -204,6 +206,31 @@ describe("startWorkbench", () => {
             .getMenuItems(MenuId.EditorContext)
             .map((entry) => (entry.type === "separator" ? "─" : entry.label));
         expect(labels).toContain("test.menus.doThing");
+    });
+
+    it("виды расширений получают `<вид>.focus` на старте: исполнение поднимает предупреждение-тост", async () => {
+        const startup = setup();
+        const chat: IExtension = {
+            ...MENU_EXTENSION,
+            id: "test.chat",
+            manifest: {
+                ...MENU_EXTENSION.manifest,
+                displayName: "Chat",
+                contributes: { views: { chat: [{ id: "test.chat.view", name: "chat", type: "webview" }] } },
+            },
+        };
+
+        await startup.run(NO_TARGETS, [chat]);
+        startup.container.get(CommandRegistryDIToken).execute("test.chat.view.focus");
+
+        expect(startup.container.get(NotificationServiceDIToken).passive()).toMatchObject([
+            {
+                severity: "warn",
+                message: `Chat: view "chat" is a webview — webviews can't be shown in the terminal`,
+                modal: false,
+                items: [],
+            },
+        ]);
     });
 
     it("папка воркспейса назначается до mount (к фазе ready она уже есть)", async () => {
