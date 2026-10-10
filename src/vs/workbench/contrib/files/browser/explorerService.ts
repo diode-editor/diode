@@ -12,7 +12,7 @@ import { ITreeFileWatcherDIToken } from "../../../../platform/files/common/iTree
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 
-import { FileTreeDataProvider, type FileTreeNode } from "./fileTreeDataProvider.ts";
+import { FileTreeDataProvider, type FileTreeNode, nodeSegments } from "./fileTreeDataProvider.ts";
 
 export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
 
@@ -64,6 +64,12 @@ export interface IExplorerView {
     focus(): void;
     getSelectedNode(): FileTreeNode | null;
     getSelectedNodes(): FileTreeNode[];
+    /** Текущий сегмент компактной строки узла (по умолчанию последний); у обычной — 0. */
+    getSegmentIndex(element: FileTreeNode): number;
+    focusPreviousSegment(): boolean;
+    focusNextSegment(): boolean;
+    focusFirstSegment(): boolean;
+    focusLastSegment(): boolean;
     setCutKeys(keys: Set<string>): void;
     clearCutKeys(): void;
 }
@@ -191,9 +197,48 @@ export class ExplorerService extends Disposable {
         void this.revealPath(filePath);
     }
 
-    /** Пути выбранных узлов (множественный выбор либо узел под курсором). */
+    /**
+     * Путь, за который отвечает строка узла: у компактной строки — папка её
+     * текущего сегмента (эталон: `CompressedNavigationController.current`), у
+     * обычной — сам `node.path`.
+     */
+    public nodePath(node: FileTreeNode): string {
+        if (!node.compactParents || !this.view) return node.path;
+        return nodeSegments(node)[this.view.getSegmentIndex(node)] ?? node.path;
+    }
+
+    /**
+     * Состояние текущего сегмента строки под курсором — для контекст-ключей
+     * `explorerViewletCompressed*`; `null` — строка не компактная или дерева нет.
+     */
+    public getCompressedFocus(): { readonly first: boolean; readonly last: boolean } | null {
+        const node = this.view?.getSelectedNode() ?? null;
+        if (!node?.compactParents || !this.view) return null;
+        const index = this.view.getSegmentIndex(node);
+        return { first: index === 0, last: index === node.compactParents.length };
+    }
+
+    /** Команды `*CompressedFolder`: сдвиг текущего сегмента строки под курсором. */
+    public moveCompressedFocus(target: "previous" | "next" | "first" | "last"): void {
+        const view = this.view;
+        if (!view) return;
+        const moves = {
+            previous: () => view.focusPreviousSegment(),
+            next: () => view.focusNextSegment(),
+            first: () => view.focusFirstSegment(),
+            last: () => view.focusLastSegment(),
+        };
+        moves[target]();
+    }
+
+    /**
+     * Пути выбранных узлов (множественный выбор либо узел под курсором). Строка
+     * под курсором отдаёт текущий сегмент; прочие выбранные компактные строки —
+     * последнюю папку (эталон в мультивыборе берёт все папки цепочки).
+     */
     public getSelectedPaths(): string[] {
-        return this.view?.getSelectedNodes().map((node) => node.path) ?? [];
+        const cursor = this.view?.getSelectedNode() ?? null;
+        return this.view?.getSelectedNodes().map((node) => (node === cursor ? this.nodePath(node) : node.path)) ?? [];
     }
 
     /** Путь выбранного ФАЙЛА под курсором; каталог или пустое дерево — `null` (Open to the Side). */
@@ -209,7 +254,7 @@ export class ExplorerService extends Disposable {
     public getPasteTargetDir(): string | null {
         const node = this.view?.getSelectedNode() ?? null;
         if (!node) return this.rootPath;
-        return node.isDirectory ? node.path : path.dirname(node.path);
+        return node.isDirectory ? this.nodePath(node) : path.dirname(node.path);
     }
 
     /**

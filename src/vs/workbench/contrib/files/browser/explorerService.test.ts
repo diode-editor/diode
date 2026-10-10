@@ -58,6 +58,11 @@ function fakeView(overrides?: Partial<IExplorerView>): IExplorerView & {
         },
         getSelectedNode: (): FileTreeNode | null => null,
         getSelectedNodes: (): FileTreeNode[] => [],
+        getSegmentIndex: () => 0,
+        focusPreviousSegment: () => false,
+        focusNextSegment: () => false,
+        focusFirstSegment: () => false,
+        focusLastSegment: () => false,
         setCutKeys: (keys: Set<string>) => {
             view.cutKeys = keys;
         },

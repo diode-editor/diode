@@ -132,7 +132,8 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         });
         expect([...watched].sort()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
 
-        app.sendKey("ArrowLeft");
+        // Left сначала проходит сегменты b → a → pkg, на первом — сворачивает.
+        for (let i = 0; i < 3; i++) app.sendKey("ArrowLeft");
         await vi.waitFor(() => {
             expect(watched.size).toBe(0);
         });
@@ -143,11 +144,31 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("C.java");
         });
-        app.sendKey("ArrowLeft");
+        for (let i = 0; i < 3; i++) app.sendKey("ArrowLeft");
         await vi.waitFor(() => {
             expect(rows().join("\n")).not.toContain("C.java");
         });
         expect(rows()[0]).toContain("pkg/a/b");
+    });
+
+    it("Left/Right выбирают сегмент, действия идут в его папку", async () => {
+        app.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(rows().join("\n")).toContain("C.java");
+        });
+        app.sendKey("ArrowLeft");
+        expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a")]);
+        expect(service.getPasteTargetDir()).toBe(ws.path("pkg/a"));
+        expect(service.getCompressedFocus()).toEqual({ first: false, last: false });
+        // Строка не свернулась: Left ушёл в сегмент.
+        expect(rows().join("\n")).toContain("C.java");
+
+        app.sendKey("ArrowLeft");
+        expect(service.getCompressedFocus()).toEqual({ first: true, last: false });
+        app.sendKey("ArrowRight");
+        app.sendKey("ArrowRight");
+        expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a/b")]);
+        expect(service.getCompressedFocus()).toEqual({ first: false, last: true });
     });
 
     it("reveal файла внутри цепочки раскрывает компактную строку и выделяет файл", async () => {
