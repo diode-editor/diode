@@ -34,8 +34,20 @@ const dir1k = makeDirWithEntries(1_000);
 const dir5k = makeDirWithEntries(5_000);
 
 const files = diskFileService();
-const provider1k = new FileTreeDataProvider(dir1k, () => [], files, NULL_TREE_FILE_WATCHER);
-const provider5k = new FileTreeDataProvider(dir5k, () => [], files, NULL_TREE_FILE_WATCHER);
+const provider1k = new FileTreeDataProvider(
+    dir1k,
+    () => [],
+    files,
+    NULL_TREE_FILE_WATCHER,
+    () => true,
+);
+const provider5k = new FileTreeDataProvider(
+    dir5k,
+    () => [],
+    files,
+    NULL_TREE_FILE_WATCHER,
+    () => true,
+);
 
 afterAll(() => {
     provider1k.dispose();

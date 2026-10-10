@@ -16,6 +16,41 @@ import { FileTreeDataProvider, type FileTreeNode } from "./fileTreeDataProvider.
 
 export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
 
+const COMPACT_FOLDERS_SETTING = "explorer.compactFolders";
+
+/**
+ * Цепочка строк дерева от корня до `filePath`. Предков раскрываем по ходу:
+ * компактную цепочку (`explorer.compactFolders`) провайдер узнаёт, только
+ * когда её голову раскрыли, а она решает, какая строка следующая.
+ */
+async function revealChain(
+    view: IExplorerView,
+    provider: FileTreeDataProvider,
+    filePath: string,
+): Promise<FileTreeNode[]> {
+    const chain: FileTreeNode[] = [];
+    let dir = provider.rootPath;
+    for (;;) {
+        const name = path.relative(dir, filePath).split(path.sep)[0];
+        const childPath = path.join(dir, name);
+        if (childPath === filePath) {
+            chain.push(provider.findNode(childPath) ?? { name, path: childPath, isDirectory: false });
+            return chain;
+        }
+        const node = provider.findNode(childPath) ?? { name, path: childPath, isDirectory: true };
+        chain.push(node);
+        await view.expand(node);
+        // После раскрытия `node.path` — последняя папка его цепочки. Цель не
+        // под ней — значит, цель и есть эта строка: сама последняя папка или
+        // промежуточная, свёрнутая в строку (эталон выделяет компактный узел и
+        // ставит «текущим» её сегмент; сегменты по отдельности мы не выделяем).
+        // Так же — устаревшая цепочка (вход появился в промежуточной папке, а
+        // наблюдатель ещё не дошёл): выделяем ближайшую строку, что его содержит.
+        if (!filePath.startsWith(node.path + path.sep)) return chain;
+        dir = node.path;
+    }
+}
+
 /**
  * Минимальный срез дерева Explorer'а, нужный сервису: refresh/reveal/фокус,
  * выбор и подсветка «вырезанных». `TreeViewElement<FileTreeNode>` соответствует
@@ -24,6 +59,7 @@ export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
  */
 export interface IExplorerView {
     refresh(): Promise<void>;
+    expand(element: FileTreeNode): Promise<void>;
     reveal(chain: FileTreeNode[]): Promise<void>;
     focus(): void;
     getSelectedNode(): FileTreeNode | null;
@@ -78,9 +114,17 @@ export class ExplorerService extends Disposable {
         // перечитать дерево ему никто не скажет — говорим здесь. Сам набор
         // шаблонов в сравнении не участвует: дифф ключей уже посчитал
         // ConfigurationService, а лишний refresh дешевле пропущенного.
+        // `explorer.compactFolders` — так же: найденные цепочки собираются
+        // заново (от `files.exclude` зависит, единственный ли ребёнок у папки).
         this.register(
             configurationService.onDidChangeConfiguration((event) => {
-                if (!event.affectsConfiguration(FILES_EXCLUDE_SETTING)) return;
+                if (
+                    !event.affectsConfiguration(FILES_EXCLUDE_SETTING) &&
+                    !event.affectsConfiguration(COMPACT_FOLDERS_SETTING)
+                ) {
+                    return;
+                }
+                this.provider?.resetCompactFolders();
                 void this.refresh();
             }),
         );
@@ -97,6 +141,7 @@ export class ExplorerService extends Disposable {
                 () => filesExcludeGlobs(this.configurationService),
                 this.files,
                 this.treeWatcher,
+                () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
             ),
         );
         this.onDidChangeRootEmitter.fire();
@@ -122,21 +167,15 @@ export class ExplorerService extends Disposable {
      * Возвращает `true`, если файл лежит внутри корня (и попытка раскрытия выполнена).
      */
     public async revealPath(filePath: string): Promise<boolean> {
-        if (!this.view || this.rootPath === null) return false;
-        const relative = path.relative(this.rootPath, filePath);
+        // Провайдер есть ровно тогда, когда есть корень (оба ставит setRootPath).
+        const provider = this.provider;
+        if (!this.view || !provider) return false;
+        const relative = path.relative(provider.rootPath, filePath);
         /* v8 ignore next -- isAbsolute(relative) is Windows-only (cross-drive paths); unreachable on POSIX CI */
         if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
             return false;
         }
-        const segments = relative.split(path.sep);
-        const chain: FileTreeNode[] = [];
-        let current = this.rootPath;
-        for (let i = 0; i < segments.length; i++) {
-            current = path.join(current, segments[i]);
-            const isLast = i === segments.length - 1;
-            chain.push({ name: segments[i], path: current, isDirectory: !isLast });
-        }
-        await this.view.reveal(chain);
+        await this.view.reveal(await revealChain(this.view, provider, filePath));
         return true;
     }
 
@@ -194,7 +233,9 @@ export class ExplorerService extends Disposable {
         if (paths.length === 0) {
             this.view.clearCutKeys();
         } else {
-            this.view.setCutKeys(new Set(paths));
+            // Ключ строки — голова компактной цепочки, а путь узла — её последняя папка.
+            const keys = paths.map((p) => this.provider?.keyForPath(p) ?? p);
+            this.view.setCutKeys(new Set(keys));
         }
     }
 }

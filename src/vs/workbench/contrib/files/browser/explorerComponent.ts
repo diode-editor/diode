@@ -148,9 +148,9 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
 
         tree.onExpandedChanged = (node, expanded) => {
             if (expanded) {
-                provider.watchDirectory(node.path);
+                provider.watchNode(node);
             } else {
-                provider.unwatchDirectory(node.path);
+                provider.unwatchNode(node);
             }
         };
         tree.onActivate = (node) => {
