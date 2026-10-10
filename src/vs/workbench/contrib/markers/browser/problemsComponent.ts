@@ -1,6 +1,7 @@
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -17,6 +18,14 @@ import { type ProblemNode, ProblemsTreeDataProvider } from "./problemsTreeDataPr
 
 /** VS Code view id of the Problems (Markers) view living in the bottom Panel. */
 export const PROBLEMS_VIEW_ID = "workbench.panel.markers.view";
+
+/**
+ * Окно, в которое сводятся изменения маркеров перед пересчётом вкладки, мс —
+ * то же `Event.debounce(onMarkerChanged, …, 64)`, что у `MarkersView` эталона.
+ * Языковой сервер публикует диагностики по файлу за сообщение; на монорепе
+ * это тысячи событий подряд, и пересчёт дерева на каждое вешал UI-поток.
+ */
+export const PROBLEMS_UPDATE_DELAY_MS = 64;
 
 /** Редактор, в котором раскрывается позиция маркера. */
 export interface IMarkerRevealEditor {
@@ -64,6 +73,13 @@ export class ProblemsComponent extends Component {
 
     private provider: ProblemsTreeDataProvider;
     private treeShown = false;
+    private readonly updateScheduler: RunOnceScheduler;
+    /** Идёт пересчёт: обновление дерева асинхронно, второй параллельно не запускаем. */
+    private updating = false;
+    /** Счётчик смен маркеров: разошёлся с {@link renderedVersion} — нужен пересчёт. */
+    private markersVersion = 0;
+    /** Версия маркеров, по которой построено дерево. */
+    private renderedVersion = 0;
 
     public constructor(
         private readonly markerService: MarkerService,
@@ -104,9 +120,16 @@ export class ProblemsComponent extends Component {
             void this.revealMarker(node);
         };
 
+        this.updateScheduler = this.register(
+            new RunOnceScheduler(() => {
+                void this.update();
+            }, PROBLEMS_UPDATE_DELAY_MS),
+        );
         this.register(
             this.markerService.onDidChangeMarkers(() => {
-                this.rebuild();
+                // Stryker disable next-line UpdateOperator: эквивалентный — версия сравнивается с отрисованной только на неравенство, направление счёта не наблюдаемо
+                this.markersVersion++;
+                this.updateScheduler.schedule();
             }),
         );
     }
@@ -119,10 +142,30 @@ export class ProblemsComponent extends Component {
     }
 
     /**
+     * Пересчёт вкладки по снимку маркеров — не больше одного за раз. Смена
+     * маркеров посреди пересчёта не запускает второй параллельно (оба
+     * перестраивали бы одно дерево вперемешку), а откладывается до конца
+     * текущего: тогда снимок перечитывается ещё раз. Таймер, сработавший уже
+     * после того, как цикл догнал версию, пересчёта не повторяет.
+     */
+    private async update(): Promise<void> {
+        if (this.updating) return;
+        this.updating = true;
+        try {
+            while (this.renderedVersion !== this.markersVersion) {
+                this.renderedVersion = this.markersVersion;
+                await this.rebuild();
+            }
+        } finally {
+            this.updating = false;
+        }
+    }
+
+    /**
      * Re-reads the marker snapshot into the tree. Swaps the Problems view between
      * the tree (markers present) and the placeholder empty-state (none).
      */
-    private rebuild(): void {
+    private async rebuild(): Promise<void> {
         const markers = this.markerService.read();
         this.provider.setMarkers(markers);
 
@@ -131,7 +174,8 @@ export class ProblemsComponent extends Component {
             this.viewsService.setViewBody(PROBLEMS_VIEW_ID, shouldShowTree ? this.view : null);
             this.treeShown = shouldShowTree;
         }
-        if (shouldShowTree) void this.refreshTree();
+        // Stryker disable next-line ConditionalExpression: эквивалентный — без маркеров дерево снято со вкладки (плейсхолдер), его пересборка невидима; ветка экономит работу
+        if (shouldShowTree) await this.refreshTree();
     }
 
     /** Rebuilds the tree and auto-expands each file node (like VS Code's Problems view). */

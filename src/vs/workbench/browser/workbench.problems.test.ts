@@ -8,14 +8,19 @@ import { settle } from "../../../TestUtils/timing.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
-import { ProblemsComponent, ProblemsComponentDIToken } from "../contrib/markers/browser/problemsComponent.ts";
+import {
+    PROBLEMS_UPDATE_DELAY_MS,
+    ProblemsComponent,
+    ProblemsComponentDIToken,
+} from "../contrib/markers/browser/problemsComponent.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
 const UNKNOWN_SETTINGS = ["{", '    "editor.tabSize": 2,', '    "editor.fontSize": 12', "}"].join("\n");
 
-const flush = (): Promise<void> => settle(0);
+// Изменения маркеров доезжают до вкладки Problems через окно сведения.
+const flush = (): Promise<void> => settle(PROBLEMS_UPDATE_DELAY_MS + 10);
 
 describe("Workbench — Problems view end-to-end", () => {
     let ws: ITempWorkspace;

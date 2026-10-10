@@ -18,10 +18,18 @@ import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historySer
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { type IMarkerRevealEditor, PROBLEMS_VIEW_ID, ProblemsComponent } from "./problemsComponent.ts";
+import {
+    type IMarkerRevealEditor,
+    PROBLEMS_UPDATE_DELAY_MS,
+    PROBLEMS_VIEW_ID,
+    ProblemsComponent,
+} from "./problemsComponent.ts";
 import type { ProblemNode } from "./problemsTreeDataProvider.ts";
 
 const RESOURCE = "/ws/settings.json";
+
+/** Дождаться, пока сведённые изменения маркеров дойдут до вкладки. */
+const settleMarkers = (): Promise<void> => settle(PROBLEMS_UPDATE_DELAY_MS + 10);
 
 function warning(message: string, line = 0): IMarkerData {
     return { severity: MarkerSeverity.Warning, range: createRange(line, 0, line, 3), message };
@@ -77,10 +85,9 @@ describe("ProblemsComponent", () => {
         expect(testApp.backend.screenToString()).toContain("No problems have been detected in the workspace.");
 
         markerService.changeOne("settings", RESOURCE, [warning("Unknown Setting: x", 1)]);
-        // Тело подменяется синхронно на смене маркеров.
+        await settleMarkers();
         expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBe(component.view);
 
-        await settle(0);
         testApp.render();
         const screen = testApp.backend.screenToString();
         expect(screen).toContain("settings.json");
@@ -88,11 +95,13 @@ describe("ProblemsComponent", () => {
         expect(screen).toContain("[Ln 2, Col 1]");
     });
 
-    it("falls back to the placeholder when the markers clear", () => {
+    it("falls back to the placeholder when the markers clear", async () => {
         markerService.changeOne("settings", RESOURCE, [warning("x")]);
+        await settleMarkers();
         expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBe(component.view);
 
         markerService.changeOne("settings", RESOURCE, []);
+        await settleMarkers();
         expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBeNull();
     });
 
@@ -180,7 +189,7 @@ describe("ProblemsComponent", () => {
 
     it("focuses the Problems tree", async () => {
         markerService.changeOne("settings", RESOURCE, [warning("x")]);
-        await settle(0);
+        await settleMarkers();
         testApp.render();
         component.focus();
         expect(component.tree.isFocused).toBe(true);
@@ -188,7 +197,7 @@ describe("ProblemsComponent", () => {
 
     it("reveal контейнера панели ведёт фокус в дерево (шов focus дескриптора)", async () => {
         markerService.changeOne("settings", RESOURCE, [warning("x")]);
-        await settle(0);
+        await settleMarkers();
         testApp.render();
         views.service.focusContainer(PROBLEMS_VIEW_ID);
         expect(component.tree.isFocused).toBe(true);
@@ -203,13 +212,95 @@ describe("ProblemsComponent", () => {
 
     it("keeps file nodes expanded across successive marker updates", async () => {
         markerService.changeOne("settings", RESOURCE, [warning("a", 1)]);
-        await settle(0);
+        await settleMarkers();
         // A second update to the same (already-expanded) file must stay expanded.
         markerService.changeOne("settings", RESOURCE, [warning("a", 1), warning("b", 2)]);
-        await settle(0);
+        await settleMarkers();
         testApp.render();
         const screen = testApp.backend.screenToString();
         expect(screen).toContain("[Ln 2, Col 1]");
         expect(screen).toContain("[Ln 3, Col 1]");
+    });
+    describe("сведение изменений маркеров (монорепа: тысячи публикаций подряд)", () => {
+        it("всплеск публикаций по многим файлам — один пересчёт дерева, и в нём все файлы", async () => {
+            const refresh = vi.spyOn(component.tree, "refresh");
+            for (let i = 0; i < 20; i++) {
+                markerService.changeOne("java", `/ws/F${String(i)}.java`, [warning(`err ${String(i)}`)]);
+            }
+            expect(refresh).not.toHaveBeenCalled();
+
+            await settleMarkers();
+            expect(refresh).toHaveBeenCalledTimes(1);
+            testApp.render();
+            const screen = testApp.backend.screenToString();
+            expect(screen).toContain("F0.java  (1)");
+            expect(screen).toContain("err 0");
+        });
+
+        it("смена маркеров посреди пересчёта: второй не идёт параллельно, но и не теряется", async () => {
+            let release: () => void = () => undefined;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const original = component.tree.refresh.bind(component.tree);
+            let running = 0;
+            let maxRunning = 0;
+            const refresh = vi.spyOn(component.tree, "refresh").mockImplementation(async (element) => {
+                running++;
+                maxRunning = Math.max(maxRunning, running);
+                // Первый пересчёт держим, пока не придут новые маркеры.
+                if (refresh.mock.calls.length === 1) await gate;
+                await original(element);
+                running--;
+            });
+
+            markerService.changeOne("java", "/ws/A.java", [warning("first")]);
+            await settleMarkers();
+            expect(refresh).toHaveBeenCalledTimes(1);
+
+            markerService.changeOne("java", "/ws/B.java", [warning("second")]);
+            await settleMarkers();
+            // Первый ещё висит — второй не стартовал.
+            expect(refresh).toHaveBeenCalledTimes(1);
+
+            release();
+            await settleMarkers();
+            expect(refresh).toHaveBeenCalledTimes(2);
+            expect(maxRunning).toBe(1);
+            testApp.render();
+            const screen = testApp.backend.screenToString();
+            expect(screen).toContain("first");
+            expect(screen).toContain("second");
+        });
+
+        it("таймер, сработавший после того, как пересчёт догнал версию, лишнего пересчёта не делает", async () => {
+            let release: () => void = () => undefined;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const original = component.tree.refresh.bind(component.tree);
+            const refresh = vi.spyOn(component.tree, "refresh").mockImplementation(async (element) => {
+                if (refresh.mock.calls.length === 1) await gate;
+                await original(element);
+            });
+
+            markerService.changeOne("java", "/ws/A.java", [warning("first")]);
+            await settleMarkers();
+            // Новые маркеры посреди пересчёта; отпускаем его раньше, чем сработает их таймер.
+            markerService.changeOne("java", "/ws/B.java", [warning("second")]);
+            release();
+            await settleMarkers();
+
+            // Первый + догоняющий цикл; таймер второго события уже ничего не пересчитывает.
+            expect(refresh).toHaveBeenCalledTimes(2);
+        });
+
+        it("после dispose отложенный пересчёт не выполняется", async () => {
+            const refresh = vi.spyOn(component.tree, "refresh");
+            markerService.changeOne("java", "/ws/A.java", [warning("x")]);
+            component.dispose();
+            await settleMarkers();
+            expect(refresh).not.toHaveBeenCalled();
+        });
     });
 });
