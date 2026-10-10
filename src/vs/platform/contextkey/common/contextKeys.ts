@@ -123,6 +123,12 @@ export interface ContextKeyTypes {
     // explorerViewletFocus: boolean;
     /** True while the Explorer file tree has keyboard focus. */
     filesExplorerFocus: boolean;
+    /** Строка под курсором Explorer'а — компактная (`explorer.compactFolders`). */
+    explorerViewletCompressedFocus: boolean;
+    /** Текущий сегмент компактной строки — первый. */
+    explorerViewletCompressedFirstFocus: boolean;
+    /** Текущий сегмент компактной строки — последний. */
+    explorerViewletCompressedLastFocus: boolean;
     // openEditorsFocus: boolean;
     // explorerResourceIsFolder: boolean;
 

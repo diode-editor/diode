@@ -18,6 +18,18 @@ describe("buildPasteEdits", () => {
         expect(buildPasteEdits(entry, "/dst")).toEqual([{ kind: "move", from: "/a/x.txt", to: "/dst" }]);
     });
 
+    it("drops paths whose ancestor is in the clipboard too (distinctParents)", () => {
+        // Компактная строка в мультивыборе кладёт в буфер все папки цепочки.
+        const entry: FileClipboardEntry = {
+            paths: ["/w/src", "/w/src/main", "/w/src/main/java", "/w/srcx"],
+            mode: "copy",
+        };
+        expect(buildPasteEdits(entry, "/dst")).toEqual([
+            { kind: "copy", from: "/w/src", to: "/dst" },
+            { kind: "copy", from: "/w/srcx", to: "/dst" },
+        ]);
+    });
+
     it("returns an empty list for no paths", () => {
         expect(buildPasteEdits({ paths: [], mode: "copy" }, "/dst")).toEqual([]);
     });

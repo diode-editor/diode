@@ -57,7 +57,14 @@ export interface IExplorerInputPrompt {
  * на стороне `WorkspaceEditService.applyFileEdits`.
  */
 export function buildPasteEdits(entry: FileClipboardEntry, targetDir: string): ResourceFileEdit[] {
-    return entry.paths.map(
+    // Как у эталона (`resources.distinctParents` над буфером): путь, чей предок
+    // тоже в буфере, приедет вместе с предком — отдельной правкой не идёт.
+    // Так компактная строка в мультивыборе (все папки цепочки) вставляется
+    // одной головой.
+    const paths = entry.paths.filter(
+        (candidate) => !entry.paths.some((other) => candidate.startsWith(other + path.sep)),
+    );
+    return paths.map(
         (from): ResourceFileEdit =>
             entry.mode === "cut" ? { kind: "move", from, to: targetDir } : { kind: "copy", from, to: targetDir },
     );
