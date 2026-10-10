@@ -63,7 +63,7 @@ describe("parsePorcelainStatus", () => {
     });
 
     it("keeps a truncated rename record without inventing an original path", () => {
-        expect(parsePorcelainStatus(nul("R  new.txt"))).toEqual([{ path: "new.txt", xy: "R " }]);
+        expect(parsePorcelainStatus(nul("R  new.txt"))).toStrictEqual([{ path: "new.txt", xy: "R " }]);
     });
 
     it("handles a final record without a trailing NUL", () => {

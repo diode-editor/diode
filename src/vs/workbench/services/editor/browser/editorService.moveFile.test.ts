@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
@@ -18,6 +19,7 @@ import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatche
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
@@ -46,7 +48,7 @@ describe("EditorService — вкладки едут за перенесённы�
             new TokenizationRegistry(),
             NULL_TOKEN_STYLE_RESOLVER,
             NULL_LANGUAGE_SERVICE,
-            createTestConfigurationService({ "workbench.editor.enablePreview": true }),
+            createTestConfigurationService({ "workbench.editor.enablePreview": true, "editor.wordWrap": "on" }),
             new UndoRedoService(),
             NULL_FILE_WATCHER,
             createTestEditorContextMenuController(),
@@ -95,6 +97,8 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(moved.model.getText()).toBe("one\ntwo\n");
         expect(moved.isModified).toBe(false);
         expect(moved.viewState.selections).toEqual([createCursorSelection(1, 2)]);
+        // editor.*-настройки применены и к новой вкладке.
+        expect(moved.viewState.wordWrap).toBe("on");
 
         moved.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "X")], "type");
         expect(await moved.save()).toBe("saved");
@@ -120,14 +124,21 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
     });
 
-    it("файл в двух группах: обе вкладки на новом пути, общая модель, правки перелиты один раз", async () => {
+    it("файл в двух группах: обе вкладки на новом пути, общая модель, правки переехали", async () => {
         service.openFile(ws.path("old.txt"));
         textPane(0, 0).applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "!")], "type");
         service.splitActiveGroup();
         await Promise.resolve();
         expect(service.editorGroups.groups).toHaveLength(2);
+        textPane(0, 0).viewState.selections = [createCursorSelection(1, 2)];
+        textPane(1, 0).viewState.selections = [createCursorSelection(0, 3)];
 
         await move("old.txt", "new.txt");
+
+        // Правки переливаются на каждую вкладку, но повторная заливка того же
+        // текста каретку уже замещённой вкладки первой группы не сбрасывает.
+        expect(textPane(0, 0).viewState.selections).toEqual([createCursorSelection(1, 2)]);
+        expect(textPane(1, 0).viewState.selections).toEqual([createCursorSelection(0, 3)]);
 
         expect(tabs(0)).toEqual([{ path: ws.path("new.txt"), label: "new.txt" }]);
         expect(tabs(1)).toEqual([{ path: ws.path("new.txt"), label: "new.txt" }]);
@@ -165,14 +176,43 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(textPane(0, 0).uri.fsPath).toBe(ws.path("renamed.txt"));
     });
 
+    it("вкладки без файловой модели по тому же пути (снимок, панель другого вида) остаются на месте", async () => {
+        const snapshot = service.openTextSnapshot(Uri.file(ws.path("old.txt")), {
+            text: "snapshot\n",
+            languageId: "plaintext",
+            label: "old.txt (HEAD)",
+        });
+        const other: IEditorPane = {
+            uri: Uri.file(ws.path("src/a.txt")),
+            label: "a.txt (preview)",
+            view: new TUIElement(),
+            isModified: false,
+            readOnly: true,
+            getSelectedTexts: () => [],
+            onDidChangeState: () => ({ dispose: () => undefined }),
+            focusEditor: () => undefined,
+            dispose: () => undefined,
+        };
+        service.openPane(other);
+
+        await move("old.txt", "new.txt");
+        await move("src", "lib");
+
+        expect(service.editorGroups.groups[0].getPanes()).toEqual([snapshot, other]);
+    });
+
     it("перенос чужого файла и копирование вкладок не трогают", async () => {
         service.openFile(ws.path("old.txt"));
         const before = textPane(0, 0);
+        let events = 0;
+        service.onDidChangeEditors(() => events++);
 
         await move("other.txt", "moved.txt");
         await files.copy(Uri.file(ws.path("old.txt")), Uri.file(ws.path("copy.txt")));
 
         expect(textPane(0, 0)).toBe(before);
+        // Группу, где ничего не переехало, не перерисовываем вхолостую.
+        expect(events).toBe(0);
         expect(tabs()).toEqual([{ path: ws.path("old.txt"), label: "old.txt" }]);
     });
 });
@@ -196,7 +236,16 @@ describe("movedResource", () => {
         expect(movedResource(Uri.file("/repo/..hidden"), Uri.file("/repo/src"), target)).toBeNull();
     });
 
-    it("недисковый ресурс — мимо", () => {
-        expect(movedResource(Uri.parse("untitled:Untitled-1"), source, target)).toBeNull();
+    it("безымянный буфер — мимо, даже когда переносят текущий каталог процесса", () => {
+        // «Путь» `Untitled-1` относительный: сравнение по fsPath разрешило бы его
+        // от cwd и увело бы буфер вслед за каталогом.
+        const cwd = Uri.file(process.cwd());
+        expect(movedResource(Uri.parse("untitled:Untitled-1"), cwd, target)).toBeNull();
+    });
+
+    it("перенос в чужой схеме файловую вкладку с тем же путём не трогает", () => {
+        expect(
+            movedResource(Uri.file("/repo/src/a.ts"), Uri.parse("mem:/repo/src"), Uri.parse("mem:/repo/lib")),
+        ).toBeNull();
     });
 });

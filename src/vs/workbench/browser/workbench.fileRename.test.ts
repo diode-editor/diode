@@ -82,8 +82,31 @@ describe("Workbench — Rename", () => {
 
         const editor = h.container.get(EditorServiceDIToken).getActiveEditor();
         expect(editor?.uri.fsPath).toBe(ws.path("new.txt"));
+        // Фокус был в редакторе — он в редакторе и остался (уже в новой вкладке).
+        expect(h.testApp.focusedElement?.getAncestorPath().includes(editor!.view)).toBe(true);
         expect(await editor?.save()).toBe("saved");
         expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
+    });
+
+    it("переименование открытого файла из дерева фокус в редактор не уводит", async () => {
+        h.container.get(EditorServiceDIToken).openFile(ws.path("old.txt"));
+        h.commands.execute("workbench.view.explorer");
+        h.testApp.render();
+        const focusedBefore = h.testApp.focusedElement;
+        const editors = h.container.get(EditorServiceDIToken);
+        expect(focusedBefore?.getAncestorPath().includes(editors.getActiveEditor()!.view)).toBe(false);
+
+        h.commands.execute("fileOperations.rename", ws.path("old.txt"));
+        h.testApp.render();
+        await typeInto(quickPickByTitle(h.testApp, "Rename"), "new.txt");
+        h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(editors.getActiveEditor()?.uri.fsPath).toBe(ws.path("new.txt"));
+        });
+        await flushMicrotasks(FLUSH_TURNS);
+        h.testApp.render();
+
+        expect(h.testApp.focusedElement?.getAncestorPath().includes(editors.getActiveEditor()!.view)).toBe(false);
     });
 
     it("renames a directory in place", async () => {

@@ -99,15 +99,18 @@ function applyViewState(editor: TextEditorPane, viewState: ITextEditorViewState)
  * `joinPath` в `EditorService.handleMovedFile`).
  */
 export function movedResource(resource: Uri, source: Uri, target: Uri): Uri | null {
-    if (resource.scheme !== "file") return null;
+    // Пути сравнимы только в одной схеме: у безымянного буфера «путь»
+    // относительный, у чужой схемы — свой, совпадение путей ничего не значит.
+    if (resource.scheme !== source.scheme) return null;
     const relative = path.relative(source.fsPath, resource.fsPath);
-    if (relative === "") return target;
     if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+    // Сам ресурс (`relative === ""`) — `join` отдаёт ровно `target`.
     return Uri.file(path.join(target.fsPath, relative));
 }
 
 /** Внутри ли `view` сейчас фокус — по пути от активного элемента вверх. */
 function holdsFocus(view: IEditorPane["view"]): boolean {
+    // Stryker disable next-line OptionalChaining: у корня смонтированного дерева FocusManager есть всегда, у несмонтированной вкладки `getRoot()` и так `null`
     const active = view.getRoot()?.focusManager?.activeElement ?? null;
     return active?.getAncestorPath().includes(view) === true;
 }
@@ -387,6 +390,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         // первое же сохранение воскрешало переименованный файл.
         this.register(
             fileService.onDidRunOperation((event) => {
+                // Stryker disable next-line ConditionalExpression: у Move сервис кладёт `target` всегда — проверка лишь сужает тип
                 if (event.operation === FileOperation.Move && event.target !== undefined) {
                     this.handleMovedFile(event.resource, event.target);
                 }
@@ -519,9 +523,6 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      * дифф-вкладок не трогаем — их ресурсы фиксирует владелец диффа.
      */
     private handleMovedFile(source: Uri, target: Uri): void {
-        if (source.scheme !== "file" || target.scheme !== "file") return;
-        /** Модели нового пути, куда уже перелиты правки (файл в двух группах — одна модель). */
-        const restored = new Set<TextFileModel>();
         for (const group of this.editorGroups.groups) {
             let moved = false;
             let focusActive = false;
@@ -530,10 +531,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 const resource = movedResource(pane.uri, source, target);
                 if (resource === null) continue;
                 const ref = this.textFileModels.acquire(resource);
-                if (pane.fileModel.isModified && !restored.has(ref.model)) {
-                    ref.model.restoreUnsavedContents(pane.fileModel.getText());
-                    restored.add(ref.model);
-                }
+                // Файл в двух группах — одна модель, и вторая заливка того же
+                // текста ничего не меняет (каретки вкладок переживают её).
+                if (pane.fileModel.isModified) ref.model.restoreUnsavedContents(pane.fileModel.getText());
                 const editor = this.paneBuilder.build(ref.model, ref);
                 this.editorConfiguration.apply(editor);
                 applyViewState(editor, {
@@ -541,7 +541,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                     scrollTop: pane.viewState.scrollTop,
                     scrollLeft: pane.viewState.scrollLeft,
                 });
-                if (index === group.activeIndex && holdsFocus(pane.view)) focusActive = true;
+                // Фокус может держать только активная вкладка: неактивные не смонтированы.
+                if (holdsFocus(pane.view)) focusActive = true;
                 group.replacePane(index, editor, { preview: !group.isPinned(pane) });
                 moved = true;
             }
