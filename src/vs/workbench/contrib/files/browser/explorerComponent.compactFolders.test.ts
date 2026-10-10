@@ -219,7 +219,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
 
     it("files.exclude решает, единственный ли ребёнок", async () => {
         // Шаблон без точки: ключи-шаблоны с точкой («**/*.log») дифф настроек
-        // пока не видит — см. docs/TODO/ParityBacklog.md.
+        // пока не видит — см. docs/TODO/README.md, раздел «Настройки».
         ws.writeFile("pkg/a/NOTES", "");
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
