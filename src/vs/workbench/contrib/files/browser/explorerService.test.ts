@@ -193,6 +193,17 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         service.dispose();
     });
 
+    it("revealPath с деревом, но без корня — false, дерево не трогается", async () => {
+        const service = createService();
+        const view = fakeView();
+        service.attachView(view);
+
+        expect(await service.revealPath("/anything/x.ts")).toBe(false);
+        expect(view.expanded).toEqual([]);
+        expect(view.revealed).toEqual([]);
+        service.dispose();
+    });
+
     it("revealPath builds the ancestor chain and passes it to the view", async () => {
         const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-" });
         const service = createService();
