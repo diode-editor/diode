@@ -131,6 +131,8 @@ describe("Workbench — accept пункта с диапазоном замены
 
     it("каретка встаёт в конец вставки, а не на место префикса", async () => {
         for (const char of "gre") h.testApp.sendKey(char);
+        // Каретка посреди слова «greXyz» — quick suggest молчит (как в эталоне), зовём явно.
+        h.commands.execute("editor.action.triggerSuggest");
         await settle();
         h.testApp.sendKey("Enter");
         await settle();
