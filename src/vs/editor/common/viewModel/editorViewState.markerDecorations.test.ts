@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { MarkerSeverity } from "../../../platform/markers/common/iMarker.ts";
 import { createRange } from "../core/iRange.ts";
@@ -30,6 +30,17 @@ describe("EditorViewState — marker decorations", () => {
         expect(viewState.getMarkerDecorations()).toEqual([
             { range: createRange(0, 0, 0, 3), severity: MarkerSeverity.Warning },
         ]);
+    });
+
+    it("новый набор снимает из документа прежние декорации, а не копит их", () => {
+        const doc = new TextDocument("let bad = 1;");
+        const viewState = new EditorViewState(doc);
+        const delta = vi.spyOn(doc, "deltaDecorations");
+        viewState.setMarkerDecorations([{ range: createRange(0, 4, 0, 7), severity: MarkerSeverity.Error }]);
+        const [firstIds] = delta.mock.results.map((result) => result.value as string[]);
+        viewState.setMarkerDecorations([]);
+        expect(delta.mock.calls[1][0]).toEqual(firstIds);
+        expect(firstIds.map((id) => doc.getDecorationRange(id))).toEqual([null]);
     });
 
     it("две вью одного документа держат свои маркеры; dispose снимает только свои", () => {

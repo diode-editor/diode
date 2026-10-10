@@ -205,6 +205,19 @@ describe("TrackedDecorations — правки через строки", () => {
         ).toEqual(createRange(0, 31, 0, 46));
     });
 
+    it("начало многострочной декорации строкой выше правки остаётся на месте", () => {
+        // Правка «Second» → «Secund» внутри декорации (0,3)-(2,5): начало на строке
+        // выше правки не двигается, конец — ниже правки и тоже на месте.
+        expect(
+            decorationAfterEdit(
+                [0, 3, 2, 5],
+                TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                [1, 3, 1, 9],
+                "Secund",
+            ),
+        ).toEqual(createRange(0, 3, 2, 5));
+    });
+
     it("батч правок двигает декорацию по каждой", () => {
         const { doc, id } = documentWithDecoration([2, 6, 2, 10]);
         doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "X\n"), createTextEdit(createRange(2, 0, 2, 0), "yy")]);

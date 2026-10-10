@@ -241,6 +241,7 @@ export class EditorViewState {
     private applyingOwnEdits = false;
     private readonly docContentSubscription: IDisposable;
     /** Squiggle-декорации этой вью: id декорации в документе + серьёзность маркера. */
+    // Stryker disable next-line ArrayDeclaration: мусорный элемент без id документ не знает — getDecorationRange даёт null
     private markerDecorationIds: readonly { readonly id: string; readonly severity: IMarkerDecoration["severity"] }[] =
         [];
 
@@ -288,6 +289,8 @@ export class EditorViewState {
         const result: IMarkerDecoration[] = [];
         for (const { id, severity } of this.markerDecorationIds) {
             const range = this.document.getDecorationRange(id);
+            // Декорации вью снимает только она сама, так что null — лишь защита от чужого id.
+            // Stryker disable next-line ConditionalExpression: см. выше — снаружи её id никто не снимает
             if (range !== null) result.push({ range, severity });
         }
         return result;
