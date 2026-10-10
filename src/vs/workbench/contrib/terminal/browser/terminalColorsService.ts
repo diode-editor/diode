@@ -21,8 +21,6 @@ export const TerminalColorsServiceDIToken = token<TerminalColorsService>("Termin
 
 const COLOR_SOURCE_SETTING = "terminal.integrated.colorSource";
 
-export type TerminalColorSource = "theme" | "host";
-
 export interface ITerminalColors {
     /** Цвета palette-индексов 0..15 (всегда 16). */
     readonly ansi: readonly number[];
@@ -35,19 +33,14 @@ export interface ITerminalColors {
 }
 
 /**
- * Цвета терминала по теме и источнику. `host` — ответ хост-терминала; `undefined`
- * (ещё не спрашивали или не ответил) — всё из темы, как при `theme`.
+ * Цвета терминала: что сообщил хост-терминал (`host`), то от него, остальное — из
+ * темы поштучно. `undefined` (режим темы или хост ещё не ответил) — всё из темы.
  */
-export function resolveTerminalColors(
-    theme: WorkbenchTheme,
-    source: TerminalColorSource,
-    host: HostTerminalColors | undefined,
-): ITerminalColors {
-    const fromHost = source === "host" ? host : undefined;
+export function resolveTerminalColors(theme: WorkbenchTheme, host: HostTerminalColors | undefined): ITerminalColors {
     return {
-        ansi: TERMINAL_ANSI_COLOR_KEYS.map((key, index) => fromHost?.ansi[index] ?? theme.getRequiredColor(key)),
-        background: fromHost?.background,
-        foreground: fromHost?.foreground,
+        ansi: TERMINAL_ANSI_COLOR_KEYS.map((key, index) => host?.ansi[index] ?? theme.getRequiredColor(key)),
+        background: host?.background,
+        foreground: host?.foreground,
     };
 }
 
@@ -92,12 +85,12 @@ export class TerminalColorsService extends Disposable {
         return this.current;
     }
 
-    private get source(): TerminalColorSource {
-        return this.configuration.get(COLOR_SOURCE_SETTING) === "host" ? "host" : "theme";
+    private get usesHost(): boolean {
+        return this.configuration.get(COLOR_SOURCE_SETTING) === "host";
     }
 
     private compute(): ITerminalColors {
-        return resolveTerminalColors(this.themeService.theme, this.source, this.hostColors);
+        return resolveTerminalColors(this.themeService.theme, this.usesHost ? this.hostColors : undefined);
     }
 
     private update(): void {
@@ -106,7 +99,7 @@ export class TerminalColorsService extends Disposable {
     }
 
     private probeHostIfNeeded(): void {
-        if (this.source !== "host" || this.hostProbeStarted) return;
+        if (!this.usesHost || this.hostProbeStarted) return;
         this.hostProbeStarted = true;
         this.backend.probeHostColors((colors) => {
             this.hostColors = colors;

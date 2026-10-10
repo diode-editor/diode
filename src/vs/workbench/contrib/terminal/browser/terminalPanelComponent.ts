@@ -334,7 +334,7 @@ function applyTerminalColors(instance: ITerminalInstance, widget: TerminalViewEl
     const vars: Record<string, number> = {};
     if (colors.background !== undefined) vars["terminal.background"] = colors.background;
     if (colors.foreground !== undefined) vars["terminal.foreground"] = colors.foreground;
-    widget.setStyleVars(Object.keys(vars).length > 0 ? vars : null);
+    widget.setStyleVars(vars);
 }
 
 function holdsFocus(widget: TerminalViewElement): boolean {

@@ -43,8 +43,7 @@ export type XtermPalette = readonly number[];
  * куб 6×6×6 и серые — канонические.
  */
 export function buildXtermPalette(ansi: readonly number[]): XtermPalette {
-    const table = new Array<number>(256);
-    for (let i = 0; i < 16; i++) table[i] = ansi[i];
+    const table = ansi.slice(0, 16);
 
     // 6×6×6 color cube (indices 16..231)
     for (let r = 0; r < 6; r++) {

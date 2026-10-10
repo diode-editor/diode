@@ -57,7 +57,7 @@ function build(settings: Record<string, unknown> = {}, hostColors = NO_HOST_COLO
 
 describe("resolveTerminalColors", () => {
     it("тема: 16 цветов — terminal.ansi* (дефолты эталона), фон/текст — токены темы", () => {
-        expect(resolveTerminalColors(DARK, "theme", undefined)).toEqual({
+        expect(resolveTerminalColors(DARK, undefined)).toEqual({
             ansi: VSCODE_DARK_ANSI,
             background: undefined,
             foreground: undefined,
@@ -65,7 +65,7 @@ describe("resolveTerminalColors", () => {
     });
 
     it("светлая тема даёт свои дефолты эталона", () => {
-        const { ansi } = resolveTerminalColors(LIGHT, "theme", undefined);
+        const { ansi } = resolveTerminalColors(LIGHT, undefined);
         expect(ansi[2]).toBe(0x107c10); // ansiGreen light
         expect(ansi[7]).toBe(0x555555); // ansiWhite light
     });
@@ -75,24 +75,16 @@ describe("resolveTerminalColors", () => {
             ...darkPlusTheme,
             colors: { ...darkPlusTheme.colors, "terminal.ansiRed": "#ff0000" },
         });
-        expect(resolveTerminalColors(theme, "theme", undefined).ansi[1]).toBe(0xff0000);
-    });
-
-    it("в режиме темы ответ хоста игнорируется", () => {
-        expect(resolveTerminalColors(DARK, "theme", PARTIAL_HOST).ansi).toEqual(VSCODE_DARK_ANSI);
+        expect(resolveTerminalColors(theme, undefined).ansi[1]).toBe(0xff0000);
     });
 
     it("хост: сообщённое — от хоста, остальное поштучно из темы", () => {
-        const colors = resolveTerminalColors(DARK, "host", PARTIAL_HOST);
+        const colors = resolveTerminalColors(DARK, PARTIAL_HOST);
         expect(colors.ansi[1]).toBe(packRgb(200, 0, 0));
         expect(colors.ansi[15]).toBe(packRgb(250, 250, 250));
         expect(colors.ansi[2]).toBe(VSCODE_DARK_ANSI[2]);
         expect(colors.background).toBe(packRgb(1, 2, 3));
         expect(colors.foreground).toBeUndefined();
-    });
-
-    it("хост ещё не ответил — всё из темы", () => {
-        expect(resolveTerminalColors(DARK, "host", undefined)).toEqual(resolveTerminalColors(DARK, "theme", undefined));
     });
 });
 
@@ -108,6 +100,27 @@ describe("TerminalColorsService", () => {
         expect(probe).toHaveBeenCalledOnce();
         expect(service.colors.ansi[1]).toBe(packRgb(200, 0, 0));
         expect(service.colors.background).toBe(packRgb(1, 2, 3));
+    });
+
+    it("хост отвечает позже: до ответа — тема, ответ — новое событие с цветами хоста", () => {
+        const themeService = new ThemeService(DARK);
+        const backend = new MockTerminalBackend();
+        let answer: ((colors: typeof PARTIAL_HOST) => void) | undefined;
+        backend.probeHostColors = (onResult) => {
+            answer = onResult;
+        };
+        const service = new TerminalColorsService(
+            themeService,
+            createTestConfigurationService({ "terminal.integrated.colorSource": "host" }),
+            backend,
+        );
+        const changes = vi.fn();
+        service.onDidChange(changes);
+        expect(service.colors.ansi).toEqual(VSCODE_DARK_ANSI);
+
+        answer?.(PARTIAL_HOST);
+        expect(changes).toHaveBeenCalledWith(service.colors);
+        expect(service.colors.ansi[1]).toBe(packRgb(200, 0, 0));
     });
 
     it("смена темы перекрашивает: новое событие с палитрой новой темы", () => {

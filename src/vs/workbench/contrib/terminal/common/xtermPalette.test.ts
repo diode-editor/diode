@@ -97,6 +97,10 @@ describe("buildXtermPalette — свои 16 системных цветов", ()
         for (let i = 16; i < 256; i++) expect(xtermPaletteToRgb(i, palette)).toBe(xtermPaletteToRgb(i));
     });
 
+    it("переданный массив не трогает", () => {
+        expect(ansi).toHaveLength(16);
+    });
+
     it("вне диапазона — фоллбэк на свой index 7", () => {
         expect(xtermPaletteToRgb(256, palette)).toBe(packRgb(7, 1, 2));
     });
