@@ -1,4 +1,4 @@
-import type { ITokenColorRule } from "./iThemeFile.ts";
+import type { ISemanticTokenColorRule, ITokenColorRule } from "./iThemeFile.ts";
 
 /**
  * Parsed editor token theme for syntax highlighting.
@@ -8,4 +8,10 @@ import type { ITokenColorRule } from "./iThemeFile.ts";
 export interface IEditorTokenTheme {
     /** Parsed token color rules from the VS Code theme file. */
     rules: ITokenColorRule[];
+
+    /** `semanticHighlighting` темы: дефолт семантической подсветки при `configuredByTheme`. */
+    semanticHighlighting?: boolean;
+
+    /** Правила `semanticTokenColors` темы в порядке объявления. */
+    semanticTokenRules?: readonly ISemanticTokenColorRule[];
 }

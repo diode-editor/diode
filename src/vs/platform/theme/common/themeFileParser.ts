@@ -1,7 +1,13 @@
 import { parse as parseJsonc, type ParseError, printParseErrorCode } from "jsonc-parser";
 
 import { isHexColor } from "./colorUtils.ts";
-import type { IThemeFile, ITokenColorRule, ITokenColorSettings } from "./iThemeFile.ts";
+import type {
+    ISemanticTokenColorRule,
+    ISemanticTokenColorSettings,
+    IThemeFile,
+    ITokenColorRule,
+    ITokenColorSettings,
+} from "./iThemeFile.ts";
 
 /**
  * Разбор файла цветовой темы VS Code (JSON/JSONC: комментарии и висячие
@@ -14,8 +20,10 @@ import type { IThemeFile, ITokenColorRule, ITokenColorSettings } from "./iThemeF
  * `settings`, `tokenColors` строкой (путь к `.tmTheme`, plist XML — не
  * поддержан: подсветка остаётся дефолтной, решение 8 в Theming.md).
  * `name` из файла не читается — ключ темы задаёт манифест (`label`).
- * `semanticTokenColors`/`semanticHighlighting` игнорируются: семантических
- * токенов в редакторе нет.
+ * `semanticHighlighting` берётся, только если это `true`/`false`;
+ * `semanticTokenColors` разбирается в {@link IThemeFile.semanticTokenRules}
+ * (стиль без единого валидного атрибута — пропуск с предупреждением; селектор
+ * не проверяется — кривой просто ни с чем не совпадёт, как в эталоне).
  */
 export function parseThemeFile(text: string, warn: (message: string) => void = () => undefined): IThemeFile {
     const errors: ParseError[] = [];
@@ -31,6 +39,10 @@ export function parseThemeFile(text: string, warn: (message: string) => void = (
         tokenColors: parseTokenColors(raw.tokenColors, warn),
     };
     if (typeof raw.include === "string") theme.include = raw.include;
+    if (typeof raw.semanticHighlighting === "boolean") theme.semanticHighlighting = raw.semanticHighlighting;
+    if (raw.semanticTokenColors !== undefined) {
+        theme.semanticTokenRules = parseSemanticTokenColors(raw.semanticTokenColors, warn);
+    }
     return theme;
 }
 
@@ -106,5 +118,47 @@ function parseTokenSettings(raw: Record<string, unknown>, warn: (reason: string)
         }
     }
     if (typeof raw.fontStyle === "string") settings.fontStyle = raw.fontStyle;
+    return settings;
+}
+
+function parseSemanticTokenColors(value: unknown, warn: (message: string) => void): ISemanticTokenColorRule[] {
+    if (!isRecord(value)) {
+        warn("semanticTokenColors is not an object — ignored");
+        return [];
+    }
+    const rules: ISemanticTokenColorRule[] = [];
+    for (const [selector, raw] of Object.entries(value)) {
+        const settings = parseSemanticTokenSettings(raw, (reason) => {
+            warn(`semanticTokenColors["${selector}"]: ${reason}`);
+        });
+        if (settings !== null) rules.push({ selector, settings });
+    }
+    return rules;
+}
+
+/**
+ * Значение правила `semanticTokenColors`: строка — цвет, объект — стиль
+ * (`readSemanticTokenRule` эталона). Ни одного атрибута — правило пропускается.
+ */
+function parseSemanticTokenSettings(raw: unknown, warn: (reason: string) => void): ISemanticTokenColorSettings | null {
+    const settings: ISemanticTokenColorSettings = {};
+    const record: Record<string, unknown> = typeof raw === "string" ? { foreground: raw } : isRecord(raw) ? raw : {};
+    const foreground = record.foreground;
+    if (foreground !== undefined) {
+        if (isHexColor(foreground)) {
+            settings.foreground = foreground;
+        } else {
+            warn(`invalid foreground ${JSON.stringify(foreground)} — ignored`);
+        }
+    }
+    if (typeof record.fontStyle === "string") settings.fontStyle = record.fontStyle;
+    for (const key of ["bold", "italic", "underline", "strikethrough"] as const) {
+        const flag = record[key];
+        if (typeof flag === "boolean") settings[key] = flag;
+    }
+    if (Object.keys(settings).length === 0) {
+        warn("no style — ignored");
+        return null;
+    }
     return settings;
 }

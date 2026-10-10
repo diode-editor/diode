@@ -7,6 +7,10 @@ import {
 } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../editor/common/languages/iLanguageService.ts";
 import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
+import {
+    NULL_SEMANTIC_TOKEN_STYLE_RESOLVER,
+    SemanticTokenStyleResolverDIToken,
+} from "../../editor/common/languages/iSemanticTokenStyleResolver.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenStyleResolverDIToken } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
@@ -42,6 +46,23 @@ describe("tokenizationModule", () => {
         expect(container.get(TokenStyleResolverDIToken)).toBe(NULL_TOKEN_STYLE_RESOLVER);
         expect(container.get(LanguageServiceDIToken)).toBe(NULL_LANGUAGE_SERVICE);
         expect(container.get(LanguageConfigurationServiceDIToken)).toBe(languageConfigurationService);
+    });
+
+    it("резолвер семантических стилей: от владельца, без него — NULL", () => {
+        expect(createTestContainer().container.get(SemanticTokenStyleResolverDIToken)).toBe(
+            NULL_SEMANTIC_TOKEN_STYLE_RESOLVER,
+        );
+
+        const { container } = createTestContainer();
+        const semanticTokenStyleResolver = { ...NULL_SEMANTIC_TOKEN_STYLE_RESOLVER };
+        container.use(tokenizationModule, {
+            tokenizationRegistry: new TokenizationRegistry(),
+            tokenStyleResolver: NULL_TOKEN_STYLE_RESOLVER,
+            semanticTokenStyleResolver,
+            languageService: NULL_LANGUAGE_SERVICE,
+            languageConfigurationService: NULL_LANGUAGE_CONFIGURATION_SERVICE,
+        });
+        expect(container.get(SemanticTokenStyleResolverDIToken)).toBe(semanticTokenStyleResolver);
     });
 
     it("реестры языковых провайдеров — один инстанс на контейнер, стартуют пустыми", () => {

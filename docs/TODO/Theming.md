@@ -60,8 +60,9 @@ VS Code (`contributes.themes: [{ label, uiTheme, path }]`, файл темы —
 
 Не входит: `contributes.iconThemes` / `productIconThemes` (иконок файлов у нас нет), горячее
 появление темы без перезагрузки окна (модель магазина — «установил → Reload Window», решение 2
-в ExtensionsView.md), `semanticTokenColors`/`semanticHighlighting` (семантических токенов в
-редакторе нет — поле игнорируется), `workbench.colorCustomizations`.
+в ExtensionsView.md), `workbench.colorCustomizations` (и `editor.semanticTokenColorCustomizations`).
+`semanticTokenColors`/`semanticHighlighting` тем читаются — см. «Async-токенизация (LSP semantic
+tokens)» в [SyntaxHighlighting.md](SyntaxHighlighting.md).
 
 ### Принятые решения
 

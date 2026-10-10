@@ -2,6 +2,11 @@ import type { ILanguageConfigurationService } from "../../editor/common/language
 import { LanguageConfigurationServiceDIToken } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../../editor/common/languages/iLanguageService.ts";
 import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
+import {
+    type ISemanticTokenStyleResolver,
+    NULL_SEMANTIC_TOKEN_STYLE_RESOLVER,
+    SemanticTokenStyleResolverDIToken,
+} from "../../editor/common/languages/iSemanticTokenStyleResolver.ts";
 import type { ITokenStyleResolver } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenStyleResolverDIToken } from "../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../editor/common/languages/tokenizationRegistry.ts";
@@ -13,6 +18,8 @@ import type { ContainerModule } from "../../platform/instantiation/common/diCont
 export interface TokenizationModuleContext {
     tokenizationRegistry: TokenizationRegistry;
     tokenStyleResolver: ITokenStyleResolver;
+    /** Тема для семантических токенов; без неё (тесты) — NULL: семантика не красится. */
+    semanticTokenStyleResolver?: ISemanticTokenStyleResolver;
     languageService: ILanguageService;
     languageConfigurationService: ILanguageConfigurationService;
 }
@@ -28,10 +35,17 @@ export interface TokenizationModuleContext {
  */
 export const tokenizationModule: ContainerModule<TokenizationModuleContext> = (
     container,
-    { tokenizationRegistry, tokenStyleResolver, languageService, languageConfigurationService },
+    {
+        tokenizationRegistry,
+        tokenStyleResolver,
+        semanticTokenStyleResolver = NULL_SEMANTIC_TOKEN_STYLE_RESOLVER,
+        languageService,
+        languageConfigurationService,
+    },
 ) => {
     container.bind(TokenizationRegistryDIToken, () => tokenizationRegistry);
     container.bind(TokenStyleResolverDIToken, () => tokenStyleResolver);
+    container.bind(SemanticTokenStyleResolverDIToken, () => semanticTokenStyleResolver);
     container.bind(LanguageServiceDIToken, () => languageService);
     container.bind(LanguageConfigurationServiceDIToken, () => languageConfigurationService);
     container.bind(LanguageFeaturesServiceDIToken, () => new LanguageFeaturesService());

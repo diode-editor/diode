@@ -131,13 +131,71 @@ describe("parseThemeFile — спасаемое с warning", () => {
         expect(warn).toHaveBeenCalledWith('tokenColors[0]: invalid foreground "red" — ignored');
     });
 
-    it("semanticTokenColors и прочие поля игнорируются молча", () => {
+    it("неизвестные поля игнорируются молча", () => {
         const warn = vi.fn();
-        const theme = parseThemeFile(
-            `{ "semanticHighlighting": true, "semanticTokenColors": { "variable": "#fff" }, "colors": {} }`,
-            warn,
-        );
+        const theme = parseThemeFile(`{ "author": "x", "colors": {} }`, warn);
         expect(theme).toEqual({ colors: {}, tokenColors: [] });
         expect(warn).not.toHaveBeenCalled();
+    });
+});
+
+describe("parseThemeFile — семантическая подсветка", () => {
+    it("semanticHighlighting берётся только булевым", () => {
+        expect(parseThemeFile(`{ "semanticHighlighting": true }`).semanticHighlighting).toBe(true);
+        expect(parseThemeFile(`{ "semanticHighlighting": false }`).semanticHighlighting).toBe(false);
+        expect("semanticHighlighting" in parseThemeFile(`{ "semanticHighlighting": "yes" }`)).toBe(false);
+    });
+
+    it("semanticTokenColors: строка — foreground, объект — стиль; порядок объявления сохраняется", () => {
+        const warn = vi.fn();
+        const theme = parseThemeFile(
+            `{ "semanticTokenColors": {
+                "variable.readonly": "#FF0000",
+                "*.declaration": { "fontStyle": "" },
+                "method:java": { "foreground": "#00FF00", "bold": true, "italic": false, "underline": true, "strikethrough": false }
+            } }`,
+            warn,
+        );
+        expect(theme.semanticTokenRules).toStrictEqual([
+            { selector: "variable.readonly", settings: { foreground: "#FF0000" } },
+            { selector: "*.declaration", settings: { fontStyle: "" } },
+            {
+                selector: "method:java",
+                settings: { foreground: "#00FF00", bold: true, italic: false, underline: true, strikethrough: false },
+            },
+        ]);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("невалидный цвет отбрасывается; правило без единого атрибута — пропуск с warning", () => {
+        const warn = vi.fn();
+        const theme = parseThemeFile(
+            `{ "semanticTokenColors": {
+                "a": { "foreground": "red", "bold": true },
+                "b": "red",
+                "c": 42,
+                "d": { "bold": "yes", "background": "#000000" }
+            } }`,
+            warn,
+        );
+        expect(theme.semanticTokenRules).toStrictEqual([{ selector: "a", settings: { bold: true } }]);
+        expect(warn.mock.calls.map((c) => c[0] as string)).toEqual([
+            'semanticTokenColors["a"]: invalid foreground "red" — ignored',
+            'semanticTokenColors["b"]: invalid foreground "red" — ignored',
+            'semanticTokenColors["b"]: no style — ignored',
+            'semanticTokenColors["c"]: no style — ignored',
+            'semanticTokenColors["d"]: no style — ignored',
+        ]);
+    });
+
+    it("semanticTokenColors не объектом — warning, правил нет", () => {
+        const warn = vi.fn();
+        const theme = parseThemeFile(`{ "semanticTokenColors": ["#fff"] }`, warn);
+        expect(theme.semanticTokenRules).toStrictEqual([]);
+        expect(warn).toHaveBeenCalledWith("semanticTokenColors is not an object — ignored");
+    });
+
+    it("без полей семантики в файле их нет и в результате", () => {
+        expect(Object.keys(parseThemeFile(`{ "colors": {} }`))).toEqual(["colors", "tokenColors"]);
     });
 });

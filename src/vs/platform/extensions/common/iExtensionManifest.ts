@@ -97,7 +97,7 @@ export interface IExtensionManifest {
 
 /**
  * Все contributes из VS Code. **Активны `languages`, `grammars`, `themes`,
- * `configuration`, `commands` и `keybindings`.** Остальные блоки оставлены
+ * `configuration`, `commands`, `keybindings` и `semanticToken*`.** Остальные блоки оставлены
  * закомментированными типами для будущих фаз.
  */
 export interface IExtensionContributions {
@@ -200,9 +200,15 @@ export interface IExtensionContributions {
     // readonly authentication?: readonly IAuthenticationContribution[];
     // readonly resourceLabelFormatters?: readonly IResourceLabelFormatterContribution[];
     //
-    // readonly semanticTokenScopes?: readonly ISemanticTokenScopeContribution[];
-    // readonly semanticTokenTypes?: readonly ISemanticTokenTypeContribution[];
-    // readonly semanticTokenModifiers?: readonly ISemanticTokenModifierContribution[];
+    /**
+     * Классификация семантических токенов: свои типы (с `superType`),
+     * модификаторы и фоллбэки «селектор → TextMate-скоупы». Ложатся в
+     * `TokenClassificationRegistry` на старте (`registerExtensionSemanticTokens`).
+     * Поля не типизированы строго: манифест — чужие данные, валидирует регистратор.
+     */
+    readonly semanticTokenTypes?: unknown;
+    readonly semanticTokenModifiers?: unknown;
+    readonly semanticTokenScopes?: unknown;
     //
     // readonly typescriptServerPlugins?: readonly ITypescriptServerPluginContribution[];
     // readonly htmlLanguageParticipants?: readonly IHtmlLanguageParticipantContribution[];

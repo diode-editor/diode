@@ -709,4 +709,55 @@ export const lightModernTheme: IThemeFile = {
             scope: "entity.name.label",
         },
     ],
+    semanticHighlighting: true,
+    semanticTokenRules: [
+        {
+            selector: "newOperator",
+            settings: {
+                foreground: "#0000ff",
+            },
+        },
+        {
+            selector: "stringLiteral",
+            settings: {
+                foreground: "#a31515",
+            },
+        },
+        {
+            selector: "customLiteral",
+            settings: {
+                foreground: "#000000",
+            },
+        },
+        {
+            selector: "numberLiteral",
+            settings: {
+                foreground: "#098658",
+            },
+        },
+        {
+            selector: "newOperator",
+            settings: {
+                foreground: "#AF00DB",
+            },
+        },
+        {
+            selector: "stringLiteral",
+            settings: {
+                foreground: "#a31515",
+            },
+        },
+        {
+            selector: "customLiteral",
+            settings: {
+                foreground: "#795E26",
+            },
+        },
+        {
+            selector: "numberLiteral",
+            settings: {
+                foreground: "#098658",
+            },
+        },
+    ],
 };

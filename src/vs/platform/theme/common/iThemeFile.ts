@@ -29,6 +29,42 @@ export interface IThemeFile {
 
     /** Syntax highlighting (TextMate) token color rules. */
     tokenColors?: ITokenColorRule[];
+
+    /**
+     * Семантическая подсветка по умолчанию для этой темы (`"semanticHighlighting"`
+     * файла). Её читает настройка `editor.semanticHighlighting.enabled` в
+     * значении `configuredByTheme`; в цепочке `include` значения OR'ятся.
+     */
+    semanticHighlighting?: boolean;
+
+    /**
+     * Правила `semanticTokenColors` в порядке объявления (база `include` —
+     * первой). Объект файла `{ "<селектор>": "#hex" | { … } }` разобран в
+     * массив: при слиянии с базой один селектор может встретиться дважды, и
+     * поздний перекрывает ранний только в тех атрибутах, что задаёт сам — как
+     * список `semanticTokenRules` эталона (`colorThemeData.ts`).
+     */
+    semanticTokenRules?: ISemanticTokenColorRule[];
+}
+
+/** Правило `semanticTokenColors`: селектор `(*|type)(.modifier)*(:language)?` и стиль. */
+export interface ISemanticTokenColorRule {
+    selector: string;
+    settings: ISemanticTokenColorSettings;
+}
+
+/**
+ * Стиль семантического токена. Строка в файле темы — это `{ foreground }`.
+ * `fontStyle` (даже пустой) задаёт все четыре флага разом и перекрывает
+ * отдельные `bold`/`italic`/`underline`/`strikethrough`.
+ */
+export interface ISemanticTokenColorSettings {
+    foreground?: string;
+    fontStyle?: string;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strikethrough?: boolean;
 }
 
 /**

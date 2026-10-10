@@ -91,4 +91,30 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
         expect(base).toEqual({ colors: { a: "#000" }, tokenColors: [{ settings: {} }] });
         expect(child).toEqual({ colors: { a: "#111" }, tokenColors: [] });
     });
+
+    it("semanticTokenRules: конкатенация base-first, повторный селектор остаётся двумя правилами", () => {
+        const base: IThemeFile = {
+            colors: {},
+            semanticTokenRules: [{ selector: "variable", settings: { foreground: "#111111", bold: true } }],
+        };
+        const child: IThemeFile = {
+            colors: {},
+            semanticTokenRules: [{ selector: "variable", settings: { foreground: "#222222" } }],
+        };
+        expect(mergeThemeFiles(base, child).semanticTokenRules).toEqual([
+            { selector: "variable", settings: { foreground: "#111111", bold: true } },
+            { selector: "variable", settings: { foreground: "#222222" } },
+        ]);
+        expect(mergeThemeFiles({ colors: {} }, child).semanticTokenRules).toEqual(child.semanticTokenRules);
+        expect(mergeThemeFiles(base, { colors: {} }).semanticTokenRules).toEqual(base.semanticTokenRules);
+    });
+
+    it("semanticHighlighting: OR по цепочке; ни у кого не задано — ключа нет", () => {
+        const on: IThemeFile = { colors: {}, semanticHighlighting: true };
+        const off: IThemeFile = { colors: {}, semanticHighlighting: false };
+        expect(mergeThemeFiles(on, off).semanticHighlighting).toBe(true);
+        expect(mergeThemeFiles(off, on).semanticHighlighting).toBe(true);
+        expect(mergeThemeFiles(off, off).semanticHighlighting).toBeUndefined();
+        expect(Object.keys(mergeThemeFiles({ colors: {} }, { colors: {} }))).toEqual(["colors", "tokenColors"]);
+    });
 });

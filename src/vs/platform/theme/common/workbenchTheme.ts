@@ -51,6 +51,8 @@ export class WorkbenchTheme {
 
         const tokenTheme: IEditorTokenTheme = {
             rules: json.tokenColors ?? [],
+            semanticHighlighting: json.semanticHighlighting === true,
+            semanticTokenRules: json.semanticTokenRules ?? [],
         };
 
         return new WorkbenchTheme(json.name ?? "Unnamed", json.type ?? "dark", colors, tokenTheme);
