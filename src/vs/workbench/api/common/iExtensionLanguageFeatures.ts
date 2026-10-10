@@ -25,6 +25,12 @@ import type {
     IRenameRequest,
 } from "../../../editor/common/languages/iRenameSource.ts";
 import type {
+    IRangeSemanticTokensRequest,
+    ISemanticTokens,
+    ISemanticTokensEdits,
+    ISemanticTokensRequest,
+} from "../../../editor/common/languages/iSemanticTokensSource.ts";
+import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -91,4 +97,23 @@ export interface IExtensionLanguageFeaturesBridge {
     prepareRename(handle: number, request: IRenameRequest): Promise<ICoreRenameLocation | null>;
     /** Правки накладывает сам субпроцесс (`workspace.applyEdit`) — сюда едет только исход. */
     provideRenameEdits(handle: number, request: IRenameRequest, newName: string): Promise<ICoreRenameResult>;
+    /**
+     * Токены документа; `previousResultId` — числовой id прошлого ответа этого
+     * провайдера (0 — нет). У ответа `resultId` — тот же id строкой.
+     */
+    provideDocumentSemanticTokens(
+        handle: number,
+        request: ISemanticTokensRequest,
+        previousResultId: number,
+        token: ICancellationToken,
+    ): Promise<ISemanticTokens | ISemanticTokensEdits | null>;
+    provideDocumentRangeSemanticTokens(
+        handle: number,
+        request: IRangeSemanticTokensRequest,
+        token: ICancellationToken,
+    ): Promise<ISemanticTokens | null>;
+    /** Ответ `resultId` ядру больше не нужен (`$releaseDocumentSemanticTokens`). */
+    releaseDocumentSemanticTokens(handle: number, resultId: number): void;
+    /** `onDidChangeSemanticTokens` провайдера `handle`. */
+    onDidChangeSemanticTokens(cb: (handle: number) => void): IDisposable;
 }

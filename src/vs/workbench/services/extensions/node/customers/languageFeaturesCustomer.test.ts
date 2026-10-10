@@ -469,3 +469,114 @@ describe("LanguageFeaturesCustomer — опции запроса inline completi
         expect(h.sent.mock.calls.at(-1)?.[2]).toStrictEqual({ timeoutMs: TIMEOUTS["languages.provideHover"] });
     });
 });
+
+describe("LanguageFeaturesCustomer — семантические токены", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7 };
+    const RANGE_REQ = { ...REQ, range: CORE_RANGE };
+
+    it("документ: параметры провода, без срока; ответ — в форме ядра с resultId строкой", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideDocumentSemanticTokens": (params) => {
+                seen.push(params);
+                return seen.length === 1
+                    ? { id: 3, type: "full", data: [0, 1, 2, 3, 4] }
+                    : { id: 4, type: "delta", deltas: [{ start: 1, deleteCount: 2 }] };
+            },
+        });
+        const token = new CancellationTokenSource().token;
+        expect(await h.customer.provideDocumentSemanticTokens(5, REQ, 2, token)).toStrictEqual({
+            resultId: "3",
+            data: new Uint32Array([0, 1, 2, 3, 4]),
+        });
+        expect(await h.customer.provideDocumentSemanticTokens(5, REQ, 3)).toStrictEqual({
+            resultId: "4",
+            edits: [{ start: 1, deleteCount: 2, data: undefined }],
+        });
+        expect(seen[0]).toStrictEqual({
+            handle: 5,
+            uri: SYNCED,
+            languageId: "typescript",
+            version: 7,
+            previousResultId: 2,
+        });
+        expect(h.sent.mock.calls[0][2]).toStrictEqual({ timeoutMs: undefined, token });
+    });
+
+    it("диапазон: диапазон уходит по проводу; дельта в ответе — исключение Unexpected", async () => {
+        const seen: unknown[] = [];
+        const answers: unknown[] = [
+            { id: 0, type: "full", data: [1, 2, 3, 4, 5] },
+            null,
+            { id: 0, type: "delta", deltas: [] },
+        ];
+        const h = setupAnswering({
+            "languages.provideDocumentRangeSemanticTokens": (params) => {
+                seen.push(params);
+                return answers.shift();
+            },
+        });
+        expect(await h.customer.provideDocumentRangeSemanticTokens(6, RANGE_REQ)).toStrictEqual({
+            resultId: "0",
+            data: new Uint32Array([1, 2, 3, 4, 5]),
+        });
+        expect(seen[0]).toStrictEqual({
+            handle: 6,
+            uri: SYNCED,
+            languageId: "typescript",
+            version: 7,
+            range: CORE_RANGE,
+        });
+        expect(await h.customer.provideDocumentRangeSemanticTokens(6, RANGE_REQ)).toBeNull();
+        await expect(h.customer.provideDocumentRangeSemanticTokens(6, RANGE_REQ)).rejects.toThrow("Unexpected");
+    });
+
+    it("отказ RPC — исключение (а не null): прежние токены остаются у потребителя", async () => {
+        const h = setupAnswering({
+            "languages.provideDocumentSemanticTokens": () => Promise.reject(new Error("busy")),
+            "languages.provideDocumentRangeSemanticTokens": () => Promise.reject(new Error("down")),
+        });
+        await expect(h.customer.provideDocumentSemanticTokens(1, REQ, 0)).rejects.toThrow("busy");
+        await expect(h.customer.provideDocumentRangeSemanticTokens(1, RANGE_REQ)).rejects.toThrow("down");
+    });
+
+    it("спавна нет или документ не синхронизирован — null без RPC", async () => {
+        const noHost = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await noHost.provideDocumentSemanticTokens(1, REQ, 0)).toBeNull();
+        expect(await noHost.provideDocumentRangeSemanticTokens(1, RANGE_REQ)).toBeNull();
+        // Без спавна release молчит.
+        noHost.releaseDocumentSemanticTokens(1, 2);
+
+        const h = setupWithSync();
+        const unsynced = { ...REQ, uri: UNSYNCED };
+        expect(await h.customer.provideDocumentSemanticTokens(1, unsynced, 0)).toBeNull();
+        expect(await h.customer.provideDocumentRangeSemanticTokens(1, { ...unsynced, range: CORE_RANGE })).toBeNull();
+        expect(h.sent).not.toHaveBeenCalled();
+    });
+
+    it("releaseDocumentSemanticTokens уходит нотификацией с handle и id", async () => {
+        const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const [a, b] = createInProcessChannelPair();
+        const peer = new RpcEndpoint(b);
+        const released: unknown[] = [];
+        peer.handleNotification("languages.releaseDocumentSemanticTokens", (params) => released.push(params));
+        customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        customer.releaseDocumentSemanticTokens(3, 9);
+        await flushMicrotasks();
+        expect(released).toStrictEqual([{ handle: 3, resultId: 9 }]);
+    });
+
+    it("onDidChangeSemanticTokens — только для объявленного handle", async () => {
+        const h = setup();
+        const changed = vi.fn();
+        h.customer.onDidChangeSemanticTokens(changed);
+        h.peer.notify("languages.register", { handle: 4, kind: "semanticTokens", selector: [] });
+        await flushMicrotasks();
+        h.peer.notify("languages.didChangeSemanticTokens", { handle: 4 });
+        h.peer.notify("languages.didChangeSemanticTokens", { handle: 8 });
+        h.peer.notify("languages.didChangeSemanticTokens", null);
+        h.peer.notify("languages.didChangeSemanticTokens", { handle: "4" });
+        await flushMicrotasks();
+        expect(changed.mock.calls).toStrictEqual([[4]]);
+    });
+});

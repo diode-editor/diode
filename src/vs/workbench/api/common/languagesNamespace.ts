@@ -1,7 +1,7 @@
 import type * as vscode from "vscode";
 
 import { describeRejection } from "../../../base/common/describeRejection.ts";
-import { isCancellationError } from "../../../base/common/errorSerialization.ts";
+import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
 import type {
     ICoreCompletionItem,
     ICoreCompletionResult,
@@ -16,6 +16,7 @@ import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSigna
 import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { DocumentRangeSemanticTokensAdapter, DocumentSemanticTokensAdapter } from "./extHostSemanticTokens.ts";
 import {
     rangeFrom,
     readDocumentation,
@@ -50,6 +51,7 @@ import type {
     IWireCodeActionParams,
     IWireCompletionParams,
     IWireDefinitionParams,
+    IWireDocumentSemanticTokensParams,
     IWireEditorEdit,
     IWireFoldingParams,
     IWireFormattingParams,
@@ -57,7 +59,9 @@ import type {
     IWireInlineCompletionParams,
     IWireLanguageProviderMetadata,
     IWirePrepareRenameParams,
+    IWireRangeSemanticTokensParams,
     IWireReferenceParams,
+    IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireSignatureHelpParams,
     Received,
@@ -66,6 +70,7 @@ import type {
     WireLanguageFeatureKind,
     WireRenamePrepare,
     WireRenameResult,
+    WireSemanticTokensResult,
 } from "./wireTypes.ts";
 
 /** Зарегистрированный провайдер автодополнения. */
@@ -85,6 +90,18 @@ export interface IInlineCompletionRegistration {
 export interface IFoldingRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.FoldingRangeProvider;
+}
+
+/** Зарегистрированный провайдер семантических токенов документа — через адаптер эталона. */
+export interface IDocumentSemanticTokensRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly adapter: DocumentSemanticTokensAdapter;
+}
+
+/** Зарегистрированный провайдер семантических токенов диапазона. */
+export interface IRangeSemanticTokensRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly adapter: DocumentRangeSemanticTokensAdapter;
 }
 
 /** Зарегистрированный definition-провайдер. */
@@ -308,6 +325,8 @@ export function createLanguagesNamespace(
     const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
+    const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
+    const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
 
     /**
@@ -323,15 +342,19 @@ export function createLanguagesNamespace(
         registration: T,
         metadata: IWireLanguageProviderMetadata = {},
         onUnregister?: (handle: number) => void,
+        subscribe?: (handle: number) => vscode.Disposable | undefined,
     ): vscode.Disposable {
         const handle = nextProviderHandle++;
         // Владелец запоминается сейчас: оверлей выставляет его только на время
         // синхронного `register*`, а сбой провайдера случится много позже.
         providers.set(handle, { ...registration, owner: ctx.owner.current });
         rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector), ...metadata });
+        // Подписка на события провайдера живёт, пока он зарегистрирован.
+        const subscription = subscribe?.(handle);
         return new DisposableImpl(() => {
             if (!providers.delete(handle)) return;
             rpc.notify("languages.unregister", { handle });
+            subscription?.dispose();
             onUnregister?.(handle);
         });
     }
@@ -987,6 +1010,92 @@ export function createLanguagesNamespace(
         return results;
     });
 
+    // Семантические токены документа: адаптер эталона держит прошлые ответы
+    // (дельты) по одноразовому id. Снятый провайдер или чужой handle — null.
+    // Устаревший документ и отказ провайдера — исключение (ядро держит токены).
+    rpc.handleRequest(
+        "languages.provideDocumentSemanticTokens",
+        async (params, cancellation): Promise<WireSemanticTokensResult | null> => {
+            const p: Received<IWireDocumentSemanticTokensParams> = params;
+            const reg = semanticTokensProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            // Устаревший запрос — отмена, а не «токенов нет»: см. ниже.
+            if (doc === null) throw new CancellationError();
+            try {
+                return await callWithVscodeToken(cancellation, (token) =>
+                    reg.adapter.provideDocumentSemanticTokens(doc, p.previousResultId ?? 0, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideDocumentSemanticTokens", err, reg.owner);
+                // Как в эталоне, отказ уходит ядру исключением: по нему ядро держит
+                // прежние токены, а `null` для него — «токенов нет», и подсветка
+                // стирается. Так отвечает jdt.ls на каждую правку во время запроса
+                // (ContentModified → CancellationError у vscode-languageclient).
+                throw err;
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideDocumentRangeSemanticTokens",
+        async (params, cancellation): Promise<WireSemanticTokensResult | null> => {
+            const p: Received<IWireRangeSemanticTokensParams, "range"> = params;
+            const reg = rangeSemanticTokensProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            // Устаревший запрос — отмена, а не «токенов нет»: см. ниже.
+            if (doc === null) throw new CancellationError();
+            try {
+                return await callWithVscodeToken(cancellation, (token) =>
+                    reg.adapter.provideDocumentRangeSemanticTokens(doc, toVscodeRange(p.range), token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideDocumentRangeSemanticTokens", err, reg.owner);
+                // Как в эталоне, отказ уходит ядру исключением: по нему ядро держит
+                // прежние токены, а `null` для него — «токенов нет», и подсветка
+                // стирается. Так отвечает jdt.ls на каждую правку во время запроса
+                // (ContentModified → CancellationError у vscode-languageclient).
+                throw err;
+            }
+        },
+    );
+
+    rpc.handleNotification("languages.releaseDocumentSemanticTokens", (params) => {
+        const p = params as Partial<IWireReleaseSemanticTokens> | null | undefined;
+        semanticTokensProviders.get(p?.handle ?? -1)?.adapter.releaseDocumentSemanticColoring(p?.resultId ?? 0);
+    });
+
+    /**
+     * Регистрация провайдера семантических токенов (оба вида): легенда едет
+     * метаданными, `onDidChangeSemanticTokens` — нотификацией
+     * `languages.didChangeSemanticTokens` с handle, пока провайдер не снят.
+     */
+    function registerSemanticTokens<T extends { readonly selector: vscode.DocumentSelector }>(
+        providers: Map<number, Owned<T>>,
+        kind: "semanticTokens" | "rangeSemanticTokens",
+        registration: T,
+        onDidChange: vscode.Event<void> | undefined,
+        legend: vscode.SemanticTokensLegend,
+    ): vscode.Disposable {
+        const hasOnDidChange = typeof onDidChange === "function";
+        return registerByHandle(
+            providers,
+            kind,
+            registration.selector,
+            registration,
+            {
+                legend: { tokenTypes: [...legend.tokenTypes], tokenModifiers: [...legend.tokenModifiers] },
+                ...(hasOnDidChange ? { hasOnDidChange } : {}),
+            },
+            undefined,
+            (handle) =>
+                onDidChange?.(() => {
+                    rpc.notify("languages.didChangeSemanticTokens", { handle });
+                }),
+        );
+    }
+
     // No-op регистрация провайдера — валидный Disposable; фича не работает,
     // но стоковый клиент (vscode-languageclient заводит провайдеры под
     // capabilities сервера) не падает. Шаги закрытия каждого — docs/TODO/LSP.md.
@@ -1193,8 +1302,30 @@ export function createLanguagesNamespace(
         registerColorProvider: registerNoopProvider,
         registerOnTypeFormattingEditProvider: registerNoopProvider,
         registerSelectionRangeProvider: registerNoopProvider,
-        registerDocumentSemanticTokensProvider: registerNoopProvider,
-        registerDocumentRangeSemanticTokensProvider: registerNoopProvider,
+        registerDocumentSemanticTokensProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentSemanticTokensProvider,
+            legend: vscode.SemanticTokensLegend,
+        ): vscode.Disposable =>
+            registerSemanticTokens(
+                semanticTokensProviders,
+                "semanticTokens",
+                { selector, adapter: new DocumentSemanticTokensAdapter(provider) },
+                provider.onDidChangeSemanticTokens,
+                legend,
+            ),
+        registerDocumentRangeSemanticTokensProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentRangeSemanticTokensProvider,
+            legend: vscode.SemanticTokensLegend,
+        ): vscode.Disposable =>
+            registerSemanticTokens(
+                rangeSemanticTokensProviders,
+                "rangeSemanticTokens",
+                { selector, adapter: new DocumentRangeSemanticTokensAdapter(provider) },
+                provider.onDidChangeSemanticTokens,
+                legend,
+            ),
         registerInlayHintsProvider: registerNoopProvider,
         registerInlineValuesProvider: registerNoopProvider,
         registerInlineCompletionItemProvider: (

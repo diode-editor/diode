@@ -25,9 +25,11 @@ const REQUEST: IHoverRequest = {
 function makeBridge(): IExtensionLanguageFeaturesBridge & {
     providers: IWireLanguageProviderRegistration[];
     fire(): void;
+    fireSemanticTokens(handle: number): void;
     listeners: number;
 } {
     const listeners: (() => void)[] = [];
+    const semanticListeners: ((handle: number) => void)[] = [];
     const bridge = {
         providers: [] as IWireLanguageProviderRegistration[],
         getLanguageProviders: () => bridge.providers,
@@ -74,6 +76,24 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
+        provideDocumentSemanticTokens: vi.fn((handle: number, _request: unknown, previousResultId: number) =>
+            Promise.resolve({ resultId: String(previousResultId + 1), data: new Uint32Array([handle]) }),
+        ),
+        provideDocumentRangeSemanticTokens: vi.fn((handle: number) =>
+            Promise.resolve({ resultId: "0", data: new Uint32Array([handle, 1]) }),
+        ),
+        releaseDocumentSemanticTokens: vi.fn((_handle: number, _resultId: number): void => undefined),
+        onDidChangeSemanticTokens: (cb: (handle: number) => void) => {
+            semanticListeners.push(cb);
+            return {
+                dispose: () => {
+                    semanticListeners.splice(semanticListeners.indexOf(cb), 1);
+                },
+            };
+        },
+        fireSemanticTokens: (handle: number) => {
+            for (const cb of [...semanticListeners]) cb(handle);
+        },
         fire: () => {
             for (const cb of [...listeners]) cb();
         },
@@ -262,6 +282,72 @@ describe("LanguageFeaturesAdapter", () => {
             { insertText: "ghost 9" },
         ]);
         expect(bridge.provideInlineCompletions).toHaveBeenCalledWith(9, request, CancellationTokenNone);
+    });
+
+    it("semanticTokens: прокси с легендой; resultId строкой ↔ числом на проводе, null — 0", async () => {
+        const bridge = makeBridge();
+        const legend = { tokenTypes: ["class"], tokenModifiers: ["declaration"] };
+        bridge.providers = [{ handle: 7, kind: "semanticTokens", selector: [{ language: "typescript" }], legend }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.documentSemanticTokensProvider.ordered(TS);
+        expect(provider.getLegend()).toBe(legend);
+        // Без hasOnDidChange события у прокси нет.
+        expect(provider.onDidChange).toBeUndefined();
+
+        const token = new CancellationTokenSource().token;
+        const request = { uri: REQUEST.uri, languageId: "typescript", versionId: 1 };
+        expect(await provider.provideDocumentSemanticTokens(request, null, token)).toEqual({
+            resultId: "1",
+            data: new Uint32Array([7]),
+        });
+        expect(bridge.provideDocumentSemanticTokens).toHaveBeenLastCalledWith(7, request, 0, token);
+        await provider.provideDocumentSemanticTokens(request, "12", token);
+        expect(bridge.provideDocumentSemanticTokens).toHaveBeenLastCalledWith(7, request, 12, token);
+
+        provider.releaseDocumentSemanticTokens("5");
+        provider.releaseDocumentSemanticTokens(undefined);
+        provider.releaseDocumentSemanticTokens("");
+        expect(bridge.releaseDocumentSemanticTokens).toHaveBeenCalledOnce();
+        expect(bridge.releaseDocumentSemanticTokens).toHaveBeenCalledWith(7, 5);
+    });
+
+    it("rangeSemanticTokens: прокси в своём реестре; без легенды — пустая", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 3, kind: "rangeSemanticTokens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        expect(features.documentSemanticTokensProvider.has(TS)).toBe(false);
+        const [provider] = features.documentRangeSemanticTokensProvider.ordered(TS);
+        expect(provider.getLegend()).toEqual({ tokenTypes: [], tokenModifiers: [] });
+        const request = { uri: REQUEST.uri, languageId: "typescript", versionId: 1, range: createRange(0, 0, 1, 0) };
+        expect(await provider.provideDocumentRangeSemanticTokens(request, CancellationTokenNone)).toEqual({
+            resultId: "0",
+            data: new Uint32Array([3, 1]),
+        });
+        expect(bridge.provideDocumentRangeSemanticTokens).toHaveBeenCalledWith(3, request, CancellationTokenNone);
+    });
+
+    it("onDidChange прокси — только при hasOnDidChange и только для своего handle", () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 1, kind: "semanticTokens", selector: [{ language: "typescript" }], hasOnDidChange: true },
+            { handle: 2, kind: "rangeSemanticTokens", selector: [{ language: "typescript" }], hasOnDidChange: true },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [doc] = features.documentSemanticTokensProvider.ordered(TS);
+        const [range] = features.documentRangeSemanticTokensProvider.ordered(TS);
+        const seen: string[] = [];
+        const subscription = doc.onDidChange?.(() => seen.push("doc"));
+        range.onDidChange?.(() => seen.push("range"));
+        bridge.fireSemanticTokens(2);
+        bridge.fireSemanticTokens(1);
+        bridge.fireSemanticTokens(9);
+        expect(seen).toEqual(["range", "doc"]);
+        subscription?.dispose();
+        bridge.fireSemanticTokens(1);
+        expect(seen).toEqual(["range", "doc"]);
     });
 
     it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {

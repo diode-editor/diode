@@ -390,6 +390,53 @@ export interface WireFoldingRange {
 /** Параметры запроса folding (host → subprocess); запрос пачечный. */
 export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
 
+// ─── Semantic tokens ─────────────────────────────────────────────────────────
+
+/**
+ * Легенда провайдера семантических токенов: индексы типов и биты модификаторов
+ * в `data` ответа. Едет метаданными регистрации — ядро стилизует токены без RPC.
+ */
+export interface IWireSemanticTokensLegend {
+    readonly tokenTypes: readonly string[];
+    readonly tokenModifiers: readonly string[];
+}
+
+/**
+ * Параметры запроса токенов всего документа (host → subprocess).
+ * `previousResultId` — id прошлого ответа этого провайдера (0 — нет): по нему
+ * субпроцесс зовёт `provideDocumentSemanticTokensEdits` и отвечает дельтой.
+ */
+export interface IWireDocumentSemanticTokensParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly previousResultId: number;
+}
+
+/** Параметры запроса токенов диапазона (host → subprocess); диапазон 0-based. */
+export interface IWireRangeSemanticTokensParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly range: IRange;
+}
+
+/** Правка прошлого ответа: индексы — в массиве `data` (по 5 чисел на токен), не в токенах. */
+export interface IWireSemanticTokensEdit {
+    readonly start: number;
+    readonly deleteCount: number;
+    readonly data?: readonly number[];
+}
+
+/**
+ * Ответ провайдера (subprocess → host) — форма `SemanticTokensDto` эталона, но
+ * JSON вместо бинарного буфера. `id` — одноразовый номер ответа в субпроцессе
+ * (0 у range-провайдера: дельт к нему нет); `data` — пятёрки
+ * `deltaLine, deltaStartChar, length, tokenType, tokenModifiers`.
+ */
+export type WireSemanticTokensResult =
+    | { readonly id: number; readonly type: "full"; readonly data: readonly number[] }
+    | { readonly id: number; readonly type: "delta"; readonly deltas: readonly IWireSemanticTokensEdit[] };
+
+/** Ответ больше не нужен ядру — субпроцесс забывает его данные (`$releaseDocumentSemanticTokens`). */
+export interface IWireReleaseSemanticTokens extends IWireProviderHandle {
+    readonly resultId: number;
+}
+
 // ─── Definition (LSP) ────────────────────────────────────────────────────────
 
 /** Параметры запроса definition (host → subprocess): документ, позиция, провайдер. */
@@ -420,6 +467,8 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "folding",
     "inlineCompletions",
     "rename",
+    "semanticTokens",
+    "rangeSemanticTokens",
 ] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 
@@ -452,6 +501,13 @@ export interface IWireLanguageProviderMetadata {
      * провайдера, чьи виды не пересекаются с запрошенным `only`.
      */
     readonly providedCodeActionKinds?: readonly string[];
+    /** Легенда провайдера семантических токенов (оба вида). */
+    readonly legend?: IWireSemanticTokensLegend;
+    /**
+     * Провайдер объявил `onDidChangeSemanticTokens`: его событие придёт
+     * нотификацией `languages.didChangeSemanticTokens` (upstream `eventHandle`).
+     */
+    readonly hasOnDidChange?: boolean;
 }
 
 /** `languages.register`: провайдер фичи `kind` под селектором (subprocess → host). */

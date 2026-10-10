@@ -7,6 +7,10 @@
 
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreRenameLocation } from "../../../../editor/common/languages/iRenameSource.ts";
+import type {
+    ISemanticTokens,
+    ISemanticTokensEdits,
+} from "../../../../editor/common/languages/iSemanticTokensSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type {
     IWireShellQuotedString,
@@ -40,9 +44,11 @@ import {
     type IWireProgressEnd,
     type IWireProgressReport,
     type IWireProgressStart,
+    type IWireProviderHandle,
     type IWireQuickPickItem,
     type IWireQuickPickRequest,
     type IWireSecretWrite,
+    type IWireSemanticTokensLegend,
     type IWireShowMessageRequest,
     type IWireShowTextDocumentParams,
     type IWireStatusBarItem,
@@ -71,6 +77,7 @@ import {
     type WireMessageSeverity,
     type WireOutputLevel,
     type WireRenamePrepare,
+    type WireSemanticTokensResult,
     type WireValidationSeverity,
 } from "../../../api/common/wireTypes.ts";
 
@@ -193,6 +200,48 @@ export function parseWireLanguageProviderRegistration(raw: unknown): IWireLangua
         ...(Array.isArray(obj.providedCodeActionKinds)
             ? { providedCodeActionKinds: readWireCharacters(obj.providedCodeActionKinds) }
             : {}),
+        ...readWireLegend(obj.legend),
+        ...(obj.hasOnDidChange === true ? { hasOnDidChange: true } : {}),
+    };
+}
+
+/**
+ * Легенда семантических токенов. Индекс в `tokenTypes` и бит в
+ * `tokenModifiers` значимы позиционно, поэтому нестроковый элемент не
+ * выбрасывается, а становится пустой строкой — тип, которого нет ни в одной теме.
+ */
+function readWireLegend(raw: unknown): { legend?: IWireSemanticTokensLegend } {
+    if (raw === null || typeof raw !== "object") return {};
+    const { tokenTypes, tokenModifiers } = raw as Record<string, unknown>;
+    const strings = (list: unknown): string[] =>
+        Array.isArray(list) ? list.map((item: unknown) => (typeof item === "string" ? item : "")) : [];
+    return { legend: { tokenTypes: strings(tokenTypes), tokenModifiers: strings(tokenModifiers) } };
+}
+
+/** Нотификация с одним handle провайдера (`languages.didChangeSemanticTokens`); `null` — форма не распознана. */
+export function parseWireProviderHandle(raw: unknown): IWireProviderHandle | null {
+    const handle = (raw as Record<string, unknown> | null | undefined)?.handle;
+    return isWireHandle(handle) ? { handle } : null;
+}
+
+/**
+ * Ответ провайдера семантических токенов в форме ядра: числа — в
+ * `Uint32Array`, id ответа — строкой в `resultId` (его же ядро вернёт
+ * `previousResultId`, как upstream `MainThreadDocumentSemanticTokensProvider`).
+ */
+export function wireToCoreSemanticTokens(
+    result: WireSemanticTokensResult | null,
+): ISemanticTokens | ISemanticTokensEdits | null {
+    if (result === null) return null;
+    const resultId = String(result.id);
+    if (result.type === "full") return { resultId, data: new Uint32Array(result.data) };
+    return {
+        resultId,
+        edits: result.deltas.map((edit) => ({
+            start: edit.start,
+            deleteCount: edit.deleteCount,
+            data: edit.data === undefined ? undefined : new Uint32Array(edit.data),
+        })),
     };
 }
 

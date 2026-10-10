@@ -285,8 +285,6 @@ describe("LanguagesNamespace — no-op поверхность для vscode-lang
             "registerOnTypeFormattingEditProvider",
             "registerRenameProvider",
             "registerSelectionRangeProvider",
-            "registerDocumentSemanticTokensProvider",
-            "registerDocumentRangeSemanticTokensProvider",
             "registerInlayHintsProvider",
             "registerInlineValuesProvider",
             "registerLinkedEditingRangeProvider",

@@ -24,6 +24,12 @@ import {
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
 import { findSurroundingPair, planAutoClose } from "../common/languages/autoClosing.ts";
+import type { ISemanticTokensLegend } from "../common/languages/iSemanticTokensSource.ts";
+import {
+    type ISemanticTokenStyleResolver,
+    NULL_SEMANTIC_TOKEN_STYLE_RESOLVER,
+    type SemanticTokenStyle,
+} from "../common/languages/iSemanticTokenStyleResolver.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolver.ts";
 import type { IResolvedLanguageConfiguration } from "../common/languages/languageConfiguration.ts";
@@ -53,7 +59,7 @@ import {
     paintRangeBackground,
     paintTextLine,
 } from "./textViewRendering.ts";
-import { TokenIndex } from "./tokenIndex.ts";
+import { resolveSemanticTokenStyle, SemanticTokenIndex, TokenIndex } from "./tokenIndex.ts";
 
 // Find-in-file highlights: all matches get a dim background; the current match a brighter one.
 const FIND_MATCH_BG = packRgb(98, 91, 23);
@@ -118,6 +124,13 @@ export class EditorElement extends TUIElement implements IScrollable {
      * are supplied by an LSP semantic-tokens provider).
      */
     public tokenStyleResolver: ITokenStyleResolver = NULL_TOKEN_STYLE_RESOLVER;
+
+    /**
+     * Тема для семантических токенов ({@link EditorViewState.semanticTokens}):
+     * тип и модификаторы → стиль, перекрывающий TextMate. По умолчанию NULL —
+     * семантика не красится.
+     */
+    public semanticTokenStyleResolver: ISemanticTokenStyleResolver = NULL_SEMANTIC_TOKEN_STYLE_RESOLVER;
 
     /**
      * Источник language configuration документа для авто-закрытия скобок и
@@ -535,6 +548,35 @@ export class EditorElement extends TUIElement implements IScrollable {
             styleCache.set(scopes, result);
             return result;
         };
+        // То же для семантических токенов: стиль по (легенда, тип, модификаторы).
+        const semanticLanguageId = this.viewState.document.languageId;
+        const semanticStyleCache = new Map<ISemanticTokensLegend, Map<number, SemanticTokenStyle | null>>();
+        const lookupSemanticStyle = (
+            legend: ISemanticTokensLegend,
+            tokenType: number,
+            tokenModifiers: number,
+        ): SemanticTokenStyle | null => {
+            let byLegend = semanticStyleCache.get(legend);
+            if (byLegend === undefined) {
+                byLegend = new Map();
+                semanticStyleCache.set(legend, byLegend);
+            }
+            // Тип < 65536 (контракт API), модификаторы — 32 бита: ключ без коллизий.
+            // Stryker disable next-line ArithmeticOperator: «−» и «/» тоже дают ключ без коллизий
+            const key = tokenType * 0x1_0000_0000 + tokenModifiers;
+            let style = byLegend.get(key);
+            if (style === undefined) {
+                style = resolveSemanticTokenStyle(
+                    this.semanticTokenStyleResolver,
+                    semanticLanguageId,
+                    legend,
+                    tokenType,
+                    tokenModifiers,
+                );
+                byLegend.set(key, style);
+            }
+            return style;
+        };
 
         // Кадровый мемо DisplayLine по документной строке: при wrap N фрагментов
         // одной строки не должны сегментировать её N раз (тот же приём, что
@@ -707,6 +749,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
             const lineTokens = this.viewState.getViewLineTokens(viewLine);
             const tokenIndex = lineTokens ? new TokenIndex(lineTokens, lineContent.length) : null;
+            const semanticLine = this.viewState.getViewLineSemanticTokens(viewLine);
+            const semanticIndex = semanticLine ? new SemanticTokenIndex(semanticLine, lookupSemanticStyle) : null;
             // Колоночное окно фрагмента в целой строке; у последнего фрагмента
             // правой границы нет — за концом строки и так рисуются пробелы.
             const isLastFragment = frag.end === lineContent.length;
@@ -721,6 +765,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             paintTextLine(context, {
                 displayLine: dl,
                 tokenIndex,
+                semanticIndex,
                 resolveStyle,
                 screenY,
                 gutterW,

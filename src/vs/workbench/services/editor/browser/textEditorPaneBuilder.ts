@@ -9,6 +9,10 @@ import type { ILanguageFeaturesService } from "../../../../editor/common/service
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { ContextMenuController } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
 import { ContextMenuControllerDIToken } from "../../../../editor/contrib/contextmenu/browser/contextMenuController.ts";
+import {
+    type DocumentSemanticTokensFeature,
+    DocumentSemanticTokensFeatureDIToken,
+} from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
@@ -33,6 +37,7 @@ export class TextEditorPaneBuilder {
         LanguageConfigurationServiceDIToken,
         LanguageFeaturesServiceDIToken,
         ContextMenuControllerDIToken,
+        DocumentSemanticTokensFeatureDIToken,
     ] as const;
 
     public constructor(
@@ -41,6 +46,7 @@ export class TextEditorPaneBuilder {
         private readonly languageConfigurationService: ILanguageConfigurationService,
         private readonly languageFeatures: ILanguageFeaturesService,
         private readonly contextMenuController: ContextMenuController,
+        private readonly semanticTokens?: DocumentSemanticTokensFeature,
     ) {}
 
     /**
@@ -57,6 +63,7 @@ export class TextEditorPaneBuilder {
             model,
             this.languageConfigurationService,
             this.languageFeatures.foldingRangeProvider,
+            this.semanticTokens,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // Политика контекстного меню редактора слушает "contextmenu" на обвязке

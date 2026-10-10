@@ -41,6 +41,21 @@ export const editorConfiguration = {
             default: "singleFile",
             description: "Controls whether the editor highlights semantic symbol occurrences.",
         },
+        // Эталон: editorConfigurationSchema.ts. `configuredByTheme` — флаг
+        // `semanticHighlighting` активной темы (у встроенных он включён). `type`
+        // у эталона нет (только `enum`); наша схема его требует.
+        "editor.semanticHighlighting.enabled": {
+            scope: "language-overridable",
+            type: ["boolean", "string"],
+            enum: [true, false, "configuredByTheme"],
+            enumDescriptions: [
+                "Semantic highlighting enabled for all color themes.",
+                "Semantic highlighting disabled for all color themes.",
+                "Semantic highlighting is configured by the current color theme's `semanticHighlighting` setting.",
+            ],
+            default: "configuredByTheme",
+            description: "Controls whether the semanticHighlighting is shown for the languages that support it.",
+        },
         "editor.emptySelectionClipboard": {
             scope: "language-overridable",
             type: "boolean",
