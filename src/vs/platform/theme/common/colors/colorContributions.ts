@@ -7,6 +7,7 @@ import { diffColors } from "./diffColors.ts";
 import { editorColors } from "./editorColors.ts";
 import { gitColors } from "./gitColors.ts";
 import { scmGraphColors } from "./scmGraphColors.ts";
+import { terminalColors } from "./terminalColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
 /**
@@ -36,6 +37,7 @@ export const COLOR_CONTRIBUTIONS = {
     ...gitColors,
     ...scmGraphColors,
     ...diffColors,
+    ...terminalColors,
 } as const satisfies ColorContribution;
 
 /** Все зарегистрированные ключи цветов (типизация `theme.getColor`). */

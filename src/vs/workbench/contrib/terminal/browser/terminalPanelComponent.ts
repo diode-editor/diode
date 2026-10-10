@@ -17,6 +17,11 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 
+import {
+    type ITerminalColors,
+    type TerminalColorsService,
+    TerminalColorsServiceDIToken,
+} from "./terminalColorsService.ts";
 import type { ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
 import { TerminalTabbedViewElement } from "./terminalTabbedViewElement.ts";
@@ -72,6 +77,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         IConfigurationServiceDIToken,
         ContextMenuServiceDIToken,
         CommandRegistryDIToken,
+        TerminalColorsServiceDIToken,
     ] as const;
 
     private widgets = new Map<number, TerminalViewElement>();
@@ -94,6 +100,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         private readonly configuration: IConfigurationService,
         private readonly contextMenuService: ContextMenuService,
         private readonly commands: CommandRegistry,
+        private readonly colors: TerminalColorsService,
     ) {
         super();
         this.tabs = new TerminalTabsList({
@@ -136,6 +143,18 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         this.register(
             terminalService.onDidChangeActiveInstance((instance) => {
                 this.handleActiveChange(instance);
+            }),
+        );
+        this.register(
+            colors.onDidChange((next) => {
+                for (const [id, widget] of this.widgets) {
+                    const instance = this.terminalService.getInstance(id);
+                    /* v8 ignore start -- defensive: виджет снимается в handleClose вместе с инстансом */
+                    // Stryker disable next-line ConditionalExpression: ветка недостижима (см. выше) — эквивалентный мутант
+                    if (instance === null) continue;
+                    /* v8 ignore stop */
+                    applyTerminalColors(instance, widget, next);
+                }
             }),
         );
         // Терминал задачи, перезапущенный под другим именем, — новая подпись вкладки.
@@ -190,6 +209,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 
     private handleOpen(instance: ITerminalInstance): void {
         const widget = new TerminalViewElement(instance.session);
+        applyTerminalColors(instance, widget, this.colors.colors);
         this.widgets.set(instance.id, widget);
     }
 
@@ -305,6 +325,19 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 }
 
 /** Держит ли фокус сам виджет или что-то в его поддереве. */
+/**
+ * Цвета терминала → сессия (палитра 0..15) и виджет: фон/текст хоста перекрывают
+ * токены `terminal.background`/`terminal.foreground` в var-scope виджета, без них
+ * виджет видит токены темы.
+ */
+function applyTerminalColors(instance: ITerminalInstance, widget: TerminalViewElement, colors: ITerminalColors): void {
+    instance.session.setAnsiColors(colors.ansi);
+    const vars: Record<string, number> = {};
+    if (colors.background !== undefined) vars["terminal.background"] = colors.background;
+    if (colors.foreground !== undefined) vars["terminal.foreground"] = colors.foreground;
+    widget.setStyleVars(vars);
+}
+
 function holdsFocus(widget: TerminalViewElement): boolean {
     const active = widget.getRoot()?.focusManager?.activeElement ?? null;
     return active?.getAncestorPath().includes(widget) === true;

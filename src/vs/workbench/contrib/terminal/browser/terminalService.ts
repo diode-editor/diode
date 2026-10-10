@@ -69,8 +69,11 @@ export interface ITerminalInstance {
      * у эталона; одинаковые заголовки не дедуплицируются — у эталона тоже.
      */
     readonly title: string;
-    /** Поверхность сессии — по ней компонент строит `TerminalViewElement`. */
-    readonly session: ITerminalSurface;
+    /**
+     * Поверхность сессии — по ней компонент строит `TerminalViewElement` и задаёт
+     * ей 16 ANSI-цветов (`terminal.integrated.colorSource`).
+     */
+    readonly session: ITerminalSurface & Pick<ITerminalSession, "setAnsiColors">;
     /** Pid процесса шелла; `undefined`, если процесса на нашей стороне нет. */
     readonly processId: number | undefined;
     readonly launch: ITerminalLaunchInfo;

@@ -17,6 +17,7 @@ import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.t
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import type { TerminalSessionFactory } from "../common/terminalSessionFactory.ts";
 
+import { makeTerminalColors } from "./terminalColorsService.testUtils.ts";
 import { TerminalPanelComponent } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
@@ -32,6 +33,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
         return surface;
     };
     const configuration = createTestConfigurationService(settings);
+    const colors = makeTerminalColors(themeService, configuration).colors;
     const service = new TerminalService(panelService, views.service, configuration, factory);
     // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
     views.service.attachRegisteredContainers();
@@ -50,6 +52,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
         configuration,
         contextMenu,
         commands,
+        colors,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const dispose = (): void => {
@@ -245,6 +248,7 @@ describe("TerminalPanelComponent", () => {
             configuration,
             {} as ContextMenuService,
             new CommandRegistry(),
+            makeTerminalColors(themeService, configuration).colors,
         );
 
         expect(views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")).toHaveLength(1);
