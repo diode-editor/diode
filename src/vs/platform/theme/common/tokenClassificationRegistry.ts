@@ -64,6 +64,7 @@ export function parseClassifierString(
     let k = s.length;
     let language = defaultLanguage;
     const modifiers: string[] = [];
+    // Stryker disable next-line ArithmeticOperator: старт за концом строки даёт NaN-символы — ни ":", ни "."
     for (let i = k - 1; i >= 0; i--) {
         const ch = s.charCodeAt(i);
         if (ch === CHAR_LANGUAGE || ch === CHAR_MODIFIER) {
@@ -93,6 +94,7 @@ export class TokenClassificationRegistry {
         if (!TYPE_AND_MODIFIER_ID_PATTERN.test(id)) {
             throw new Error("Invalid token type id.");
         }
+        // Stryker disable next-line ConditionalExpression: undefined шаблон и так пропускает (строка "undefined")
         if (superType !== undefined && superType !== "" && !TYPE_AND_MODIFIER_ID_PATTERN.test(superType)) {
             throw new Error("Invalid token super type id.");
         }
@@ -178,13 +180,16 @@ export class TokenClassificationRegistry {
 
     private getTypeHierarchy(typeId: string): string[] {
         let hierarchy = this.typeHierarchy.get(typeId);
+        // Stryker disable next-line ConditionalExpression: кэш — пересчёт даёт ту же иерархию
         if (hierarchy === undefined) {
             hierarchy = [typeId];
+            // Stryker disable next-line CallExpression: кэш — без записи иерархия считается заново
             this.typeHierarchy.set(typeId, hierarchy);
             let type = this.tokenTypeById.get(typeId);
             // Цикл в superType (расширение объявило a→b, b→a) эталон не ловит и
-            // виснет; здесь иерархия обрывается на первом повторе.
-            while (type?.superType !== undefined && type.superType !== "" && !hierarchy.includes(type.superType)) {
+            // виснет; здесь иерархия обрывается на первом повторе. Пустой
+            // superType попадает в иерархию безвредно: селектора с пустым типом нет.
+            while (type?.superType !== undefined && !hierarchy.includes(type.superType)) {
                 hierarchy.push(type.superType);
                 type = this.tokenTypeById.get(type.superType);
             }

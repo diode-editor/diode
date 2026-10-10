@@ -192,8 +192,32 @@ describe("createDefaultTokenClassificationRegistry — дословно из э�
             superType: "method",
             deprecationMessage: "Deprecated use `method` instead",
         });
-        expect(types.find((t) => t.id === "label")?.description).toBe("Style for labels. ");
-        expect(types.find((t) => t.id === "decorator")?.description).toBe("Style for decorators & annotations.");
+        expect(types.map((t) => t.description)).toEqual([
+            "Style for comments.",
+            "Style for strings.",
+            "Style for keywords.",
+            "Style for numbers.",
+            "Style for expressions.",
+            "Style for operators.",
+            "Style for namespaces.",
+            "Style for types.",
+            "Style for structs.",
+            "Style for classes.",
+            "Style for interfaces.",
+            "Style for enums.",
+            "Style for type parameters.",
+            "Style for functions",
+            "Style for member functions",
+            "Style for method (member functions)",
+            "Style for macros.",
+            "Style for variables.",
+            "Style for parameters.",
+            "Style for properties.",
+            "Style for enum members.",
+            "Style for events.",
+            "Style for decorators & annotations.",
+            "Style for labels. ",
+        ]);
     });
 
     it("стандартные модификаторы", () => {

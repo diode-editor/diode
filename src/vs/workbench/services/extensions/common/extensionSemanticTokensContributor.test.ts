@@ -89,9 +89,11 @@ describe("registerExtensionSemanticTokens", () => {
         expect(rule.selector.match("decorator", [], "python")).toBe(100);
     });
 
-    it("расширения без contributes или без семантики не трогают реестр", () => {
+    it("расширения без contributes или без семантики не трогают реестр и не пишут ошибок", () => {
         const registry = new TokenClassificationRegistry();
-        registerExtensionSemanticTokens([ext(undefined), ext({ themes: [] })], registry);
+        const logger = createLoggerSpy();
+        registerExtensionSemanticTokens([ext(undefined), ext({ themes: [] })], registry, logger);
+        expect(logger.error).not.toHaveBeenCalled();
         expect(registry.getTokenTypes()).toEqual([]);
         expect(registry.getTokenModifiers()).toEqual([]);
         expect(registry.getTokenStylingDefaultRules()).toEqual([]);
@@ -147,6 +149,32 @@ describe("registerExtensionSemanticTokens", () => {
             "pub.worse: 'configuration.semanticTokenType' must be an array",
             "pub.worse: 'configuration.semanticTokenModifier' must be an array",
             "pub.worse: 'configuration.semanticTokenScopes' must be an array",
+        ]);
+    });
+
+    it("null-элементы и нестроковый id — ошибка, а не падение; смешанный массив скоупов отвергается", () => {
+        const registry = new TokenClassificationRegistry();
+        const logger = createLoggerSpy();
+        registerExtensionSemanticTokens(
+            [
+                ext({
+                    semanticTokenTypes: [null, { id: 5, description: "d" }],
+                    semanticTokenModifiers: [null],
+                    semanticTokenScopes: [null, { scopes: { a: ["x", 1], b: ["y"] } }],
+                }),
+            ],
+            registry,
+            logger,
+        );
+        expect(registry.getTokenTypes()).toEqual([]);
+        expect(registry.getTokenModifiers()).toEqual([]);
+        expect(registry.getTokenStylingDefaultRules().map((r) => r.selector.id)).toEqual(["b"]);
+        expect(logger.error.mock.calls.map((c) => c[0] as string)).toEqual([
+            "test.sem: 'configuration.semanticTokenType.id' must be defined and can not be empty",
+            "test.sem: 'configuration.semanticTokenType.id' must be defined and can not be empty",
+            "test.sem: 'configuration.semanticTokenModifier.id' must be defined and can not be empty",
+            "test.sem: 'configuration.semanticTokenScopes.scopes' must be defined as an object",
+            "test.sem: 'configuration.semanticTokenScopes.scopes' values must be an array of strings",
         ]);
     });
 

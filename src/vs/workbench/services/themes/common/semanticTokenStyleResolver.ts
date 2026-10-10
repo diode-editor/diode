@@ -52,30 +52,34 @@ function styleFromSettings(settings: ISemanticTokenColorSettings): SemanticToken
     return style;
 }
 
-/** `nameMatcher` эталона: все идентификаторы пути найдены в пробе — вес по позиции и длине. */
+/**
+ * `nameMatcher` эталона: каждый идентификатор пути правила найден в пробе
+ * (ищется с конца); вес — по позиции последнего из них и длине идентификатора.
+ */
 function nameMatcher(identifiers: readonly string[], scopes: ProbeScope): number {
     if (scopes.length < identifiers.length) {
         return -1;
     }
-    let score: number | undefined;
-    const every = identifiers.every((identifier) => {
+    let score = -1;
+    for (const identifier of identifiers) {
+        let found = -1;
         for (let i = scopes.length - 1; i >= 0; i--) {
             if (scopesAreMatching(scopes[i], identifier)) {
-                score = (i + 1) * 0x10000 + identifier.length;
-                return true;
+                found = (i + 1) * 0x10000 + identifier.length;
+                break;
             }
         }
-        return false;
-    });
-    return every && score !== undefined ? score : -1;
+        if (found < 0) return -1;
+        score = found;
+    }
+    return score;
 }
 
+/** Скоуп `thisScopeName` — это `scopeName` или его потомок по точке. */
 function scopesAreMatching(thisScopeName: string, scopeName: string): boolean {
-    if (thisScopeName === scopeName) {
-        return true;
-    }
-    const len = scopeName.length;
-    return thisScopeName.length > len && thisScopeName.startsWith(scopeName) && thisScopeName[len] === ".";
+    return (
+        thisScopeName === scopeName || (thisScopeName.startsWith(scopeName) && thisScopeName[scopeName.length] === ".")
+    );
 }
 
 function getScopeMatcher(rule: ITokenColorRule): Matcher<ProbeScope> | null {
@@ -87,9 +91,7 @@ function getScopeMatcher(rule: ITokenColorRule): Matcher<ProbeScope> | null {
     for (const scope of Array.isArray(ruleScope) ? ruleScope : [ruleScope]) {
         createMatchers(scope, nameMatcher, matchers);
     }
-    if (matchers.length === 0) {
-        return null;
-    }
+    // Без единого матчера (пустой или битый селектор) — max пустого = -Infinity: не совпадает.
     return (scope) => Math.max(...matchers.map((matcher) => matcher(scope)));
 }
 
@@ -113,7 +115,7 @@ function getScopeMatcher(rule: ITokenColorRule): Matcher<ProbeScope> | null {
  */
 export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, IDisposable {
     private theme: IEditorTokenTheme;
-    private semanticRules: ISemanticRule[] = [];
+    private semanticRules: ISemanticRule[];
     private scopeMatchers: (readonly [Matcher<ProbeScope>, ITokenColorRule])[] | undefined;
     private readonly cache = new Map<string, SemanticTokenStyle | null>();
     private readonly onDidChangeEmitter = new Emitter<void>();
@@ -125,9 +127,9 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
         theme: IEditorTokenTheme,
     ) {
         this.theme = theme;
-        this.compile();
+        this.semanticRules = this.compile();
         this.registrySubscription = registry.onDidChange(() => {
-            this.compile();
+            this.semanticRules = this.compile();
             this.onDidChangeEmitter.fire();
         });
     }
@@ -138,7 +140,7 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
 
     public setTheme(theme: IEditorTokenTheme): void {
         this.theme = theme;
-        this.compile();
+        this.semanticRules = this.compile();
         this.onDidChangeEmitter.fire();
     }
 
@@ -157,15 +159,16 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
         this.onDidChangeEmitter.dispose();
     }
 
-    private compile(): void {
+    /** Правила темы под текущий реестр; кэши стилей и TM-матчеров сброшены. */
+    private compile(): ISemanticRule[] {
+        this.scopeMatchers = undefined;
+        this.cache.clear();
         // Селекторы правил темы парсит реестр: вес `superType` зависит от
         // иерархии типов, а её дополняют расширения.
-        this.semanticRules = (this.theme.semanticTokenRules ?? []).map((rule) => ({
+        return (this.theme.semanticTokenRules ?? []).map((rule) => ({
             selector: this.registry.parseTokenSelector(rule.selector),
             style: styleFromSettings(rule.settings),
         }));
-        this.scopeMatchers = undefined;
-        this.cache.clear();
     }
 
     private getTokenStyle(type: string, modifiers: readonly string[], language: string): SemanticTokenStyle | null {
@@ -191,21 +194,17 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
             if (matchScore >= 0) processStyle(matchScore, rule.style);
         }
 
-        let hasUndefinedStyleProperty = false;
+        // Заданное правилом темы дефолтом не перекрывается. Эталон пропускает
+        // проход по дефолтам, если правила темы задали всё; здесь стиль и так
+        // кэшируется на (тип, модификаторы, язык), и оптимизация не нужна.
         for (const key of ["fg", ...FLAGS] as const) {
-            if (score[key] === -1) {
-                hasUndefinedStyleProperty = true;
-            } else {
-                score[key] = Number.MAX_VALUE; // заданное правилом темы дефолтом не перекрывается
-            }
+            if (score[key] !== -1) score[key] = Number.MAX_VALUE;
         }
-        if (hasUndefinedStyleProperty) {
-            for (const rule of this.registry.getTokenStylingDefaultRules()) {
-                const matchScore = rule.selector.match(type, modifiers, language);
-                if (matchScore < 0) continue;
-                const style = this.resolveScopes(rule.defaults.scopesToProbe);
-                if (style !== undefined) processStyle(matchScore, style);
-            }
+        for (const rule of this.registry.getTokenStylingDefaultRules()) {
+            const matchScore = rule.selector.match(type, modifiers, language);
+            if (matchScore < 0) continue;
+            const style = this.resolveScopes(rule.defaults.scopesToProbe);
+            if (style !== undefined) processStyle(matchScore, style);
         }
         return result.fg === undefined && FLAGS.every((flag) => result[flag] === undefined) ? null : result;
     }

@@ -49,6 +49,9 @@ export function createMatchers<T>(
         if (token === "(") {
             token = tokenizer.next();
             const expressionInParents = parseInnerExpression();
+            // После скобочного выражения токен — либо ")", либо конец строки:
+            // безусловный next() на null дал бы тот же null.
+            // Stryker disable next-line ConditionalExpression: см. выше — эквивалентен
             if (token === ")") {
                 token = tokenizer.next();
             }
@@ -78,6 +81,7 @@ export function createMatchers<T>(
         return (matcherInput) => {
             // and
             let min = matchers[0](matcherInput);
+            // Stryker disable next-line ConditionalExpression: ранний выход — оптимизация, min от отрицательного не растёт
             for (let i = 1; min >= 0 && i < matchers.length; i++) {
                 min = Math.min(min, matchers[i](matcherInput));
             }
@@ -114,6 +118,7 @@ export function createMatchers<T>(
 }
 
 function isIdentifier(token: string | null): token is string {
+    // Stryker disable next-line Regex: «хотя бы один символ» и «один символ» для test() неразличимы
     return token !== null && /[\w.:]+/.test(token);
 }
 
