@@ -19,6 +19,7 @@ function query(overrides: Partial<ITextSearchQuery> = {}): ITextSearchQuery {
         isWholeWord: false,
         includes: [],
         excludes: [],
+        useIgnoreFiles: { local: true, parent: false, global: false },
         ...overrides,
     };
 }

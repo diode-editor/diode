@@ -38,7 +38,7 @@
 ### Дерево файлов
 
 - [ ] **Хвосты [FileTreePerformance.md](FileTreePerformance.md#будущие-фиксы-вне-scope-текущей-задачи):**
-      .gitignore-фильтр, индекс по ключу в `TreeViewElement` вместо линейных сканов, CamelHumps
+      `.gitignore`-фильтр дерева (`explorer.excludeGitIgnore`; поиск и Quick Open его уже уважают), индекс по ключу в `TreeViewElement` вместо линейных сканов, CamelHumps
       в `FuzzySearch.ts`, бюджет на кадр в `search`, инкрементальная сверка индекса от watcher'ов.
 - [ ] **Нативный watcher `@parcel/watcher`** вместо chokidar. Условие из FileTreePerformance.md
       остаётся в силе: не раньше уведомления про ENOSPC

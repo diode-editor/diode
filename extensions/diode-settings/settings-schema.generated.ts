@@ -304,6 +304,26 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
     },
     {
+        key: "search.useGlobalIgnoreFiles",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether to use your global gitignore file (for example, from `$HOME/.config/git/ignore`) when searching for files. Requires `#search.useIgnoreFiles#` to be enabled.",
+    },
+    {
+        key: "search.useIgnoreFiles",
+        type: "boolean",
+        default: true,
+        description: "Controls whether to use `.gitignore` and `.ignore` files when searching for files.",
+    },
+    {
+        key: "search.useParentIgnoreFiles",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether to use `.gitignore` and `.ignore` files in parent directories when searching for files. Requires `#search.useIgnoreFiles#` to be enabled.",
+    },
+    {
         key: "task.autoDetect",
         type: "string",
         default: "on",

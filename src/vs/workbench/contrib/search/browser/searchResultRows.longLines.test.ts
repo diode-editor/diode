@@ -53,6 +53,7 @@ describe("searchResultRows — длинные строки ограничены 
                 isWholeWord: false,
                 includes: [],
                 excludes: [],
+                useIgnoreFiles: { local: true, parent: false, global: false },
             },
             "/repo",
         );

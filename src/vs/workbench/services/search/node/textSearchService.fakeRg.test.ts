@@ -19,6 +19,7 @@ const QUERY: ITextSearchQuery = {
     isWholeWord: false,
     includes: [],
     excludes: [],
+    useIgnoreFiles: { local: true, parent: false, global: false },
 };
 
 function matchLine(file: string): string {

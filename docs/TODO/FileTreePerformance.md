@@ -108,6 +108,10 @@ TreeView оставлен как есть: загрузка ленивая (од
       на «горбе»/начале слова); точка расширения — `isWordBoundary` + ветка матчинга.
 - [ ] Дальнейшее ускорение `search`: бюджет на кадр; и/или замена движка
       (fzf-for-js / порт VS Code fuzzyScore / WASM).
-- [ ] .gitignore-фильтр (сократить N для обхода и поиска).
+- [x] .gitignore-фильтр для поиска: индекс Quick Open строится `rg --files` и
+      уважает `.gitignore`/`.ignore` (`search.useIgnoreFiles` и соседи, как в
+      эталоне) — см. «Ignore-файлы поиска» в [docs/arch/Configuration.md](../arch/Configuration.md).
+- [ ] `explorer.excludeGitIgnore` (дефолт `false`) — `.gitignore`-фильтр дерева:
+      нужен свой разбор ignore-файлов (у эталона `services/search/common/ignoreFile.ts`).
 - [ ] Индекс по ключу в TreeViewElement (Map key→node) вместо линейных сканов
       (`findElementByKey` / `restoreSelection` сейчас O(flatNodes)).
