@@ -29,7 +29,7 @@
 
 | поверхность | статус | члены |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 12/40 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 14/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 21/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 30/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
@@ -44,12 +44,12 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 165/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 172/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
 
-🟡 **12/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
+🟡 **14/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
 регистрацию, но пока не дёргаются.
 
 | член | статус | комментарий |
@@ -65,9 +65,11 @@
 | `registerDocumentRangeFormattingEditProvider` | ✅ | мульти-диапазонный `provideDocumentRangesFormattingEdits` не активен |
 | `registerCodeActionsProvider` | ✅ | quickfix, organize imports, fix all; `CodeAction.disabled` — как эталон (Quick Fix не показывает, авто-применение называет причину); лампочки-индикатора нет |
 | `registerFoldingRangeProvider` | ✅ | |
+| `registerDocumentSemanticTokensProvider` | ✅ | семантическая подсветка поверх TextMate: дельты (`provideDocumentSemanticTokensEdits`), `onDidChangeSemanticTokens`, `semanticTokenColors` темы и фоллбэк на TM-скоупы, `contributes.semanticToken*`, настройка `editor.semanticHighlighting.enabled`; `editor.semanticTokenColorCustomizations` не поддержана |
+| `registerDocumentRangeSemanticTokensProvider` | ✅ | видимая область, пока нет полного набора токенов документа |
 | `createLanguageStatusItem` | 🟡 | держатель полей с честным dispose, в UI пока не проецируется |
 | `match` | ✅ | работает в рантайме (скоринг селекторов для языковых клиентов); декларация в `vscode.d.ts` ещё не поднята |
-| остальные `register*Provider` (19: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, color, onTypeFormatting, selectionRange, semanticTokens ×2, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | регистрация принимается (no-op) — расширение не падает, провайдер не дёргается |
+| остальные `register*Provider` (17: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, color, onTypeFormatting, selectionRange, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | регистрация принимается (no-op) — расширение не падает, провайдер не дёргается |
 | `getLanguages`, `setTextDocumentLanguage`, `setLanguageConfiguration`, `onDidChangeDiagnostics`, `getDiagnostics`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
 ## vscode.workspace
@@ -270,7 +272,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## Типы с неполной поверхностью
 
-Активно 165 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 172 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.

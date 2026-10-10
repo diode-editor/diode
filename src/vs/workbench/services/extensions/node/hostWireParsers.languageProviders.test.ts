@@ -89,3 +89,37 @@ describe("hostWireParsers — parseWireLanguageProviderUnregistration", () => {
         expect(parseWireLanguageProviderUnregistration(undefined)).toBeNull();
     });
 });
+
+describe("hostWireParsers — регистрация семантических токенов", () => {
+    it("легенда: позиционные нестроки становятся пустой строкой, не-массив — пустой список", () => {
+        expect(
+            parseWireLanguageProviderRegistration({
+                handle: 4,
+                kind: "semanticTokens",
+                selector: [],
+                legend: { tokenTypes: ["class", 7, "variable"], tokenModifiers: "declaration" },
+                hasOnDidChange: true,
+            }),
+        ).toStrictEqual({
+            handle: 4,
+            kind: "semanticTokens",
+            selector: [],
+            legend: { tokenTypes: ["class", "", "variable"], tokenModifiers: [] },
+            hasOnDidChange: true,
+        });
+    });
+
+    it("легенда не объектом — поля нет; hasOnDidChange только при true", () => {
+        for (const legend of [null, "x", 3, undefined]) {
+            expect(
+                parseWireLanguageProviderRegistration({
+                    handle: 5,
+                    kind: "rangeSemanticTokens",
+                    selector: [],
+                    legend,
+                    hasOnDidChange: "yes",
+                }),
+            ).toStrictEqual({ handle: 5, kind: "rangeSemanticTokens", selector: [] });
+        }
+    });
+});

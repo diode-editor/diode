@@ -1,6 +1,6 @@
 # Подсветка синтаксиса
 
-**Статус**: TextMate-движок работает (vscode-textmate + oniguruma), hot-swap токенайзера сделан, грамматики грузятся лениво (по языку открытого документа) + фоновый прогрев остальных; остались scope-селекторы, async/background токенизация.
+**Статус**: TextMate-движок работает (vscode-textmate + oniguruma), hot-swap токенайзера сделан, грамматики грузятся лениво (по языку открытого документа) + фоновый прогрев остальных, семантические токены LSP — вторым слоем; остались scope-селекторы и background-токенизация.
 
 Архитектура повторяет VS Code:
 
@@ -34,27 +34,15 @@ EditorElement.render() ── ITokenStyleResolver ── (Theme) TokenThemeResol
 
 **Что не делать:** полный TM scope selector grammar (group, `|` внутри селектора) — этого нет даже у VS Code. Достаточно того, что использует Dark+/Light+.
 
-### [~] Async-токенизация (LSP semantic tokens)
+### [x] Семантические токены LSP поверх TextMate
 
-Ход: PR1 — тема (`semanticTokenColors`/`semanticHighlighting`), `TokenClassificationRegistry` +
-`contributes.semanticToken*`, `SemanticTokenStyleResolver` (стили есть, потребителя ещё нет). PR2 —
-API/RPC провайдеров, хранилище, рендер, настройка `editor.semanticHighlighting.enabled`.
-Расширить пайплайн новым источником токенов поверх синхронного TM.
-
-**План:**
-1. Новый интерфейс `ISemanticTokensProvider`:
-   ```ts
-   interface ISemanticTokensProvider {
-       provideTokens(document, range): Promise<ISemanticTokens>;
-   }
-   ```
-   Регистрируется через отдельный `SemanticTokensRegistry` (по аналогии с `TokenizationRegistry`).
-2. В `DocumentTokenStore` добавить второй слой кеша `semanticTokens: ISemanticToken[][]` и метод `mergeSemanticTokens(range, tokens)`. Семантика рендера: TM-токены — базовый цвет, семантические — оверрайд (как в VS Code).
-3. **Не блокировать sync catch-up.** Async-результат приходит позже — при инвалидации участка отбрасывается (stale). Хранить `version: number` документа на момент запроса.
-4. **Триггер:** debounced по `onDidChangeContent` (~300 мс idle), запрос на видимый range.
-5. В `EditorElement.render` добавить ещё одну стадию: после `TokenIndex.tokenAt(offset)` — `SemanticTokenIndex.overrideAt(offset)`. Если оверрайд есть — резолвить его scope тем же `ITokenStyleResolver`.
-
-**Тесты:** мок-провайдер, проверка что late-arriving tokens с устаревшей версией не применяются.
+Сделано по эталону: провайдеры расширений по RPC (с дельтами и `onDidChangeSemanticTokens`),
+хранилище на документ со сдвигом на правках, второй слой при отрисовке, `semanticTokenColors`
+тем + фоллбэк type/modifier → TM-скоупы, `contributes.semanticToken*`, настройка
+`editor.semanticHighlighting.enabled`. Устройство — «Семантические токены» в
+[docs/arch/Editor.md](../arch/Editor.md). Не поддержано: `editor.semanticTokenColorCustomizations`
+(нет и `editor.tokenColorCustomizations`), литеральные дефолты стилей по типу темы в
+`TokenStyleDefaults` (их не задают ни эталон, ни расширения).
 
 ### [ ] Background tokenization (chunked)
 Сейчас `tokenizeUpTo(target)` синхронный. На больших файлах блокирует render.

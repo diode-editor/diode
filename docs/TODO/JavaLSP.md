@@ -212,7 +212,12 @@ Override/Implement Methods, Generate getters/setters/constructors, extract-ре�
 
 ### №8. Возможности jdt.ls, которые сервер отдаёт, а UI у нас нет
 
-Сервер анонсирует и умеет: semantic tokens, inlay hints, code lens (счётчик
+Semantic tokens закрыты: подсветка jdt.ls ложится поверх TextMate (параметры, поля,
+`final`-поля, статические члены и т.д.), Java-типы `contributes.semanticTokenTypes`/`Scopes`
+redhat.java красятся своими TM-скоупами; гейт — сценарий `java-lsp` и кейс в
+`extensionHost.javaLsp.features`.
+
+Сервер анонсирует и умеет ещё: inlay hints, code lens (счётчик
 ссылок), document symbols (Outline), workspace symbols (Ctrl+T), call/type
 hierarchy, rename, selection range, on-type formatting. У нас соответствующие
 `register*Provider` — no-op (таблица в [LSP.md](LSP.md)), т.е. Java получит их

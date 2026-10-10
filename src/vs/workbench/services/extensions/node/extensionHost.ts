@@ -31,6 +31,12 @@ import type {
     IRenameRequest,
 } from "../../../../editor/common/languages/iRenameSource.ts";
 import type {
+    IRangeSemanticTokensRequest,
+    ISemanticTokens,
+    ISemanticTokensEdits,
+    ISemanticTokensRequest,
+} from "../../../../editor/common/languages/iSemanticTokensSource.ts";
+import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -1082,6 +1088,32 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly IFoldingRegion[]> {
         return this.languageFeatures.provideFoldingRanges(handle, req, token);
+    }
+
+    public provideDocumentSemanticTokens(
+        handle: number,
+        req: ISemanticTokensRequest,
+        previousResultId: number,
+        token?: ICancellationToken,
+    ): Promise<ISemanticTokens | ISemanticTokensEdits | null> {
+        return this.languageFeatures.provideDocumentSemanticTokens(handle, req, previousResultId, token);
+    }
+
+    public provideDocumentRangeSemanticTokens(
+        handle: number,
+        req: IRangeSemanticTokensRequest,
+        token?: ICancellationToken,
+    ): Promise<ISemanticTokens | null> {
+        return this.languageFeatures.provideDocumentRangeSemanticTokens(handle, req, token);
+    }
+
+    public releaseDocumentSemanticTokens(handle: number, resultId: number): void {
+        this.languageFeatures.releaseDocumentSemanticTokens(handle, resultId);
+    }
+
+    /** `onDidChangeSemanticTokens` провайдера субпроцесса (handle). */
+    public get onDidChangeSemanticTokens(): Event<number> {
+        return this.languageFeatures.onDidChangeSemanticTokens;
     }
 
     public provideDefinition(

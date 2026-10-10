@@ -8,8 +8,8 @@ import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
-import type { TokenIndex } from "./tokenIndex.ts";
-import { packStyleFlags } from "./tokenIndex.ts";
+import type { SemanticTokenIndex, TokenIndex } from "./tokenIndex.ts";
+import { applySemanticStyle, packStyleFlags } from "./tokenIndex.ts";
 
 /**
  * Отрисовка и hit-test текстовой поверхности — общее у редактора
@@ -191,6 +191,11 @@ export interface IPaintTextLineParams {
     /** Токены строки; `null` — рисуем без подсветки. */
     tokenIndex: TokenIndex | null;
     resolveStyle: (scopes: readonly string[]) => ResolvedTokenStyle;
+    /**
+     * Семантические токены строки — второй слой поверх TextMate: перекрывают
+     * только заданные темой атрибуты (цвет, начертание). `null` — слоя нет.
+     */
+    semanticIndex: SemanticTokenIndex | null;
     screenY: number;
     gutterW: number;
     contentCols: number;
@@ -242,7 +247,17 @@ export interface IPaintTextLinePhantom {
  * горизонтальная прокрутка.
  */
 export function paintTextLine(context: RenderContext, params: IPaintTextLineParams): void {
-    const { displayLine, tokenIndex, resolveStyle, screenY, gutterW, contentCols, scrollLeft, startColumn } = params;
+    const {
+        displayLine,
+        tokenIndex,
+        semanticIndex,
+        resolveStyle,
+        screenY,
+        gutterW,
+        contentCols,
+        scrollLeft,
+        startColumn,
+    } = params;
     // Граница фантома считается раз на строку: в цикле по колонкам она
     // сравнивается с каждым слотом.
     const phantomEnd = params.phantom === null ? 0 : params.phantom.startOffset + params.phantom.length;
@@ -290,18 +305,19 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             // фантом красится одним стилем (серый курсив ghost text).
             fg = phantom.fg;
             style = phantom.style;
-        } else if (tokenIndex) {
+        } else {
             // Правее фантома композитный offset забегает вперёд документного —
             // возвращаем его назад, иначе подсветка хвоста уедет.
-            const token = tokenIndex.tokenAt(
-                phantom !== null && slot.offset >= phantomEnd ? slot.offset - phantom.length : slot.offset,
-            );
+            const offset = phantom !== null && slot.offset >= phantomEnd ? slot.offset - phantom.length : slot.offset;
+            const token = tokenIndex?.tokenAt(offset);
             if (token) {
                 const resolved = resolveStyle(token.scopes);
                 if (resolved.fg !== undefined) fg = resolved.fg;
                 if (params.allowTokenBg && resolved.bg !== undefined) bg = resolved.bg;
                 style = packStyleFlags(resolved);
             }
+            const semantic = semanticIndex?.styleAt(offset);
+            if (semantic) ({ fg, flags: style } = applySemanticStyle(semantic, fg, style));
         }
 
         if (slot.grapheme === "\t") {

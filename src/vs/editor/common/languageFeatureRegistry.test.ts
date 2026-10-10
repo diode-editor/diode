@@ -161,4 +161,35 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered(ts)).toEqual(["a"]);
         expect(registry.ordered({ uri: Uri.file("/w/other.ts"), languageId: "typescript" })).toEqual([]);
     });
+
+    describe("orderedGroups", () => {
+        it("группы равного score — по убыванию score, внутри группы новые первыми", () => {
+            const registry = new LanguageFeatureRegistry<string>();
+            registry.register("*", "any-old");
+            registry.register("typescript", "exact-old");
+            registry.register("*", "any-new");
+            registry.register("typescript", "exact-new");
+            registry.register("markdown", "md");
+
+            expect(registry.orderedGroups(ts)).toEqual([
+                ["exact-new", "exact-old"],
+                ["any-new", "any-old"],
+            ]);
+            expect(registry.orderedGroups(md)).toEqual([["md"], ["any-new", "any-old"]]);
+        });
+
+        it("никто не подошёл — пусто", () => {
+            const registry = new LanguageFeatureRegistry<string>();
+            registry.register("markdown", "md");
+            expect(registry.orderedGroups(ts)).toEqual([]);
+        });
+
+        it("эксклюзивный селектор — единственная группа", () => {
+            const registry = new LanguageFeatureRegistry<string>();
+            registry.register("typescript", "exact");
+            registry.register({ language: "typescript", exclusive: true }, "exclusive");
+            registry.register("*", "any");
+            expect(registry.orderedGroups(ts)).toEqual([["exclusive"]]);
+        });
+    });
 });
