@@ -344,6 +344,84 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(empty.notices).toEqual(["codeAction.notice: No source actions available"]);
     });
 
+    it("disabled: organize imports применяет активное, а без активных показывает причину неактивного", async () => {
+        const mixed = makeSetup({
+            provide: () =>
+                Promise.resolve([
+                    { id: "1.0", title: "Disabled preferred", isPreferred: true, disabled: "Nothing to organize" },
+                    { id: "1.1", title: "Plain" },
+                ]),
+            apply: () => Promise.resolve(true),
+        });
+        await organizeImportsAction.run(mixed.accessor);
+        expect(mixed.appliedIds).toEqual(["1.1"]);
+        expect(mixed.notices).toEqual([]);
+
+        const onlyDisabled = makeSetup({
+            provide: () => Promise.resolve([{ id: "1.0", title: "Organize", disabled: "Nothing to organize" }]),
+            apply: () => Promise.resolve(true),
+        });
+        await organizeImportsAction.run(onlyDisabled.accessor);
+        expect(onlyDisabled.appliedIds).toEqual([]);
+        expect(onlyDisabled.notices).toEqual(["codeAction.notice: Nothing to organize"]);
+    });
+
+    it("disabled: Quick Fix их не показывает; без активных — «нет действий», без меню", async () => {
+        const mixed = makeSetup(
+            {
+                provide: () =>
+                    Promise.resolve([
+                        { id: "1.0", title: "Fix", kind: "quickfix" },
+                        { id: "1.1", title: "Extract", kind: "refactor.extract", disabled: "Select an expression" },
+                    ]),
+                apply: () => Promise.resolve(true),
+            },
+            { pickLabel: "Fix" },
+        );
+        await quickFixAction.run(mixed.accessor);
+        expect(mixed.pickCalls[0]?.items).toStrictEqual([{ label: "Fix", description: "quickfix" }]);
+        expect(mixed.appliedIds).toEqual(["1.0"]);
+
+        const onlyDisabled = makeSetup({
+            provide: () => Promise.resolve([{ id: "1.0", title: "Extract", disabled: "Select an expression" }]),
+            apply: () => Promise.resolve(true),
+        });
+        await quickFixAction.run(onlyDisabled.accessor);
+        expect(onlyDisabled.pickCalls).toEqual([]);
+        expect(onlyDisabled.notices).toEqual(["codeAction.notice: No code actions available"]);
+    });
+
+    it("disabled: Refactor… прячет их рядом с активными, а без активных показывает причиной и не применяет", async () => {
+        const mixed = makeSetup({
+            provide: () =>
+                Promise.resolve([
+                    { id: "1.0", title: "Extract", kind: "refactor.extract" },
+                    { id: "1.1", title: "Inline", kind: "refactor.inline", disabled: "Not a variable" },
+                ]),
+            apply: () => Promise.resolve(true),
+        });
+        await refactorAction.run(mixed.accessor);
+        expect(mixed.pickCalls[0]?.items.map((item) => item.label)).toEqual(["Extract"]);
+
+        const onlyDisabled = makeSetup(
+            {
+                provide: () =>
+                    Promise.resolve([
+                        { id: "1.0", title: "Inline", kind: "refactor.inline", disabled: "Not a variable" },
+                    ]),
+                apply: () => Promise.resolve(true),
+            },
+            { pickLabel: "Inline" },
+        );
+        await refactorAction.run(onlyDisabled.accessor);
+        // Заголовок и рядом — причина неактивности (в эталоне — подсказка пункта).
+        expect(onlyDisabled.pickCalls[0]?.items).toStrictEqual([
+            { label: "Inline", description: "refactor.inline", hint: "Not a variable" },
+        ]);
+        expect(onlyDisabled.appliedIds).toEqual([]);
+        expect(onlyDisabled.notices).toEqual(["codeAction.notice: Not a variable"]);
+    });
+
     it("метаданные запиннены: id/title/бинды/when — пользовательский контракт", () => {
         expect(organizeImportsAction.id).toBe("editor.action.organizeImports");
         expect(organizeImportsAction.title).toBe("Organize Imports");

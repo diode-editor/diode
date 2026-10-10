@@ -63,7 +63,7 @@
 | `registerSignatureHelpProvider` | ✅ | обе перегрузки регистрации |
 | `registerDocumentFormattingEditProvider` | ✅ | |
 | `registerDocumentRangeFormattingEditProvider` | ✅ | мульти-диапазонный `provideDocumentRangesFormattingEdits` не активен |
-| `registerCodeActionsProvider` | ✅ | quickfix, organize imports, fix all; лампочки-индикатора нет |
+| `registerCodeActionsProvider` | ✅ | quickfix, organize imports, fix all; `CodeAction.disabled` — как эталон (Quick Fix не показывает, авто-применение называет причину); лампочки-индикатора нет |
 | `registerFoldingRangeProvider` | ✅ | |
 | `createLanguageStatusItem` | 🟡 | держатель полей с честным dispose, в UI пока не проецируется |
 | `match` | ✅ | работает в рантайме (скоринг селекторов для языковых клиентов); декларация в `vscode.d.ts` ещё не поднята |

@@ -99,8 +99,21 @@
 контрибьютор расширений ложится на готовый контракт
 (`registerContainer`/`registerView`/`setViewBody`) без переделки модели.
 
-- [ ] Типы `IViewContribution` / `IViewContainerContribution` + раскомментировать
-      `views`/`viewsContainers` в `iExtensionManifest.ts`.
+- [~] Типы `IViewContribution` / `IViewContainerContribution` + раскомментировать
+      `views`/`viewsContainers` в `iExtensionManifest.ts`. Сделано: `IViewContribution`
+      и `views` (для команд `.focus` ниже); `viewsContainers` — нет.
+- [~] Команда `<viewId>.focus` на каждый вид (эталон `registerFocusViewAction`):
+      расширения зовут её перед сообщением своей панели (Supermaven: «Fix with
+      Supermaven», «Add to Chat»). Сделано: `extensionViewFocusCommands.ts` заводит
+      её на старте для всех видов манифеста; пока видов нет, исполнение — тост с
+      причиной (webview — «не будет в терминале», дерево — «пока не
+      поддерживается») и успех, а не «command not found». Отступление: в палитру
+      не попадает. Когда виды начнут рисоваться — команда показывает контейнер и
+      фокусирует вид (и будит `onView:<id>`).
+- Виды `type: "webview"` (чат Supermaven `supermaven-view`, фикстура
+  `chat-panel`) — ⛔ by design, как весь webview (матрица API,
+  [LSP.md](LSP.md) — таблица стабов): регистрация провайдера — no-op, команда
+  `.focus` — тост. Строить их не планируем.
 - [ ] `extensionViewsContributor.ts` рядом с `extensionKeybindingContributor.ts`
       (декларативно, без host'а): контейнер + пустые секции с `body: null` и
       welcome-текстом; набор берёт из `IExtensionService.extensions` в своём

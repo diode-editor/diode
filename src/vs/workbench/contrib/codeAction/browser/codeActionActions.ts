@@ -58,12 +58,17 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
         // правки субпроцесс валидирует сам при применении.
         CancellationTokenNone,
     );
-    if (items.length === 0) {
-        notice(`No ${noun} action for '${editor.languageId}'`);
+    // Неактивные (`disabled`) не применяются. Если ничего, кроме них, нет —
+    // человеку показывается причина неактивного, а не «действий нет»
+    // (эталон: `getInvalidActionThatWouldHaveBeenApplied` у авто-применения).
+    const valid = items.filter((item) => item.action.disabled === undefined);
+    if (valid.length === 0) {
+        // Активных нет — значит, всё, что есть, неактивно: причина первого.
+        notice(items.at(0)?.action.disabled ?? `No ${noun} action for '${editor.languageId}'`);
         return;
     }
 
-    const pick: ICodeActionItem = items.find((item) => item.action.isPreferred === true) ?? items[0];
+    const pick: ICodeActionItem = valid.find((item) => item.action.isPreferred === true) ?? valid[0];
     const applied = await pick.provider.applyCodeAction(pick.action.id);
     if (!applied) notice(`Code action failed: ${pick.action.title}`);
 }
@@ -122,7 +127,14 @@ async function pickCodeAction(
         },
         CancellationTokenNone,
     );
-    if (found.length === 0) {
+    // Неактивные (`CodeAction.disabled`) — как в эталоне
+    // (`CodeActionController.showCodeActionList`): Quick Fix их не показывает
+    // вовсе, а меню с запрошенным видом (рефакторинги, source) показывает их,
+    // только когда активных нет, — с причиной. Переключателя «Show Disabled»
+    // и серой отрисовки пункта у нас нет.
+    const valid = found.filter(({ action }) => action.disabled === undefined);
+    const shown = valid.length > 0 || options.only === undefined ? valid : found;
+    if (shown.length === 0) {
         notice(options.empty);
         return;
     }
@@ -138,7 +150,7 @@ async function pickCodeAction(
         if (kind === "source" || kind.startsWith("source.")) return 2;
         return 3;
     };
-    const sorted = [...found].sort(({ action: a }, { action: b }) => {
+    const sorted = [...shown].sort(({ action: a }, { action: b }) => {
         const byKind = kindRank(a.kind) - kindRank(b.kind);
         if (byKind !== 0) return byKind;
         const aPreferred = a.isPreferred === true;
@@ -152,6 +164,9 @@ async function pickCodeAction(
         label: action.title,
         ...(action.kind === undefined ? {} : { description: action.kind }),
         ...(action.isPreferred === true ? { badge: "preferred" } : {}),
+        // Причина неактивного — рядом с заголовком: в эталоне её показывает
+        // подсказка пункта (меню с заголовками групп, дефолт), у нас подсказок нет.
+        ...(action.disabled === undefined ? {} : { hint: action.disabled }),
     }));
     const picked = await quickInput.quickPick({
         title: options.title,
@@ -161,6 +176,11 @@ async function pickCodeAction(
     if (picked === undefined) return; // отмена — не событие
 
     const pick = sorted[items.indexOf(picked)];
+    // Неактивное не применяется: выбор лишь повторяет причину.
+    if (pick.action.disabled !== undefined) {
+        notice(pick.action.disabled);
+        return;
+    }
     const applied = await pick.provider.applyCodeAction(pick.action.id);
     if (!applied) notice(`Code action failed: ${pick.action.title}`);
 }

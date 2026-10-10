@@ -928,6 +928,7 @@ export class CodeAction implements vscode.CodeAction {
     public diagnostics?: Diagnostic[];
     public command?: vscode.Command;
     public isPreferred?: boolean;
+    public disabled?: { readonly reason: string };
 
     public constructor(title: string, kind?: CodeActionKind) {
         this.title = title;

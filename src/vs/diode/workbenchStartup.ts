@@ -13,7 +13,9 @@ import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchCompone
 import { EditorServiceDIToken } from "../workbench/services/editor/common/editorService.ts";
 import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
 import { registerExtensionMenus } from "../workbench/services/extensions/common/extensionMenuContributor.ts";
+import { registerExtensionViewFocusCommands } from "../workbench/services/extensions/common/extensionViewFocusCommands.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
+import { NotificationServiceDIToken } from "../workbench/services/notification/browser/notificationService.ts";
 
 /**
  * То, что стартовая последовательность делает руками владельца процесса: у
@@ -80,6 +82,15 @@ export async function startWorkbench(
     // Пункты меню расширений — до первого открытия меню: состав точек реестр
     // отдаёт по запросу, а регистрация стоит рядом с биндами того же манифеста.
     registerExtensionMenus(options.extensions, accessor.get(MenuRegistryDIToken), options.extensionsLogger);
+    // `<вид>.focus` объявленных видов расширений — до активации: расширение
+    // зовёт её из своих команд, а вида у нас нет, и человек должен узнать почему.
+    const notifications = accessor.get(NotificationServiceDIToken);
+    registerExtensionViewFocusCommands(
+        options.extensions,
+        accessor.get(CommandRegistryDIToken),
+        (message) => notifications.show({ severity: "warn", message, modal: false, items: [] }),
+        options.extensionsLogger,
+    );
 
     // Папка воркспейса — только если её назвали явно. Без неё окно поднимается
     // пустым: ни Explorer-корня, ни индекса файлов, ни workspaceFolders у

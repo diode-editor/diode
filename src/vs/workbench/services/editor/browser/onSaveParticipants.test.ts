@@ -162,6 +162,29 @@ describe("createCodeActionsOnSaveParticipant", () => {
         expect(applied).toBe(0);
     });
 
+    it("неактивные (disabled) действия при сохранении не применяются, активные — да", async () => {
+        const applied: string[] = [];
+        const participant = createCodeActionsOnSaveParticipant(
+            host({
+                configuration: config({ "editor.codeActionsOnSave": { "source.fixAll": true } }),
+                codeActions: {
+                    provide: () =>
+                        Promise.resolve([
+                            { id: "1.0", title: "Fix all", disabled: "Nothing to fix" },
+                            { id: "1.1", title: "Fix lint" },
+                        ]),
+                    apply: (id) => {
+                        applied.push(id);
+                        return Promise.resolve(true);
+                    },
+                },
+            }),
+        );
+
+        expect(await participant(SNAPSHOT)).toEqual([]);
+        expect(applied).toEqual(["1.1"]);
+    });
+
     it("без панели диапазон и версия берутся из снапшота", async () => {
         const provided: { versionId: number; endLine: number; endCharacter: number }[] = [];
         const source: IFakeCodeActions = {

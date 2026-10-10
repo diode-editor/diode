@@ -530,6 +530,8 @@ export interface WireCodeAction {
     readonly title: string;
     readonly kind?: string;
     readonly isPreferred?: boolean;
+    /** Причина неактивности (`CodeAction.disabled.reason`): действие видно, но не применяется. */
+    readonly disabled?: string;
 }
 
 // ─── Rename (languages.registerRenameProvider) ───────────────────────────────

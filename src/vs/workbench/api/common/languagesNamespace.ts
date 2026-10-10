@@ -322,6 +322,7 @@ export function createLanguagesNamespace(
         selector: vscode.DocumentSelector,
         registration: T,
         metadata: IWireLanguageProviderMetadata = {},
+        onUnregister?: (handle: number) => void,
     ): vscode.Disposable {
         const handle = nextProviderHandle++;
         // Владелец запоминается сейчас: оверлей выставляет его только на время
@@ -329,7 +330,9 @@ export function createLanguagesNamespace(
         providers.set(handle, { ...registration, owner: ctx.owner.current });
         rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector), ...metadata });
         return new DisposableImpl(() => {
-            if (providers.delete(handle)) rpc.notify("languages.unregister", { handle });
+            if (!providers.delete(handle)) return;
+            rpc.notify("languages.unregister", { handle });
+            onUnregister?.(handle);
         });
     }
 
@@ -356,18 +359,37 @@ export function createLanguagesNamespace(
     // Кэш ответов code actions для apply/resolve — та же схема вёдер, что у
     // completion: применять нужно ТОТ ЖЕ объект действия, который вернул
     // провайдер (у клиента это ProtocolCodeAction с приватным `data`).
-    const codeActionCache = new Map<number, readonly ICachedCodeAction[]>();
+    //
+    // Глубина — на ПРОВАЙДЕРА, а не общая (у эталона кэш свой у каждого
+    // адаптера, `ExtHostLanguageFeatures.CodeActionAdapter._cache`): ядро
+    // спрашивает каждого провайдера отдельным запросом, и одно меню — это
+    // ведро на провайдера. Общая глубина 2 при трёх провайдерах вытесняла
+    // ведро самого быстрого ещё до выбора пункта — «Fix with Supermaven»
+    // рядом с tsserver и ещё одним провайдером отвечал «Code action failed».
+    const codeActionCache = new Map<
+        number,
+        { readonly handle: number; readonly items: readonly ICachedCodeAction[] }
+    >();
 
-    function rememberCodeActions(cacheId: number, items: readonly ICachedCodeAction[]): void {
-        codeActionCache.set(cacheId, items);
-        const excess = codeActionCache.size - COMPLETION_CACHE_DEPTH;
-        for (const key of [...codeActionCache.keys()].slice(0, excess)) codeActionCache.delete(key);
+    function rememberCodeActions(cacheId: number, handle: number, items: readonly ICachedCodeAction[]): void {
+        codeActionCache.set(cacheId, { handle, items });
+        // Вытесняем самые старые вёдра ЭТОГО провайдера (Map хранит порядок вставки).
+        const own = [...codeActionCache].filter(([, bucket]) => bucket.handle === handle);
+        const excess = own.length - COMPLETION_CACHE_DEPTH;
+        for (const [key] of own.slice(0, excess)) codeActionCache.delete(key);
+    }
+
+    /** Снятый провайдер уносит свои вёдра (у эталона кэш умирает вместе с адаптером). */
+    function forgetCodeActions(handle: number): void {
+        for (const [key, bucket] of codeActionCache) {
+            if (bucket.handle === handle) codeActionCache.delete(key);
+        }
     }
 
     /** Достаёт действие по id вида `"<cacheId>.<index>"`; `null` — ведро вытеснено. */
     function findCachedCodeAction(id: string): ICachedCodeAction | null {
         const [rawCacheId, rawIndex] = id.split(".");
-        const bucket = codeActionCache.get(Number(rawCacheId));
+        const bucket = codeActionCache.get(Number(rawCacheId))?.items;
         return bucket?.[Number(rawIndex)] ?? null;
     }
 
@@ -650,7 +672,8 @@ export function createLanguagesNamespace(
     // снятый или чужой handle — пустой список.
     rpc.handleRequest("languages.provideCodeActions", async (params, cancellation): Promise<WireCodeAction[]> => {
         const p: Received<IWireCodeActionParams, "range"> = params;
-        const reg = codeActionProviders.get(p.handle ?? -1);
+        const handle = p.handle ?? -1;
+        const reg = codeActionProviders.get(handle);
         if (reg === undefined) return [];
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
         if (doc === null) return [];
@@ -688,6 +711,7 @@ export function createLanguagesNamespace(
             const kind = action?.kind;
             // `kind` — публичное поле: расширение вправе положить туда что угодно.
             const kindValue: unknown = (kind as { value?: unknown } | null | undefined)?.value;
+            const disabledReason: unknown = (action?.disabled as { reason?: unknown } | null | undefined)?.reason;
             if (only !== undefined && (kind === undefined || !only.contains(kind))) continue;
             const id = `${String(cacheId)}.${String(cached.length)}`;
             cached.push({ item: item as vscode.CodeAction | vscode.Command, registration: reg });
@@ -696,9 +720,13 @@ export function createLanguagesNamespace(
                 title: (item as { title: string }).title,
                 ...(typeof kindValue === "string" ? { kind: kindValue } : {}),
                 ...(action?.isPreferred === true ? { isPreferred: true } : {}),
+                // `disabled` — публичное поле `{ reason }`: причина едет строкой,
+                // ядро показывает действие неактивным и не применяет (эталон —
+                // `typeConvert.CodeAction`, `disabled: action.disabled?.reason`).
+                ...(typeof disabledReason === "string" ? { disabled: disabledReason } : {}),
             });
         }
-        rememberCodeActions(cacheId, cached);
+        rememberCodeActions(cacheId, handle, cached);
         return wire;
     });
 
@@ -1141,9 +1169,14 @@ export function createLanguagesNamespace(
             const registration: ICodeActionRegistration = { selector, provider, providedKinds };
             // Виды едут метаданными: провайдера, чьи виды не пересекаются с
             // запрошенным `only`, ядро не спрашивает вовсе.
-            return registerByHandle(codeActionProviders, "codeActions", selector, registration, {
-                providedCodeActionKinds: providedKinds,
-            });
+            return registerByHandle(
+                codeActionProviders,
+                "codeActions",
+                selector,
+                registration,
+                { providedCodeActionKinds: providedKinds },
+                forgetCodeActions,
+            );
         },
 
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
