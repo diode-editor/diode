@@ -8,8 +8,9 @@
 //   - 16..231 — куб 6×6×6 (по осям r,g,b уровни 0..5, уровень→0/95/135/175/215/255);
 //   - 232..255 — 24 оттенка серого (8, 18, …, 238).
 //
-// Здесь зафиксированы «дефолтные» цвета xterm; в будущем таблица подменяется палитрой
-// активной темы Diode (см. docs/TODO/IntegratedTerminal.md).
+// Здесь зафиксированы «дефолтные» цвета xterm. Первые 16 у живой сессии подменяются
+// (`buildXtermPalette`): цветами темы `terminal.ansi*` или хост-терминала — по
+// `terminal.integrated.colorSource`; куб и серые остаются каноническими, как у xterm.js.
 
 import { packRgb } from "@tuidom/core/common/colorUtils";
 
@@ -34,9 +35,16 @@ const SYSTEM_16: readonly number[] = [
 
 const CUBE_LEVELS: readonly number[] = [0, 95, 135, 175, 215, 255];
 
-function buildPalette(): readonly number[] {
+/** Таблица palette-индекс (0..255) → packed RGB. */
+export type XtermPalette = readonly number[];
+
+/**
+ * Палитра с заданными 16 системными цветами (0..15, `ansi[i]` — цвет индекса i);
+ * куб 6×6×6 и серые — канонические.
+ */
+export function buildXtermPalette(ansi: readonly number[]): XtermPalette {
     const table = new Array<number>(256);
-    for (let i = 0; i < 16; i++) table[i] = SYSTEM_16[i];
+    for (let i = 0; i < 16; i++) table[i] = ansi[i];
 
     // 6×6×6 color cube (indices 16..231)
     for (let r = 0; r < 6; r++) {
@@ -57,9 +65,13 @@ function buildPalette(): readonly number[] {
     return table;
 }
 
-const PALETTE = buildPalette();
+/** Каноническая таблица xterm — пока сессии не задали свои 16 цветов. */
+export const DEFAULT_XTERM_PALETTE = buildXtermPalette(SYSTEM_16);
 
-/** Разворачивает palette-индекс xterm (0..255) в packed RGB. */
-export function xtermPaletteToRgb(index: number): number {
-    return PALETTE[index] ?? PALETTE[7];
+/**
+ * Разворачивает palette-индекс xterm (0..255) в packed RGB по таблице `palette`;
+ * вне таблицы — цвет индекса 7 (white), чтобы текст не пропал.
+ */
+export function xtermPaletteToRgb(index: number, palette: XtermPalette = DEFAULT_XTERM_PALETTE): number {
+    return palette[index] ?? palette[7];
 }

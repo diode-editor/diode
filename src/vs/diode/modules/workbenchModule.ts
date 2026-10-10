@@ -236,6 +236,10 @@ import {
     TaskStatusBarContributionDIToken,
 } from "../../workbench/contrib/tasks/browser/taskStatusBarContribution.ts";
 import {
+    TerminalColorsService,
+    TerminalColorsServiceDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalColorsService.ts";
+import {
     TerminalFocusFallbackDIToken,
     TerminalPanelComponent,
     TerminalPanelComponentDIToken,
@@ -541,6 +545,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     // Куда уходит фокус, когда последний шелл вышел и виджет ушёл со сцены.
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
+    // Палитра и фон/текст терминала: тема или хост-терминал (`terminal.integrated.colorSource`).
+    container.bind(TerminalColorsServiceDIToken, TerminalColorsService);
     container.bind(TerminalPanelComponentDIToken, TerminalPanelComponent);
     // Диагностики: поставщики → MarkerService → потребители (squiggles, Problems).
     container.bind(DiagnosticsEditorSourceDIToken, () => container.get(EditorServiceDIToken));

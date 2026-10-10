@@ -62,6 +62,30 @@ describe("EmbeddedTerminalSession — цвета ячеек", () => {
         session.dispose();
     }, 15000);
 
+    it("16 ANSI-цветов (SGR 31/42/91) — из setAnsiColors; смена перекрашивает выведенное и будит onUpdate", async () => {
+        const session = await printed("\\033[31;42mA\\033[91mB\\033[38;5;196mC\\033[0m", "ABC");
+        const out = emptyCell();
+        // До setAnsiColors — каноническая таблица xterm.
+        session.readCell(0, 0, out);
+        expect(out.fg).toBe(packRgb(128, 0, 0));
+
+        const ansi = Array.from({ length: 16 }, (_, i) => packRgb(i, i, i));
+        const onUpdate = vi.fn();
+        session.onUpdate(onUpdate);
+        session.setAnsiColors(ansi);
+        expect(onUpdate).toHaveBeenCalled();
+
+        session.readCell(0, 0, out);
+        expect(out.fg).toBe(packRgb(1, 1, 1)); // 31 → индекс 1
+        expect(out.bg).toBe(packRgb(2, 2, 2)); // 42 → индекс 2
+        session.readCell(1, 0, out);
+        expect(out.fg).toBe(packRgb(9, 9, 9)); // 91 → индекс 9
+        // Куб 6×6×6 остаётся каноническим.
+        session.readCell(2, 0, out);
+        expect(out.fg).toBe(packRgb(255, 0, 0));
+        session.dispose();
+    }, 15000);
+
     it("отдаёт DEFAULT_COLOR для ячейки без явных цветов", async () => {
         const session = await printed("D", "D");
         const out = emptyCell();

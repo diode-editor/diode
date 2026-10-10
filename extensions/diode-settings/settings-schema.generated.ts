@@ -344,6 +344,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Declare custom manual-only terminal modes usable in when-clauses.",
     },
     {
+        key: "terminal.integrated.colorSource",
+        type: "string",
+        default: "theme",
+        description:
+            "Controls where the integrated terminal takes its 16 ANSI colors and its default background and foreground from.",
+        enum: ["theme", "host"],
+    },
+    {
         key: "terminal.integrated.hideOnLastClosed",
         type: "boolean",
         default: true,

@@ -225,7 +225,19 @@ Scaleway, MacStadium, MacinCloud). Windows тестируется локальн
 - [ ] **Ширина списка вкладок**: sash и узкий «иконочный» режим (`isTerminalTabsNarrow`,
   `singleTerminalOrNarrow`), `tabs.showActions` для кнопок заголовка.
 - [ ] **Мышь в списке вкладок**: средний клик — kill, мультивыделение и kill выделенного, drag-and-drop.
-- **Тема-реактивная ANSI-палитра**: `xtermPalette.ts` статичен; палитру 16/256 брать из активной темы
-  (`terminal.ansi*`) и рефлоу при смене темы (сейчас реактивны только `terminal.background/foreground`).
+- [x] **Тема-реактивная ANSI-палитра и цвета хост-терминала** (`terminal.integrated.colorSource`).
+  Устройство: токены `terminal.ansi*` (`platform/theme/common/colors/terminalColors.ts`, дефолты dark/light
+  эталона дословно; hc-дефолтов реестр не знает) → `TerminalColorsService` (`contrib/terminal/browser/`)
+  считает 16 цветов и фон/текст → `TerminalPanelComponent` отдаёт палитру сессии (`setAnsiColors`:
+  `XtermSurface` разворачивает palette-индексы по `buildXtermPalette`, куб и серые — канонические, как у
+  xterm.js) и кладёт фон/текст хоста в var-scope виджета поверх `terminal.background/foreground`. Смена
+  темы или настройки перекрашивает и уже выведенное (буфер хранит индексы).
+  **Отступление от эталона — `"host"`**: у vscode хост-терминала нет. Цвета спрашиваются один раз и только
+  в этом режиме — `ITerminalBackend.probeHostColors` tuidom (OSC 10/11 + 16×OSC 4, DA1-сентинел; tmux
+  отвечает сам с 3.4/3.6, GNU Screen — нет; детали — `docs/arch/Backend.md` tuidom). Неотвеченное
+  поштучно берётся из темы. Смену темы хост-терминала на лету не видно — снимок на старте.
+- [ ] **Остальная цветовая механика xterm.js эталона**: `terminal.integrated.minimumContrastRatio`
+  (дефолт 4.5 — подтягивает fg к контрасту, заметно меняет тёмно-синий на тёмном фоне),
+  `drawBoldTextInBrightColors` (жирный 0–7 → яркий 8–15), `terminalCursor.*`, `terminal.selectionBackground`.
 - **Проброс клавиш à la `terminal.integrated.commandsToSkipShell`**: список команд, которые перехватывает
   редактор, а остальное уходит в шелл (сейчас фокус в терминале съедает почти весь ввод).

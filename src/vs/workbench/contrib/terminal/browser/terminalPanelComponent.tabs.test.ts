@@ -13,9 +13,13 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { IContextMenuMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
+import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
+import { makeTerminalColors } from "./terminalColorsService.testUtils.ts";
 import {
     SWITCH_TERMINAL_COMMAND_ID,
     TERMINAL_ACTIVE_TAB_ID,
@@ -54,6 +58,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
         configuration,
         contextMenu,
         commands,
+        makeTerminalColors(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)), configuration).colors,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(WIDTH, HEIGHT));
     const screen = (): string => {

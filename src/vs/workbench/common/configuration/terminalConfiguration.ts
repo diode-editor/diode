@@ -108,5 +108,19 @@ export const terminalConfiguration = {
             description:
                 "Whether to hide the terminal view when the last terminal is closed. This will only happen when the terminal is the only visible view in the view container.",
         },
+        // Своя настройка diode, в эталоне её нет: у vscode нет хост-терминала,
+        // цвета встроенного всегда из темы — это и есть дефолт "theme".
+        "terminal.integrated.colorSource": {
+            scope: "application",
+            type: "string",
+            default: "theme",
+            enum: ["theme", "host"],
+            enumDescriptions: [
+                "Use the color theme: `terminal.ansi*` for the 16 ANSI colors, `terminal.background` and `terminal.foreground` for the default colors.",
+                "Match the terminal Diode runs in: its 16 ANSI colors and default background and foreground, queried at startup (OSC 4/10/11). Colors the host terminal doesn't report come from the color theme.",
+            ],
+            description:
+                "Controls where the integrated terminal takes its 16 ANSI colors and its default background and foreground from.",
+        },
     },
 } as const satisfies IConfigurationNode;

@@ -1,7 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
-import { xtermPaletteToRgb } from "./xtermPalette.ts";
+import { buildXtermPalette, xtermPaletteToRgb } from "./xtermPalette.ts";
 
 // Эталон — каноническая таблица xterm-256color (та же, что печатает `infocmp`/xterm):
 //   0..15 — системные ANSI, 16..231 — куб 6×6×6, 232..255 — 24 оттенка серого.
@@ -81,5 +81,23 @@ describe("xtermPaletteToRgb — индексы вне диапазона", () =>
 
     it.each([[-1], [256], [1000], [0.5], [Number.NaN]])("index %p → фоллбэк на белый index 7", (index) => {
         expect(xtermPaletteToRgb(index)).toBe(WHITE);
+    });
+});
+
+describe("buildXtermPalette — свои 16 системных цветов", () => {
+    const ansi = Array.from({ length: 16 }, (_, i) => packRgb(i, 1, 2));
+    const palette = buildXtermPalette(ansi);
+
+    it("0..15 берутся из переданных, по индексу", () => {
+        for (let i = 0; i < 16; i++) expect(xtermPaletteToRgb(i, palette)).toBe(packRgb(i, 1, 2));
+    });
+
+    it("куб и серые остаются каноническими", () => {
+        expect(palette).toHaveLength(256);
+        for (let i = 16; i < 256; i++) expect(xtermPaletteToRgb(i, palette)).toBe(xtermPaletteToRgb(i));
+    });
+
+    it("вне диапазона — фоллбэк на свой index 7", () => {
+        expect(xtermPaletteToRgb(256, palette)).toBe(packRgb(7, 1, 2));
     });
 });

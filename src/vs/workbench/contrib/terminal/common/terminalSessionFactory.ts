@@ -55,6 +55,11 @@ export type ITerminalSession = ITerminalSurface &
         /** Напечатать текст в эмулятор как вывод (в процесс он не уходит). */
         printMessage(text: string): void;
         /**
+         * 16 ANSI-цветов (индексы 0..15), которыми рисуются palette-ячейки;
+         * перекрашивает и уже выведенное.
+         */
+        setAnsiColors(ansi: readonly number[]): void;
+        /**
          * Ввод человека после выхода процесса — клавиша «press any key to
          * close» терминала, который ждёт после выхода (`waitOnExit` эталона).
          */

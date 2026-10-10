@@ -24,7 +24,12 @@ import xtermHeadless from "@xterm/headless";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
-import { xtermPaletteToRgb } from "../common/xtermPalette.ts";
+import {
+    buildXtermPalette,
+    DEFAULT_XTERM_PALETTE,
+    type XtermPalette,
+    xtermPaletteToRgb,
+} from "../common/xtermPalette.ts";
 
 /** Событие для внутреннего coreMouseService xterm (значения enum-ов — как в xterm). */
 export interface CoreMouseEvent {
@@ -80,6 +85,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     private exited = false;
     // Смещение вьюпорта в скролбэк, в строках вверх от дна (0 = живой вывод).
     private viewportScrollOffset = 0;
+    // Во что разворачиваются palette-индексы ячеек; 16 системных задаёт `setAnsiColors`.
+    private palette: XtermPalette = DEFAULT_XTERM_PALETTE;
 
     protected constructor(options: XtermSurfaceOptions) {
         this.cols = options.cols;
@@ -148,6 +155,16 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.relaunchProcess(options);
     }
 
+    /**
+     * 16 ANSI-цветов (индексы 0..15), в которые разворачиваются palette-ячейки, — из
+     * темы или хост-терминала. Буфер эмулятора хранит индексы, поэтому смена
+     * перекрашивает и уже выведенное: дёргаем перерисовку.
+     */
+    public setAnsiColors(ansi: readonly number[]): void {
+        this.palette = buildXtermPalette(ansi);
+        this.emitUpdate();
+    }
+
     /** Текст в эмулятор как вывод процесса; в сам процесс не уходит. */
     public printMessage(text: string): void {
         this.feedOutput(text);
@@ -192,8 +209,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         if (width === 0) return false; // продолжение wide-char
         const chars = cell.getChars();
         out.char = chars.length > 0 ? chars : " ";
-        out.fg = resolveFg(cell);
-        out.bg = resolveBg(cell);
+        out.fg = resolveFg(cell, this.palette);
+        out.bg = resolveBg(cell, this.palette);
         out.style = resolveStyle(cell);
         out.width = width;
         return true;
@@ -314,16 +331,16 @@ function mapAction(action: TerminalMouseAction): number {
     return CORE_ACTION[action];
 }
 
-function resolveFg(cell: IBufferCell): number {
+function resolveFg(cell: IBufferCell, palette: XtermPalette): number {
     if (cell.isFgDefault()) return DEFAULT_COLOR;
     if (cell.isFgRGB()) return cell.getFgColor(); // уже 0xRRGGBB
-    return xtermPaletteToRgb(cell.getFgColor()); // palette-индекс
+    return xtermPaletteToRgb(cell.getFgColor(), palette); // palette-индекс
 }
 
-function resolveBg(cell: IBufferCell): number {
+function resolveBg(cell: IBufferCell, palette: XtermPalette): number {
     if (cell.isBgDefault()) return DEFAULT_COLOR;
     if (cell.isBgRGB()) return cell.getBgColor();
-    return xtermPaletteToRgb(cell.getBgColor());
+    return xtermPaletteToRgb(cell.getBgColor(), palette);
 }
 
 function resolveStyle(cell: IBufferCell): number {
