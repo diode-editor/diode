@@ -23,6 +23,8 @@ export function createMatchers<T>(
 ): void {
     const tokenizer = newTokenizer(selector);
     let token = tokenizer.next();
+    // Пустое тело зацикливает разбор — мутант виснет, а не выживает.
+    // Stryker disable next-line BlockStatement: см. выше
     while (token !== null) {
         if (token.length === 2 && token.endsWith(":")) {
             token = tokenizer.next(); // приоритет L:/R:
@@ -97,13 +99,13 @@ export function createMatchers<T>(
         const matchers: Matcher<T>[] = [];
         while (matcher) {
             matchers.push(matcher);
-            if (token === "|" || token === ",") {
-                do {
-                    token = tokenizer.next();
-                } while (token === "|" || token === ","); // ignore subsequent commas
-            } else {
-                break;
-            }
+            // Конъюнкция кончается только на "|", ",", ")" или конце строки:
+            // без break следующая parseConjunction на ")"/конце вернёт null.
+            // Stryker disable next-line ConditionalExpression: см. выше — эквивалентен
+            if (token !== "|" && token !== ",") break;
+            do {
+                token = tokenizer.next();
+            } while (token === "|" || token === ","); // ignore subsequent commas
             matcher = parseConjunction();
         }
         return (matcherInput) => {

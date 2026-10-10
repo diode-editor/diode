@@ -268,7 +268,8 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
                 rules: [
                     { scope: "comment.line", settings: { fontStyle: "italic" } },
                     { scope: "comment", settings: { fontStyle: "bold" } },
-                    { scope: "comment", settings: { foreground: RED } },
+                    // Тот же вес, что у `italic`, и позже — но fontStyle не задаёт.
+                    { scope: "comment.line", settings: { foreground: RED } },
                 ],
             },
             probing([["comment.line.double"]]),

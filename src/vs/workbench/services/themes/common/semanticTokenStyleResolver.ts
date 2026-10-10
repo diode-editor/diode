@@ -35,8 +35,6 @@ const FLAGS = ["bold", "italic", "underline", "strikethrough"] as const;
  * четыре флага и выставляет перечисленные, перекрывая отдельные булевы.
  */
 function styleFromSettings(settings: ISemanticTokenColorSettings): SemanticTokenStyle {
-    const style: IMutableStyle = {};
-    if (settings.foreground !== undefined) style.fg = parseHexColor(settings.foreground);
     let { bold, italic, underline, strikethrough } = settings;
     if (settings.fontStyle !== undefined) {
         const fontStyle = settings.fontStyle;
@@ -45,10 +43,10 @@ function styleFromSettings(settings: ISemanticTokenColorSettings): SemanticToken
         underline = fontStyle.includes("underline");
         strikethrough = fontStyle.includes("strikethrough");
     }
-    if (bold !== undefined) style.bold = bold;
-    if (italic !== undefined) style.italic = italic;
-    if (underline !== undefined) style.underline = underline;
-    if (strikethrough !== undefined) style.strikethrough = strikethrough;
+    // Незаданный флаг остаётся ключом со значением undefined: потребитель
+    // (`processStyle`) берёт только заданные атрибуты.
+    const style: IMutableStyle = { bold, italic, underline, strikethrough };
+    if (settings.foreground !== undefined) style.fg = parseHexColor(settings.foreground);
     return style;
 }
 
@@ -60,7 +58,8 @@ function nameMatcher(identifiers: readonly string[], scopes: ProbeScope): number
     if (scopes.length < identifiers.length) {
         return -1;
     }
-    let score = -1;
+    // Идентификаторов хотя бы один (do-while парсера) — начальное значение всегда перезаписывается.
+    let score = 0;
     for (const identifier of identifiers) {
         let found = -1;
         for (let i = scopes.length - 1; i >= 0; i--) {
@@ -69,7 +68,7 @@ function nameMatcher(identifiers: readonly string[], scopes: ProbeScope): number
                 break;
             }
         }
-        if (found < 0) return -1;
+        if (found === -1) return -1;
         score = found;
     }
     return score;
