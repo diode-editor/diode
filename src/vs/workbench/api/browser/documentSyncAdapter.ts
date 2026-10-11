@@ -1,3 +1,4 @@
+import { DisposableStore } from "../../../base/common/lifecycle.ts";
 import type { IModelContentChangedEvent } from "../../../editor/common/model/iDocumentContentChange.ts";
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
@@ -49,6 +50,15 @@ export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncS
     return snapshots;
 }
 
+/** Под каким uri и языком документ открыт субпроцессу. */
+type IOpenedDocument = Pick<IWireDocumentSyncSnapshot, "uri" | "languageId">;
+
+/** Документ, открытый субпроцессу, и подписки на его модель. */
+interface ITrackedDocument {
+    openedAs: IOpenedDocument;
+    readonly subscriptions: DisposableStore;
+}
+
 /**
  * Продюсер document sync (core → host), пер-ДОКУМЕНТНЫЙ (AS-11): `didOpen` на
  * первое открытие ресурса, `didChange` на правку его модели — в какой бы группе
@@ -63,20 +73,54 @@ export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncS
  * на открытии и на замене содержимого целиком (flush).
  */
 export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsService, host: IDocumentSyncTarget): void {
-    /** Живые подписки по модели; смерть последней вкладки снимает и шлёт didClose. */
-    const tracked = new Map<BaseTextEditorModel, { dispose(): void }>();
+    /**
+     * Живые подписки по модели и то, под какими uri и языком документ открыт
+     * субпроцессу; смерть последней вкладки снимает и шлёт didClose.
+     */
+    const tracked = new Map<BaseTextEditorModel, ITrackedDocument>();
+
+    /** didOpen снапшота модели; возвращает, под чем документ открыт. */
+    const openModel = (model: BaseTextEditorModel): IOpenedDocument => {
+        const snapshot = documentSyncSnapshotOfModel(model);
+        host.didOpenTextDocument(snapshot);
+        return { uri: snapshot.uri, languageId: snapshot.languageId };
+    };
+
+    /**
+     * Save As меняет uri (и язык) у той же модели, смена языка — язык. Для
+     * расширений это другой документ, как в эталоне (`$acceptModelLanguageChanged`,
+     * Save As в новый ресурс): didClose прежнего и didOpen нового.
+     */
+    const resyncIdentity = (model: BaseTextEditorModel, record: ITrackedDocument): void => {
+        const { uri, languageId } = record.openedAs;
+        if (uri === model.uri.toString() && languageId === model.languageId) return;
+        host.didCloseTextDocument(uri);
+        record.openedAs = openModel(model);
+    };
 
     const trackModel = (model: BaseTextEditorModel): void => {
-        if (tracked.has(model)) return;
-        host.didOpenTextDocument(documentSyncSnapshotOfModel(model));
-        tracked.set(
-            model,
-            // Батч модели — сразу, без коалесинга: запрос провайдера, ушедший
-            // следом, едет по тому же каналу ПОСЛЕ правки (порядок сообщений
-            // заменяет версию в запросе, как у `$acceptModelChanged` эталона).
+        const known = tracked.get(model);
+        if (known !== undefined) {
+            resyncIdentity(model, known);
+            return;
+        }
+        const subscriptions = new DisposableStore();
+        const record: ITrackedDocument = { openedAs: openModel(model), subscriptions };
+        tracked.set(model, record);
+        // Батч модели — сразу, без коалесинга: запрос провайдера, ушедший
+        // следом, едет по тому же каналу ПОСЛЕ правки (порядок сообщений
+        // заменяет версию в запросе, как у `$acceptModelChanged` эталона).
+        subscriptions.add(
             model.document.onDidChangeModelContent((event) => {
                 if (event.isFlush) host.didChangeTextDocument(documentSyncSnapshotOfModel(model));
                 else host.didChangeTextDocumentContent(documentChangedEventOfModel(model, event));
+            }),
+        );
+        // Язык меняется и без смены набора вкладок (Save As шлёт его раньше,
+        // чем вкладки узнают о сохранении).
+        subscriptions.add(
+            model.onDidChangeLanguage(() => {
+                resyncIdentity(model, record);
             }),
         );
     };
@@ -85,11 +129,11 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
     const reconcile = (): void => {
         const alive = new Set<BaseTextEditorModel>();
         for (const editor of group.getTextSurfaces()) alive.add(editor.model);
-        for (const [model, subscription] of [...tracked]) {
+        for (const [model, record] of [...tracked]) {
             if (alive.has(model)) continue;
-            subscription.dispose();
+            record.subscriptions.dispose();
             tracked.delete(model);
-            host.didCloseTextDocument(model.uri.toString());
+            host.didCloseTextDocument(record.openedAs.uri);
         }
         for (const model of alive) trackModel(model);
     };

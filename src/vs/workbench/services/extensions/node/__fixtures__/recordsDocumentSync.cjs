@@ -17,7 +17,13 @@ exports.activate = function activate(context) {
     });
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(function (doc) {
-            log.push({ kind: "open", uri: doc.uri.toString(), version: doc.version, text: doc.getText() });
+            log.push({
+                kind: "open",
+                uri: doc.uri.toString(),
+                languageId: doc.languageId,
+                version: doc.version,
+                text: doc.getText(),
+            });
         }),
     );
     context.subscriptions.push(
@@ -34,7 +40,7 @@ exports.activate = function activate(context) {
     );
     context.subscriptions.push(
         vscode.workspace.onDidCloseTextDocument(function (doc) {
-            log.push({ kind: "close", uri: doc.uri.toString() });
+            log.push({ kind: "close", uri: doc.uri.toString(), languageId: doc.languageId });
         }),
     );
     context.subscriptions.push(
