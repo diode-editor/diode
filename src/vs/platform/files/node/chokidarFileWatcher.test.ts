@@ -7,7 +7,7 @@ import type { LogEntry } from "../../log/common/iLogService.ts";
 import { LogLevel } from "../../log/common/logLevel.ts";
 import { LogService } from "../../log/common/logService.ts";
 
-import { ChokidarFileWatcher } from "./chokidarFileWatcher.ts";
+import { ChokidarFileWatcher, toChokidarPath } from "./chokidarFileWatcher.ts";
 
 /** Фейковый FSWatcher: обычный EventEmitter + счётчик close() + что ему отдали. */
 class FakeWatcher extends EventEmitter {
@@ -67,6 +67,16 @@ function ignoredBy(options: ChokidarOptions): (candidate: string) => boolean {
     return (candidate) => ignored(candidate);
 }
 
+describe("toChokidarPath", () => {
+    it("путь Windows — в прямые слэши, как его видит `ignored` chokidar'а", () => {
+        expect(toChokidarPath("C:\\ws\\.diode\\settings.json")).toBe("C:/ws/.diode/settings.json");
+    });
+
+    it("POSIX-путь не меняется", () => {
+        expect(toChokidarPath("/ws/.diode/settings.json")).toBe("/ws/.diode/settings.json");
+    });
+});
+
 describe("ChokidarFileWatcher", () => {
     it("survives a watcher 'error' (ENOSPC) instead of crashing the process", () => {
         // Регрессия на исходный краш: без слушателя 'error' EventEmitter chokidar'а
@@ -121,9 +131,15 @@ describe("ChokidarFileWatcher", () => {
             calls++;
         });
 
-        // Файл в существующем каталоге — следим за ним самим, без depth/ignored.
-        expect(watcher.created[0].target).toBe("/tmp/file.txt");
-        expect(watcher.created[0].options).toEqual({ ignoreInitial: true });
+        // Файл в существующем каталоге — следим за каталогом, пропуская только файл:
+        // за файлом-корнем chokidar слепнет после атомарного сохранения
+        // (`chokidarFileWatcher.atomicSave.test.ts`).
+        expect(watcher.created[0].target).toBe("/tmp");
+        expect(watcher.created[0].options).toMatchObject({ ignoreInitial: true, depth: 0 });
+        const ignored = ignoredBy(watcher.created[0].options);
+        expect(ignored("/tmp")).toBe(false);
+        expect(ignored("/tmp/file.txt")).toBe(false);
+        expect(ignored("/tmp/other.txt")).toBe(true);
 
         // Всплеск событий атомарной записи (unlink+add) должен схлопнуться в один вызов.
         watcher.created[0].emit("unlink");
@@ -192,8 +208,10 @@ describe("ChokidarFileWatcher", () => {
             watcher.created[0].emit("addDir", "/ws/.diode");
 
             expect(watcher.created[0].closed).toBe(1);
-            expect(watcher.created[1].target).toBe("/ws/.diode/settings.json");
-            expect(watcher.created[1].options).toEqual({ ignoreInitial: true });
+            expect(watcher.created[1].target).toBe("/ws/.diode");
+            expect(watcher.created[1].options).toMatchObject({ ignoreInitial: true, depth: 0 });
+            expect(ignoredBy(watcher.created[1].options)("/ws/.diode/settings.json")).toBe(false);
+            expect(ignoredBy(watcher.created[1].options)("/ws/.diode/tasks.json")).toBe(true);
             await settle();
             expect(calls).toBe(1);
 
@@ -214,7 +232,7 @@ describe("ChokidarFileWatcher", () => {
             watcher.created[0].emit("addDir", "/ws/.diode");
             await settle();
 
-            expect(watcher.created[1].target).toBe("/ws/.diode/settings.json");
+            expect(watcher.created[1].target).toBe("/ws/.diode");
             expect(calls).toBe(0);
         });
 
@@ -244,7 +262,7 @@ describe("ChokidarFileWatcher", () => {
             watcher.watchFile("/ws/.diode/settings.json", () => {
                 calls++;
             });
-            expect(watcher.created[0].target).toBe("/ws/.diode/settings.json");
+            expect(watcher.created[0].target).toBe("/ws/.diode");
 
             // `rm -rf .diode`: unlink файла, и каталога больше нет.
             watcher.existing.delete("/ws/.diode");

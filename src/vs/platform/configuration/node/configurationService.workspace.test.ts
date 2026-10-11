@@ -6,8 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { Uri } from "../../../base/common/uri.ts";
 import { resolveUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
+import { ChokidarFileWatcher } from "../../files/node/chokidarFileWatcher.ts";
+import { DiskFileSystemProvider } from "../../files/node/diskFileSystemProvider.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { ConfigurationModel } from "../common/configurationModel.ts";
 import { ConfigurationRegistry } from "../common/configurationRegistry.ts";
@@ -406,6 +409,42 @@ describe("ConfigurationService — слой воркспейса", () => {
             await cfg.reload();
             expect(cfg.get("editor.tabSize")).toBe(4);
         });
+
+        it("файл открыт в редакторе: каждое сохранение из него применяется (настоящий watcher)", async () => {
+            // Регрессия: модель документа и сервис настроек следили за одним
+            // файлом двумя экземплярами chokidar, и после первого атомарного
+            // сохранения (временный сосед + rename) слепли оба.
+            const file = folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
+            const cfg = await load({ folder: folder.dir, watcher: new ChokidarFileWatcher() });
+            // Модель документа: свой наблюдатель того же файла.
+            let modelCalls = 0;
+            const editorModelWatch = new ChokidarFileWatcher().watchFile(file, () => {
+                modelCalls++;
+            });
+            try {
+                // До `ready` chokidar глотает события как начальное состояние:
+                // пишем на месте, пока запись не увидят оба наблюдателя.
+                await vi.waitFor(
+                    () => {
+                        fs.writeFileSync(file, `{ "editor.tabSize": 7 }`);
+                        expect([cfg.get("editor.tabSize"), modelCalls > 0]).toEqual([7, true]);
+                    },
+                    { timeout: 10000, interval: 200 },
+                );
+                for (const tabSize of [2, 3, 6]) {
+                    await new DiskFileSystemProvider().writeFile(
+                        Uri.file(file),
+                        new TextEncoder().encode(`{ "editor.tabSize": ${String(tabSize)} }`),
+                        { atomic: true },
+                    );
+                    await vi.waitFor(() => {
+                        expect(cfg.get("editor.tabSize")).toBe(tabSize);
+                    });
+                }
+            } finally {
+                editorModelWatch.dispose();
+            }
+        }, 20000);
     });
 
     describe("запись", () => {
