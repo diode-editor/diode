@@ -44,12 +44,12 @@ export default defineScenario({
         await editor.capture("diagnostics");
 
         // Каретка на `var.region` (строка 14, колонка 17) → hover (Ctrl+K Ctrl+U):
-        // в буфере `var.region` дважды, третье вхождение — заголовок попапа.
+        // в буфере `var.region` один раз, второе вхождение — заголовок попапа.
         for (let i = 0; i < 14; i++) await editor.sendKey("ArrowDown");
         for (let i = 0; i < 17; i++) await editor.sendKey("ArrowRight");
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+U");
-        await editor.waitForText((t) => occurrences(t, "var.region") >= 3, { timeoutMs: 60_000 });
+        await editor.waitForText((t) => occurrences(t, "var.region") >= 2, { timeoutMs: 60_000 });
         await editor.capture("hover");
 
         // F12 — переход к `variable "region"` (строка 9 в статус-баре).
