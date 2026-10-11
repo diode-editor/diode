@@ -17,6 +17,14 @@
     "onLanguage:jsonc"
   ],
   "contributes": {
+    "languages": [
+      {
+        "id": "jsonc",
+        "extensions": [
+          ".code-workspace"
+        ]
+      }
+    ],
     "configurationDefaults": {
       "[json]": {
         "editor.quickSuggestions": {

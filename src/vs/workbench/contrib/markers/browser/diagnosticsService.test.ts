@@ -246,7 +246,7 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
     const FOLDER = "/ws/project";
     const WORKSPACE_SETTINGS = "/ws/project/.diode/settings.json";
 
-    function createWorkspaceHarness(folders: readonly string[] = [FOLDER]): Harness {
+    function createWorkspaceHarness(folders: readonly string[] = [FOLDER], workspaceFile?: string): Harness {
         const source = new FakeEditorSource();
         const markerService = new MarkerService();
         const service = new DiagnosticsService(
@@ -258,6 +258,7 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
                 getWorkspace: () => ({
                     id: null,
                     folders: folders.map((folder, index) => ({ uri: Uri.file(folder), name: "project", index })),
+                    ...(workspaceFile !== undefined ? { configuration: Uri.file(workspaceFile) } : {}),
                 }),
             },
         );
@@ -301,5 +302,88 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
         empty.source.open(new FakeEditor(WORKSPACE_SETTINGS, `{ "nope.key": 1 }`));
         expect(empty.markerService.read()).toEqual([]);
         empty.service.dispose();
+    });
+
+    it("в папке окна из папки window-ключ действует — подсказки нет", () => {
+        const h = createWorkspaceHarness();
+        h.source.open(new FakeEditor(WORKSPACE_SETTINGS, `{ "workbench.colorTheme": "Light" }`));
+        expect(h.markerService.read()).toEqual([]);
+        h.service.dispose();
+    });
+
+    describe("окно из .code-workspace", () => {
+        const WORKSPACE_FILE = "/ws/project/web.code-workspace";
+
+        // Ключи файла воркспейса живут в блоке `settings`, а не в корне: `folders`
+        // — не настройка, а неизвестный ключ внутри `settings` — да.
+        it("файл воркспейса: проверяется блок settings — неизвестный и machine-ключ", () => {
+            const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
+            const text = JSON.stringify(
+                {
+                    folders: [{ path: "." }],
+                    settings: { "editor.tabSize": 2, "terminal.tier": "kitty", "nope.key": 1 },
+                },
+                null,
+                4,
+            );
+            h.source.open(new FakeEditor(WORKSPACE_FILE, text));
+
+            const markers = h.markerService.read({ resource: resourceOf(WORKSPACE_FILE) });
+            expect(markers.map((m) => [m.severity, m.message])).toEqual([
+                [
+                    MarkerSeverity.Hint,
+                    "This setting can only be applied in user settings in local window or in remote settings in remote window.",
+                ],
+                [MarkerSeverity.Warning, "Unknown Configuration Setting: nope.key"],
+            ]);
+            h.service.dispose();
+        });
+
+        it("файл воркспейса без блока settings — маркеров нет", () => {
+            const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
+            h.source.open(new FakeEditor(WORKSPACE_FILE, `{ "folders": [{ "path": "." }] }`));
+            expect(h.markerService.read()).toEqual([]);
+            h.service.dispose();
+        });
+
+        it("чужой .code-workspace не проверяется", () => {
+            const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
+            h.source.open(new FakeEditor("/ws/project/backend.code-workspace", `{ "settings": { "nope.key": 1 } }`));
+            expect(h.markerService.read()).toEqual([]);
+            h.service.dispose();
+        });
+
+        // `window`-ключ окно берёт из файла воркспейса: в папке он не действует —
+        // подсказка с текстом эталона (`unsupportedWindowSetting`).
+        it(".diode/settings.json папки: window-ключ — подсказка эталона, resource-ключ — нет", () => {
+            const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
+            const text = ["{", '    "workbench.colorTheme": "Light",', '    "editor.tabSize": 2', "}"].join("\n");
+            h.source.open(new FakeEditor(WORKSPACE_SETTINGS, text));
+
+            const markers = h.markerService.read({ resource: resourceOf(WORKSPACE_SETTINGS) });
+            expect(markers.map((m) => [m.severity, m.message])).toEqual([
+                [
+                    MarkerSeverity.Hint,
+                    "This setting cannot be applied in this workspace. It will be applied when you open the containing workspace folder directly.",
+                ],
+            ]);
+            h.service.dispose();
+        });
+
+        it(".diode/settings.json папки только с ключами папки и machine-ключом — подсказка лишь на machine", () => {
+            const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
+            h.source.open(
+                new FakeEditor(
+                    WORKSPACE_SETTINGS,
+                    `{ "editor.tabSize": 2, "files.exclude": {}, "terminal.tier": "kitty" }`,
+                ),
+            );
+
+            const markers = h.markerService.read({ resource: resourceOf(WORKSPACE_SETTINGS) });
+            expect(markers.map((m) => m.message)).toEqual([
+                "This setting can only be applied in user settings in local window or in remote settings in remote window.",
+            ]);
+            h.service.dispose();
+        });
     });
 });

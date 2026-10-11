@@ -11,6 +11,7 @@ import type {
     WorkbenchState,
     WorkspaceId,
 } from "./iWorkspaceContextService.ts";
+import type { IWorkspaceFileContents } from "./workspaceFile.ts";
 import { computeWorkspaceId } from "./workspaceId.ts";
 
 /**
@@ -28,9 +29,10 @@ const EMPTY_WORKSPACE: IWorkspace = { id: null, folders: [] };
  * Реализация {@link IWorkspaceContextService}. Держит текущий воркспейс и
  * оповещает о смене набора папок.
  *
- * Состояния ровно два (`empty`/`folder`) — семантика 0-или-1 папки: окно
- * поднимается пустым, а открытие папки (бутстрап или Open Folder) переводит его
- * в `folder`. «Закрыть папку» у нас нет, поэтому обратного перехода тоже нет.
+ * Семантика 0-или-1 папки: окно поднимается пустым (`empty`), открытие папки
+ * (бутстрап или Open Folder) переводит его в `folder`, открытие файла
+ * `.code-workspace` (бутстрап или Open Workspace from File) — в `workspace`.
+ * «Закрыть папку» у нас нет, поэтому обратного перехода в `empty` тоже нет.
  * Мульти-рут расширит {@link setWorkspaceFolder}, и это единственное место,
  * которое придётся менять: читатели уже смотрят на массив
  * (`docs/TODO/MultiRoot.md`, этап A).
@@ -45,6 +47,7 @@ export class WorkspaceContextService implements IWorkspaceContextService {
     }
 
     public getWorkbenchState(): WorkbenchState {
+        if (this.workspace.configuration !== undefined) return "workspace";
         return this.workspace.folders.length === 0 ? "empty" : "folder";
     }
 
@@ -77,6 +80,25 @@ export class WorkspaceContextService implements IWorkspaceContextService {
         this.workspace = {
             id,
             folders: [{ uri: Uri.file(resolved), name: path.basename(resolved), index: 0 }],
+        };
+        this.onDidChangeWorkspaceFoldersEmitter.fire();
+        return id;
+    }
+
+    /**
+     * Открывает воркспейс из файла `.code-workspace` (уже разобранного —
+     * `parseWorkspaceFile`) и оповещает подписчиков. Идентичность — от пути
+     * ФАЙЛА, а не папки: два файла над одним каталогом — два проекта со своими
+     * сторами, и оба отличны от той же папки, открытой напрямую.
+     */
+    public setWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): WorkspaceId {
+        const resolvedFile = path.resolve(filePath);
+        const folder = path.resolve(contents.folder);
+        const id = computeWorkspaceId(resolvedFile);
+        this.workspace = {
+            id,
+            folders: [{ uri: Uri.file(folder), name: contents.folderName ?? path.basename(folder), index: 0 }],
+            configuration: Uri.file(resolvedFile),
         };
         this.onDidChangeWorkspaceFoldersEmitter.fire();
         return id;

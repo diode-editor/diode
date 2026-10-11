@@ -83,6 +83,7 @@ describe("InMemoryConfigurationService", () => {
             defaults: { editor: { tabSize: 4 }, files: { exclude: { "**/.git": true } } },
             user: { editor: { tabSize: 2 } },
             workspace: {},
+            workspaceFolder: {},
         });
     });
 
@@ -103,12 +104,18 @@ describe("InMemoryConfigurationService", () => {
 describe("NULL_CONFIGURATION_SERVICE", () => {
     it("запись — честный отказ, а не молчаливый no-op", async () => {
         await expect(NULL_CONFIGURATION_SERVICE.updateValue("editor.tabSize", 2)).rejects.toThrow(/read-only/);
-        expect(NULL_CONFIGURATION_SERVICE.getConfigurationData()).toEqual({ defaults: {}, user: {}, workspace: {} });
+        expect(NULL_CONFIGURATION_SERVICE.getConfigurationData()).toEqual({
+            defaults: {},
+            user: {},
+            workspace: {},
+            workspaceFolder: {},
+        });
         expect(NULL_CONFIGURATION_SERVICE.inspect("editor.tabSize")).toStrictEqual({
             default: undefined,
             user: undefined,
             profile: undefined,
             workspace: undefined,
+            workspaceFolder: undefined,
             value: undefined,
         });
         expect(NULL_CONFIGURATION_SERVICE.get("editor.tabSize")).toBeUndefined();
@@ -175,5 +182,21 @@ describe("InMemoryConfigurationService — слой воркспейса", () =>
             "Unable to write terminal.tier to Workspace Settings. This setting can be written only into User settings.",
         );
         expect(withFolder.getConfigurationData().workspace).toEqual({});
+    });
+
+    // Окна из `.code-workspace` в памяти нет: цель-папка пишет в тот же слой
+    // воркспейса, но со своей, папочной, проверкой скоупа.
+    it("цель workspaceFolder — тот же слой воркспейса, отказ по скоупу папки", async () => {
+        const service = new InMemoryConfigurationService(scopedRegistry(), {}, {});
+
+        await service.updateValue("editor.tabSize", 6, "workspaceFolder");
+        expect(service.inspect("editor.tabSize")).toMatchObject({ workspace: 6, workspaceFolder: undefined });
+
+        await expect(service.updateValue("terminal.tier", "kitty", "workspaceFolder")).rejects.toThrow(
+            "Unable to write to Folder Settings because terminal.tier does not support the folder resource scope.",
+        );
+        await expect(
+            new InMemoryConfigurationService(scopedRegistry()).updateValue("editor.tabSize", 8, "workspaceFolder"),
+        ).rejects.toThrow("no workspace is opened");
     });
 });

@@ -56,12 +56,26 @@ export const openSettingsAction: CommandAction = {
 };
 
 /**
- * Открывает settings.json воркспейса — `.diode/settings.json` открытой папки
- * (у эталона `.vscode/settings.json`). Как у эталона, файла может ещё не быть:
- * он создаётся заготовкой. Без папки команды в палитре нет (`workbenchState`),
- * а вызов по id ничего не делает.
+ * Открывает настройки воркспейса: у окна из `.code-workspace` — сам файл
+ * воркспейса (его блок `settings`, как у эталона), иначе `.diode/settings.json`
+ * открытой папки (у эталона `.vscode/settings.json`). Как у эталона, файла
+ * папки может ещё не быть: он создаётся заготовкой. Без папки команды в палитре
+ * нет (`workbenchState`), а вызов по id ничего не делает.
  */
 function openWorkspaceSettingsFile(accessor: ServiceAccessor): Promise<void> {
+    const workspace = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace();
+    if (workspace.configuration !== undefined) {
+        accessor.get(CommandRegistryDIToken).execute("workbench.openFile", workspace.configuration.fsPath);
+        return Promise.resolve();
+    }
+    return openFolderSettingsFile(accessor);
+}
+
+/**
+ * Открывает `.diode/settings.json` единственной папки воркспейса (папку
+ * выбирать не из чего — мульти-рута нет); файла нет — создаётся заготовкой.
+ */
+function openFolderSettingsFile(accessor: ServiceAccessor): Promise<void> {
     const folder = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0);
     if (folder === undefined) return Promise.resolve();
     return openUserConfigFile(accessor, workspaceSettingsPath(folder.uri.fsPath), "{}\n");
@@ -86,6 +100,28 @@ export const openWorkspaceSettingsFileAction: CommandAction = {
     title: "Preferences: Open Workspace Settings (JSON)",
     enablement: "workbenchState != 'empty'",
     run: openWorkspaceSettingsFile,
+};
+
+/**
+ * Open the folder settings (VS Code `workbench.action.openFolderSettings`):
+ * `.diode/settings.json` of the workspace folder. Only meaningful in a window
+ * opened from a `.code-workspace` file — there the folder settings are a layer of
+ * their own; in a folder window they are the workspace settings.
+ */
+export const openFolderSettingsAction: CommandAction = {
+    id: "workbench.action.openFolderSettings",
+    title: "Preferences: Open Folder Settings",
+    // У эталона — `when: WorkbenchStateContext.isEqualTo('workspace')` пункта палитры.
+    enablement: "workbenchState == 'workspace'",
+    run: openFolderSettingsFile,
+};
+
+/** Open the folder settings.json (VS Code `workbench.action.openFolderSettingsFile`). */
+export const openFolderSettingsFileAction: CommandAction = {
+    id: "workbench.action.openFolderSettingsFile",
+    title: "Preferences: Open Folder Settings (JSON)",
+    enablement: "workbenchState == 'workspace'",
+    run: openFolderSettingsFile,
 };
 
 /**
@@ -143,6 +179,8 @@ export const PREFERENCES_ACTIONS: readonly CommandAction[] = [
     openSettingsAction,
     openWorkspaceSettingsAction,
     openWorkspaceSettingsFileAction,
+    openFolderSettingsAction,
+    openFolderSettingsFileAction,
     openKeybindingsAction,
     openKeybindingsFileAction,
 ];

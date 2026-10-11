@@ -31,7 +31,7 @@ import { ContextKeyServiceDIToken } from "../platform/contextkey/common/contextK
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
 import { CliArgsError, parseCliArgs, USAGE } from "../platform/environment/node/cliArgs.ts";
 import { createEnvironmentService } from "../platform/environment/node/environmentService.ts";
-import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
+import type { IStartupTargets, IStartupWorkspace } from "../platform/environment/node/startupTargets.ts";
 import { resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import type { IUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
@@ -65,6 +65,11 @@ import { FileSink } from "../platform/log/node/fileSink.ts";
 import { loadState } from "../platform/state/node/stateService.ts";
 import { createDefaultTokenClassificationRegistry } from "../platform/theme/common/tokenClassificationRegistry.ts";
 import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import {
+    type IWorkspaceFileReader,
+    loadWorkspaceFile,
+    WorkspaceFileError,
+} from "../platform/workspace/common/workspaceFile.ts";
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
@@ -173,6 +178,24 @@ async function runEditor(): Promise<void> {
         throw err;
     }
 
+    // Файл воркспейса (`diode web.code-workspace`) читаем здесь же, до логов и
+    // UI: папку называет он, а открыть его нельзя — та же ошибка в stderr, что
+    // у плохих аргументов, только без usage (аргументы как раз в порядке).
+    let workspace: IStartupWorkspace | undefined;
+    if (targets.workspaceFile !== undefined) {
+        try {
+            const contents = await loadWorkspaceFile(targets.workspaceFile, nodeWorkspaceFileReader());
+            workspace = { file: targets.workspaceFile, contents };
+            targets = { ...targets, folder: contents.folder };
+        } catch (err) {
+            if (err instanceof WorkspaceFileError) {
+                console.error(err.message);
+                process.exit(1);
+            }
+            throw err;
+        }
+    }
+
     // ── Logging ──────────────────────────────────────────────
     // Всегда поднимаем RingBufferSink (источник данных для будущей
     // Output-вкладки). FileSink — только в dev: пишем в ./diode.log в cwd
@@ -196,6 +219,7 @@ async function runEditor(): Promise<void> {
     bootstrapLogger.info("diode starting", {
         cwd: process.cwd(),
         folder: targets.folder,
+        workspaceFile: workspace?.file,
         files: targets.files.length,
     });
 
@@ -279,7 +303,7 @@ async function runEditor(): Promise<void> {
         configurationLogger,
         settingsWatcher,
         configurationRegistry,
-        targets.folder,
+        targets.folder === undefined ? undefined : { folder: targets.folder, configuration: workspace?.file },
     );
     mark("main:config-loaded");
     const userKeybindings = await loadUserKeybindings(userDataPaths.keybindingsFile, configurationLogger);
@@ -424,8 +448,10 @@ async function runEditor(): Promise<void> {
     // папка уже прочитана выше — повторная установка той же папки сервисом no-op.
     const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
     workspaceContext.onDidChangeWorkspaceFolders(() => {
-        void configurationService.setWorkspaceFolders(
-            workspaceContext.getWorkspace().folders.map((folder) => folder.uri.fsPath),
+        const current = workspaceContext.getWorkspace();
+        void configurationService.setWorkspace(
+            current.folders.map((folder) => folder.uri.fsPath),
+            current.configuration?.fsPath,
         );
     });
     lifecycle.onShutdownSync(() => {
@@ -480,7 +506,7 @@ async function runEditor(): Promise<void> {
 
     await startWorkbench(
         container,
-        { targets, extensions: allExtensions, extensionsLogger },
+        { targets, workspace, extensions: allExtensions, extensionsLogger },
         {
             attachRoot: (view) => {
                 app.root = view;
@@ -696,6 +722,18 @@ function resolvePathsFor(cli: ICliArgs): IUserDataPaths {
 /** Порт к FS для {@link resolveStartupTargets}: путь существует и это папка. */
 function isExistingDirectory(absolutePath: string): boolean {
     return fs.statSync(absolutePath, { throwIfNoEntry: false })?.isDirectory() === true;
+}
+
+/**
+ * Порт к FS для {@link loadWorkspaceFile} на старте. Функция, а не константа:
+ * `main()` исполняется раньше, чем модуль доходит до объявлений внизу, и
+ * `const` здесь был бы ещё в TDZ.
+ */
+function nodeWorkspaceFileReader(): IWorkspaceFileReader {
+    return {
+        readText: (filePath) => fs.promises.readFile(filePath, "utf-8"),
+        isDirectory: (filePath) => Promise.resolve(isExistingDirectory(filePath)),
+    };
 }
 
 async function preloadGrammarsForFiles(

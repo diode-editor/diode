@@ -4,7 +4,7 @@ import type {
     ConfigurationValueType,
     IConfigurationPropertySchema,
 } from "./configurationRegistry.ts";
-import { isWorkspaceScope } from "./workspaceSettings.ts";
+import { WORKSPACE_SCOPES } from "./workspaceSettings.ts";
 
 /**
  * Проходит ли значение схему ключа: `type` (один или любой из списка), `enum`,
@@ -104,20 +104,25 @@ export interface IWorkspaceSettingsFilterResult {
 }
 
 /**
- * Слой воркспейса без ключей, чей `scope` воркспейсу не положен (как фильтр по
+ * Слой воркспейса без ключей, чей `scope` этому слою не положен (как фильтр по
  * `scopes` у `ConfigurationModelParser` эталона): `application`/`machine`-ключ в
  * `.diode/settings.json` не действует — ни в основном дереве, ни в секции
  * языка. Скоупы — ключей ядра и расширений
  * (`ConfigurationRegistry.getConfigurationScopes`); ключ вне реестра идёт как есть.
+ *
+ * `allowed` — какие скоупы слой принимает: `WORKSPACE_SCOPES` у слоя
+ * воркспейса, `FOLDER_SCOPES` у слоя папки, когда окно открыто файлом
+ * `.code-workspace` (там `window`-ключ папки тоже не действует).
  */
 export function filterWorkspaceSettings(
     model: ConfigurationModel,
     scopes: ReadonlyMap<string, ConfigurationScope>,
+    allowed: readonly ConfigurationScope[] = WORKSPACE_SCOPES,
 ): IWorkspaceSettingsFilterResult {
     const raw = structuredClone(model.toRaw());
     const excludedKeys: string[] = [];
     for (const [key, scope] of scopes) {
-        if (isWorkspaceScope(scope)) continue;
+        if (allowed.includes(scope)) continue;
         if (model.get(key) !== undefined) {
             prunePath(raw, key.split("."));
             excludedKeys.push(key);

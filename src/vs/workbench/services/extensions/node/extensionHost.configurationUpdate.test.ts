@@ -60,7 +60,7 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
             undefined,
             undefined,
             registry,
-            options.withFolder ? folder.dir : undefined,
+            options.withFolder ? { folder: folder.dir } : undefined,
         );
         const fixture = extensionFixture(ID, "updatesConfiguration.cjs");
         const harness = await createExtensionTestHarness({

@@ -13,6 +13,10 @@ import type { ConfigurationScope } from "./configurationRegistry.ts";
  * свой — `.diode/` (`workspaceConfigFolder.ts`). Слой лежит выше профиля: проект уточняет
  * настройки человека, а не наоборот. Фильтр ключей по `scope` —
  * `filterWorkspaceSettings` в `configurationValidation.ts`.
+ *
+ * Окно, открытое файлом `.code-workspace`, раскладывает так же, как эталон:
+ * слой воркспейса — блок `settings` файла (`WORKSPACE_SCOPES`), а
+ * `.diode/settings.json` папки — слой папки поверх него (`FOLDER_SCOPES`).
  */
 
 /** Файл настроек воркспейса относительно папки (у эталона — `.vscode/settings.json`). */
@@ -35,6 +39,14 @@ export const WORKSPACE_SCOPES: readonly ConfigurationScope[] = [
     "machine-overridable",
 ];
 
+/**
+ * Скоупы, которые принимает слой папки (`FOLDER_SCOPES` эталона), когда окно
+ * открыто файлом `.code-workspace`: `.diode/settings.json` папки тогда
+ * уточняет только то, что зависит от ресурса и языка, а `window`-ключи берутся
+ * из файла воркспейса.
+ */
+export const FOLDER_SCOPES: readonly ConfigurationScope[] = ["resource", "language-overridable", "machine-overridable"];
+
 /** Можно ли держать ключ с таким `scope` в слое воркспейса; незарегистрированный ключ (`undefined`) — можно. */
 export function isWorkspaceScope(scope: ConfigurationScope | undefined): boolean {
     return scope === undefined || WORKSPACE_SCOPES.includes(scope);
@@ -43,6 +55,15 @@ export function isWorkspaceScope(scope: ConfigurationScope | undefined): boolean
 /** Отказ записи в воркспейс без открытой папки (`ERROR_NO_WORKSPACE_OPENED` эталона, формулировка его же). */
 export const NO_WORKSPACE_OPENED_ERROR =
     "Unable to write to Workspace Settings because no workspace is opened. Please open a workspace first and try again.";
+
+/**
+ * Отказ записи ключа чужого скоупа в настройки папки
+ * (`ERROR_INVALID_FOLDER_CONFIGURATION` эталона): текст ошибки либо `null`.
+ */
+export function folderScopeWriteError(key: string, scope: ConfigurationScope | undefined): string | null {
+    if (scope === undefined || FOLDER_SCOPES.includes(scope)) return null;
+    return `Unable to write to Folder Settings because ${key} does not support the folder resource scope.`;
+}
 
 /**
  * Отказ записи ключа чужого скоупа в воркспейс

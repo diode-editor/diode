@@ -33,18 +33,27 @@ const TOKEN_CHAR = /[\w.-]/;
  *
  * Uses `jsonc-parser`'s `getLocation`, which is error-tolerant: while the user
  * types, the document is almost always invalid JSON.
+ *
+ * `section` — where the settings map lives: the document root for `settings.json`,
+ * the `settings` property for a `.code-workspace` file.
  */
-export function getSettingsCompletionContext(text: string, offset: number): SettingsCompletionContext {
+export function getSettingsCompletionContext(
+    text: string,
+    offset: number,
+    section?: string,
+): SettingsCompletionContext {
     const location = getLocation(text, offset);
+    const depth = section === undefined ? 0 : 1;
+    if (section !== undefined && location.path[0] !== section) return null;
 
-    // settings.json is a flat map — only top-level entries carry schema. Nested
+    // The settings map is flat — only its direct entries carry schema. Nested
     // objects (e.g. `terminal.capabilities: { … }`) have a longer path; stay out.
-    if (location.path.length !== 1) return null;
+    if (location.path.length !== depth + 1) return null;
 
     const replaceRange = tokenRangeAt(text, offset);
     if (location.isAtPropertyKey) return { kind: "key", replaceRange };
 
-    const key = location.path[0];
+    const key = location.path[depth];
     if (typeof key !== "string" || key === "") return null;
     return { kind: "value", key, replaceRange };
 }

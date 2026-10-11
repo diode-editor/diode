@@ -6,11 +6,12 @@ import type { Uri } from "../../../base/common/uri.ts";
  * `workspaceStorage/<id>/` (в нём `state.json` сессии и приватные каталоги
  * расширений, см. `resolveWorkspaceStorageDir`).
  *
- * Сегодня id выводится из единственной папки (`computeWorkspaceId` —
- * `sha256(абсолютный путь)`, формат на диске совпадает с VS Code), но
- * **вызывающие передают id, а не путь**: когда «один проект» станет набором
- * папок или файлом `.code-workspace`, меняется одна функция, а не три места и
- * раскладка у пользователей на диске.
+ * id выводится из пути (`computeWorkspaceId` — `sha256(абсолютный путь)`):
+ * у папки, открытой напрямую, — из пути папки, у воркспейса из файла
+ * `.code-workspace` — из пути ФАЙЛА, поэтому два файла над одной папкой — два
+ * разных проекта со своими сторами. **Вызывающие передают id, а не путь**:
+ * когда «один проект» станет набором папок, меняется одна функция, а не три
+ * места и раскладка у пользователей на диске.
  */
 export type WorkspaceId = string;
 
@@ -23,10 +24,7 @@ export interface IWorkspaceFolder {
     readonly index: number;
 }
 
-/**
- * Открытый воркспейс (аналог `IWorkspace` VS Code, без `configuration` —
- * файлов `.code-workspace` у нас пока нет).
- */
+/** Открытый воркспейс (аналог `IWorkspace` VS Code). */
 export interface IWorkspace {
     /**
      * Идентичность проекта или `null` для пустого окна (⇔ `folders` пуст ⇔
@@ -43,17 +41,27 @@ export interface IWorkspace {
      * `folders.at(0)` — это видимое сужение, а не скрытое за геттером допущение.
      */
     readonly folders: readonly IWorkspaceFolder[];
+    /**
+     * Файл воркспейса `*.code-workspace`, если окно открыто через него
+     * ({@link WorkbenchState} `"workspace"`); нет поля — папка открыта напрямую
+     * или окно пустое. Папка у такого воркспейса тоже ровно одна
+     * (`workspaceFile.ts`).
+     */
+    readonly configuration?: Uri;
 }
 
-/**
- * Состояние окна (аналог `WorkbenchState` VS Code без `workspace`-варианта:
- * файлов `.code-workspace` у нас нет, так что третьего состояния не бывает).
- */
+/** Состояние окна (аналог `WorkbenchState` VS Code). */
 export type WorkbenchState =
     /** Папка не открыта: Explorer рисует плейсхолдер, `workspaceFolders` расширений — `undefined`. */
     | "empty"
-    /** Открыта одна папка. */
-    | "folder";
+    /** Открыта одна папка напрямую. */
+    | "folder"
+    /**
+     * Открыт файл воркспейса `*.code-workspace` (с одной папкой — мульти-рута
+     * нет): настройки воркспейса — его блок `settings`, а `.diode/settings.json`
+     * папки становится слоем папки.
+     */
+    | "workspace";
 
 /**
  * Единственный источник правды о папках воркспейса (аналог
@@ -72,7 +80,7 @@ export interface IWorkspaceContextService {
     /** Текущий воркспейс: идентичность + папки. */
     getWorkspace(): IWorkspace;
 
-    /** Состояние окна — производное от числа папок. */
+    /** Состояние окна — производное от числа папок и файла воркспейса. */
     getWorkbenchState(): WorkbenchState;
 
     /**

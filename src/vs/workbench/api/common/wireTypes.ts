@@ -60,6 +60,8 @@ export interface IWireWorkspaceFolder {
 export interface IWireWorkspaceInitialize {
     readonly configuration: IConfigurationData;
     readonly workspaceFolders: readonly IWireWorkspaceFolder[];
+    /** Файл `.code-workspace` окна как `uri.toString()`; нет поля — окна из файла нет. */
+    readonly workspaceFile?: string;
 }
 
 /** Смена настроек `workspace.configurationChanged` (host → subprocess): новые слои и изменившиеся ключи. */

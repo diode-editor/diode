@@ -12,6 +12,7 @@ import {
     fileSaveAction,
     fileSaveAsAction,
     newUntitledFileAction,
+    openWorkspaceAction,
     toggleActiveEditorReadonlyInSessionAction,
 } from "./fileActions.ts";
 import {
@@ -40,6 +41,7 @@ export const FILES_ACTIONS: readonly CommandAction[] = [
     newUntitledFileAction,
     fileOpenAction,
     fileOpenFolderAction,
+    openWorkspaceAction,
     toggleActiveEditorReadonlyInSessionAction,
     fileDeleteAction,
     fileRenameAction,

@@ -164,6 +164,7 @@ describe("loadConfiguration", () => {
             user: { editor: { tabSize: "eight" }, git: { enabled: false } },
             // Папка не открыта — слой воркспейса пуст.
             workspace: {},
+            workspaceFolder: {},
         });
     });
 

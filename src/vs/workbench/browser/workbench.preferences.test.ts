@@ -11,6 +11,7 @@ import { IEnvironmentServiceDIToken } from "../../platform/environment/common/en
 import type { KeybindingsEditorPane } from "../contrib/preferences/browser/keybindingsEditorPane.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
+import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 describe("Workbench — Preferences commands", () => {
@@ -134,6 +135,61 @@ describe("Workbench — Preferences commands", () => {
 
             await h.commands.execute("workbench.action.openWorkspaceSettingsFile");
             expect(fs.readdirSync(ws.dir)).toEqual([]);
+        });
+    });
+
+    describe("окно из .code-workspace", () => {
+        const WORKSPACE_FILE_TEXT = '{ "folders": [{ "path": "." }], "settings": {} }\n';
+
+        function openWorkspaceFile(): string {
+            ws = createTempWorkspace({ prefix: "diode-prefs-", files: { "web.code-workspace": WORKSPACE_FILE_TEXT } });
+            h = createAppTestHarness({});
+            const file = ws.path("web.code-workspace");
+            h.container
+                .get(WorkbenchComponentDIToken)
+                .openWorkspaceFile(file, { folder: ws.dir, folderName: undefined });
+            h.container.get(WorkbenchContextKeysDIToken).update();
+            return file;
+        }
+
+        function enabledIds(prefix: string): string[] {
+            const contextKeys = h.container.get(ContextKeyServiceDIToken);
+            return h.commands
+                .listCommands()
+                .filter((command) => command.id.startsWith(prefix))
+                .filter((command) => command.enablement === undefined || contextKeys.evaluate(command.enablement))
+                .map((command) => command.id);
+        }
+
+        // Как у эталона: настройки воркспейса такого окна — блок `settings` файла.
+        it("Open Workspace Settings открывает сам файл воркспейса и его не трогает", async () => {
+            const file = openWorkspaceFile();
+
+            await h.commands.execute("workbench.action.openWorkspaceSettings");
+
+            expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(file));
+            expect(fs.readFileSync(file, "utf-8")).toBe(WORKSPACE_FILE_TEXT);
+            expect(fs.existsSync(ws.path(".diode"))).toBe(false);
+        });
+
+        it("Open Folder Settings (JSON) — .diode/settings.json папки заготовкой; в палитре только здесь", async () => {
+            openWorkspaceFile();
+            expect(enabledIds("workbench.action.openFolderSettings")).toEqual([
+                "workbench.action.openFolderSettings",
+                "workbench.action.openFolderSettingsFile",
+            ]);
+
+            await h.commands.execute("workbench.action.openFolderSettingsFile");
+
+            expect(fs.readFileSync(ws.path(".diode/settings.json"), "utf-8")).toBe("{}\n");
+            expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(ws.path(".diode/settings.json")));
+        });
+
+        it("в окне из папки команд настроек папки в палитре нет", () => {
+            ws = createTempWorkspace({ prefix: "diode-prefs-" });
+            h = createAppTestHarness({ workspaceFolder: ws.dir });
+            h.container.get(WorkbenchContextKeysDIToken).update();
+            expect(enabledIds("workbench.action.openFolderSettings")).toEqual([]);
         });
     });
 

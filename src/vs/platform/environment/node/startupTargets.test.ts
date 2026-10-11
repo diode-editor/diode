@@ -16,8 +16,9 @@ const abs = (p: string): string => path.resolve(p);
 
 describe("resolveStartupTargets", () => {
     it("gives an empty window when there are no positionals", () => {
-        expect(resolveStartupTargets(parseCliArgs([]), noDirs)).toEqual({
+        expect(resolveStartupTargets(parseCliArgs([]), noDirs)).toStrictEqual({
             folder: undefined,
+            workspaceFile: undefined,
             files: [],
             diff: undefined,
         });
@@ -45,6 +46,35 @@ describe("resolveStartupTargets", () => {
     it("keeps a colon in the path when --goto was not given", () => {
         const targets = resolveStartupTargets(parseCliArgs(["weird:10"]), noDirs);
         expect(targets.files).toEqual([{ path: abs("weird:10") }]);
+    });
+});
+
+describe("resolveStartupTargets — файл воркспейса", () => {
+    // `code web.code-workspace` открывает воркспейс, а не файл во вкладке.
+    it("первый позиционный *.code-workspace — файл воркспейса, а не вкладка", () => {
+        const targets = resolveStartupTargets(parseCliArgs(["web.code-workspace", "a.ts"]), noDirs);
+        expect(targets.workspaceFile).toBe(abs("web.code-workspace"));
+        expect(targets.folder).toBeUndefined();
+        expect(targets.files).toEqual([{ path: abs("a.ts") }]);
+    });
+
+    it("не первым — обычный файл", () => {
+        const targets = resolveStartupTargets(parseCliArgs(["a.ts", "web.code-workspace"]), noDirs);
+        expect(targets.workspaceFile).toBeUndefined();
+        expect(targets.files).toEqual([{ path: abs("a.ts") }, { path: abs("web.code-workspace") }]);
+    });
+
+    // Каталог с таким именем — всё-таки папка: решает диск, а не расширение.
+    it("каталог с расширением .code-workspace — папка", () => {
+        const targets = resolveStartupTargets(parseCliArgs(["odd.code-workspace"]), dirsAre("odd.code-workspace"));
+        expect(targets.folder).toBe(abs("odd.code-workspace"));
+        expect(targets.workspaceFile).toBeUndefined();
+    });
+
+    it("при --diff файла воркспейса нет", () => {
+        const targets = resolveStartupTargets(parseCliArgs(["-d", "a.code-workspace", "b.code-workspace"]), noDirs);
+        expect(targets.workspaceFile).toBeUndefined();
+        expect(targets.diff).toEqual({ original: abs("a.code-workspace"), modified: abs("b.code-workspace") });
     });
 });
 

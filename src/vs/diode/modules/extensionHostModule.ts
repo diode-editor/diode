@@ -128,6 +128,7 @@ export function extensionHostConfigProvider(
     return {
         getSnapshot: () => configService.getConfigurationData(),
         getWorkspaceFolders: workspaceFoldersProvider(workspaceContext),
+        getWorkspaceFile: () => workspaceContext.getWorkspace().configuration?.toString(),
         onDidChange: (cb) =>
             configService.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);

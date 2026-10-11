@@ -11,12 +11,13 @@ import type { IExtensionHostConfigProvider, IWorkspaceFolderInfo } from "../exte
 
 import { ConfigurationCustomer } from "./configurationCustomer.ts";
 
-function setup() {
+function setup(workspaceFile?: string) {
     const changes = new Emitter<readonly string[]>();
     let version = 0;
     const provider = {
         getSnapshot: () => ({ version }),
         getWorkspaceFolders: () => [{ uri: "file:///ws", name: "ws", index: 0 }],
+        getWorkspaceFile: () => workspaceFile,
         onDidChange: (cb: (keys: readonly string[]) => void) => changes.event(cb),
     } as unknown as IExtensionHostConfigProvider;
     const customer = new ConfigurationCustomer(provider);
@@ -45,7 +46,8 @@ describe("ConfigurationCustomer", () => {
         const attached = h.attachTo();
         h.customer.pushInitialState();
         await flushMicrotasks();
-        expect(h.log).toEqual([
+        // Строго: у окна из папки поля workspaceFile в семени нет вовсе.
+        expect(h.log).toStrictEqual([
             [
                 "workspace.initialize",
                 { configuration: { version: 0 }, workspaceFolders: [{ uri: "file:///ws", name: "ws", index: 0 }] },
@@ -56,6 +58,23 @@ describe("ConfigurationCustomer", () => {
         h.customer.pushInitialState();
         await flushMicrotasks();
         expect(h.log).toHaveLength(1);
+    });
+
+    it("окно из .code-workspace: семя несёт и файл воркспейса", async () => {
+        const h = setup("file:///ws/web.code-workspace");
+        h.attachTo();
+        h.customer.pushInitialState();
+        await flushMicrotasks();
+        expect(h.log).toEqual([
+            [
+                "workspace.initialize",
+                {
+                    configuration: { version: 0 },
+                    workspaceFolders: [{ uri: "file:///ws", name: "ws", index: 0 }],
+                    workspaceFile: "file:///ws/web.code-workspace",
+                },
+            ],
+        ]);
     });
 
     it("смена настроек уходит свежим снимком с ключами; после ухода спавна — никому", async () => {
@@ -80,25 +99,32 @@ describe("ConfigurationCustomer", () => {
  * ключами всех скоупов, одна папка (или пустое окно). `peer` — сторона
  * субпроцесса; `order` — что и в каком порядке до неё дошло.
  */
-function setupWrite(options: { folders?: readonly IWorkspaceFolderInfo[] } = {}) {
+function setupWrite(options: { folders?: readonly IWorkspaceFolderInfo[]; workspaceFile?: string } = {}) {
     const registry = new ConfigurationRegistry();
     registry.registerExtensionConfiguration("t.ext", {
         "t.window": { default: 1, scope: "window" },
         "t.resource": { default: 1, scope: "resource" },
+        "t.lang": { default: 1, scope: "language-overridable" },
         "t.machineOverridable": { default: 1, scope: "machine-overridable" },
         "t.app": { default: 1, scope: "application" },
         "t.machine": { default: 1, scope: "machine" },
     });
     const folders = options.folders ?? [{ uri: Uri.file("/ws").toString(), name: "ws", index: 0 }];
     const service = new InMemoryConfigurationService(registry, {}, folders.length === 0 ? undefined : {});
+    /** Цели, с которыми запись дошла до сервиса настроек. */
+    const targets: string[] = [];
     const provider: IExtensionHostConfigProvider = {
         getSnapshot: () => service.getConfigurationData(),
         getWorkspaceFolders: () => folders,
+        getWorkspaceFile: () => options.workspaceFile,
         onDidChange: (cb) =>
             service.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);
             }),
-        updateValue: (key, value, target) => service.updateValue(key, value, target),
+        updateValue: (key, value, target) => {
+            targets.push(target);
+            return service.updateValue(key, value, target);
+        },
         getConfigurationScopes: () => registry.getConfigurationScopes(),
     };
     const customer = new ConfigurationCustomer(provider);
@@ -113,7 +139,7 @@ function setupWrite(options: { folders?: readonly IWorkspaceFolderInfo[] } = {})
         await peer.request("configuration.update", params);
         order.push("response");
     };
-    return { service, update, order };
+    return { service, update, order, targets };
 }
 
 describe("ConfigurationCustomer — configuration.update", () => {
@@ -190,6 +216,37 @@ describe("ConfigurationCustomer — configuration.update", () => {
             resource: Uri.file("/ws/a.ts").toString(),
         });
         expect(h.service.getConfigurationData().workspace).toMatchObject({ t: { resource: 3 } });
+    });
+
+    // `deriveConfigurationTarget` эталона: у окна из `.code-workspace` ключ папки
+    // с ресурсом без явной цели уходит в настройки папки, прочее — в воркспейс.
+    it("окно из .code-workspace: без цели resource/language-overridable с ресурсом — в папку", async () => {
+        const h = setupWrite({ workspaceFile: Uri.file("/ws/web.code-workspace").toString() });
+        const resource = Uri.file("/ws/a.ts").toString();
+
+        await h.update({ key: "t.resource", value: 1, resource });
+        await h.update({ key: "t.lang", value: 2, resource });
+        await h.update({ key: "t.window", value: 3, resource });
+        await h.update({ key: "t.resource", value: 4 });
+
+        expect(h.targets).toEqual(["workspaceFolder", "workspaceFolder", "workspace", "workspace"]);
+    });
+
+    it("окно из папки: без цели — всегда воркспейс, даже с ресурсом", async () => {
+        const h = setupWrite();
+        await h.update({ key: "t.resource", value: 1, resource: Uri.file("/ws/a.ts").toString() });
+        expect(h.targets).toEqual(["workspace"]);
+    });
+
+    it("явная цель-папка доходит до сервиса как есть", async () => {
+        const h = setupWrite();
+        await h.update({
+            key: "t.resource",
+            value: 1,
+            target: "workspaceFolder",
+            resource: Uri.file("/ws").toString(),
+        });
+        expect(h.targets).toEqual(["workspaceFolder"]);
     });
 
     it("цель-папка: ресурс внутри папки пишет в тот же файл воркспейса", async () => {

@@ -66,15 +66,19 @@ export interface IConfigurationService {
     /**
      * Записывает значение в настройки цели (аналог `updateValue` VS Code):
      * `"user"` (по умолчанию) — settings.json активного профиля, `"workspace"` —
-     * `.diode/settings.json` открытой папки. Модель обновляется сразу, чтобы
+     * настройки воркспейса (`.diode/settings.json` открытой папки или блок
+     * `settings` файла `.code-workspace`), `"workspaceFolder"` — настройки
+     * папки (`.diode/settings.json`; у окна из папки это тот же файл, что у
+     * воркспейса). Модель обновляется сразу, чтобы
      * последующие `get`/`inspect` видели новое значение, и уходит то же событие
      * изменения, что при live-reload. `value: undefined` снимает ключ. У файловой
      * реализации — JSONC-правка с сохранением комментариев и форматирования
      * (`jsonc-parser.modify`); записи сериализуются, параллельные вызовы не
      * теряют друг друга.
      *
-     * Отказы (rejected promise, формулировки эталона): цель `"workspace"` без
-     * открытой папки; ключ со `scope` `application`/`machine` в воркспейс —
+     * Отказы (rejected promise, формулировки эталона): цель `"workspace"` или
+     * `"workspaceFolder"` без открытой папки; ключ со `scope`
+     * `application`/`machine` в воркспейс и ключ вне `FOLDER_SCOPES` в папку —
      * такие ключи туда не ложатся и при чтении (см. `filterWorkspaceSettings`).
      */
     updateValue(key: string, value: unknown, target?: ConfigurationTarget): Promise<void>;
@@ -82,10 +86,10 @@ export interface IConfigurationService {
 
 /**
  * Куда пишет {@link IConfigurationService.updateValue} (подмножество
- * `ConfigurationTarget` VS Code: `USER` и `WORKSPACE`; `WORKSPACE_FOLDER`
- * появится вместе с мульти-рутом — `docs/TODO/MultiRoot.md`, этап D).
+ * `ConfigurationTarget` VS Code: `USER`, `WORKSPACE`, `WORKSPACE_FOLDER`; папка
+ * пока единственная, поэтому ресурса цель-папка не несёт).
  */
-export type ConfigurationTarget = "user" | "workspace";
+export type ConfigurationTarget = "user" | "workspace" | "workspaceFolder";
 
 /**
  * Типы ключей настроек приложения по их схемам. В platform — пусто: слой не
@@ -104,10 +108,17 @@ export interface IConfigurationData {
     /** Пользовательские настройки активного профиля (user, поверх него — profile). */
     readonly user: Readonly<Record<string, unknown>>;
     /**
-     * Настройки воркспейса (`<папка>/.diode/settings.json`, уже без ключей, чей
-     * `scope` воркспейсу не положен). Пустое дерево, если папка не открыта.
+     * Настройки воркспейса (`<папка>/.diode/settings.json` или блок `settings`
+     * файла `.code-workspace`, уже без ключей, чей `scope` воркспейсу не
+     * положен). Пустое дерево, если папка не открыта.
      */
     readonly workspace: Readonly<Record<string, unknown>>;
+    /**
+     * Настройки папки поверх воркспейса — только у окна из файла
+     * `.code-workspace`: `.diode/settings.json` папки с ключами `FOLDER_SCOPES`.
+     * У окна из папки пусто (её файл — уже слой воркспейса); нет поля — тоже пусто.
+     */
+    readonly workspaceFolder?: Readonly<Record<string, unknown>>;
 }
 
 export interface IConfigurationInspectResult<T> {
@@ -117,8 +128,10 @@ export interface IConfigurationInspectResult<T> {
     readonly user: T | undefined;
     /** Значение из активного профиля (если он не default). */
     readonly profile: T | undefined;
-    /** Значение из `.diode/settings.json` открытой папки. */
+    /** Значение из слоя воркспейса (`.diode/settings.json` папки или `settings` файла `.code-workspace`). */
     readonly workspace: T | undefined;
+    /** Значение из слоя папки (только у окна из `.code-workspace`). */
+    readonly workspaceFolder: T | undefined;
     /** Итоговое значение после слияния слоёв. */
     readonly value: T | undefined;
 }

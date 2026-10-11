@@ -84,7 +84,7 @@ notebook-поверхность — нет.
 | `textDocuments`, `openTextDocument` | ✅ | включая `{ encoding }` — реальное декодирование не-utf8 |
 | `onDidOpen/onDidClose/onDidChangeTextDocument` | ✅ | |
 | `onWillSaveTextDocument`, `onDidSaveTextDocument` | ✅ | композиция save-участников с `codeActionsOnSave`/`formatOnSave` |
-| `getConfiguration`, `onDidChangeConfiguration` | ✅ | слои default → user → workspace: настройки проекта — в `.diode/settings.json` открытой папки (у VS Code — `.vscode/settings.json`), `inspect().workspaceValue` честный; `workspaceFolderValue` — `undefined` до мульти-рута. `update()` — как у VS Code: без цели и `Workspace`/`false` — в `.diode/settings.json`, `Global`/`true` — в пользовательский `settings.json`, `WorkspaceFolder` — в тот же файл папки (мульти-рута нет); `undefined` снимает ключ; к резолву `get()` уже видит значение; отказы (незарегистрированный ключ, пустое окно, `application`/`machine` в воркспейс) — rejected promise с текстами VS Code, без тоста. Запись в секцию языка (`overrideInLanguage`) пока отклоняется |
+| `getConfiguration`, `onDidChangeConfiguration` | ✅ | слои default → user → workspace → workspaceFolder: настройки проекта — в `.diode/settings.json` открытой папки (у VS Code — `.vscode/settings.json`); у окна из файла `.code-workspace` воркспейс — блок `settings` файла, а `.diode/settings.json` — слой папки поверх него; `inspect().workspaceValue`/`workspaceFolderValue` честные. `update()` — как у VS Code: `Workspace`/`false` — в настройки воркспейса, `Global`/`true` — в пользовательский `settings.json`, `WorkspaceFolder` — в `.diode/settings.json` папки; без цели — воркспейс, а у окна из `.code-workspace` ключ `resource`/`language-overridable` с ресурсом — папка (`deriveConfigurationTarget`); `undefined` снимает ключ; к резолву `get()` уже видит значение; отказы (незарегистрированный ключ, пустое окно, `application`/`machine` в воркспейс) — rejected promise с текстами VS Code, без тоста. Запись в секцию языка (`overrideInLanguage`) пока отклоняется |
 | `asRelativePath` | ✅ | |
 | `applyEdit` | 🟡 | настоящий bulk edit: текстовые правки по ОТКРЫТЫМ (через буфер, остаётся «грязным») и ЗАКРЫТЫМ (запись на диск) ресурсам плюс файловые операции `createFile`/`deleteFile`/`renameFile` с опциями `overwrite`/`ignoreIfExists`/`ignoreIfNotExists`, в порядке добавления; весь edit — ОДИН шаг отмены. All-or-nothing: read-only ресурс, нечитаемый файл, коллизия имени или пересекающиеся правки отбивают edit целиком (`false`). Отклонения: `recursive` у `deleteFile` игнорируется (удаление всегда рекурсивное — в корзину уходит всё дерево), `WorkspaceEditEntryMetadata` отбрасывается (preview-режима нет), `contents` в виде `DataTransferFile` игнорируется |
 | `createFileSystemWatcher` | ✅ | настоящие watcher'ы: `RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude` |
@@ -97,7 +97,8 @@ notebook-поверхность — нет.
 | события папок и файловых операций (`onDidChangeWorkspaceFolders`, `onWill/onDid{Create,Delete,Rename}Files`) | 🕐 | подписка принимается (no-op), событие не стреляет |
 | notebook-поверхность (8 членов: `notebookDocuments`, `openNotebookDocument`, `registerNotebookSerializer`, события) | 🕐 | |
 | `registerTaskProvider` | ✅ | устаревший двойник `tasks.registerTaskProvider` — тот же вызов |
-| `rootPath`, `workspaceFile`, `updateWorkspaceFolders`, `save`, `saveAs`, `saveAll`, `decode`, `encode` | 🕐 | |
+| `workspaceFile` | ✅ | `Uri` файла `.code-workspace`, если окно открыто через него (файл с одной папкой); иначе `undefined`. `name` такого окна — `<файл> (Workspace)`, как в VS Code |
+| `rootPath`, `updateWorkspaceFolders`, `save`, `saveAs`, `saveAll`, `decode`, `encode` | 🕐 | |
 
 ## vscode.window
 

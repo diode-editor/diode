@@ -4,6 +4,7 @@ import type * as vscode from "vscode";
 
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
+import { workspaceFileLabel } from "../../../platform/workspace/common/workspaceFile.ts";
 import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
 
 import { implementsApi } from "./apiSurface.ts";
@@ -195,6 +196,8 @@ export function createWorkspaceNamespace(
     const { rpc, registry, documentSync, configStore } = ctx;
 
     let workspaceFolders: IWorkspaceFolder[] = [];
+    /** Файл `.code-workspace` окна (`workspace.workspaceFile`); нет — папка открыта напрямую или окно пустое. */
+    let workspaceFile: vscode.Uri | undefined;
 
     // ── Провайдеры ФС по схеме ──────────────────────────────────────────────
     // Расширение регистрирует провайдера (`git:` у встроенного git), субпроцесс
@@ -347,8 +350,13 @@ export function createWorkspaceNamespace(
     });
 
     rpc.handleNotification("workspace.initialize", (params) => {
-        const p: { configuration?: unknown; workspaceFolders?: readonly IWireWorkspaceFolder[] } = params;
+        const p: {
+            configuration?: unknown;
+            workspaceFolders?: readonly IWireWorkspaceFolder[];
+            workspaceFile?: unknown;
+        } = params;
         configStore.setData(p.configuration);
+        workspaceFile = typeof p.workspaceFile === "string" ? Uri.parse(p.workspaceFile) : undefined;
         workspaceFolders = (p.workspaceFolders ?? []).map((f) => ({
             uri: Uri.parse(f.uri),
             name: f.name,
@@ -441,7 +449,7 @@ export function createWorkspaceNamespace(
                     defaultValue: r.defaultValue as T | undefined,
                     globalValue: r.globalValue as T | undefined,
                     workspaceValue: r.workspaceValue as T | undefined,
-                    workspaceFolderValue: undefined,
+                    workspaceFolderValue: r.workspaceFolderValue as T | undefined,
                 };
             },
             update: (key: string, value: unknown, target?: unknown, overrideInLanguage?: boolean) =>
@@ -477,7 +485,7 @@ export function createWorkspaceNamespace(
         // честный отказ, а не запись мимо секции, которую `get()` для языка
         // всё равно перекроет.
         if (languageId !== undefined) {
-            const layer = target === "user" ? "user" : "workspace";
+            const layer = target ?? "workspace";
             const toSection = overrideInLanguage ?? configStore.hasLanguageOverride(key, languageId, layer);
             if (toSection) {
                 throw new Error(
@@ -561,7 +569,14 @@ export function createWorkspaceNamespace(
         },
 
         get name(): string | undefined {
+            // Воркспейс из файла зовётся по файлу (`getWorkspaceLabel` эталона):
+            // `web.code-workspace` → `web (Workspace)`.
+            if (workspaceFile !== undefined) return `${workspaceFileLabel(workspaceFile.fsPath)} (Workspace)`;
             return workspaceFolders[0]?.name;
+        },
+
+        get workspaceFile(): vscode.Uri | undefined {
+            return workspaceFile;
         },
 
         get textDocuments(): readonly vscode.TextDocument[] {

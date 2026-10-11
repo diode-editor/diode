@@ -24,10 +24,17 @@ export const NULL_CONFIGURATION_SERVICE: IConfigurationService = {
         return {};
     },
     getConfigurationData(): IConfigurationData {
-        return { defaults: {}, user: {}, workspace: {} };
+        return { defaults: {}, user: {}, workspace: {}, workspaceFolder: {} };
     },
     inspect<T>(_key: string): IConfigurationInspectResult<T> {
-        return { default: undefined, user: undefined, profile: undefined, workspace: undefined, value: undefined };
+        return {
+            default: undefined,
+            user: undefined,
+            profile: undefined,
+            workspace: undefined,
+            workspaceFolder: undefined,
+            value: undefined,
+        };
     },
     onDidChangeConfiguration(_listener: (event: IConfigurationChangeEvent) => void): IDisposable {
         return {

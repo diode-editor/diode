@@ -1,8 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { FakeFileWatcher, makeLogger, testRegistry } from "../../../../TestUtils/configurationLayersFixture.ts";
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
@@ -13,68 +14,11 @@ import { ChokidarFileWatcher } from "../../files/node/chokidarFileWatcher.ts";
 import { DiskFileSystemProvider } from "../../files/node/diskFileSystemProvider.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import { ConfigurationModel } from "../common/configurationModel.ts";
-import { ConfigurationRegistry } from "../common/configurationRegistry.ts";
 import type { IConfigurationChangeEvent } from "../common/iConfigurationService.ts";
 
 import { ConfigurationService, loadConfiguration } from "./configurationService.ts";
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-
-/** Fake watcher: колбэк по пути, тест дёргает его руками. */
-class FakeFileWatcher implements IFileWatcher {
-    private readonly handlers = new Map<string, () => void>();
-
-    public watchFile(filePath: string, onChange: () => void): IDisposable {
-        this.handlers.set(filePath, onChange);
-        return { dispose: () => this.handlers.delete(filePath) };
-    }
-
-    public fire(filePath: string): void {
-        this.handlers.get(filePath)?.();
-    }
-
-    public watched(): string[] {
-        return [...this.handlers.keys()];
-    }
-}
-
-/**
- * Реестр со всеми видами скоупов: ядро (`editor.*` — language-overridable,
- * `files.exclude` — resource, `workbench.colorTheme` — window,
- * `terminal.tier` — machine, `update.mode` — application) и ключи расширения
- * (`java.home` — `machine-overridable`, в воркспейс можно; `java.secret` —
- * `machine`, нельзя).
- */
-function testRegistry(): ConfigurationRegistry {
-    const registry = new ConfigurationRegistry([
-        {
-            id: "test",
-            properties: {
-                "editor.tabSize": { scope: "language-overridable", type: "number", default: 4 },
-                "files.exclude": { scope: "resource", type: "object", default: {} },
-                "workbench.colorTheme": { scope: "window", type: "string", default: "Dark" },
-                "terminal.tier": { scope: "machine", type: "string", default: "auto" },
-                "update.mode": { scope: "application", type: "string", default: "default" },
-            },
-        },
-    ]);
-    registry.registerExtensionConfiguration("acme.java", {
-        "java.home": { scope: "machine-overridable" },
-        "java.secret": { scope: "machine" },
-    });
-    return registry;
-}
-
-function makeLogger(): ILogger & { warn: Mock<ILogger["warn"]>; error: Mock<ILogger["error"]> } {
-    return {
-        trace: vi.fn(),
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn<ILogger["warn"]>(),
-        error: vi.fn<ILogger["error"]>(),
-        isEnabled: () => true,
-    };
-}
 
 describe("ConfigurationService — слой воркспейса", () => {
     let userData: ITempWorkspace;
@@ -108,7 +52,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             options.logger,
             options.watcher,
             testRegistry(),
-            options.folder,
+            options.folder === undefined ? undefined : { folder: options.folder },
         );
         return disposables.add(cfg);
     }
@@ -255,17 +199,17 @@ describe("ConfigurationService — слой воркспейса", () => {
 
                 // Тот же путь в другом написании — та же папка: ни события, ни
                 // перевешивания watch'а (перевес на тот же путь снял бы его).
-                await cfg.setWorkspaceFolders([path.join(folder.dir, ".")]);
+                await cfg.setWorkspace([path.join(folder.dir, ".")]);
                 expect(seen).toHaveLength(0);
                 expect(watcher.watched()).toContain(file);
 
-                await cfg.setWorkspaceFolders([other.dir]);
+                await cfg.setWorkspace([other.dir]);
                 expect(cfg.get("editor.tabSize")).toBe(4);
                 expect(cfg.get("workbench.colorTheme")).toBe("Solar");
                 expect(seen).toHaveLength(1);
                 expect([...seen[0].affectedKeys].sort()).toEqual(["editor.tabSize", "workbench.colorTheme"]);
 
-                await cfg.setWorkspaceFolders([]);
+                await cfg.setWorkspace([]);
                 expect(cfg.get("workbench.colorTheme")).toBe("Dark");
                 expect(cfg.getConfigurationData().workspace).toEqual({});
                 expect(seen).toHaveLength(2);
@@ -279,8 +223,8 @@ describe("ConfigurationService — слой воркспейса", () => {
             const cfg = await load();
 
             // Открытие ждёт диска, закрытие — нет: оно кончится первым.
-            const opening = cfg.setWorkspaceFolders([folder.dir]);
-            await cfg.setWorkspaceFolders([]);
+            const opening = cfg.setWorkspace([folder.dir]);
+            await cfg.setWorkspace([]);
             await opening;
 
             expect(cfg.get("editor.tabSize")).toBe(4);
@@ -291,7 +235,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             const logger = makeLogger();
             const cfg = await load({ folder: folder.dir, logger });
 
-            await cfg.setWorkspaceFolders([]);
+            await cfg.setWorkspace([]);
             await cfg.reload();
 
             expect(logger.error).not.toHaveBeenCalled();
@@ -301,7 +245,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             const cfg = await load();
             const seen = events(cfg);
 
-            await cfg.setWorkspaceFolders([folder.dir]);
+            await cfg.setWorkspace([folder.dir]);
 
             expect(seen).toHaveLength(0);
             expect(cfg.getConfigurationData().workspace).toEqual({});
@@ -315,8 +259,8 @@ describe("ConfigurationService — слой воркспейса", () => {
                 const cfg = await load();
 
                 // Не ждём первую — вторая начинается, пока первая читает файл.
-                const first = cfg.setWorkspaceFolders([folder.dir]);
-                const second = cfg.setWorkspaceFolders([other.dir]);
+                const first = cfg.setWorkspace([folder.dir]);
+                const second = cfg.setWorkspace([other.dir]);
                 await Promise.all([first, second]);
 
                 expect(cfg.get("editor.tabSize")).toBe(2);
@@ -363,10 +307,10 @@ describe("ConfigurationService — слой воркспейса", () => {
             const userFile = paths().settingsFile;
             expect(watcher.watched()).toEqual([userFile]);
 
-            await cfg.setWorkspaceFolders([folder.dir]);
+            await cfg.setWorkspace([folder.dir]);
             expect(watcher.watched()).toEqual([userFile, path.join(folder.dir, ".diode", "settings.json")]);
 
-            await cfg.setWorkspaceFolders([]);
+            await cfg.setWorkspace([]);
             expect(watcher.watched()).toEqual([userFile]);
         });
 
@@ -388,7 +332,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             fs.writeFileSync(file, `{ "editor.tabSize": 5 }`);
             // Перечитывание стартует и ждёт диска, а папку тем временем закрыли.
             watcher.fire(file);
-            await cfg.setWorkspaceFolders([]);
+            await cfg.setWorkspace([]);
             await new Promise((resolve) => setTimeout(resolve, 50));
 
             expect(cfg.get("editor.tabSize")).toBe(4);
@@ -403,7 +347,7 @@ describe("ConfigurationService — слой воркспейса", () => {
                 watcher.fire(file);
             };
 
-            await cfg.setWorkspaceFolders([]);
+            await cfg.setWorkspace([]);
             // Watch старой папки снят — колбэк никто не держит.
             handler();
             await cfg.reload();
@@ -579,7 +523,7 @@ describe("ConfigurationService — слой воркспейса", () => {
                     profileLayer: ConfigurationModel.EMPTY,
                 }),
             );
-            await cfg.setWorkspaceFolders([folder.dir]);
+            await cfg.setWorkspace([folder.dir]);
 
             await cfg.updateValue("any.key", 1, "workspace");
 

@@ -121,6 +121,31 @@ describe("WorkspaceConfigStore — слой воркспейса", () => {
         });
     });
 
+    // Окно из `.code-workspace`: `.diode/settings.json` папки — слой поверх
+    // воркспейса, `workspaceFolderValue` — его значение.
+    it("слой папки перекрывает воркспейс; inspect отдаёт workspaceFolderValue; секция языка действует", () => {
+        const store = new WorkspaceConfigStore();
+        store.setData({
+            defaults: { editor: { tabSize: 4 } },
+            user: {},
+            workspace: { editor: { tabSize: 2 } },
+            workspaceFolder: { editor: { tabSize: 8 }, "[go]": { editor: { tabSize: 3 } } },
+        });
+
+        expect(store.get("editor.tabSize")).toBe(8);
+        expect(store.get("editor.tabSize", undefined, "go")).toBe(3);
+        expect(store.inspect("editor.tabSize")).toEqual({
+            key: "editor.tabSize",
+            defaultValue: 4,
+            globalValue: undefined,
+            workspaceValue: 2,
+            workspaceFolderValue: 8,
+            value: 8,
+        });
+        expect(store.hasLanguageOverride("editor.tabSize", "go", "workspaceFolder")).toBe(true);
+        expect(store.hasLanguageOverride("editor.tabSize", "go", "workspace")).toBe(false);
+    });
+
     it("без workspace в данных (старый хост, пустое окно) слой пуст", () => {
         const store = storeWith({}, { editor: { tabSize: 8 } });
         expect(store.inspect("editor.tabSize").workspaceValue).toBeUndefined();

@@ -138,3 +138,29 @@ describe("positionToOffset / offsetToPosition", () => {
         expect(offsetToPosition(text, 999)).toEqual({ line: 2, character: 1 });
     });
 });
+
+/** Файл `.code-workspace`: карта настроек — его блок `settings`, а не корень. */
+describe("getSettingsCompletionContext — блок settings файла воркспейса", () => {
+    function inSection(marked: string) {
+        const offset = marked.indexOf("|");
+        return getSettingsCompletionContext(marked.replace("|", ""), offset, "settings");
+    }
+
+    it("ключ и значение внутри settings", () => {
+        expect(inSection('{ "settings": { "edi| } }')).toMatchObject({ kind: "key" });
+        expect(inSection('{ "settings": { "editor.tabSize": | } }')).toMatchObject({
+            kind: "value",
+            key: "editor.tabSize",
+        });
+    });
+
+    it("корень файла и чужие блоки — не наше дело", () => {
+        expect(inSection('{ "fol| }')).toBeNull();
+        expect(inSection('{ "folders": [{ "pa| }] }')).toBeNull();
+        expect(inSection('{ "launch": { "con| } }')).toBeNull();
+    });
+
+    it("вложенный объект значения внутри settings — тоже не наше", () => {
+        expect(inSection('{ "settings": { "files.exclude": { "di| } } }')).toBeNull();
+    });
+});

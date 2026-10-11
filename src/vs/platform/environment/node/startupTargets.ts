@@ -1,6 +1,6 @@
 /**
- * Что редактор открывает на старте: папка воркспейса, файлы и (при `--diff`)
- * пара сторон диффа. Отдельно от {@link parseCliArgs}, потому что решение
+ * Что редактор открывает на старте: папка воркспейса (или файл воркспейса
+ * `.code-workspace`), файлы и (при `--diff`) пара сторон диффа. Отдельно от {@link parseCliArgs}, потому что решение
  * зависит от диска (директория это или файл), и отдельно от `main.ts`, потому
  * что тот исключён из покрытия — здесь логика тестируется юнитом.
  *
@@ -11,6 +11,7 @@
 import * as path from "node:path";
 
 import { splitFileQuery } from "../../../base/common/lineColumnQuery.ts";
+import { hasWorkspaceFileExtension, type IWorkspaceFileContents } from "../../workspace/common/workspaceFile.ts";
 
 import type { ICliArgs } from "./cliArgs.ts";
 import { CliArgsError } from "./cliArgs.ts";
@@ -20,6 +21,12 @@ export interface IStartupFile {
     readonly path: string;
     readonly line?: number;
     readonly column?: number;
+}
+
+/** Открытый на старте файл воркспейса: путь и разобранное содержимое (`loadWorkspaceFile`). */
+export interface IStartupWorkspace {
+    readonly file: string;
+    readonly contents: IWorkspaceFileContents;
 }
 
 /** Стороны дифф-вкладки для `--diff <a> <b>`. */
@@ -35,6 +42,13 @@ export interface IStartupTargets {
      * workspaceFolders у расширений.
      */
     readonly folder: string | undefined;
+    /**
+     * Файл воркспейса `*.code-workspace` — первый позиционный, если это не
+     * каталог и расширение совпадает (`diode web.code-workspace`, как `code
+     * web.code-workspace`). Тогда {@link folder} не задана: папку называет сам
+     * файл, его читает и разбирает `loadWorkspaceFile` (`main.ts`).
+     */
+    readonly workspaceFile: string | undefined;
     /** Файлы, названные явно. Перебивают сохранённую сессию (как `code file.ts`). */
     readonly files: readonly IStartupFile[];
     /** Пара диффа; задана только в режиме `--diff`. */
@@ -51,7 +65,7 @@ export function resolveStartupTargets(cli: ICliArgs, isDirectory: (absolutePath:
     if (cli.diff) {
         // Количество сторон уже проверено парсером; здесь просто резолвим пути.
         const [original, modified] = cli.positional.map((p) => path.resolve(p));
-        return { folder: undefined, files: [], diff: { original, modified } };
+        return { folder: undefined, workspaceFile: undefined, files: [], diff: { original, modified } };
     }
 
     const parsed = cli.positional.map((raw) => parsePositional(raw, cli.goto));
@@ -59,8 +73,12 @@ export function resolveStartupTargets(cli: ICliArgs, isDirectory: (absolutePath:
     // файл в окне без воркспейса, как и в VS Code.
     const first = parsed.at(0);
     const folder = first !== undefined && isDirectory(first.path) ? first.path : undefined;
-    const files = parsed.filter((entry) => !isDirectory(entry.path));
-    return { folder, files, diff: undefined };
+    // Файл воркспейса — тоже только первым и только по расширению: `diode a.ts
+    // web.code-workspace` открывает его как обычный файл.
+    const workspaceFile =
+        first !== undefined && folder === undefined && hasWorkspaceFileExtension(first.path) ? first.path : undefined;
+    const files = parsed.filter((entry) => !isDirectory(entry.path) && entry.path !== workspaceFile);
+    return { folder, workspaceFile, files, diff: undefined };
 }
 
 /**

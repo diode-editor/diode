@@ -192,7 +192,8 @@
         ],
         "2_open": [
             "workbench.action.files.openFile",
-            "workbench.action.files.openFolder"
+            "workbench.action.files.openFolder",
+            "workbench.action.openWorkspace"
         ],
         "3_save": [
             "workbench.action.files.save",

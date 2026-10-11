@@ -17,7 +17,7 @@ import type {
     IConfigurationOverrides,
     IConfigurationService,
 } from "./iConfigurationService.ts";
-import { NO_WORKSPACE_OPENED_ERROR, workspaceScopeWriteError } from "./workspaceSettings.ts";
+import { folderScopeWriteError, NO_WORKSPACE_OPENED_ERROR, workspaceScopeWriteError } from "./workspaceSettings.ts";
 
 /**
  * {@link IConfigurationService} без диска — аналог `TestConfigurationService`
@@ -29,6 +29,8 @@ import { NO_WORKSPACE_OPENED_ERROR, workspaceScopeWriteError } from "./workspace
  * Профиля в памяти нет: запись и чтение идут в один user-слой. Слой воркспейса
  * есть, если его содержимое передано (пусть и пустое `{}`); без него окно
  * считается пустым — запись в воркспейс отклоняется, как у файловой реализации.
+ * Окна из `.code-workspace` в памяти нет: слой папки пуст, а цель-папка пишет в
+ * тот же слой воркспейса (как у окна из папки) со своей проверкой скоупа.
  */
 export class InMemoryConfigurationService implements IConfigurationService {
     private readonly defaultsLayer: ConfigurationModel;
@@ -96,6 +98,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
             defaults: this.defaultsLayer.toRaw(),
             user: this.userLayer.toRaw(),
             workspace: this.workspaceLayer.toRaw(),
+            workspaceFolder: {},
         };
     }
 
@@ -105,6 +108,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
             user: this.userLayer.get<T>(key),
             profile: undefined,
             workspace: this.workspaceLayer.get<T>(key),
+            workspaceFolder: undefined,
             value: this.snapshot.model(overrides).get<T>(key),
         };
     }
@@ -112,9 +116,11 @@ export class InMemoryConfigurationService implements IConfigurationService {
     // Stryker disable next-line StringLiteral: любая цель, кроме "workspace", пишет в user — дефолт виден только типу
     public updateValue(key: string, value: unknown, target: ConfigurationTarget = "user"): Promise<void> {
         const prev = this.snapshot;
-        if (target === "workspace") {
+        if (target === "workspace" || target === "workspaceFolder") {
             if (this.workspaceSettings === null) return Promise.reject(new Error(NO_WORKSPACE_OPENED_ERROR));
-            const scopeError = workspaceScopeWriteError(key, this.scopes.get(key));
+            const scope = this.scopes.get(key);
+            const scopeError =
+                target === "workspace" ? workspaceScopeWriteError(key, scope) : folderScopeWriteError(key, scope);
             if (scopeError !== null) return Promise.reject(new Error(scopeError));
             writeKey(this.workspaceSettings, key, value);
             this.workspaceLayer = this.computeWorkspaceLayer();

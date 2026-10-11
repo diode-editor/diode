@@ -19,14 +19,24 @@ import type { MarkerService } from "../../../../platform/markers/common/markerSe
 import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { WORKSPACE_FILE_SETTINGS_KEY } from "../../../../platform/workspace/common/workspaceFile.ts";
 import {
     collectKnownSettingKeys,
+    folderUnsupportedSettingMessage,
     validateSettingsJson,
     workspaceUnsupportedSettingMessage,
 } from "../../preferences/common/settingsDiagnostics.ts";
 
 /** Marker owner used by the built-in settings.json validator. */
 const SETTINGS_OWNER = "settings";
+
+/** Как проверять файл настроек: где в нём ключи и какие известные ключи в нём не действуют. */
+interface ISettingsFile {
+    /** Блок настроек внутри файла (`settings` у `.code-workspace`); нет — корень. */
+    readonly section?: string;
+    /** Почему ключ со `scope` в этом файле не действует; нет — действуют все известные. */
+    readonly unsupported?: (scope: ConfigurationScope | undefined) => string | null;
+}
 
 /** Окно без папок — для юнитов, которым файл воркспейса не нужен. */
 const NO_WORKSPACE: Pick<IWorkspaceContextService, "getWorkspace"> = {
@@ -147,30 +157,48 @@ export class DiagnosticsService extends Disposable {
      */
     private validate(editor: IDiagnosticsEditor | null): void {
         if (editor === null) return;
-        // Валидируем только settings.json активного профиля и `.diode/settings.json`
-        // открытой папки — сверяем ресурс целиком, а не basename, чтобы чужой
-        // settings.json (например, самого VS Code или `.vscode/settings.json`
-        // проекта) остался нетронутым.
+        // Валидируем только settings.json активного профиля, `.diode/settings.json`
+        // открытой папки и файл `.code-workspace` окна — сверяем ресурс целиком,
+        // а не basename, чтобы чужой settings.json (например, самого VS Code или
+        // `.vscode/settings.json` проекта) остался нетронутым.
         const resource = editor.uri.toString();
-        const isUserSettings = resource === this.settingsResource.toString();
-        if (!isUserSettings && !this.isWorkspaceSettings(resource)) return;
+        const file = this.settingsFile(resource);
+        if (file === null) return;
 
+        const { unsupported } = file;
         // Секции языков (`"[python]": { … }`) — тоже известные ключи верхнего уровня.
         const markers = validateSettingsJson(
             editor.getText(),
             (key) => this.knownSettingKeys.has(key) || isOverrideKey(key),
-            // В файле воркспейса ключи `application`/`machine` не действуют —
-            // подсказка с объяснением, как у эталона.
-            isUserSettings ? undefined : (key) => workspaceUnsupportedSettingMessage(this.settingScopes.get(key)),
+            unsupported === undefined ? undefined : (key) => unsupported(this.settingScopes.get(key)),
+            file.section,
         );
         this.markerService.changeOne(SETTINGS_OWNER, resource, markers);
     }
 
-    /** `resource` — settings.json воркспейса одной из открытых папок. */
-    private isWorkspaceSettings(resource: string): boolean {
-        return this.workspace
-            .getWorkspace()
-            .folders.some((folder) => Uri.file(workspaceSettingsPath(folder.uri.fsPath)).toString() === resource);
+    /**
+     * Наш ли это файл настроек и как его проверять: пользовательский (все
+     * известные ключи действуют), слой воркспейса (`.diode/settings.json` папки,
+     * открытой напрямую), файл `.code-workspace` окна (ключи — в блоке
+     * `settings`) или слой папки (`.diode/settings.json` у окна из
+     * `.code-workspace` — не действует ещё и `window`); `null` — не наш файл.
+     */
+    private settingsFile(resource: string): ISettingsFile | null {
+        if (resource === this.settingsResource.toString()) return {};
+        const workspace = this.workspace.getWorkspace();
+        if (workspace.configuration?.toString() === resource) {
+            return { section: WORKSPACE_FILE_SETTINGS_KEY, unsupported: workspaceUnsupportedSettingMessage };
+        }
+        const isFolderSettings = workspace.folders.some(
+            (folder) => Uri.file(workspaceSettingsPath(folder.uri.fsPath)).toString() === resource,
+        );
+        if (!isFolderSettings) return null;
+        return {
+            unsupported:
+                workspace.configuration === undefined
+                    ? workspaceUnsupportedSettingMessage
+                    : folderUnsupportedSettingMessage,
+        };
     }
 
     /** Pushes the current markers for each changed resource to its open editor(s). */

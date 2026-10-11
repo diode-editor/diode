@@ -9,7 +9,7 @@ import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../base
 import { MenuId } from "../platform/actions/common/menuId.ts";
 import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
 import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
-import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
+import type { IStartupTargets, IStartupWorkspace } from "../platform/environment/node/startupTargets.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
@@ -30,7 +30,7 @@ import { createTestContainer } from "./modules/testProfile.ts";
 import type { IWorkbenchStartupHost } from "./workbenchStartup.ts";
 import { startWorkbench } from "./workbenchStartup.ts";
 
-const NO_TARGETS: IStartupTargets = { folder: undefined, files: [], diff: undefined };
+const NO_TARGETS: IStartupTargets = { folder: undefined, workspaceFile: undefined, files: [], diff: undefined };
 
 /** Расширение с пунктом контекст-меню редактора (`contributes.menus`). */
 const MENU_EXTENSION: IExtension = {
@@ -71,7 +71,7 @@ interface IStartup {
     firstFrame(): void;
     /** Приложение, поднятое в `host.run()`. */
     testApp(): TestApp | undefined;
-    run(targets: IStartupTargets, extensions?: readonly IExtension[]): Promise<void>;
+    run(targets: IStartupTargets, extensions?: readonly IExtension[], workspace?: IStartupWorkspace): Promise<void>;
 }
 
 /** Тестовый контейнер + хост, который записывает, в каком порядке его дёргают. */
@@ -116,7 +116,8 @@ function setup(stateService?: IStateService): IStartup {
         preloaded,
         firstFrame: () => deferred?.(),
         testApp: () => testApp,
-        run: (targets, extensions = []) => startWorkbench(container, { targets, extensions }, host),
+        run: (targets, extensions = [], workspace) =>
+            startWorkbench(container, { targets, extensions, ...(workspace !== undefined ? { workspace } : {}) }, host),
     };
 }
 
@@ -244,6 +245,29 @@ describe("startWorkbench", () => {
         await startup.run({ ...NO_TARGETS, folder: ws.dir });
 
         expect(foldersAtReady).toEqual([ws.dir]);
+    });
+
+    // `diode web.code-workspace`: папка — та, что в файле, а окно — воркспейс из
+    // файла (идентичность и настройки — его), и тоже до mount.
+    it("файл воркспейса открывается до mount: папка из файла, состояние workspace", async () => {
+        const startup = setup();
+        const lifecycle = startup.container.get(LifecycleServiceDIToken);
+        let stateAtReady = "";
+        lifecycle.onDidChangePhase((phase) => {
+            if (phase === "ready") {
+                stateAtReady = startup.container.get(IWorkspaceContextServiceDIToken).getWorkbenchState();
+            }
+        });
+        const file = ws.path("web.code-workspace");
+
+        await startup.run({ ...NO_TARGETS, folder: ws.dir }, [], {
+            file,
+            contents: { folder: ws.dir, folderName: undefined },
+        });
+
+        expect(stateAtReady).toBe("workspace");
+        expect(workspaceFolders(startup)).toEqual([ws.dir]);
+        expect(startup.container.get(IWorkspaceContextServiceDIToken).getWorkspace().configuration?.fsPath).toBe(file);
     });
 
     it("без папки окно пустое: сессию не восстанавливает и ничего не греет", async () => {
