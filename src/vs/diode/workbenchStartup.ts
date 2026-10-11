@@ -4,7 +4,7 @@ import { mark } from "../base/common/performance.ts";
 import { Uri } from "../base/common/uri.ts";
 import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
 import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
-import type { IStartupTargets } from "../platform/environment/node/startupTargets.ts";
+import type { IStartupTargets, IStartupWorkspace } from "../platform/environment/node/startupTargets.ts";
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
 import type { ServiceAccessor } from "../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
@@ -43,6 +43,11 @@ export interface IWorkbenchStartupHost {
 
 export interface IWorkbenchStartupOptions {
     readonly targets: IStartupTargets;
+    /**
+     * Файл воркспейса, если окно открывается через него (`diode
+     * web.code-workspace`); тогда `targets.folder` — его папка.
+     */
+    readonly workspace?: IStartupWorkspace;
     /** Все расширения (builtin + user) — для их `contributes.keybindings`. */
     readonly extensions: readonly IExtension[];
     readonly extensionsLogger?: ILogger;
@@ -95,7 +100,9 @@ export async function startWorkbench(
     // Папка воркспейса — только если её назвали явно. Без неё окно поднимается
     // пустым: ни Explorer-корня, ни индекса файлов, ни workspaceFolders у
     // расширений (и, значит, никакого обхода текущего каталога).
-    if (targets.folder !== undefined) {
+    if (options.workspace !== undefined) {
+        workbench.openWorkspaceFile(options.workspace.file, options.workspace.contents);
+    } else if (targets.folder !== undefined) {
         workbench.setWorkspaceFolder(targets.folder);
     }
 

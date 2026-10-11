@@ -1529,6 +1529,7 @@ function makeConfigProvider() {
     const provider: IExtensionHostConfigProvider = {
         getSnapshot: () => snapshot,
         getWorkspaceFolders: () => [{ uri: "/repo", name: "repo", index: 0 }],
+        getWorkspaceFile: () => undefined,
         onDidChange: (fn) => {
             cb = fn;
             return {

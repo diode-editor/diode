@@ -35,7 +35,14 @@ class StubConfig implements IConfigurationService {
         return this.values;
     }
     public inspect<T>(): IConfigurationInspectResult<T> {
-        return { default: undefined, user: undefined, profile: undefined, workspace: undefined, value: undefined };
+        return {
+            default: undefined,
+            user: undefined,
+            profile: undefined,
+            workspace: undefined,
+            workspaceFolder: undefined,
+            value: undefined,
+        };
     }
     public onDidChangeConfiguration(listener: (event: IConfigurationChangeEvent) => void): { dispose: () => void } {
         this.listeners.push(listener);

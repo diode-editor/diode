@@ -1,0 +1,7 @@
+{
+    // Режим фронтенда: бэкенд из дерева и поиска убран.
+    "folders": [{ "path": "." }],
+    "settings": {
+        "files.exclude": { "backend": true }
+    }
+}

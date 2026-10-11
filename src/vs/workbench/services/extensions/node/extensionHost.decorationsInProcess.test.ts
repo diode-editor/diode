@@ -77,6 +77,7 @@ function makeHost(colors: Record<string, number>) {
     const configuration = {
         getSnapshot: () => ({ defaults: {}, user: { some: "config" }, workspace: {} }),
         getWorkspaceFolders: () => [],
+        getWorkspaceFile: () => undefined,
         onDidChange: (cb: (keys: string[]) => void) => {
             configListeners.push(cb);
             return { dispose: () => undefined };

@@ -32,6 +32,8 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
         this.rpc?.notify("workspace.initialize", {
             configuration: this.configuration.getSnapshot(),
             workspaceFolders: this.configuration.getWorkspaceFolders(),
+            // У окна из папки — `undefined`: провод (JSON) такое поле не везёт.
+            workspaceFile: this.configuration.getWorkspaceFile(),
         });
     }
 
@@ -71,16 +73,17 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
     /**
      * `writeConfiguration` `mainThreadConfiguration` эталона и проверки
      * `ConfigurationEditing.validate`, которых нет у сервиса настроек: цель без
-     * явного выбора — воркспейс (`deriveConfigurationTarget`; в однопапочном окне
-     * всегда WORKSPACE), неизвестный ключ и цель-папка. Пустое окно и
-     * application/machine-ключ в воркспейс отклоняет сам сервис. Отказ —
-     * rejected promise расширению без тоста (`donotNotifyError` эталона).
+     * явного выбора ({@link deriveConfigurationTarget}), неизвестный ключ и
+     * цель-папка. Пустое окно, application/machine-ключ в воркспейс и ключ вне
+     * `FOLDER_SCOPES` в папку отклоняет сам сервис. Отказ — rejected promise
+     * расширению без тоста (`donotNotifyError` эталона).
      */
     private async writeConfiguration(request: IWireConfigurationUpdate): Promise<void> {
         const { key, value } = request;
-        const target: WireConfigurationTarget = request.target ?? "workspace";
         const scopes = this.configuration.getConfigurationScopes();
         const scope = scopes.get(key);
+        const target: WireConfigurationTarget =
+            request.target ?? this.deriveConfigurationTarget(scope, request.resource);
         // Писать можно только зарегистрированный ключ; снятие и секции языков — любые.
         if (value !== undefined && !scopes.has(key) && !isOverrideKey(key)) {
             throw new Error(
@@ -98,20 +101,32 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
             if (request.resource === undefined || !isInFolders(request.resource, folders)) {
                 throw new Error("Unable to write to Folder Settings because no resource is provided.");
             }
-            if (scope !== undefined && !FOLDER_SCOPES.includes(scope)) {
-                throw new Error(
-                    `Unable to write to Folder Settings because ${key} does not support the folder resource scope.`,
-                );
-            }
         }
-        // Мульти-рута нет: настройки единственной папки — тот же файл, что у воркспейса.
-        const serviceTarget: ConfigurationTarget = target === "user" ? target : "workspace";
-        await this.configuration.updateValue(key, value, serviceTarget);
+        // Папка единственная, ресурс выбирать не из чего: сервис сам знает, где
+        // настройки папки (у окна из папки — тот же файл, что у воркспейса).
+        await this.configuration.updateValue(key, value, target);
+    }
+
+    /**
+     * Цель записи без явного выбора (`deriveConfigurationTarget`
+     * `mainThreadConfiguration` эталона): у окна из `.code-workspace` ключ
+     * `resource`/`language-overridable` с ресурсом уходит в настройки папки, всё
+     * прочее — в воркспейс.
+     */
+    private deriveConfigurationTarget(
+        scope: ConfigurationScope | undefined,
+        resource: string | undefined,
+    ): WireConfigurationTarget {
+        if (
+            resource !== undefined &&
+            this.configuration.getWorkspaceFile() !== undefined &&
+            (scope === "resource" || scope === "language-overridable")
+        ) {
+            return "workspaceFolder";
+        }
+        return "workspace";
     }
 }
-
-/** Скоупы, которые ложатся в настройки папки (`FOLDER_SCOPES` эталона): без `window`, `application`, `machine`. */
-const FOLDER_SCOPES: readonly ConfigurationScope[] = ["resource", "language-overridable", "machine-overridable"];
 
 /** Имя цели в текстах отказов (`stringifyTarget` `ConfigurationEditing` эталона). */
 function targetLabel(target: WireConfigurationTarget): string {

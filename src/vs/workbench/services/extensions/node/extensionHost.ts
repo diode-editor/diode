@@ -157,6 +157,11 @@ export interface IExtensionHostConfigProvider {
     getSnapshot(): IConfigurationData;
     /** Папки воркспейса (одна, из `process.cwd()`, пока нет multi-root). */
     getWorkspaceFolders(): readonly IWorkspaceFolderInfo[];
+    /**
+     * Файл `.code-workspace` окна как `uri.toString()` (`workspace.workspaceFile`);
+     * `undefined` — папка открыта напрямую или окно пустое.
+     */
+    getWorkspaceFile(): string | undefined;
     /** Подписка на изменение настроек (live-reload); передаёт изменившиеся ключи. */
     onDidChange(cb: (affectedKeys: readonly string[]) => void): IDisposable;
     /**

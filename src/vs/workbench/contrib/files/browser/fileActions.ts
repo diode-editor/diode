@@ -10,6 +10,14 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
+import {
+    hasWorkspaceFileExtension,
+    type IWorkspaceFileContents,
+    type IWorkspaceFileReader,
+    loadWorkspaceFile,
+    WORKSPACE_EXTENSION,
+    WorkspaceFileError,
+} from "../../../../platform/workspace/common/workspaceFile.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
@@ -18,13 +26,15 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
 /**
- * Смена папки воркспейса (Open Folder). Интерфейсный шов: Workbench объявляет,
- * владелец приложения (`WorkbenchComponent`: дерево, стейт, поисковый индекс,
- * cwd терминалов) соответствует структурно; биндинг — в
- * `Workbench/Modules/WorkbenchModule.ts`.
+ * Смена воркспейса (Open Folder, Open Workspace from File). Интерфейсный шов:
+ * Workbench объявляет, владелец приложения (`WorkbenchComponent`: дерево,
+ * стейт, поисковый индекс, cwd терминалов) соответствует структурно; биндинг —
+ * в `Workbench/Modules/WorkbenchModule.ts`.
  */
 export interface IWorkspaceFolderOpener {
     setWorkspaceFolder(dirPath: string): void;
+    /** Воркспейс из файла `.code-workspace`, уже разобранного (`parseWorkspaceFile`). */
+    openWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): void;
 }
 
 export const WorkspaceFolderOpenerDIToken = token<IWorkspaceFolderOpener>("WorkspaceFolderOpener");
@@ -86,6 +96,53 @@ async function runOpenFolder(accessor: ServiceAccessor): Promise<void> {
     // An accepted-but-empty value resolves to null → nothing to swap to.
     const resolved = fileOperations.resolveInputPath(target);
     if (resolved) accessor.get(WorkspaceFolderOpenerDIToken).setWorkspaceFolder(resolved);
+}
+
+/**
+ * Open Workspace from File flow (VS Code `workbench.action.openWorkspace`):
+ * prompt for a `.code-workspace` path, validate that it opens — the file parses,
+ * names exactly one folder and that folder exists, every reason shown inline —
+ * then switch the window to that workspace: its folder, its settings and its own
+ * per-workspace state.
+ */
+async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
+    const quickInput = accessor.get(QuickInputServiceDIToken);
+    const fileOperations = accessor.get(FileOperationsServiceDIToken);
+    const files = accessor.get(IFileServiceDIToken);
+    const reader: IWorkspaceFileReader = {
+        readText: async (filePath) => new TextDecoder().decode((await files.readFile(Uri.file(filePath))).value),
+        isDirectory: async (filePath) => (await statOrNull(files, filePath))?.isDirectory === true,
+    };
+    // Every reason the file cannot be opened, as the inline error; `null` — it opens.
+    const check = async (filePath: string): Promise<string | null> => {
+        if (!hasWorkspaceFileExtension(filePath)) return `Not a workspace file (*.${WORKSPACE_EXTENSION}): ${filePath}`;
+        try {
+            await loadWorkspaceFile(filePath, reader);
+            return null;
+        } catch (err) {
+            // Stryker disable next-line ConditionalExpression: loadWorkspaceFile иных отказов не бросает (чтение и stat уже ловятся внутри) — проверка страхует от будущего чужого отказа, а не ветвит поведение
+            if (err instanceof WorkspaceFileError) return err.message;
+            throw err;
+        }
+    };
+
+    const target = await quickInput.input({
+        title: "Open Workspace from File",
+        placeholder: `Enter a .${WORKSPACE_EXTENSION} file path`,
+        validateInput: async (value) => {
+            const resolved = fileOperations.resolveInputPath(value);
+            // Empty is not flagged (fresh prompt shows no error); Enter is a no-op.
+            return resolved ? check(resolved) : null;
+        },
+    });
+    if (target === undefined) return;
+    // An accepted-but-empty value resolves to null → nothing to open.
+    const resolved = fileOperations.resolveInputPath(target);
+    if (!resolved) return;
+    // Read again rather than reuse the validated copy: the open must see the file
+    // as it is now (a failure here rejects the command, like any other).
+    const contents = await loadWorkspaceFile(resolved, reader);
+    accessor.get(WorkspaceFolderOpenerDIToken).openWorkspaceFile(resolved, contents);
 }
 
 /**
@@ -268,6 +325,14 @@ export const fileOpenFolderAction: CommandAction = {
     run(accessor) {
         void runOpenFolder(accessor);
     },
+};
+
+export const openWorkspaceAction: CommandAction = {
+    id: "workbench.action.openWorkspace",
+    title: "File: Open Workspace from File...",
+    shortTitle: "Open Workspace from File...",
+    menus: [{ menuId: MenuId.MenubarFileMenu, group: "2_open", order: 30 }],
+    run: runOpenWorkspace,
 };
 
 /**

@@ -27,10 +27,12 @@
 - **`workspace`** — per-project: `<profileDir>/workspaceStorage/<workspaceId>/state.json`.
   Ключ каталога — **идентичность воркспейса** `WorkspaceId`
   (`platform/workspace/common/workspaceId.ts`), её считает `computeWorkspaceId`:
-  сегодня это `sha256` абсолютного пути единственной папки, ровно как в VS Code.
+  `sha256` абсолютного пути единственной папки — или пути ФАЙЛА, если окно
+  открыто файлом `.code-workspace` (два файла над одним каталогом — два проекта
+  со своими сторами, оба отличны от самой папки; [Configuration.md](Configuration.md#файл-воркспейса-code-workspace)).
   `IStateService.openWorkspace` принимает именно **id**, а не путь: когда «один
-  проект» станет набором папок или файлом `.code-workspace`, поменяется одна
-  функция, а не все адресующие места (см. [TODO/MultiRoot.md](../TODO/MultiRoot.md)).
+  проект» станет набором папок, поменяется одна функция, а не все адресующие
+  места (см. [TODO/MultiRoot.md](../TODO/MultiRoot.md)).
   Путь файла из id резолвит `resolveWorkspaceStatePath`
   (`platform/environment/node/userDataPaths.ts`, pure).
 

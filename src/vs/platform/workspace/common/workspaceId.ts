@@ -4,15 +4,15 @@ import * as path from "node:path";
 import type { WorkspaceId } from "./iWorkspaceContextService.ts";
 
 /**
- * Вычисляет {@link WorkspaceId} для воркспейса из одной папки: `sha256` от
- * абсолютного (нормализованного) пути, hex — ровно как в VS Code
- * (`workspaceStorage/<hash>/`). Pure, без I/O.
+ * Вычисляет {@link WorkspaceId} по пути проекта — папки, открытой напрямую,
+ * или файла `.code-workspace`: `sha256` от абсолютного (нормализованного)
+ * пути, hex (`workspaceStorage/<hash>/`). Pure, без I/O.
  *
- * Формат намеренно совпадает с тем, что уже лежит у пользователей на диске:
- * этот PR вводит **понятие** id, а не новую схему адресации. Когда «один
- * проект» станет набором папок или файлом `.code-workspace`, id начнёт
- * выводиться иначе — и вот тогда понадобится миграция, которую предстоит
- * сделать здесь, в одной функции (см. `docs/TODO/MultiRoot.md`, M8).
+ * Формат намеренно совпадает с тем, что уже лежит у пользователей на диске.
+ * Путь файла воркспейса и путь папки не совпадают, так что воркспейс из файла
+ * — отдельный проект со своими сторами и без миграции. Когда «один проект»
+ * станет набором папок без файла, id начнёт выводиться иначе — миграция
+ * будет здесь, в одной функции (см. `docs/TODO/MultiRoot.md`, M8).
  */
 /**
  * Идентичность стора состояния ПУСТОГО окна (зеркало
@@ -23,6 +23,6 @@ import type { WorkspaceId } from "./iWorkspaceContextService.ts";
  */
 export const EMPTY_WINDOW_WORKSPACE_ID: WorkspaceId = "empty-window";
 
-export function computeWorkspaceId(folderPath: string): WorkspaceId {
-    return crypto.createHash("sha256").update(path.resolve(folderPath)).digest("hex");
+export function computeWorkspaceId(workspacePath: string): WorkspaceId {
+    return crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex");
 }

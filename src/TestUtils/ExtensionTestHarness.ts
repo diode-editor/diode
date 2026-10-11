@@ -208,6 +208,8 @@ export interface IExtensionHarnessOptions {
      * фильтра по `scope`) — `inspect().workspaceValue` и перекрытие user-слоя.
      */
     readonly workspaceConfiguration?: Readonly<Record<string, unknown>>;
+    /** Файл `.code-workspace` окна (`uri.toString()`) — `workspace.workspaceFile`/`name`; нет — окно из папки. */
+    readonly workspaceFile?: string;
     /**
      * Дополнительные переопределения дефолтов (dotted-ключи) — то, что в
      * приложении кладёт хост (`builtinConfigInjection`: пути вшитого tsserver).
@@ -413,6 +415,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const configuration: IExtensionHostConfigProvider = {
         getSnapshot: () => extensionConfigurationService.getConfigurationData(),
         getWorkspaceFolders: () => folders,
+        getWorkspaceFile: () => options.workspaceFile,
         onDidChange: (cb) =>
             extensionConfigurationService.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);

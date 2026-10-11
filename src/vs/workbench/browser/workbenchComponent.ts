@@ -15,8 +15,10 @@ import type { IUserKeybindingRule } from "../../platform/keybinding/common/userK
 import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
 import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
+import type { WorkspaceId } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
 import { WorkspaceContextServiceDIToken } from "../../platform/workspace/common/workspaceContextService.ts";
+import type { IWorkspaceFileContents } from "../../platform/workspace/common/workspaceFile.ts";
 import {
     WorkbenchContributionsRegistry,
     WorkbenchContributionsRegistryDIToken,
@@ -350,7 +352,21 @@ export class WorkbenchComponent extends Component {
         // Источник правды о папках — IWorkspaceContextService, и ставится он
         // ПЕРВЫМ: всё ниже (и подписчики onDidChangeWorkspaceFolders) обязано
         // видеть уже новую папку. Здесь же считается идентичность проекта.
-        const workspaceId = this.workspaceContext.setWorkspaceFolder(dirPath);
+        this.openWorkspaceFolder(dirPath, this.workspaceContext.setWorkspaceFolder(dirPath));
+    }
+
+    /**
+     * Открывает воркспейс из файла `.code-workspace` (уже разобранного —
+     * `parseWorkspaceFile`): папка та, что названа в файле, а идентичность
+     * проекта — от пути файла. Зовётся из бутстрапа и из команды Open Workspace
+     * from File; дальше всё как у {@link setWorkspaceFolder}.
+     */
+    public openWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): void {
+        this.openWorkspaceFolder(contents.folder, this.workspaceContext.setWorkspaceFile(filePath, contents));
+    }
+
+    /** Общий хвост открытия: всё, что зависит от папки и идентичности проекта. */
+    private openWorkspaceFolder(dirPath: string, workspaceId: WorkspaceId): void {
         this.explorerService.setRootPath(dirPath);
         // Новые терминалы спавнятся в папке воркспейса.
         this.terminalService.setWorkingDirectory(dirPath);

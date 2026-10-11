@@ -130,6 +130,24 @@ describe("extensionHostConfigProvider", () => {
         expect(provider.getConfigurationScopes().get("t.flag")).toBe("application");
     });
 
+    // `workspace.workspaceFile` расширений: файл окна читается на каждый вызов —
+    // Open Workspace from File меняет его в рантайме.
+    it("файл воркспейса — uri файла окна из .code-workspace, у окна из папки — нет", () => {
+        const workspace = workspaceWithFolder("/work/project");
+        const provider = extensionHostConfigProvider(
+            new InMemoryConfigurationService(),
+            new ConfigurationRegistry(),
+            workspace,
+        );
+        expect(provider.getWorkspaceFile()).toBeUndefined();
+
+        workspace.setWorkspaceFile("/work/project/web.code-workspace", {
+            folder: "/work/project",
+            folderName: undefined,
+        });
+        expect(provider.getWorkspaceFile()).toBe("file:///work/project/web.code-workspace");
+    });
+
     it("запись идёт в сервис ядра с целью, его отказ доходит, событие — ключами", async () => {
         const { service, provider } = setup();
         const changes: (readonly string[])[] = [];

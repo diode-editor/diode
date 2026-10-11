@@ -221,6 +221,44 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace", "user"]);
     });
 
+    it("окно из .code-workspace: workspaceFolderValue — слой папки; запись в папку смотрит на его секцию языка", async () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("workspace.initialize", {
+            configuration: {
+                defaults: { editor: { tabSize: 4 } },
+                user: {},
+                workspace: { editor: { tabSize: 2 } },
+                workspaceFolder: { editor: { tabSize: 8 }, "[go]": { "editor.tabSize": 3 } },
+            },
+            workspaceFolders: [],
+        });
+        expect(workspace.getConfiguration("editor").inspect("tabSize")).toMatchObject({
+            workspaceValue: 2,
+            workspaceFolderValue: 8,
+        });
+        const goDoc = { uri: Uri.file("/ws/a.go"), languageId: "go" };
+        await expect(
+            workspace.getConfiguration("editor", goDoc).update("tabSize", 2, ConfigurationTarget.WorkspaceFolder),
+        ).rejects.toThrow('"[go]"');
+        // В слое воркспейса секции у go нет — запись туда обычная.
+        await workspace.getConfiguration("editor", goDoc).update("tabSize", 2, ConfigurationTarget.Workspace);
+        expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace"]);
+    });
+
+    // Без цели секцию языка смотрим в слое воркспейса — так её выведет хост.
+    it("запись без цели смотрит на секцию языка слоя воркспейса", async () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: {}, user: {}, workspace: { "[go]": { "editor.tabSize": 3 } } },
+            workspaceFolders: [],
+        });
+        const goDoc = { uri: Uri.file("/ws/a.go"), languageId: "go" };
+        await expect(workspace.getConfiguration("editor", goDoc).update("tabSize", 2)).rejects.toThrow(
+            'Unable to write editor.tabSize to the "[go]" section',
+        );
+        expect(stub.requests).toEqual([]);
+    });
+
     it("overrideInLanguage без языка в scope пишет обычный ключ", async () => {
         const { stub, workspace } = makeCtx();
         await workspace.getConfiguration("editor", Uri.file("/ws/a.go")).update("tabSize", 2, true, true);
@@ -278,6 +316,28 @@ describe("WorkspaceNamespace — folders & documents", () => {
         });
         expect(workspace.workspaceFolders).toHaveLength(1);
         expect(workspace.workspaceFolders![0].name).toBe("repo");
+    });
+
+    it("окно из .code-workspace: workspaceFile — его Uri, name — «<файл> (Workspace)», как в эталоне", () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: {}, user: {} },
+            workspaceFolders: [{ uri: "file:///repo", name: "repo", index: 0 }],
+            workspaceFile: "file:///repo/web.code-workspace",
+        });
+        expect(workspace.workspaceFile?.toString()).toBe("file:///repo/web.code-workspace");
+        expect(workspace.name).toBe("web (Workspace)");
+    });
+
+    it("окно из папки: workspaceFile нет, name — имя папки", () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: {}, user: {} },
+            workspaceFolders: [{ uri: "file:///repo", name: "repo", index: 0 }],
+            workspaceFile: 1,
+        });
+        expect(workspace.workspaceFile).toBeUndefined();
+        expect(workspace.name).toBe("repo");
     });
 
     it("initialize без workspaceFolders → folders пусты", () => {

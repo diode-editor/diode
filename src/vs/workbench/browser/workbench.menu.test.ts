@@ -39,6 +39,7 @@ describe("Workbench — menu bar wiring", () => {
             "New Folder...",
             "Open File...",
             "Open Folder...",
+            "Open Workspace from File...",
             "Save",
             "Save As...",
             "Settings",
@@ -68,6 +69,16 @@ describe("Workbench — menu bar wiring", () => {
         entryByLabel(popup, "Open Folder...").onSelect?.();
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.files.openFolder");
+    });
+
+    it("File → Open Workspace from File... runs the open-workspace command", () => {
+        const { testApp, commands } = createAppTestHarness();
+        const executeSpy = vi.spyOn(commands, "execute");
+        const popup = openMenu(testApp, "f");
+
+        entryByLabel(popup, "Open Workspace from File...").onSelect?.();
+
+        expect(executeSpy).toHaveBeenCalledWith("workbench.action.openWorkspace");
     });
 
     it("File → New Untitled File runs the new-untitled command", () => {

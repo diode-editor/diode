@@ -83,6 +83,31 @@ describe("diode-settings — автодополнение ключей в settin
         }
     });
 
+    // Файл воркспейса держит те же настройки в блоке `settings`: подсказки — там.
+    it("в файле .code-workspace предлагает ключи внутри блока settings", async () => {
+        const harness = await createExtensionTestHarness({
+            activateEvents: [],
+            extensions: [settingsExtension()],
+        });
+        try {
+            await harness.host.activateByEvent("onLanguage:json");
+            await settle();
+            const file = await openDocument(harness, "web.code-workspace", '{\n  "settings": {\n    \n  }\n}');
+            const { items } = await provideCompletions(harness, {
+                ...file,
+                languageId: "jsonc",
+                line: 2,
+                character: 4,
+            });
+            expect(items.map((i) => i.label)).toContain("editor.tabSize");
+
+            const root = await provideCompletions(harness, { ...file, languageId: "jsonc", line: 1, character: 2 });
+            expect(root.items).toEqual([]);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
     it("для не-settings JSON селектор не срабатывает → []", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],

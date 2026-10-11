@@ -1,4 +1,4 @@
-import { parseTree } from "jsonc-parser";
+import { findNodeAtLocation, parseTree } from "jsonc-parser";
 
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -22,6 +22,19 @@ export function workspaceUnsupportedSettingMessage(scope: ConfigurationScope | u
 }
 
 /**
+ * Почему ключ не действует в `.diode/settings.json` папки, когда окно открыто
+ * файлом `.code-workspace` (`handleWorkspaceFolderConfiguration` эталона): к
+ * причинам воркспейса добавляется `window` — такие ключи окно берёт из файла
+ * воркспейса.
+ */
+export function folderUnsupportedSettingMessage(scope: ConfigurationScope | undefined): string | null {
+    if (scope === "window") {
+        return "This setting cannot be applied in this workspace. It will be applied when you open the containing workspace folder directly.";
+    }
+    return workspaceUnsupportedSettingMessage(scope);
+}
+
+/**
  * Validates a `settings.json` document against the set of known configuration
  * keys and returns a diagnostic marker for every unknown top-level property —
  * the terminal analogue of VS Code's JSON-schema validation of settings.json,
@@ -37,13 +50,19 @@ export function workspaceUnsupportedSettingMessage(scope: ConfigurationScope | u
  * `application`/`machine`: файл их не применяет, и эталон
  * (`handleWorkspaceConfiguration` в `preferencesRenderers.ts`) ставит на них
  * подсказку (`Hint`) с объяснением. `null` — ключ здесь действует.
+ *
+ * `section` — где в документе лежат настройки: у файла `.code-workspace` это
+ * блок `settings`, а не корень (нет блока — нечего проверять).
  */
 export function validateSettingsJson(
     text: string,
     isKnownKey: (key: string) => boolean,
     unsupportedMessage: (key: string) => string | null = () => null,
+    section?: string,
 ): IMarkerData[] {
-    const root = parseTree(text);
+    const tree = parseTree(text);
+    // Stryker disable next-line ConditionalExpression: findNodeAtLocation сам отвечает undefined на пустое дерево — `tree === undefined` нужен только его типу
+    const root = section === undefined || tree === undefined ? tree : findNodeAtLocation(tree, [section]);
     if (root?.type !== "object") return [];
 
     const lineStarts = computeLineStarts(text);

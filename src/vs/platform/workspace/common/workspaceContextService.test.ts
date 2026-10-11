@@ -67,6 +67,64 @@ describe("WorkspaceContextService", () => {
         });
     });
 
+    describe("setWorkspaceFile", () => {
+        it("папка — из файла, состояние workspace, файл — в configuration", () => {
+            const service = new WorkspaceContextService();
+            service.setWorkspaceFile("/repo/web.code-workspace", { folder: "/repo", folderName: undefined });
+
+            const workspace = service.getWorkspace();
+            expect(service.getWorkbenchState()).toBe("workspace");
+            expect(workspace.configuration?.fsPath).toBe("/repo/web.code-workspace");
+            expect(workspace.folders.map((f) => [f.uri.fsPath, f.name, f.index])).toEqual([["/repo", "repo", 0]]);
+        });
+
+        it("name из файла — имя папки", () => {
+            const service = new WorkspaceContextService();
+            service.setWorkspaceFile("/repo/web.code-workspace", { folder: "/repo", folderName: "Web" });
+            expect(service.getWorkspace().folders[0]?.name).toBe("Web");
+        });
+
+        // Ради этого файлы воркспейса и заводятся: у двух файлов над одним
+        // каталогом — свои вкладки и раскладка, и обе отличны от самой папки.
+        it("идентичность — от пути файла: два файла над одной папкой и сама папка — три проекта", () => {
+            const service = new WorkspaceContextService();
+            const web = service.setWorkspaceFile("/repo/web.code-workspace", {
+                folder: "/repo",
+                folderName: undefined,
+            });
+            expect(web).toBe(computeWorkspaceId("/repo/web.code-workspace"));
+            expect(service.getWorkspace().id).toBe(web);
+
+            const backend = service.setWorkspaceFile("/repo/backend.code-workspace", {
+                folder: "/repo",
+                folderName: undefined,
+            });
+            const folder = service.setWorkspaceFolder("/repo");
+            expect(new Set([web, backend, folder]).size).toBe(3);
+        });
+
+        it("резолвит относительные пути файла и папки", () => {
+            const service = new WorkspaceContextService();
+            const id = service.setWorkspaceFile("ws/web.code-workspace", { folder: "ws", folderName: undefined });
+            expect(service.getWorkspace().configuration?.fsPath).toBe(`${process.cwd()}/ws/web.code-workspace`);
+            expect(service.getWorkspace().folders[0]?.uri.fsPath).toBe(`${process.cwd()}/ws`);
+            expect(id).toBe(computeWorkspaceId(`${process.cwd()}/ws/web.code-workspace`));
+        });
+
+        it("оповещает подписчиков, а Open Folder после него возвращает состояние folder", () => {
+            const service = new WorkspaceContextService();
+            const listener = vi.fn();
+            service.onDidChangeWorkspaceFolders(listener);
+
+            service.setWorkspaceFile("/repo/web.code-workspace", { folder: "/repo", folderName: undefined });
+            expect(listener).toHaveBeenCalledTimes(1);
+
+            service.setWorkspaceFolder("/repo");
+            expect(service.getWorkbenchState()).toBe("folder");
+            expect(service.getWorkspace().configuration).toBeUndefined();
+        });
+    });
+
     describe("getWorkspaceFolder", () => {
         function opened(): WorkspaceContextService {
             const service = new WorkspaceContextService();

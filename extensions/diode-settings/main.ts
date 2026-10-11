@@ -26,9 +26,11 @@ import { SETTINGS_SCHEMA } from "./settings-schema.generated.ts";
 export function activate(context: { readonly subscriptions: { dispose(): unknown }[] }): void {
     // Селектор с `pattern:"**/settings.json"`: активируемся на любом JSON
     // (onLanguage:json/jsonc), но подсказки отдаём только для файла настроек.
+    // Файл воркспейса `.code-workspace` держит те же настройки в блоке `settings`.
     const selector = [
         { language: "json", pattern: "**/settings.json" },
         { language: "jsonc", pattern: "**/settings.json" },
+        { language: "jsonc", pattern: "**/*.code-workspace" },
     ];
 
     context.subscriptions.push(
@@ -41,7 +43,8 @@ export function activate(context: { readonly subscriptions: { dispose(): unknown
                 ): vscode.CompletionItem[] {
                     const text = document.getText();
                     const offset = positionToOffset(text, position.line, position.character);
-                    const where = getSettingsCompletionContext(text, offset);
+                    const section = document.fileName.endsWith(".code-workspace") ? "settings" : undefined;
+                    const where = getSettingsCompletionContext(text, offset, section);
                     if (where === null) return [];
 
                     const range = toRange(text, where.replaceRange);
