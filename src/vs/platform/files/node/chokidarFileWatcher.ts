@@ -17,6 +17,15 @@ interface IWatchTarget {
 }
 
 /**
+ * Путь в той форме, в какой chokidar отдаёт его предикату `ignored`: прямые
+ * слэши (`normalizePath` у chokidar). На Windows `C:\ws\.diode` приходит как
+ * `C:/ws/.diode`, и сравнение с родным путём отбросило бы всё — и сам файл.
+ */
+export function toChokidarPath(fsPath: string): string {
+    return fsPath.replaceAll("\\", "/");
+}
+
+/**
  * Реальная реализация {@link IFileWatcher} поверх chokidar (та же зависимость,
  * что и в дереве файлов). Следит за одним файлом; любое событие (`change`,
  * `add` после атомарного save-by-rename, `unlink`) прокидывается в `onChange`.
@@ -74,12 +83,13 @@ export class ChokidarFileWatcher implements IFileWatcher {
 
         const arm = (): void => {
             const { directory, awaited } = this.watchTarget(filePath);
+            const kept = new Set([toChokidarPath(directory), toChokidarPath(awaited)]);
             const created = this.createWatcher(directory, {
                 ignoreInitial: true,
                 // Только прямые потомки, и из них — один ожидаемый сегмент:
                 // соседи (src, node_modules проекта) не обходятся.
                 depth: 0,
-                ignored: (candidate: string) => candidate !== directory && candidate !== awaited,
+                ignored: (candidate: string) => !kept.has(candidate),
             });
             watcher = created;
 

@@ -7,7 +7,7 @@ import type { LogEntry } from "../../log/common/iLogService.ts";
 import { LogLevel } from "../../log/common/logLevel.ts";
 import { LogService } from "../../log/common/logService.ts";
 
-import { ChokidarFileWatcher } from "./chokidarFileWatcher.ts";
+import { ChokidarFileWatcher, toChokidarPath } from "./chokidarFileWatcher.ts";
 
 /** Фейковый FSWatcher: обычный EventEmitter + счётчик close() + что ему отдали. */
 class FakeWatcher extends EventEmitter {
@@ -66,6 +66,16 @@ function ignoredBy(options: ChokidarOptions): (candidate: string) => boolean {
     if (typeof ignored !== "function") throw new Error("expected an `ignored` predicate");
     return (candidate) => ignored(candidate);
 }
+
+describe("toChokidarPath", () => {
+    it("путь Windows — в прямые слэши, как его видит `ignored` chokidar'а", () => {
+        expect(toChokidarPath("C:\\ws\\.diode\\settings.json")).toBe("C:/ws/.diode/settings.json");
+    });
+
+    it("POSIX-путь не меняется", () => {
+        expect(toChokidarPath("/ws/.diode/settings.json")).toBe("/ws/.diode/settings.json");
+    });
+});
 
 describe("ChokidarFileWatcher", () => {
     it("survives a watcher 'error' (ENOSPC) instead of crashing the process", () => {
