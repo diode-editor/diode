@@ -289,7 +289,9 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         const { harness, logger } = await start([dependent(["test.dep"]), dependency("hangsOnActivate.cjs")]);
 
         const activation = harness.host.activateByEvent("onLanguage:java");
-        await expect.poll(() => fs.existsSync(marker)).toBe(true);
+        // Маркер пишет субпроцесс: под инструментацией Stryker (полный прогон,
+        // два раннера) он поднимается дольше секунды поллинга по умолчанию.
+        await expect.poll(() => fs.existsSync(marker), { timeout: 10_000 }).toBe(true);
         harness.host.dispose();
         await activation;
 

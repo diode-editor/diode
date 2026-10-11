@@ -91,6 +91,8 @@ describe("env.createTelemetryLogger — телеметрия выключена 
     describe("проверка отправителя — тексты эталона", () => {
         it.each([
             ["не объект", "sender" as unknown, "TelemetrySender argument is invalid"],
+            // `typeof null === "object"` — первую проверку null проходит.
+            ["null", null as unknown, "TelemetrySender.sendEventData must be a function"],
             [
                 "без sendEventData",
                 { sendErrorData: () => undefined } as unknown,

@@ -22,11 +22,12 @@ export function createTelemetryLogger(
 ): vscode.TelemetryLogger {
     validateSender(sender);
     let pending: vscode.TelemetrySender | undefined = sender;
-    const onDidChangeEnableStates = new EventEmitter<vscode.TelemetryLogger>();
     return Object.freeze({
         isUsageEnabled: false,
         isErrorsEnabled: false,
-        onDidChangeEnableStates: onDidChangeEnableStates.event,
+        // Состояние не меняется никогда — эмиттер не стреляет, и освобождать
+        // в dispose нечего: он уходит в сборщик мусора вместе с логгером.
+        onDidChangeEnableStates: new EventEmitter<vscode.TelemetryLogger>().event,
         logUsage: (): void => undefined,
         logError: (): void => undefined,
         dispose: (): void => {
@@ -35,7 +36,6 @@ export function createTelemetryLogger(
             // Буфер отправителя сбрасывается без ожидания и без права уронить
             // субпроцесс: эталон тоже не ждёт `flush` и не смотрит в его исход.
             if (flushing?.flush) Promise.resolve(flushing.flush()).catch(() => undefined);
-            onDidChangeEnableStates.dispose();
         },
     });
 }
