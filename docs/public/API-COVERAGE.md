@@ -35,16 +35,16 @@
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
-| [`vscode.env`](#vscodeenv) | 🟡 | 11/21 |
+| [`vscode.env`](#vscodeenv) | 🟡 | 12/21 |
 | [`vscode.tasks`](#vscodetasks) | 🟡 | 8/8 |
+| [`vscode.authentication`](#vscodeauthentication) | 🟡 | 4/4 |
 | [`vscode.debug`](#пока-не-поднятые-namespace) | 🕐 | 0/18 |
 | [`vscode.scm`](#пока-не-поднятые-namespace) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#пока-не-поднятые-namespace) | 🕐 | 0/3 |
-| [`vscode.authentication`](#пока-не-поднятые-namespace) | 🕐 | 0/4 |
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 172/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 187/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
@@ -196,9 +196,10 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## vscode.env
 
-🟡 **11/21.** Поднято то, что в терминале имеет смысл и реализовано по-настоящему: буфер обмена и
+🟡 **12/21.** Поднято то, что в терминале имеет смысл и реализовано по-настоящему: буфер обмена и
 открытие внешней ссылки плюс константы окружения, которые расширения читают прямо в `activate()`
-(`vscode-languageclient` — `language`/`appName`, стоковый `redhat.java` — `uiKind` и телеметрию).
+(`vscode-languageclient` — `language`/`appName`, стоковый `redhat.java` — `uiKind` и телеметрию,
+`@vscode/extension-telemetry` — логгер телеметрии).
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -209,10 +210,24 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `remoteName` | ✅ | `undefined` по букве контракта — удалённого extension host'а в Diode нет |
 | `sessionId` | 🟡 | случайный uuid на сеанс extension host'а: стабилен внутри запуска, различается между запусками. Отклонение от эталона — там id переживает перезапуск extension host'а, у нас шим собирается заново вместе с субпроцессом |
 | `isTelemetryEnabled`, `onDidChangeTelemetryEnabled` | ✅ | телеметрии в Diode нет вовсе — ни своей, ни канала для чужой, поэтому флаг всегда `false`, а событие валидное и никогда не стреляет (менять нечего) |
-| `machineId`, `isNewAppInstall`, `isAppPortable`, `createTelemetryLogger` | 🕐 | |
+| `createTelemetryLogger` | ✅ | эталонный логгер при выключенной телеметрии: `isUsageEnabled`/`isErrorsEnabled` — `false`, `logUsage`/`logError` до отправителя не доходят, `onDidChangeEnableStates` не стреляет, на первом `dispose` — `flush` отправителя. Проверка отправителя и её тексты — эталонные. Без члена падал `@vscode/extension-telemetry` (репортер строит логгер в конструкторе), а с ним — вся активация `hashicorp.terraform`. `TelemetryTrustedValue` — настоящий класс |
+| `machineId`, `isNewAppInstall`, `isAppPortable` | 🕐 | |
 | `shell`, `onDidChangeShell` | 🕐 | |
 | `asExternalUri` | 🕐 | нужен вместе с `registerUriHandler` |
 | `logLevel`, `onDidChangeLogLevel` | 🕐 | |
+
+## vscode.authentication
+
+🟡 **4/4.** Декларации подняты целиком, рантайм — null-объект: входа в Diode пока нет, настоящие
+провайдеры — в планах. Namespace есть, потому что его отсутствие убивало расширение целиком: `hashicorp.terraform` регистрирует свой
+провайдер и спрашивает сессию в `activate()`, до старта языкового сервера.
+
+| член | статус | комментарий |
+| --- | :-: | --- |
+| `getSession` | 🟡 | без `createIfNone`/`forceNewSession` — `undefined` («не входил»). С ними — отказ с причиной «вход в TUI пока не поддержан»: эталон в этом месте спрашивает человека, а перегрузка обещает сессию, и `undefined` уронил бы расширение невнятным `TypeError`. Несовместимые с `silent` опции — эталонные ошибки |
+| `getAccounts` | 🟡 | пустой список |
+| `onDidChangeSessions` | 🟡 | валидное событие, никогда не стреляет — сессий нет |
+| `registerAuthenticationProvider` | 🟡 | `Disposable`, провайдер никто не зовёт; в Output — одна строка на id провайдера, что входа не будет |
 
 ## События активации (`activationEvents`)
 
@@ -237,7 +252,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `onDebug`, `onDebugInitialConfigurations`, `onDebugDynamicConfigurations`, `onDebugResolve:<type>`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | вместе с `vscode.debug` |
 | `onTaskType:<type>` | ✅ | Run Task поднимает провайдеров перед тем, как спросить задачи (`onCommand:workbench.action.tasks.runTask` и `onTaskType:<type>`; без типа — все типы из `contributes.taskDefinitions`), плюс **неявное** `onTaskType:<type>` из `contributes.taskDefinitions` |
 | `onNotebook:<type>` | 🕐 | вместе с `vscode.notebooks` |
-| `onAuthenticationRequest:<id>` | 🕐 | вместе с `vscode.authentication` |
+| `onAuthenticationRequest:<id>` | 🕐 | вместе с настоящими провайдерами `vscode.authentication` (сейчас namespace — null-объект) |
 | `onChatParticipant:<id>`, `onChatContextProvider:<id>`, `onLanguageModelChatProvider:<id>`, `onLanguageModelTool:<id>` | 🕐 | вместе с `vscode.chat` / `vscode.lm` |
 | `onTerminal`, `onTerminalProfile:<id>`, `onTerminalQuickFixRequest:<id>`, `onTerminalShellIntegration` | 🕐 | вместе с соответствующими вкладами терминала |
 | `onFileSystem:<scheme>`, `onSearch:<scheme>`, `onEditSession:<scheme>`, `onIssueReporterOpened` | 🕐 | |
@@ -249,7 +264,6 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `vscode.debug` | 🕐 | DAP — в заявленном стеке проекта, поверхность появится вместе с дебаггером |
 | `vscode.scm` | 🕐 | source control |
 | `vscode.notebooks` | 🕐 | сериализация — возможна; рендеры ячеек — webview, их не будет |
-| `vscode.authentication` | 🕐 | |
 | `vscode.tests` | 🕐 | Test API |
 | `vscode.chat`, `vscode.lm` | 🕐 | текстовые по природе — терминалу не противопоказаны |
 
@@ -272,7 +286,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## Типы с неполной поверхностью
 
-Активно 172 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 187 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.

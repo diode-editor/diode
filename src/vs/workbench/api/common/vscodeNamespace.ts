@@ -5,6 +5,7 @@ import type * as vscode from "vscode";
 import { UI_LOCALE } from "../../../platform/environment/common/uiLocale.ts";
 
 import { implementsApi } from "./apiSurface.ts";
+import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
@@ -14,6 +15,7 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { createTasksNamespace } from "./tasksNamespace.ts";
+import { createTelemetryLogger } from "./telemetryLogger.ts";
 import { createTerminalNamespace } from "./terminalNamespace.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
@@ -97,6 +99,7 @@ import {
     TaskPanelKind,
     TaskRevealKind,
     TaskScope,
+    TelemetryTrustedValue,
     TerminalExitReason,
     TerminalLocation,
     TextDocumentChangeReason,
@@ -235,6 +238,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
          */
         isTelemetryEnabled: false,
         onDidChangeTelemetryEnabled: new EventEmitter<boolean>().event,
+        /** Логгер с навсегда выключенной телеметрией — см. telemetryLogger.ts. */
+        createTelemetryLogger,
 
         /**
          * Удалённого extension host'а нет — `undefined` по букве контракта
@@ -427,6 +432,11 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         TreeItemCollapsibleState,
         TreeItemCheckboxState,
         ThemeIcon,
+        // Расширения конструируют его при вызове `logUsage` — значение, а не тип.
+        TelemetryTrustedValue,
+        // Входа нет: сессии `undefined`, провайдеры принимаются и не зовутся
+        // (authenticationNoop.ts). Без namespace'а `activate()` падал целиком.
+        authentication: createAuthenticationNoop(rpc),
     };
 
     return {

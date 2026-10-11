@@ -30,6 +30,17 @@ describe("stripMarkdown — плоский текст для TUI-попапа", 
         expect(stripMarkdown("экранированный \\*символ\\*")).toBe("экранированный *символ*");
     });
 
+    it("`_курсив_` снимается только на границе слова — snake_case не трогается", () => {
+        // terraform-ls помечает тип так: «`var.region` _string_».
+        expect(stripMarkdown("`var.region`\n_string_")).toBe("var.region\nstring");
+        expect(stripMarkdown("тип (_строка_), см. aws_instance_type")).toBe("тип (строка), см. aws_instance_type");
+        expect(stripMarkdown("a_b_c и _x_y")).toBe("a_b_c и _x_y");
+        expect(stripMarkdown("_ не курсив _ и __")).toBe("_ не курсив _ и __");
+        expect(stripMarkdown("_слово_ы")).toBe("_слово_ы");
+        expect(stripMarkdown("_a_")).toBe("a");
+        expect(stripMarkdown("экранированный \\_символ\\_")).toBe("экранированный _символ_");
+    });
+
     it("многострочный hover tsserver'а: сигнатура + документация", () => {
         expect(stripMarkdown("```typescript\nconst answer: number\n```\nОтвет на главный вопрос.")).toBe(
             "const answer: number\nОтвет на главный вопрос.",

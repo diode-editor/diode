@@ -378,7 +378,7 @@ expect(ed?.state?.hasSelection).toBe(true);
 
 Действующие сьюты по этой конвенции: `extensionHost.pythonLsp*`, `e2e/pythonLsp.test.ts`,
 сценарий `python-lsp`, `e2e/editorconfig-stock.test.ts`, `extensionHost.maptzRegionfolder`,
-сценарий `region-folding`. Закоммиченных сторонних `.vsix` в репозитории больше нет; стока,
+сценарий `region-folding`, `extensionHost.terraformLsp` и сценарий `terraform-lsp`. Закоммиченных сторонних `.vsix` в репозитории больше нет; стока,
 которого нет на Open VSX, это тоже касается — такой vsix перевыкладывается в реестре
 (`kind: "proxy-hosted"`, лицензия должна разрешать редистрибуцию). Новые тесты на стоковые
 расширения пишутся сразу по конвенции; предпосылка — расширение опубликовано в магазине

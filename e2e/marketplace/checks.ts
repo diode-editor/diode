@@ -173,6 +173,32 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx", платформенный vsix со вшитым нативным
+        // `terraform-ls`. Чек проходит активацию целиком (TreeItem,
+        // context.extension, createTelemetryLogger, authentication — без любого
+        // из них сервер не стартовал) и доходит до диагностики в кадре. Схемы
+        // провайдеров вшиты: terraform CLI и `terraform init` не нужны.
+        id: "hashicorp.terraform",
+        expectFiles: ["package.json", "dist/extension.js", "bin/terraform-ls"],
+        timeoutMs: 420_000,
+        run: async (ctx) => {
+            // Лишний атрибут ресурса → «Unexpected attribute» от сервера →
+            // undercurl (StyleFlags.Undercurl === 8).
+            const file = join(ctx.root, "main.tf");
+            writeFileSync(file, 'resource "aws_instance" "web" {\n  bogus_attr = 1\n}\n');
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle от terraform-ls", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx" — стоковая цветовая тема (Catppuccin, четыре темы
         // через `contributes.themes`, tokenColors inline, 141 цвет с альфой).
         // Чек доказывает путь темы из магазина наблюдаемым кадром: настройка
