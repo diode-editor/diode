@@ -8,12 +8,12 @@ import type { ILogger } from "../../log/common/iLogger.ts";
 import { describeFileWatchError } from "../common/fileWatchErrors.ts";
 import type { IFileWatcher } from "../common/iFileWatcher.ts";
 
-/** Что именно отдать chokidar'у: сам файл либо ближайший существующий предок. */
+/** Что отдать chokidar'у: ближайший существующий каталог на пути к файлу и сегмент под ним. */
 interface IWatchTarget {
-    readonly path: string;
-    readonly options: ChokidarOptions;
-    /** Сегмент пути к файлу, появления которого ждём под предком; `null` — следим за самим файлом. */
-    readonly awaitedChild: string | null;
+    /** Существующий каталог — корень chokidar'а. */
+    readonly directory: string;
+    /** Сегмент под ним, за которым следим: сам файл либо недостающий каталог на пути к нему. */
+    readonly awaited: string;
 }
 
 /**
@@ -24,14 +24,24 @@ interface IWatchTarget {
  * Дебаунсит всплеск событий (атомарная запись = unlink+add за пару миллисекунд),
  * чтобы потребитель перечитал диск один раз, а не на каждый чих.
  *
+ * **Chokidar'у отдаём каталог файла, а не сам файл** — без рекурсии
+ * (`depth: 0`), из соседей пропускается только файл. За файлом-корнем chokidar
+ * следит `fs.watch` на его inode, а этот `fs.watch` у него общий на процесс для
+ * всех экземпляров, следящих за тем же путём. Атомарное сохранение (временный
+ * сосед + `rename`, так пишет и наш редактор) меняет inode; экземпляр,
+ * заметивший это первым, переподписывается — и попадает обратно на тот же
+ * общий мёртвый `fs.watch`, который держит второй. Глохнут оба, и молча.
+ * А за одним файлом у нас следят двое: открытый в редакторе `settings.json`
+ * смотрят модель документа и сервис настроек, — и вторая же правка настроек
+ * не применялась, а сохранение после записи снаружи упиралось в Overwrite
+ * (проверено пробой и `chokidarFileWatcher.atomicSave.test.ts`). Inode каталога
+ * при сохранении не меняется.
+ *
  * **Файл, у которого ещё нет каталога** (`<папка>/.diode/settings.json` до
- * первой записи, `User/settings.json` свежего профиля), chokidar молча не
- * видит: он вешает watch на родительский каталог, а того нет — и создание
- * каталога с файлом не даёт ни одного события (проверено пробой). Поэтому в
- * таком случае следим за ближайшим **существующим** предком без рекурсии
- * (`depth: 0`, из соседей пропускается только ожидаемый сегмент), а на
- * появление сегмента перевешиваемся ближе к файлу — пока не дойдём до него
- * самого. Файл, успевший появиться к моменту перевешивания, считается
+ * первой записи, `User/settings.json` свежего профиля), — тот же приём уровнем
+ * выше: следим за ближайшим **существующим** предком, ожидая недостающий
+ * сегмент, а на его появление перевешиваемся ближе к файлу — пока не дойдём до
+ * его каталога. Файл, успевший появиться к моменту перевешивания, считается
  * изменением: `ignoreInitial` его бы не отдал.
  */
 export class ChokidarFileWatcher implements IFileWatcher {
@@ -63,11 +73,17 @@ export class ChokidarFileWatcher implements IFileWatcher {
         };
 
         const arm = (): void => {
-            const target = this.watchTarget(filePath);
-            const created = this.createWatcher(target.path, target.options);
+            const { directory, awaited } = this.watchTarget(filePath);
+            const created = this.createWatcher(directory, {
+                ignoreInitial: true,
+                // Только прямые потомки, и из них — один ожидаемый сегмент:
+                // соседи (src, node_modules проекта) не обходятся.
+                depth: 0,
+                ignored: (candidate: string) => candidate !== directory && candidate !== awaited,
+            });
             watcher = created;
 
-            if (target.awaitedChild === null) {
+            if (awaited === filePath) {
                 created.on("change", notify);
                 created.on("add", notify);
                 created.on("unlink", () => {
@@ -75,7 +91,7 @@ export class ChokidarFileWatcher implements IFileWatcher {
                     // Снесли каталог целиком (`rm -rf .diode`) — watch на нём мёртв,
                     // ждём каталог заново. Удаление одного файла каталог не трогает.
                     // Stryker disable next-line BooleanLiteral: каталога нет — значит, нет и файла; «мог появиться» проверит exists и ничего не найдёт
-                    if (!this.exists(path.dirname(filePath))) rearm(false);
+                    if (!this.exists(directory)) rearm(false);
                 });
             } else {
                 // Ждём ровно один сегмент: всё остальное отфильтровано `ignored`.
@@ -86,8 +102,7 @@ export class ChokidarFileWatcher implements IFileWatcher {
 
             // Слушатель 'error' обязателен: без него EventEmitter chokidar'а бросает
             // исключение из своих async-потрохов, оно всплывает как unhandledRejection
-            // и убивает процесс (типовой случай — ENOSPC, исчерпан лимит inotify:
-            // следим за settings.json, а chokidar под капотом watch'ит его каталог).
+            // и убивает процесс (типовой случай — ENOSPC, исчерпан лимит inotify).
             // Живой watcher после такой ошибки всё равно мёртв — закрываем его и живём
             // без live-reload этого файла, но с работающим редактором.
             created.on("error", (error) => {
@@ -112,26 +127,17 @@ export class ChokidarFileWatcher implements IFileWatcher {
     }
 
     /**
-     * Сам файл, если его каталог существует; иначе — ближайший существующий
-     * предок с ожиданием недостающего сегмента под ним.
+     * Каталог файла и сам файл, если каталог существует; иначе — ближайший
+     * существующий предок и недостающий сегмент под ним.
      */
     private watchTarget(filePath: string): IWatchTarget {
-        let awaited = path.dirname(filePath);
-        if (this.exists(awaited)) return { path: filePath, options: { ignoreInitial: true }, awaitedChild: null };
-        let ancestor = path.dirname(awaited);
-        while (!this.exists(ancestor) && ancestor !== path.dirname(ancestor)) {
-            awaited = ancestor;
-            ancestor = path.dirname(ancestor);
+        let awaited = filePath;
+        let directory = path.dirname(filePath);
+        while (!this.exists(directory) && directory !== path.dirname(directory)) {
+            awaited = directory;
+            directory = path.dirname(directory);
         }
-        return {
-            path: ancestor,
-            options: {
-                ignoreInitial: true,
-                depth: 0,
-                ignored: (candidate: string) => candidate !== ancestor && candidate !== awaited,
-            },
-            awaitedChild: awaited,
-        };
+        return { directory, awaited };
     }
 
     /** Шов для тестов: подменяемое создание реального chokidar-watcher'а. */
