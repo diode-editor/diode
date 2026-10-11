@@ -71,6 +71,7 @@ describe("ExplorerComponent hover", () => {
             clipboard,
             contextMenuService,
             makeViewsHarness().service,
+            NULL_CONFIGURATION_SERVICE,
         );
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(30, 10));

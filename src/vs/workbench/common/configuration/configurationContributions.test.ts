@@ -18,7 +18,7 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  *   `codeActionsOnSave`; наши `editor.inlineSuggest.{delay,requestTimeout}`
  *   своих у эталона не имеют и идут за семьёй.
  * - `explorer.*`, `files.enableTrash`, `workbench.colorTheme`,
- *   `workbench.editor.enablePreview` — `window`: у эталона скоуп не указан, то
+ *   `workbench.editor.enablePreview`, `workbench.tree.expandMode` — `window`: у эталона скоуп не указан, то
  *   есть дефолтный `WINDOW` (одно значение на окно).
  * - `files.watcherExclude`, `files.watcherInclude`, `scm.graph.pageSize` —
  *   `resource`: у эталона первые два помечены `RESOURCE` явно, третий
@@ -39,6 +39,7 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
 const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "workbench.colorTheme": "window",
     "workbench.editor.enablePreview": "window",
+    "workbench.tree.expandMode": "window",
 
     "editor.tabSize": "language-overridable",
     "editor.insertSpaces": "language-overridable",

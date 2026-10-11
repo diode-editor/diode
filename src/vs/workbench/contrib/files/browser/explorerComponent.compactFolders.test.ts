@@ -74,7 +74,14 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
                 new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
             ),
         );
-        component = new ExplorerComponent(service, commands, clipboard, contextMenuService, makeViewsHarness().service);
+        component = new ExplorerComponent(
+            service,
+            commands,
+            clipboard,
+            contextMenuService,
+            makeViewsHarness().service,
+            config,
+        );
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(40, 12));
         service.focus();

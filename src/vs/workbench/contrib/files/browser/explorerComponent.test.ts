@@ -2,7 +2,7 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -68,6 +68,7 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         clipboard,
         makeContextMenuService(commands),
         makeViewsHarness().service,
+        NULL_CONFIGURATION_SERVICE,
     );
     return {
         service,
@@ -162,23 +163,23 @@ describe("ExplorerComponent", () => {
         expect(output).toContain("main.ts");
     });
 
-    it("activating a directory node does not open an editor", () => {
-        // First item is the "src" directory (confirmed by other tests).
+    it("Enter на папке переключает её и редактор не открывает", async () => {
+        // Первая строка — папка src. Эталон: `list.select` → `toggleCollapsed`.
         app.sendKey("Enter");
-        app.render();
-
-        // Directories never execute workbench.openFile — they toggle/expand instead.
+        await vi.waitFor(() => {
+            app.render();
+            expect(app.backend.screenToString()).toContain("main.ts");
+        });
+        app.sendKey("Enter");
+        await vi.waitFor(() => {
+            app.render();
+            expect(app.backend.screenToString()).not.toContain("main.ts");
+        });
         expect(h.opened).toEqual([]);
     });
 
-    it("a file node activated via Enter opens, a directory activated via Enter does not", () => {
-        // src directory is first/selected — Enter must not open it.
-        app.sendKey("Enter");
-        app.render();
-        expect(h.opened).toEqual([]);
-
-        // Move to README.md (a file) — Enter must open it.
-        app.sendKey("ArrowDown");
+    it("Enter на файле открывает его", () => {
+        app.sendKey("ArrowDown"); // README.md
         app.render();
         app.sendKey("Enter");
         app.render();
@@ -377,6 +378,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
             clipboard,
             makeContextMenuService(new CommandRegistry()),
             makeViewsHarness().service,
+            NULL_CONFIGURATION_SERVICE,
         );
         const app = TestApp.createWithContent(component.view, new Size(30, 10));
         await service.refresh();

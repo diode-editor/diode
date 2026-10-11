@@ -29,10 +29,10 @@ export default defineScenario({
     rows: 20,
     async run(editor) {
         await editor.waitForText((t) => t.includes("src") && t.includes("README.md"));
-        // Клик по «src» выделяет строку; → раскрывает её — цепочка находится
-        // лениво, как у эталона, и текущим становится последний сегмент.
+        // Клик по «src» раскрывает папку (workbench.tree.expandMode: singleClick)
+        // — цепочка находится лениво, как у эталона, и текущим становится
+        // последний сегмент.
         await editor.clickNode("TreeViewElement", { dx: 4, dy: 0 });
-        await editor.sendKey("ArrowRight");
         await editor.waitForText((t) => t.includes("src/main/java/com/example") && t.includes("App.java"));
         await editor.capture("last-segment");
 
@@ -40,9 +40,13 @@ export default defineScenario({
         await editor.sendKey("ArrowLeft");
         await editor.capture("left-to-com");
 
-        // Клик мышью по «main» делает его текущим.
+        // Клик мышью по «main» делает его текущим и, как у эталона, переключает
+        // строку целиком — она сворачивается; второй клик раскрывает обратно.
         await editor.clickNode("TreeViewElement", { dx: MAIN_COLUMN, dy: 0 });
+        await editor.waitForText((t) => t.includes("src/main/java/com/example") && !t.includes("App.java"));
         await editor.capture("click-main");
+        await editor.clickNode("TreeViewElement", { dx: MAIN_COLUMN, dy: 0 });
+        await editor.waitForText((t) => t.includes("App.java"));
 
         // Правый клик по «java» → New File… → имя → файл в src/main/java.
         const tree = await editor.waitForNode("TreeViewElement");
@@ -55,7 +59,8 @@ export default defineScenario({
         await editor.sendText("Probe.java");
         await editor.waitForText((t) => t.includes("Probe.java"));
         await editor.sendKey("Enter");
-        // Хвост цепочки («com») стоит свёрнутым: его цепочку дерево узнает,
+        // Хвост цепочки («com») стоит свёрнутым, как у эталона (новая сжатая
+        // строка состояния головы не наследует); его цепочку дерево узнает,
         // когда его раскроют (сжатие ленивое).
         await editor.waitForText(
             (t) => t.includes("src/main/java") && !t.includes("src/main/java/com") && t.includes("Probe.java"),

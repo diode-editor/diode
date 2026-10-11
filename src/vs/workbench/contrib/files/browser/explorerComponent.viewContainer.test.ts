@@ -44,6 +44,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
             clipboard,
             new ContextMenuService(h.menuService),
             h.service,
+            NULL_CONFIGURATION_SERVICE,
         );
     });
 
