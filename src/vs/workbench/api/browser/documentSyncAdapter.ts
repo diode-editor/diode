@@ -50,10 +50,12 @@ export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncS
     return snapshots;
 }
 
-/** Документ, открытый субпроцессу: под каким uri и языком, и подписки на модель. */
+/** Под каким uri и языком документ открыт субпроцессу. */
+type IOpenedDocument = Pick<IWireDocumentSyncSnapshot, "uri" | "languageId">;
+
+/** Документ, открытый субпроцессу, и подписки на его модель. */
 interface ITrackedDocument {
-    uri: string;
-    languageId: string;
+    openedAs: IOpenedDocument;
     readonly subscriptions: DisposableStore;
 }
 
@@ -77,10 +79,11 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
      */
     const tracked = new Map<BaseTextEditorModel, ITrackedDocument>();
 
-    const openModel = (model: BaseTextEditorModel, record: ITrackedDocument): void => {
-        record.uri = model.uri.toString();
-        record.languageId = model.languageId;
-        host.didOpenTextDocument(documentSyncSnapshotOfModel(model));
+    /** didOpen снапшота модели; возвращает, под чем документ открыт. */
+    const openModel = (model: BaseTextEditorModel): IOpenedDocument => {
+        const snapshot = documentSyncSnapshotOfModel(model);
+        host.didOpenTextDocument(snapshot);
+        return { uri: snapshot.uri, languageId: snapshot.languageId };
     };
 
     /**
@@ -89,9 +92,10 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
      * Save As в новый ресурс): didClose прежнего и didOpen нового.
      */
     const resyncIdentity = (model: BaseTextEditorModel, record: ITrackedDocument): void => {
-        if (record.uri === model.uri.toString() && record.languageId === model.languageId) return;
-        host.didCloseTextDocument(record.uri);
-        openModel(model, record);
+        const { uri, languageId } = record.openedAs;
+        if (uri === model.uri.toString() && languageId === model.languageId) return;
+        host.didCloseTextDocument(uri);
+        record.openedAs = openModel(model);
     };
 
     const trackModel = (model: BaseTextEditorModel): void => {
@@ -101,9 +105,8 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
             return;
         }
         const subscriptions = new DisposableStore();
-        const record: ITrackedDocument = { uri: "", languageId: "", subscriptions };
+        const record: ITrackedDocument = { openedAs: openModel(model), subscriptions };
         tracked.set(model, record);
-        openModel(model, record);
         // Батч модели — сразу, без коалесинга: запрос провайдера, ушедший
         // следом, едет по тому же каналу ПОСЛЕ правки (порядок сообщений
         // заменяет версию в запросе, как у `$acceptModelChanged` эталона).
@@ -130,7 +133,7 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
             if (alive.has(model)) continue;
             record.subscriptions.dispose();
             tracked.delete(model);
-            host.didCloseTextDocument(record.uri);
+            host.didCloseTextDocument(record.openedAs.uri);
         }
         for (const model of alive) trackModel(model);
     };
