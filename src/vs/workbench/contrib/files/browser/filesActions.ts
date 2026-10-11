@@ -1,6 +1,12 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 
 import {
+    firstCompressedFolderAction,
+    lastCompressedFolderAction,
+    nextCompressedFolderAction,
+    previousCompressedFolderAction,
+} from "./compressedFolderActions.ts";
+import {
     fileOpenAction,
     fileOpenFolderAction,
     fileSaveAction,
@@ -47,4 +53,8 @@ export const FILES_ACTIONS: readonly CommandAction[] = [
     fileCopyRelativePathAction,
     explorerNewFileAction,
     explorerNewFolderAction,
+    previousCompressedFolderAction,
+    nextCompressedFolderAction,
+    firstCompressedFolderAction,
+    lastCompressedFolderAction,
 ];

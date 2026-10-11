@@ -34,7 +34,7 @@ function nodeKey(node: FileTreeNode): string {
 }
 
 /** Папки, которые показывает строка узла: от головы цепочки до `path` включительно. */
-function nodeSegments(node: FileTreeNode): readonly string[] {
+export function nodeSegments(node: FileTreeNode): readonly string[] {
     return node.compactParents ? [...node.compactParents, node.path] : [node.path];
 }
 
@@ -117,14 +117,14 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         // живёт внутри строки бейджа (фон выделения при этом заливает край как обычно).
         const badge = status?.badge && `${status.badge} `;
         if (element.isDirectory) {
+            // Компактная цепочка — одной строкой «a/b/c» из сегментов: текущий
+            // сегмент выбирает дерево (Left/Right, клик), как у эталона.
+            const segments = element.compactParents
+                ? nodeSegments(element).map((segment) => path.basename(segment))
+                : undefined;
             return {
-                // Компактная цепочка — одной меткой «a/b/c»; сегменты по
-                // отдельности не выбираются (у эталона — выбираются).
-                label: element.compactParents
-                    ? nodeSegments(element)
-                          .map((segment) => path.basename(segment))
-                          .join("/")
-                    : element.name,
+                label: segments?.join("/") ?? element.name,
+                labelSegments: segments,
                 collapsible: true,
                 symlink: element.isSymbolicLink,
                 labelColor: status?.color,

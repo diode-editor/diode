@@ -122,6 +122,12 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
     /** IContextKeyContributor: `filesExplorerFocus` — активный элемент внутри тела секции (дерево файлов). */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("filesExplorerFocus", this.containsFocus(active));
+        // Эталонные ключи компактной строки под курсором (`explorerView.onFocusChanged`
+        // + `updateCompressedNavigationContextKeys`): гейтят Left/Right/Home/End.
+        const compressed = this.explorerService.getCompressedFocus();
+        contextKeys.set("explorerViewletCompressedFocus", compressed !== null);
+        contextKeys.set("explorerViewletCompressedFirstFocus", compressed?.first ?? false);
+        contextKeys.set("explorerViewletCompressedLastFocus", compressed?.last ?? false);
     }
 
     private containsFocus(active: TUIElement | null): boolean {
@@ -162,7 +168,9 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
             }
         };
         tree.onContextMenu = (node, screenX, screenY) => {
-            this.showContextMenu(tree, node.path, screenX, screenY);
+            // Компактная строка: меню про папку текущего сегмента (дерево уже
+            // сделало текущим сегмент под правым кликом).
+            this.showContextMenu(tree, this.explorerService.nodePath(node), screenX, screenY);
         };
 
         this.explorerService.attachView(tree);

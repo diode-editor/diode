@@ -16,6 +16,7 @@
         "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > input.deleteRight [inputWidgetFocus]",
         "down: selectNextSuggestion [suggestWidgetVisible] > cursorDown [textViewFocus]",
         "down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorDown [textViewFocus]",
+        "end: lastCompressedFolder [filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus && !explorerViewletCompressedLastFocus] > list.focusLast [listFocus]",
         "enter: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.nextMatchFindAction [findWidgetVisible]",
         "escape: closeFindWidget [findWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
         "escape: closeParameterHints [parameterHintsVisible && !suggestWidgetVisible] > closeFindWidget [findWidgetVisible]",
@@ -31,6 +32,7 @@
         "escape: hideSuggestWidget [suggestWidgetVisible] > closeFindWidget [findWidgetVisible]",
         "escape: hideSuggestWidget [suggestWidgetVisible] > editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)]",
         "escape: hideSuggestWidget [suggestWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "home: firstCompressedFolder [filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus && !explorerViewletCompressedFirstFocus] > list.focusFirst [listFocus]",
         "pagedown: selectNextPageSuggestion [suggestWidgetVisible] > cursorPageDown [textViewFocus]",
         "pageup: selectPrevPageSuggestion [suggestWidgetVisible] > cursorPageUp [textViewFocus]",
         "tab: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.indentLines [textInputFocus && !editorReadonly]",
@@ -404,6 +406,7 @@
             "*": "ctrl+z",
             "mac-cmd (kitty) #3": "meta+z"
         },
+        "firstCompressedFolder": "home",
         "git.commit": "alt+enter",
         "hideSuggestWidget": "escape",
         "input.copy": "ctrl+c",
@@ -468,11 +471,14 @@
             "*": "ctrl+z",
             "mac-cmd (kitty) #2": "meta+z"
         },
+        "lastCompressedFolder": "end",
         "list.focusFirst": "home",
         "list.focusLast": "end",
         "list.focusPageDown": "pagedown",
         "list.focusPageUp": "pageup",
+        "nextCompressedFolder": "right",
         "notifications.focusMessage": "f6",
+        "previousCompressedFolder": "left",
         "redo": {
             "*": "ctrl+shift+z",
             "pc legacy #0": "ctrl+y",

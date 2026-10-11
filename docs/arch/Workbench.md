@@ -480,20 +480,35 @@ hide-toggle (`isHiddenByDefault`). См.
     [Configuration.md](Configuration.md#слой-exclude-настроек)).
     `explorer.compactFolders` — лениво, как эталон: раскрытие узла спускается от
     головы, пока у папки единственный ребёнок-каталог (не симлинк), и
-    переписывает узел строки — `path` становится последней папкой (на неё бьют
-    действия), свёрнутые предки — в `compactParents`, ключ дерева остаётся
+    переписывает узел строки — `path` становится последней папкой, свёрнутые
+    предки — в `compactParents`, ключ дерева остаётся
     головой (раскрытие переживает рост и разрыв цепочки). За раскрытым
     компактным узлом следят по каждой папке цепочки: изменение в последней
     перечитывает сам узел, в промежуточной — забывает цепочку и перечитывает
-    родителя головы. Сегменты строки по отдельности не выбираются (TODO,
-    раздел Explorer).
+    родителя головы. Сегменты строки провайдер отдаёт дереву как
+    `ITreeItem.labelSegments`; текущий сегмент (по умолчанию последний,
+    подчёркнут) держит `TreeViewElement` — как `CompressedNavigationController`
+    эталона: Left/Right/клик двигают его, выбор живёт по ключу строки и
+    переживает refresh и сворачивание строки (у эталона сбрасывается при любой
+    перерисовке строки: diode делает refresh на каждое обновление
+    git-декораций), сбрасывается при смене цепочки. Команды эталона
+    `previous/next/first/lastCompressedFolder` (`compressedFolderActions.ts`,
+    Left/Right/Home/End, вес `WorkbenchContrib + 10`) гейтятся ключами
+    `explorerViewletCompressed{,First,Last}Focus` — их ставит
+    `ExplorerComponent.updateContextKeys` по строке под курсором; на краю
+    цепочки ключ снимает бинд, и клавиша уходит дереву (свернуть, к родителю,
+    `list.focusFirst`).
   - `Services/ExplorerService.ts` — логика Explorer'а (аналог `IExplorerService`):
     корень воркспейса + владение провайдером (`setRootPath` пересоздаёт провайдер и
     файрит `onDidChangeRoot`), `revealPath` (цепочка предков строится по ходу
     раскрытия — следующая строка зависит от найденной компактной цепочки;
-    промежуточная папка компактной строки выделяет саму строку),
+    промежуточная папка компактной строки выделяет саму строку, текущий сегмент
+    не трогает — как эталон),
     `autoRevealActiveFile` (настройка `explorer.autoReveal`; активный файл передаёт
-    `WorkbenchComponent`), выбор (`getSelectedPaths`/`getPasteTargetDir`),
+    `WorkbenchComponent`), выбор (`getSelectedPaths`/`getPasteTargetDir`; у
+    компактной строки — папка текущего сегмента, `nodePath`; в мультивыборе —
+    все папки цепочки, как `getContext` эталона, а вставка схлопывает вложенные
+    пути, как `distinctParents`),
     `setFileDecorations` (мост декораций extension-host'а: адаптер
     `FileDecorationsServiceAdapter` типизирован минимальным интерфейсом
     `IFileDecorationsTarget`, сервис соответствует структурно), подсветка
