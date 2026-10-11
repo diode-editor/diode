@@ -4,9 +4,11 @@ import {
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
     parseWireEditorEdits,
+    parseWireProviderHandle,
     parseWireReadFileResult,
     parseWireShowTextDocumentParams,
     wireToCoreFoldingRegions,
+    wireToCoreSemanticTokens,
 } from "./hostWireParsers.ts";
 
 describe("hostWireParsers — wireToCoreFoldingRegions", () => {
@@ -193,5 +195,44 @@ describe("hostWireParsers — editor.*: не-объект с нужными по
 
     it("editorEdits: функция-правка отбрасывается", () => {
         expect(parseWireEditorEdits([fnWith({ range, text: "x" })])).toEqual([]);
+    });
+});
+
+describe("hostWireParsers — parseWireProviderHandle", () => {
+    it("целый handle проходит, остальное — null", () => {
+        expect(parseWireProviderHandle({ handle: 3 })).toStrictEqual({ handle: 3 });
+        expect(parseWireProviderHandle({ handle: 0, extra: 1 })).toStrictEqual({ handle: 0 });
+        for (const raw of [null, undefined, 5, {}, { handle: "3" }, { handle: 1.5 }]) {
+            expect(parseWireProviderHandle(raw)).toBeNull();
+        }
+    });
+});
+
+describe("hostWireParsers — wireToCoreSemanticTokens", () => {
+    it("null остаётся null", () => {
+        expect(wireToCoreSemanticTokens(null)).toBeNull();
+    });
+
+    it("полный ответ: id строкой в resultId, данные — Uint32Array", () => {
+        const result = wireToCoreSemanticTokens({ id: 7, type: "full", data: [0, 1, 2, 3, 4] });
+        expect(result).toStrictEqual({ resultId: "7", data: new Uint32Array([0, 1, 2, 3, 4]) });
+    });
+
+    it("дельта: правки с Uint32Array, правка без данных — data undefined", () => {
+        const result = wireToCoreSemanticTokens({
+            id: 0,
+            type: "delta",
+            deltas: [
+                { start: 5, deleteCount: 2, data: [9, 8] },
+                { start: 10, deleteCount: 1 },
+            ],
+        });
+        expect(result).toStrictEqual({
+            resultId: "0",
+            edits: [
+                { start: 5, deleteCount: 2, data: new Uint32Array([9, 8]) },
+                { start: 10, deleteCount: 1, data: undefined },
+            ],
+        });
     });
 });

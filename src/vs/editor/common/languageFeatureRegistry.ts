@@ -29,7 +29,7 @@ interface Entry<T> {
  * регистрация первой. Эксклюзивный селектор, подошедший документу, обнуляет
  * всех остальных. Пересчёт score кэширован по последнему документу.
  *
- * Не перенесены notebook-резолвер, `recursive`, `all`/`orderedGroups` и понижение
+ * Не перенесены notebook-резолвер, `recursive`, `all` и понижение
  * встроенных провайдеров — у нас нет ни ноутбуков, ни builtin-расширений.
  */
 export class LanguageFeatureRegistry<T> {
@@ -76,6 +76,23 @@ export class LanguageFeatureRegistry<T> {
             if (entry.score > 0) result.push(entry.provider);
         }
         return result;
+    }
+
+    /**
+     * Подходящие провайдеры, сгруппированные по равному score, группы — по
+     * убыванию score (upstream `orderedGroups`): семантические токены берут
+     * только старшую группу.
+     */
+    public orderedGroups(target: ILanguageFeatureTarget): T[][] {
+        this.updateScores(target);
+        const groups: { score: number; providers: T[] }[] = [];
+        for (const entry of this.entries) {
+            if (entry.score <= 0) continue;
+            const last = groups.at(-1);
+            if (last?.score === entry.score) last.providers.push(entry.provider);
+            else groups.push({ score: entry.score, providers: [entry.provider] });
+        }
+        return groups.map((group) => group.providers);
     }
 
     private updateScores(target: ILanguageFeatureTarget): void {

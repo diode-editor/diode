@@ -4,6 +4,7 @@ import type { ILanguageService } from "../vs/editor/common/languages/iLanguageSe
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
+import type { DocumentSemanticTokensFeature } from "../vs/editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import type { IFileService } from "../vs/platform/files/common/files.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
@@ -26,6 +27,8 @@ export interface IEditorPaneOverrides {
     readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
     /** Файловый сервис записи модели; по умолчанию — настоящий диск. */
     readonly files?: IFileService;
+    /** Семантическая подсветка (как из DI в `TextEditorPaneBuilder`); нет — только TextMate. */
+    readonly semanticTokens?: DocumentSemanticTokensFeature;
 }
 
 /**
@@ -46,6 +49,7 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         model,
         undefined,
         overrides.foldingProviders,
+        overrides.semanticTokens,
     );
     return new TextEditorPane(model, component);
 }
