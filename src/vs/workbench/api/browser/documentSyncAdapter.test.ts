@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
+import { createRange } from "../../../editor/common/core/iRange.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
@@ -41,6 +43,12 @@ describe("documentSyncAdapter", () => {
             NULL_FILE_WATCHER,
             createTestEditorContextMenuController(),
             NULL_LOG_SERVICE,
+            undefined,
+            undefined,
+            [],
+            undefined,
+            // Save As пишет на диск.
+            diskFileService(),
         );
     });
 
@@ -144,6 +152,70 @@ describe("documentSyncAdapter", () => {
         // Хост узнаёт о перечитке снапшотом: текст с диска, версия не откатилась.
         expect(flushes.at(-1)?.text).toBe("from disk");
         expect(flushes.at(-1)!.version).toBeGreaterThan(versionBefore);
+    });
+
+    it("bindDocumentSync: Save As в новый uri того же языка — didClose старого и didOpen нового", async () => {
+        const { host, opened, closed } = recordingHost();
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        const oldUri = editor.uri.toString();
+        bindDocumentSync(service, service.editorGroups, host);
+
+        await editor.saveAs(ws.path("renamed.ts"));
+
+        const newUri = editor.uri.toString();
+        expect(closed).toEqual([oldUri]);
+        expect(opened).toEqual([oldUri, newUri]);
+
+        // Закрытие — по новому uri.
+        service.editorGroups.activeGroup.closeTab(0);
+        expect(closed).toEqual([oldUri, newUri]);
+    });
+
+    it("bindDocumentSync: смена языка без смены uri — переоткрытие документа с новым языком", () => {
+        const opened: IWireDocumentSyncSnapshot[] = [];
+        const closed: string[] = [];
+        const host: IDocumentSyncTarget = {
+            didOpenTextDocument: (snapshot) => opened.push(snapshot),
+            didChangeTextDocument: () => undefined,
+            didChangeTextDocumentContent: () => undefined,
+            didCloseTextDocument: (uri) => closed.push(uri),
+        };
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        const uri = editor.uri.toString();
+        bindDocumentSync(service, service.editorGroups, host);
+
+        editor.model.setLanguage("javascript");
+
+        expect(closed).toEqual([uri]);
+        expect(opened.map((s) => [s.uri, s.languageId])).toEqual([
+            [uri, "plaintext"],
+            [uri, "javascript"],
+        ]);
+
+        // Тот же язык повторно — документ не меняется, переоткрытия нет.
+        service.openFile(ws.path("b.ts"));
+        expect(closed).toEqual([uri]);
+    });
+
+    it("bindDocumentSync: закрытый документ снимает подписки на модель, пережившую вкладку", () => {
+        const { host, opened, changed, closed } = recordingHost();
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        // Чужая ссылка (как у workspace edit) держит модель живой после вкладки.
+        const reference = service.textFileModels.acquire(editor.uri);
+        bindDocumentSync(service, service.editorGroups, host);
+        service.editorGroups.activeGroup.closeTab(0);
+        expect(closed).toHaveLength(1);
+
+        reference.model.setLanguage("javascript");
+        reference.model.document.applyEdits([{ range: createRange(0, 0, 0, 0), text: "x" }]);
+
+        expect(closed).toHaveLength(1);
+        expect(opened).toHaveLength(1);
+        expect(changed).toEqual([]);
+        reference.dispose();
     });
 
     it("bindDocumentSync: открытие нового файла после привязки даёт didOpen", () => {
