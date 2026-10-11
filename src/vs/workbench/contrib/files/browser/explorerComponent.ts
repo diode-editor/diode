@@ -7,6 +7,8 @@ import type { IFileClipboard } from "../../../../platform/clipboard/common/iFile
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -67,6 +69,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         FileClipboardDIToken,
         ContextMenuServiceDIToken,
         ViewsServiceDIToken,
+        IConfigurationServiceDIToken,
     ] as const;
 
     private parts: ExplorerViewParts | null = null;
@@ -77,6 +80,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         private readonly fileClipboard: IFileClipboard,
         private readonly contextMenuService: ContextMenuService,
         private readonly viewsService: ViewsService,
+        private readonly configurationService: IConfigurationService,
     ) {
         super();
         // Пустое тело до первого setRootPath: пока папка не открыта, секция
@@ -146,7 +150,16 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         /* v8 ignore stop */
         // Отступ контента в 1 колонку живёт внутри дерева, а не во внешнем
         // паддинг-контейнере: так подсветка курсора заливает строку от края панели.
-        const tree = new TreeViewElement<FileTreeNode>(provider, { leftPadding: 1 });
+        // `workbench.tree.expandMode` (эталон: `expandOnlyOnTwistieClick` у
+        // explorerView): `singleClick` — папку переключают клик по имени и
+        // Enter, `doubleClick` — только шеврон и двойной клик. Предикат
+        // читает настройку на каждом жесте — правка settings.json действует
+        // сразу. Вложенных файлов (`hasNests`) у нас нет.
+        const tree = new TreeViewElement<FileTreeNode>(provider, {
+            leftPadding: 1,
+            expandOnlyOnTwistieClick: () =>
+                this.configurationService.get("workbench.tree.expandMode") === "doubleClick",
+        });
         const scrollBars = new ScrollBarDecorator(tree);
         scrollBars.id = "explorerView";
         scrollBars.style = { fg: "sideBar.foreground", bg: "sideBar.background" };

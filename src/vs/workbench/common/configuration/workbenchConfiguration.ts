@@ -29,5 +29,16 @@ export const workbenchConfiguration = {
                 "preview mode. Making a change in a preview mode editor will persist it, as will the " +
                 "'Keep Open' option in its tab context menu.",
         },
+        // Раскрытие папки кликом по имени и Enter (`expandOnlyOnTwistieClick`
+        // дерева). Читает Explorer на каждом жесте.
+        "workbench.tree.expandMode": {
+            scope: "window",
+            type: "string",
+            enum: ["singleClick", "doubleClick"],
+            default: "singleClick",
+            description:
+                "Controls how tree folders are expanded when clicking the folder names. Note that some trees and " +
+                "lists might choose to ignore this setting if it is not applicable.",
+        },
     },
 } as const satisfies IConfigurationNode;

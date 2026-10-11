@@ -58,3 +58,11 @@ API реестра: `changeOne(owner, resource, markers[])`, `read({ resource?, 
 Метки в gutter/overview ruler, навигация по маркерам (F8/Shift+F8), hover с сообщением.
 Счётчик ошибок/варнингов — contribution к `StatusBarService` (нужен минорный апгрейд `StatusBarItem` —
 клик/цвет per-item); отдельный контекст-ключ `problemsFocus` (сейчас дерево Problems под `listFocus`).
+
+### [ ] 5. Клик по файлу раскрывает его, как у эталона
+У эталона дерево Problems (`markersView.ts`) задаёт свой предикат
+`expandOnlyOnTwistieClick`: файл раскрывается и сворачивается кликом по строке
+независимо от `workbench.tree.expandMode`, кликом шеврона — только маркер со
+связанной информацией. Наше дерево Problems стоит на дефолте `TreeViewElement`
+(только шеврон, → и двойной клик). Хватит опции конструктора дерева
+(`expandOnlyOnTwistieClick: false`) и теста до кадра.
