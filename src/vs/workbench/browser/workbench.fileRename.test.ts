@@ -72,13 +72,16 @@ describe("Workbench — Rename", () => {
         await vi.waitFor(() => {
             expect(fs.existsSync(ws.path("new.txt"))).toBe(true);
         });
-        await flushMicrotasks(FLUSH_TURNS);
-        h.testApp.render();
-
-        // Ни дерево, ни полоса вкладок старого имени больше не показывают.
-        const frame = h.testApp.backend.screenToString();
-        expect(frame).toContain("new.txt");
-        expect(frame).not.toContain("old.txt");
+        // Файл на диске появляется раньше, чем вкладка узнаёт о переименовании:
+        // под нагрузкой фиксированного числа микротасков не хватает — ждём кадр.
+        await vi.waitFor(async () => {
+            await flushMicrotasks(FLUSH_TURNS);
+            h.testApp.render();
+            // Ни дерево, ни полоса вкладок старого имени больше не показывают.
+            const frame = h.testApp.backend.screenToString();
+            expect(frame).toContain("new.txt");
+            expect(frame).not.toContain("old.txt");
+        });
 
         const editor = h.container.get(EditorServiceDIToken).getActiveEditor();
         expect(editor?.uri.fsPath).toBe(ws.path("new.txt"));
