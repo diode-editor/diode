@@ -1306,9 +1306,11 @@ describe("ExtensionHost — смена воркспейса окна", () => {
 
     it("без субпроцесса перезапускать нечего: остаётся проход workspaceContains по новым папкам", async () => {
         const scanned: string[] = [];
+        const logger = makeLogger();
         const workspace = makeSwitchableWorkspace("/old");
         const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE, {
             spawnArgs,
+            logger,
             configuration: workspace.provider,
             workspaceScanner: {
                 exists: (filePath: string) => {
@@ -1327,6 +1329,8 @@ describe("ExtensionHost — смена воркспейса окна", () => {
         expect(scanned).toEqual(["/new/pom.xml"]);
         expect(activated(next, "ext.java")).toBe(true);
         expect(spawnMock).toHaveBeenCalledTimes(1);
+        expect(logger.info).not.toHaveBeenCalledWith("workspace changed — restarting extension host");
+        expect(logger.info).toHaveBeenCalledWith('activated extension "ext.java" (workspaceContains:pom.xml)');
         host.dispose();
     });
 

@@ -1430,9 +1430,10 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * `workspaceContains:` по новым папкам.
      */
     public async restartForWorkspaceChange(): Promise<void> {
-        // Выключенный хост сюда тоже проходит: субпроцесса у него нет, а проход
-        // по папкам без регистраций ничего не поднимет.
-        if (this.process === null && this.rpc === null) {
+        // Канал есть ровно у поднятого спавна (`ensureSubprocess`/`endSpawn`).
+        // Выключенный хост сюда тоже проходит: спавна у него нет, а проход по
+        // папкам без регистраций ничего не поднимет.
+        if (this.rpc === null) {
             await this.activateByWorkspaceContains();
             return;
         }
