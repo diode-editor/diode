@@ -40,5 +40,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-12-ad521adab2a1.json",
+    "generatedAt": "2026-10-12T11:41:27.957Z",
+    "commit": "ad521adab2a1",
+    "binaryVersion": "nightly-ad521ad",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
