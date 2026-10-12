@@ -1231,6 +1231,119 @@ describe("ExtensionHost — смерть субпроцесса", () => {
     });
 });
 
+/** Провайдер настроек, у которого папки воркспейса меняются на ходу (смена воркспейса окна). */
+function makeSwitchableWorkspace(initial: string) {
+    let folder = initial;
+    const provider: IExtensionHostConfigProvider = {
+        ...makeConfigProvider().provider,
+        getWorkspaceFolders: () => [{ uri: folder, name: folder.slice(1), index: 0 }],
+    };
+    return {
+        provider,
+        switchTo: (next: string): void => {
+            folder = next;
+        },
+    };
+}
+
+/** Папки из семени `workspace.initialize`, которое получил субпроцесс. */
+function initialFolders(child: FakeChild): unknown {
+    const init = child.sent.find((m) => m.kind === "notif" && m.method === "workspace.initialize");
+    return (init as { params: { workspaceFolders: unknown } } | undefined)?.params.workspaceFolders;
+}
+
+describe("ExtensionHost — смена воркспейса окна", () => {
+    it("живой субпроцесс перезапускается: старый прощается, новый видит новые папки и поднимает активных", async () => {
+        const child = new FakeChild();
+        child.exitOnShutdown = true;
+        const logger = makeLogger();
+        const workspace = makeSwitchableWorkspace("/old");
+        const host = spawnReadyHost(child, new FakeEditorOptions(), { logger, configuration: workspace.provider });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        expect(initialFolders(child)).toEqual([{ uri: "/old", name: "old", index: 0 }]);
+
+        workspace.switchTo("/new");
+        const next = armNextChild();
+        await host.restartForWorkspaceChange();
+
+        expect(child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown")).toBe(true);
+        expect(initialFolders(next)).toEqual([{ uri: "/new", name: "new", index: 0 }]);
+        expect(activated(next, "ext.a")).toBe(true);
+        expect(host.hasExtension("ext.a")).toBe(true);
+        expect(logger.info).toHaveBeenCalledWith("workspace changed — restarting extension host");
+        expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceChanged)');
+        // Вежливое выключение — не смерть: тревоги в логе нет.
+        expect(logger.warn).not.toHaveBeenCalledWith(DEATH_WARNING);
+        host.dispose();
+    });
+
+    it("событие за время прощания поднимает новый спавн сразу, и расширение активируется в нём один раз", async () => {
+        const child = new FakeChild();
+        // Старый субпроцесс на host.shutdown не выходит — прощание тянется до сигнала.
+        child.exitOnSignal = "SIGTERM";
+        const workspace = makeSwitchableWorkspace("/old");
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: workspace.provider,
+            shutdownTimeoutMs: 50,
+        });
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+
+        workspace.switchTo("/new");
+        const next = armNextChild();
+        const restart = host.restartForWorkspaceChange();
+        await host.activateByEvent("onLanguage:java");
+
+        expect(activated(next, "ext.a")).toBe(true);
+
+        await restart;
+
+        expect(child.signals).toEqual(["SIGTERM"]);
+        expect(spawnMock).toHaveBeenCalledTimes(2);
+        const activations = next.sent.filter((m) => m.kind === "req" && m.method === "host.activateExtension");
+        expect(activations).toHaveLength(1);
+        host.dispose();
+    });
+
+    it("без субпроцесса перезапускать нечего: остаётся проход workspaceContains по новым папкам", async () => {
+        const scanned: string[] = [];
+        const workspace = makeSwitchableWorkspace("/old");
+        const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE, {
+            spawnArgs,
+            configuration: workspace.provider,
+            workspaceScanner: {
+                exists: (filePath: string) => {
+                    scanned.push(filePath);
+                    return Promise.resolve(filePath.startsWith("/new"));
+                },
+                readDirectory: () => Promise.resolve([]),
+            },
+        });
+        host.registerExtension({ ...makeReg("ext.java", "/j.js"), activationEvents: ["workspaceContains:pom.xml"] });
+
+        workspace.switchTo("/new");
+        const next = armNextChild();
+        await host.restartForWorkspaceChange();
+
+        expect(scanned).toEqual(["/new/pom.xml"]);
+        expect(activated(next, "ext.java")).toBe(true);
+        expect(spawnMock).toHaveBeenCalledTimes(1);
+        host.dispose();
+    });
+
+    it("выключенный хост субпроцесс не поднимает", async () => {
+        const child = new FakeChild();
+        child.exitOnShutdown = true;
+        const host = spawnReadyHost(child, new FakeEditorOptions());
+        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
+        await host.shutdown();
+
+        spawnMock.mockClear();
+        await host.restartForWorkspaceChange();
+
+        expect(spawnMock).not.toHaveBeenCalled();
+    });
+});
+
 describe("ExtensionHost — причина активации в логе", () => {
     it("лог называет событие, поднявшее расширение", async () => {
         const child = new FakeChild();

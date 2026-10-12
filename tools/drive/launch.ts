@@ -215,7 +215,8 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
 }
 
 /**
- * Папка воркспейса первой, если среди открываемого нет ни одного каталога.
+ * Папка воркспейса первой, если среди открываемого нет ни одного каталога и ни
+ * одного файла `.code-workspace` (он сам задаёт папку окна, как `diode x.code-workspace`).
  * Абсолютные пути — как есть, относительные — от воркспейса (`prepareAppEnv`).
  */
 function withWorkspaceFolder(root: string, open: readonly string[]): string[] {
@@ -227,7 +228,8 @@ function withWorkspaceFolder(root: string, open: readonly string[]): string[] {
             return false;
         }
     };
-    return open.some(isDir) ? [...open] : [workspaceDir, ...open];
+    const opensWorkspace = (p: string): boolean => isDir(p) || p.endsWith(".code-workspace");
+    return open.some(opensWorkspace) ? [...open] : [workspaceDir, ...open];
 }
 
 /** Подключение наперегонки со смертью процесса: ранний выход виден сразу, со stderr. */
