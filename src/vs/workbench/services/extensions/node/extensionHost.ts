@@ -1346,7 +1346,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * сюда целиком. Запись `workspaceState` из воркспейса, отличного от того, в
      * котором расширение активировано, отбрасывается с предупреждением: иначе
      * словарь воркспейса A протёк бы в стор B (честное лечение — перезапуск
-     * хоста при смене папки, как reload окна у vscode).
+     * хоста при смене папки, как reload окна у vscode — {@link restartForWorkspaceChange};
+     * здесь остаётся страховка от записи, ушедшей в полёт до перезапуска).
      */
     private installMementoHandlers(rpc: HostRpc): void {
         rpc.handleRequest("memento.update", (params): null => {
@@ -1396,17 +1397,58 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // `host.activateExtension`) получают отказ, а не висят вечно, — и
         // оборванная активация возвращается к оживлению (см. requestActivation).
         subprocess.dispose();
-        // Активные возвращаются в `pending` и оживут на ЛЮБОМ следующем событии
-        // активации — оно проиграет журнал (см. `requestedEvents`).
+        this.armRevival();
+    }
+
+    /**
+     * Спавн кончился, а расширения нужны дальше: активные возвращаются в
+     * `pending` и оживут на ЛЮБОМ следующем событии активации — оно проиграет
+     * журнал (см. `requestedEvents`). Общий для смерти субпроцесса
+     * ({@link handleSubprocessDeath}) и смены воркспейса ({@link restartForWorkspaceChange}).
+     */
+    private armRevival(): void {
         const revived = this.phases.reviveAll();
         this.replayPending = true;
-        // Прокси-команды мертвеца сняты вместе с его спавном (`CommandsCustomer`) —
+        // Прокси-команды прошлого спавна сняты вместе с ним (`CommandsCustomer`) —
         // возвращаем на их место заглушки-активаторы. Иначе команда исчезла бы и
         // из палитры, и вместе с ней единственный способ оживить расширение
         // руками: оживление ждёт события активации, а команда им и была.
         for (const reg of revived) {
             for (const id of readCommandActivationIds(reg)) this.commands.arm(id);
         }
+    }
+
+    /**
+     * Окно перешло в другой воркспейс (Open Folder, Open Workspace from File).
+     * У эталона это перезагрузка окна, и процесс расширений поднимается заново:
+     * `workspaceFolders`, `workspaceFile`, `storageUri` расширение читает в
+     * `activate()` и больше не перечитывает (языковой клиент отдаёт папки
+     * серверу один раз, в `initialize`). Здесь окно живёт дальше, а субпроцесс —
+     * нет: вежливое выключение (`deactivate()` расширений), затем проигрыш
+     * журнала в новом спавне, чьё семя `workspace.initialize` несёт уже новый
+     * воркспейс. Субпроцесса нет — перезапускать нечего: остаётся проход
+     * `workspaceContains:` по новым папкам.
+     */
+    public async restartForWorkspaceChange(): Promise<void> {
+        // Канал есть ровно у поднятого спавна (`ensureSubprocess`/`endSpawn`).
+        // Выключенный хост сюда тоже проходит: спавна у него нет, а проход по
+        // папкам без регистраций ничего не поднимет.
+        if (this.rpc === null) {
+            await this.activateByWorkspaceContains();
+            return;
+        }
+        this.logger?.info("workspace changed — restarting extension host");
+        // Оживление взводится ДО ожидания выхода: событие, пришедшее за время
+        // прощания (открыли файл нового воркспейса), уже поднимает новый спавн
+        // с журналом, а не теряется в мёртвом канале.
+        const shutdown = this.shutdownSubprocess();
+        this.armRevival();
+        await shutdown;
+        // Журнал уже мог проиграть событие, пришедшее за время прощания, — тогда
+        // остаётся только проход `workspaceContains:` по новым папкам.
+        // Stryker disable next-line ConditionalExpression: без проверки журнал проигрался бы повторно — пустой набор ожидающих и тот же проход по папкам, разница только в поводе лога
+        if (this.replayPending) await this.replayJournal("workspaceChanged");
+        else await this.activateByWorkspaceContains();
     }
 
     private async shutdownSubprocess(): Promise<void> {

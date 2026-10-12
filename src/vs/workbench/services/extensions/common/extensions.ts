@@ -25,8 +25,13 @@ export interface IExtensionService {
      * до регистрации расширений); промис резолвится на барьере.
      */
     activateByEvent(event: string): Promise<void>;
-    /** Проход `workspaceContains:` по папкам воркспейса; до барьера — его делает старт. */
-    activateByWorkspaceContains(): Promise<void>;
+    /**
+     * Окно перешло в другой воркспейс: работающий процесс расширений
+     * перезапускается (как reload окна у эталона), затем проход
+     * `workspaceContains:` по новым папкам. До барьера процесса ещё нет, а
+     * проход по папкам сделает сам старт.
+     */
+    restartForWorkspaceChange(): Promise<void>;
     /**
      * Регистрация набора в extension host'е и стартовая активация. Зовёт старт
      * окна в фазе `restored` (`workbenchStartup.ts`), один раз.

@@ -20,6 +20,7 @@ export interface IExtensionActivationHost {
     registerDeclarativeExtension(id: string): void;
     activateByEvent(event: string): Promise<void>;
     activateByWorkspaceContains(): Promise<void>;
+    restartForWorkspaceChange(): Promise<void>;
 }
 
 /**
@@ -62,9 +63,10 @@ export class ExtensionService implements IExtensionService {
         return this.barrier;
     }
 
-    public activateByWorkspaceContains(): Promise<void> {
-        // До барьера проход по папкам сделает сам старт — последним из событий.
-        if (this.barrierOpen) return this.host.activateByWorkspaceContains();
+    public restartForWorkspaceChange(): Promise<void> {
+        // До барьера ни регистраций, ни процесса: проход по папкам сделает сам
+        // старт — последним из событий, уже по новому воркспейсу.
+        if (this.barrierOpen) return this.host.restartForWorkspaceChange();
         return this.barrier;
     }
 

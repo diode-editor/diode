@@ -420,13 +420,16 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             logService.createLogger("tasks", { label: "Tasks" }),
         );
 
-        // `workspaceContains:<паттерн>` по смене набора папок: папка может
-        // открыться ПОЗЖЕ старта, и событие «в проекте есть pom.xml» иначе
-        // прогорело бы в пустоту. Стартовый проход делает сам сервис.
-        // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение о поводе активации живёт в `ExtensionHost.activateByWorkspaceContains` и закрыто его юнитами, сквозняк — e2e-сценарий activation-workspace-contains
+        // Смена воркспейса на живом окне: работающие расширения видели старые
+        // папки и стор — субпроцесс перезапускается (как reload окна у эталона),
+        // а не поднятый ещё — дожидается своего события. И в обоих случаях
+        // `workspaceContains:<паттерн>` по новым папкам: папка может открыться
+        // ПОЗЖЕ старта, и событие «в проекте есть pom.xml» иначе прогорело бы в
+        // пустоту. Стартовый проход делает сам сервис.
+        // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение живёт в `ExtensionHost.restartForWorkspaceChange` и закрыто его юнитами, сквозняк — e2e-сценарии activation-workspace-contains и workspaceFile
         container.get(IWorkspaceContextServiceDIToken).onDidChangeWorkspaceFolders(() => {
-            void service.activateByWorkspaceContains().catch((err: unknown) => {
-                logger.error("workspaceContains activation failed", err);
+            void service.restartForWorkspaceChange().catch((err: unknown) => {
+                logger.error("extension host restart on workspace change failed", err);
             });
         });
         // Stryker restore CallExpression,BlockStatement,StringLiteral

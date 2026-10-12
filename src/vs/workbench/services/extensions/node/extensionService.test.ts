@@ -60,6 +60,11 @@ class FakeHost implements IExtensionActivationHost {
         if (this.failOn === "workspaceContains") return Promise.reject(new Error("scan failed"));
         return Promise.resolve();
     }
+
+    public restartForWorkspaceChange(): Promise<void> {
+        this.log.push("restart");
+        return Promise.resolve();
+    }
 }
 
 function recordingLogger(): ILogger & { errors: string[] } {
@@ -151,24 +156,25 @@ describe("ExtensionService", () => {
         expect(host.log.at(-1)).toBe("onStartupFinished");
 
         await service.activateByEvent("onLanguage:go");
-        await service.activateByWorkspaceContains();
-        expect(host.log.slice(-2)).toEqual(["onLanguage:go", "workspaceContains"]);
+        await service.restartForWorkspaceChange();
+        expect(host.log.slice(-2)).toEqual(["onLanguage:go", "restart"]);
 
         startupFinished.resolve();
         await started;
     });
 
-    it("проход workspaceContains до барьера ждёт старт, а не идёт в host сам", async () => {
+    it("смена воркспейса до барьера ждёт старт, а не перезапускает host сам", async () => {
         const host = new FakeHost();
         const service = new ExtensionService(host, [], ENV, recordingLogger());
 
-        const early = service.activateByWorkspaceContains();
+        const early = service.restartForWorkspaceChange();
         await Promise.resolve();
         expect(host.log).toEqual([]);
 
         await service.start();
         await early;
-        // Один проход — стартовый.
+        // Перезапуска нет, проход по папкам один — стартовый.
+        expect(host.log).not.toContain("restart");
         expect(host.log.filter((e) => e === "workspaceContains")).toHaveLength(1);
     });
 
