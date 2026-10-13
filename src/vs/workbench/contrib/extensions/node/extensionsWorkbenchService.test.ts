@@ -15,6 +15,11 @@ import {
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import { sha256File } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
+import {
+    ProfileExtensions,
+    readProfileExtensions,
+    writeProfileExtensions,
+} from "../../../../platform/extensionManagement/node/profileExtensions.ts";
 
 import { ExtensionsWorkbenchService } from "./extensionsWorkbenchService.ts";
 
@@ -80,10 +85,35 @@ function buildVsix(file: string, manifest: object): Promise<void> {
     });
 }
 
-/** Кладёт в `extensions/` каталог установленного расширения с манифестом. */
-function installOnDisk(ws: ITempWorkspace, id: string, version: string, manifest: Record<string, unknown> = {}): void {
+/** Состав профиля сервиса (Default: файл в каталоге расширений) и другого профиля. */
+const PROFILE_FILE = "extensions/extensions.json";
+const OTHER_PROFILE_FILE = "profiles/other/extensions.json";
+
+/** Добавляет запись в состав профиля `file`, минуя сервис. */
+function addToProfile(ws: ITempWorkspace, file: string, id: string, version: string): void {
+    const entries = readProfileExtensions(ws.path(file)) ?? [];
+    writeProfileExtensions(ws.path(file), [...entries, { identifier: { id }, version }]);
+}
+
+/**
+ * Кладёт в `extensions/` каталог установленного расширения с манифестом и
+ * включает его в профиль сервиса (`inProfile: false` — только на диск).
+ */
+function installOnDisk(
+    ws: ITempWorkspace,
+    id: string,
+    version: string,
+    manifest: Record<string, unknown> = {},
+    inProfile = true,
+): void {
     const [publisher, name] = id.split(".");
     ws.writeFile(`extensions/${id}-${version}/package.json`, JSON.stringify({ publisher, name, version, ...manifest }));
+    if (inProfile) addToProfile(ws, PROFILE_FILE, id, version);
+}
+
+/** Id в составе профиля `file`. */
+function profileIds(ws: ITempWorkspace, file: string): string[] | undefined {
+    return readProfileExtensions(ws.path(file))?.map((e) => e.identifier.id);
 }
 
 describe("ExtensionsWorkbenchService", () => {
@@ -96,8 +126,52 @@ describe("ExtensionsWorkbenchService", () => {
 
     function createService(source: IExtensionRegistrySource): ExtensionsWorkbenchService {
         ws ??= createTempWorkspace({ prefix: "diode-extensions-view-" });
-        return new ExtensionsWorkbenchService(source, ws.path("extensions"), HOST);
+        const root = ws;
+        const profile = new ProfileExtensions({
+            extensionsDir: root.path("extensions"),
+            profileFile: root.path(PROFILE_FILE),
+            allProfileFiles: () => [root.path(PROFILE_FILE), root.path(OTHER_PROFILE_FILE)],
+        });
+        return new ExtensionsWorkbenchService(source, profile, HOST);
     }
+
+    describe("состав профиля", () => {
+        it("расширение на диске вне профиля в списке не видно", () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.tools", "1.0.0");
+            installOnDisk(ws, "acme.elsewhere", "1.0.0", {}, false);
+
+            const service = createService(new FakeSource(index()));
+
+            expect(service.getEntries().map((e) => e.id)).toEqual(["acme.tools"]);
+        });
+
+        it("карточка реестра для расширения другого профиля — available", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.tools", "1.0.0", {}, false);
+            addToProfile(ws, OTHER_PROFILE_FILE, "acme.tools", "1.0.0");
+            const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+
+            await service.ensureLoaded();
+
+            expect(service.getEntries()[0]?.availability).toBe("available");
+            expect(service.getEntries()[0]?.installedVersion).toBeNull();
+        });
+
+        it("удаление убирает из профиля, а с диска — нет, пока расширение нужно другому", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.tools", "1.0.0");
+            addToProfile(ws, OTHER_PROFILE_FILE, "acme.tools", "1.0.0");
+            const service = createService(new FakeSource(index()));
+
+            const result = await service.uninstall("acme.tools");
+
+            expect(result).toEqual({ ok: true });
+            expect(profileIds(ws, PROFILE_FILE)).toEqual([]);
+            expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0/package.json"))).toBe(true);
+            expect(service.getEntries()).toEqual([]);
+        });
+    });
 
     it("до первого показа каталог пуст, а установленное уже видно", () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
@@ -416,6 +490,7 @@ describe("ExtensionsWorkbenchService", () => {
 
             expect(result).toEqual({ ok: true, version: "1.0.0" });
             expect(fs.existsSync(ws!.path("extensions/acme.base-2.0.0/package.json"))).toBe(true);
+            expect(profileIds(ws!, PROFILE_FILE)).toEqual(["acme.tools", "acme.base"]);
             // Зависимость не в каталоге реестра — её карточка «мимо магазина»,
             // но с тем же бейджем перезагрузки, что у самого расширения.
             const cards = new Map(service.getEntries().map((card) => [card.id, card]));
@@ -437,6 +512,20 @@ describe("ExtensionsWorkbenchService", () => {
             expect(card.availability).toBe("installed");
             // Вклады сканируются на старте — до перезагрузки окна расширение не работает.
             expect(card.needsReload).toBe(true);
+        });
+
+        it("установка включает в профиль и зависимость, уже лежавшую на диске для другого профиля", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.base", "2.0.0", {}, false);
+            addToProfile(ws, OTHER_PROFILE_FILE, "acme.base", "2.0.0");
+            const { service } = await withInstallable("1.0.0", { dependsOn: "acme.base" });
+
+            await service.install("acme.tools");
+
+            expect(profileIds(ws, PROFILE_FILE)).toEqual(["acme.tools", "acme.base"]);
+            expect(profileIds(ws, OTHER_PROFILE_FILE)).toEqual(["acme.base"]);
+            // Каталог реестра не читался — карточки установленного, по id.
+            expect(service.getEntries().map((e) => e.id)).toEqual(["acme.base", "acme.tools"]);
         });
 
         it("установка перерисовывает список подписчикам", async () => {
@@ -497,6 +586,7 @@ describe("ExtensionsWorkbenchService", () => {
 
             expect(result).toEqual({ ok: true });
             expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0"))).toBe(false);
+            expect(profileIds(ws, PROFILE_FILE)).toEqual([]);
             const card = service.getEntries()[0];
             expect(card.installedVersion).toBeNull();
             expect(card.needsReload).toBe(true);

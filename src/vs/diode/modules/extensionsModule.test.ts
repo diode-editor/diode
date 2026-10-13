@@ -71,7 +71,7 @@ describe("extensionsModule", () => {
         return container;
     }
 
-    it("сервис читает реестр по переданному адресу и каталог установленного", async () => {
+    it("сервис читает реестр по переданному адресу и состав активного профиля", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
         ws.writeFile(
             "registry/index.json",
@@ -80,6 +80,15 @@ describe("extensionsModule", () => {
         ws.writeFile(
             "extensions/local.helper-0.1.0/package.json",
             JSON.stringify({ publisher: "local", name: "helper", version: "0.1.0" }),
+        );
+        // На диске, но не в профиле окна (Default: `extensions/extensions.json`) — не видно.
+        ws.writeFile(
+            "extensions/local.other-0.1.0/package.json",
+            JSON.stringify({ publisher: "local", name: "other", version: "0.1.0" }),
+        );
+        ws.writeFile(
+            "extensions/extensions.json",
+            JSON.stringify([{ identifier: { id: "local.helper" }, version: "0.1.0" }]),
         );
 
         const service = setup().get(ExtensionsWorkbenchServiceDIToken);

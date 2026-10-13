@@ -151,6 +151,9 @@ workbench). У части модулей
 `UserDataProfileWorkspaceOpener` над `WorkbenchComponent`
 (`WorkspaceFolderOpenerDIToken`, `workbenchModule`): чужой профиль у новой папки —
 перезагрузка окна в него вместо смены папки.
+Магазин (`extensionsModule`, `ExtensionsWorkbenchServiceDIToken`) берёт из этих
+же биндингов состав расширений: `extensions.json` активного профиля и файлы всех
+профилей реестра (`createProfileExtensions`) — новых токенов для этого нет.
 
 Шаблон тестовой обёртки:
 

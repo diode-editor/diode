@@ -101,6 +101,8 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
     const profilesService = new UserDataProfilesService({
         profilesHome: path.join(userDir, "profiles"),
         defaultProfileHome: userDir,
+        // Состав расширений Default — в каталоге расширений, как в проде.
+        defaultProfileExtensionsResource: path.join(environment.extensionsDir, "extensions.json"),
         state: new StateFileStore(undefined),
     });
     const container = new Container()

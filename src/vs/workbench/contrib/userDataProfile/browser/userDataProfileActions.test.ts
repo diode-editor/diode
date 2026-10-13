@@ -327,14 +327,15 @@ describe("экшены профилей", () => {
 
             const created = h.profiles.profiles.find((p) => p.name === "My Work");
             expect(created).toBeDefined();
-            // Empty: настройки текущего профиля не копируются.
+            // Empty: настройки текущего профиля не копируются, расширений нет.
             expect(fs.existsSync(created!.settingsResource)).toBe(false);
+            expect(fs.readFileSync(created!.extensionsResource, "utf-8")).toBe("[]");
             expect(h.inputOptions).toEqual([{ title: "New Profile", placeholder: "Profile name" }]);
             expect(h.pickOptions).toEqual([
                 { title: "New Profile", placeholder: "Select the contents of the new profile" },
             ]);
             expect(h.pickItems[0]?.map((i) => i.label)).toEqual([NEW_PROFILE_EMPTY_LABEL, NEW_PROFILE_COPY_LABEL]);
-            expect(h.pickItems[0]?.[0]?.description).toBe("Start with no settings and keybindings");
+            expect(h.pickItems[0]?.[0]?.description).toBe("Start with no settings, keybindings and extensions");
             expect(h.pickItems[0]?.[1]?.description).toBe("Default");
             expect(h.profiles.getProfileForWorkspace(profileWorkspaceKeyOf(path.join(ws.dir, "proj")))).toEqual(
                 created,
@@ -342,7 +343,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([{ profile: "My Work" }]);
         });
 
-        it("Copy from current копирует settings.json без application-ключей и keybindings.json", async () => {
+        it("Copy from current копирует settings.json без application-ключей, keybindings.json и extensions.json", async () => {
             const current = h.profiles.defaultProfile;
             fs.mkdirSync(current.location, { recursive: true });
             fs.writeFileSync(
@@ -350,6 +351,9 @@ describe("экшены профилей", () => {
                 `{\n    // theme\n    "workbench.colorTheme": "Light Modern",\n    "update.mode": "none",\n    "editor.tabSize": 2\n}\n`,
             );
             fs.writeFileSync(current.keybindingsResource, `[{ "key": "f9", "command": "x" }]`);
+            const extensions = `[{"identifier":{"id":"acme.tools"},"version":"1.0.0"}]`;
+            fs.mkdirSync(path.dirname(current.extensionsResource), { recursive: true });
+            fs.writeFileSync(current.extensionsResource, extensions);
             h.setInputs(["work"]);
             h.setPicks([NEW_PROFILE_COPY_LABEL]);
 
@@ -360,6 +364,7 @@ describe("экшены профилей", () => {
                 `{\n    // theme\n    "workbench.colorTheme": "Light Modern",\n    "editor.tabSize": 2\n}\n`,
             );
             expect(fs.readFileSync(created.keybindingsResource, "utf-8")).toBe(`[{ "key": "f9", "command": "x" }]`);
+            expect(fs.readFileSync(created.extensionsResource, "utf-8")).toBe(extensions);
             expect(h.restarts).toEqual([{ profile: "work" }]);
         });
 
@@ -496,6 +501,8 @@ describe("экшены профилей", () => {
             await copyProfileContents(h.files, from, to, ["update.mode"]);
             expect(fs.existsSync(to.settingsResource)).toBe(false);
             expect(fs.existsSync(to.keybindingsResource)).toBe(false);
+            // Пустой состав нового профиля остаётся пустым.
+            expect(fs.readFileSync(to.extensionsResource, "utf-8")).toBe("[]");
         });
 
         it("withoutKeys: снимает только перечисленные ключи, остальное дословно; не-объект — как есть", () => {

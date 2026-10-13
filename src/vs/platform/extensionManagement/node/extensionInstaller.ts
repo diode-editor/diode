@@ -5,6 +5,7 @@ import * as path from "node:path";
 import type { Entry } from "yauzl";
 
 import { UI_LOCALE } from "../../environment/common/uiLocale.ts";
+import { readExtensionDependencies } from "../../extensions/common/extensionDependencies.ts";
 import {
     type INlsBundle,
     localizeManifest,
@@ -42,6 +43,11 @@ export interface IInstalledExtension {
     readonly displayName?: string;
     /** `description` манифеста, если он там есть (тот же случай). */
     readonly description?: string;
+    /**
+     * `extensionDependencies` манифеста: профиль берёт расширение вместе с
+     * ними (`ProfileExtensions.add`), даже если на диске они уже лежали.
+     */
+    readonly dependencies: readonly string[];
 }
 
 const EXTENSION_PREFIX = "extension/";
@@ -142,6 +148,7 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
             // Пустое имя — не имя: карточка магазина показала бы пустую строку.
             displayName: typeof displayName === "string" && displayName.length > 0 ? displayName : undefined,
             description: typeof description === "string" ? description : undefined,
+            dependencies: readExtensionDependencies(manifest),
         });
     }
     return result;

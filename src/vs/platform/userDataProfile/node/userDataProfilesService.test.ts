@@ -54,6 +54,20 @@ describe("UserDataProfilesService", () => {
         expect(svc.defaultProfile.isDefault).toBe(true);
         expect(svc.defaultProfile.settingsResource).toBe(path.join(userDir, "settings.json"));
         expect(svc.profilesHome).toBe(profilesHome);
+        expect(svc.defaultProfile.extensionsResource).toBe(path.join(userDir, "extensions.json"));
+    });
+
+    it("состав расширений Default — по переданному пути (каталог расширений), и в списке профилей тоже", () => {
+        const extensionsResource = path.join(ws.dir, "extensions", "extensions.json");
+        const svc = new UserDataProfilesService({
+            profilesHome,
+            defaultProfileHome: userDir,
+            defaultProfileExtensionsResource: extensionsResource,
+            state,
+        });
+        expect(svc.defaultProfile.extensionsResource).toBe(extensionsResource);
+        expect(svc.defaultProfile.settingsResource).toBe(path.join(userDir, "settings.json"));
+        expect(svc.profiles[0]?.extensionsResource).toBe(extensionsResource);
     });
 
     describe("createNamedProfile", () => {
@@ -63,6 +77,9 @@ describe("UserDataProfilesService", () => {
             expect(work).toMatchObject({ id: "Work", name: "Work", isDefault: false });
             expect(work.location).toBe(path.join(profilesHome, "Work"));
             expect(fs.statSync(work.location).isDirectory()).toBe(true);
+            // Новый профиль — без расширений; пустой состав записан явно.
+            expect(work.extensionsResource).toBe(path.join(profilesHome, "Work", "extensions.json"));
+            expect(fs.readFileSync(work.extensionsResource, "utf8")).toBe("[]");
             expect(state.get(USER_DATA_PROFILES_STATE)).toEqual([{ name: "Work", location: "Work" }]);
             expect(svc.profiles.map((p) => p.id)).toEqual([DEFAULT_PROFILE_ID, "Work"]);
             expect(events).toEqual([{ added: [work], removed: [], updated: [], all: svc.profiles }]);

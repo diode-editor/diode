@@ -43,12 +43,7 @@ import type { IUserDataPaths } from "../platform/environment/node/userDataPaths.
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import type { IExtensionRegistrySource } from "../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import { createRegistrySource } from "../platform/extensionManagement/node/createRegistrySource.ts";
-import {
-    installVsix,
-    listInstalledExtensions,
-    readVsixManifest,
-    uninstallExtension,
-} from "../platform/extensionManagement/node/extensionInstaller.ts";
+import { installVsix, readVsixManifest } from "../platform/extensionManagement/node/extensionInstaller.ts";
 import {
     describeDependencyInstall,
     type IDependencyInstallResult,
@@ -56,8 +51,15 @@ import {
     installDependenciesFromRegistry,
     installFromRegistry,
 } from "../platform/extensionManagement/node/installFromRegistry.ts";
+import {
+    createProfileExtensions,
+    deleteUnusedExtensions,
+    migrateProfileExtensions,
+    PROFILE_EXTENSIONS_FILE,
+    profileExtensionsFiles,
+} from "../platform/extensionManagement/node/profileExtensions.ts";
 import { currentTargetPlatform } from "../platform/extensionManagement/node/targetPlatform.ts";
-import { readExtensionDependencies } from "../platform/extensions/common/extensionDependencies.ts";
+import { extensionKey, readExtensionDependencies } from "../platform/extensions/common/extensionDependencies.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
@@ -72,6 +74,7 @@ import { loadApplicationState, loadState } from "../platform/state/node/stateSer
 import { terminalTitleSequence } from "../platform/terminal/common/terminalTitleSink.ts";
 import { createDefaultTokenClassificationRegistry } from "../platform/theme/common/tokenClassificationRegistry.ts";
 import {
+    type IUserDataProfile,
     profileWorkspaceKey,
     profileWorkspaceKeyOf,
     resolveActiveProfile,
@@ -254,16 +257,19 @@ async function runEditor(): Promise<void> {
     // каталог активного профиля, а с ним — настройки, кейбинды и состояние.
     // Порядок резолва — как у эталона: `--profile` → привязка воркспейса → Default;
     // `--profile` ещё и привязывает воркспейс (docs/TODO/Profiles.md).
-    const basePaths = resolvePathsFor(cli);
-    const applicationState = loadApplicationState(basePaths.applicationStateFile, profilesLogger);
-    const profilesService = new UserDataProfilesService({
-        profilesHome: basePaths.profilesHome,
-        defaultProfileHome: basePaths.userDir,
-        state: applicationState,
-        logger: profilesLogger,
+    const { basePaths, applicationState, profilesService } = openProfiles(cli, profilesLogger);
+    // Удалённый профиль уносит свой состав расширений: то, что ни одному
+    // профилю больше не нужно, уходит и из общего каталога (эталон делает эту
+    // уборку на следующем старте, `deleteExtensionsNotInProfiles`).
+    profilesService.onDidChangeProfiles((e) => {
+        if (e.removed.length === 0) return;
+        try {
+            const deleted = deleteUnusedExtensions(basePaths.extensionsDir, allProfileExtensionsFiles(profilesService));
+            if (deleted.length > 0) extensionsLogger.info("Deleted extensions no profile uses", { deleted });
+        } catch (err) {
+            extensionsLogger.error("Failed to delete extensions no profile uses", err);
+        }
     });
-    // Каталоги `User/profiles/<name>/` из времён до реестра — профили с именем каталога.
-    profilesService.migrateProfileDirectories();
     const workspaceKey = (() => {
         const target = targets.workspaceFile ?? targets.folder;
         return target === undefined ? undefined : profileWorkspaceKeyOf(target);
@@ -312,9 +318,24 @@ async function runEditor(): Promise<void> {
     // `--disable-extensions` гасит ТОЛЬКО пользовательские — встроенные остаются
     // (дословно как в VS Code), иначе вместе с расширениями уехали бы грамматики
     // и конфигурации языков, и флаг стал бы бесполезен для отладки.
+    // Каталог расширений общий для всех профилей; поднимаются только те, что
+    // включены в активном (его `extensions.json`). Профиль фиксирован на
+    // процесс: смена профиля — перезагрузка окна, то есть новый скан.
+    const profileExtensionKeys = new Set(
+        createProfileExtensions({
+            extensionsDir: userDataPaths.extensionsDir,
+            profile: activeProfile,
+            profiles: profilesService,
+            logger: extensionsLogger,
+        })
+            .list()
+            .map((e) => extensionKey(e.id)),
+    );
     const userExtensions =
         !cli.disableExtensions && fs.existsSync(userDataPaths.extensionsDir)
-            ? await scanExtensions(assets, USER_PREFIX, { isBuiltin: false }, extensionsLogger)
+            ? (await scanExtensions(assets, USER_PREFIX, { isBuiltin: false }, extensionsLogger)).filter((e) =>
+                  profileExtensionKeys.has(extensionKey(e.id)),
+              )
             : [];
     if (cli.disableExtensions) extensionsLogger.info("user extensions disabled by --disable-extensions");
     const allExtensions = mergeExtensions(builtinExtensions, userExtensions, extensionsLogger);
@@ -680,6 +701,18 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
     const { extensionsDir } = resolvePathsFor(cli);
 
     try {
+        // Состав — профиля из `--profile <имя>` (неизвестное — ошибка), без
+        // флага — Default, как `cliProcessMain` эталона. Привязок воркспейсов
+        // CLI не трогает.
+        const { profilesService } = openProfiles(cli);
+        let profile: IUserDataProfile = profilesService.defaultProfile;
+        if (cli.profile !== undefined) {
+            const named = profilesService.profiles.find((p) => p.name === cli.profile);
+            if (named === undefined) throw new Error(`Profile '${cli.profile}' not found.`);
+            profile = named;
+        }
+        const profileExtensions = createProfileExtensions({ extensionsDir, profile, profiles: profilesService });
+
         if (cli.installExtension !== undefined) {
             const target = cli.installExtension;
             // Различаем по суффиксу `.vsix`, как VS Code: он — путь к файлу, всё
@@ -718,6 +751,9 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                 result = installed;
                 dependencies = installed;
             }
+            // В профиль — вместе с зависимостями, и с теми, что уже лежали на
+            // диске для другого профиля.
+            profileExtensions.add([result.id]);
             const { id, version, previous } = result;
             console.log(`Installed ${id}@${version}`);
             const removed = previous.filter((v) => v !== version);
@@ -732,18 +768,18 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
 
         if (cli.uninstallExtension !== undefined) {
             const id = cli.uninstallExtension;
-            const { removed } = uninstallExtension(id, extensionsDir);
-            if (removed.length === 0) {
+            const { removed } = profileExtensions.remove(id);
+            if (!removed) {
                 console.error(`Extension ${id} is not installed`);
                 process.exitCode = 1;
                 return;
             }
-            console.log(`Uninstalled ${id} (${removed.length} version(s))`);
+            console.log(`Uninstalled ${id}`);
             return;
         }
 
         // --list-extensions
-        for (const ext of listInstalledExtensions(extensionsDir)) {
+        for (const ext of profileExtensions.list()) {
             console.log(`${ext.id}@${ext.version}`);
         }
     } catch (err) {
@@ -776,6 +812,41 @@ function resolvePathsFor(cli: ICliArgs, profileId?: string): IUserDataPaths {
         homedir: os.homedir(),
         ...(cli.extensionsDir !== undefined ? { extensionsDir: cli.extensionsDir } : {}),
     });
+}
+
+/**
+ * Реестр профилей и миграции поверх него — общее у окна и CLI управления
+ * расширениями. Каталоги `User/profiles/<name>/` из времён до реестра
+ * становятся профилями; профили без `extensions.json` (из версий, где
+ * расширения были общими) получают все установленные расширения. Сбой
+ * миграции состава — в лог: старт он не роняет.
+ */
+function openProfiles(cli: ICliArgs, logger?: ILogger) {
+    const basePaths = resolvePathsFor(cli);
+    const applicationState = loadApplicationState(basePaths.applicationStateFile, logger);
+    const profilesService = new UserDataProfilesService({
+        profilesHome: basePaths.profilesHome,
+        defaultProfileHome: basePaths.userDir,
+        defaultProfileExtensionsResource: path.join(basePaths.extensionsDir, PROFILE_EXTENSIONS_FILE),
+        state: applicationState,
+        ...(logger !== undefined ? { logger } : {}),
+    });
+    profilesService.migrateProfileDirectories();
+    try {
+        const migrated = migrateProfileExtensions(basePaths.extensionsDir, allProfileExtensionsFiles(profilesService));
+        if (migrated.length > 0) logger?.info("Profiles got all installed extensions", { files: migrated });
+    } catch (err) {
+        logger?.error("Failed to migrate profile extensions", err);
+    }
+    return { basePaths, applicationState, profilesService };
+}
+
+/** `extensions.json` всех профилей: реестр плюс каталоги профилей на диске. */
+function allProfileExtensionsFiles(profiles: UserDataProfilesService): string[] {
+    return profileExtensionsFiles(
+        profiles.profiles.map((p) => p.extensionsResource),
+        profiles.profilesHome,
+    );
 }
 
 /** Порт к FS для {@link resolveStartupTargets}: путь существует и это папка. */
