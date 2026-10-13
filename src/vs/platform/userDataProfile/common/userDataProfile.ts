@@ -29,9 +29,10 @@ export interface IUserDataProfile {
     /** `<location>/globalStorage` — родитель приватных каталогов расширений профиля. */
     readonly globalStorageHome: string;
     /**
-     * `<location>/extensions.json` — какие расширения включены в профиле.
-     * В итерации 1 не читается: расширения общие для всех профилей
-     * (docs/TODO/Profiles.md, итерация 2).
+     * Какие из установленных расширений включены в профиле
+     * (`platform/extensionManagement/node/profileExtensions.ts`): у именованного —
+     * `<location>/extensions.json`, у Default — `extensions.json` в самом каталоге
+     * расширений (`getDefaultProfileExtensionsLocation` эталона).
      */
     readonly extensionsResource: string;
 }
@@ -107,8 +108,9 @@ export interface IUserDataProfilesService {
     readonly onDidChangeProfiles: Event<DidChangeProfilesEvent>;
 
     /**
-     * Создаёт именованный профиль с пустым каталогом. Имя обязано быть непустым
-     * и уникальным. С `workspace` — сразу привязывает его к профилю.
+     * Создаёт именованный профиль: каталог с пустым составом расширений
+     * (`extensions.json` = `[]`), без настроек и кейбиндов. Имя обязано быть
+     * непустым и уникальным. С `workspace` — сразу привязывает его к профилю.
      */
     createNamedProfile(name: string, workspace?: ProfileWorkspaceKey): Promise<IUserDataProfile>;
     /** Переименование; Default не правится. Каталог остаётся прежним. */
@@ -164,9 +166,14 @@ export function toUserDataProfile(id: string, name: string, location: string): I
     };
 }
 
-/** Default-профиль: файлы прямо в `User/` (`defaultProfileHome`). */
-export function createDefaultProfile(defaultProfileHome: string): IUserDataProfile {
-    return { ...toUserDataProfile(DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME, defaultProfileHome), isDefault: true };
+/**
+ * Default-профиль: файлы прямо в `User/` (`defaultProfileHome`); состав
+ * расширений — `extensionsResource`, если задан (у эталона — в каталоге
+ * расширений, `getDefaultProfileExtensionsLocation`), иначе `User/extensions.json`.
+ */
+export function createDefaultProfile(defaultProfileHome: string, extensionsResource?: string): IUserDataProfile {
+    const profile = toUserDataProfile(DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME, defaultProfileHome);
+    return { ...profile, isDefault: true, extensionsResource: extensionsResource ?? profile.extensionsResource };
 }
 
 /**

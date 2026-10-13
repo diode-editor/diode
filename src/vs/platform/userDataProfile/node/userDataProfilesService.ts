@@ -37,6 +37,7 @@ import {
 export class UserDataProfilesService extends Disposable implements IUserDataProfilesService {
     public readonly profilesHome: string;
     private readonly defaultProfileHome: string;
+    private readonly defaultProfileExtensionsResource: string | undefined;
     private readonly state: IStateStore;
     private readonly logger: ILogger;
     private cache: IUserDataProfile[] | undefined;
@@ -48,6 +49,11 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         readonly profilesHome: string;
         /** `User/` — каталог Default-профиля. */
         readonly defaultProfileHome: string;
+        /**
+         * `extensions.json` Default-профиля — в каталоге расширений
+         * (`getDefaultProfileExtensionsLocation` эталона); не задан — `User/extensions.json`.
+         */
+        readonly defaultProfileExtensionsResource?: string;
         /** Application-стор (`storage.json`) — см. `StateFileStore`. */
         readonly state: IStateStore;
         readonly logger?: ILogger;
@@ -55,13 +61,14 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         super();
         this.profilesHome = input.profilesHome;
         this.defaultProfileHome = input.defaultProfileHome;
+        this.defaultProfileExtensionsResource = input.defaultProfileExtensionsResource;
         this.state = input.state;
         this.logger = input.logger ?? NULL_LOGGER;
     }
 
     public get defaultProfile(): IUserDataProfile {
         // Stryker disable next-line OptionalChaining,ConditionalExpression: первый элемент — всегда Default (так собирает load), `?? ` — только для типа
-        return this.profiles[0] ?? createDefaultProfile(this.defaultProfileHome);
+        return this.profiles[0] ?? createDefaultProfile(this.defaultProfileHome, this.defaultProfileExtensionsResource);
     }
 
     public get profiles(): readonly IUserDataProfile[] {
@@ -87,6 +94,10 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         );
         const profile = toUserDataProfile(id, trimmed, path.join(this.profilesHome, id));
         await fs.promises.mkdir(profile.location, { recursive: true });
+        // Новый профиль — без расширений, как у эталона. Пустой состав пишется
+        // явно: профиль без `extensions.json` — профиль из прошлой версии, и
+        // миграция (`migrateProfileExtensions`) отдала бы ему все установленные.
+        await fs.promises.writeFile(profile.extensionsResource, "[]");
         this.saveProfiles([...this.namedProfiles(), profile]);
         if (workspace !== undefined) this.saveAssociation(workspace, profile);
         this.fire({ added: [profile], removed: [], updated: [] });
@@ -179,7 +190,9 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     }
 
     private load(): IUserDataProfile[] {
-        const profiles: IUserDataProfile[] = [createDefaultProfile(this.defaultProfileHome)];
+        const profiles: IUserDataProfile[] = [
+            createDefaultProfile(this.defaultProfileHome, this.defaultProfileExtensionsResource),
+        ];
         for (const stored of this.state.get(USER_DATA_PROFILES_STATE)) {
             if (!isValidStoredProfile(stored)) {
                 // Stryker disable next-line StringLiteral: текст лога

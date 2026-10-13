@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { REGISTRY_SCHEMA_VERSION } from "../../platform/extensionManagement/common/registryFormat.ts";
+import type { LogEntry } from "../../platform/log/common/iLogService.ts";
+import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
+import { LogService } from "../../platform/log/common/logService.ts";
 import { ExtensionPageActionsDIToken } from "../../workbench/contrib/extensions/browser/extensionPageActions.ts";
 import {
     ExtensionsComponentDIToken,
@@ -71,7 +74,7 @@ describe("extensionsModule", () => {
         return container;
     }
 
-    it("сервис читает реестр по переданному адресу и каталог установленного", async () => {
+    it("сервис читает реестр по переданному адресу и состав активного профиля", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
         ws.writeFile(
             "registry/index.json",
@@ -80,6 +83,15 @@ describe("extensionsModule", () => {
         ws.writeFile(
             "extensions/local.helper-0.1.0/package.json",
             JSON.stringify({ publisher: "local", name: "helper", version: "0.1.0" }),
+        );
+        // На диске, но не в профиле окна (Default: `extensions/extensions.json`) — не видно.
+        ws.writeFile(
+            "extensions/local.other-0.1.0/package.json",
+            JSON.stringify({ publisher: "local", name: "other", version: "0.1.0" }),
+        );
+        ws.writeFile(
+            "extensions/extensions.json",
+            JSON.stringify([{ identifier: { id: "local.helper" }, version: "0.1.0" }]),
         );
 
         const service = setup().get(ExtensionsWorkbenchServiceDIToken);
@@ -91,6 +103,26 @@ describe("extensionsModule", () => {
             "old.legacy:incompatible",
             "local.helper:installed",
         ]);
+    });
+
+    it("нечитаемый состав профиля — пустой список и ошибка в канал Extensions", () => {
+        ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
+        ws.writeFile(
+            "extensions/local.helper-0.1.0/package.json",
+            JSON.stringify({ publisher: "local", name: "helper", version: "0.1.0" }),
+        );
+        ws.writeFile("extensions/extensions.json", "{");
+        const entries: LogEntry[] = [];
+        const logService = new LogService();
+        logService.addSink({ append: (entry) => entries.push(entry), dispose: () => undefined });
+        const container = setup();
+        container.bind(ILogServiceDIToken, () => logService);
+
+        expect(container.get(ExtensionsWorkbenchServiceDIToken).getEntries()).toEqual([]);
+        expect(entries.map((e) => [e.channel, e.message])).toEqual([
+            ["extensions", `Failed to read profile extensions ${ws.path("extensions/extensions.json")}`],
+        ]);
+        expect(logService.getRegisteredChannels()).toContainEqual({ id: "extensions", label: "Extensions" });
     });
 
     it("диагностики парсера уходят в переданный onProblem", async () => {

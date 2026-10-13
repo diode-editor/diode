@@ -104,6 +104,36 @@ describe("SEA binary — extension install CLI", () => {
         expect(listAfter.stdout.trim()).toBe("");
     });
 
+    it("--profile: ставит, перечисляет и удаляет в составе профиля; общий каталог чистится, когда расширение не нужно никому", async () => {
+        const root = path.join(tempRoot, "user-data-profiles");
+        const cli = (...args: string[]) => runCli(binary, ["--user-data-dir", root, ...args]);
+        // Профиль `work` из прошлой версии — каталог без состава; пустой состав
+        // задаём явно (без файла миграция отдала бы ему все установленные).
+        const workDir = path.join(root, "user-data", "User", "profiles", "work");
+        await fs.promises.mkdir(workDir, { recursive: true });
+        await fs.promises.writeFile(path.join(workDir, "extensions.json"), "[]");
+
+        const unknown = await cli("--profile", "nope", "--list-extensions");
+        expect(unknown.code).toBe(1);
+        expect(unknown.stderr).toContain("Profile 'nope' not found.");
+
+        expect((await cli("--install-extension", vsixPath)).code).toBe(0);
+        const installWork = await cli("--profile", "work", "--install-extension", vsixPath);
+        expect(installWork.code).toBe(0);
+        expect((await cli("--profile", "work", "--list-extensions")).stdout.trim()).toBe("acme.demo@1.2.3");
+
+        // Убрали из work — в Default осталось, каталог на диске нужен ему.
+        const extDir = path.join(root, "extensions", "acme.demo-1.2.3");
+        expect((await cli("--profile", "work", "--uninstall-extension", "acme.demo")).code).toBe(0);
+        expect((await cli("--profile", "work", "--list-extensions")).stdout.trim()).toBe("");
+        expect((await cli("--list-extensions")).stdout.trim()).toBe("acme.demo@1.2.3");
+        expect(fs.existsSync(extDir)).toBe(true);
+
+        // Убрали из последнего профиля — ушёл и с диска.
+        expect((await cli("--uninstall-extension", "acme.demo")).code).toBe(0);
+        expect(fs.existsSync(extDir)).toBe(false);
+    });
+
     it("reports a clear error and exits non-zero for a broken .vsix", async () => {
         const badVsix = path.join(tempRoot, "broken.vsix");
         await fs.promises.writeFile(badVsix, "this is not a zip");

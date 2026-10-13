@@ -103,7 +103,8 @@ async function switchProfile(accessor: ServiceAccessor): Promise<void> {
 
 /**
  * `Profiles: New Profile...` — имя, затем «Empty» / «Copy from current»
- * (settings.json и keybindings.json текущего профиля), создание, вход. У эталона
+ * (settings.json, keybindings.json и состав расширений текущего профиля),
+ * создание, вход. У эталона
  * это форма редактора профилей (имя, иконка, «Copy from», ресурсы галочками) —
  * у нас два шага quick input (docs/TODO/Profiles.md, итерация 4).
  */
@@ -126,7 +127,7 @@ async function createProfile(accessor: ServiceAccessor): Promise<void> {
         title: "New Profile",
         placeholder: "Select the contents of the new profile",
         items: [
-            { label: NEW_PROFILE_EMPTY_LABEL, description: "Start with no settings and keybindings" },
+            { label: NEW_PROFILE_EMPTY_LABEL, description: "Start with no settings, keybindings and extensions" },
             { label: NEW_PROFILE_COPY_LABEL, description: current.name },
         ],
     });
@@ -142,10 +143,12 @@ async function createProfile(accessor: ServiceAccessor): Promise<void> {
 }
 
 /**
- * Копирует settings.json и keybindings.json из профиля в профиль. Из настроек
- * вырезаются `application`-ключи: в именованном профиле они не действуют
- * (их место — `User/settings.json` Default-профиля), и в новом файле они только
- * давали бы warn на каждом старте. Отсутствующий файл — нечего копировать.
+ * Копирует settings.json, keybindings.json и extensions.json (состав
+ * расширений) из профиля в профиль. Из настроек вырезаются `application`-ключи:
+ * в именованном профиле они не действуют (их место — `User/settings.json`
+ * Default-профиля), и в новом файле они только давали бы warn на каждом
+ * старте. Отсутствующий файл — нечего копировать. Сами расширения лежат в
+ * общем каталоге, поэтому копия состава — это копия списка.
  */
 export async function copyProfileContents(
     files: IFileService,
@@ -163,6 +166,10 @@ export async function copyProfileContents(
     const keybindings = await readTextIfExists(files, from.keybindingsResource);
     if (keybindings !== undefined) {
         await files.writeFile(Uri.file(to.keybindingsResource), new TextEncoder().encode(keybindings));
+    }
+    const extensions = await readTextIfExists(files, from.extensionsResource);
+    if (extensions !== undefined) {
+        await files.writeFile(Uri.file(to.extensionsResource), new TextEncoder().encode(extensions));
     }
 }
 

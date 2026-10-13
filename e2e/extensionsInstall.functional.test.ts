@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,10 +79,24 @@ async function pageButtons(app: HeadlessApp): Promise<{ label: string; enabled: 
     return state?.buttons ?? [];
 }
 
-/** Каталоги установленных расширений в user-data-dir сессии. */
+/**
+ * Каталоги установленных расширений в user-data-dir сессии. Рядом лежит
+ * `extensions.json` — состав Default-профиля, он не каталог расширения.
+ */
 function installedDirs(app: HeadlessApp): string[] {
     const dir = join(app.env.userDataDir, "extensions");
-    return existsSync(dir) ? readdirSync(dir).sort() : [];
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort();
+}
+
+/** Id в составе Default-профиля (`extensions/extensions.json`) — что включено в окне. */
+function defaultProfileIds(app: HeadlessApp): string[] {
+    const file = join(app.env.userDataDir, "extensions", "extensions.json");
+    const entries = JSON.parse(readFileSync(file, "utf8")) as { identifier: { id: string } }[];
+    return entries.map((e) => e.identifier.id).sort();
 }
 
 describe("Extensions install (functional e2e)", () => {
@@ -128,6 +142,8 @@ describe("Extensions install (functional e2e)", () => {
         expect(existsSync(join(app.env.userDataDir, "extensions", "test.sample-lang-0.0.2", "package.json"))).toBe(
             true,
         );
+        // И включено в профиль окна.
+        expect(defaultProfileIds(app)).toEqual(["test.sample-lang"]);
         // Сообщение о результате — в статус-баре, рядом с тем же приглашением.
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to activate");
     });
@@ -159,6 +175,7 @@ describe("Extensions install (functional e2e)", () => {
 
         // Зависимость — наивысшей совместимой версии реестра.
         expect(installedDirs(app)).toEqual(["test.lang-pack-0.0.1", "test.sample-lang-0.0.2"]);
+        expect(defaultProfileIds(app)).toEqual(["test.lang-pack", "test.sample-lang"]);
 
         // Ответ на этот ввод может и не прийти: окно уходит на перезапуск вместе с сокетом.
         await app.session.sendKey("Enter").catch(() => undefined);
@@ -193,7 +210,9 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Not installed"));
 
+        // Ни в одном профиле больше нет — снесено и с диска.
         expect(installedDirs(app)).toEqual([]);
+        expect(defaultProfileIds(app)).toEqual([]);
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to apply");
     });
 

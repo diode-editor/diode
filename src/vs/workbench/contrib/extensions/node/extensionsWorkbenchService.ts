@@ -10,11 +10,8 @@ import type {
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import { areEnginesCompatible } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import type { IInstalledExtension } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
-import {
-    listInstalledExtensions,
-    uninstallExtension,
-} from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
 import { installFromRegistry } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
+import type { ProfileExtensions } from "../../../../platform/extensionManagement/node/profileExtensions.ts";
 import type {
     ExtensionAvailability,
     IExtensionInstallResult,
@@ -24,7 +21,10 @@ import type {
 } from "../common/extensionsWorkbench.ts";
 
 /**
- * Магазин для UI: каталог реестра, склеенный с установленным на диске.
+ * Магазин для UI: каталог реестра, склеенный с расширениями активного профиля.
+ * Установка кладёт расширение в общий каталог и включает его в профиль;
+ * удаление убирает из профиля, а с диска — когда оно не нужно ни одному
+ * профилю ({@link ProfileExtensions}).
  *
  * Живёт в `node/`, потому что ходит в сеть (через источник) и читает каталог
  * расширений; вьюлет знает только контракт из `common/`.
@@ -51,13 +51,13 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     public constructor(
         private readonly source: IExtensionRegistrySource,
-        private readonly extensionsDir: string,
+        private readonly profile: ProfileExtensions,
         private readonly host: IHostVersions,
     ) {
         super();
         // Установленное известно и без сети — читаем сразу, чтобы секция
         // INSTALLED была наполнена ещё до первого запроса к реестру.
-        this.installed = listInstalledExtensions(extensionsDir);
+        this.installed = profile.list();
         this.entries = this.computeEntries();
     }
 
@@ -102,9 +102,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             // Зависимости (`extensionDependencies`) ставятся вместе с ним, без
             // вопросов, как в VS Code, — и тоже ждут перезагрузки окна.
             const { version, dependencies } = await installFromRegistry(this.source, id, {
-                extensionsDir: this.extensionsDir,
+                extensionsDir: this.profile.extensionsDir,
                 host: this.host,
             });
+            // В профиль — вместе с зависимостями, и с теми, что уже лежали на
+            // диске для другого профиля.
+            this.profile.add([id]);
             for (const dep of dependencies) this.pendingReload.add(dep.id);
             this.markChanged(id);
             return { ok: true, version };
@@ -113,11 +116,11 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         }
     }
 
-    /** Удаление всех установленных версий расширения. */
+    /** Удаление из профиля; с диска — когда ни одному профилю оно не нужно. */
     public uninstall(id: string): Promise<IExtensionOperationResult> {
         try {
-            const { removed } = uninstallExtension(id, this.extensionsDir);
-            if (removed.length === 0) {
+            const { removed } = this.profile.remove(id);
+            if (!removed) {
                 // Нечего удалять — это не успех: карточка осталась бы с кнопкой
                 // Uninstall, которая ничего не делает.
                 return Promise.resolve({ ok: false, error: `Extension ${id} is not installed` });
@@ -142,7 +145,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     /** Перечитывает установленное с диска (после установки/удаления). */
     public reloadInstalled(): void {
-        this.installed = listInstalledExtensions(this.extensionsDir);
+        this.installed = this.profile.list();
         this.rebuildEntries();
     }
 
@@ -155,7 +158,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             // лучше, чем пустой, а причина видна отдельной строкой.
             this.catalogError = messageOf(error);
         }
-        this.installed = listInstalledExtensions(this.extensionsDir);
+        this.installed = this.profile.list();
         this.rebuildEntries();
     }
 
@@ -224,7 +227,8 @@ function availabilityOf(
 
 /**
  * Карточка расширения, поставленного мимо магазина (`--install-extension foo.vsix`
- * или чужой каталог в `extensions/`): всё, что о нём известно, — его манифест.
+ * или каталог в `extensions/`, ставший составом профиля при миграции): всё, что
+ * о нём известно, — его манифест.
  * Такая запись всегда `installed`: сравнивать не с чем.
  */
 function toSideloadedEntry(installed: IInstalledExtension, needsReload: boolean): IExtensionListEntry {
