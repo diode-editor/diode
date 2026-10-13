@@ -285,6 +285,6 @@ export function createProfileExtensions(input: {
                 profiles.profiles.map((p) => p.extensionsResource),
                 profiles.profilesHome,
             ),
-        ...(logger !== undefined ? { logger } : {}),
+        logger: logger ?? NULL_LOGGER,
     });
 }
