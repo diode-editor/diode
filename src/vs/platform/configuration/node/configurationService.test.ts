@@ -18,6 +18,10 @@ import { ConfigurationService, loadConfiguration } from "./configurationService.
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+function fakeLogger(): ILogger {
+    return { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), isEnabled: () => true };
+}
+
 /** Fake watcher: records the onChange callback per path so tests fire it by hand. */
 class FakeFileWatcher implements IFileWatcher {
     private handlers = new Map<string, () => void>();
@@ -52,6 +56,13 @@ const TEST_REGISTRY = new ConfigurationRegistry([
             "editor.tabSize": { scope: "language-overridable", type: "number", default: 4 },
             "editor.insertSpaces": { scope: "language-overridable", type: "boolean", default: true },
             "editor.cursorSurroundingLines": { scope: "language-overridable", type: "number", default: 3 },
+        },
+    },
+    {
+        id: "update",
+        properties: {
+            // `application`-ключ: один на все профили (эталон: `update.mode`).
+            "update.mode": { scope: "application", type: "string", default: "default" },
         },
     },
 ]);
@@ -139,29 +150,144 @@ describe("loadConfiguration", () => {
         expect(logger.error).toHaveBeenCalled();
     });
 
-    it("named profile overrides user settings", async () => {
+    it("named profile settings replace user settings (not inherit them)", async () => {
         const defaultPaths = paths();
-        writeSettings(defaultPaths.settingsFile, `{ "editor.tabSize": 2 }`);
+        writeSettings(defaultPaths.settingsFile, `{ "editor.tabSize": 2, "editor.insertSpaces": false }`);
 
         const compactPaths = paths("compact");
         writeSettings(compactPaths.settingsFile, `{ "editor.tabSize": 8 }`);
 
         const cfg = await loadCfg(compactPaths);
         expect(cfg.get<number>("editor.tabSize")).toBe(8);
-        // user-слой ещё применяется поверх defaults
+        // Не-application ключ Default'а в именованный профиль НЕ приходит — дефолт реестра.
         expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true);
     });
 
-    it("getConfigurationData: дефолты реестра и пользовательский слой (profile поверх user), как записаны", async () => {
-        writeSettings(paths().settingsFile, `{ "editor.tabSize": 2, "git.enabled": false }`);
+    describe("именованный профиль и application-ключи (семантика эталона)", () => {
+        it("application-ключ Default'а действует в именованном профиле; незарегистрированный — нет", async () => {
+            writeSettings(paths().settingsFile, `{ "update.mode": "none", "git.enabled": false, "editor.tabSize": 2 }`);
+            const cfg = await loadCfg(paths("compact"));
+            expect(cfg.get("update.mode")).toBe("none");
+            expect(cfg.get("git.enabled")).toBeUndefined();
+            expect(cfg.get("editor.tabSize")).toBe(4);
+            expect(cfg.inspect("update.mode").user).toBe("none");
+            expect(cfg.inspect("editor.tabSize").user).toBeUndefined();
+            expect(cfg.getConfigurationData().user).toEqual({ update: { mode: "none" } });
+        });
+
+        it("application-ключ в файле профиля не действует и назван warn'ом", async () => {
+            const p = paths("compact");
+            writeSettings(paths().settingsFile, `{ "update.mode": "none" }`);
+            writeSettings(p.settingsFile, `{ "update.mode": "manual", "editor.tabSize": 8 }`);
+            const logger = fakeLogger();
+            const cfg = await loadCfg(p, logger);
+            expect(cfg.get("update.mode")).toBe("none");
+            expect(cfg.get("editor.tabSize")).toBe(8);
+            expect(cfg.inspect("update.mode").profile).toBeUndefined();
+            expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("update.mode"));
+            expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(p.settingsFile));
+        });
+
+        it("warn про application-ключ — один раз на набор: запись в файл профиля не повторяет его, возврат ключа — повторяет", async () => {
+            const p = paths("compact");
+            writeSettings(p.settingsFile, `{ "update.mode": "manual" }`);
+            const logger = fakeLogger();
+            const cfg = await loadCfg(p, logger);
+            expect(logger.warn).toHaveBeenCalledTimes(1);
+            // Запись в файл профиля перечитывает его слой — тот же набор, без повтора.
+            await cfg.updateValue("editor.tabSize", 2);
+            expect(logger.warn).toHaveBeenCalledTimes(1);
+            // Ключ ушёл — тишина; вернулся — названо снова.
+            writeSettings(p.settingsFile, `{ "editor.tabSize": 2 }`);
+            await cfg.reload();
+            expect(logger.warn).toHaveBeenCalledTimes(1);
+            writeSettings(p.settingsFile, `{ "editor.tabSize": 2, "update.mode": "none" }`);
+            await cfg.reload();
+            expect(logger.warn).toHaveBeenCalledTimes(2);
+            expect(logger.warn).toHaveBeenLastCalledWith(expect.stringContaining("update.mode"));
+        });
+
+        it("в файле профиля только его ключи — предупреждать не о чем", async () => {
+            const p = paths("compact");
+            writeSettings(p.settingsFile, `{ "editor.tabSize": 8 }`);
+            const logger = fakeLogger();
+            const cfg = await loadCfg(p, logger);
+            expect(cfg.get("editor.tabSize")).toBe(8);
+            expect(logger.warn).not.toHaveBeenCalled();
+        });
+
+        it("без логгера application-ключ в файле профиля отбрасывается молча", async () => {
+            const p = paths("compact");
+            writeSettings(p.settingsFile, `{ "update.mode": "manual" }`);
+            const cfg = await loadCfg(p);
+            expect(cfg.get("update.mode")).toBe("default");
+        });
+
+        it("profile-слой без файла профиля (сборка без profileSettingsPath) — warn не о чем", () => {
+            const logger = fakeLogger();
+            disposables.add(
+                new ConfigurationService({
+                    defaultsLayer: ConfigurationModel.EMPTY,
+                    userLayer: ConfigurationModel.EMPTY,
+                    profileLayer: ConfigurationModel.fromRaw({ "update.mode": "none" }),
+                    scopes: TEST_REGISTRY.getConfigurationScopes(),
+                    logger,
+                }),
+            );
+            expect(logger.warn).not.toHaveBeenCalled();
+        });
+
+        it("запись application-ключа из именованного профиля идёт в User/settings.json", async () => {
+            const p = paths("compact");
+            const cfg = await loadCfg(p);
+            const events: IConfigurationChangeEvent[] = [];
+            disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
+            await cfg.updateValue("update.mode", "manual");
+            await cfg.updateValue("editor.tabSize", 2);
+            expect(JSON.parse(fs.readFileSync(paths().settingsFile, "utf-8"))).toEqual({ "update.mode": "manual" });
+            expect(JSON.parse(fs.readFileSync(p.settingsFile, "utf-8"))).toEqual({ "editor.tabSize": 2 });
+            expect(cfg.get("update.mode")).toBe("manual");
+            expect(cfg.inspect("update.mode").user).toBe("manual");
+            expect(cfg.get("editor.tabSize")).toBe(2);
+            // Обе записи — то же событие, что у reload по watcher'у.
+            expect(events.map((e) => e.affectedKeys)).toEqual([["update.mode"], ["editor.tabSize"]]);
+        });
+
+        it("reload именованного профиля подхватывает application-ключ из User/settings.json", async () => {
+            const p = paths("compact");
+            const cfg = await loadCfg(p);
+            const events: IConfigurationChangeEvent[] = [];
+            disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
+            writeSettings(paths().settingsFile, `{ "update.mode": "none", "editor.tabSize": 2 }`);
+            await cfg.reload();
+            expect(cfg.get("update.mode")).toBe("none");
+            expect(cfg.get("editor.tabSize")).toBe(4);
+            expect(events).toHaveLength(1);
+            expect(events[0].affectedKeys).toEqual(["update.mode"]);
+        });
+
+        it("у Default-профиля application-ключ пишется и читается как любой другой", async () => {
+            const p = paths();
+            const cfg = await loadCfg(p);
+            await cfg.updateValue("update.mode", "manual");
+            expect(JSON.parse(fs.readFileSync(p.settingsFile, "utf-8"))).toEqual({ "update.mode": "manual" });
+            expect(cfg.inspect("update.mode").user).toBe("manual");
+        });
+    });
+
+    it("getConfigurationData: дефолты реестра и пользовательский слой (profile поверх application-ключей user), как записаны", async () => {
+        writeSettings(paths().settingsFile, `{ "editor.tabSize": 2, "git.enabled": false, "update.mode": "none" }`);
         const compactPaths = paths("compact");
         writeSettings(compactPaths.settingsFile, `{ "editor.tabSize": "eight" }`);
 
         const cfg = await loadCfg(compactPaths);
 
         expect(cfg.getConfigurationData()).toEqual({
-            defaults: { editor: { tabSize: 4, insertSpaces: true, cursorSurroundingLines: 3 } },
-            user: { editor: { tabSize: "eight" }, git: { enabled: false } },
+            defaults: {
+                editor: { tabSize: 4, insertSpaces: true, cursorSurroundingLines: 3 },
+                update: { mode: "default" },
+            },
+            user: { editor: { tabSize: "eight" }, update: { mode: "none" } },
             // Папка не открыта — слой воркспейса пуст.
             workspace: {},
             workspaceFolder: {},
@@ -190,17 +316,18 @@ describe("loadConfiguration", () => {
         const cfg = await loadCfg(compactPaths);
         const ins = cfg.inspect<number>("editor.tabSize");
         expect(ins.default).toBe(4);
-        expect(ins.user).toBe(2);
+        // Слой user у именованного профиля — только application-ключи Default'а.
+        expect(ins.user).toBeUndefined();
         expect(ins.profile).toBe(8);
         expect(ins.value).toBe(8);
     });
 
-    it("named profile with no file uses user settings", async () => {
+    it("named profile with no file: user settings of other scopes do not apply", async () => {
         const defaultPaths = paths();
         writeSettings(defaultPaths.settingsFile, `{ "editor.tabSize": 2 }`);
 
         const cfg = await loadCfg(paths("compact"));
-        expect(cfg.get<number>("editor.tabSize")).toBe(2);
+        expect(cfg.get<number>("editor.tabSize")).toBe(4);
     });
 
     it("get returns undefined for unknown keys", async () => {

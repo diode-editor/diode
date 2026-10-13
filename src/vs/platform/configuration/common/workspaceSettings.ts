@@ -47,6 +47,26 @@ export const WORKSPACE_SCOPES: readonly ConfigurationScope[] = [
  */
 export const FOLDER_SCOPES: readonly ConfigurationScope[] = ["resource", "language-overridable", "machine-overridable"];
 
+/**
+ * Скоупы, которые именованный профиль берёт из `User/settings.json`
+ * Default-профиля (`APPLICATION_SCOPES` эталона без `application-machine`,
+ * которого у нас нет): свойство установки, а не профиля — одно на все профили.
+ */
+export const APPLICATION_SCOPES: readonly ConfigurationScope[] = ["application"];
+
+/**
+ * Скоупы, которые принимает `settings.json` именованного профиля
+ * (`PROFILE_SCOPES` эталона): всё, кроме `application` — такой ключ в файле
+ * профиля не действует и пишется в `User/settings.json`.
+ */
+export const PROFILE_SCOPES: readonly ConfigurationScope[] = [
+    "machine",
+    "window",
+    "resource",
+    "language-overridable",
+    "machine-overridable",
+];
+
 /** Можно ли держать ключ с таким `scope` в слое воркспейса; незарегистрированный ключ (`undefined`) — можно. */
 export function isWorkspaceScope(scope: ConfigurationScope | undefined): boolean {
     return scope === undefined || WORKSPACE_SCOPES.includes(scope);

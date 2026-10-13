@@ -118,6 +118,7 @@ import { TabSwitcherComponentDIToken } from "./browser/parts/editor/tabSwitcherC
 import { PanelFocusContributionDIToken } from "./browser/parts/panel/panelFocusContribution.ts";
 import { SidebarServiceDIToken } from "./browser/parts/sidebar/sidebarService.ts";
 import { ProgressStatusBarContributionDIToken } from "./browser/parts/statusbar/progressStatusBarContribution.ts";
+import { WindowTitleContributionDIToken } from "./browser/parts/titlebar/windowTitleContribution.ts";
 import { ViewProgressContributionDIToken } from "./browser/parts/views/viewProgressContribution.ts";
 import { ViewTitleActionsContributionDIToken } from "./browser/parts/views/viewTitleActionsContribution.ts";
 import { SetContextCommandContributionDIToken } from "./browser/setContextCommandContribution.ts";
@@ -187,6 +188,7 @@ import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/termin
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
 import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeConfigContribution.ts";
+import { USER_DATA_PROFILE_ACTIONS } from "./contrib/userDataProfile/browser/userDataProfileActions.ts";
 import { HistoryServiceDIToken } from "./services/history/browser/historyService.ts";
 import { TerminalEnvContextKeysContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvContextKeysContribution.ts";
 import { TerminalEnvStatusContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
@@ -265,6 +267,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TerminalEnvContextKeysContributionDIToken, phase: "ready" },
     { token: AutoRevealContributionDIToken, phase: "ready" },
     { token: ThemeConfigContributionDIToken, phase: "ready" },
+    // Заголовок окна терминала (папка, профиль, приложение). Смена профиля вслед
+    // за Open Folder / Open Workspace from File — не contribution, а обёртка
+    // опенера воркспейса (`UserDataProfileWorkspaceOpener`, биндинг в workbenchModule).
+    { token: WindowTitleContributionDIToken, phase: "ready" },
     { token: OpenFileCommandContributionDIToken, phase: "ready" },
     // Встроенная `setContext`: расширение может дёрнуть её в activate(), то есть
     // раньше любого пользовательского действия.
@@ -323,6 +329,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     quitAction,
     ...QUICK_ACCESS_ACTIONS,
     ...THEME_ACTIONS,
+    ...USER_DATA_PROFILE_ACTIONS,
     changeEncodingAction,
     changeEolAction,
     cursorLeftAction,

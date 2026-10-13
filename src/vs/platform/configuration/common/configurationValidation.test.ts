@@ -7,6 +7,7 @@ import { ConfigurationRegistry } from "./configurationRegistry.ts";
 import {
     filterWorkspaceSettings,
     isValidConfigurationValue,
+    pickRegisteredSettings,
     sanitizeConfiguration,
 } from "./configurationValidation.ts";
 import { InMemoryConfigurationService } from "./inMemoryConfigurationService.ts";
@@ -149,5 +150,28 @@ describe("filterWorkspaceSettings", () => {
         const result = filterWorkspaceSettings(ConfigurationModel.fromRaw({ "[go]": { "update.mode": "x" } }), scopes);
         expect(result.model.getOverride("go").get("update.mode")).toBeUndefined();
         expect(result.excludedKeys).toEqual(["[go].update.mode"]);
+    });
+
+    describe("pickRegisteredSettings", () => {
+        it("оставляет только ключи реестра нужного скоупа — незарегистрированные и чужие уходят", () => {
+            const model = ConfigurationModel.fromRaw({
+                "update.mode": "none",
+                "terminal.tier": "kitty",
+                "editor.tabSize": 2,
+                "x.y": 1,
+                "[go]": { "update.mode": "manual", "editor.tabSize": 8 },
+                "[py]": { "editor.tabSize": 4 },
+            });
+            const picked = pickRegisteredSettings(model, scopes, ["application"]);
+            expect(picked.toRaw()).toEqual({ update: { mode: "none" }, "[go]": { update: { mode: "manual" } } });
+            expect(picked.getOverrideIdentifiers()).toEqual(["go"]);
+            // Исходная модель не тронута.
+            expect(model.get("x.y")).toBe(1);
+        });
+
+        it("нечего взять — пустая модель", () => {
+            const model = ConfigurationModel.fromRaw({ "editor.tabSize": 2, "x.y": 1 });
+            expect(pickRegisteredSettings(model, scopes, ["application"])).toBe(ConfigurationModel.EMPTY);
+        });
     });
 });

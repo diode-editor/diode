@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CliArgsError, DEFAULT_INSPECT_TUI, parseCliArgs } from "./cliArgs.ts";
+import { CliArgsError, DEFAULT_INSPECT_TUI, parseCliArgs, relaunchArgs, relaunchWorkspace } from "./cliArgs.ts";
 
 describe("parseCliArgs", () => {
     it("returns empty result for empty argv", () => {
@@ -141,5 +141,119 @@ describe("parseCliArgs", () => {
     it("throws when extension-management flags miss their value", () => {
         expect(() => parseCliArgs(["--install-extension"])).toThrow(/requires a value/);
         expect(() => parseCliArgs(["--uninstall-extension="])).toThrow(/non-empty value/);
+    });
+});
+
+describe("relaunchArgs", () => {
+    it("снимает прежний --profile в обеих формах и ставит явный", () => {
+        expect(relaunchArgs(["--profile", "old", "/work"], { profile: "work" })).toEqual([
+            "--profile",
+            "work",
+            "--",
+            "/work",
+        ]);
+        expect(relaunchArgs(["/work", "--profile=old"], { profile: "Default" })).toEqual([
+            "--profile",
+            "Default",
+            "--",
+            "/work",
+        ]);
+    });
+
+    it("без смены воркспейса позиционные и прочие флаги едут как были", () => {
+        const args = [
+            "--user-data-dir",
+            "/u",
+            "--headless=80x24",
+            "--inspect-tui=127.0.0.1:0",
+            "--log",
+            "debug",
+            "--verbose",
+            "-g",
+            "a.ts:3:4",
+            "b.ts",
+        ];
+        expect(relaunchArgs(args, { profile: "work" })).toEqual([
+            "--user-data-dir",
+            "/u",
+            "--headless=80x24",
+            "--inspect-tui=127.0.0.1:0",
+            "--log",
+            "debug",
+            "--verbose",
+            "-g",
+            "--profile",
+            "work",
+            "--",
+            "a.ts:3:4",
+            "b.ts",
+        ]);
+    });
+
+    it("смена воркспейса замещает позиционные и режимы --goto/--diff", () => {
+        expect(
+            relaunchArgs(["--diff", "a", "b", "--user-data-dir=/u"], { profile: "work", workspace: "/other" }),
+        ).toEqual(["--user-data-dir=/u", "--profile", "work", "--", "/other"]);
+        expect(
+            relaunchArgs(["--goto", "a.ts:1", "--", "-x"], { profile: "work", workspace: "/p/web.code-workspace" }),
+        ).toEqual(["--profile", "work", "--", "/p/web.code-workspace"]);
+    });
+
+    it("короткие -g/-d при смене воркспейса снимаются так же, как длинные", () => {
+        expect(relaunchArgs(["-g", "a.ts:1", "-d", "a", "b"], { profile: "work", workspace: "/o" })).toEqual([
+            "--profile",
+            "work",
+            "--",
+            "/o",
+        ]);
+    });
+
+    it("одиночный `-` — позиционный аргумент, а не флаг", () => {
+        expect(relaunchArgs(["-"], { profile: "work" })).toEqual(["--profile", "work", "--", "-"]);
+    });
+
+    it("позиционные после `--` сохраняются; без позиционных `--` не ставится", () => {
+        expect(relaunchArgs(["--", "-weird", "x"], { profile: "work" })).toEqual([
+            "--profile",
+            "work",
+            "--",
+            "-weird",
+            "x",
+        ]);
+        expect(relaunchArgs(["--profile", "old"], { profile: "work" })).toEqual(["--profile", "work"]);
+        expect(relaunchArgs([], { profile: "work" })).toEqual(["--profile", "work"]);
+    });
+
+    it("флаг со значением в хвосте без значения не роняет и не тянет мусор", () => {
+        expect(relaunchArgs(["/work", "--log"], { profile: "work" })).toEqual(["--profile", "work", "--", "/work"]);
+    });
+
+    it("результат разбирается обратно: профиль, воркспейс и флаги на месте", () => {
+        const parsed = parseCliArgs(
+            relaunchArgs(["--headless=80x24", "--inspect-tui", "/old", "--profile", "x"], {
+                profile: "My Work",
+                workspace: "/new",
+            }),
+        );
+        expect(parsed.profile).toBe("My Work");
+        expect(parsed.positional).toEqual(["/new"]);
+        expect(parsed.headless).toEqual({ cols: 80, rows: 24 });
+        expect(parsed.inspectTui).toBeDefined();
+    });
+});
+
+describe("relaunchWorkspace", () => {
+    it("запрошенный воркспейс побеждает", () => {
+        expect(relaunchWorkspace("/next", "/start", "/current")).toBe("/next");
+    });
+
+    it("окно сменило воркспейс после старта — следующее окно поднимается с текущим", () => {
+        expect(relaunchWorkspace(undefined, "/start", "/current")).toBe("/current");
+        expect(relaunchWorkspace(undefined, undefined, "/current")).toBe("/current");
+    });
+
+    it("воркспейс тот же — позиционные этого окна не трогаются", () => {
+        expect(relaunchWorkspace(undefined, "/start", "/start")).toBeUndefined();
+        expect(relaunchWorkspace(undefined, undefined, undefined)).toBeUndefined();
     });
 });

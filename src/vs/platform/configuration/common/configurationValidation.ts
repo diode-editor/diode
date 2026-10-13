@@ -137,6 +137,33 @@ export function filterWorkspaceSettings(
 }
 
 /**
+ * Только ключи реестра с одним из `allowed` скоупов — в основном дереве и в
+ * секциях языков; всё остальное, включая ключи вне реестра, отбрасывается (как
+ * `skipUnregistered` у `ConfigurationModelParser` эталона). Так читается
+ * `User/settings.json` Default-профиля для именованного: из него приезжают
+ * только `application`-ключи, и незарегистрированный ключ — тоже не они.
+ */
+export function pickRegisteredSettings(
+    model: ConfigurationModel,
+    scopes: ReadonlyMap<string, ConfigurationScope>,
+    allowed: readonly ConfigurationScope[],
+): ConfigurationModel {
+    const raw: Record<string, unknown> = {};
+    for (const [key, scope] of scopes) {
+        if (!allowed.includes(scope)) continue;
+        const value = model.get(key);
+        if (value !== undefined) raw[key] = value;
+        for (const identifier of model.getOverrideIdentifiers()) {
+            const override = model.getOverride(identifier).get(key);
+            if (override === undefined) continue;
+            const section = (raw[`[${identifier}]`] ??= {}) as Record<string, unknown>;
+            section[key] = override;
+        }
+    }
+    return Object.keys(raw).length === 0 ? ConfigurationModel.EMPTY : ConfigurationModel.fromRaw(raw);
+}
+
+/**
  * Удаляет ключ из дерева вместе с опустевшими предками: отброшенный
  * `terminal.tier` не должен оставлять в слое `terminal: {}` — пустой объект
  * перекрыл бы при слиянии ничего, но доехал бы до хоста как значение секции.

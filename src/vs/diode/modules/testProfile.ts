@@ -16,7 +16,9 @@ import type { IEnvironmentService } from "../../platform/environment/common/envi
 import { currentTargetPlatform } from "../../platform/extensionManagement/node/targetPlatform.ts";
 import { Container } from "../../platform/instantiation/common/diContainer.ts";
 import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
+import { StateFileStore } from "../../platform/state/node/stateService.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
+import { UserDataProfilesService } from "../../platform/userDataProfile/node/userDataProfilesService.ts";
 import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import {
@@ -42,6 +44,7 @@ import { preferencesModule } from "./preferencesModule.ts";
 import { stateModuleDefault } from "./stateModule.ts";
 import { themeModule } from "./themeModule.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
+import { userDataProfileModule } from "./userDataProfileModule.ts";
 import { workbenchModule } from "./workbenchModule.ts";
 import { workspaceModule } from "./workspaceModule.ts";
 
@@ -91,8 +94,18 @@ export interface TestContainerOptions {
 }
 
 export function createTestContainer(options: TestContainerOptions = {}): TestContainerHandle {
+    const environment = { ...createTestEnvironment(), ...options.environment };
+    // Реестр профилей — настоящий, но над стором в памяти и в каталоге тестового
+    // окружения: команды профилей создают каталоги там же, где всё остальное.
+    const userDir = path.join(environment.userDataRoot, "user-data", "User");
+    const profilesService = new UserDataProfilesService({
+        profilesHome: path.join(userDir, "profiles"),
+        defaultProfileHome: userDir,
+        state: new StateFileStore(undefined),
+    });
     const container = new Container()
-        .use(environmentModule, { ...createTestEnvironment(), ...options.environment })
+        .use(environmentModule, environment)
+        .use(userDataProfileModule, { profilesService, currentProfile: profilesService.defaultProfile })
         .use(coreModuleLate)
         .use(loggingModuleDefault)
         .use(commandsModule)

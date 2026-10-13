@@ -38,6 +38,7 @@ import { preferencesModule } from "./preferencesModule.ts";
 import { stateModule } from "./stateModule.ts";
 import { themeModule } from "./themeModule.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
+import { userDataProfileModule, type UserDataProfileModuleContext } from "./userDataProfileModule.ts";
 import { workbenchModule } from "./workbenchModule.ts";
 import { workspaceModule } from "./workspaceModule.ts";
 
@@ -67,6 +68,8 @@ export interface ProductionProfileContext {
     extensionHost: IExtensionHostModuleContext;
     /** Чем заканчивается прощание: выход или замена процесса новым (`workbench.action.reloadWindow`). */
     hostProcess: IHostProcess;
+    /** Реестр профилей, активный профиль окна и сток заголовка терминала. */
+    userDataProfile: UserDataProfileModuleContext;
 }
 
 /**
@@ -93,6 +96,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
             configurationRegistry: ctx.configurationRegistry,
         })
         .use(stateModule, { stateService: ctx.stateService })
+        .use(userDataProfileModule, ctx.userDataProfile)
         .use(terminalEnvironmentModule, { backend: ctx.backend })
         .use(keybindingsModule, { rules: ctx.userKeybindings })
         .use(workspaceModule)

@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 
 import { parse as parseJsonc, type ParseError, printParseErrorCode } from "jsonc-parser";
 
+import { isFileNotFound } from "../../../base/node/fsErrors.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import type { IUserKeybindingRule } from "../common/userKeybindings.ts";
 
@@ -68,8 +69,4 @@ function validateRules(parsed: unknown, filePath: string, logger?: ILogger): IUs
         });
     }
     return rules;
-}
-
-function isFileNotFound(err: unknown): boolean {
-    return typeof err === "object" && err !== null && (err as { code?: string }).code === "ENOENT";
 }

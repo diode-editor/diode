@@ -66,7 +66,7 @@ describe("ConfigurationService — слой воркспейса", () => {
     describe("чтение", () => {
         it(".diode/settings.json папки — поверх user и профиля; inspect и данные для хоста видят слой", async () => {
             writeUser(`{ "editor.tabSize": 2 }`);
-            writeUser(`{ "workbench.colorTheme": "Light" }`, "compact");
+            writeUser(`{ "workbench.colorTheme": "Light", "editor.tabSize": 3 }`, "compact");
             folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8, "workbench.colorTheme": "Solar" }`);
 
             const cfg = await load({ folder: folder.dir, profile: "compact" });
@@ -75,8 +75,9 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("workbench.colorTheme")).toBe("Solar");
             expect(cfg.inspect("editor.tabSize")).toEqual({
                 default: 4,
-                user: 2,
-                profile: undefined,
+                // Именованный профиль: из User/settings.json только application-ключи.
+                user: undefined,
+                profile: 3,
                 workspace: 8,
                 value: 8,
             });

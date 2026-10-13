@@ -5,6 +5,7 @@ import { applyEdits, modify, parse as parseJsonc, type ParseError, printParseErr
 
 import { Emitter } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable, MutableDisposable } from "../../../base/common/lifecycle.ts";
+import { isFileNotFound } from "../../../base/node/fsErrors.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
@@ -16,7 +17,7 @@ import type {
     IConfigurationPropertySchema,
 } from "../common/configurationRegistry.ts";
 import { ConfigurationSnapshot } from "../common/configurationSnapshot.ts";
-import { filterWorkspaceSettings } from "../common/configurationValidation.ts";
+import { filterWorkspaceSettings, pickRegisteredSettings } from "../common/configurationValidation.ts";
 import type {
     ConfigurationTarget,
     IConfigurationChangeEvent,
@@ -27,9 +28,11 @@ import type {
     IConfigurationService,
 } from "../common/iConfigurationService.ts";
 import {
+    APPLICATION_SCOPES,
     FOLDER_SCOPES,
     folderScopeWriteError,
     NO_WORKSPACE_OPENED_ERROR,
+    PROFILE_SCOPES,
     WORKSPACE_SCOPES,
     workspaceScopeWriteError,
     workspaceSettingsPath,
@@ -52,9 +55,14 @@ interface ISettingsSource {
  *
  * Слои (в порядке возрастания приоритета):
  *   1. defaults — из `ConfigurationRegistry` (узлы `CONFIGURATION_CONTRIBUTIONS`);
- *   2. user — `User/settings.json` (default-профиль);
- *   3. profile — `User/profiles/<name>/settings.json` (только если активный
- *      профиль не default, иначе пусто);
+ *   2. user — `User/settings.json` (Default-профиль). У именованного профиля
+ *      слой **урезан до `APPLICATION_SCOPES`**: как `ApplicationConfiguration`
+ *      эталона, из Default в именованный профиль приходят только ключи
+ *      `scope: "application"`, остальное профиль задаёт сам;
+ *   3. profile — `User/profiles/<id>/settings.json` активного именованного
+ *      профиля (у Default пусто), ключи `PROFILE_SCOPES` — `application`-ключ в
+ *      файле профиля не действует (warn в лог), как у `UserConfiguration`
+ *      эталона с `getLocalUserConfigurationScopes`;
  *   4. workspace — `<папка>/.diode/settings.json` открытой папки (у эталона —
  *      `.vscode/settings.json`, см. `workspaceSettings.ts`) без ключей, чей
  *      `scope` воркспейсу не положен; у окна, открытого файлом
@@ -109,6 +117,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     /** Путь к settings.json именованного профиля; undefined для default-профиля. */
     private readonly profileSettingsPath: string | undefined;
     private readonly logger: ILogger | undefined;
+    /** Набор `application`-ключей файла профиля, уже названный warn'ом: повтор на каждую запись — шум. */
+    private warnedProfileKeys: string | undefined;
     private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
     /** `scope` ключей ядра и расширений — фильтр и отказ записи в воркспейс. */
     private readonly scopes: ReadonlyMap<string, ConfigurationScope>;
@@ -137,8 +147,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     }) {
         super();
         this.defaultsLayer = input.defaultsLayer;
-        this.userLayer = input.userLayer;
-        this.profileLayer = input.profileLayer;
         this.writeTargetPath = input.writeTargetPath;
         this.writesToProfileLayer = input.writesToProfileLayer ?? false;
         this.userSettingsPath = input.userSettingsPath;
@@ -147,6 +155,10 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.schemas = input.schemas ?? new Map();
         this.scopes = input.scopes ?? new Map();
         this.fileWatcher = input.fileWatcher;
+        // Слои приходят как прочитаны; фильтры скоупов именованного профиля —
+        // здесь, чтобы bootstrap, reload и запись делили одну семантику.
+        this.userLayer = this.toUserLayer(input.userLayer);
+        this.profileLayer = this.toProfileLayer(input.profileLayer);
         this.snapshot = this.computeSnapshot();
 
         if (input.fileWatcher !== undefined) {
@@ -227,13 +239,42 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     public async reload(): Promise<void> {
         const prev = this.snapshot;
         if (this.userSettingsPath !== undefined) {
-            this.userLayer = await loadSettingsLayer(this.userSettingsPath, this.logger);
+            this.userLayer = this.toUserLayer(await loadSettingsLayer(this.userSettingsPath, this.logger));
         }
         if (this.profileSettingsPath !== undefined) {
-            this.profileLayer = await loadSettingsLayer(this.profileSettingsPath, this.logger);
+            this.profileLayer = this.toProfileLayer(await loadSettingsLayer(this.profileSettingsPath, this.logger));
         }
         await this.reloadWorkspaceLayers();
         this.recompute(prev);
+    }
+
+    /**
+     * Слой `User/settings.json` для активного профиля: у Default — целиком, у
+     * именованного — только `APPLICATION_SCOPES` (остальное — его собственный
+     * файл). Отброшенное не логируется: это не ошибка файла, а норма наследования.
+     */
+    private toUserLayer(model: ConfigurationModel): ConfigurationModel {
+        if (this.profileSettingsPath === undefined) return model;
+        return pickRegisteredSettings(model, this.scopes, APPLICATION_SCOPES);
+    }
+
+    /**
+     * Слой файла именованного профиля: без `application`-ключей, они названы
+     * warn'ом — один раз на набор ключей (файл перечитывается на каждую запись
+     * в него), снова — когда набор изменился или вернулся после исчезновения.
+     */
+    private toProfileLayer(model: ConfigurationModel): ConfigurationModel {
+        const { model: filtered, excludedKeys } = filterWorkspaceSettings(model, this.scopes, PROFILE_SCOPES);
+        const ignored =
+            // Stryker disable next-line StringLiteral: разделитель списка ключей в тексте лога
+            excludedKeys.length > 0 && this.profileSettingsPath !== undefined ? excludedKeys.join(", ") : undefined;
+        if (ignored !== undefined && ignored !== this.warnedProfileKeys) {
+            this.logger?.warn(
+                `${this.profileSettingsPath}: ignored settings that apply to all profiles (set them in the Default profile): ${ignored}`,
+            );
+        }
+        this.warnedProfileKeys = ignored;
+        return filtered;
     }
 
     /**
@@ -356,11 +397,25 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         }
 
         if (this.writeTargetPath === undefined) return;
+        // `application`-ключ у именованного профиля — свойство установки: он
+        // пишется в `User/settings.json` Default-профиля и действует во всех
+        // (эталон: `isSettingAppliedForAllProfiles` → цель USER = Default).
+        const scope = this.scopes.get(key);
+        // Stryker disable next-line ConditionalExpression: `scope !== undefined` — защита типа (includes(undefined) и так false); у Default `User/settings.json` и есть цель записи, обе ветки ниже совпадают
+        const toDefaultProfile = this.writesToProfileLayer && scope !== undefined && APPLICATION_SCOPES.includes(scope);
+        const userSettingsPath = toDefaultProfile ? this.userSettingsPath : undefined;
+        if (userSettingsPath !== undefined) {
+            const model = await writeSettingsKey(userSettingsPath, key, value);
+            const prev = this.snapshot;
+            this.userLayer = this.toUserLayer(model);
+            this.recompute(prev);
+            return;
+        }
         const model = await writeSettingsKey(this.writeTargetPath, key, value);
         // Обновляем in-memory слой, чтобы get/inspect сразу видели новое значение.
         const prev = this.snapshot;
         if (this.writesToProfileLayer) {
-            this.profileLayer = model;
+            this.profileLayer = this.toProfileLayer(model);
         } else {
             this.userLayer = model;
         }
@@ -464,9 +519,10 @@ function sectionOf(parsed: unknown, section: string | undefined): unknown {
  * парсит как JSONC, собирает все слои в `ConfigurationService`.
  *
  * `paths.settingsFile` указывает на settings.json активного профиля. Для
- * default-профиля это `User/settings.json` и совпадает с user-слоем —
- * мы загружаем тот же файл дважды, но второй слой даёт пустой результат,
- * чтобы не дублировать значения (см. ниже).
+ * Default-профиля это `User/settings.json` — он и есть user-слой, profile-слой
+ * пуст. Для именованного user-слой урезается до `APPLICATION_SCOPES`, а
+ * profile-слой — до `PROFILE_SCOPES` (семантика эталона, см. класс выше):
+ * фильтры применяет сам сервис, здесь слои читаются как есть.
  */
 export async function loadConfiguration(
     paths: IUserDataPaths,
@@ -542,8 +598,4 @@ async function loadSettingsLayer(
         // с VS Code: best-effort).
     }
     return ConfigurationModel.fromRaw(sectionOf(parsed, section));
-}
-
-function isFileNotFound(err: unknown): boolean {
-    return typeof err === "object" && err !== null && (err as { code?: string }).code === "ENOENT";
 }
