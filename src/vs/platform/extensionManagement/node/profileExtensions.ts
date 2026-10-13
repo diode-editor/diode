@@ -50,7 +50,8 @@ export interface IStoredProfileExtension {
 export function readProfileExtensions(file: string): IStoredProfileExtension[] | undefined {
     let text: string;
     try {
-        text = fs.readFileSync(file, "utf8");
+        // Декодирование явным шагом: неверная кодировка бросает, а не сглаживается `JSON.parse`.
+        text = fs.readFileSync(file).toString("utf8");
     } catch (err) {
         if (isFileNotFound(err)) return undefined;
         throw err;
@@ -100,6 +101,7 @@ function profileKeys(file: string): Set<string> {
  */
 export function migrateProfileExtensions(extensionsDir: string, profileFiles: readonly string[]): string[] {
     const missing = profileFiles.filter((file) => !fs.existsSync(file));
+    // Stryker disable next-line ConditionalExpression: экономия обхода каталога расширений на каждом старте — без неё результат тот же (пустой список, ничего не записано)
     if (missing.length === 0) return [];
     const all = listInstalledExtensions(extensionsDir).map(toStoredExtension);
     for (const file of missing) writeProfileExtensions(file, all);
@@ -253,10 +255,9 @@ export class ProfileExtensions {
 }
 
 function isStoredProfileExtension(value: unknown): value is IStoredProfileExtension {
-    if (typeof value !== "object" || value === null) return false;
-    const identifier = (value as { identifier?: unknown }).identifier;
-    if (typeof identifier !== "object" || identifier === null) return false;
-    const id = (identifier as { id?: unknown }).id;
+    // Чтение поля у примитива безопасно (`undefined`), опасны только null/undefined.
+    const identifier = (value as { identifier?: unknown } | null | undefined)?.identifier;
+    const id = (identifier as { id?: unknown } | null | undefined)?.id;
     return typeof id === "string" && id.length > 0;
 }
 

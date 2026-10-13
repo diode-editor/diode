@@ -298,10 +298,13 @@ describe("profileExtensions", () => {
             ]);
             writeProfileExtensions(defaultFile, []);
 
-            expect(profile(workFile, [defaultFile]).remove("ACME.TOOLS")).toEqual({
+            const logger = fakeLogger();
+            expect(profile(workFile, [defaultFile], logger).remove("ACME.TOOLS")).toEqual({
                 removed: true,
                 deleted: ["acme.tools"],
             });
+            // «Остаётся на диске» в лог не пишется — расширение удалено.
+            expect(logger.info).not.toHaveBeenCalled();
             expect(ids(workFile)).toEqual(["x.y"]);
             expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0"))).toBe(false);
             // Чужой осиротевший каталог удаление одного расширения не трогает.
