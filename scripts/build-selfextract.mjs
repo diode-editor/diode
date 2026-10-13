@@ -12,7 +12,7 @@
  * Результат:
  *
  *     [ #!/bin/sh стаб (scripts/selfextract-stub.sh) ][ payload.tar.gz ]
- *       payload = node + main.js + diode.bundle
+ *       payload = node + main.js + diode.bundle + lazy/*.cjs (ленивые куски бандла)
  *
  * Стаб при первом запуске распаковывает payload в
  * `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` и делает `exec node main.js "$@"`.
@@ -42,6 +42,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
+import { LAZY_CHUNKS, lazyChunkAssetName } from "./build-lazy-chunks.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
 import { resolveDiodeVersion } from "./resolve-version.mjs";
 import { writeSelfExtract } from "./selfextract-format.mjs";
@@ -72,7 +73,7 @@ async function main() {
     console.log(`[selfextract] target=${target} version=${version}`);
 
     // 1. dist/main.js + dist/diode.bundle (общее с build-sea.mjs).
-    const { mainJsPath, bundlePath, tsServerBundlePath } = args.reuseDist
+    const { mainJsPath, bundlePath, tsServerBundlePath, lazyChunks } = args.reuseDist
         ? existingDistArtifacts(distDir)
         : await buildDistArtifacts({ repoRoot: root, distDir });
 
@@ -80,7 +81,7 @@ async function main() {
     const nodeBinary = await resolveNodeBinary({ target, nodeOpt: args.node });
 
     // 3. Стейджим payload и жмём его.
-    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, distDir });
+    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, lazyChunks, distDir });
 
     // 4. Клеим стаб + payload.
     const key = `${version}-${sha256(payload).slice(0, 12)}`;
@@ -126,19 +127,23 @@ function parseArgs(argv) {
 /**
  * Пути артефактов `buildDistArtifacts` без пересборки — для `--reuse-dist`.
  * @param {string} distDir
- * @returns {{ mainJsPath: string, bundlePath: string, tsServerBundlePath: string }}
+ * @returns {{ mainJsPath: string, bundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }> }}
  */
 function existingDistArtifacts(distDir) {
+    const lazyChunks = LAZY_CHUNKS.map(({ id }) => {
+        const asset = lazyChunkAssetName(id);
+        return { asset, path: join(distDir, asset) };
+    });
     const paths = {
         mainJsPath: join(distDir, "main.js"),
         bundlePath: join(distDir, "diode.bundle"),
         tsServerBundlePath: join(distDir, "ts-server.bundle"),
     };
-    for (const path of Object.values(paths)) {
+    for (const path of [...Object.values(paths), ...lazyChunks.map((c) => c.path)]) {
         if (!existsSync(path)) throw new Error(`[selfextract] --reuse-dist: нет ${path} — сначала npm run build:sea`);
     }
     console.log(`[selfextract] reuse ${distDir} artifacts (no tsup)`);
-    return paths;
+    return { ...paths, lazyChunks };
 }
 
 /**
@@ -208,11 +213,11 @@ async function downloadNode({ target }) {
 }
 
 /**
- * Стейджит node + main.js + diode.bundle + ts-server.bundle и возвращает payload.tar.gz байтами.
- * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string, distDir: string }} params
+ * Стейджит node + main.js + diode.bundle + ts-server.bundle + ленивые куски и возвращает payload.tar.gz байтами.
+ * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }>, distDir: string }} params
  * @returns {Buffer}
  */
-function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, distDir }) {
+function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, lazyChunks, distDir }) {
     const stageDir = join(distDir, ".selfextract", target);
     rmSync(stageDir, { recursive: true, force: true });
     mkdirSync(stageDir, { recursive: true });
@@ -224,6 +229,11 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
     // ts-server.bundle — файлом рядом с main.js: loadTsServer.ts читает его через
     // entryDir() (единый код-путь с SEA-ассетом) и распаковывает в кэш.
     cpSync(tsServerBundlePath, join(stageDir, "ts-server.bundle"));
+    // Ленивые куски — файлами `lazy/<id>.cjs` рядом с main.js, как их ищет lazyModule.ts.
+    for (const { asset, path } of lazyChunks) {
+        mkdirSync(dirname(join(stageDir, asset)), { recursive: true });
+        cpSync(path, join(stageDir, asset));
+    }
 
     // node-pty стейджим как node_modules/node-pty рядом с main.js: self-extract —
     // НЕ SEA, поэтому loadNodePty.ts идёт dev-путём createRequire(import.meta.url)

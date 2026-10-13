@@ -68,7 +68,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
 
         // Payload лёг целиком — ровно то, что кладёт build-selfextract.
         const dir = unpackedDir();
-        for (const file of ["node", "main.js", "diode.bundle", ".ready"]) {
+        for (const file of ["node", "main.js", "diode.bundle", "lazy/yauzl.cjs", ".ready"]) {
             expect(existsSync(join(dir, file)), `${file} должен быть распакован`).toBe(true);
         }
         // Каталог публикуется уже готовым — маркер ставится до rename.

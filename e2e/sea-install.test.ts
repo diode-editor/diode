@@ -6,6 +6,8 @@ import * as path from "node:path";
 import yazl from "yazl";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { MARKETPLACE_OFFLINE } from "../src/TestUtils/marketplaceEnv.ts";
+import { fetchStockVsix } from "../src/TestUtils/stockVsix.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
 /**
@@ -14,8 +16,10 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
  *
  * Это не TUI, а обычные команды «выполнил и вышел», поэтому спавним бинарь
  * напрямую и читаем stdout/exit code — без PTY (и без ConPTY-флака). Главная
- * ценность на Windows: только здесь реально исполняется путь установки —
- * ленивый `import("yauzl")` + require-шим `createRequire("file:///")` в SEA.
+ * ценность на Windows: только здесь реально исполняется путь установки в SEA —
+ * yauzl из ленивого куска `lazy/yauzl.cjs` (ассет бинаря, `loadLazyModule`).
+ * В `main.js` yauzl нет вовсе, запасной `import("yauzl")` в SEA упал бы, так
+ * что успешная установка и есть доказательство, что кусок загрузился.
  */
 
 interface CliResult {
@@ -142,5 +146,50 @@ describe("SEA binary — extension install CLI", () => {
         const res = await runCli(binary, ["--user-data-dir", badUserData, "--install-extension", badVsix]);
         expect(res.code).toBe(1);
         expect(res.stderr).toMatch(/valid \.vsix/);
+    });
+});
+
+/**
+ * Тот же путь установки, но на настоящем стоковом `.vsix` из магазина (версию не
+ * пиним — docs/TESTING.md «Тесты на стоковые расширения»): реальный zip от vsce,
+ * а не собранный yazl'ом в тесте, проходит через ленивый кусок yauzl в SEA.
+ */
+describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock .vsix through the lazy yauzl chunk", () => {
+    const STOCK_ID = "EditorConfig.EditorConfig";
+    let binary: string;
+    let tempRoot: string;
+    let stock: { vsixPath: string; version: string };
+
+    beforeAll(async () => {
+        binary = await getBinaryPath();
+        tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-sea-stock-"));
+        stock = await fetchStockVsix(STOCK_ID);
+    }, 180_000);
+
+    afterAll(async () => {
+        await fs.promises.rm(tempRoot, { recursive: true, force: true });
+    });
+
+    it("installs the stock .vsix file, unpacks its entry point and lists it", async () => {
+        const userDataDir = path.join(tempRoot, "user-data");
+
+        const install = await runCli(binary, ["--user-data-dir", userDataDir, "--install-extension", stock.vsixPath]);
+        expect(install.stderr).toBe("");
+        expect(install.code).toBe(0);
+        expect(install.stdout).toContain(`Installed ${STOCK_ID}@${stock.version}`);
+
+        // Распаковано целиком: манифест той же версии и точка входа, на которую он указывает.
+        const extDir = path.join(userDataDir, "extensions", `${STOCK_ID}-${stock.version}`);
+        const manifest = JSON.parse(await fs.promises.readFile(path.join(extDir, "package.json"), "utf8")) as {
+            version: string;
+            main: string;
+        };
+        expect(manifest.version).toBe(stock.version);
+        const main = path.resolve(extDir, manifest.main);
+        expect(fs.existsSync(main) || fs.existsSync(`${main}.js`)).toBe(true);
+
+        const list = await runCli(binary, ["--user-data-dir", userDataDir, "--list-extensions"]);
+        expect(list.code).toBe(0);
+        expect(list.stdout.trim()).toBe(`${STOCK_ID}@${stock.version}`);
     });
 });

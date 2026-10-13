@@ -1,6 +1,7 @@
 # Первый выпуск: скоуп оптимизаций и чеклист
 
-Статус: `[~]` — скоуп зафиксирован 2026-09-26, работы не начаты.
+Статус: `[~]` — скоуп зафиксирован 2026-09-26 и пересмотрен 2026-10-13: дистрибуция и витрина
+сделаны; до поста добавлены перф-этапы 1–2, честные цифры, эссе и кадр-доказательство.
 
 Рамка выпуска — раздел «План выхода на публику» в [VISION.md](../VISION.md): появление №1 —
 эссе про extension host без Electron, не Show HN. Релиз привязан к демо-кадру «терминал,
@@ -10,70 +11,74 @@
 
 ## Решение
 
-В первый выпуск идут **все оптимизации из трекера, кроме damage-tracking'а кадра**. Порядок
-работ выстроен так, чтобы демо-кадр закрывался первым: старт → токенизация → большой файл →
-дерево файлов → watcher → дистрибуция и витрина.
+Пересмотр 2026-10-13. Публичные цифры старта («103 мс, 26 мс воркбенча» в BENCHMARKS.md и
+на лендинге) устарели: пол тогда считали по `node --version`, а честная линейка (#356) даёт
+321 мс наших над полом node на `small` локально и ≈400 на CI. С такими цифрами пост выходить
+не может. Поэтому до поста идут **перф-этапы 1 и 2** из [OpenPerformance.md](OpenPerformance.md)
+(кухня старта и жадные проходы), исправленные цифры, эссе с заготовленными ответами и
+кадр-доказательство. Большие файлы (этапы 3–4), хвосты длинных строк и дерева, нативный
+watcher и Go в магазине — после поста.
 
-## Чеклист
+## Сделано
 
-### Демо-кадр: старт и открытие файла
+- [x] **Установка одной командой**: `install.sh` на сайте (`curl | sh`, методы binary/apt/brew/npm),
+      apt-репозиторий, npm-обёртка `@diode-editor/diode`, brew cask — [packaging/README.md](../../packaging/README.md).
+- [x] **Витрина на лендинге**: бейдж alpha, ссылки на [ROADMAP.md](../public/ROADMAP.md),
+      [API-COVERAGE.md](../public/API-COVERAGE.md) и [BENCHMARKS.md](../public/BENCHMARKS.md).
+- [x] **`.gitignore` в поиске и Quick Open** (#593). Дерево (`explorer.excludeGitIgnore`) — нет,
+      это хвост дерева «после поста».
+- [~] **Перф-гейт старта** `e2e/bench/startupBudget.bench.ts` есть, но бюджет
+      `STARTUP_BUDGET_OURS_MS = 700` щедрый; зажимается последним шагом этапа 1.
 
-- [ ] **Храповик старта в CI.** BENCHMARKS.md заявляет, что лестница 77 → 87 → 103 мс защищена
-      тестом, но это не так: `vitest.perf.config.ts` гоняет только `*.bench.ts` без ассертов, а
-      `e2e/sea-startup.test.ts` проверяет лишь, что бинарник стартует. Нужен e2e-порог на вехи
-      лестницы, иначе публичная цифра ничем не защищена.
-- [ ] **Background tokenization (chunked).** `tokenizeUpTo` синхронный и блокирует рендер на
-      больших файлах — единственный известный «открыл и задумалось». План уже расписан в
-      [SyntaxHighlighting.md](SyntaxHighlighting.md#-background-tokenization-chunked): бюджет
-      5 мс / 200 строк, yield через `setImmediate`, старт с `max(visibleEnd, invalidLineIndex)`,
-      событие `onDidTokenizeAll`.
-- [ ] **Large-file режим** по образцу `largeFileOptimizations` VS Code: порог по размеру файла,
-      гасящий дорогие фичи при открытии. Страховка на случай, если фоновой токенизации не хватит;
-      порядок с предыдущим пунктом уточнить по замеру `bench:open` (страница
-      [BENCH-OPEN.md](../public/BENCH-OPEN.md) пока не снята).
-- [ ] **Длинные строки** — хвосты [LongLinePerformance.md](LongLinePerformance.md#осталось):
-      пер-строчный кеш `DisplayLine` (сейчас ~5 мс на видимую 10k-строку каждый кадр), ленивое
-      окно вьюпорта, reveal-по-клику за порогом, конфиг `editor.stopRenderingLineAfter`.
+## До поста
 
-### Дерево файлов
+### Перф: старт и открытие файла
 
-- [ ] **Хвосты [FileTreePerformance.md](FileTreePerformance.md#будущие-фиксы-вне-scope-текущей-задачи):**
-      `.gitignore`-фильтр дерева (`explorer.excludeGitIgnore`; поиск и Quick Open его уже уважают), индекс по ключу в `TreeViewElement` вместо линейных сканов, CamelHumps
-      в `FuzzySearch.ts`, бюджет на кадр в `search`, инкрементальная сверка индекса от watcher'ов.
-- [ ] **Нативный watcher `@parcel/watcher`** вместо chokidar. Условие из FileTreePerformance.md
-      остаётся в силе: не раньше уведомления про ENOSPC
-      ([EnvironmentTuning.md](EnvironmentTuning.md)). Это платформенная матрица сборки под SEA
-      (по пакету на платформу и libc), поэтому идёт после всего, что выше.
+- [~] **Этап 1 [OpenPerformance.md](OpenPerformance.md)** — ≤ 50 мс наших над полом node на
+      `small` (сейчас 321 локально, ≈400 на CI). Порядок: механика распила с пилотом yauzl
+      (сделано) → части по одной (xterm, semver, iconv, LSP-клиент) → кухня воркбенча →
+      tuidom под снапшот → CJS → `useSnapshot` → зажать бюджет гейта.
+- [ ] **Этап 2 [OpenPerformance.md](OpenPerformance.md)** — жадные проходы: файл до десятков МБ
+      открывается как маленький (`xlarge` ≤ `small` + 100 мс), клавиша не зависит от размера
+      (сюда же `Ctrl+End` на `xlarge` — 9.2 с).
 
-### Витрина и дистрибуция
+### Цифры, тексты, кадр
 
-- [ ] **Сравнительная таблица и методика** в [BENCHMARKS.md](../public/BENCHMARKS.md): vim ·
-      nvim голый · nvim+LazyVim/NvChad · helix · diode, одним прогоном на одной машине.
-- [ ] **Установка одной командой.** Сборка SEA и selfextract есть (`build.yml`), релиз
-      собирает `release.yml`; не хватает скрипта `curl | sh`. Brew-формула — можно после.
-- [ ] **Статус «альфа» на главной** сайта и ссылка на [ROADMAP.md](../public/ROADMAP.md)
-      (разделы «Ближайшее» / «Дальше» заполнены из этого документа).
-- [ ] **Запись Go в магазине** (gopls, следующий по [LSP.md](LSP.md)), чтобы тезис «языки как в
-      VS Code» держался не только на TS/JS и Python.
+- [ ] **Честные цифры**: сравнительная таблица vim · nvim голый · nvim+LazyVim/NvChad · helix ·
+      diode одним прогоном на одной машине, методика — в [BENCHMARKS.md](../public/BENCHMARKS.md);
+      исправить «103 мс / 26 мс воркбенча» там и «~100 ms» на лендинге — сейчас это неправда.
+- [ ] **Эссе** про extension host без Electron и **заготовленные ответы** на неизбежные вопросы:
+      «почему не neovim/helix», Remote-SSH, Node и перф, webview, легальность использования
+      магазина (Open VSX, не Microsoft Marketplace), «это вайбкодинг?».
+- [ ] **Кадр-доказательство на лендинге**: Dark+, TextMate-грамматики, живой LSP, автокомплит,
+      актуальная версия в статус-баре — снят с релизного бинаря, а не собран руками.
 
-## За бортом первого выпуска
+## После поста
 
+- **Большие файлы** — этапы 3–4 [OpenPerformance.md](OpenPerformance.md): PieceTree, стриминговое
+  чтение, large-file режим (`largeFileOptimizations`).
+- **Длинные строки** — хвосты [LongLinePerformance.md](LongLinePerformance.md#осталось):
+  пер-строчный кеш `DisplayLine`, ленивое окно вьюпорта, reveal-по-клику, `editor.stopRenderingLineAfter`.
+- **Дерево файлов** — хвосты [FileTreePerformance.md](FileTreePerformance.md#будущие-фиксы-вне-scope-текущей-задачи):
+  `explorer.excludeGitIgnore`, индекс по ключу в `TreeViewElement`, CamelHumps в `FuzzySearch.ts`,
+  бюджет на кадр в `search`, инкрементальная сверка индекса от watcher'ов.
+- **Нативный watcher `@parcel/watcher`** вместо chokidar — не раньше уведомления про ENOSPC
+  ([EnvironmentTuning.md](EnvironmentTuning.md)); платформенная матрица сборки под SEA.
+- **Go в магазине** (gopls, [LSP.md](LSP.md)). Тезис «не только TS/Python» к посту уже держат
+  Java, Terraform и Python.
 - **Damage-tracking кадра** (LongLinePerformance.md «Осталось»): hover-damage, пер-item damage в
   `OverlayLayer`, сужение страховки consumed-key, клип-ограничение цикла строк редактора.
-  Пользователь на демо этого не увидит.
-- **Semantic tokens из LSP** — это новый источник токенов, а не оптимизация; к демо-кадру не
-  относится.
+- **Фоновая токенизация** ([SyntaxHighlighting.md](SyntaxHighlighting.md#-background-tokenization-chunked))
+  — не главная: токенизация уже ленивая до вьюпорта, фоновая лечит в основном прыжок в конец
+  большого файла, а это ближе к этапу 2.
+- **Semantic tokens из LSP** — новый источник токенов, а не оптимизация; к демо-кадру не относится.
 
 ## Открытые вопросы
 
-- **PieceTree.** VISION явно называет его не блокирующим появление №1, а по объёму это самая
-  большая задача трекера ([PieceTree.md](PieceTree.md)). Рабочее решение — за бортом; если
-  берём, идёт последним и не держит остальное.
-- Записи магазина ко дню релиза сверх Go: Rust, C#.
+- Записи магазина ко дню релиза сверх Java, Terraform и Python: Go, Rust, C#.
 - Где живёт MCP-сервер (появление №2) — не блокирует, см. VISION «Открытые вопросы».
 
 ## Цена прогона
 
-По CPU-минутам самое дорогое — мутационный гейт на пунктах токенизации и длинных строк
-(`documentTokenStore.ts`, `editorViewState.ts`). Остальное — e2e, документы, CI.
-См. [TestRunTime.md](TestRunTime.md).
+По CPU-минутам самое дорогое — мутационный гейт и e2e на SEA-бинаре по каждой части распила
+(этап 1), бенчи `bench:open` до и после. См. [TestRunTime.md](TestRunTime.md).

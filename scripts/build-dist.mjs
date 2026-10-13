@@ -8,10 +8,11 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { buildExtensions } from "./build-extensions.mjs";
+import { buildLazyChunks, verifyLazyChunks } from "./build-lazy-chunks.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
 import { buildDiodeBundle } from "./pack-assets.mjs";
 import { buildRipgrepBundle } from "./pack-ripgrep.mjs";
@@ -24,7 +25,7 @@ import { buildTsServerBundle } from "./pack-ts-server.mjs";
  * который `tsup clean` сносит целиком.
  *
  * @param {{ repoRoot: string, distDir?: string }} params
- * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string }>}
+ * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }> }>}
  */
 export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "dist") }) {
     mkdirSync(distDir, { recursive: true });
@@ -36,6 +37,16 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
     const tsupCli = join(repoRoot, "node_modules", "tsup", "dist", "cli-default.js");
     console.log(`> tsup --out-dir ${distDir}`);
     execFileSync(process.execPath, [tsupCli, "--out-dir", distDir], { stdio: "inherit", cwd: repoRoot });
+
+    // 1a. Ленивые куски (scripts/build-lazy-chunks.mjs) → <distDir>/lazy/<id>.cjs и
+    // храповик на граф первого кадра: кусок, протёкший в main.js, роняет сборку.
+    const lazyChunks = await buildLazyChunks({ repoRoot, distDir });
+    const mainMetafile = JSON.parse(readFileSync(join(distDir, "metafile-esm.json"), "utf8"));
+    const lazyErrors = verifyLazyChunks({ mainMetafile, chunks: lazyChunks });
+    if (lazyErrors.length > 0) {
+        throw new Error(`[build-dist] Ленивые куски протекли в main.js:\n  ${lazyErrors.join("\n  ")}`);
+    }
+    console.log(`[build-dist] Lazy chunks: ${lazyChunks.map((c) => c.asset).join(", ")}`);
 
     // 2. Компилируем «кодовые» builtin'ы (git, …) → <dir>/out/extension.cjs ДО упаковки,
     // иначе скомпилированный entry не попадёт в diode.bundle.
@@ -79,5 +90,13 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
         `[build-dist] Packed ts-server (${tsFileCount} files) → ${tsServerBundlePath} (${(tsBundle.length / 1024 / 1024).toFixed(1)} MB)`,
     );
 
-    return { distDir, mainJsPath: join(distDir, "main.js"), bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath };
+    return {
+        distDir,
+        mainJsPath: join(distDir, "main.js"),
+        bundlePath,
+        nodePtyBundlePath,
+        ripgrepBundlePath,
+        tsServerBundlePath,
+        lazyChunks: lazyChunks.map(({ asset, path }) => ({ asset, path })),
+    };
 }
