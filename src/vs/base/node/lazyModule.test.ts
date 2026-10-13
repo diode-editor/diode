@@ -72,12 +72,12 @@ describe("loadLazyModule", () => {
         expect(mod.helper).toBe(7);
     });
 
-    it("module.exports — примитив: только default", async () => {
-        const source = chunkSource("lazy/prim.cjs", "module.exports = 5;\n");
+    it("module.exports — строка: только default, индексы символов в поля не попадают", async () => {
+        const source = chunkSource("lazy/prim.cjs", 'module.exports = "ab";\n');
 
         const mod = await loadLazyModule<Record<string, unknown>>("prim", () => Promise.resolve({}), source);
 
-        expect(mod).toEqual({ default: 5 });
+        expect(mod).toEqual({ default: "ab" });
     });
 
     it("module.exports — null: только default", async () => {
