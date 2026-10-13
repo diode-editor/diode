@@ -18,8 +18,10 @@ import {
     ContextMenuService,
     ContextMenuServiceDIToken,
 } from "../../platform/contextview/browser/contextMenuService.ts";
-import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
+import { type ContainerModule, ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
+import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
+import { IUserDataProfilesServiceDIToken } from "../../platform/userDataProfile/common/userDataProfile.ts";
 import {
     LanguageFeatureContextKeys,
     LanguageFeatureContextKeysDIToken,
@@ -69,6 +71,10 @@ import {
     StatusBarComponent,
     StatusBarComponentDIToken,
 } from "../../workbench/browser/parts/statusbar/statusBarComponent.ts";
+import {
+    WindowTitleContribution,
+    WindowTitleContributionDIToken,
+} from "../../workbench/browser/parts/titlebar/windowTitleContribution.ts";
 import {
     ViewProgressContribution,
     ViewProgressContributionDIToken,
@@ -260,6 +266,7 @@ import {
     ThemeConfigContribution,
     ThemeConfigContributionDIToken,
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
+import { UserDataProfileWorkspaceOpener } from "../../workbench/contrib/userDataProfile/browser/userDataProfileWorkspaceOpener.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { EditorGroupsService } from "../../workbench/services/editor/browser/editorGroupsService.ts";
 import {
@@ -322,6 +329,7 @@ import {
     TextFileModelService,
     TextFileModelServiceDIToken,
 } from "../../workbench/services/textfile/common/textFileModelService.ts";
+import { IUserDataProfileServiceDIToken } from "../../workbench/services/userDataProfile/common/userDataProfile.ts";
 import {
     MENU_CONTRIBUTIONS,
     WORKBENCH_ACTIONS,
@@ -342,7 +350,8 @@ const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
  * `EditorService` выполняет их структурно (`ActiveEditorStatusSourceDIToken` /
  * `DiagnosticsEditorSourceDIToken` / `MarkerRevealTargetDIToken` /
  * `GotoLineEditorSourceDIToken` / `TerminalFocusFallbackDIToken`), смену папки воркспейса (Open Folder)
- * структурно выполняет `WorkbenchComponent` (`WorkspaceFolderOpenerDIToken`).
+ * структурно выполняет `WorkbenchComponent` (`WorkspaceFolderOpenerDIToken`) под обёрткой
+ * профилей (`UserDataProfileWorkspaceOpener`).
  */
 export const workbenchModule: ContainerModule = (container) => {
     container.bind(StatusBarServiceDIToken, StatusBarService);
@@ -427,7 +436,21 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
-    container.bind(WorkspaceFolderOpenerDIToken, () => container.get(WorkbenchComponentDIToken));
+    // Смена воркспейса (Open Folder, Open Workspace from File) — WorkbenchComponent
+    // под обёрткой профилей: чужой профиль у новой папки перезагружает окно в
+    // него вместо смены папки (профиль фиксирован на процесс).
+    container.bind(
+        WorkspaceFolderOpenerDIToken,
+        () =>
+            new UserDataProfileWorkspaceOpener(
+                container.get(WorkbenchComponentDIToken),
+                container.get(IUserDataProfilesServiceDIToken),
+                container.get(IUserDataProfileServiceDIToken),
+                container.get(ServiceAccessorDIToken),
+                // Stryker disable next-line StringLiteral: имя канала лога
+                container.get(ILogServiceDIToken).createLogger("profiles"),
+            ),
+    );
     // Editor-кластер (этап 9b): логика полосы групп редакторов (открытые
     // TextEditorPane-пары, активная вкладка, MRU) + часть «область редактора»
     // (по групповому контролу tab strip + контент на группу).
@@ -519,6 +542,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(EditorContextMenuControllerDIToken, EditorContextMenuController);
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
+    container.bind(WindowTitleContributionDIToken, WindowTitleContribution);
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);
     // Stryker disable next-line ArrowFunction: биндинг DI без юнита; сквозняк — e2e-сценарий extension-storage
     container.bind(SetContextCommandContributionDIToken, SetContextCommandContribution);

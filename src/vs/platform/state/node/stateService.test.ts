@@ -14,7 +14,13 @@ import { computeWorkspaceId, EMPTY_WINDOW_WORKSPACE_ID } from "../../workspace/c
 import type { IStateDescriptor } from "../common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../common/nullStateService.ts";
 
-import { loadState as loadStateReal, StateService } from "./stateService.ts";
+import {
+    loadApplicationState,
+    loadState as loadStateReal,
+    StateFileStore,
+    StateService,
+    WRITE_DEBOUNCE_MS,
+} from "./stateService.ts";
 
 const width: IStateDescriptor<number> = { key: "workbench.sideBar.width", scope: "global", default: 30 };
 const wsWidth: IStateDescriptor<number> = { key: "workbench.sideBar.width", scope: "workspace", default: 30 };
@@ -334,6 +340,28 @@ describe("StateService", () => {
             expect.stringContaining("Failed to write state file"),
             expect.anything(),
         );
+        // Стор остался грязным: убрали помеху — следующий flush дописывает.
+        fs.rmSync(blocker);
+        svc.flushSync();
+        expect(JSON.parse(fs.readFileSync(path.join(blocker, "globalState.json"), "utf-8"))).toMatchObject({
+            "workbench.sideBar.width": 99,
+        });
+    });
+
+    it("без логгера отказ записи не роняет flushSync, данные ждут следующего flush", () => {
+        const blocker = path.join(ws.dir, "blocker");
+        fs.writeFileSync(blocker, "x");
+        const store = new StateFileStore(path.join(blocker, "s.json"));
+        store.store(width, 7);
+        expect(() => {
+            store.flushSync();
+        }).not.toThrow();
+        fs.rmSync(blocker);
+        store.flushSync();
+        expect(JSON.parse(fs.readFileSync(path.join(blocker, "s.json"), "utf-8"))).toMatchObject({
+            "workbench.sideBar.width": 7,
+        });
+        store.dispose();
     });
 
     describe("versioning / migration", () => {
@@ -410,6 +438,12 @@ describe("StateService", () => {
             expect.stringContaining("Failed to write state file"),
             expect.anything(),
         );
+        // Стор остался грязным: убрали помеху — следующий flush дописывает.
+        fs.rmSync(subAsFile);
+        svc.flushSync();
+        expect(JSON.parse(fs.readFileSync(path.join(subAsFile, "globalState.json"), "utf-8"))).toMatchObject({
+            "workbench.sideBar.width": 5,
+        });
     });
 
     it("writes dirty stores on the debounced timer (without an explicit flush)", async () => {
@@ -525,6 +559,152 @@ describe("StateService", () => {
             expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toMatchObject({
                 "workbench.sideBar.width": 7,
             });
+        });
+    });
+
+    describe("application scope", () => {
+        const profiles: IStateDescriptor<string[]> = { key: "userDataProfiles", scope: "application", default: [] };
+
+        it("живёт в User/globalStorage/storage.json, вне профиля, и переживает перезапуск", () => {
+            const p = paths("work");
+            const svc = loadState(p);
+            svc.store(profiles, ["work"]);
+            svc.flushSync();
+            expect(p.applicationStateFile.endsWith(path.join("User", "globalStorage", "storage.json"))).toBe(true);
+            expect(JSON.parse(fs.readFileSync(p.applicationStateFile, "utf-8"))).toEqual({
+                userDataProfiles: ["work"],
+            });
+            // Другой профиль читает тот же файл: стор один на установку.
+            expect(loadState(paths("home")).get(profiles)).toEqual(["work"]);
+            // В global-стор профиля ключ не попал.
+            expect(fs.existsSync(p.globalStateFile)).toBe(false);
+        });
+
+        it("усыновляет стор, прочитанный до сборки сервиса: писатель у файла один", () => {
+            const p = paths();
+            const application = loadApplicationState(p.applicationStateFile);
+            application.store(profiles, ["early"]);
+            const svc = loadState(p, undefined, application);
+            // Тот же экземпляр: записанное до сервиса видно через него без диска.
+            expect(svc.get(profiles)).toEqual(["early"]);
+            svc.store(profiles, ["late"]);
+            expect(application.get(profiles)).toEqual(["late"]);
+            svc.flushSync();
+            expect(JSON.parse(fs.readFileSync(p.applicationStateFile, "utf-8"))).toEqual({
+                userDataProfiles: ["late"],
+            });
+        });
+
+        it("без файла стор только в памяти: ничего не пишет и не падает", async () => {
+            const p = paths();
+            const logger = fakeLogger();
+            const svc = newStateService({
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                logger,
+                writeDebounceMs: 5,
+            });
+            svc.store(profiles, ["mem"]);
+            expect(svc.get(profiles)).toEqual(["mem"]);
+            svc.remove(profiles);
+            expect(svc.get(profiles)).toEqual([]);
+            // Ни отложенная запись (таймер не взводится), ни flushSync писать не пытаются:
+            // писать некуда — это не отказ записи, в лог ничего не идёт.
+            await sleep(20);
+            svc.flushSync();
+            expect(fs.existsSync(p.applicationStateFile)).toBe(false);
+            expect(logger.error).not.toHaveBeenCalled();
+        });
+
+        it("dispose снимает отложенную запись и у application-стора", async () => {
+            const p = paths();
+            const svc = newStateService({
+                application: p.applicationStateFile,
+                globalStateFile: p.globalStateFile,
+                workspaceStorageDir: p.workspaceStorageDir,
+                writeDebounceMs: 5,
+            });
+            svc.store(profiles, ["x"]);
+            svc.dispose();
+            await sleep(20);
+            expect(fs.existsSync(p.applicationStateFile)).toBe(false);
+        });
+
+        it("loadApplicationState: битый файл — пустой стор и ошибка в лог", () => {
+            const p = paths();
+            fs.mkdirSync(path.dirname(p.applicationStateFile), { recursive: true });
+            fs.writeFileSync(p.applicationStateFile, "{ nope");
+            const logger = fakeLogger();
+            const store = loadApplicationState(p.applicationStateFile, logger);
+            expect(store.get(profiles)).toEqual([]);
+            expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Corrupt state file"), expect.anything());
+            store.dispose();
+        });
+
+        it("StateFileStore пишет сам: debounce без сервиса и flushSync", async () => {
+            const file = path.join(ws.dir, "store.json");
+            const store = new StateFileStore(file, { writeDebounceMs: 5 });
+            store.store(profiles, ["a"]);
+            expect(await waitForJson(file)).toEqual({ userDataProfiles: ["a"] });
+            store.dispose();
+            store.store(profiles, ["b"]);
+            await sleep(20);
+            expect(JSON.parse(fs.readFileSync(file, "utf-8"))).toEqual({ userDataProfiles: ["a"] });
+        });
+
+        it("задержка записи по умолчанию — WRITE_DEBOUNCE_MS", () => {
+            const timers = vi.spyOn(globalThis, "setTimeout");
+            try {
+                const store = new StateFileStore(path.join(ws.dir, "store.json"));
+                store.store(profiles, ["a"]);
+                expect(timers).toHaveBeenCalledWith(expect.any(Function), WRITE_DEBOUNCE_MS);
+                store.dispose();
+            } finally {
+                timers.mockRestore();
+            }
+        });
+
+        it("второй store до записи не взводит свой таймер поверх первого: dispose снимает единственный", async () => {
+            const file = path.join(ws.dir, "store.json");
+            const store = new StateFileStore(file, { writeDebounceMs: 5 });
+            store.store(profiles, ["a"]);
+            store.store(profiles, ["a", "b"]);
+            store.dispose();
+            await sleep(20);
+            expect(fs.existsSync(file)).toBe(false);
+        });
+
+        it("open: прежний файл сбрасывается синхронно, новый не создаётся, пока в него не пишут", async () => {
+            const a = path.join(ws.dir, "a.json");
+            const b = path.join(ws.dir, "b.json");
+            const store = new StateFileStore(a, { writeDebounceMs: 5 });
+            store.store(profiles, ["a"]);
+            store.open(b);
+            expect(JSON.parse(fs.readFileSync(a, "utf-8"))).toEqual({ userDataProfiles: ["a"] });
+            expect(store.get(profiles)).toEqual([]);
+            // Таймер, взведённый до open, снят вместе с записью прежнего файла.
+            await sleep(20);
+            expect(fs.existsSync(b)).toBe(false);
+            // Новый файл чист — flushSync писать нечего.
+            store.flushSync();
+            expect(fs.existsSync(b)).toBe(false);
+            store.dispose();
+        });
+
+        it("после записи стор чист: удалённый файл повторным flushSync не воскресает", async () => {
+            const file = path.join(ws.dir, "store.json");
+            const store = new StateFileStore(file, { writeDebounceMs: 5 });
+            store.store(profiles, ["a"]);
+            store.flushSync(); // синхронный путь
+            fs.rmSync(file);
+            store.flushSync();
+            expect(fs.existsSync(file)).toBe(false);
+            store.store(profiles, ["b"]);
+            await waitForJson(file); // отложенный путь
+            fs.rmSync(file);
+            store.flushSync();
+            expect(fs.existsSync(file)).toBe(false);
+            store.dispose();
         });
     });
 });

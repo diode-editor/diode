@@ -118,7 +118,8 @@ const container = new Container()
 
 Актуальный список — файлы `src/vs/diode/modules/` (по модулю на домен: core,
 commands, theme, tokenization, backend, configuration, state, logging, markers,
-keybindings, workspace, fileWatcher, environment, extensionHost, workbench). У части модулей
+keybindings, workspace, fileWatcher, environment, userDataProfile, extensionHost,
+workbench). У части модулей
 есть `*Default`-вариант с null-реализациями для тестов и demo. Крупнейший —
 `workbenchModule`: все пары Service ↔ Component слоя Workbench и швы между ними;
 состав смотреть в самом файле, а не здесь (список дрейфует).
@@ -139,6 +140,17 @@ keybindings, workspace, fileWatcher, environment, extensionHost, workbench). У 
 Тестовый профиль подставляет полное окружение в своём временном каталоге
 (`createTestEnvironment()`), так что ветки «в тестах пути нет» потребителям не
 нужны; харнесс перебивает отдельные поля опцией `environment`.
+
+**Профили** (`userDataProfileModule`) — реестр `IUserDataProfilesService`
+(platform) и активный профиль окна `IUserDataProfileService` (workbench) как
+готовые значения: реестр читается в `main.ts` раньше контейнера (от него
+зависит каталог активного профиля), профиль фиксирован на процесс. Там же —
+сток заголовка окна терминала (`TerminalTitleSinkDIToken`). Тестовый профиль
+биндит настоящий реестр над стором в памяти в каталоге тестового окружения.
+Смена воркспейса (Open Folder, Open Workspace from File) идёт через обёртку
+`UserDataProfileWorkspaceOpener` над `WorkbenchComponent`
+(`WorkspaceFolderOpenerDIToken`, `workbenchModule`): чужой профиль у новой папки —
+перезагрузка окна в него вместо смены папки.
 
 Шаблон тестовой обёртки:
 

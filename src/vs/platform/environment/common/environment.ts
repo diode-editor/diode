@@ -11,9 +11,11 @@ import { token } from "../../instantiation/common/diContainer.ts";
  * окружение тоже полное — пути во временном каталоге, которых может не быть;
  * `null`-путей «неизвестно» нет.
  *
- * Профиль фиксирован на процесс (`--profile`, смена = перезапуск), поэтому его
- * ресурсы лежат здесь же, а не в отдельном сервисе профилей, как у vscode
- * (`IUserDataProfileService.currentProfile`), где профиль переключается на лету.
+ * Профиль фиксирован на процесс (`--profile`, привязка воркспейса или Default —
+ * `resolveActiveProfile`; смена = перезагрузка окна), поэтому его ресурсы лежат
+ * здесь же. Сам профиль (имя, `isDefault`) и реестр всех профилей — в
+ * `IUserDataProfileService`/`IUserDataProfilesService`
+ * (`platform/userDataProfile/`); у vscode профиль ещё и переключается на лету.
  */
 export interface IEnvironmentService {
     // ── Приложение ──────────────────────────────────────────────

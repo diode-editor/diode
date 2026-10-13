@@ -86,9 +86,22 @@ describe("resolveUserDataPaths", () => {
     });
 
     it("rejects invalid profile name characters", () => {
-        expect(() => resolveUserDataPaths({ homedir: home, profile: "with space" })).toThrow(/Invalid profile name/);
+        expect(() => resolveUserDataPaths({ homedir: home, profile: "with space" })).toThrow(/Invalid profile id/);
         expect(() => resolveUserDataPaths({ homedir: home, profile: "with/slash" })).toThrow();
         expect(() => resolveUserDataPaths({ homedir: home, profile: "../up" })).toThrow();
+        expect(() => resolveUserDataPaths({ homedir: home, profile: ".." })).toThrow(/Invalid profile id/);
+        expect(() => resolveUserDataPaths({ homedir: home, profile: "." })).toThrow(/Invalid profile id/);
+    });
+
+    it("keeps profilesHome and the application state file outside any profile", () => {
+        const paths = resolveUserDataPaths({ homedir: home });
+        const named = resolveUserDataPaths({ homedir: home, profile: "work" });
+        expect(paths.profilesHome).toBe("/home/alice/.diode/user-data/User/profiles");
+        expect(paths.applicationStateFile).toBe("/home/alice/.diode/user-data/User/globalStorage/storage.json");
+        // Именованный профиль не двигает ни реестр, ни родителя каталогов.
+        expect(named.profilesHome).toBe(paths.profilesHome);
+        expect(named.applicationStateFile).toBe(paths.applicationStateFile);
+        expect(named.profileDir).toBe("/home/alice/.diode/user-data/User/profiles/work");
     });
 
     it("places machine-state paths under the default profile dir", () => {

@@ -72,10 +72,24 @@ export interface IStateService {
 
 /** Область видимости состояния. */
 export type StateScope =
+    /**
+     * Один на установку, вне профиля: `<userDataDir>/User/globalStorage/storage.json`
+     * (тот же файл, что у эталона). Здесь живёт то, что должно быть видно из
+     * любого профиля — реестр профилей и их привязки к воркспейсам.
+     */
+    | "application"
     /** Per-profile: `<profileDir>/globalState.json`. Fallback, когда проект не открыт. */
     | "global"
     /** Per-project: `workspaceStorage/<workspaceId>/state.json`. */
     | "workspace";
+
+/**
+ * Стор одной области видимости — чтение и запись без переключения воркспейса
+ * и прощания. Его получает сервис, которому нужна ровно одна область раньше,
+ * чем собран весь {@link IStateService} (реестр профилей читает
+ * application-стор до резолва каталога активного профиля).
+ */
+export type IStateStore = Pick<IStateService, "get" | "store" | "remove">;
 
 /**
  * Дескриптор одного сохраняемого состояния. Объявляется рядом с

@@ -29,7 +29,13 @@ import { ConfigurationRegistry } from "../platform/configuration/common/configur
 import { loadConfiguration } from "../platform/configuration/node/configurationService.ts";
 import { ContextKeyServiceDIToken } from "../platform/contextkey/common/contextKeyService.ts";
 import type { ICliArgs } from "../platform/environment/node/cliArgs.ts";
-import { CliArgsError, parseCliArgs, USAGE } from "../platform/environment/node/cliArgs.ts";
+import {
+    CliArgsError,
+    parseCliArgs,
+    relaunchArgs,
+    relaunchWorkspace,
+    USAGE,
+} from "../platform/environment/node/cliArgs.ts";
 import { createEnvironmentService } from "../platform/environment/node/environmentService.ts";
 import type { IStartupTargets, IStartupWorkspace } from "../platform/environment/node/startupTargets.ts";
 import { resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
@@ -62,8 +68,15 @@ import type { ILogger } from "../platform/log/common/iLogger.ts";
 import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
 import { FileSink } from "../platform/log/node/fileSink.ts";
-import { loadState } from "../platform/state/node/stateService.ts";
+import { loadApplicationState, loadState } from "../platform/state/node/stateService.ts";
+import { terminalTitleSequence } from "../platform/terminal/common/terminalTitleSink.ts";
 import { createDefaultTokenClassificationRegistry } from "../platform/theme/common/tokenClassificationRegistry.ts";
+import {
+    profileWorkspaceKey,
+    profileWorkspaceKeyOf,
+    resolveActiveProfile,
+} from "../platform/userDataProfile/common/userDataProfile.ts";
+import { UserDataProfilesService } from "../platform/userDataProfile/node/userDataProfilesService.ts";
 import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import {
     type IWorkspaceFileReader,
@@ -216,12 +229,7 @@ async function runEditor(): Promise<void> {
     const bootstrapLogger = logService.createLogger("bootstrap", { label: "Bootstrap" });
     const extensionsLogger = logService.createLogger("extensions", { label: "Extensions" });
     const configurationLogger = logService.createLogger("configuration", { label: "Configuration" });
-    bootstrapLogger.info("diode starting", {
-        cwd: process.cwd(),
-        folder: targets.folder,
-        workspaceFile: workspace?.file,
-        files: targets.files.length,
-    });
+    const profilesLogger = logService.createLogger("profiles", { label: "Profiles" });
 
     // Последняя страховка главного процесса — такая же, как у extension host'а
     // (`extensionHostSubprocess.ts`) и по той же причине. Команды workbench'а
@@ -240,9 +248,41 @@ async function runEditor(): Promise<void> {
         bootstrapLogger.error(`unexpected error: ${describeRejection(e)}`);
     });
 
+    // ── Профиль ────────────────────────────────────────────────
+    // Реестр профилей живёт вне профиля (`User/globalStorage/storage.json`,
+    // application-стор) и читается раньше всего остального: от него зависит
+    // каталог активного профиля, а с ним — настройки, кейбинды и состояние.
+    // Порядок резолва — как у эталона: `--profile` → привязка воркспейса → Default;
+    // `--profile` ещё и привязывает воркспейс (docs/TODO/Profiles.md).
+    const basePaths = resolvePathsFor(cli);
+    const applicationState = loadApplicationState(basePaths.applicationStateFile, profilesLogger);
+    const profilesService = new UserDataProfilesService({
+        profilesHome: basePaths.profilesHome,
+        defaultProfileHome: basePaths.userDir,
+        state: applicationState,
+        logger: profilesLogger,
+    });
+    // Каталоги `User/profiles/<name>/` из времён до реестра — профили с именем каталога.
+    profilesService.migrateProfileDirectories();
+    const workspaceKey = (() => {
+        const target = targets.workspaceFile ?? targets.folder;
+        return target === undefined ? undefined : profileWorkspaceKeyOf(target);
+    })();
+    const activeProfile = await resolveActiveProfile(profilesService, {
+        forceProfile: cli.profile,
+        workspace: workspaceKey,
+    });
+    bootstrapLogger.info("diode starting", {
+        cwd: process.cwd(),
+        folder: targets.folder,
+        workspaceFile: workspace?.file,
+        files: targets.files.length,
+        profile: activeProfile.name,
+    });
+
     // ── User data: пути, настройки ─────────────────────────────
 
-    const userDataPaths = resolvePathsFor(cli);
+    const userDataPaths = resolvePathsFor(cli, activeProfile.isDefault ? undefined : activeProfile.id);
     // Live-reload настроек: следим за settings.json, чтобы правки применялись без
     // рестарта. Отдельный экземпляр watcher'а (редакторные контроллеры получают свой
     // через FileWatcherModule — следят за другими файлами). Живёт всё время работы
@@ -309,7 +349,8 @@ async function runEditor(): Promise<void> {
     const userKeybindings = await loadUserKeybindings(userDataPaths.keybindingsFile, configurationLogger);
     mark("main:keybindings-loaded");
     // Машинное состояние UI/сессии (открытые файлы, layout) — отдельно от настроек.
-    const stateService = loadState(userDataPaths, configurationLogger);
+    // Application-стор усыновляется сервисом: писатель у `storage.json` один.
+    const stateService = loadState(userDataPaths, configurationLogger, applicationState);
     mark("main:state-loaded");
 
     // ── Backend / Theme ────────────────────────────────────────
@@ -421,13 +462,30 @@ async function runEditor(): Promise<void> {
         },
         hostProcess: {
             exit: () => process.exit(0),
-            // Перезагрузка окна: процесс поднимается заново с теми же аргументами
-            // (`workbench.action.reloadWindow`, кнопка после установки расширения).
-            // Горячей перезагрузки вкладов у нас нет — расширения сканируются один
-            // раз на старте, — поэтому «применить» значит «начать сначала».
-            restart: () => {
-                bootstrapLogger.info("reloading window");
-                restartProcess(currentProcessSnapshot(), realRestartHooks);
+            // Перезагрузка окна: процесс поднимается заново — с теми же аргументами
+            // (`workbench.action.reloadWindow`, кнопка после установки расширения)
+            // либо с другим профилем/воркспейсом (`IRelaunchRequest`: Switch
+            // Profile, Open Folder в чужом профиле). Профиль следующего окна
+            // всегда явный `--profile <name>`: прежний флаг из argv перебил бы
+            // только что записанную привязку. Горячей перезагрузки вкладов у нас
+            // нет — расширения сканируются один раз на старте, — поэтому
+            // «применить» значит «начать сначала».
+            restart: (relaunch) => {
+                const current = profileWorkspaceKey(container.get(IWorkspaceContextServiceDIToken).getWorkspace());
+                const next = relaunchArgs(process.argv.slice(2), {
+                    profile: relaunch?.profile ?? activeProfile.name,
+                    workspace: relaunchWorkspace(relaunch?.workspace, workspaceKey, current),
+                });
+                bootstrapLogger.info("reloading window", { args: next });
+                restartProcess(currentProcessSnapshot(), realRestartHooks, next);
+            },
+        },
+        userDataProfile: {
+            profilesService,
+            currentProfile: activeProfile,
+            // Заголовок окна терминала — OSC через тот же бэкенд, что у буфера обмена.
+            terminalTitle: (title) => {
+                backend.writeOscSequence(terminalTitleSequence(title));
             },
         },
     });
@@ -708,12 +766,13 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
  * Единый резолв путей user data по аргументам: и CLI-ветка управления
  * расширениями, и редактор обязаны смотреть в один каталог расширений, иначе
  * `--install-extension --extensions-dir X` ставил бы туда, куда редактор не
- * смотрит.
+ * смотрит. `profileId` — каталог активного профиля из реестра (не имя из
+ * `--profile`: имя в каталог превращает реестр); без него — пути Default.
  */
-function resolvePathsFor(cli: ICliArgs): IUserDataPaths {
+function resolvePathsFor(cli: ICliArgs, profileId?: string): IUserDataPaths {
     return resolveUserDataPaths({
         userDataDir: cli.userDataDir,
-        profile: cli.profile,
+        profile: profileId,
         homedir: os.homedir(),
         ...(cli.extensionsDir !== undefined ? { extensionsDir: cli.extensionsDir } : {}),
     });

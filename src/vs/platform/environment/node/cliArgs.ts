@@ -28,7 +28,11 @@ export interface ICliArgs {
     readonly positional: readonly string[];
     /** Значение `--user-data-dir`, если указано. */
     readonly userDataDir: string | undefined;
-    /** Имя профиля из `--profile`, если указано. */
+    /**
+     * Имя профиля из `--profile`, если указано: окно открывается в нём, а
+     * воркспейс к нему привязывается; неизвестное имя создаёт пустой профиль
+     * (`resolveActiveProfile`, `platform/userDataProfile/common`).
+     */
     readonly profile: string | undefined;
     /**
      * Адрес TUIDom-инспектора, если передан `--inspect-tui`. Голый флаг даёт
@@ -404,4 +408,88 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
         disableExtensions,
         logLevels,
     };
+}
+
+/** Что у следующего окна иначе, чем у этого (перезагрузка окна, `IHostProcess.restart`). */
+export interface IRelaunchOverrides {
+    /** Имя профиля следующего окна — всегда явный `--profile <name>`. */
+    readonly profile: string;
+    /**
+     * Новый воркспейс (папка или файл `.code-workspace`): замещает позиционные
+     * аргументы этого окна вместе с режимами `--goto`/`--diff` — они описывали
+     * прежний. Без него позиционные остаются как были.
+     */
+    readonly workspace?: string | undefined;
+}
+
+/**
+ * Воркспейс следующего окна (ключ привязки: путь папки или `.code-workspace`).
+ * Запрошенный явно (Open Folder в чужом профиле) — он. Иначе — текущий, если
+ * окно сменило воркспейс после старта: Open Folder в тот же профиль обходится
+ * без перезагрузки, и без этого следующая (Reload Window, Switch Profile)
+ * подняла бы стартовую папку из argv, а явный `--profile` привязал бы к профилю
+ * её. Воркспейс не менялся — `undefined`: позиционные этого окна едут как есть.
+ */
+export function relaunchWorkspace(
+    requested: string | undefined,
+    startup: string | undefined,
+    current: string | undefined,
+): string | undefined {
+    if (requested !== undefined) return requested;
+    return current !== startup ? current : undefined;
+}
+
+/** Флаги, чьё значение идёт следующим аргументом (без `=`); остальные флаги — одним аргументом. */
+const VALUE_FLAGS: ReadonlySet<string> = new Set([...Object.keys(FLAG_SPECS), "--log"]);
+
+/**
+ * Аргументы следующего окна по аргументам этого (`process.argv.slice(2)`):
+ * прежний `--profile` снимается (иначе он перебил бы только что записанную
+ * привязку воркспейса), профиль передаётся явно, а при смене воркспейса
+ * позиционные (и `--goto`/`--diff`) замещаются его путём. Остальные флаги
+ * (`--user-data-dir`, `--headless`, `--inspect-tui`, `--log`, …) едут как есть.
+ * Позиционные идут после `--`: путь, начинающийся с `-`, не станет флагом.
+ */
+export function relaunchArgs(args: readonly string[], overrides: IRelaunchOverrides): string[] {
+    const flags: string[] = [];
+    const positional: string[] = [];
+    let i = 0;
+    while (i < args.length) {
+        const arg = args[i];
+        if (arg === "--") {
+            positional.push(...args.slice(i + 1));
+            break;
+        }
+        if (arg === "--profile") {
+            i += 2;
+            continue;
+        }
+        if (arg.startsWith("--profile=")) {
+            i += 1;
+            continue;
+        }
+        if (
+            overrides.workspace !== undefined &&
+            (arg === "-g" || arg === "--goto" || arg === "-d" || arg === "--diff")
+        ) {
+            i += 1;
+            continue;
+        }
+        if (VALUE_FLAGS.has(arg)) {
+            // Чтение по индексу — через `at`: за хвостом массива значения нет.
+            const value = args.at(i + 1);
+            if (value !== undefined) flags.push(arg, value);
+            i += 2;
+            continue;
+        }
+        if (arg.startsWith("-") && arg.length > 1) {
+            flags.push(arg);
+            i += 1;
+            continue;
+        }
+        positional.push(arg);
+        i += 1;
+    }
+    const targets = overrides.workspace === undefined ? positional : [overrides.workspace];
+    return [...flags, "--profile", overrides.profile, ...(targets.length > 0 ? ["--", ...targets] : [])];
 }

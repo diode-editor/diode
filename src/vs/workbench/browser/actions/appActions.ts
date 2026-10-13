@@ -5,22 +5,36 @@ import { parseKeybinding } from "../../../platform/keybinding/common/keybindingR
 import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogService.ts";
 import type { ShutdownReason } from "../../services/lifecycle/browser/lifecycleService.ts";
 import { LifecycleServiceDIToken } from "../../services/lifecycle/browser/lifecycleService.ts";
-import { HostProcessDIToken } from "../../services/lifecycle/common/hostProcess.ts";
+import { HostProcessDIToken, type IRelaunchRequest } from "../../services/lifecycle/common/hostProcess.ts";
 
 /**
  * Общий путь выхода и перезагрузки: confirm-save (`requestShutdown`), затем
  * единое прощание участников (`shutdown`), затем процесс-владелец — выход или
  * замена процесса новым. Cancel в диалоге оставляет окно на месте.
  */
-function closeWindow(accessor: ServiceAccessor, reason: Extract<ShutdownReason, "quit" | "reload">): Promise<void> {
+function closeWindow(
+    accessor: ServiceAccessor,
+    reason: Extract<ShutdownReason, "quit" | "reload">,
+    relaunch?: IRelaunchRequest,
+): Promise<void> {
     const lifecycle = accessor.get(LifecycleServiceDIToken);
     const host = accessor.get(HostProcessDIToken);
     return lifecycle.requestShutdown(() =>
         lifecycle.shutdown(reason, () => {
             if (reason === "quit") host.exit();
-            else host.restart();
+            else host.restart(relaunch);
         }),
     );
+}
+
+/**
+ * Перезагрузка окна из кода фич — тот же путь, что у `workbench.action.reloadWindow`,
+ * плюс запрос на другой профиль или воркспейс для следующего окна
+ * (переключение профиля, Open Folder в чужом профиле).
+ */
+export function reloadWindow(accessor: ServiceAccessor, relaunch?: IRelaunchRequest): Promise<void> {
+    // Stryker disable next-line StringLiteral: причина — литерал типа ShutdownReason; любое не-quit значение ведёт в restart
+    return closeWindow(accessor, "reload", relaunch);
 }
 
 export const quitAction: CommandAction = {

@@ -22,6 +22,11 @@
 
 Область видимости (`StateScope`):
 
+- **`application`** — один на установку, вне профиля:
+  `<userDataDir>/User/globalStorage/storage.json` (тот же файл, что у эталона).
+  Здесь живёт то, что должно быть видно из любого профиля: реестр профилей
+  (`userDataProfiles`) и их привязки к воркспейсам (`profileAssociations`) —
+  [Configuration.md](Configuration.md#профили-user-data-profiles).
 - **`global`** — per active profile: `<profileDir>/globalState.json`. Fallback,
   когда воркспейс не открыт (запуск без папки).
 - **`workspace`** — per-project: `<profileDir>/workspaceStorage/<workspaceId>/state.json`.
@@ -37,9 +42,10 @@
   (`platform/environment/node/userDataPaths.ts`, pure).
 
 ```
-~/.diode/user-data/User/            # profileDir (именованный профиль → profiles/<name>/)
+~/.diode/user-data/User/            # profileDir (именованный профиль → profiles/<id>/)
   settings.json                    # человекочитаемые настройки (отдельно)
   globalState.json                 # global-scope
+  globalStorage/storage.json       # application-scope: реестр профилей и привязки (вне профиля — всегда User/)
   globalStorage/<extId>/           # приватное хранилище расширения (не наше состояние)
   workspaceStorage/<workspaceId>/state.json
   workspaceStorage/<workspaceId>/<extId>/ # приватное хранилище расширения по проекту
@@ -70,7 +76,7 @@
 | Поле | Смысл |
 | --- | --- |
 | `key` | Ключ в сторе, namespaced в стиле VS Code (`"workbench.sideBar.width"`). |
-| `scope` | `global` \| `workspace`. |
+| `scope` | `application` \| `global` \| `workspace`. |
 | `default` | Значение при первом запуске / битом файле. |
 | `version?` | Версия формы значения (вместе с `migrate`). |
 | `migrate?` | `(raw, from) => T` — миграция старой формы к текущей. |
@@ -90,6 +96,14 @@
   fs. Живёт в `Configuration/` (сосед `ConfigurationService`);
   `StateServiceDIToken` объявлен рядом с типом в `platform/state/common/iStateService.ts`
   (потребители-сервисы — в Workbench), биндинг — модуль `Workbench/Modules/StateModule.ts`.
+- **Один файл — один `StateFileStore`:** класс одного plain-JSON файла (чтение,
+  версии ключей, собственный debounce и `flushSync`); `StateService` — роутер по
+  scope над тремя такими сторами плюс переключение стора воркспейса.
+  Application-стор читается раньше сервиса (`loadApplicationState` в
+  `main.ts`: реестр профилей нужен до того, как известен каталог активного
+  профиля) и затем усыновляется `loadState(paths, logger, application)` — тот
+  же экземпляр, писатель у `storage.json` один. Сервисам, которым нужна ровно
+  одна область, стор отдаётся узким `IStateStore` (`get`/`store`/`remove`).
 - **Write-through + debounce + flushSync:** `store` обновляет in-memory стор
   синхронно, запись на диск — debounced (async). Durability гарантирует
   `flushSync()` на выходе процесса. Так `get` всегда видит последнее значение.

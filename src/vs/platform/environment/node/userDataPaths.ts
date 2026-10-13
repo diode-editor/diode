@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import { PROFILE_ID_PATTERN, RESERVED_PROFILE_ID } from "../../userDataProfile/common/userDataProfile.ts";
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 
 /**
@@ -11,27 +12,31 @@ import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextServic
  *       extensions/                      ← внешние расширения, плоско (переносится `--extensions-dir`)
  *       user-data/
  *         logs/                          ← логи; `<extId>` внутри = ExtensionContext.logUri
- *         User/                          ← default-профиль
+ *         User/                          ← Default-профиль
  *           settings.json
  *           keybindings.json
  *           globalState.json             ← машинное состояние (global scope)
  *           secrets.json                 ← ExtensionContext.secrets (0600, без шифрования)
  *           globalStorage/               ← приватные каталоги расширений (global)
+ *             storage.json               ← состояние application scope: реестр профилей
+ *                                          и привязки к воркспейсам (один на установку)
  *             <extId>/                   ← ExtensionContext.globalStorageUri
  *           workspaceStorage/            ← машинное состояние по проектам
  *             <sha256(folder)>/state.json
  *             <sha256(folder)>/<extId>/  ← ExtensionContext.storageUri
  *           profiles/
- *             <profileName>/             ← именованные профили
- *               settings.json
- *               keybindings.json
+ *             <profileId>/               ← именованные профили (id — slug имени,
+ *               settings.json              реестр — в storage.json, см.
+ *               keybindings.json           platform/userDataProfile/)
  *               globalState.json
  *               secrets.json
  *               globalStorage/
  *               workspaceStorage/
  *
- * Активный профиль `default` использует файлы прямо в `User/`. Любое другое
- * имя кладёт файлы в `User/profiles/<name>/`.
+ * Default-профиль использует файлы прямо в `User/`. Именованный кладёт их в
+ * `User/profiles/<id>/`: сюда приходит **id** (имя каталога) из реестра
+ * профилей — соответствие имени профиля и каталога знает `IUserDataProfilesService`,
+ * а не резолвер путей.
  */
 export interface IUserDataPaths {
     /** Корень — `<userDataDir>` (то, что было передано через `--user-data-dir` или дефолт `~/.diode`). */
@@ -42,9 +47,17 @@ export interface IUserDataPaths {
     readonly userDataDir: string;
     /** `<root>/user-data/User`. */
     readonly userDir: string;
-    /** Имя активного профиля. `"default"` для default-профиля. */
+    /** `<userDir>/profiles` — родитель каталогов именованных профилей (`profilesHome` эталона). */
+    readonly profilesHome: string;
+    /**
+     * `<userDir>/globalStorage/storage.json` — состояние области `application`
+     * (см. docs/arch/State.md): один файл на установку, вне профиля, — реестр
+     * профилей и привязки к воркспейсам. Тот же путь, что у эталона.
+     */
+    readonly applicationStateFile: string;
+    /** Id (каталог) активого профиля. `"default"` для Default-профиля. */
     readonly profileName: string;
-    /** `true`, если активен default-профиль. */
+    /** `true`, если активен Default-профиль. */
     readonly isDefaultProfile: boolean;
     /** Каталог настроек активного профиля: `userDir` (default) или `userDir/profiles/<name>`. */
     readonly profileDir: string;
@@ -89,7 +102,8 @@ export interface IUserDataPaths {
     readonly logsDir: string;
 }
 
-export const DEFAULT_PROFILE_NAME = "default";
+/** Id Default-профиля для путей; реестр профилей его именованным не выдаёт. */
+export const DEFAULT_PROFILE_NAME = RESERVED_PROFILE_ID;
 
 /** Имя корневого каталога user data в `homedir()`. */
 export const DEFAULT_USER_DATA_ROOT_NAME = ".diode";
@@ -97,7 +111,11 @@ export const DEFAULT_USER_DATA_ROOT_NAME = ".diode";
 export interface IResolveUserDataPathsOptions {
     /** Абсолютный путь — если задан, замещает дефолт `~/.diode`. */
     readonly userDataDir?: string;
-    /** Имя профиля. По умолчанию `"default"`. */
+    /**
+     * Id активного профиля — имя его каталога в `User/profiles/`. По умолчанию
+     * `"default"` (файлы прямо в `User/`). Имя пользователя в id превращает
+     * реестр профилей (`profileIdFromName`), сюда приходит уже готовый.
+     */
     readonly profile?: string;
     /**
      * Каталог внешних расширений (`--extensions-dir`). Замещает дефолт
@@ -134,6 +152,8 @@ export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUs
         extensionsDir,
         userDataDir,
         userDir,
+        profilesHome: path.join(userDir, "profiles"),
+        applicationStateFile: path.join(userDir, "globalStorage", "storage.json"),
         profileName,
         isDefaultProfile,
         profileDir,
@@ -184,8 +204,8 @@ function normalizeProfileName(raw: string | undefined): string {
     if (raw === undefined) return DEFAULT_PROFILE_NAME;
     const trimmed = raw.trim();
     if (trimmed.length === 0) return DEFAULT_PROFILE_NAME;
-    if (!/^[A-Za-z0-9._-]+$/.test(trimmed)) {
-        throw new Error(`Invalid profile name "${raw}": only letters, digits, ".", "_" and "-" are allowed`);
+    if (!PROFILE_ID_PATTERN.test(trimmed)) {
+        throw new Error(`Invalid profile id "${raw}": only letters, digits, ".", "_" and "-" are allowed`);
     }
     return trimmed;
 }
