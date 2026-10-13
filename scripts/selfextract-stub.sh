@@ -1,7 +1,7 @@
 #!/bin/sh
 # diode — self-extracting executable.
 #
-# Этот файл = стаб + приклеенный следом payload.tar.gz (node + main.js + diode.bundle).
+# Этот файл = стаб + приклеенный следом payload.tar.gz (node + main.js + diode.bundle + lazy/*.cjs).
 # Собирается `scripts/build-selfextract.mjs`; плейсхолдеры @@…@@ подставляются там же.
 # Правя стаб, помни: его длина в байтах и есть offset payload'а, т.е. OFFSET зависит
 # от текста вокруг себя (build-скрипт решает это итерацией). Ведущих нулей у OFFSET

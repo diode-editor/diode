@@ -33,7 +33,7 @@ function run(cmd) {
 }
 
 // 1. Собираем dist/main.js + dist/diode.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
-const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath } = await buildDistArtifacts({
+const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath, lazyChunks } = await buildDistArtifacts({
     repoRoot: root,
     distDir: dist,
 });
@@ -55,6 +55,9 @@ const seaConfig = {
         // typescript-language-server + минимальный TypeScript: loadTsServer.ts
         // распаковывает в пользовательский кэш при первом использовании LSP.
         "ts-server.bundle": tsServerBundlePath,
+        // Ленивые куски бандла (`lazy/<id>.cjs`): lazyModule.ts компилирует ассет
+        // при первом обращении к фиче (scripts/build-lazy-chunks.mjs).
+        ...Object.fromEntries(lazyChunks.map(({ asset, path }) => [asset, path])),
     },
 };
 

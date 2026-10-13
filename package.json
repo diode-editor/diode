@@ -29,6 +29,7 @@
     "lint:fix": "eslint src/ extensions/ tools/ --fix",
     "check:diff": "node scripts/check-diff.mjs",
     "valid-layers-check": "node scripts/check-layers.mjs",
+    "lazy-chunks-check": "node scripts/check-lazy-chunks.mjs",
     "import:vscode-diff": "node scripts/import-vscode-diff.mjs",
     "import:codicons": "node scripts/import-codicons.mjs",
     "engine:link": "node scripts/engine-link.mjs link",

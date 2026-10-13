@@ -1,9 +1,10 @@
 import * as fs from "node:fs";
-import { createRequire } from "node:module";
 import * as path from "node:path";
 
+import type * as Yauzl from "yauzl";
 import type { Entry } from "yauzl";
 
+import { loadLazyModule } from "../../../base/node/lazyModule.ts";
 import { UI_LOCALE } from "../../environment/common/uiLocale.ts";
 import { readExtensionDependencies } from "../../extensions/common/extensionDependencies.ts";
 import {
@@ -155,19 +156,12 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
 }
 
 /**
- * Лениво загружает yauzl. yauzl — CJS и делает `require("fs")` при инициализации;
- * в ESM-бандле (SEA) esbuild оборачивает это в шим `__require`, который берёт
- * глобальный `require`, иначе бросает "Dynamic require of…". Ставим require
- * точечно — только здесь, на пути установки, — чтобы обычный старт редактора
- * не тянул yauzl и не менял глобальную область. База — `process.execPath`
- * (абсолютный путь, валиден и на Windows; резолв builtin'ов от базы не зависит).
+ * yauzl нужен только установке и чтению `.vsix`, поэтому он — ленивый кусок
+ * бандла (`scripts/build-lazy-chunks.mjs`): в `main.js` его нет, упакованная
+ * сборка грузит его из ассета при первой установке, dev — из node_modules.
  */
-async function loadYauzl() {
-    const g = globalThis as { require?: NodeJS.Require };
-    if (typeof g.require === "undefined") {
-        g.require = createRequire(process.execPath);
-    }
-    return import("yauzl");
+function loadYauzl(): Promise<typeof Yauzl> {
+    return loadLazyModule("yauzl", () => import("yauzl"));
 }
 
 /**

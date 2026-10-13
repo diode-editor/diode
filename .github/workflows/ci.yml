@@ -68,12 +68,20 @@ jobs:
         continue-on-error: true
         run: npm run valid-layers-check
 
+      # Граф первого кадра: ленивые куски бандла (scripts/build-lazy-chunks.mjs)
+      # не протекли в dist/main.js статическим импортом — по metafile esbuild.
+      - name: Lazy chunks
+        id: lazy
+        continue-on-error: true
+        run: npm run lazy-chunks-check
+
       - name: Gate
-        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure'
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure'
         run: |
           echo "typecheck: ${{ steps.typecheck.outcome }}"
           echo "lint:      ${{ steps.lint.outcome }}"
           echo "layers:    ${{ steps.layers.outcome }}"
+          echo "lazy:      ${{ steps.lazy.outcome }}"
           echo 'Форматирование и сортировку импортов чинит `npm run lint:fix`, остальное — руками.'
           exit 1
 
