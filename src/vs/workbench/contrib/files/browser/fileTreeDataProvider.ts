@@ -170,8 +170,9 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         // новый объект листинга, а цепочку он не получил — её тогда ещё не
         // знали. Без этого строка рисуется без сжатия, а reveal, найдя её через
         // findNode, топчется на голове цепочки.
+        // Если это тот же объект — повторный applyChain ничего не меняет.
         const listed = this.directoryNodes.get(head);
-        if (listed && listed !== element) applyChain(listed, segments);
+        if (listed) applyChain(listed, segments);
         this.syncWatch(head, segments);
         return this.toNodes(entries);
     }

@@ -261,6 +261,39 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         service.dispose();
         ws.dispose();
     });
+
+    it("раскрытая компактная строка уводит спуск сразу в свою последнюю папку, мимо промежуточных", async () => {
+        // Строка «pkg/a/b» после раскрытия смотрит на последнюю папку, а
+        // промежуточные провайдер уже не узнаёт (цепочку он мог забыть,
+        // строка — ещё нет). Спуск по одному сегменту подсунул бы дереву
+        // строки «pkg/a» и «pkg/a/b», которых в нём нет.
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-jump-" });
+        const service = createService();
+        service.setRootPath(ws.dir);
+        const head = path.join(ws.dir, "pkg");
+        const last = path.join(head, "a", "b");
+        const row: FileTreeNode = { name: "pkg", path: head, isDirectory: true };
+        const view = fakeView({
+            expand: async (element) => {
+                view.expanded.push(element.path);
+                if (element === row) {
+                    row.name = "b";
+                    row.path = last;
+                    row.compactParents = [head, path.join(head, "a")];
+                }
+            },
+        });
+        service.attachView(view);
+        if (!service.provider) throw new Error("провайдер не создан");
+        vi.spyOn(service.provider, "findNode").mockImplementation((dirPath) => (dirPath === head ? row : undefined));
+
+        const target = path.join(last, "C.java");
+        expect(await service.revealPath(target)).toBe(true);
+        expect(view.revealed).toEqual([[row, { name: "C.java", path: target, isDirectory: false }]]);
+        expect(view.expanded).toEqual([head]);
+        service.dispose();
+        ws.dispose();
+    });
 });
 
 describe("ExplorerService — autoRevealActiveFile", () => {
