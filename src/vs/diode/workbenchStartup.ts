@@ -33,11 +33,11 @@ export interface IWorkbenchStartupHost {
     /** Грамматики стартовых файлов — ДО открытия (см. {@link startWorkbench}). */
     preloadGrammars(files: readonly string[]): Promise<void>;
     /**
-     * В фазе `restored`: регистрация расширений и стартовая активация. Не
-     * ожидается — `eventually` от активации не зависит (повисший `activate()`
-     * расширения не должен откладывать фоновую работу окна).
+     * Регистрация расширений и стартовая активация — за кадром с подсветкой,
+     * перед `eventually`. Не ожидается — `eventually` от активации не зависит
+     * (повисший `activate()` расширения не должен откладывать фоновую работу окна).
      */
-    afterRestored(): void;
+    startExtensions(): void;
     /**
      * Отложить колбэк за ближайший кадр (`setImmediate`: отложенный рендер
      * стоит в той же очереди раньше).
@@ -74,8 +74,14 @@ export interface IWorkbenchStartupOptions {
  *    ~160 мс), и в кадре она откладывала бы текст. Цвет — следующим кадром, без
  *    ожидания загрузки: грамматика уже на руках.
  * 5. Открытие (дифф / файлы с `--goto` / рестор сессии) — фаза `restored`.
- * 6. Расширения регистрируются после открытия, но `eventually` их активацию
- *    не ждёт.
+ * 6. Расширения регистрируются, и extension host поднимается после кадра с
+ *    подсветкой, как у эталона (`NativeExtensionService`: «delay extension host
+ *    creation and extension scanning until the workbench is running» —
+ *    `runWhenWindowIdle` после `LifecyclePhase.Ready`). Регистрация идёт на
+ *    микротасках и кадр не пропускает, а спаун синхронный — до кадров они
+ *    откладывали текст. События активации, пришедшие раньше (открытый файл —
+ *    `onLanguage:`), помнит барьер `ExtensionService`. `eventually` их
+ *    активацию не ждёт.
  * 7. Отпуск токенизаторов — после первого кадра, фаза `eventually` — после
  *    следующего, с подсветкой: её фоновая работа (прогрев всех грамматик,
  *    ~150 мс) встала бы перед кадром с цветом. Из самого `mount()` фаза не
@@ -172,11 +178,10 @@ export async function startWorkbench(
     mark("main:files-opened", { files: startupFiles.length });
     lifecycle.setPhase("restored");
 
-    host.afterRestored();
-
     host.afterNextFrame(() => {
         tokenizersHeld.dispose();
         host.afterNextFrame(() => {
+            host.startExtensions();
             lifecycle.setPhase("eventually");
             mark("main:startup-complete");
         });

@@ -598,7 +598,7 @@ async function runEditor(): Promise<void> {
 
     // Конец старта для инспектора (`Diode.whenReady`): тот же момент, что
     // `complete: true` в трассе старта, — extension host активирован и фаза
-    // `eventually` отработала. Резолвится в `afterRestored` ниже.
+    // `eventually` отработала. Резолвится в `startExtensions` ниже.
     const startupComplete = Promise.withResolvers<undefined>();
 
     await startWorkbench(
@@ -685,7 +685,7 @@ async function runEditor(): Promise<void> {
                 }
             },
             preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
-            afterRestored: () => {
+            startExtensions: () => {
                 const activation = extensionService.start();
                 // Конец лестницы — когда есть и `main:startup-complete` (переход в
                 // `eventually`), и `exthost:activated`: друг друга они больше не ждут.
