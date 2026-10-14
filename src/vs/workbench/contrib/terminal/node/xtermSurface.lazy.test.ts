@@ -83,7 +83,10 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.scrollLines(-3);
         session.sendMouse({ col: 1, row: 0, button: "left", action: "down", ctrl: false, alt: false, shift: false });
         await new Promise((resolve) => setTimeout(resolve, 10));
-        expect(row(session, 0, 30)).toBe("");
+        // Ячейки нет — и `out` не тронут.
+        const out: TerminalCell = { char: "?", fg: 1, bg: 2, style: 3, width: 1 };
+        expect(session.readCell(0, 0, out)).toBe(false);
+        expect(out).toStrictEqual({ char: "?", fg: 1, bg: 2, style: 3, width: 1 });
         expect(session.getCursor()).toBeNull();
         expect(session.mouseEventsActive).toBe(false);
         expect(session.scrollOffset).toBe(0);
