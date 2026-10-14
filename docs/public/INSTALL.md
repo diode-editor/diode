@@ -48,8 +48,17 @@ through `apt` as for any other package.
 curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh | sh -s -- --method=apt
 ```
 
-The repository is flat and lives on GitHub Releases, so it always serves the latest stable
-version (nightly is a pre-release and never lands here). The same by hand:
+The repository is flat and lives on GitHub Releases. `apt install diode` takes the latest stable
+version; every stable release since v0.4.0 stays installable (nightly is a pre-release and never
+lands here):
+
+```sh
+apt list -a diode                        # what is available
+sudo apt install --allow-downgrades diode=0.8.3
+sudo apt-mark hold diode                 # keep it there through apt upgrade
+```
+
+The installer does the same with `DIODE_VERSION=v0.8.3`. The same by hand:
 
 ```sh
 sudo install -d -m 0755 /etc/apt/keyrings

@@ -11,14 +11,15 @@
 # manager, which then owns updates:
 #
 #   apt    Debian/Ubuntu: adds the Diode apt repository (keyring + sources.list.d entry)
-#          and installs the package. Needs root (sudo). Always the latest stable release.
+#          and installs the package. Needs root (sudo). Latest stable release by default;
+#          DIODE_VERSION pins an older one (apt keeps every stable release since v0.4.0).
 #   brew   Homebrew (macOS, Linux): brew install diode-editor/tap/diode
 #   npm    npm install -g @diode-editor/diode (works on Windows too)
 #
 # Knobs (environment variables):
 #   DIODE_INSTALL_METHOD  same as --method
-#   DIODE_VERSION         binary method only: tag to install, e.g. v0.3.0 or nightly
-#                         (default: latest stable release)
+#   DIODE_VERSION         binary and apt methods: tag to install, e.g. v0.3.0 or nightly
+#                         (default: latest stable release; apt: stable releases since v0.4.0)
 #   DIODE_INSTALL_DIR     binary method only: where to put the binary
 #                         (default: /usr/local/bin when writable, else ~/.local/bin)
 #
@@ -180,7 +181,13 @@ install_binary() {
 install_apt() {
     have apt-get || die "apt-get not found; this does not look like a Debian/Ubuntu system"
     have dpkg || die "dpkg not found; this does not look like a Debian/Ubuntu system"
-    [ -n "${DIODE_VERSION:-}" ] && die "the apt repository serves the latest stable release only; drop DIODE_VERSION or use --method=binary"
+    pkg="diode"
+    if [ -n "${DIODE_VERSION:-}" ]; then
+        case "$DIODE_VERSION" in
+            nightly) die "nightly is not in the apt repository; use --method=binary" ;;
+        esac
+        pkg="diode=${DIODE_VERSION#v}"
+    fi
     case "$(dpkg --print-architecture)" in
         amd64|arm64) ;;
         *) die "no .deb for $(dpkg --print-architecture) (packages exist for amd64 and arm64); try --method=binary" ;;
@@ -203,10 +210,15 @@ install_apt() {
         -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/diode.list \
         -o Dir::Etc::sourceparts=- \
         -o APT::Get::List-Cleanup=0
-    say "> apt-get install diode"
-    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y diode
+    # --allow-downgrades: a pinned DIODE_VERSION may be older than what is installed.
+    say "> apt-get install ${pkg}"
+    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades "$pkg"
     say "> Installed /usr/bin/diode: diode $(/usr/bin/diode --version 2>/dev/null || true)"
-    say "> Updates: sudo apt update && sudo apt install --only-upgrade diode"
+    if [ "$pkg" = "diode" ]; then
+        say "> Updates: sudo apt update && sudo apt install --only-upgrade diode"
+    else
+        say "> Pinned ${pkg}; apt upgrade will move past it unless you run: sudo apt-mark hold diode"
+    fi
     return 0
 }
 

@@ -2,6 +2,7 @@
 # Плоский apt-репозиторий поверх GitHub Releases.
 #
 #   packaging/apt/build-repo.sh <dir with *.deb> [gpg-key-id]
+#   APT_HISTORY=<file> packaging/apt/build-repo.sh …   # + записи прошлых релизов (fetch-history.sh)
 #
 # Кладёт рядом с .deb файлы Packages, Packages.gz, Release, InRelease, Release.gpg и
 # diode-archive-keyring.gpg. Всё это заливается ассетами в тот же релиз, а у пользователя
@@ -12,6 +13,9 @@
 # apt запрашивает <base>/InRelease и <base>/Packages, а Filename в Packages — имя .deb
 # относительно того же base: GitHub отвечает редиректом на CDN, apt по нему идёт.
 # «latest» у GitHub — последний НЕ pre-release, поэтому nightly сюда не попадает.
+#
+# Прошлые версии: APT_HISTORY — файл станз от fetch-history.sh, их Filename ведут через
+# `../../download/vX/` в свои релизы. Дописываются после станз из локальных .deb.
 #
 # Ключ: приватный ключ приезжает в CI из секрета APT_GPG_PRIVATE_KEY (armored, без пароля);
 # id ключа можно не передавать — возьмётся первый секретный ключ в keyring.
@@ -26,6 +30,10 @@ ls ./*.deb >/dev/null 2>&1 || { echo "no .deb files in $dir" >&2; exit 1; }
 
 # Filename должен быть голым именем файла (без ./): apt склеивает base URL + Filename.
 dpkg-scanpackages --multiversion . /dev/null | sed 's|^Filename: \./|Filename: |' > Packages
+if [[ -n "${APT_HISTORY:-}" ]]; then
+    # dpkg-scanpackages заканчивает последнюю станзу пустой строкой — разделитель уже есть.
+    cat "$APT_HISTORY" >> Packages
+fi
 gzip -9 -k -f Packages
 
 apt-ftparchive \

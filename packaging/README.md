@@ -8,7 +8,7 @@
 | Канал | Где | Кто дёргает |
 |---|---|---|
 | `curl \| sh` | [`install.sh`](../install.sh) в корне: `--method=binary` (по умолчанию) \| `apt` \| `brew` \| `npm`, как у fresh | пользователь, напрямую из `raw.githubusercontent.com` |
-| apt | [`deb/build-deb.sh`](deb/build-deb.sh), [`apt/build-repo.sh`](apt/build-repo.sh), [`apt/gen-key.sh`](apt/gen-key.sh) | job `packages` в `release.yml` |
+| apt | [`deb/build-deb.sh`](deb/build-deb.sh), [`apt/fetch-history.sh`](apt/fetch-history.sh), [`apt/build-repo.sh`](apt/build-repo.sh), [`apt/gen-key.sh`](apt/gen-key.sh) | job `packages` в `release.yml` |
 | npm | [`npm/`](npm/) — пакет `@diode-editor/diode` | job `npm` |
 | Homebrew | [`render.mjs`](render.mjs) → `Casks/diode.rb` в `diode-editor/homebrew-tap` (cask, не формула: формула без бутылки требует CLT на macOS) | job `brew` |
 | winget | [`render.mjs`](render.mjs) → манифесты `DiodeEditor.Diode` | первая подача руками, дальше job `winget` |
@@ -24,7 +24,8 @@ npm_config_prefix=/tmp/npm-global ./install.sh --method=npm
 
 # .deb + apt-метаданные (нужны dpkg-deb, dpkg-scanpackages, apt-ftparchive, gpg с секретным ключом)
 packaging/deb/build-deb.sh dist/diode amd64 0.0.0 /tmp/repo
-packaging/apt/build-repo.sh /tmp/repo
+packaging/apt/fetch-history.sh /tmp/apt-history          # станзы прошлых релизов (нужен gh)
+APT_HISTORY=/tmp/apt-history packaging/apt/build-repo.sh /tmp/repo
 
 # npm-обёртка: собрать tarball и поставить в отдельный prefix
 cd packaging/npm && npm version 0.3.0 --no-git-tag-version && npm pack
@@ -61,6 +62,16 @@ organization `diode-editor`, repository `diode`, workflow filename `release.yml`
 2. В форке `microsoft/winget-pkgs` положить `packaging/out/winget/DiodeEditor.Diode/X.Y.Z/*.yaml`
    в `manifests/d/DiodeEditor/Diode/X.Y.Z/`, проверить `winget validate <папка>`, открыть PR.
 3. После мержа — секрет `WINGET_TOKEN` (PAT с `public_repo`), и следующие версии подаёт `release.yml`.
+
+## apt: все версии в плоском репозитории
+
+`sources.list` смотрит на `releases/latest/download/`, но `Packages` там перечисляет все
+стабильные релизы с v0.4.0: `fetch-history.sh` берёт станзу своей версии из ассета `Packages`
+каждого прошлого релиза и переписывает её `Filename` в `../../download/vX.Y.Z/diode_….deb`.
+apt склеивает base + Filename без нормализации, GitHub отвечает на путь с `..` редиректом на
+ассет того релиза. Спецификация формата просит Filename без `..` («should»), сам apt это не
+проверяет, но строгие зеркалировщики и прокси могут, поэтому новая версия остаётся с голым
+именем: в худшем случае такой клиент не увидит истории, а последняя версия ставится как раньше.
 
 ## Ключ apt-репозитория
 

@@ -64,6 +64,7 @@ jobs:
 
   # .deb для amd64/arm64 и плоский apt-репозиторий: Packages/InRelease лежат ассетами
   # релиза, а sources.list смотрит на releases/latest/download (packaging/apt/build-repo.sh).
+  # Packages перечисляет и все прошлые версии со ссылками в их релизы (fetch-history.sh).
   packages:
     needs: release
     runs-on: ubuntu-latest
@@ -90,11 +91,20 @@ jobs:
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
 
+      # Прошлые версии — станзами из Packages прошлых релизов, Filename через ../../download/vX/
+      # (packaging/apt/fetch-history.sh): apt install diode=<версия> и откат работают.
+      - name: Collect previous releases for apt
+        if: env.HAS_APT_KEY == 'true'
+        run: packaging/apt/fetch-history.sh "$RUNNER_TEMP/apt-history" "$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build apt repository metadata
         if: env.HAS_APT_KEY == 'true'
         run: packaging/apt/build-repo.sh repo
         env:
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+          APT_HISTORY: ${{ runner.temp }}/apt-history
 
       - name: Upload to release
         run: gh release upload "$GITHUB_REF_NAME" repo/* --clobber
