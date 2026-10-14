@@ -18,6 +18,10 @@
 - [x] apt — `.deb` через `dpkg-deb` (без nfpm), плоский репозиторий ассетами релиза, подпись GPG.
       Цепочка `apt update` → `InRelease` по `signed-by` → `Packages.gz` → `.deb` проверена локально
       через сервер с 302-редиректами как у GitHub; GitHub принимает путь `/./InRelease`, который шлёт apt.
+- [x] apt хранит все стабильные версии с v0.4.0 (2026-10-14): `fetch-history.sh` собирает станзы
+      прошлых релизов, их `Filename` ведут через `../../download/vX/` в свои релизы; новая версия —
+      с голым именем. `apt install diode=X`, `install.sh` с `DIODE_VERSION` для apt. Проверено
+      apt 3.x (Ubuntu 26.04): `madison` видит 0.4.0…последнюю, `download diode=0.5.0` идёт с GitHub.
 - [x] npm — `@diode-editor/diode`, тонкая обёртка с докачкой бинаря и sha256; `npx` работает.
       Проверено: `npm pack` → `npm install -g --prefix` → `diode --version` = 0.3.0.
 - [x] Homebrew — **cask** (не формула) со стансами `os`/`arch`, один на macOS и Linux, рендерится из
