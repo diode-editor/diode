@@ -114,7 +114,11 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         // явно — extra-env перекрывает изолированный кэш.
         const { session } = await usePtyApp({ binary, open: [fixturePath], env: { XDG_CACHE_HOME: cacheHome } });
 
-        const screen = await session.waitFor((s) => s.findText("const greeting") !== null);
+        // Кадр с текстом идёт без подсветки (токенизация — следующим кадром), ждём цветной.
+        const screen = await session.waitFor((s) => {
+            const pos = s.findText("const greeting");
+            return pos !== null && s.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
+        });
 
         // `const` keyword-цветом = грамматика + onig.wasm реально загрузились из
         // приклеенного bundle'а через fs-загрузчик. Ради этого весь #144 и делался.

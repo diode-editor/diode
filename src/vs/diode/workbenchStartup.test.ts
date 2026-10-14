@@ -6,6 +6,10 @@ import type { ITempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { createTempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../TestUtils/TestApp.ts";
 import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../base/common/performance.ts";
+import { LanguageServiceDIToken, NULL_LANGUAGE_SERVICE } from "../editor/common/languages/iLanguageService.ts";
+import { createLineTokens, createToken } from "../editor/common/languages/iLineTokens.ts";
+import { NULL_STATE } from "../editor/common/languages/iState.ts";
+import { TokenizationRegistryDIToken } from "../editor/common/languages/tokenizationRegistry.ts";
 import { MenuId } from "../platform/actions/common/menuId.ts";
 import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
 import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
@@ -67,8 +71,8 @@ interface IStartup {
     readonly container: ReturnType<typeof createTestContainer>["container"];
     readonly log: string[];
     readonly preloaded: (readonly string[])[];
-    /** Отложенный «после первого кадра» колбэк — тест зовёт его сам. */
-    firstFrame(): void;
+    /** «Кадр»: зовёт колбэки, отложенные `afterNextFrame` до него, — тест зовёт сам. */
+    nextFrame(): void;
     /** Приложение, поднятое в `host.run()`. */
     testApp(): TestApp | undefined;
     run(targets: IStartupTargets, extensions?: readonly IExtension[], workspace?: IStartupWorkspace): Promise<void>;
@@ -80,7 +84,7 @@ function setup(stateService?: IStateService): IStartup {
     if (stateService !== undefined) container.bind(StateServiceDIToken, () => stateService);
     const log: string[] = [];
     const preloaded: (readonly string[])[] = [];
-    let deferred: (() => void) | undefined;
+    let deferred: (() => void)[] = [];
     let testApp: TestApp | undefined;
     const lifecycle = container.get(LifecycleServiceDIToken);
     lifecycle.onDidChangePhase((phase) => log.push(`phase:${phase}`));
@@ -105,16 +109,20 @@ function setup(stateService?: IStateService): IStartup {
         afterRestored: () => {
             log.push("afterRestored");
         },
-        afterFirstFrame: (callback) => {
-            log.push("afterFirstFrame");
-            deferred = callback;
+        afterNextFrame: (callback) => {
+            log.push("afterNextFrame");
+            deferred.push(callback);
         },
     };
     return {
         container,
         log,
         preloaded,
-        firstFrame: () => deferred?.(),
+        nextFrame: () => {
+            const due = deferred;
+            deferred = [];
+            for (const callback of due) callback();
+        },
         testApp: () => testApp,
         run: (targets, extensions = [], workspace) =>
             startWorkbench(container, { targets, extensions, ...(workspace !== undefined ? { workspace } : {}) }, host),
@@ -140,7 +148,7 @@ describe("startWorkbench", () => {
         resetPerformanceMarks();
     });
 
-    it("проходит шаги и фазы в порядке старта, eventually — только после первого кадра", async () => {
+    it("проходит шаги и фазы в порядке старта, eventually — только после кадра с подсветкой", async () => {
         const startup = setup();
 
         await startup.run(NO_TARGETS);
@@ -153,9 +161,14 @@ describe("startWorkbench", () => {
             "preloadGrammars",
             "phase:restored",
             "afterRestored",
-            "afterFirstFrame",
+            "afterNextFrame",
         ]);
-        startup.firstFrame();
+        // Первый кадр (с текстом) отпускает токенизаторы и откладывает фазу ещё на кадр.
+        startup.nextFrame();
+        expect(startup.log.at(-1)).toBe("afterNextFrame");
+        expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("restored");
+        // Второй (с подсветкой) — `eventually`.
+        startup.nextFrame();
         expect(startup.log.at(-1)).toBe("phase:eventually");
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("eventually");
     });
@@ -165,7 +178,8 @@ describe("startWorkbench", () => {
         const startup = setup();
 
         await startup.run({ ...NO_TARGETS, files: [{ path: ws.path("a.ts") }] });
-        startup.firstFrame();
+        startup.nextFrame();
+        startup.nextFrame();
 
         // Сервисы по дороге ставят и свои вехи (`textfile:read`, `frame`) — смотрим на лестницу.
         const marks = getMarks().filter((m) => m.name.startsWith("workbench:") || m.name.startsWith("main:"));
@@ -308,6 +322,43 @@ describe("startWorkbench", () => {
         const active = startup.container.get(EditorServiceDIToken).getActiveEditor();
         expect(active?.uri.fsPath).toBe(a);
         expect([active?.primaryCursorLine, active?.primaryCursorColumn]).toEqual([1, 2]);
+    });
+
+    it("кадр с текстом не ждёт токенизации: грамматика греется до открытия, токенизирует уже следующий кадр", async () => {
+        const startup = setup();
+        startup.container.bind(LanguageServiceDIToken, () => ({
+            ...NULL_LANGUAGE_SERVICE,
+            getLanguageIdForResource: () => "typescript",
+        }));
+        const tokenized: string[] = [];
+        const registry = startup.container.get(TokenizationRegistryDIToken);
+        registry.registerLazy("typescript", () =>
+            Promise.resolve({
+                getInitialState: () => NULL_STATE,
+                tokenizeLine: (line: string) => {
+                    tokenized.push(line);
+                    return { tokens: createLineTokens([createToken(0, ["source.ts"])]), endState: NULL_STATE };
+                },
+            }),
+        );
+        const preload = registry.load("typescript");
+
+        await startup.run({ ...NO_TARGETS, files: [{ path: ws.path("a.ts") }] });
+        await preload;
+        const app = startup.testApp();
+        app?.render();
+
+        expect(app?.backend.screenToString()).toContain("three");
+        expect(tokenized).toEqual([]);
+
+        startup.nextFrame();
+        app?.render();
+
+        expect(tokenized).toEqual(["one", "two", "three", ""]);
+        // Фоновая работа `eventually` — только за кадром с подсветкой, не перед ним.
+        expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("restored");
+        startup.nextFrame();
+        expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("eventually");
     });
 
     it("--goto без колонки ставит каретку в начало строки", async () => {

@@ -48,7 +48,11 @@ describe("SEA binary — bundled assets", () => {
             expect(existsSync(join(tmp, "Extensions"))).toBe(false);
 
             const { session } = await usePtyApp({ binary: isolatedBinary, cwd: tmp, open: [isolatedFixture] });
-            const screen = await session.waitFor((s) => s.findText("const greeting") !== null);
+            // Кадр с текстом идёт без подсветки (токенизация — следующим кадром), ждём цветной.
+            const screen = await session.waitFor((s) => {
+                const pos = s.findText("const greeting");
+                return pos !== null && s.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
+            });
 
             // Минимальная проверка подсветки — `const` должен быть keyword-цветом,
             // что доказывает что грамматика реально загрузилась из bundle.

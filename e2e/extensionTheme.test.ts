@@ -97,10 +97,22 @@ describe("Extension themes (e2e)", () => {
         expect(statusBarBg(settled)).toBe(SAMPLE_DARK.statusBg);
         expect(await editorBg(app, settled)).toBe(SAMPLE_DARK.editorBg);
 
-        // US-8: `const` — правило `storage`/`keyword` темы расширения.
-        const keyword = findTextCell(settled, "const answer");
-        expect(keyword).not.toBeNull();
-        expect(settled.cells[keyword!.y * settled.cols + keyword!.x].fg).toBe(SAMPLE_DARK.keywordFg);
+        // US-8: `const` — правило `storage`/`keyword` темы расширения. Кадр с
+        // текстом идёт без подсветки (токенизация — следующим кадром), поэтому
+        // ждём кадр, где `const` уже покрашен.
+        const keywordFg = (frame: GridSnapshot): number | undefined => {
+            const keyword = findTextCell(frame, "const answer");
+            return keyword === null ? undefined : frame.cells[keyword.y * frame.cols + keyword.x].fg;
+        };
+        await waitUntil(
+            () => app.session.captureFrame(),
+            (frame) => keywordFg(frame) === SAMPLE_DARK.keywordFg,
+            {
+                describe: "`const` в цвете keyword темы расширения",
+                diagnose: (last) =>
+                    `fg=${String(keywordFg(last as GridSnapshot))}\n${frameToText(last as GridSnapshot)}`,
+            },
+        );
     });
 
     it("US-5: тема из настроек не установлена — окно в Dark Modern, настройка не переписана", async () => {

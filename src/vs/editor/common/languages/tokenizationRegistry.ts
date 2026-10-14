@@ -31,6 +31,8 @@ export class TokenizationRegistry {
     private lazy = new Map<string, ILazyEntry>();
     private readonly onDidChangeEmitter = new Emitter<string>();
     public readonly onDidChange = this.onDidChangeEmitter.event;
+    /** Языки, чей support менялся под {@link hold}; `undefined` — не держим. */
+    private heldChanges: Set<string> | undefined;
 
     public register(languageId: string, support: ITokenizationSupport): IDisposable {
         this.supports.set(languageId, support);
@@ -92,7 +94,35 @@ export class TokenizationRegistry {
     }
 
     public get(languageId: string): ITokenizationSupport | undefined {
+        if (this.heldChanges !== undefined) return undefined;
         return this.supports.get(languageId);
+    }
+
+    /**
+     * Придержать выдачу support'ов: пока держим, {@link get} отдаёт `undefined`
+     * (потребитель рисует на fallback'е), а `onDidChange` молчит — эффективный
+     * токенайзер не меняется. Загрузка ({@link load}) идёт как обычно. Отпуск —
+     * `onDidChange` по каждому языку с support'ом и по каждому, что менялся под
+     * придержкой: потребители пересаживаются тем же путём, что и при поздно
+     * доехавшей грамматике.
+     *
+     * Зачем: стартовый кадр с текстом не ждёт первой токенизации. Первая
+     * токенизация грамматики компилирует её regex'ы (TypeScript — ~160 мс на
+     * вьюпорт), и в кадре она откладывала бы текст. Эталон тоже рисует
+     * редактор без токенов, а вьюпорт токенизирует после рендера
+     * (`AttachedViewHandler` у `TokenizerSyntaxTokenBackend`).
+     */
+    public hold(): IDisposable {
+        if (this.heldChanges !== undefined) throw new Error("TokenizationRegistry: already held");
+        const changes = new Set<string>();
+        this.heldChanges = changes;
+        return {
+            dispose: () => {
+                if (this.heldChanges !== changes) return;
+                this.heldChanges = undefined;
+                for (const languageId of new Set([...this.supports.keys(), ...changes])) this.fireChange(languageId);
+            },
+        };
     }
 
     private async runFactory(languageId: string, entry: ILazyEntry): Promise<ITokenizationSupport | undefined> {
@@ -114,6 +144,10 @@ export class TokenizationRegistry {
     }
 
     private fireChange(languageId: string): void {
+        if (this.heldChanges !== undefined) {
+            this.heldChanges.add(languageId);
+            return;
+        }
         this.onDidChangeEmitter.fire(languageId);
     }
 }

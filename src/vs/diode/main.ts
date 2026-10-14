@@ -696,7 +696,7 @@ async function runEditor(): Promise<void> {
                     startupComplete.resolve(undefined);
                 });
             },
-            afterFirstFrame: (callback) => {
+            afterNextFrame: (callback) => {
                 setImmediate(callback);
             },
         },
@@ -808,8 +808,8 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
 
 /**
  * Ждёт грамматики языков, на которых написаны `files`. Вызывать до открытия
- * этих файлов: иначе первый кадр вкладки выйдет на fallback-токенайзере, а
- * подсветка догонит репейнтом.
+ * этих файлов: тогда подсветка приходит кадром сразу за первым (токенизацию
+ * до него придерживает `startWorkbench`), а не после загрузки грамматики.
  *
  * Языки дедуплицируются (десять `.ts`-вкладок — одна грамматика), неизвестные
  * расширения отсеиваются. Загрузки идут параллельно: их единицы, и это не
