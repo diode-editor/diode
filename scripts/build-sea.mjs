@@ -64,6 +64,9 @@ const seaConfig = {
         // typescript-language-server + минимальный TypeScript: loadTsServer.ts
         // распаковывает в пользовательский кэш при первом использовании LSP.
         "ts-server.bundle": tsServerBundlePath,
+        // Его SHA-256, посчитанный при сборке (build-dist.mjs): ключ каталога
+        // распаковки без хэша бандла на каждом старте.
+        "ts-server.bundle.sha256": `${tsServerBundlePath}.sha256`,
         // Ленивые куски бандла (`lazy/<id>.cjs`): lazyModule.ts компилирует ассет
         // при первом обращении к фиче (scripts/build-lazy-chunks.mjs).
         // Рядом — их кэш кода V8 (`lazy/<id>.v8cache`).

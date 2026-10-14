@@ -68,7 +68,13 @@ describe("SEA binary — bundled assets", () => {
     it("каталог сборки содержит все бандлы, вшитые в SEA (регресс на сборку)", () => {
         // Каталог — тот, где лежит сам бинарь: e2e собирает в кэш по хешу исходников
         // (scripts/e2e-artifacts.mjs), а не в рабочий dist/.
-        for (const name of ["diode.bundle", "node-pty.bundle", "rg.bundle", "ts-server.bundle"]) {
+        for (const name of [
+            "diode.bundle",
+            "node-pty.bundle",
+            "rg.bundle",
+            "ts-server.bundle",
+            "ts-server.bundle.sha256",
+        ]) {
             expect(existsSync(join(dirname(binary), name)), name).toBe(true);
         }
     });

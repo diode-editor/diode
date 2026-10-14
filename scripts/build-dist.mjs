@@ -8,6 +8,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -86,6 +87,10 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
     const { bundle: tsBundle, fileCount: tsFileCount } = buildTsServerBundle({ repoRoot });
     const tsServerBundlePath = join(distDir, "ts-server.bundle");
     writeFileSync(tsServerBundlePath, tsBundle);
+    // Дайджест — сайдкаром рядом (`<имя>.sha256`, вшивается и копируется вместе с
+    // бандлом): по нему рантайм строит каталог распаковки без хэша 13 МБ на старте
+    // (`packagedAssetCacheDirByName` в packagedAsset.ts).
+    writeFileSync(`${tsServerBundlePath}.sha256`, createHash("sha256").update(tsBundle).digest("hex"));
     console.log(
         `[build-dist] Packed ts-server (${tsFileCount} files) → ${tsServerBundlePath} (${(tsBundle.length / 1024 / 1024).toFixed(1)} MB)`,
     );

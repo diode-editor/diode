@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import * as path from "node:path";
 
 import { extractBundleToCache } from "../../../../base/node/assets/extractBundleToCache.ts";
-import { packagedAssetCacheDir, readPackagedAsset } from "../../../../base/node/assets/packagedAsset.ts";
+import { packagedAssetCacheDirByName, readPackagedAssetView } from "../../../../base/node/assets/packagedAsset.ts";
 
 /** Имя SEA-ассета / файла рядом с main.js (лок-степ с scripts/pack-ts-server.mjs и build-*). */
 const ASSET_NAME = "ts-server.bundle";
@@ -20,7 +20,6 @@ export interface ITsServerPaths {
 }
 
 interface IBundleSource {
-    readonly bundle: Uint8Array;
     readonly cacheDir: string;
 }
 
@@ -46,16 +45,20 @@ export function bundledTsServerTarget(): ITsServerPaths | null {
 /**
  * Довозит вшитый сервер до диска (распаковка бандла в кэш; идемпотентно,
  * конкурентно-безопасно — {@link extractBundleToCache}). В dev — no-op.
- * Ошибки не роняют вызывающего — распаковка стартует fire-and-forget при
- * регистрации builtin'ов (main.ts), сбой честно виден: bundled-кандидат
- * резолва не станет existsSync и клиент упадёт в следующий кандидат.
+ * Ошибки не роняют вызывающего — распаковка стартует fire-and-forget перед
+ * стартом extension host'а (main.ts, после первых кадров: на холодном кэше
+ * она синхронно пишет файлы), сбой честно виден: bundled-кандидат резолва не
+ * станет existsSync и клиент упадёт в следующий кандидат.
  */
 export function ensureTsServer(onError?: (err: unknown) => void): Promise<void> {
     if (ensurePromise !== null) return ensurePromise;
     ensurePromise = (async () => {
         const source = bundleSource();
         if (source === null) return; // dev: node_modules, распаковывать нечего
-        await extractBundleToCache(source.bundle, source.cacheDir);
+        // Вид без копии (`getRawAsset` в SEA): распаковка только читает.
+        const bundle = readPackagedAssetView(ASSET_NAME);
+        if (bundle === null) return;
+        await extractBundleToCache(bundle, source.cacheDir);
     })().catch((err: unknown) => {
         onError?.(err);
     });
@@ -83,11 +86,15 @@ function computeTarget(): ITsServerPaths | null {
     }
 }
 
-/** Байты бандла + целевой каталог кэша; `null` — packaged-бандла нет (dev). */
+/**
+ * Целевой каталог кэша; `null` — packaged-бандла нет (dev). Байтов бандла не
+ * читает: ключ — дайджест, посчитанный при сборке (`packagedAssetCacheDirByName`),
+ * а пути раздаются на пути к первому кадру.
+ */
 function bundleSource(): IBundleSource | null {
     if (cachedSource !== undefined) return cachedSource;
-    const bundle = readPackagedAsset(ASSET_NAME);
+    const cacheDir = packagedAssetCacheDirByName("ts-server", ASSET_NAME);
     // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
-    cachedSource = bundle === null ? null : { bundle, cacheDir: packagedAssetCacheDir("ts-server", bundle) };
+    cachedSource = cacheDir === null ? null : { cacheDir };
     return cachedSource;
 }

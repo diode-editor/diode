@@ -138,6 +138,7 @@ function existingDistArtifacts(distDir) {
         mainJsPath: join(distDir, "main.js"),
         bundlePath: join(distDir, "diode.bundle"),
         tsServerBundlePath: join(distDir, "ts-server.bundle"),
+        tsServerDigestPath: join(distDir, "ts-server.bundle.sha256"),
     };
     for (const path of [...Object.values(paths), ...lazyChunks.map((c) => c.path)]) {
         if (!existsSync(path)) throw new Error(`[selfextract] --reuse-dist: нет ${path} — сначала npm run build:sea`);
@@ -229,6 +230,7 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
     // ts-server.bundle — файлом рядом с main.js: loadTsServer.ts читает его через
     // entryDir() (единый код-путь с SEA-ассетом) и распаковывает в кэш.
     cpSync(tsServerBundlePath, join(stageDir, "ts-server.bundle"));
+    cpSync(`${tsServerBundlePath}.sha256`, join(stageDir, "ts-server.bundle.sha256"));
     // Ленивые куски — файлами `lazy/<id>.cjs` рядом с main.js, как их ищет lazyModule.ts.
     for (const { asset, path } of lazyChunks) {
         mkdirSync(dirname(join(stageDir, asset)), { recursive: true });

@@ -10,6 +10,7 @@ import { userCacheDir } from "../cachePaths.ts";
 import {
     type IPackagedAssetEnvironment,
     packagedAssetCacheDir,
+    packagedAssetCacheDirByName,
     readPackagedAsset,
     readPackagedAssetView,
 } from "./packagedAsset.ts";
@@ -117,6 +118,64 @@ describe("packagedAssetCacheDir", () => {
 
     it("по умолчанию — под пользовательским кэшем diode", () => {
         expect(packagedAssetCacheDir("node-pty", new Uint8Array([1]))).toMatch(
+            new RegExp(`^${userCacheDir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
+        );
+    });
+});
+
+describe("packagedAssetCacheDirByName", () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    // sha256([1, 2, 3])
+    const digest = "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81";
+
+    beforeEach(() => {
+        dir = mkdtempSync(path.join(tmpdir(), "diode-packaged-"));
+    });
+    afterEach(() => {
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("SEA: ключ из сайдкара `<имя>.sha256`, байты самого ассета не читаются", () => {
+        const seen: string[] = [];
+        const env = environment({
+            isSea: () => true,
+            readSeaRawAsset: (name) => {
+                seen.push(name);
+                return name === "ts-server.bundle.sha256" ? new TextEncoder().encode(`${digest}\n`).buffer : null;
+            },
+        });
+
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", env, "/cache")).toBe(
+            packagedAssetCacheDir("ts-server", bytes, "/cache"),
+        );
+        expect(seen).toEqual(["ts-server.bundle.sha256"]);
+    });
+
+    it("сайдкара нет или он битый — хэш по байтам, ключ тот же", () => {
+        writeFileSync(path.join(dir, "ts-server.bundle"), bytes);
+        const expected = packagedAssetCacheDir("ts-server", bytes, "/cache");
+
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
+        writeFileSync(path.join(dir, "ts-server.bundle.sha256"), "not-a-digest");
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
+        // Ровно 64 hex-символа: дайджест на символ короче — битый.
+        writeFileSync(path.join(dir, "ts-server.bundle.sha256"), digest.slice(1));
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
+    });
+
+    it("self-extract: сайдкар файлом рядом с main.js", () => {
+        writeFileSync(path.join(dir, "ts-server.bundle.sha256"), digest);
+
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(
+            path.join("/cache", "ts-server", `${DIODE_VERSION}-039058c6f2c0`),
+        );
+    });
+
+    it("ни ассета, ни сайдкара (dev) — null; по умолчанию — под пользовательским кэшем", () => {
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBeNull();
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle")).toBeNull();
+        writeFileSync(path.join(dir, "ts-server.bundle.sha256"), digest);
+        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}))).toMatch(
             new RegExp(`^${userCacheDir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
         );
     });
