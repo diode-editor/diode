@@ -35,6 +35,12 @@ export interface ScenarioDriver {
     ): Promise<GridSnapshot>;
     /** Capture the current screen. */
     captureFrame(): Promise<GridSnapshot>;
+    /**
+     * Wait until the editor is ready (`Diode.whenReady`: extension host activated,
+     * phase `eventually`). Text on screen is not readiness: extensions start after
+     * the text and highlight frames, as in vscode.
+     */
+    waitForReady(timeoutMs?: number): Promise<void>;
     /** Snapshot of the element tree (node boxes are the {@link click} coordinates). */
     getDocument(): Promise<GetDocumentResult>;
     /** Poll the tree until a node matches `selector`; returns it. */
@@ -182,6 +188,7 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         resize: (cols, rows) => session.resize(cols, rows),
         waitForText: (predicate, opts) => session.waitForText(predicate, opts),
         captureFrame: () => session.captureFrame(),
+        waitForReady: (timeoutMs) => session.waitForReady(timeoutMs),
         getDocument: () => session.getDocument(),
         waitForNode: (selector, opts) => session.waitForNode(selector, opts),
         sendMouse: (params) => session.sendMouse(params),

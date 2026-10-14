@@ -28,6 +28,10 @@ export default defineScenario({
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));
+        // Провайдеры code actions регистрирует activate() расширения, а extension
+        // host поднимается после первых кадров: без ожидания Ctrl+K Ctrl+Q уходит
+        // раньше регистрации, и меню нечего показать.
+        await editor.waitForReady();
 
         // Меню code actions у каретки (Ctrl+K Ctrl+Q — досягаемый на legacy бинд).
         // Ждём ОБА quickfix'а расширения: медленный отвечает позже быстрого.
