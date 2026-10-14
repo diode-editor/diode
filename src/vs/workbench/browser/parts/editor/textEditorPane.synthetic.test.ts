@@ -47,7 +47,7 @@ describe("TextEditorPane над синтетической моделью", () =
         expect(await pane.save()).toBe("no-file");
         expect(await pane.saveWithEncoding("utf16le")).toBe("no-file");
         expect(pane.revertToDisk()).toBe(false);
-        expect(pane.reopenWithEncoding("utf16le")).toBe(false);
+        expect(await pane.reopenWithEncoding("utf16le")).toBe(false);
         pane.setEncoding("utf16le");
         expect(pane.encoding).toBe(DEFAULT_ENCODING);
         expect(pane.getText()).toBe("class Lib {}\n");

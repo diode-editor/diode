@@ -132,6 +132,81 @@ export function detectEncodingByBOM(buffer: Buffer): string | null {
     return null;
 }
 
+/** Document text decoded from disk bytes plus the encoding id it was read in. */
+export interface IDecodedText {
+    readonly text: string;
+    /** Table id ({@link SUPPORTED_ENCODINGS}), never an iconv name. */
+    readonly encoding: string;
+}
+
+type IconvLite = typeof iconv;
+
+/** iconv-lite for the charsets the native codecs do not cover. */
+function loadIconv(): Promise<IconvLite> {
+    return Promise.resolve(iconv);
+}
+
+/**
+ * Codec over node's own `Buffer`, no iconv-lite. Byte-for-byte the same as
+ * iconv-lite for these charsets — iconv-lite delegates them to the very same
+ * node primitives (StringDecoder, `Buffer.from`): invalid utf-8 → U+FFFD, a
+ * lone surrogate → EF BF BD on utf-8 encode and the code unit as is on UTF-16,
+ * an odd trailing UTF-16 byte dropped. Pinned by the "native == iconv-lite" tests.
+ */
+interface INativeCodec {
+    decode(body: Buffer): string;
+    encode(text: string): Buffer;
+}
+
+/** Native codecs by iconv name: utf-8 (both table ids) and the two UTF-16s. */
+const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INativeCodec>([
+    ["utf8", { decode: (body) => body.toString("utf8"), encode: (text) => Buffer.from(text, "utf8") }],
+    ["utf16le", { decode: (body) => body.toString("utf16le"), encode: (text) => Buffer.from(text, "utf16le") }],
+    [
+        "utf16be",
+        {
+            // В node нет UTF-16 BE: меняем байты пар местами и читаем как LE. Копия
+            // не портит буфер вызывающего; нечётный хвостовой байт отбрасывается,
+            // как у iconv-lite.
+            decode: (body) =>
+                Buffer.from(body.subarray(0, body.length & ~1))
+                    .swap16()
+                    .toString("utf16le"),
+            encode: (text) => Buffer.from(text, "utf16le").swap16(),
+        },
+    ],
+]);
+
+/** The table entry `buffer` is decoded in (rules — {@link decodeBuffer}). */
+function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
+    const sniffed = detectEncodingByBOM(buffer);
+    // По построению id всегда табличный: explicit проверен через has(),
+    // значения снифа и DEFAULT_ENCODING — элементы таблицы.
+    if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
+        return requireEncodingInfo(explicitEncoding === "utf8" && sniffed === "utf8bom" ? "utf8bom" : explicitEncoding);
+    }
+    return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
+}
+
+/** `buffer` without the encoding's BOM, when it starts with one. */
+function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
+    return info.bom !== undefined && startsWithBytes(buffer, info.bom) ? buffer.subarray(info.bom.length) : buffer;
+}
+
+/**
+ * Decodes raw disk bytes by the BOM sniff alone — opening a file, no explicit
+ * encoding. Synchronous and iconv-free: the sniff only ever yields utf-8 (with
+ * or without BOM) or UTF-16, all decoded natively. The BOM is stripped.
+ */
+export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
+    const info = resolveDecodeEncoding(buffer, undefined);
+    const codec = NATIVE_CODECS.get(info.iconvName);
+    /* v8 ignore start -- сниф даёт только utf8/utf8bom/utf16le/utf16be, у всех есть нативный кодек; throw — инвариант-гард */
+    if (codec === undefined) throw new Error(`No native codec for sniffed encoding: ${info.id}`);
+    /* v8 ignore stop */
+    return { text: codec.decode(stripBOM(buffer, info)), encoding: info.id };
+}
+
 /**
  * Decodes raw disk bytes to document text.
  *
@@ -140,23 +215,20 @@ export function detectEncodingByBOM(buffer: Buffer): string | null {
  * BOM is promoted to "utf8bom" so the BOM survives a later save. Unknown
  * explicit ids fall back to the sniff-or-default path. The BOM bytes are
  * stripped before decoding and never appear in the returned text.
+ *
+ * Asynchronous because charsets beyond utf-8 and UTF-16 need iconv-lite;
+ * those two are decoded natively. Without an explicit encoding prefer the
+ * synchronous {@link decodeBufferByBOM} — same result.
  */
-export function decodeBuffer(buffer: Buffer, explicitEncoding?: string): { text: string; encoding: string } {
-    const sniffed = detectEncodingByBOM(buffer);
-
-    let encoding: string;
-    if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
-        encoding = explicitEncoding === "utf8" && sniffed === "utf8bom" ? "utf8bom" : explicitEncoding;
-    } else {
-        encoding = sniffed ?? DEFAULT_ENCODING;
-    }
-
-    // По построению encoding здесь всегда табличный id: explicit проверен через
-    // has(), значения снифа и DEFAULT_ENCODING — элементы таблицы.
-    const info = requireEncodingInfo(encoding);
-    const body =
-        info.bom !== undefined && startsWithBytes(buffer, info.bom) ? buffer.subarray(info.bom.length) : buffer;
-    return { text: iconv.decode(body, info.iconvName, { stripBOM: false }), encoding: info.id };
+export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): Promise<IDecodedText> {
+    const info = resolveDecodeEncoding(buffer, explicitEncoding);
+    const body = stripBOM(buffer, info);
+    const codec = NATIVE_CODECS.get(info.iconvName);
+    const text =
+        codec !== undefined
+            ? codec.decode(body)
+            : (await loadIconv()).decode(body, info.iconvName, { stripBOM: false });
+    return { text, encoding: info.id };
 }
 
 /**
@@ -164,11 +236,13 @@ export function decodeBuffer(buffer: Buffer, explicitEncoding?: string): { text:
  * VS Code: "utf8bom" and both UTF-16 variants always write their BOM, every
  * other encoding writes none. Unknown ids defensively fall back to utf-8.
  * Characters unrepresentable in the target charset become iconv-lite's
- * replacement ("?").
+ * replacement ("?"). Asynchronous for the same reason as {@link decodeBuffer}.
  */
-export function encodeText(text: string, encoding: string): Buffer {
+export async function encodeText(text: string, encoding: string): Promise<Buffer> {
     const info = encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
-    const body = iconv.encode(text, info.iconvName, { addBOM: false });
+    const codec = NATIVE_CODECS.get(info.iconvName);
+    const body =
+        codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, info.iconvName, { addBOM: false });
     if (info.bom === undefined) return body;
     return Buffer.concat([Buffer.from(info.bom), body]);
 }

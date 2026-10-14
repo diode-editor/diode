@@ -57,23 +57,86 @@ describe("TextFileModel — encoding axis", () => {
         controller.dispose();
     });
 
-    it("reopenWithEncoding перечитывает файл в указанной кодировке", () => {
+    it("reopenWithEncoding перечитывает файл в указанной кодировке", async () => {
         const controller = createEditorPane();
         const fp = writeBytes("cyr.txt", iconv.encode("Привет, мир!\n", "windows1251"));
         controller.openFile(Uri.file(fp));
         // Как utf8 — кракозябры.
         expect(controller.getText()).not.toContain("Привет");
 
-        expect(controller.reopenWithEncoding("windows1251")).toBe(true);
+        expect(await controller.reopenWithEncoding("windows1251")).toBe(true);
         expect(controller.encoding).toBe("windows1251");
         expect(controller.getText()).toBe("Привет, мир!\n");
         controller.dispose();
     });
 
-    it("reopenWithEncoding возвращает false для безымянного буфера", () => {
+    it("reopenWithEncoding возвращает false для безымянного буфера", async () => {
         const controller = createEditorPane();
-        expect(controller.reopenWithEncoding("windows1251")).toBe(false);
+        expect(await controller.reopenWithEncoding("windows1251")).toBe(false);
         controller.dispose();
+    });
+
+    // Декод в явной кодировке асинхронный (не-Unicode ждёт iconv): всё, что
+    // случилось с буфером, пока он шёл, побеждает устаревший результат.
+    describe("reopenWithEncoding, обогнанный до конца декода", () => {
+        it("revertToDisk — перечитка выигрывает, reopen не применяется", async () => {
+            const controller = createEditorPane();
+            const fp = writeBytes("race-revert.txt", iconv.encode("текст\n", "windows1251"));
+            controller.openFile(Uri.file(fp));
+            const asUtf8 = controller.getText();
+
+            const pending = controller.reopenWithEncoding("windows1251");
+            controller.revertToDisk();
+
+            expect(await pending).toBe(false);
+            expect(controller.encoding).toBe("utf8");
+            expect(controller.getText()).toBe(asUtf8);
+            controller.dispose();
+        });
+
+        it("второй reopen — побеждает последний", async () => {
+            const controller = createEditorPane();
+            const fp = writeBytes("race-twice.txt", iconv.encode("текст\n", "koi8r"));
+            controller.openFile(Uri.file(fp));
+
+            const first = controller.reopenWithEncoding("windows1251");
+            const second = controller.reopenWithEncoding("koi8r");
+
+            expect(await first).toBe(false);
+            expect(await second).toBe(true);
+            expect(controller.encoding).toBe("koi8r");
+            expect(controller.getText()).toBe("текст\n");
+            controller.dispose();
+        });
+
+        it("Save As на другой путь — старый файл в буфер не возвращается", async () => {
+            const controller = createEditorPane();
+            const fp = writeBytes("race-from.txt", iconv.encode("старое\n", "windows1251"));
+            controller.openFile(Uri.file(fp));
+            controller.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "new ")], "test edit");
+            const edited = controller.getText();
+
+            const pending = controller.reopenWithEncoding("windows1251");
+            const saving = controller.saveAs(ws.path("race-to.txt"));
+
+            expect(await pending).toBe(false);
+            await saving;
+            expect(controller.getText()).toBe(edited);
+            expect(controller.encoding).toBe("utf8");
+            controller.dispose();
+        });
+
+        it("dispose — закрытая модель не перечитывается", async () => {
+            const controller = createEditorPane();
+            const fp = writeBytes("race-dispose.txt", iconv.encode("текст\n", "windows1251"));
+            controller.openFile(Uri.file(fp));
+
+            const pending = controller.reopenWithEncoding("windows1251");
+            controller.dispose();
+
+            expect(await pending).toBe(false);
+            expect(controller.encoding).toBe("utf8");
+        });
     });
 
     it("DoD #106: roundtrip cp1251 read → edit → write байт-в-байт", async () => {
@@ -81,7 +144,7 @@ describe("TextFileModel — encoding axis", () => {
         const original = "первая строка\nвторая строка\n";
         const fp = writeBytes("roundtrip.txt", iconv.encode(original, "windows1251"));
         controller.openFile(Uri.file(fp));
-        controller.reopenWithEncoding("windows1251");
+        await controller.reopenWithEncoding("windows1251");
 
         controller.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "правка: ")], "test edit");
         await controller.save();
@@ -145,7 +208,7 @@ describe("TextFileModel — encoding axis", () => {
         controller.dispose();
     });
 
-    it("onDidChangeEncoding срабатывает на setEncoding и reopenWithEncoding, но не на no-op", () => {
+    it("onDidChangeEncoding срабатывает на setEncoding и reopenWithEncoding, но не на no-op", async () => {
         const controller = createEditorPane();
         const fp = ws.writeFile("events.txt", "abc\n");
         controller.openFile(Uri.file(fp));
@@ -156,7 +219,7 @@ describe("TextFileModel — encoding axis", () => {
         expect(fired).toBe(0);
         controller.setEncoding("koi8r");
         expect(fired).toBe(1);
-        controller.reopenWithEncoding("windows1251");
+        await controller.reopenWithEncoding("windows1251");
         expect(fired).toBe(2);
         controller.dispose();
     });
@@ -172,11 +235,11 @@ describe("TextFileModel — encoding axis", () => {
         controller.dispose();
     });
 
-    it("revertToDisk пере-детектит кодировку (BOM-сниф, не прежний выбор)", () => {
+    it("revertToDisk пере-детектит кодировку (BOM-сниф, не прежний выбор)", async () => {
         const controller = createEditorPane();
         const fp = writeBytes("redetect.txt", iconv.encode("текст\n", "windows1251"));
         controller.openFile(Uri.file(fp));
-        controller.reopenWithEncoding("windows1251");
+        await controller.reopenWithEncoding("windows1251");
         expect(controller.encoding).toBe("windows1251");
 
         controller.revertToDisk();
@@ -184,11 +247,11 @@ describe("TextFileModel — encoding axis", () => {
         controller.dispose();
     });
 
-    it("открытие другого файла сбрасывает кодировку на детект нового файла", () => {
+    it("открытие другого файла сбрасывает кодировку на детект нового файла", async () => {
         const controller = createEditorPane();
         const cyr = writeBytes("one.txt", iconv.encode("текст", "windows1251"));
         controller.openFile(Uri.file(cyr));
-        controller.reopenWithEncoding("windows1251");
+        await controller.reopenWithEncoding("windows1251");
 
         const bom = writeBytes("two.txt", Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("x")]));
         controller.openFile(Uri.file(bom));
@@ -200,7 +263,7 @@ describe("TextFileModel — encoding axis", () => {
         const controller = createEditorPane();
         const fp = writeBytes("snap.txt", iconv.encode("текст\n", "windows1251"));
         controller.openFile(Uri.file(fp));
-        controller.reopenWithEncoding("windows1251");
+        await controller.reopenWithEncoding("windows1251");
 
         let seen: string | null = null;
         controller.model.saveParticipant = new TextFileSaveParticipant(() => [

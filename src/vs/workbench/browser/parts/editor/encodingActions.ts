@@ -1,3 +1,4 @@
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { SUPPORTED_ENCODINGS } from "../../../../editor/common/model/encoding.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -61,9 +62,6 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
     const encoding = picked.description;
 
     if (mode.label === "Reopen with Encoding") {
-        const doReopen = (): void => {
-            editor.reopenWithEncoding(encoding);
-        };
         if (editor.isModified) {
             const name = editorGroup.displayName(editor);
             dialogService.showConfirmDialog(
@@ -74,11 +72,17 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
                     cancelLabel: "Cancel",
                     defaultButton: "cancel",
                 },
-                { onConfirm: doReopen },
+                {
+                    onConfirm: () => {
+                        editor.reopenWithEncoding(encoding).catch(onUnexpectedError);
+                    },
+                },
             );
             return;
         }
-        doReopen();
+        // Не-Unicode кодировка декодируется асинхронно (ждёт iconv): команда
+        // завершается, когда текст уже перечитан.
+        await editor.reopenWithEncoding(encoding);
         return;
     }
 

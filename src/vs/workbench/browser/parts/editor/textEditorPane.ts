@@ -201,8 +201,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.fileModel?.revertToDisk() ?? false;
     }
 
-    public reopenWithEncoding(encoding: string): boolean {
-        return this.fileModel?.reopenWithEncoding(encoding) ?? false;
+    public reopenWithEncoding(encoding: string): Promise<boolean> {
+        return this.fileModel?.reopenWithEncoding(encoding) ?? Promise.resolve(false);
     }
 
     public setEncoding(encoding: string): void {

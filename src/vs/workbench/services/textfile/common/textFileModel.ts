@@ -8,9 +8,11 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import {
     decodeBuffer,
+    decodeBufferByBOM,
     DEFAULT_ENCODING,
     encodeText,
     getEncodingInfo,
+    type IDecodedText,
 } from "../../../../editor/common/model/encoding.ts";
 import {
     etag,
@@ -78,6 +80,8 @@ export class TextFileModel extends BaseTextEditorModel {
     private diskConflictValue = false;
     private readonly onDidChangeDiskStateEmitter = this.register(new Emitter<void>());
     private fileWatch: IDisposable | null = null;
+    /** Номер последней перечитки с диска: асинхронный reopen сверяет его, прежде чем писать в документ. */
+    private loadGeneration = 0;
 
     /** Кодировка, в которой документ читается с диска и пишется на диск. */
     public get encoding(): string {
@@ -188,6 +192,8 @@ export class TextFileModel extends BaseTextEditorModel {
         super(languageService, undoRedoService, UNTITLED_PLACEHOLDER_URI);
         this.register({
             dispose: () => {
+                // Незавершённый reopen не пишет в закрытую модель.
+                this.loadGeneration++;
                 this.fileWatch?.dispose();
             },
         });
@@ -227,21 +233,31 @@ export class TextFileModel extends BaseTextEditorModel {
         this.startWatchingFile(filePath);
     }
 
-    /** Заменяет содержимое буфера целиком (смена активного Output-канала). */
     /**
      * Читает файл с диска в документ модели ({@link replaceText}: история
      * отмены сбрасывается, view ремапит каретку и скролл как при любой правке).
-     * Общий путь для
-     * {@link openFile}, {@link revertToDisk} и {@link reopenWithEncoding}. Обновляет
-     * снимок `diskStat` и снимает флаг конфликта. Кодировка: `explicitEncoding`
-     * побеждает BOM-сниф; без него — сниф BOM, иначе utf-8 (revert пере-детектит,
-     * как reload в VS Code).
+     * Общий путь для {@link openFile} и {@link revertToDisk}. Кодировка — сниф BOM, иначе utf-8
+     * (revert пере-детектит, как reload в VS Code): такой декод синхронный и без
+     * iconv. Явная кодировка — {@link reopenWithEncoding}.
      */
-    private loadDocumentFromDisk(filePath: string, explicitEncoding?: string): void {
+    private loadDocumentFromDisk(filePath: string): void {
+        this.applyDecoded(filePath, decodeBufferByBOM(this.readDiskBytes(filePath)));
+    }
+
+    /** Байты файла для перечитки; каждая перечитка начинает новое поколение загрузки. */
+    private readDiskBytes(filePath: string): Buffer {
+        this.loadGeneration++;
         const buffer = fs.existsSync(filePath) ? fs.readFileSync(filePath) : Buffer.alloc(0);
         // Вехи лестницы старта (docs/TODO/OpenPerformance.md): без трассы — no-op.
         mark("textfile:read", { bytes: buffer.length });
-        const { text: content, encoding } = decodeBuffer(buffer, explicitEncoding);
+        return buffer;
+    }
+
+    /**
+     * Кладёт декодированный файл в документ. Обновляет снимок `diskStat` и
+     * снимает флаг конфликта.
+     */
+    private applyDecoded(filePath: string, { text: content, encoding }: IDecodedText): void {
         mark("textfile:decoded", { chars: content.length });
         this.applyEncoding(encoding);
         this.diskStat = this.readDiskStat(filePath);
@@ -267,7 +283,8 @@ export class TextFileModel extends BaseTextEditorModel {
         if (participation !== null) await participation;
         let written: IFileStat;
         try {
-            written = await this.files.writeFile(this.uriValue, encodeText(this.doc.serialize(), this.encodingValue), {
+            const bytes = await encodeText(this.doc.serialize(), this.encodingValue);
+            written = await this.files.writeFile(this.uriValue, bytes, {
                 atomic: true,
                 // Тот же гард, что выше, но в момент записи: пока работали
                 // участники, файл мог измениться снаружи.
@@ -321,11 +338,20 @@ export class TextFileModel extends BaseTextEditorModel {
     /**
      * Перечитывает файл с диска в указанной кодировке («Reopen with Encoding»),
      * отбрасывая несохранённые правки — подтверждение у «грязного» буфера
-     * спрашивает вызывающий. Возвращает `false` для буфера без файла на диске.
+     * спрашивает вызывающий. Возвращает `false` для буфера без файла на диске и
+     * для перечитки, которую обогнала другая (декод не-Unicode кодировки
+     * асинхронный — ждёт iconv).
      */
-    public reopenWithEncoding(encoding: string): boolean {
-        if (this.filePath === null) return false;
-        this.loadDocumentFromDisk(this.filePath, encoding);
+    public async reopenWithEncoding(encoding: string): Promise<boolean> {
+        const filePath = this.filePath;
+        if (filePath === null) return false;
+        const buffer = this.readDiskBytes(filePath);
+        const generation = this.loadGeneration;
+        const decoded = await decodeBuffer(buffer, encoding);
+        // Декодер мог ждать iconv: за это время буфер перечитали (revert, новый
+        // reopen), перепривязали к другому пути или закрыли — результат устарел.
+        if (generation !== this.loadGeneration || filePath !== this.filePath) return false;
+        this.applyDecoded(filePath, decoded);
         return true;
     }
 
@@ -345,11 +371,8 @@ export class TextFileModel extends BaseTextEditorModel {
         this.uriValue = Uri.file(path.resolve(newPath));
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        const written = await this.files.writeFile(
-            this.uriValue,
-            encodeText(this.doc.serialize(), this.encodingValue),
-            { atomic: true },
-        );
+        const bytes = await encodeText(this.doc.serialize(), this.encodingValue);
+        const written = await this.files.writeFile(this.uriValue, bytes, { atomic: true });
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
         this.markSaved();
