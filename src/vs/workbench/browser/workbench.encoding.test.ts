@@ -125,8 +125,12 @@ describe("Workbench — Change File Encoding", () => {
         await pick(h, "Reopen");
         await pick(h, "Cyrillic (Windows 1251)");
 
-        expect(editor.encoding).toBe("windows1251");
+        // Декод windows-1251 ждёт ленивый кусок iconv-lite — по времени, не по тикам.
+        await vi.waitFor(() => {
+            expect(editor.encoding).toBe("windows1251");
+        });
         expect(editor.getText()).toBe("Привет, мир!\n");
+        h.testApp.render();
         const items = statusTexts(h.container.get(StatusBarComponentDIToken).view);
         expect(items).toContain("Windows 1251");
     });
@@ -148,8 +152,9 @@ describe("Workbench — Change File Encoding", () => {
         expect(dialog).not.toBeNull();
 
         dialog!.onConfirm?.();
-        await flushMicrotasks();
-        expect(editor.encoding).toBe("windows1251");
+        await vi.waitFor(() => {
+            expect(editor.encoding).toBe("windows1251");
+        });
         expect(editor.getText()).toBe("Привет, мир!\n");
         expect(editor.isModified).toBe(false);
     });

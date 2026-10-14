@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
+import { setLazyModuleLoader } from "../../../../base/common/lazyModule.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -74,6 +75,41 @@ describe("TextFileModel — encoding axis", () => {
         const controller = createEditorPane();
         expect(await controller.reopenWithEncoding("windows1251")).toBe(false);
         controller.dispose();
+    });
+
+    // iconv-lite — ленивый кусок бандла (encoding.ts): шов не должен срабатывать
+    // на открытии и записи обычного файла, иначе кусок грузится на каждом запуске.
+    it("открытие, правка и запись utf-8 и UTF-16 файла не грузят iconv; reopen в windows-1251 — грузит", async () => {
+        const requested: string[] = [];
+        setLazyModuleLoader(<T>(id: string, importer: () => Promise<T>) => {
+            requested.push(id);
+            return importer();
+        });
+        try {
+            const files: [string, Buffer][] = [
+                ["plain.txt", Buffer.from("привет\n", "utf8")],
+                ["le.txt", Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("привет\n", "utf16le")])],
+            ];
+            for (const [name, bytes] of files) {
+                const controller = createEditorPane();
+                controller.openFile(Uri.file(writeBytes(name, bytes)));
+                controller.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "x")], "test edit");
+                await controller.save();
+                controller.revertToDisk();
+                expect(controller.getText()).toBe("xпривет\n");
+                controller.dispose();
+            }
+            expect(requested).toEqual([]);
+
+            const controller = createEditorPane();
+            controller.openFile(Uri.file(writeBytes("cyr.txt", iconv.encode("привет\n", "windows1251"))));
+            expect(requested).toEqual([]);
+            await controller.reopenWithEncoding("windows1251");
+            expect(requested).toEqual(["iconv-lite"]);
+            controller.dispose();
+        } finally {
+            setLazyModuleLoader(undefined);
+        }
     });
 
     // Декод в явной кодировке асинхронный (не-Unicode ждёт iconv): всё, что

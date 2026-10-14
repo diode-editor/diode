@@ -32,7 +32,6 @@ export default defineConfig({
     "vscode-oniguruma",
     "jsonc-parser",
     "vscode-uri",
-    "iconv-lite",
   ],
   // Ленивые куски — внешние: в main.js от них остаётся голый import("<id>"),
   // запасной путь loadLazyModule для dev-сборки; упакованная грузит кусок из
@@ -45,13 +44,6 @@ export default defineConfig({
   // metafile-esm.json рядом с main.js: по нему build-dist.mjs и
   // scripts/check-lazy-chunks.mjs проверяют, что куски не протекли в ядро.
   metafile: true,
-  // iconv-lite (CJS) тянет require("buffer") через safer-buffer; в esm-бандле
-  // esbuild превращает это в «Dynamic require … is not supported». Баннер даёт
-  // модульный require из createRequire — esbuild'овский __require подхватывает
-  // его через `typeof require !== "undefined"`.
-  banner: {
-    js: 'import { createRequire as __diodeCreateRequire } from "node:module"; const require = __diodeCreateRequire(import.meta.url);',
-  },
   // d.ts не нужен никому: точка входа ничего не экспортирует (выходил `export {  }`),
   // а проход tsc стоил ~8 с и сотни МБ на каждую сборку бинаря.
   dts: false,

@@ -271,15 +271,28 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
      реестра (`e2e/registry-install.test.ts`) и стоковый EditorConfig по id из магазина
      (`e2e/sea-install.test.ts`) через SEA. Рецепт —
      [docs/arch/Common.md](../arch/Common.md#ленивые-куски-бандла).
-   - [~] **iconv** (540 КБ): `src/vs/editor/common/model/encoding.ts` сейчас на пути открытия
-     файла — нужен быстрый путь utf-8 через `TextDecoder`, iconv — только для остальных кодировок.
-     Два PR. Подготовка (iconv ещё в бандле): utf-8 и UTF-16 — нативно через `Buffer`, в обе
+   - [x] **iconv** (540 КБ): был на пути открытия файла (`src/vs/editor/common/model/encoding.ts`),
+     теперь — кусок `lazy/iconv-lite.cjs` через `importLazyModule`, только для кодировок кроме
+     utf-8 и UTF-16. Два PR. Подготовка (iconv ещё в бандле): utf-8 и UTF-16 — нативно через `Buffer`, в обе
      стороны (эталон нативно делает только utf-8 decode, но у нас `openFile` синхронный, а
      BOM-сниф даёт и UTF-16). Открытие и revert — синхронный `decodeBufferByBOM` (сниф даёт
      только Unicode), явная кодировка (`reopenWithEncoding`, `workspace.openTextDocument
      ({encoding})`) и запись — асинхронные `decodeBuffer`/`encodeText`. Эквивалентность
      нативного пути iconv-lite — тесты на краевых входах и сид-фаззе (невалидные байты,
-     суррогаты, разрезанные последовательности, нечётный хвост UTF-16). Дальше — распил.
+     суррогаты, разрезанные последовательности, нечётный хвост UTF-16). Распил: запись в
+     `LAZY_CHUNKS` с прогревом (encode + decode windows-1251), баннер `createRequire` в
+     `tsup.config.ts` снят — он был нужен только iconv-lite (`safer-buffer` → `require("buffer")`),
+     других `require` в ядре нет. Юниты «utf-8/UTF-16 и открытие/запись не спрашивают кусок,
+     reopen в windows-1251 — спрашивает», e2e на SEA `e2e/encodingLazy.test.ts` (Reopen в
+     windows-1251 + правка + запись, UTF-16 LE с BOM, Save with Encoding в KOI8-R — байты на
+     диске), `strace` старта собранного `main.js` с utf-8 и UTF-16 файлом: `lazy/*` не
+     открывается. Замер (локально, шумная машина, «до» — коммит подготовки, «после» — распил):
+     `main.js` 4 163 643 → 3 607 823 байт (−543 КБ); компиляция `main.js` (`vm.Script`, медиана
+     из 30 свежих процессов) 98.9 → 93.1 мс; `bench:open --sizes=small --runs=15`, два захода
+     вперемешку, «наших» 624/575 → 557/570 мс, `main:start` 241/220 → 212/226 — разница внутри
+     шума машины; Reopen with Encoding в windows-1251 (Enter → текст на кадре, n=10, два захода):
+     первый, с загрузкой куска, 29.0/27.5 → 28.5/26.1 мс, повторный 21.3/16.9 → 18.4/18.5 —
+     загрузка куска с кэшем кода не видна.
    - [ ] **LSP-клиент** — последним: это наш код с общими с ядром модулями, гейт
      «вход куска не лежит в main.js» для него придётся уточнить (общие модули — в ядре).
    - **jsonc-parser остаётся в ядре**: на нём settings, keybindings и темы — критический путь.
