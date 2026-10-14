@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { loadSemver } from "../../../base/common/semver.ts";
 import {
     extensionKey,
     isBuiltinVSCodeExtension,
@@ -140,7 +141,7 @@ async function prepare(
             );
         }
     } else {
-        picked = resolveCompatibleVersion(meta.versions, host);
+        picked = resolveCompatibleVersion(meta.versions, host, await loadSemver());
         if (picked === undefined) {
             throw new Error(
                 `Extension "${extensionId}" has no version compatible with this build (${describeHost(host)}); available: ${meta.versions.map(describeVersion).join(", ")}`,

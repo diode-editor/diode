@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadSemver } from "../vs/base/common/semver.ts";
 import { DIODE_VERSION } from "../vs/base/common/version.ts";
 import { resolveCompatibleVersion } from "../vs/platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import {
@@ -42,11 +43,15 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
     if (meta === undefined) {
         throw new Error(`${id} is not published in the registry at ${DEFAULT_REGISTRY_URL}`);
     }
-    const version = resolveCompatibleVersion(meta.versions, {
-        diode: DIODE_VERSION,
-        vscode: VSCODE_SHIM_VERSION,
-        targetPlatform: currentTargetPlatform(),
-    });
+    const version = resolveCompatibleVersion(
+        meta.versions,
+        {
+            diode: DIODE_VERSION,
+            vscode: VSCODE_SHIM_VERSION,
+            targetPlatform: currentTargetPlatform(),
+        },
+        await loadSemver(),
+    );
     if (version === undefined) {
         throw new Error(`${id}: no version compatible with this build in the registry`);
     }

@@ -15,7 +15,7 @@
  *    кусок не тянет ничего, кроме встроенных модулей node. Его зовёт сборка
  *    (`build-dist.mjs`) и CI (`scripts/check-lazy-chunks.mjs`, job `static`).
  *
- * Новая часть распила — запись в {@link LAZY_CHUNKS} плюс `loadLazyModule` на
+ * Новая часть распила — запись в {@link LAZY_CHUNKS} плюс `loadLazyModule` (node) или `importLazyModule` (common) на
  * её шве; остальное (external, сборка, ассеты SEA, payload self-extract,
  * гейт) подхватывается из списка. Рецепт — docs/arch/Common.md («Ленивые куски»).
  */
@@ -33,6 +33,9 @@ export const LAZY_CHUNKS = [
     // Пилот распила: листовая CJS-библиотека без нашего кода, нужна только
     // установке и чтению .vsix (extensionInstaller.ts).
     { id: "yauzl", reason: "установка .vsix" },
+    // Первый кусок, который зовёт common-код (разбор реестра, совместимость
+    // engines): через importLazyModule из base/common/lazyModule.ts.
+    { id: "semver", reason: "магазин расширений: версии реестра и engines" },
 ];
 
 /**
@@ -111,7 +114,7 @@ export function verifyLazyChunks({ mainMetafile, chunks }) {
         for (const [file, output] of mainOutputs) {
             for (const imp of output.imports) {
                 if (imp.path === id && imp.kind !== "dynamic-import") {
-                    errors.push(`${id}: ${basename(file)} импортирует кусок статически (${imp.kind}) — только через loadLazyModule`);
+                    errors.push(`${id}: ${basename(file)} импортирует кусок статически (${imp.kind}) — только через loadLazyModule / importLazyModule`);
                 }
             }
         }

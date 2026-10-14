@@ -14,12 +14,14 @@ import { CompositeAssetAccess } from "../base/common/assets/compositeAssetAccess
 import type { IAssetAccess } from "../base/common/assets/iAssetAccess.ts";
 import { describeRejection } from "../base/common/describeRejection.ts";
 import { setUnexpectedErrorHandler } from "../base/common/errors.ts";
+import { setLazyModuleLoader } from "../base/common/lazyModule.ts";
 import { mark } from "../base/common/performance.ts";
 import { DIODE_VERSION } from "../base/common/version.ts";
 import { createDefaultAssetAccess } from "../base/node/assets/createDefaultAssetAccess.ts";
 import { FsAssetAccess } from "../base/node/assets/fsAssetAccess.ts";
 import { isPackagedRuntime } from "../base/node/assets/packagedRuntime.ts";
 import { isSeaBinary } from "../base/node/isSea.ts";
+import { loadLazyModule } from "../base/node/lazyModule.ts";
 import { currentProcessSnapshot, realRestartHooks, restartProcess } from "../base/node/restartProcess.ts";
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
@@ -125,6 +127,13 @@ import { startWorkbench } from "./workbenchStartup.ts";
 // бинарём, не имеет IPC-канала (subprocess-entry умер бы с exit 2), а флаг роли
 // может протечь к нему через spawn среды. Поэтому каждая роль, войдя в свою
 // ветку, снимает свой флаг и ставит DIODE_RUN_AS_NODE — см. их entry.
+
+// ── Ленивые куски бандла ──────────────────────────────────
+// common-код берёт куски через importLazyModule (base/common/lazyModule.ts), а
+// откуда они приходят (ассет SEA, файл рядом с main.js, node_modules в dev),
+// знает только node-загрузчик. Подставляем его до любой роли процесса: без
+// этого упакованная сборка искала бы кусок в node_modules, которых у неё нет.
+setLazyModuleLoader(loadLazyModule);
 
 if (process.env.DIODE_RUN_AS_NODE === "1") {
     runAsNode();

@@ -1,4 +1,4 @@
-import semver from "semver";
+import type { Semver } from "../../../base/common/semver.ts";
 
 /**
  * Формат данных реестра расширений (публикуемый вид registry-репозитория).
@@ -16,6 +16,10 @@ import semver from "semver";
  * ЗАПИСЬ (расширение в index, версия в meta) пропускается с диагностикой в
  * `problems`, битый ФАЙЛ целиком (не JSON, чужой schemaVersion, id ≠
  * publisher.name) — ошибка. Модуль чистый: диагностики логирует вызывающий.
+ *
+ * Версии валидируются node-semver, а он — ленивый кусок бандла: парсеры
+ * получают его параметром (`loadSemver()` из `base/common/semver.ts` зовёт
+ * асинхронный источник перед разбором).
  */
 
 /** Текущая версия схемы. Опциональные поля добавляются без bump'а. */
@@ -223,7 +227,7 @@ function parseArtifact(value: unknown): RegistryArtifact | undefined {
 }
 
 /** Разбирает запись версии; невалидная → `undefined` (в `problems` пишет вызывающий). */
-function parseVersionRecord(value: unknown): IRegistryVersion | undefined {
+function parseVersionRecord(value: unknown, semver: Semver): IRegistryVersion | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
     const version = record.version;
@@ -295,7 +299,7 @@ function parseEnvelope(text: string, what: string): Record<string, unknown> {
     return record;
 }
 
-function parseIndexEntry(value: unknown): IRegistryIndexEntry | undefined {
+function parseIndexEntry(value: unknown, semver: Semver): IRegistryIndexEntry | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
     const identity = parseIdentity(record);
@@ -322,7 +326,7 @@ function parseIndexEntry(value: unknown): IRegistryIndexEntry | undefined {
  * Разбирает `index.json`. Битый файл (не JSON, чужой schemaVersion, extensions
  * не массив) — ошибка; битая запись расширения — пропуск с текстом в `problems`.
  */
-export function parseRegistryIndex(text: string): { index: IRegistryIndex; problems: string[] } {
+export function parseRegistryIndex(text: string, semver: Semver): { index: IRegistryIndex; problems: string[] } {
     const record = parseEnvelope(text, "index");
     const rawExtensions = record.extensions;
     if (!Array.isArray(rawExtensions)) {
@@ -332,7 +336,7 @@ export function parseRegistryIndex(text: string): { index: IRegistryIndex; probl
     const problems: string[] = [];
     const extensions: IRegistryIndexEntry[] = [];
     for (const [i, raw] of rawExtensions.entries()) {
-        const entry = parseIndexEntry(raw);
+        const entry = parseIndexEntry(raw, semver);
         if (entry === undefined) {
             const id = asRecord(raw)?.id;
             problems.push(
@@ -359,6 +363,7 @@ export function parseRegistryIndex(text: string): { index: IRegistryIndex; probl
  */
 export function parseRegistryMeta(
     text: string,
+    semver: Semver,
     expectedId?: string,
 ): { meta: IRegistryExtensionMeta; problems: string[] } {
     const record = parseEnvelope(text, "meta");
@@ -380,7 +385,7 @@ export function parseRegistryMeta(
     const problems: string[] = [];
     const versions: IRegistryVersion[] = [];
     for (const [i, raw] of rawVersions.entries()) {
-        const version = parseVersionRecord(raw);
+        const version = parseVersionRecord(raw, semver);
         if (version === undefined) {
             const v = asRecord(raw)?.version;
             problems.push(

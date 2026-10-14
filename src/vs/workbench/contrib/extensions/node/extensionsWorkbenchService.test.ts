@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { setLazyModuleLoader } from "../../../../base/common/lazyModule.ts";
 import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import {
     type IRegistryExtensionMeta,
@@ -122,6 +123,7 @@ describe("ExtensionsWorkbenchService", () => {
     afterEach(() => {
         ws?.dispose();
         ws = undefined;
+        setLazyModuleLoader(undefined);
     });
 
     function createService(source: IExtensionRegistrySource): ExtensionsWorkbenchService {
@@ -276,6 +278,31 @@ describe("ExtensionsWorkbenchService", () => {
             const service = createService(source);
 
             await service.ensureLoaded();
+            expect(service.getEntries()[0]?.availability).toBe("incompatible");
+        });
+
+        // semver — ленивый кусок бандла: сервис создаётся на старте воркбенча,
+        // и кусок не должен грузиться, пока каталог никто не открыл.
+        it("semver грузится с каталогом, а не при создании сервиса", async () => {
+            const requested: string[] = [];
+            setLazyModuleLoader(<T>(id: string, importer: () => Promise<T>) => {
+                requested.push(id);
+                return importer();
+            });
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.installed", "1.0.0");
+            const service = createService(
+                new FakeSource(
+                    index(entry({ id: "acme.tools", latest: { version: "2.0.0", engines: { vscode: "^99.0.0" } } })),
+                ),
+            );
+
+            expect(service.getEntries().map((e) => e.id)).toEqual(["acme.installed"]);
+            expect(requested).toEqual([]);
+
+            await service.ensureLoaded();
+
+            expect(requested).toContain("semver");
             expect(service.getEntries()[0]?.availability).toBe("incompatible");
         });
     });

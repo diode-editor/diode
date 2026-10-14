@@ -152,9 +152,10 @@ describe("SEA binary — extension install CLI", () => {
 /**
  * Тот же путь установки, но на настоящем стоковом `.vsix` из магазина (версию не
  * пиним — docs/TESTING.md «Тесты на стоковые расширения»): реальный zip от vsce,
- * а не собранный yazl'ом в тесте, проходит через ленивый кусок yauzl в SEA.
+ * а не собранный yazl'ом в тесте, проходит через ленивый кусок yauzl в SEA, а
+ * установка по id — ещё и через кусок semver (разбор реестра, совместимость).
  */
-describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock .vsix through the lazy yauzl chunk", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock extension through the lazy chunks (yauzl, semver)", () => {
     const STOCK_ID = "EditorConfig.EditorConfig";
     let binary: string;
     let tempRoot: string;
@@ -168,6 +169,24 @@ describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock .vsix through the laz
 
     afterAll(async () => {
         await fs.promises.rm(tempRoot, { recursive: true, force: true });
+    });
+
+    // Установка по id из публичного реестра: разбор его meta и выбор версии,
+    // совместимой с этой сборкой, идут через ленивый кусок semver
+    // (`lazy/semver.cjs`), распаковка — через кусок yauzl. Ожидаемую версию тест
+    // считает тем же правилом (`fetchStockVsix` → resolveCompatibleVersion) в
+    // своём процессе, где semver берётся из node_modules.
+    it("installs the stock extension by id from the registry: the compatible version is picked inside the binary", async () => {
+        const userDataDir = path.join(tempRoot, "user-data-by-id");
+
+        const install = await runCli(binary, ["--user-data-dir", userDataDir, "--install-extension", STOCK_ID]);
+        expect(install.stderr).toBe("");
+        expect(install.code).toBe(0);
+        expect(install.stdout).toContain(`Installed ${STOCK_ID}@${stock.version}`);
+
+        const list = await runCli(binary, ["--user-data-dir", userDataDir, "--list-extensions"]);
+        expect(list.code).toBe(0);
+        expect(list.stdout.trim()).toBe(`${STOCK_ID}@${stock.version}`);
     });
 
     it("installs the stock .vsix file, unpacks its entry point and lists it", async () => {

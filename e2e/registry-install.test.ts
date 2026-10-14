@@ -333,6 +333,64 @@ describe("SEA binary — install from file registry", () => {
         expect(list.stdout.trim()).toBe("acme.needsfuture@1.0.0");
     });
 
+    // semver — ленивый кусок бандла (`lazy/semver.cjs`): в main.js его нет, а
+    // запасной import("semver") в SEA упал бы. Выбор версии ниже — это разбор
+    // версий meta (semver.valid), матчинг engines (satisfies) и сравнение (gt)
+    // целиком внутри бинаря: верная версия и есть доказательство, что кусок
+    // загрузился и считает правильно.
+    it("picks the highest version whose engines match this build, skipping a newer incompatible one", async () => {
+        const id = "acme.versioned";
+        const versions = [
+            { version: "1.0.0", engines: { vscode: "^1.0.0" } },
+            { version: "1.10.0", engines: { vscode: ">=1.0.0 <99.0.0" } },
+            { version: "1.9.0", engines: { vscode: "*" } },
+            { version: "2.0.0", engines: { vscode: "^99.0.0" } },
+        ];
+        const records = [];
+        for (const { version, engines } of versions) {
+            const rel = `artifacts/${id}-${version}.vsix`;
+            const vsix = path.join(registryDir, rel);
+            await buildVsix(vsix, {
+                "extension/package.json": JSON.stringify({ name: "versioned", publisher: "acme", version }),
+            });
+            const sha256 = crypto
+                .createHash("sha256")
+                .update(await fs.promises.readFile(vsix))
+                .digest("hex");
+            records.push({ version, engines, artifact: { type: "path", path: rel }, sha256 });
+        }
+        await fs.promises.writeFile(
+            path.join(registryDir, "meta", `${id}.json`),
+            JSON.stringify({
+                schemaVersion: 1,
+                id,
+                publisher: "acme",
+                name: "versioned",
+                displayName: "Versioned",
+                description: "",
+                kind: "native",
+                versions: records,
+            }),
+        );
+        const userData = path.join(tempRoot, "user-data-versioned");
+
+        const install = await runCli(binary, [
+            "--user-data-dir",
+            userData,
+            "--registry",
+            registryDir,
+            "--install-extension",
+            id,
+        ]);
+
+        expect(install.stderr).toBe("");
+        expect(install.code).toBe(0);
+        // 1.10.0 > 1.9.0 только по semver (строкой было бы наоборот), 2.0.0 отсечён engines.
+        expect(install.stdout).toContain(`Installed ${id}@1.10.0`);
+        const list = await runCli(binary, ["--user-data-dir", userData, "--list-extensions"]);
+        expect(list.stdout.trim()).toBe(`${id}@1.10.0`);
+    });
+
     it("unknown id fails with a registry error", async () => {
         const res = await runCli(binary, [
             "--user-data-dir",
