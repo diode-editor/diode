@@ -199,6 +199,33 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx", universal vsix без бинаря: buf расширение
+        // скачивает с GitHub само (путь пользователя без buf в PATH). Активация —
+        // только `workspaceContains:**/*.proto`, поэтому открывается папка, а не
+        // один файл, как и в VS Code.
+        id: "bufbuild.vscode-buf",
+        expectFiles: ["package.json", "out/src/extension.js", "syntaxes/proto.json"],
+        timeoutMs: 420_000,
+        run: async (ctx) => {
+            // Опечатка в типе поля → «cannot find `Usr`» от buf → undercurl
+            // (StyleFlags.Undercurl === 8).
+            const folder = join(ctx.root, "proto");
+            mkdirSync(folder);
+            const file = join(folder, "demo.proto");
+            writeFileSync(file, 'syntax = "proto3";\npackage demo.v1;\n\nmessage User {\n  Usr broken = 1;\n}\n');
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [folder, file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle от buf", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx" — стоковая цветовая тема (Catppuccin, четыре темы
         // через `contributes.themes`, tokenColors inline, 141 цвет с альфой).
         // Чек доказывает путь темы из магазина наблюдаемым кадром: настройка

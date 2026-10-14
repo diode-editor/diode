@@ -1,0 +1,17 @@
+syntax = "proto3";
+package demo.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// A user of the demo service.
+message User {
+  string name = 1;
+  int32 age = 2;
+  google.protobuf.Timestamp created = 3;
+  Usr broken = 4;
+  
+}
+
+service Users {
+  rpc Get(User) returns (User);
+}
