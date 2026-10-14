@@ -387,6 +387,8 @@ describe("TerminalEnvironmentService", () => {
                 Promise.resolve<TmuxClientInfo>({ termType: "kitty(0.45.0)" }),
             );
             service.detect();
+            // Ответ «tmux 3.4» не должен стать именем внешнего терминала.
+            expect(service.terminalName).toBeUndefined();
             service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(service.terminalName).toBe("kitty(0.45.0)");
