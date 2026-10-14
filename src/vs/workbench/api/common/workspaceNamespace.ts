@@ -546,7 +546,7 @@ export function createWorkspaceNamespace(
         // молча откатывается к дефолтному пути (BOM-сниф → utf-8). EOL для
         // эфемерного документа детектим из текста — как делает ядро.
         const buffer = await ctx.disk.readFile(uri.fsPath);
-        const { text, encoding } = decodeBuffer(buffer, options?.encoding);
+        const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
         return makeEphemeralDocument(uri, text, encoding);
     }
 

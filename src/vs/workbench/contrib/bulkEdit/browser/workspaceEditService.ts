@@ -5,7 +5,7 @@ import { clampPositionToDocument } from "../../../../editor/common/core/iPositio
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { createTextEdit, hasOverlappingEdits } from "../../../../editor/common/core/iTextEdit.ts";
-import { decodeBuffer, encodeText } from "../../../../editor/common/model/encoding.ts";
+import { decodeBufferByBOM, encodeText, type IDecodedText } from "../../../../editor/common/model/encoding.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -523,16 +523,16 @@ function applyEditsToText(text: string, edits: readonly ITextEdit[]): string {
 }
 
 /** Содержимое файла с диска (с детектом кодировки); `null` — прочитать нечем. */
-async function readTextFile(files: IFileService, filePath: string): Promise<{ text: string; encoding: string } | null> {
+async function readTextFile(files: IFileService, filePath: string): Promise<IDecodedText | null> {
     try {
-        return decodeBuffer(Buffer.from((await files.readFile(Uri.file(filePath))).value));
+        return decodeBufferByBOM(Buffer.from((await files.readFile(Uri.file(filePath))).value));
     } catch {
         return null;
     }
 }
 
 async function writeTextFile(files: IFileService, filePath: string, text: string, encoding: string): Promise<void> {
-    await files.writeFile(Uri.file(filePath), encodeText(text, encoding));
+    await files.writeFile(Uri.file(filePath), await encodeText(text, encoding));
 }
 
 /** Удаляет путь (рекурсивно), если он есть; отсутствие — не ошибка. */

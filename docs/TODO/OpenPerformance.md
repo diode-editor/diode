@@ -271,8 +271,15 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
      реестра (`e2e/registry-install.test.ts`) и стоковый EditorConfig по id из магазина
      (`e2e/sea-install.test.ts`) через SEA. Рецепт —
      [docs/arch/Common.md](../arch/Common.md#ленивые-куски-бандла).
-   - [ ] **iconv** (540 КБ): `src/vs/editor/common/model/encoding.ts` сейчас на пути открытия
+   - [~] **iconv** (540 КБ): `src/vs/editor/common/model/encoding.ts` сейчас на пути открытия
      файла — нужен быстрый путь utf-8 через `TextDecoder`, iconv — только для остальных кодировок.
+     Два PR. Подготовка (iconv ещё в бандле): utf-8 и UTF-16 — нативно через `Buffer`, в обе
+     стороны (эталон нативно делает только utf-8 decode, но у нас `openFile` синхронный, а
+     BOM-сниф даёт и UTF-16). Открытие и revert — синхронный `decodeBufferByBOM` (сниф даёт
+     только Unicode), явная кодировка (`reopenWithEncoding`, `workspace.openTextDocument
+     ({encoding})`) и запись — асинхронные `decodeBuffer`/`encodeText`. Эквивалентность
+     нативного пути iconv-lite — тесты на краевых входах и сид-фаззе (невалидные байты,
+     суррогаты, разрезанные последовательности, нечётный хвост UTF-16). Дальше — распил.
    - [ ] **LSP-клиент** — последним: это наш код с общими с ядром модулями, гейт
      «вход куска не лежит в main.js» для него придётся уточнить (общие модули — в ядре).
    - **jsonc-parser остаётся в ядре**: на нём settings, keybindings и темы — критический путь.
