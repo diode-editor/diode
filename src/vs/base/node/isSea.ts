@@ -1,6 +1,16 @@
 import { createRequire } from "node:module";
 
 /**
+ * `require` для `node:sea`. База — `process.execPath`: абсолютный путь на любой
+ * ОС. Прежняя база `"file:///"` на win32 бросала (`ERR_INVALID_FILE_URL_PATH`:
+ * у файлового URL нет буквы диска), и `isSeaBinary()` на Windows-SEA молча
+ * отвечал `false` — ассеты искались файлами рядом с exe.
+ */
+export function seaRequire(): NodeJS.Require {
+    return createRequire(process.execPath);
+}
+
+/**
  * Возвращает `true`, если процесс запущен из SEA-бинаря (Single Executable
  * Application). `node:sea` доступен только через `require()` внутри SEA-сборки —
  * статический ESM-импорт падает с `ERR_UNKNOWN_BUILTIN_MODULE` даже в
@@ -12,7 +22,7 @@ import { createRequire } from "node:module";
  */
 export function isSeaBinary(): boolean {
     try {
-        const req = createRequire("file:///");
+        const req = seaRequire();
         const sea = req("node:sea") as { isSea(): boolean };
         return sea.isSea();
     } catch {
@@ -26,7 +36,7 @@ export function isSeaBinary(): boolean {
  */
 // Stryker disable all: тело исполняется только внутри SEA-бинаря — юнитом не достать (файл исключён и из покрытия); проверяет e2e на собранном бинаре
 export function readSeaAsset(name: string): ArrayBuffer {
-    const req = createRequire("file:///");
+    const req = seaRequire();
     const sea = req("node:sea") as { getAsset(key: string): ArrayBuffer };
     return sea.getAsset(name);
 }
@@ -37,7 +47,7 @@ export function readSeaAsset(name: string): ArrayBuffer {
  * Только внутри SEA-бинаря.
  */
 export function readSeaRawAsset(name: string): ArrayBuffer | null {
-    const req = createRequire("file:///");
+    const req = seaRequire();
     const sea = req("node:sea") as { getRawAsset(key: string): ArrayBuffer };
     try {
         return sea.getRawAsset(name);

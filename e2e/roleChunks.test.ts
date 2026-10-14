@@ -6,7 +6,8 @@ import iconv from "iconv-lite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import yazl from "yazl";
 
-import { getBinaryPath } from "./helpers/buildOnce.ts";
+import { startHeadlessApp } from "./helpers/appSession.ts";
+import { getBinaryPath, getSelfExtractPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
@@ -18,6 +19,10 @@ import { waitUntil } from "./helpers/waitFor.ts";
  * кусков. Без этого `openTextDocument` с однобайтной кодировкой искал бы iconv в
  * node_modules, которых у SEA нет. Остальное (активация, LSP, watcher) идёт через
  * куски в каждом e2e расширений; здесь — шов «кусок из куска», который они не видят.
+ *
+ * Self-extract — второй путь того же шва: там куски — файлы рядом с `main.js`, и
+ * копия `entryDir()` в куске обязана найти этот каталог без `import.meta` (кусок —
+ * CJS; см. `define` в scripts/build-lazy-chunks.mjs).
  */
 
 const TEXT = "Привет, мир!\n";
@@ -84,13 +89,34 @@ describe("роли процесса на SEA — ленивые куски", () 
             files: { "cp1251.txt": iconv.encode(TEXT, "windows1251") },
             installVsix: [vsix],
         });
-        const result = join(env.workspaceDir, "result.txt");
-        const text = await waitUntil(
-            () => (fs.existsSync(result) ? fs.readFileSync(result, "utf8") : null),
-            (content) => content !== null,
-            { describe: "result.txt от расширения" },
-        );
-        expect(text).toBe(`OK ${TEXT}`);
+        expect(await probeResult(env.workspaceDir)).toBe(`OK ${TEXT}`);
         expect(await session.getOutput("extensions.host.stderr")).not.toContain("unexpected error");
     }, 120_000);
+
+    it.skipIf(process.platform === "win32")(
+        "self-extract: куски — файлы рядом с main.js, extension host находит кусок iconv",
+        async () => {
+            const app = await startHeadlessApp({
+                files: { "cp1251.txt": iconv.encode(TEXT, "windows1251") },
+                installVsix: [vsix],
+                binary: await getSelfExtractPath(),
+            });
+            try {
+                expect(await probeResult(app.env.workspaceDir)).toBe(`OK ${TEXT}`);
+            } finally {
+                await app.dispose();
+            }
+        },
+        300_000,
+    );
 });
+
+/** Что расширение-проба записало в result.txt. */
+function probeResult(workspaceDir: string): Promise<string | null> {
+    const result = join(workspaceDir, "result.txt");
+    return waitUntil(
+        () => (fs.existsSync(result) ? fs.readFileSync(result, "utf8") : null),
+        (content) => content !== null,
+        { describe: "result.txt от расширения" },
+    );
+}

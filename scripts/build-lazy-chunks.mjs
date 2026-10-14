@@ -248,8 +248,17 @@ export async function buildLazyChunks({ repoRoot, distDir, write = true }) {
                       // Иначе общий модуль в куске и в ядре — разные файлы, и гейт копию не видит;
                       // а UMD-сборка jsonc-parser в бандле ломается (require внутри фабрики).
                       mainFields: ["module", "main"],
-                      // Та же версия, что tsup зашивает в main.js (tsup.config.ts).
-                      define: { __DIODE_VERSION__: JSON.stringify(resolveDiodeVersion()) },
+                      // Та же версия, что tsup зашивает в main.js (tsup.config.ts). import.meta в
+                      // CJS пуст, а читает его entryDir() (packagedRuntime.ts) — каталог main.js, где
+                      // вне SEA лежат ассеты и куски. Процесс роли запущен как `node <main.js>`
+                      // (selfSpawnArgs), поэтому main.js — его главный скрипт, process.argv[1].
+                      define: {
+                          __DIODE_VERSION__: JSON.stringify(resolveDiodeVersion()),
+                          "import.meta.url": "__diode_main_url",
+                      },
+                      banner: {
+                          js: 'var __diode_main_url = require("node:url").pathToFileURL(process.argv[1] ?? "").href;',
+                      },
                   }),
         });
         if (write) {
