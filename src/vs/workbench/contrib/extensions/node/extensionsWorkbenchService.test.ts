@@ -4,8 +4,8 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 
-import { setLazyModuleLoader } from "../../../../base/common/lazyModule.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { setLazyModuleLoader } from "../../../../base/common/lazyModule.ts";
 import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import {
     type IRegistryExtensionMeta,
