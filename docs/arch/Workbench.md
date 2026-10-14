@@ -251,9 +251,11 @@ dispose реестра сматывает все contribution'ы. Три фаз�
   построена, лёгкие сервисы готовы; ≈ vscode `WorkbenchPhase.BlockRestore`; между
   конструктором и mount ни один редактор не открывается → перенос проводки из
   конструктора эквивалентен);
-- **`eventually`** — после первого кадра (`workbenchStartup.ts`,
-  `afterFirstFrame` → `setImmediate`; из mount фаза сработала бы до кадра, т.к.
-  `app.run()` красит отложенно) — для тяжёлой/отложенной работы. Здесь же
+- **`eventually`** — после второго кадра (`workbenchStartup.ts`,
+  `afterNextFrame` → `setImmediate`; из mount фаза сработала бы до кадра, т.к.
+  `app.run()` красит отложенно): первый кадр — текст, второй — подсветка
+  (токенизаторы придержаны до первого кадра), и фоновая работа фазы не должна
+  вставать перед цветом. Фаза — для тяжёлой/отложенной работы. Здесь же
   стартует фоновый прогрев грамматик (`main.ts`, по `onDidChangePhase`).
 
 **Регистрация — явный массив** `WORKBENCH_CONTRIBUTIONS` в агрегаторе
@@ -1209,7 +1211,7 @@ hide-toggle (`isHiddenByDefault`). См.
     их инстанцирует реестр contribution'ов в фазе `blockStartup` (в конструкторе
     корня); фич-проводка (autoReveal, live-reload темы, контекст-меню редактора,
     команда `workbench.openFile`, статус-бар) — те же contribution'ы по фазам
-    `LifecycleService` (`ready` — в `mount()`, `eventually` — после первого кадра;
+    `LifecycleService` (`ready` — в `mount()`, `eventually` — после кадра с подсветкой;
     см. «Workbench-contributions»). Выхода в корне нет:
     `quitAction` и `reloadWindowAction` ведут прощание через `LifecycleService`
     (см. «Жизненный цикл»). Тему
@@ -1224,7 +1226,7 @@ hide-toggle (`isHiddenByDefault`). См.
     прогрев грамматик стартовых файлов → `vscode.diff`/`openFile`(+`--goto`)/
     `restoreOpenEditors` → `focusEditor` → фаза `restored` → старт `ExtensionService`
     (регистрация и стартовая активация расширений — без ожидания) → после первого
-    кадра фаза `eventually`. Что делается руками
+    кадра (текст) отпуск токенизаторов → после второго (подсветка) фаза `eventually`. Что делается руками
     процесса (корень рендера, инспектор, прогрев, extension host), `main.ts` отдаёт
     хуками `IWorkbenchStartupHost`; вехи трассы старта — те же имена, что читает бенч.
 

@@ -2,6 +2,7 @@ import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 
 import { mark } from "../base/common/performance.ts";
 import { Uri } from "../base/common/uri.ts";
+import { TokenizationRegistryDIToken } from "../editor/common/languages/tokenizationRegistry.ts";
 import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
 import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
 import type { IStartupTargets, IStartupWorkspace } from "../platform/environment/node/startupTargets.ts";
@@ -37,8 +38,11 @@ export interface IWorkbenchStartupHost {
      * расширения не должен откладывать фоновую работу окна).
      */
     afterRestored(): void;
-    /** Отложить колбэк до после первого кадра (`setImmediate`: кадр отложен на него же). */
-    afterFirstFrame(callback: () => void): void;
+    /**
+     * Отложить колбэк за ближайший кадр (`setImmediate`: отложенный рендер
+     * стоит в той же очереди раньше).
+     */
+    afterNextFrame(callback: () => void): void;
 }
 
 export interface IWorkbenchStartupOptions {
@@ -63,13 +67,19 @@ export interface IWorkbenchStartupOptions {
  *    встроенный аккорд.
  * 2. Папка воркспейса — ДО `mount()`: рестор layout'а читает стор воркспейса.
  * 3. `mount()` — фаза `ready` (её двигает сам `mount`), затем цикл рендера.
- * 4. Грамматики стартовых файлов — ДО открытия: после `openFile` ждать поздно,
- *    await отдаёт event loop, и отложенный рендер рисует кадр без подсветки.
+ * 4. Грамматики стартовых файлов грузятся ДО открытия, а токенизация — ПОСЛЕ
+ *    первого кадра: реестр токенизаторов придержан до него
+ *    (`TokenizationRegistry.hold`). Первый кадр — текст без подсветки (как у
+ *    эталона): первая токенизация компилирует regex'ы грамматики (TypeScript —
+ *    ~160 мс), и в кадре она откладывала бы текст. Цвет — следующим кадром, без
+ *    ожидания загрузки: грамматика уже на руках.
  * 5. Открытие (дифф / файлы с `--goto` / рестор сессии) — фаза `restored`.
  * 6. Расширения регистрируются после открытия, но `eventually` их активацию
  *    не ждёт.
- * 7. Фаза `eventually` — после первого кадра: `mount()` идёт до `run()`, и
- *    фаза из самого `mount` сработала бы раньше кадра.
+ * 7. Отпуск токенизаторов — после первого кадра, фаза `eventually` — после
+ *    следующего, с подсветкой: её фоновая работа (прогрев всех грамматик,
+ *    ~150 мс) встала бы перед кадром с цветом. Из самого `mount()` фаза не
+ *    годится: он идёт до `run()` и сработал бы раньше любого кадра.
  *
  * Вехи трассы старта (`mark`) — те же имена, что читает бенч; лишних `await`
  * до `main:files-opened` здесь нет и быть не должно.
@@ -82,6 +92,7 @@ export async function startWorkbench(
     const { targets } = options;
     const workbench = accessor.get(WorkbenchComponentDIToken);
     const lifecycle = accessor.get(LifecycleServiceDIToken);
+    const tokenizersHeld = accessor.get(TokenizationRegistryDIToken).hold();
 
     registerExtensionKeybindings(options.extensions, accessor.get(KeybindingRegistryDIToken), options.extensionsLogger);
     // Пункты меню расширений — до первого открытия меню: состав точек реестр
@@ -163,8 +174,11 @@ export async function startWorkbench(
 
     host.afterRestored();
 
-    host.afterFirstFrame(() => {
-        lifecycle.setPhase("eventually");
-        mark("main:startup-complete");
+    host.afterNextFrame(() => {
+        tokenizersHeld.dispose();
+        host.afterNextFrame(() => {
+            lifecycle.setPhase("eventually");
+            mark("main:startup-complete");
+        });
     });
 }
