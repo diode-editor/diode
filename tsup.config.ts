@@ -27,7 +27,6 @@ export default defineConfig({
     "@tuidom/headless-backend",
     "@tuidom/inspector",
     "@tuidom/testing",
-    "@xterm/headless",
     "chokidar",
     "vscode-textmate",
     "vscode-oniguruma",

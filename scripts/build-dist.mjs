@@ -25,7 +25,7 @@ import { buildTsServerBundle } from "./pack-ts-server.mjs";
  * который `tsup clean` сносит целиком.
  *
  * @param {{ repoRoot: string, distDir?: string }} params
- * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }> }>}
+ * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ id: string, asset: string, path: string }> }>}
  */
 export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "dist") }) {
     mkdirSync(distDir, { recursive: true });
@@ -97,6 +97,6 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
         nodePtyBundlePath,
         ripgrepBundlePath,
         tsServerBundlePath,
-        lazyChunks: lazyChunks.map(({ asset, path }) => ({ asset, path })),
+        lazyChunks: lazyChunks.map(({ id, asset, path }) => ({ id, asset, path })),
     };
 }

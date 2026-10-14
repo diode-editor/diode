@@ -1,6 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
 
-import { lazyChunkAssetName, loadLazyModule, resetLazyModulesForTests } from "./lazyModule.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { setUnexpectedErrorHandler } from "../common/errors.ts";
+
+import { lazyChunkAssetName, lazyChunkCacheAssetName, loadLazyModule, resetLazyModulesForTests } from "./lazyModule.ts";
 
 /** Источник, отдающий один кусок по имени ассета; всё прочее — «куска нет». */
 function chunkSource(assetName: string, code: string) {
@@ -20,6 +27,81 @@ describe("lazyChunkAssetName", () => {
     it("lazy/<id>.cjs — как в scripts/build-lazy-chunks.mjs", () => {
         expect(lazyChunkAssetName("yauzl")).toBe("lazy/yauzl.cjs");
         expect(lazyChunkAssetName("@xterm/headless")).toBe("lazy/@xterm/headless.cjs");
+    });
+
+    it("кэш кода — lazy/<id>.v8cache", () => {
+        expect(lazyChunkCacheAssetName("@xterm/headless")).toBe("lazy/@xterm/headless.v8cache");
+    });
+});
+
+describe("loadLazyModule — кэш кода V8", () => {
+    const CODE = "exports.answer = (function () { return [1, 2, 3].reduce((a, b) => a + b, 36); })();\n";
+    let dir: string;
+    let errors: unknown[];
+
+    beforeEach(() => {
+        dir = mkdtempSync(path.join(tmpdir(), "diode-lazy-cache-"));
+        errors = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+    });
+    afterEach(() => {
+        rmSync(dir, { recursive: true, force: true });
+        setUnexpectedErrorHandler((e) => {
+            console.error(e);
+        });
+    });
+
+    /** Кэш, снятый ровно так, как его снимает сборка SEA: дочерний node без флагов. */
+    function cacheFromBuild(assetName: string): Uint8Array {
+        const chunk = path.join(dir, "chunk.cjs");
+        const out = path.join(dir, "chunk.v8cache");
+        writeFileSync(chunk, CODE);
+        const env = { ...process.env };
+        delete env.NODE_OPTIONS;
+        execFileSync(process.execPath, ["scripts/build-lazy-chunks.mjs", "--code-cache", chunk, assetName, out], {
+            env,
+        });
+        return readFileSync(out);
+    }
+
+    function sourceWith(assets: Record<string, Uint8Array>) {
+        return { read: vi.fn((name: string) => assets[name] ?? null) };
+    }
+
+    it("кэш из сборки читается рядом с куском и принят V8: обёртка сборки байт в байт как у загрузчика", async () => {
+        const source = sourceWith({
+            "lazy/cached.cjs": new TextEncoder().encode(CODE),
+            "lazy/cached.v8cache": cacheFromBuild("lazy/cached.cjs"),
+        });
+
+        const mod = await loadLazyModule<Record<string, unknown>>("cached", () => Promise.resolve({}), source);
+
+        expect(mod.answer).toBe(42);
+        expect(source.read.mock.calls.map(([name]) => name)).toStrictEqual(["lazy/cached.cjs", "lazy/cached.v8cache"]);
+        expect(errors).toStrictEqual([]);
+    });
+
+    it("чужой кэш V8 отвергает: кусок всё равно загружен, отказ — в onUnexpectedError", async () => {
+        const source = sourceWith({
+            "lazy/stale.cjs": new TextEncoder().encode(`${CODE}exports.more = 1;\n`),
+            "lazy/stale.v8cache": cacheFromBuild("lazy/stale.cjs"),
+        });
+
+        const mod = await loadLazyModule<Record<string, unknown>>("stale", () => Promise.resolve({}), source);
+
+        expect(mod.answer).toBe(42);
+        expect(mod.more).toBe(1);
+        expect(errors).toHaveLength(1);
+        expect(String(errors[0])).toContain("lazy/stale.cjs");
+    });
+
+    it("кэша нет — компилируем без него, молча", async () => {
+        const source = sourceWith({ "lazy/plain.cjs": new TextEncoder().encode(CODE) });
+
+        const mod = await loadLazyModule<Record<string, unknown>>("plain", () => Promise.resolve({}), source);
+
+        expect(mod.answer).toBe(42);
+        expect(errors).toStrictEqual([]);
     });
 });
 
@@ -101,7 +183,8 @@ describe("loadLazyModule", () => {
 
         expect(a).toBe(b);
         expect(c).toBe(a);
-        expect(source.read).toHaveBeenCalledTimes(1);
+        // Кусок и его кэш кода — по разу.
+        expect(source.read).toHaveBeenCalledTimes(2);
         expect(g.__lazyRuns).toBe(1);
         delete g.__lazyRuns;
     });

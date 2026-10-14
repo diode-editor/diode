@@ -1,11 +1,19 @@
 // Запуск: node --test scripts/ (npm run test:scripts).
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
+import * as vm from "node:vm";
 
-import { buildLazyChunks, LAZY_CHUNKS, lazyChunkAssetName, verifyLazyChunks } from "./build-lazy-chunks.mjs";
+import {
+    buildLazyChunkCodeCaches,
+    buildLazyChunks,
+    LAZY_CHUNKS,
+    lazyChunkAssetName,
+    lazyChunkCacheAssetName,
+    verifyLazyChunks,
+} from "./build-lazy-chunks.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 
@@ -106,5 +114,28 @@ test("buildLazyChunks: каждый кусок из списка собирае�
         }
     } finally {
         rmSync(distDir, { recursive: true, force: true });
+    }
+});
+
+test("buildLazyChunkCodeCaches: кэш кода каждого куска — дочерним node, принимается V8 этого же node", () => {
+    const dir = mkdtempSync(join(tmpdir(), "diode-lazy-cache-"));
+    try {
+        const code = "exports.x = (function () { return 1; })();\n";
+        const path = join(dir, "x.cjs");
+        writeFileSync(path, code);
+        const caches = buildLazyChunkCodeCaches({
+            chunks: [{ id: "@scope/x", asset: "lazy/@scope/x.cjs", path }],
+            outDir: join(dir, "out"),
+            nodeBinary: process.execPath,
+        });
+        assert.deepEqual(caches, [{ asset: "lazy/@scope/x.v8cache", path: join(dir, "out", "lazy/@scope/x.v8cache") }]);
+        assert.equal(lazyChunkCacheAssetName("@scope/x"), "lazy/@scope/x.v8cache");
+        const script = new vm.Script(`(function (exports, require, module, __filename, __dirname) {${code}\n})`, {
+            filename: "diode:lazy/@scope/x.cjs",
+            cachedData: readFileSync(caches[0].path),
+        });
+        assert.equal(script.cachedDataRejected, false);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
     }
 });
