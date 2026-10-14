@@ -287,10 +287,23 @@ describe("TerminalEnvironmentService", () => {
             expect(service.macKeysRung).toBeUndefined();
         });
 
-        it("без tmux detect() tmux не опрашивает", () => {
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), noTmux);
+        it("без tmux ни detect(), ни detectTmuxClient() tmux не опрашивают", () => {
+            const tmux = vi.fn(noTmux);
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), tmux);
             service.detect();
+            service.detectTmuxClient();
             expect(service.os).toBe("linux");
+            expect(tmux).not.toHaveBeenCalled();
+        });
+
+        it("под tmux detect() tmux не спаунит — это detectTmuxClient(), за первым кадром", () => {
+            process.env.TMUX = "/tmp/x,1,0";
+            const tmux = vi.fn(() => Promise.resolve<TmuxClientInfo>({}));
+            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), tmux);
+            service.detect();
+            expect(tmux).not.toHaveBeenCalled();
+            service.detectTmuxClient();
+            expect(tmux).toHaveBeenCalledOnce();
         });
 
         it("под tmux застывший process.env не читается — живое значение приходит из tmux", async () => {
@@ -305,8 +318,8 @@ describe("TerminalEnvironmentService", () => {
             expect(service.os).toBe("linux");
             expect(service.osSource).toBe("default");
 
-            service.detect();
-            service.detect(); // повторный вызов — no-op
+            service.detectTmuxClient();
+            service.detectTmuxClient(); // повторный вызов — no-op
             await vi.waitFor(() => {
                 expect(service.os).toBe("mac");
             });
@@ -320,7 +333,7 @@ describe("TerminalEnvironmentService", () => {
             const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), () =>
                 Promise.resolve({ termType: "iTerm2 3.5.0" }),
             );
-            service.detect();
+            service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(service.osSource).toBe("terminal");
             });
@@ -337,7 +350,7 @@ describe("TerminalEnvironmentService", () => {
             );
             let changed = 0;
             service.onDidChange(() => changed++);
-            service.detect();
+            service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(tmux).toHaveBeenCalled();
             });
@@ -374,6 +387,7 @@ describe("TerminalEnvironmentService", () => {
                 Promise.resolve<TmuxClientInfo>({ termType: "kitty(0.45.0)" }),
             );
             service.detect();
+            service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(service.terminalName).toBe("kitty(0.45.0)");
             });
