@@ -1,5 +1,5 @@
 import iconv from "iconv-lite";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
     decodeBuffer,
@@ -103,6 +103,13 @@ describe("decodeBuffer", () => {
         expect(encoding).toBe("windows1251");
     });
 
+    it("only explicit utf8 is promoted by a UTF-8 BOM; windows1251 reads those bytes as text", async () => {
+        const buffer = Buffer.from([0xef, 0xbb, 0xbf, 0x41]);
+        const decoded = await decodeBuffer(buffer, "windows1251");
+        expect(decoded).toEqual({ text: iconv.decode(buffer, "windows1251"), encoding: "windows1251" });
+        expect(decoded.text).toHaveLength(4);
+    });
+
     it("explicit utf8bom on a BOM-less buffer does not eat leading bytes", async () => {
         const { text, encoding } = await decodeBuffer(Buffer.from("abc", "utf8"), "utf8bom");
         expect(text).toBe("abc");
@@ -188,6 +195,30 @@ describe("roundtrips (byte-exact)", () => {
  * the reference below is the pre-native implementation (BOM stripped by us,
  * the body through iconv-lite). Edge cases first, then a seeded fuzz.
  */
+// Быстрый путь — именно мимо iconv: результат у них одинаковый (тесты ниже),
+// поэтому отличить можно только по тому, позвали ли iconv вообще.
+describe("utf-8 и UTF-16 не идут через iconv-lite", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("decode/encode Unicode-кодировок и BOM-сниф iconv не зовут, windows-1251 — зовёт", async () => {
+        const decode = vi.spyOn(iconv, "decode");
+        const encode = vi.spyOn(iconv, "encode");
+        for (const id of ["utf8", "utf8bom", "utf16le", "utf16be"]) {
+            const bytes = await encodeText("привет", id);
+            await decodeBuffer(bytes, id);
+            decodeBufferByBOM(bytes);
+        }
+        expect(encode).not.toHaveBeenCalled();
+        expect(decode).not.toHaveBeenCalled();
+
+        await decodeBuffer(await encodeText("привет", "windows1251"), "windows1251");
+        expect(encode).toHaveBeenCalledTimes(1);
+        expect(decode).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe("native codecs == iconv-lite", () => {
     const UNICODE_IDS = ["utf8", "utf8bom", "utf16le", "utf16be"];
 

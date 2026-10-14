@@ -193,6 +193,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.register({
             dispose: () => {
                 // Незавершённый reopen не пишет в закрытую модель.
+                // Stryker disable next-line UpdateOperator: см. readDiskBytes
                 this.loadGeneration++;
                 this.fileWatch?.dispose();
             },
@@ -246,6 +247,7 @@ export class TextFileModel extends BaseTextEditorModel {
 
     /** Байты файла для перечитки; каждая перечитка начинает новое поколение загрузки. */
     private readDiskBytes(filePath: string): Buffer {
+        // Stryker disable next-line UpdateOperator: поколение сверяется только на равенство — «--» тоже новое значение
         this.loadGeneration++;
         const buffer = fs.existsSync(filePath) ? fs.readFileSync(filePath) : Buffer.alloc(0);
         // Вехи лестницы старта (docs/TODO/OpenPerformance.md): без трассы — no-op.

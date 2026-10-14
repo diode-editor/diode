@@ -160,6 +160,7 @@ interface INativeCodec {
 
 /** Native codecs by iconv name: utf-8 (both table ids) and the two UTF-16s. */
 const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INativeCodec>([
+    // Stryker disable next-line StringLiteral: Buffer.from с пустым именем кодировки — тоже utf-8
     ["utf8", { decode: (body) => body.toString("utf8"), encode: (text) => Buffer.from(text, "utf8") }],
     ["utf16le", { decode: (body) => body.toString("utf16le"), encode: (text) => Buffer.from(text, "utf16le") }],
     [
@@ -182,6 +183,7 @@ function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefi
     const sniffed = detectEncodingByBOM(buffer);
     // По построению id всегда табличный: explicit проверен через has(),
     // значения снифа и DEFAULT_ENCODING — элементы таблицы.
+    // Stryker disable next-line ConditionalExpression: has(undefined) и так false — проверка нужна типам, не поведению
     if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
         return requireEncodingInfo(explicitEncoding === "utf8" && sniffed === "utf8bom" ? "utf8bom" : explicitEncoding);
     }
@@ -202,6 +204,7 @@ export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
     const info = resolveDecodeEncoding(buffer, undefined);
     const codec = NATIVE_CODECS.get(info.iconvName);
     /* v8 ignore start -- сниф даёт только utf8/utf8bom/utf16le/utf16be, у всех есть нативный кодек; throw — инвариант-гард */
+    // Stryker disable next-line StringLiteral: текст недостижимого инвариант-гарда
     if (codec === undefined) throw new Error(`No native codec for sniffed encoding: ${info.id}`);
     /* v8 ignore stop */
     return { text: codec.decode(stripBOM(buffer, info)), encoding: info.id };
@@ -224,10 +227,9 @@ export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): P
     const info = resolveDecodeEncoding(buffer, explicitEncoding);
     const body = stripBOM(buffer, info);
     const codec = NATIVE_CODECS.get(info.iconvName);
-    const text =
-        codec !== undefined
-            ? codec.decode(body)
-            : (await loadIconv()).decode(body, info.iconvName, { stripBOM: false });
+    // Опции BOM iconv-lite не передаём: у не-Unicode кодеков они пустые (BOM
+    // понимают только utf-8/UTF-16/UTF-32, а те идут нативно), BOM снят выше.
+    const text = codec !== undefined ? codec.decode(body) : (await loadIconv()).decode(body, info.iconvName);
     return { text, encoding: info.id };
 }
 
@@ -241,8 +243,8 @@ export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): P
 export async function encodeText(text: string, encoding: string): Promise<Buffer> {
     const info = encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
     const codec = NATIVE_CODECS.get(info.iconvName);
-    const body =
-        codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, info.iconvName, { addBOM: false });
+    // addBOM, как и stripBOM в decodeBuffer, у не-Unicode кодеков пустой.
+    const body = codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, info.iconvName);
     if (info.bom === undefined) return body;
     return Buffer.concat([Buffer.from(info.bom), body]);
 }
