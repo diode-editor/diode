@@ -83,8 +83,10 @@ export function packagedAssetCacheDirByName(
     cacheRoot: string = userCacheDir(),
 ): string | null {
     const sidecar = readPackagedAssetView(`${name}${PACKAGED_ASSET_DIGEST_SUFFIX}`, environment);
-    const digest = sidecar === null ? "" : Buffer.from(sidecar).toString("latin1").trim();
-    if (/^[0-9a-f]{64}$/.test(digest)) return cacheDirForDigest(kind, digest, cacheRoot);
+    if (sidecar !== null) {
+        const digest = Buffer.from(sidecar).toString("latin1").trim();
+        if (/^[0-9a-f]{64}$/.test(digest)) return cacheDirForDigest(kind, digest, cacheRoot);
+    }
     const bytes = readPackagedAssetView(name, environment);
     return bytes === null ? null : packagedAssetCacheDir(kind, bytes, cacheRoot);
 }

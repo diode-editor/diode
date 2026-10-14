@@ -158,9 +158,13 @@ describe("packagedAssetCacheDirByName", () => {
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
         writeFileSync(path.join(dir, "ts-server.bundle.sha256"), "not-a-digest");
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
-        // Ровно 64 hex-символа: дайджест на символ короче — битый.
-        writeFileSync(path.join(dir, "ts-server.bundle.sha256"), digest.slice(1));
-        expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
+        // Ровно 64 hex-символа и ничего вокруг: короче на символ, мусор спереди или сзади — битый.
+        for (const broken of [digest.slice(1), `x${digest}`, `${digest}x`]) {
+            writeFileSync(path.join(dir, "ts-server.bundle.sha256"), broken);
+            expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(
+                expected,
+            );
+        }
     });
 
     it("self-extract: сайдкар файлом рядом с main.js", () => {

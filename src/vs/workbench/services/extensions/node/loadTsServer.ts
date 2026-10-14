@@ -57,6 +57,7 @@ export function ensureTsServer(onError?: (err: unknown) => void): Promise<void> 
         if (source === null) return; // dev: node_modules, распаковывать нечего
         // Вид без копии (`getRawAsset` в SEA): распаковка только читает.
         const bundle = readPackagedAssetView(ASSET_NAME);
+        // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
         if (bundle === null) return;
         await extractBundleToCache(bundle, source.cacheDir);
     })().catch((err: unknown) => {
@@ -93,6 +94,7 @@ function computeTarget(): ITsServerPaths | null {
  */
 function bundleSource(): IBundleSource | null {
     if (cachedSource !== undefined) return cachedSource;
+    // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
     const cacheDir = packagedAssetCacheDirByName("ts-server", ASSET_NAME);
     // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
     cachedSource = cacheDir === null ? null : { cacheDir };
