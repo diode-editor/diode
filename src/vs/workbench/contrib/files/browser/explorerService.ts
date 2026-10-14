@@ -38,8 +38,12 @@ async function revealChain(
             return chain;
         }
         const node = provider.findNode(childPath) ?? { name, path: childPath, isDirectory: true };
-        chain.push(node);
-        await view.expand(node);
+        // Та же строка, что на прошлом шаге (папка цепочки, которую узел не
+        // показывает, — см. ниже), второй раз в цепочку не идёт.
+        if (chain[chain.length - 1] !== node) {
+            chain.push(node);
+            await view.expand(node);
+        }
         // После раскрытия `node.path` — последняя папка его цепочки. Цель не
         // под ней — значит, цель и есть эта строка: сама последняя папка или
         // промежуточная, свёрнутая в строку (эталон выделяет компактный узел,
@@ -48,7 +52,14 @@ async function revealChain(
         // Так же — устаревшая цепочка (вход появился в промежуточной папке, а
         // наблюдатель ещё не дошёл): выделяем ближайшую строку, что его содержит.
         if (!filePath.startsWith(node.path + path.sep)) return chain;
-        dir = node.path;
+        // Каждый шаг обязан уйти хотя бы на сегмент глубже. `node.path` может
+        // остаться выше `childPath`: провайдер знает цепочку, а узел строки её
+        // ещё не получил, и `expand` уже раскрытого ключа — no-op, который его
+        // не обновит. Шагнуть в `node.path` тогда — снова прийти к той же
+        // строке, и так без конца: `expand` резолвится микротаском, цикл не
+        // отдаёт event loop, и редактор висит намертво (так и было на большом
+        // монорепо). Спускаемся на сегмент сами.
+        dir = node.path.startsWith(dir + path.sep) ? node.path : childPath;
     }
 }
 
