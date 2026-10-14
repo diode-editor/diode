@@ -204,7 +204,7 @@ export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
     const info = resolveDecodeEncoding(buffer, undefined);
     const codec = NATIVE_CODECS.get(info.iconvName);
     /* v8 ignore start -- сниф даёт только utf8/utf8bom/utf16le/utf16be, у всех есть нативный кодек; throw — инвариант-гард */
-    // Stryker disable next-line StringLiteral: текст недостижимого инвариант-гарда
+    // Stryker disable next-line all: недостижимый инвариант-гард, см. v8 ignore выше
     if (codec === undefined) throw new Error(`No native codec for sniffed encoding: ${info.id}`);
     /* v8 ignore stop */
     return { text: codec.decode(stripBOM(buffer, info)), encoding: info.id };
