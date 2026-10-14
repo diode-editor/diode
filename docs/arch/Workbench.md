@@ -1224,9 +1224,9 @@ hide-toggle (`isHiddenByDefault`). См.
     contribution'ами + листенеры + restore layout до первого кадра) → `run()` →
     `activate()` (контекст-ключи, probe терминала, активация редакторов/Explorer'а) →
     прогрев грамматик стартовых файлов → `vscode.diff`/`openFile`(+`--goto`)/
-    `restoreOpenEditors` → `focusEditor` → фаза `restored` → старт `ExtensionService`
-    (регистрация и стартовая активация расширений — без ожидания) → после первого
-    кадра (текст) отпуск токенизаторов → после второго (подсветка) фаза `eventually`. Что делается руками
+    `restoreOpenEditors` → `focusEditor` → фаза `restored` → после первого кадра
+    (текст) отпуск токенизаторов → после второго (подсветка) старт `ExtensionService`
+    (регистрация и стартовая активация расширений — без ожидания) и фаза `eventually`. Что делается руками
     процесса (корень рендера, инспектор, прогрев, extension host), `main.ts` отдаёт
     хуками `IWorkbenchStartupHost`; вехи трассы старта — те же имена, что читает бенч.
 

@@ -106,8 +106,8 @@ function setup(stateService?: IStateService): IStartup {
             preloaded.push(files);
             return Promise.resolve();
         },
-        afterRestored: () => {
-            log.push("afterRestored");
+        startExtensions: () => {
+            log.push("startExtensions");
         },
         afterNextFrame: (callback) => {
             log.push("afterNextFrame");
@@ -148,7 +148,7 @@ describe("startWorkbench", () => {
         resetPerformanceMarks();
     });
 
-    it("проходит шаги и фазы в порядке старта, eventually — только после кадра с подсветкой", async () => {
+    it("проходит шаги и фазы в порядке старта; расширения и eventually — только после кадра с подсветкой", async () => {
         const startup = setup();
 
         await startup.run(NO_TARGETS);
@@ -160,16 +160,15 @@ describe("startWorkbench", () => {
             "afterMounted",
             "preloadGrammars",
             "phase:restored",
-            "afterRestored",
             "afterNextFrame",
         ]);
-        // Первый кадр (с текстом) отпускает токенизаторы и откладывает фазу ещё на кадр.
+        // Первый кадр (с текстом) отпускает токенизаторы и откладывает остальное ещё на кадр.
         startup.nextFrame();
         expect(startup.log.at(-1)).toBe("afterNextFrame");
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("restored");
-        // Второй (с подсветкой) — `eventually`.
+        // Второй (с подсветкой) — расширения, затем `eventually`.
         startup.nextFrame();
-        expect(startup.log.at(-1)).toBe("phase:eventually");
+        expect(startup.log.slice(-2)).toEqual(["startExtensions", "phase:eventually"]);
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("eventually");
     });
 
