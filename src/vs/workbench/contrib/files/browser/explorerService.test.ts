@@ -231,6 +231,36 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         service.dispose();
         ws.dispose();
     });
+
+    it("строка цепочки, которая отстала от провайдера, не останавливает спуск: reveal доходит до файла", async () => {
+        // Провайдер знает цепочку pkg → pkg/a → pkg/a/b, а строка, которую
+        // отдаёт findNode, её не получила: `path` — голова. `expand` раскрытого
+        // ключа её не обновит. Раньше reveal снова и снова шагал в голову —
+        // бесконечный цикл на микротасках, редактор висел намертво.
+        const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-stale-" });
+        const service = createService();
+        service.setRootPath(ws.dir);
+        const view = fakeView();
+        service.attachView(view);
+        const head = path.join(ws.dir, "pkg");
+        const chainDirs = [head, path.join(head, "a"), path.join(head, "a", "b")];
+        const staleRow: FileTreeNode = { name: "pkg", path: head, isDirectory: true };
+        if (!service.provider) throw new Error("провайдер не создан");
+        let calls = 0;
+        vi.spyOn(service.provider, "findNode").mockImplementation((dirPath) => {
+            // Регрессия — вечный цикл, а не ошибка: обрываем его, чтобы тест падал, а не висел.
+            if (++calls > 100) throw new Error("revealChain не продвигается по дереву");
+            return chainDirs.includes(dirPath) ? staleRow : undefined;
+        });
+
+        const target = path.join(head, "a", "b", "C.java");
+        expect(await service.revealPath(target)).toBe(true);
+        // Строка цепочки — один раз: раскрывать и выделять её повторно незачем.
+        expect(view.revealed).toEqual([[staleRow, { name: "C.java", path: target, isDirectory: false }]]);
+        expect(view.expanded).toEqual([head]);
+        service.dispose();
+        ws.dispose();
+    });
 });
 
 describe("ExplorerService — autoRevealActiveFile", () => {
