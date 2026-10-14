@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { loadSemver } from "../../../base/common/semver.ts";
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import {
     EXTENSION_ID_RE,
@@ -57,8 +58,9 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
     }
 
     public async getIndex(): Promise<IRegistryIndex> {
+        const semver = await loadSemver();
         return this.readAndParse(path.join(this.rootDir, "index.json"), (text) => {
-            const { index, problems } = parseRegistryIndex(text);
+            const { index, problems } = parseRegistryIndex(text, semver);
             return { value: index, problems };
         });
     }
@@ -68,9 +70,10 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
             throw new Error(`Invalid extension id: "${id}"`);
         }
         const metaPath = path.join(this.rootDir, "meta", `${id}.json`);
+        const semver = await loadSemver();
         try {
             return await this.readAndParse(metaPath, (text) => {
-                const { meta, problems } = parseRegistryMeta(text, id);
+                const { meta, problems } = parseRegistryMeta(text, semver, id);
                 return { value: meta, problems };
             });
         } catch (error) {

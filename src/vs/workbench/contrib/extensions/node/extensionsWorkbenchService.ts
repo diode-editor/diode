@@ -1,6 +1,7 @@
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { loadSemver, type Semver } from "../../../../base/common/semver.ts";
 import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import type {
     IRegistryExtensionMeta,
@@ -40,7 +41,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     /** Что ставили/удаляли в этой сессии: до перезагрузки окна вклады не поедут. */
     private readonly pendingReload = new Set<string>();
 
-    private index: IRegistryIndex | null = null;
+    /**
+     * Каталог реестра вместе с semver, которым считается совместимость карточек:
+     * semver — ленивый кусок бандла, и грузится он здесь же, вместе с индексом,
+     * а не на старте (до первого показа вьюлета каталога нет).
+     */
+    private catalog: { readonly index: IRegistryIndex; readonly semver: Semver } | null = null;
     // Оба поля наполняет конструктор: установленное известно сразу, без сети,
     // и «пустого» состояния у сервиса не бывает даже мгновение.
     private installed: readonly IInstalledExtension[];
@@ -151,7 +157,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     private async load(): Promise<void> {
         try {
-            this.index = await this.source.getIndex();
+            const [index, semver] = await Promise.all([this.source.getIndex(), loadSemver()]);
+            this.catalog = { index, semver };
             this.catalogError = null;
         } catch (error) {
             // Прошлый успешный индекс не выбрасываем: показать устаревший список
@@ -176,9 +183,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private computeEntries(): readonly IExtensionListEntry[] {
         const installedById = new Map(this.installed.map((e) => [e.id, e]));
         const entries: IExtensionListEntry[] = [];
-        for (const entry of this.index?.extensions ?? []) {
-            entries.push(this.toCatalogEntry(entry, installedById.get(entry.id)));
-            installedById.delete(entry.id);
+        if (this.catalog !== null) {
+            const { index, semver } = this.catalog;
+            for (const entry of index.extensions) {
+                entries.push(this.toCatalogEntry(entry, installedById.get(entry.id), semver));
+                installedById.delete(entry.id);
+            }
         }
         for (const installed of installedById.values()) {
             entries.push(toSideloadedEntry(installed, this.pendingReload.has(installed.id)));
@@ -189,6 +199,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private toCatalogEntry(
         entry: IRegistryIndexEntry,
         installed: IInstalledExtension | undefined,
+        semver: Semver,
     ): IExtensionListEntry {
         return {
             id: entry.id,
@@ -200,7 +211,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             support: entry.support,
             latestVersion: entry.latest.version,
             installedVersion: installed?.version ?? null,
-            availability: availabilityOf(entry, installed, this.host),
+            availability: availabilityOf(entry, installed, this.host, semver),
             needsReload: this.pendingReload.has(entry.id),
         };
     }
@@ -219,8 +230,9 @@ function availabilityOf(
     entry: IRegistryIndexEntry,
     installed: IInstalledExtension | undefined,
     host: IHostVersions,
+    semver: Semver,
 ): ExtensionAvailability {
-    if (!areEnginesCompatible(entry.latest.engines, host)) return "incompatible";
+    if (!areEnginesCompatible(entry.latest.engines, host, semver)) return "incompatible";
     if (installed === undefined) return "available";
     return installed.version === entry.latest.version ? "installed" : "outdated";
 }

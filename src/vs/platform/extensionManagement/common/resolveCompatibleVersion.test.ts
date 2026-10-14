@@ -1,3 +1,4 @@
+import * as semver from "semver";
 import { describe, expect, it } from "vitest";
 
 import type { IRegistryEngines, IRegistryVersion } from "./registryFormat.ts";
@@ -49,7 +50,7 @@ describe("isVersionCompatible", () => {
         // Мусорный диапазон не бросает исключение, а даёт «несовместимо».
         ["неразбираемый диапазон", { vscode: "не-диапазон" }, HOST, false],
     ] satisfies [string, IRegistryEngines, IHostVersions, boolean][])("%s", (_label, engines, host, expected) => {
-        expect(isVersionCompatible(version("1.0.0", engines), host)).toBe(expected);
+        expect(isVersionCompatible(version("1.0.0", engines), host, semver)).toBe(expected);
     });
 });
 
@@ -65,11 +66,13 @@ describe("isVersionCompatible: targetPlatform", () => {
         ["платформенная запись при хосте без таргета", "linux-x64", HOST, false],
         ["universal при хосте без таргета", undefined, HOST, true],
     ] satisfies [string, string | undefined, IHostVersions, boolean][])("%s", (_label, target, host, expected) => {
-        expect(isVersionCompatible(version("1.0.0", { vscode: "*" }, target), host)).toBe(expected);
+        expect(isVersionCompatible(version("1.0.0", { vscode: "*" }, target), host, semver)).toBe(expected);
     });
 
     it("платформенное несовпадение режет запись даже с проходящими engines", () => {
-        expect(isVersionCompatible(version("1.0.0", { vscode: "^1.90.0" }, "win32-x64"), LINUX_HOST)).toBe(false);
+        expect(isVersionCompatible(version("1.0.0", { vscode: "^1.90.0" }, "win32-x64"), LINUX_HOST, semver)).toBe(
+            false,
+        );
     });
 });
 
@@ -80,20 +83,20 @@ describe("resolveCompatibleVersion", () => {
             version("1.2.0", { vscode: "^1.90.0" }),
             version("1.1.0", { vscode: "^1.90.0" }),
         ];
-        expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.2.0");
+        expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.2.0");
     });
 
     it("несовместимая наивысшая пропускается в пользу совместимой ниже", () => {
         const versions = [version("2.0.0", { vscode: "^99.0.0" }), version("1.2.0", { vscode: "^1.90.0" })];
-        expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.2.0");
+        expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.2.0");
     });
 
     it("нет совместимых — undefined", () => {
-        expect(resolveCompatibleVersion([version("1.0.0", { vscode: "^99.0.0" })], HOST)).toBeUndefined();
+        expect(resolveCompatibleVersion([version("1.0.0", { vscode: "^99.0.0" })], HOST, semver)).toBeUndefined();
     });
 
     it("пустой список — undefined", () => {
-        expect(resolveCompatibleVersion([], HOST)).toBeUndefined();
+        expect(resolveCompatibleVersion([], HOST, semver)).toBeUndefined();
     });
 
     // Оба порядка: не-semver запись не должна ни выигрывать, ни ломать сравнение
@@ -105,19 +108,19 @@ describe("resolveCompatibleVersion", () => {
         "запись с не-semver версией (собрана программно, мимо парсера) пропускается — %s",
         (_label, order) => {
             const versions = order.map((v) => version(v, { vscode: "*" }));
-            expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.0.0");
+            expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.0.0");
         },
     );
 
     it("при равных версиях побеждает первая запись", () => {
         const first = version("1.0.0", { vscode: "*" });
         const duplicate = version("1.0.0", { vscode: "*" });
-        expect(resolveCompatibleVersion([first, duplicate], HOST)).toBe(first);
+        expect(resolveCompatibleVersion([first, duplicate], HOST, semver)).toBe(first);
     });
 
     it("prerelease ниже релиза той же версии", () => {
         const versions = [version("1.2.0-rc.1", { vscode: "*" }), version("1.2.0", { vscode: "*" })];
-        expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.2.0");
+        expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.2.0");
     });
 
     // Обе перестановки: платформенная запись обязана победить не порядком в
@@ -129,7 +132,7 @@ describe("resolveCompatibleVersion", () => {
         "при равной версии платформенная запись побеждает universal — %s",
         (_label, order) => {
             const versions = order.map((target) => version("1.0.0", { vscode: "*" }, target));
-            expect(resolveCompatibleVersion(versions, LINUX_HOST)?.targetPlatform).toBe("linux-x64");
+            expect(resolveCompatibleVersion(versions, LINUX_HOST, semver)?.targetPlatform).toBe("linux-x64");
         },
     );
 
@@ -146,14 +149,14 @@ describe("resolveCompatibleVersion", () => {
                 version(firstTarget === undefined ? "1.1.0" : "1.0.0", { vscode: "*" }, firstTarget),
                 version(secondTarget === undefined ? "1.1.0" : "1.0.0", { vscode: "*" }, secondTarget),
             ];
-            expect(resolveCompatibleVersion(versions, LINUX_HOST)?.version).toBe("1.1.0");
+            expect(resolveCompatibleVersion(versions, LINUX_HOST, semver)?.version).toBe("1.1.0");
         },
     );
 
     it("при равных платформенных записях одного таргета побеждает первая", () => {
         const first = version("1.0.0", { vscode: "*" }, "linux-x64");
         const duplicate = version("1.0.0", { vscode: "*" }, "linux-x64");
-        expect(resolveCompatibleVersion([first, duplicate], LINUX_HOST)).toBe(first);
+        expect(resolveCompatibleVersion([first, duplicate], LINUX_HOST, semver)).toBe(first);
     });
 
     it("платформенный набор без universal: хост берёт свой таргет, чужие не участвуют", () => {
@@ -162,15 +165,17 @@ describe("resolveCompatibleVersion", () => {
             version("1.0.0", { vscode: "*" }, "linux-x64"),
             version("1.0.0", { vscode: "*" }, "win32-x64"),
         ];
-        expect(resolveCompatibleVersion(versions, LINUX_HOST)?.targetPlatform).toBe("linux-x64");
+        expect(resolveCompatibleVersion(versions, LINUX_HOST, semver)?.targetPlatform).toBe("linux-x64");
     });
 
     it("хост без таргета среди платформенных записей берёт только universal", () => {
         const versions = [version("1.1.0", { vscode: "*" }, "linux-x64"), version("1.0.0", { vscode: "*" })];
-        expect(resolveCompatibleVersion(versions, HOST)?.version).toBe("1.0.0");
+        expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.0.0");
     });
 
     it("нет записи под таргет хоста и нет universal — undefined", () => {
-        expect(resolveCompatibleVersion([version("1.0.0", { vscode: "*" }, "darwin-x64")], LINUX_HOST)).toBeUndefined();
+        expect(
+            resolveCompatibleVersion([version("1.0.0", { vscode: "*" }, "darwin-x64")], LINUX_HOST, semver),
+        ).toBeUndefined();
     });
 });

@@ -34,7 +34,6 @@ export default defineConfig({
     "jsonc-parser",
     "vscode-uri",
     "iconv-lite",
-    "semver",
   ],
   // Ленивые куски — внешние: в main.js от них остаётся голый import("<id>"),
   // запасной путь loadLazyModule для dev-сборки; упакованная грузит кусок из

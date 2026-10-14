@@ -1,4 +1,4 @@
-import semver from "semver";
+import type { Semver } from "../../../base/common/semver.ts";
 
 import type { IRegistryEngines, IRegistryVersion } from "./registryFormat.ts";
 
@@ -30,7 +30,7 @@ const DEV_VERSION = "0.0.0-dev";
  * валидный semver, но фиктивный) и ночная сборка (`nightly-<sha>` — вообще не
  * semver). В обоих случаях сравнивать с диапазоном нечего.
  */
-function hasReleaseVersion(version: string): boolean {
+function hasReleaseVersion(version: string, semver: Semver): boolean {
     return version !== DEV_VERSION && semver.valid(version) !== null;
 }
 
@@ -42,7 +42,7 @@ function hasReleaseVersion(version: string): boolean {
  * (`1.5.0-beta` вне `^1.2.3`). Неразбираемые версия или диапазон → `false`.
  * Опции не передаём: дефолт node-semver — как раз строгий разбор.
  */
-function satisfies(version: string, range: string): boolean {
+function satisfies(version: string, range: string, semver: Semver): boolean {
     return semver.satisfies(version, range);
 }
 
@@ -55,9 +55,13 @@ function satisfies(version: string, range: string): boolean {
  * vscode-канала исключения нет — версия шима всегда реальна.
  * Платформенная запись дополнительно обязана совпасть таргетом
  * ({@link matchesHostPlatform}).
+ *
+ * node-semver — ленивый кусок бандла, поэтому здесь и ниже он приходит
+ * параметром: вызывающий делает `await loadSemver()` (`base/common/semver.ts`)
+ * на своей асинхронной границе.
  */
-export function isVersionCompatible(version: IRegistryVersion, host: IHostVersions): boolean {
-    return matchesHostPlatform(version, host) && areEnginesCompatible(version.engines, host);
+export function isVersionCompatible(version: IRegistryVersion, host: IHostVersions, semver: Semver): boolean {
+    return matchesHostPlatform(version, host) && areEnginesCompatible(version.engines, host, semver);
 }
 
 /**
@@ -76,12 +80,12 @@ export function matchesHostPlatform(version: IRegistryVersion, host: IHostVersio
  * Extensions view: `index.json` несёт `latest.engines`, но не запись версии
  * целиком, а бейдж «несовместимо» считается именно по нему.
  */
-export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersions): boolean {
+export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersions, semver: Semver): boolean {
     const { diode, vscode } = engines;
-    if (diode !== undefined && hasReleaseVersion(host.diode) && !satisfies(host.diode, diode)) {
+    if (diode !== undefined && hasReleaseVersion(host.diode, semver) && !satisfies(host.diode, diode, semver)) {
         return false;
     }
-    if (vscode !== undefined && !satisfies(host.vscode, vscode)) {
+    if (vscode !== undefined && !satisfies(host.vscode, vscode, semver)) {
         return false;
     }
     return true;
@@ -97,10 +101,11 @@ export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersi
 export function resolveCompatibleVersion(
     versions: readonly IRegistryVersion[],
     host: IHostVersions,
+    semver: Semver,
 ): IRegistryVersion | undefined {
     let best: IRegistryVersion | undefined;
     for (const candidate of versions) {
-        if (!isVersionCompatible(candidate, host)) continue;
+        if (!isVersionCompatible(candidate, host, semver)) continue;
         // Парсер формата пропускает только semver-версии, но IRegistryVersion
         // может быть собран программно — неразбираемая версия не участвует.
         if (semver.valid(candidate.version) === null) continue;

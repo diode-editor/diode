@@ -1,3 +1,4 @@
+import * as semver from "semver";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -54,6 +55,7 @@ describe("parseRegistryIndex", () => {
     it("разбирает валидный индекс", () => {
         const { index, problems } = parseRegistryIndex(
             indexText([indexEntry({ categories: ["Programming Languages"] })], { generatedAt: "2026-08-27T00:00:00Z" }),
+            semver,
         );
         expect(problems).toEqual([]);
         expect(index.schemaVersion).toBe(REGISTRY_SCHEMA_VERSION);
@@ -68,7 +70,7 @@ describe("parseRegistryIndex", () => {
     });
 
     it.each(["proxy-openvsx", "proxy-hosted", "native"] as const)("kind %s принимается", (kind) => {
-        const { index, problems } = parseRegistryIndex(indexText([indexEntry({ kind })]));
+        const { index, problems } = parseRegistryIndex(indexText([indexEntry({ kind })]), semver);
         expect(problems).toEqual([]);
         expect(index.extensions).toHaveLength(1);
         expect(index.extensions[0].kind).toBe(kind);
@@ -78,7 +80,7 @@ describe("parseRegistryIndex", () => {
         ["не-строка", 42],
         ["пустая строка", ""],
     ])("generatedAt %s отбрасывается, contract не ломается", (_label, generatedAt) => {
-        const { index } = parseRegistryIndex(indexText([], { generatedAt }));
+        const { index } = parseRegistryIndex(indexText([], { generatedAt }), semver);
         expect(index.generatedAt).toBeUndefined();
     });
 
@@ -102,7 +104,7 @@ describe("parseRegistryIndex", () => {
             /Invalid registry index: missing "extensions" array/,
         ],
     ])("битый файл (%s) — ошибка", (_label, text, error) => {
-        expect(() => parseRegistryIndex(text)).toThrow(error);
+        expect(() => parseRegistryIndex(text, semver)).toThrow(error);
     });
 
     it.each([
@@ -127,19 +129,19 @@ describe("parseRegistryIndex", () => {
         ["latest без engines", indexEntry({ latest: { version: "1.0.0" } })],
         ["latest.engines пустой", indexEntry({ latest: { version: "1.0.0", engines: {} } })],
     ])("битая запись (%s) пропускается с диагностикой", (_label, entry) => {
-        const { index, problems } = parseRegistryIndex(indexText([entry, indexEntry()]));
+        const { index, problems } = parseRegistryIndex(indexText([entry, indexEntry()]), semver);
         expect(index.extensions).toHaveLength(1);
         expect(problems).toHaveLength(1);
         expect(problems[0]).toMatch(/skipping invalid entry #0/);
     });
 
     it("диагностика включает id битой записи, когда он есть", () => {
-        const { problems } = parseRegistryIndex(indexText([indexEntry({ kind: "bad" })]));
+        const { problems } = parseRegistryIndex(indexText([indexEntry({ kind: "bad" })]), semver);
         expect(problems[0]).toContain("(acme.markdown-tools)");
     });
 
     it("диагностика записи без id — ровно текст пропуска, без суффикса", () => {
-        const { problems } = parseRegistryIndex(indexText(["just a string"]));
+        const { problems } = parseRegistryIndex(indexText(["just a string"]), semver);
         expect(problems).toEqual(["registry index: skipping invalid entry #0"]);
     });
 });
@@ -162,6 +164,7 @@ describe("parseRegistryMeta", () => {
                     readme: "# MT",
                 },
             ),
+            semver,
             "acme.markdown-tools",
         );
         expect(problems).toEqual([]);
@@ -181,7 +184,7 @@ describe("parseRegistryMeta", () => {
     });
 
     it("опциональные поля отсутствуют — undefined", () => {
-        const { meta } = parseRegistryMeta(metaText([versionRecord()]));
+        const { meta } = parseRegistryMeta(metaText([versionRecord()]), semver);
         expect(meta.schemaVersion).toBe(REGISTRY_SCHEMA_VERSION);
         expect(meta.repository).toBeUndefined();
         expect(meta.license).toBeUndefined();
@@ -202,6 +205,7 @@ describe("parseRegistryMeta", () => {
                 versionRecord({ targetPlatform: "linux-x64" }),
                 versionRecord({ targetPlatform: "somearch-someos" }),
             ]),
+            semver,
         );
         expect(problems).toEqual([]);
         expect(meta.versions.map((v) => v.targetPlatform)).toEqual(["linux-x64", "somearch-someos"]);
@@ -210,6 +214,7 @@ describe("parseRegistryMeta", () => {
     it("опциональные поля с пустой строкой — undefined", () => {
         const { meta } = parseRegistryMeta(
             metaText([versionRecord()], { repository: "", license: "", homepage: "", readme: "" }),
+            semver,
         );
         expect(meta.repository).toBeUndefined();
         expect(meta.license).toBeUndefined();
@@ -229,11 +234,13 @@ describe("parseRegistryMeta", () => {
         ["битая идентичность", metaText([], { kind: "bad" }), /Invalid registry meta: bad identity fields/],
         ["versions не массив", metaText([], { versions: "none" }), /Invalid registry meta: missing "versions" array/],
     ])("битый файл (%s) — ошибка", (_label, text, error) => {
-        expect(() => parseRegistryMeta(text)).toThrow(error);
+        expect(() => parseRegistryMeta(text, semver)).toThrow(error);
     });
 
     it("id не совпадает с ожидаемым — ошибка", () => {
-        expect(() => parseRegistryMeta(metaText([]), "other.ext")).toThrow(/does not match expected "other.ext"/);
+        expect(() => parseRegistryMeta(metaText([]), semver, "other.ext")).toThrow(
+            /does not match expected "other.ext"/,
+        );
     });
 
     it.each([
@@ -271,7 +278,7 @@ describe("parseRegistryMeta", () => {
         ["publishedAt не строка", versionRecord({ publishedAt: 5 })],
         ["publishedAt пустая строка", versionRecord({ publishedAt: "" })],
     ])("битая версия (%s) пропускается с диагностикой", (_label, version) => {
-        const { meta, problems } = parseRegistryMeta(metaText([version, versionRecord({ version: "1.1.0" })]));
+        const { meta, problems } = parseRegistryMeta(metaText([version, versionRecord({ version: "1.1.0" })]), semver);
         expect(meta.versions).toHaveLength(1);
         expect(meta.versions[0]?.version).toBe("1.1.0");
         expect(problems).toHaveLength(1);
@@ -279,17 +286,20 @@ describe("parseRegistryMeta", () => {
     });
 
     it("диагностика включает номер версии битой записи, когда он есть", () => {
-        const { problems } = parseRegistryMeta(metaText([versionRecord({ sha256: "zzz" })]));
+        const { problems } = parseRegistryMeta(metaText([versionRecord({ sha256: "zzz" })]), semver);
         expect(problems[0]).toContain("(1.2.0)");
     });
 
     it("диагностика записи без version — ровно текст пропуска, без суффикса", () => {
-        const { problems } = parseRegistryMeta(metaText([42]));
+        const { problems } = parseRegistryMeta(metaText([42]), semver);
         expect(problems).toEqual(["registry meta acme.markdown-tools: skipping invalid version #0"]);
     });
 
     it("engines только с diode валиден", () => {
-        const { meta, problems } = parseRegistryMeta(metaText([versionRecord({ engines: { diode: "^0.3.0" } })]));
+        const { meta, problems } = parseRegistryMeta(
+            metaText([versionRecord({ engines: { diode: "^0.3.0" } })]),
+            semver,
+        );
         expect(problems).toEqual([]);
         expect(meta.versions[0]?.engines).toEqual({ diode: "^0.3.0", vscode: undefined });
     });
@@ -297,6 +307,7 @@ describe("parseRegistryMeta", () => {
     it("url-артефакт без origin валиден", () => {
         const { meta } = parseRegistryMeta(
             metaText([versionRecord({ artifact: { type: "url", url: "https://x/y.vsix" } })]),
+            semver,
         );
         expect(meta.versions[0]?.artifact).toEqual({ type: "url", url: "https://x/y.vsix", origin: undefined });
     });
@@ -304,6 +315,7 @@ describe("parseRegistryMeta", () => {
     it("url-артефакт с origin github-release валиден", () => {
         const { meta, problems } = parseRegistryMeta(
             metaText([versionRecord({ artifact: { type: "url", url: "https://x/y.vsix", origin: "github-release" } })]),
+            semver,
         );
         expect(problems).toEqual([]);
         expect(meta.versions[0]?.artifact).toEqual({ type: "url", url: "https://x/y.vsix", origin: "github-release" });
@@ -326,6 +338,7 @@ describe("searchRegistryIndex", () => {
                     kind: "proxy-openvsx",
                 }),
             ]),
+            semver,
         ).index;
 
     it("пустой и пробельный запрос — весь список", () => {
@@ -348,18 +361,18 @@ describe("пометка о поддержке", () => {
     const partial = { level: "partial", works: ["Inline completions"], limits: ["Chat panel needs a webview"] };
 
     it("едет в записи индекса", () => {
-        const { index, problems } = parseRegistryIndex(indexText([indexEntry({ support: partial })]));
+        const { index, problems } = parseRegistryIndex(indexText([indexEntry({ support: partial })]), semver);
         expect(problems).toEqual([]);
         expect(index.extensions[0]?.support).toEqual(partial);
     });
 
     it("едет в мете", () => {
-        const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: partial }));
+        const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: partial }), semver);
         expect(meta.support).toEqual(partial);
     });
 
     it("уровень full не требует списков", () => {
-        const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: { level: "full" } }));
+        const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: { level: "full" } }), semver);
         expect(meta.support).toEqual({ level: "full", works: undefined, limits: undefined });
     });
 
@@ -377,7 +390,7 @@ describe("пометка о поддержке", () => {
         ["works не массив", { level: "full", works: "everything" }],
         ["не объект", "partial"],
     ])("битая пометка (%s) отбрасывается, но запись остаётся", (_label, support) => {
-        const { meta, problems } = parseRegistryMeta(metaText([versionRecord()], { support }));
+        const { meta, problems } = parseRegistryMeta(metaText([versionRecord()], { support }), semver);
         expect(meta.support).toBeUndefined();
         expect(meta.id).toBe("acme.markdown-tools");
         // Пометка косметическая: её невалидность не повод шуметь в problems.

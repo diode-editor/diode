@@ -249,8 +249,15 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
 2. **Части по одной**, по PR на каждую, со своим e2e фичи и замером `bench:open`:
    - [ ] **xterm** (274 КБ): шов у `src/vs/workbench/contrib/terminal/node/xtermSurface.ts`;
      терминал и так открывается асинхронно — e2e на «открыли терминал сразу после старта».
-   - [ ] **semver** (64 КБ): `src/vs/platform/extensionManagement/common/resolveCompatibleVersion.ts`;
-     сначала проверить, не зовётся ли он на старте при скане расширений (тогда шов не там).
+   - [x] **semver** (64 КБ) — и решение «кусок в common-коде»: контракт `importLazyModule`
+     в `base/common/lazyModule.ts`, node-загрузчик подставляет `main.ts` (аналог
+     `importAMDNodeModule` эталона); синхронные чистые функции получают модуль параметром от
+     асинхронной границы фичи (`loadSemver()`). На старте semver не зовётся: скан расширений его
+     не трогает, сервис магазина грузит его вместе с индексом при первом показе вьюлета
+     (юнит + `strace` старта собранного `main.js`). e2e: выбор совместимой версии из файлового
+     реестра (`e2e/registry-install.test.ts`) и стоковый EditorConfig по id из магазина
+     (`e2e/sea-install.test.ts`) через SEA. Рецепт —
+     [docs/arch/Common.md](../arch/Common.md#ленивые-куски-бандла).
    - [ ] **iconv** (540 КБ): `src/vs/editor/common/model/encoding.ts` сейчас на пути открытия
      файла — нужен быстрый путь utf-8 через `TextDecoder`, iconv — только для остальных кодировок.
    - [ ] **LSP-клиент** — последним: это наш код с общими с ядром модулями, гейт

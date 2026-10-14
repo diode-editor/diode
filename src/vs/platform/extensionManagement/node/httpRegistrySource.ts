@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
+import { loadSemver } from "../../../base/common/semver.ts";
 import { DIODE_VERSION } from "../../../base/common/version.ts";
 import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import {
@@ -224,8 +225,9 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
     public async getIndex(): Promise<IRegistryIndex> {
         const url = new URL("index.json", this.baseUrl);
         const text = await this.readJson(await this.request(url), url);
+        const semver = await loadSemver();
         return this.parse(url, () => {
-            const { index, problems } = parseRegistryIndex(text);
+            const { index, problems } = parseRegistryIndex(text, semver);
             return { value: index, problems };
         });
     }
@@ -242,8 +244,9 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
             return undefined;
         }
         const text = await this.readJson(response, url);
+        const semver = await loadSemver();
         return this.parse(url, () => {
-            const { meta, problems } = parseRegistryMeta(text, id);
+            const { meta, problems } = parseRegistryMeta(text, semver, id);
             return { value: meta, problems };
         });
     }

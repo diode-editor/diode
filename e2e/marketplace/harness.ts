@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { loadSemver } from "../../src/vs/base/common/semver.ts";
 import {
     parseRegistryIndex,
     type IRegistryIndex,
@@ -50,7 +51,7 @@ export async function fetchPublishedIndex(): Promise<{ index: IRegistryIndex; pr
     if (!response.ok) {
         throw new Error(`${url.href}: HTTP ${String(response.status)} ${response.statusText}`);
     }
-    return parseRegistryIndex(await response.text());
+    return parseRegistryIndex(await response.text(), await loadSemver());
 }
 
 /**

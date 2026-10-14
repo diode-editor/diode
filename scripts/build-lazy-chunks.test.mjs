@@ -65,7 +65,7 @@ test("verifyLazyChunks: статический импорт куска из яд
         chunks: [chunk("yauzl", [])],
     });
     assert.deepEqual(errors, [
-        "yauzl: main.js импортирует кусок статически (import-statement) — только через loadLazyModule",
+        "yauzl: main.js импортирует кусок статически (import-statement) — только через loadLazyModule / importLazyModule",
     ]);
 });
 
