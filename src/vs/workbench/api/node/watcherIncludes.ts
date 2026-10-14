@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-import { passesThroughSymlink } from "../../../platform/files/node/sharedTreeWatcher.ts";
+import { passesThroughSymlink } from "../../../platform/files/node/passesThroughSymlink.ts";
 
 /** Ключ настройки «за этими каталогами-симлинками тоже следим». */
 export const WATCHER_INCLUDE_SETTING = "files.watcherInclude";

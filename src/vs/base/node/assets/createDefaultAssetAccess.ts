@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { BundleAssetAccess } from "../../common/assets/bundleAssetAccess.ts";
 import type { IAssetAccess } from "../../common/assets/iAssetAccess.ts";
+import { seaRequire } from "../isSea.ts";
 
 import { BUNDLE_FILE_NAME, tryReadBundleFile } from "./bundleFile.ts";
 import { FsAssetAccess } from "./fsAssetAccess.ts";
@@ -39,7 +40,7 @@ export function createDefaultAssetAccess(): IAssetAccess {
 
 function tryLoadSeaBundle(): Uint8Array | null {
     try {
-        const req = createRequire("file:///");
+        const req = seaRequire();
         const sea = req("node:sea") as { isSea(): boolean; getAsset(key: string): ArrayBuffer };
         if (!sea.isSea()) return null;
         const buffer = sea.getAsset(SEA_BUNDLE_KEY);

@@ -6,7 +6,7 @@ import { defineConfig } from "tsup";
 // @ts-expect-error — build-скрипты живут в .mjs без типов (они не должны зависеть от tsx/jiti).
 import { resolveDiodeVersion } from "./scripts/resolve-version.mjs";
 // @ts-expect-error — то же: .mjs без типов.
-import { LAZY_CHUNKS } from "./scripts/build-lazy-chunks.mjs";
+import { LAZY_CHUNKS, lazyEntryChunksPlugin } from "./scripts/build-lazy-chunks.mjs";
 
 /** Ленивые куски (scripts/build-lazy-chunks.mjs) в main.js не попадают. */
 const lazyChunkIds = (LAZY_CHUNKS as ReadonlyArray<{ id: string }>).map((chunk) => chunk.id);
@@ -38,6 +38,9 @@ export default defineConfig({
   // ассета (src/vs/base/node/lazyModule.ts). Сами куски собирает
   // scripts/build-lazy-chunks.mjs, гейт на граф — по metafile ниже.
   external: lazyChunkIds,
+  // Куски из нашего кода (роли процесса) зовутся import()'ом пути модуля-входа:
+  // плагин подменяет его на внешний import("<id>"), иначе esbuild вклеил бы роль в main.js.
+  esbuildPlugins: [lazyEntryChunksPlugin(import.meta.dirname)],
   // Code-splitting esbuild'а нам не подходит: SEA вшивает main.js, а chunk-*.js
   // в бинаре не было бы. Распил — своей механикой (см. external выше).
   splitting: false,

@@ -130,6 +130,10 @@ const EXCLUDED = [
     // e2e/sea-install.test.ts, e2e/registry-install.test.ts), а логика, которую
     // есть смысл мутировать, живёт в модулях, которые main.ts только склеивает.
     /^src\/vs\/diode\/main\.ts$/,
+    // Входы ленивых кусков ролей (`roles/*` в scripts/build-lazy-chunks.mjs) —
+    // тот же процессный барьер: исполняются только в форке ext host'а и
+    // watcher'а, мутанты выходят «не покрыты». Гейт — e2e на SEA-бинаре.
+    /^src\/vs\/diode\/roles\/[^/]+\.ts$/,
     // Собранные артефакты расширений.
     /^extensions\/[^/]+\/out\//,
 ];
