@@ -198,7 +198,9 @@ Scaleway, MacStadium, MacinCloud). Windows тестируется локальн
 - xterm truecolor `getFgColor()` = уже `0xRRGGBB` (= наш `packRgb`); default = `-1` (= `DEFAULT_COLOR`);
   palette = индекс → таблица `xtermPalette.ts`. `isBold()` и т.п. возвращают число (по truthiness).
 - `@xterm/headless` — CJS: под нативным ESM-загрузчиком (tsx/esm) named-import **не работает** в
-  рантайме → default-import значения + `import type` для типов.
+  рантайме → значения из `default` пространства имён `import()` + `import type` для типов. Сам
+  пакет — ленивый кусок бандла (`loadXterm()` в `xtermSurface.ts`, docs/arch/Common.md «Ленивые
+  куски бандла»): эмулятор появляется после загрузки, вывод до неё копится в очереди.
 - **`term.write()` асинхронный** → `emitUpdate` только в его колбэке (иначе лаг на одно событие).
 - Мышь — через приватный `terminal._core.coreMouseService.triggerMouseEvent(...)`: сам решает по
   активному режиму программы и кодирует (X10/SGR) → уходит в PTY через `term.onData`.

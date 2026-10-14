@@ -5,6 +5,7 @@ import { writeFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
+import { buildLazyChunkCodeCaches } from "./build-lazy-chunks.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
@@ -38,6 +39,14 @@ const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBu
     distDir: dist,
 });
 
+// 1b. Кэш кода ленивых кусков — тем же node, что вшивается в бинарь (V8 и флаги
+// обязаны совпасть). Не в `<dist>/lazy/`: там его нашёл бы `node dist/main.js` под чужим node.
+const lazyChunkCaches = buildLazyChunkCodeCaches({
+    chunks: lazyChunks,
+    outDir: join(dist, "sea-cache"),
+    nodeBinary: process.execPath,
+});
+
 // 2. Generate SEA config
 const seaConfig = {
     main: mainJsPath,
@@ -57,7 +66,8 @@ const seaConfig = {
         "ts-server.bundle": tsServerBundlePath,
         // Ленивые куски бандла (`lazy/<id>.cjs`): lazyModule.ts компилирует ассет
         // при первом обращении к фиче (scripts/build-lazy-chunks.mjs).
-        ...Object.fromEntries(lazyChunks.map(({ asset, path }) => [asset, path])),
+        // Рядом — их кэш кода V8 (`lazy/<id>.v8cache`).
+        ...Object.fromEntries([...lazyChunks, ...lazyChunkCaches].map(({ asset, path }) => [asset, path])),
     },
 };
 

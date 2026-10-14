@@ -15,19 +15,30 @@
  *    кусок не тянет ничего, кроме встроенных модулей node. Его зовёт сборка
  *    (`build-dist.mjs`) и CI (`scripts/check-lazy-chunks.mjs`, job `static`).
  *
+ *  - {@link buildLazyChunkCodeCaches} снимает кэш кода V8 для каждого куска
+ *    (только для SEA: тот же node и вшивается, иначе кэш отвергнут).
+ *
  * Новая часть распила — запись в {@link LAZY_CHUNKS} плюс `loadLazyModule` (node) или `importLazyModule` (common) на
  * её шве; остальное (external, сборка, ассеты SEA, payload self-extract,
  * гейт) подхватывается из списка. Рецепт — docs/arch/Common.md («Ленивые куски»).
  */
 
-import { builtinModules } from "node:module";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { builtinModules, createRequire } from "node:module";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import * as vm from "node:vm";
 
 /**
  * Список ленивых кусков. Растёт с каждой частью этапа 1 (docs/TODO/OpenPerformance.md).
  *
- * @type {ReadonlyArray<{ id: string, reason: string }>}
+ * `warmup` — что сделать с модулем при снятии кэша кода ({@link buildLazyChunkCodeCaches}):
+ * V8 кладёт в кэш только уже скомпилированные функции, а компилирует их лениво,
+ * при первом вызове. Без прогрева в кэш попадает исполнение модуля, с прогревом —
+ * и первый путь фичи. Функция уезжает в дочерний node исходником (`String(fn)`),
+ * поэтому замыканий у неё быть не должно.
+ *
+ * @type {ReadonlyArray<{ id: string, reason: string, warmup?: (module: any) => unknown }>}
  */
 export const LAZY_CHUNKS = [
     // Пилот распила: листовая CJS-библиотека без нашего кода, нужна только
@@ -36,6 +47,18 @@ export const LAZY_CHUNKS = [
     // Первый кусок, который зовёт common-код (разбор реестра, совместимость
     // engines): через importLazyModule из base/common/lazyModule.ts.
     { id: "semver", reason: "магазин расширений: версии реестра и engines" },
+    // VT-эмулятор встроенного терминала: грузится при создании первой сессии
+    // (XtermSurface), вывод до готовности копится в очереди поверхности.
+    {
+        id: "@xterm/headless",
+        reason: "встроенный терминал: VT-эмулятор",
+        // Первый терминал: эмулятор, вывод с цветом и переводом строки — как XtermSurface.
+        warmup: async (xterm) => {
+            const term = new xterm.Terminal({ cols: 80, rows: 24, allowProposedApi: true, scrollback: 1000 });
+            await new Promise((resolve) => term.write("diode \u001b[32mwarmup\u001b[0m\r\n$ ", resolve));
+            term.dispose();
+        },
+    },
 ];
 
 /**
@@ -46,6 +69,74 @@ export const LAZY_CHUNKS = [
  */
 export function lazyChunkAssetName(id) {
     return `lazy/${id}.cjs`;
+}
+
+/**
+ * Имя ассета кэша кода куска. Та же формула — в `lazyChunkCacheAssetName`
+ * (`src/vs/base/node/lazyModule.ts`).
+ *
+ * @param {string} id
+ */
+export function lazyChunkCacheAssetName(id) {
+    return `lazy/${id}.v8cache`;
+}
+
+/**
+ * CJS-обёртка куска — байт в байт как `LAZY_CHUNK_WRAPPER` в
+ * `src/vs/base/node/lazyModule.ts`: кэш V8 привязан к исходнику целиком.
+ */
+export const LAZY_CHUNK_WRAPPER = {
+    prefix: "(function (exports, require, module, __filename, __dirname) {",
+    suffix: "\n})",
+};
+
+/**
+ * Кэш кода V8 для куска — в ЭТОМ процессе (его V8 и флагах). Кусок исполняется
+ * и прогревается (`warmup`): V8 компилирует функции лениво, при первом вызове,
+ * а в кэш кладёт только уже скомпилированные. Кэш одной компиляции на xterm почти
+ * пуст (10 КБ, 36 → 31 мс), после исполнения — 183 КБ и 20 мс, после прогрева
+ * первым терминалом — 294 КБ и 11 мс (замер — docs/TODO/OpenPerformance.md).
+ *
+ * Звать в чистом процессе: V8 делит скомпилированные функции между скриптами
+ * одного исходника, и кэш вобрал бы чужой прогрев.
+ *
+ * @param {string} code исходник куска
+ * @param {string} assetName `lazy/<id>.cjs` — имя файла скрипта, как у загрузчика
+ * @param {((module: any) => unknown) | undefined} warmup
+ * @returns {Promise<Buffer>}
+ */
+export async function createLazyChunkCodeCache(code, assetName, warmup) {
+    const filename = `diode:${assetName}`;
+    const script = new vm.Script(LAZY_CHUNK_WRAPPER.prefix + code + LAZY_CHUNK_WRAPPER.suffix, { filename });
+    const module = { exports: {} };
+    script.runInThisContext()(module.exports, createRequire(process.execPath), module, filename, dirname(filename));
+    await warmup?.(module.exports);
+    return script.createCachedData();
+}
+
+/**
+ * Снимает кэш кода каждого куска в `<outDir>/<lazy/<id>.v8cache>` дочерним
+ * процессом `nodeBinary` — без флагов и без `NODE_OPTIONS`: V8 принимает кэш,
+ * только если версия и флаги совпали с теми, что будут в рантайме. Поэтому кэш
+ * едет только в SEA (вшивается тот же `process.execPath`, что собирает), а не в
+ * self-extract (свой node) и не файлом рядом с `main.js` (его запускает любой node).
+ *
+ * @param {{ chunks: ReadonlyArray<{ id: string, asset: string, path: string }>, outDir: string, nodeBinary: string }} params
+ * @returns {Array<{ asset: string, path: string }>}
+ */
+export function buildLazyChunkCodeCaches({ chunks, outDir, nodeBinary }) {
+    const warmups = new Map(LAZY_CHUNKS.map(({ id, warmup }) => [id, warmup]));
+    const env = { ...process.env };
+    delete env.NODE_OPTIONS;
+    return chunks.map(({ id, asset, path }) => {
+        const cacheAsset = lazyChunkCacheAssetName(id);
+        const out = join(outDir, cacheAsset);
+        mkdirSync(dirname(out), { recursive: true });
+        const warmup = warmups.get(id);
+        const args = [import.meta.filename, "--code-cache", path, asset, out, ...(warmup ? [String(warmup)] : [])];
+        execFileSync(nodeBinary, args, { env, stdio: "inherit" });
+        return { asset: cacheAsset, path: out };
+    });
 }
 
 /**
@@ -128,4 +219,16 @@ export function verifyLazyChunks({ mainMetafile, chunks }) {
         }
     }
     return errors;
+}
+
+// `node build-lazy-chunks.mjs --code-cache <кусок> <имя ассета> <выход> [прогрев]` —
+// дочерний процесс buildLazyChunkCodeCaches: кэш снимается V8 того node, что его
+// запустил. Прогрев — исходник функции из LAZY_CHUNKS.
+if (process.argv[1] === import.meta.filename && process.argv[2] === "--code-cache") {
+    const [chunkPath, assetName, out, warmupSource] = process.argv.slice(3);
+    // eslint-disable-next-line no-eval -- исходник прогрева из LAZY_CHUNKS этого же файла
+    const warmup = warmupSource === undefined ? undefined : (0, eval)(`(${warmupSource})`);
+    writeFileSync(out, await createLazyChunkCodeCache(readFileSync(chunkPath, "utf8"), assetName, warmup));
+    // Прогрев мог оставить таймеры куска — процесс своё дело сделал.
+    process.exit(0);
 }

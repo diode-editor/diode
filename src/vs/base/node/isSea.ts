@@ -30,4 +30,19 @@ export function readSeaAsset(name: string): ArrayBuffer {
     const sea = req("node:sea") as { getAsset(key: string): ArrayBuffer };
     return sea.getAsset(name);
 }
+
+/**
+ * SEA-ассет без копии (`node:sea.getRawAsset`): вид на память самого бинаря,
+ * только для чтения — запись в него роняет процесс. Ассета нет — `null`.
+ * Только внутри SEA-бинаря.
+ */
+export function readSeaRawAsset(name: string): ArrayBuffer | null {
+    const req = createRequire("file:///");
+    const sea = req("node:sea") as { getRawAsset(key: string): ArrayBuffer };
+    try {
+        return sea.getRawAsset(name);
+    } catch {
+        return null;
+    }
+}
 // Stryker restore all

@@ -6,6 +6,12 @@
 // эмулятора. Откуда берётся вывод и куда уходит ввод, решает наследник:
 // `sendInput` (клавиши и ответы эмулятора — DSR/DA, отчёты мыши) и хуки
 // `onDidResize`/`disposeProcess`.
+//
+// Сам @xterm/headless — ленивый кусок бандла (docs/arch/Common.md, «Ленивые
+// куски бандла»): поверхность создаётся синхронно, а эмулятор появляется, когда
+// кусок загрузился (как `_xtermReadyPromise` у `TerminalInstance` эталона). До
+// этого вывод копится в очереди и уходит в эмулятор по порядку, ввод и ресайз
+// идут в процесс сразу, а сетка читается пустой.
 
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import type {
@@ -16,12 +22,12 @@ import type {
     TerminalMouseEventData,
 } from "@tuidom/core/common/iTerminalSurface";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type * as XtermModule from "@xterm/headless";
 import type { IBufferCell, Terminal } from "@xterm/headless";
-// @xterm/headless — CJS-пакет: под нативным ESM-загрузчиком (tsx/esm) named-import
-// не работает в рантайме, поэтому берём значение default-импортом, а тип — отдельно.
-import xtermHeadless from "@xterm/headless";
 
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
+import { importLazyModule } from "../../../../base/common/lazyModule.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 import {
@@ -67,6 +73,20 @@ const NEW_LINE_AT_START = "\n\x1b[G";
 /** Стереть экран и скролбэк, курсор — в начало (`presentation.clear` задачи). */
 const CLEAR_ALL = "\x1b[2J\x1b[3J\x1b[H";
 
+/**
+ * Пространство имён `import()` над @xterm/headless. Пакет — CJS-бандл webpack'а:
+ * именованных экспортов node в нём не находит, значения лежат только в `default`
+ * (`module.exports`) — и у `import()`, и у куска из `loadLazyModule`.
+ */
+export interface XtermNamespace {
+    default: typeof XtermModule;
+}
+
+/** @xterm/headless — ленивый кусок: грузится при первой сессии терминала, не на старте. */
+export function loadXterm(): Promise<XtermNamespace> {
+    return importLazyModule("@xterm/headless", () => import("@xterm/headless") as Promise<XtermNamespace>);
+}
+
 export interface XtermSurfaceOptions {
     cols: number;
     rows: number;
@@ -74,7 +94,16 @@ export interface XtermSurfaceOptions {
 }
 
 export abstract class XtermSurface implements ITerminalSurface, IDisposable {
-    protected readonly term: Terminal;
+    // Эмулятор; `undefined`, пока кусок @xterm/headless не загрузился (или после отказа загрузки).
+    private term: Terminal | undefined;
+    // Вывод, пришедший до эмулятора, — уходит в него по порядку, когда тот появится.
+    private readonly pendingOutput: string[] = [];
+    private disposed = false;
+    /**
+     * Эмулятор появился (накопленный вывод ушёл в него) либо загрузка отказала —
+     * никогда не отклоняется (`xtermReadyPromise` эталона).
+     */
+    public readonly xtermReady: Promise<void>;
     private readonly onUpdateEmitter = new Emitter<void>();
     private readonly onExitEmitter = new Emitter<number>();
     private readonly onDidInputAfterExitEmitter = new Emitter<void>();
@@ -91,17 +120,42 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     protected constructor(options: XtermSurfaceOptions) {
         this.cols = options.cols;
         this.rows = options.rows;
-        this.term = new xtermHeadless.Terminal({
-            cols: this.cols,
-            rows: this.rows,
-            allowProposedApi: true,
-            scrollback: options.scrollback ?? 1000,
-        });
+        const scrollback = options.scrollback ?? 1000;
+        this.xtermReady = loadXterm()
+            .then((xterm) => {
+                this.attachTerminal(xterm.default, scrollback);
+            })
+            .catch((error: unknown) => {
+                this.failToLoad(error);
+            });
+    }
+
+    /**
+     * Кусок загрузился: эмулятор нынешнего размера (ресайз до загрузки уже ушёл
+     * процессу и лёг в `cols`/`rows`), затем накопленный вывод — по порядку.
+     */
+    private attachTerminal(xterm: typeof XtermModule, scrollback: number): void {
+        if (this.disposed) return;
+        const term = new xterm.Terminal({ cols: this.cols, rows: this.rows, allowProposedApi: true, scrollback });
         // Ответы эмулятора (DSR/DA, отчёты мыши) → обратно в процесс: тот же путь, что и
         // пользовательский ввод, включая защиту от записи в уже мёртвый процесс.
-        this.term.onData((data) => {
+        term.onData((data) => {
             this.write(data);
         });
+        this.term = term;
+        for (const data of this.pendingOutput.splice(0)) this.writeToTerm(term, data);
+    }
+
+    /**
+     * Эмулятор не загрузился (битый кусок): показать вывод нечем, поэтому процесс
+     * останавливаем, а сессия выходит с кодом 1 — терминал не висит пустым молча.
+     */
+    private failToLoad(error: unknown): void {
+        onUnexpectedError(error);
+        this.pendingOutput.length = 0;
+        if (this.disposed) return;
+        this.disposeProcess();
+        this.markExited(1);
     }
 
     /** Куда уходят байты ввода (клавиши человека, ответы эмулятора), пока процесс жив. */
@@ -123,7 +177,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * читает устаревшее состояние, и картинка отстаёт на одно событие («залипание»).
      */
     protected feedOutput(data: string): void {
-        this.term.write(data, () => {
+        if (this.term === undefined) this.pendingOutput.push(data);
+        else this.writeToTerm(this.term, data);
+    }
+
+    private writeToTerm(term: Terminal, data: string): void {
+        term.write(data, () => {
             // Новый вывод возвращает вьюпорт на дно — иначе картинка «уезжает»
             // относительно растущего baseY и превращается в кашу.
             this.viewportScrollOffset = 0;
@@ -180,7 +239,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     /** Включила ли программа в шелле mouse-tracking — тогда колесо принадлежит ей. */
     public get mouseEventsActive(): boolean {
-        return this.coreMouseService.areMouseEventsActive;
+        return this.term !== undefined && coreMouseService(this.term).areMouseEventsActive;
     }
 
     /**
@@ -198,6 +257,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * уже отдана с width=2) либо координаты вне диапазона; в обоих случаях `out` не тронут.
      */
     public readCell(x: number, y: number, out: TerminalCell): boolean {
+        if (this.term === undefined) return false;
         const buffer = this.term.buffer.active;
         const line = buffer.getLine(buffer.baseY - this.scrollOffset + y);
         if (!line) return false;
@@ -222,7 +282,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * xterm держит `cursorY` в `[0, rows)`, а `cursorX` до переноса — ровно `cols`.
      */
     public getCursor(): { x: number; y: number } | null {
-        if (this.scrollOffset > 0) return null;
+        if (this.term === undefined || this.scrollOffset > 0) return null;
         const { cursorX: x, cursorY: y } = this.term.buffer.active;
         if (x >= this.cols) return null;
         return { x, y };
@@ -245,7 +305,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.cols = cols;
         this.rows = rows;
         // Рефлоу меняет длину скролбэка; смещение клампит геттер `scrollOffset`.
-        this.term.resize(cols, rows);
+        this.term?.resize(cols, rows);
         if (!this.exited) this.onDidResize(cols, rows);
     }
 
@@ -260,8 +320,10 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * напрямую. Координаты col/row — 0-based (как их отдал виджет).
      */
     public sendMouse(event: TerminalMouseEventData): void {
+        // Эмулятора ещё нет — не знает и mouse-режима программы, отчёт слать некому.
+        if (this.term === undefined) return;
         // После выхода отчёт эмулятора упрётся в `write`, который мёртвому процессу не шлёт.
-        this.coreMouseService.triggerMouseEvent({
+        coreMouseService(this.term).triggerMouseEvent({
             col: event.col,
             row: event.row,
             button: mapButton(event.button),
@@ -280,9 +342,10 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     public readonly onDidInputAfterExit = this.onDidInputAfterExitEmitter.event;
 
     public dispose(): void {
+        this.disposed = true;
         this.disposeProcess();
-        // Stryker disable next-line CallExpression: освобождение ресурсов эмулятора снаружи не наблюдается
-        this.term.dispose();
+        // Stryker disable next-line OptionalChaining,CallExpression: освобождение ресурсов эмулятора снаружи не наблюдается
+        this.term?.dispose();
     }
 
     private emitUpdate(): void {
@@ -291,16 +354,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     /** Сколько строк истории лежит выше вьюпорта — максимум, на который можно уехать. */
     private get maxScrollOffset(): number {
-        return this.term.buffer.active.baseY;
-    }
-
-    /**
-     * coreMouseService — внутренний (не публичный) сервис xterm; ходим к нему напрямую,
-     * поэтому доступ спрятан в одно место.
-     */
-    private get coreMouseService(): ICoreMouseService {
-        // Сменятся внутренности xterm — упадут тесты мыши, а не тихо погаснет колесо.
-        return (this.term as unknown as { _core: { coreMouseService: ICoreMouseService } })._core.coreMouseService;
+        return this.term?.buffer.active.baseY ?? 0;
     }
 
     private setScrollOffset(value: number): void {
@@ -309,6 +363,15 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.viewportScrollOffset = next;
         this.emitUpdate();
     }
+}
+
+/**
+ * coreMouseService — внутренний (не публичный) сервис xterm; ходим к нему напрямую,
+ * поэтому доступ спрятан в одно место.
+ */
+function coreMouseService(term: Terminal): ICoreMouseService {
+    // Сменятся внутренности xterm — упадут тесты мыши, а не тихо погаснет колесо.
+    return (term as unknown as { _core: { coreMouseService: ICoreMouseService } })._core.coreMouseService;
 }
 
 /** Семантическая кнопка → числовой CoreMouseButton xterm. */

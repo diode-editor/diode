@@ -167,6 +167,7 @@ describe("EmbeddedTerminalSession — resize", () => {
         "игнорирует неположительный размер %ix%i",
         async (cols, rows) => {
             const session = liveSession();
+            await session.xtermReady;
             // Курсор остаётся читаемым — значит эмулятор не пересобрали под мусорный размер.
             session.resize(cols, rows);
             expect(session.getCursor()).not.toBeNull();
@@ -177,6 +178,7 @@ describe("EmbeddedTerminalSession — resize", () => {
 
     it("no-op при совпадении размера с текущим", async () => {
         const session = liveSession();
+        await session.xtermReady;
         expect(() => {
             session.resize(40, 6);
         }).not.toThrow();

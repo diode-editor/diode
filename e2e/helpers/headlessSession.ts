@@ -267,6 +267,22 @@ export class HeadlessSession {
         return (await this.rpc<CaptureFrameResult>("TUIDom.captureFrame")).frame;
     }
 
+    // ─── Diode.* — методы редактора поверх инспектора (src/vs/diode/diodeInspectorMethods.ts) ───
+
+    /**
+     * Выполнить команду по id. Готовности редактора не ждёт: методы поднимаются
+     * вместе с инспектором, до активации расширений, — для тестов «человек успел
+     * раньше старта».
+     */
+    public async executeCommand(id: string, ...args: unknown[]): Promise<void> {
+        await this.rpc("Diode.executeCommand", { id, args });
+    }
+
+    /** Текст канала Output (id или подпись). */
+    public async getOutput(channel: string): Promise<string> {
+        return (await this.rpc<{ text: string }>("Diode.getOutput", { channel })).text;
+    }
+
     /** Snapshot of the element tree — node boxes are the coordinates {@link click} takes. */
     public async getDocument(): Promise<GetDocumentResult> {
         return this.rpc<GetDocumentResult>("TUIDom.getDocument");
