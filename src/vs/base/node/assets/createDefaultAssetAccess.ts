@@ -17,7 +17,9 @@ const SEA_BUNDLE_KEY = BUNDLE_FILE_NAME;
  * и того же `diode.bundle`, по убыванию приоритета:
  *
  *   - **SEA-бинарь** (`node:sea.isSea() === true`) — бандл встроен в исполняемый
- *     файл, достаётся через `sea.getAsset()`;
+ *     файл, достаётся через `sea.getRawAsset()` — вид без копии (8 МБ на каждом
+ *     старте). Только для чтения: потребители декодируют текст и отдают
+ *     `onig.wasm` в `WebAssembly`, запись в вид уронила бы процесс;
  *   - **self-extract** — бандл лежит файлом рядом с `main.js` (см.
  *     `scripts/build-selfextract.mjs`); формат тот же, меняется только источник байтов;
  *   - **dev/tests** — {@link FsAssetAccess} с mapping'ом на реальные файлы
@@ -41,10 +43,9 @@ export function createDefaultAssetAccess(): IAssetAccess {
 function tryLoadSeaBundle(): Uint8Array | null {
     try {
         const req = seaRequire();
-        const sea = req("node:sea") as { isSea(): boolean; getAsset(key: string): ArrayBuffer };
+        const sea = req("node:sea") as { isSea(): boolean; getRawAsset(key: string): ArrayBuffer };
         if (!sea.isSea()) return null;
-        const buffer = sea.getAsset(SEA_BUNDLE_KEY);
-        return new Uint8Array(buffer);
+        return new Uint8Array(sea.getRawAsset(SEA_BUNDLE_KEY));
     } catch {
         return null;
     }

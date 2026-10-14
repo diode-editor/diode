@@ -369,10 +369,7 @@ async function runEditor(): Promise<void> {
     new ExtensionConfigurationContributor(
         allExtensions,
         configurationRegistry,
-        (ext) =>
-            ext.isBuiltin
-                ? builtinConfigInjection(ext.manifest.name, extensionsLogger)
-                : curatedConfigInjection(ext.id),
+        (ext) => (ext.isBuiltin ? builtinConfigInjection(ext.manifest.name) : curatedConfigInjection(ext.id)),
         extensionsLogger,
     ).apply();
     // Папка воркспейса — уже здесь: `.diode/settings.json` проекта (тема,
@@ -686,6 +683,12 @@ async function runEditor(): Promise<void> {
             },
             preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
             startExtensions: () => {
+                // Вшитый TS-сервер — на диск до спауна extension host'а: на холодном
+                // кэше распаковка синхронно пишет файлы (~20 мс), поэтому не на пути
+                // к первому кадру, но раньше, чем клиент спросит `existsSync` entry.
+                void ensureTsServer((err) => {
+                    extensionsLogger.error("bundled ts-server unpack failed", err);
+                });
                 const activation = extensionService.start();
                 // Конец лестницы — когда есть и `main:startup-complete` (переход в
                 // `eventually`), и `exthost:activated`: друг друга они больше не ждут.
@@ -904,16 +907,13 @@ async function preloadGrammarsForFiles(
  * Для `diode-lsp-typescript` — вшитый language-сервер: целевые пути распаковки
  * (детерминированы от версии+хэша бандла — их можно раздать ДО распаковки;
  * готовность клиент проверяет existsSync самого entry, публикация атомарна)
- * и режим node-рантайма. Сама распаковка стартует здесь же fire-and-forget —
- * после первого кадра, вне перцептивно-критического пути (VISION).
+ * и режим node-рантайма. Пути — по дайджесту, посчитанному при сборке, без
+ * чтения бандла; сама распаковка — в `startExtensions`, за первыми кадрами.
  */
-function builtinConfigInjection(manifestName: string, logger: ILogger): Record<string, unknown> {
+function builtinConfigInjection(manifestName: string): Record<string, unknown> {
     if (manifestName !== "diode-lsp-typescript") return {};
     const target = bundledTsServerTarget();
     if (target === null) return {};
-    void ensureTsServer((err) => {
-        logger.error("bundled ts-server unpack failed", err);
-    });
     return {
         "diode.lsp.typescript.bundledServerPath": target.serverPath,
         "diode.lsp.typescript.bundledTsserverPath": target.tsserverPath,

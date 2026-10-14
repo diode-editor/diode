@@ -278,6 +278,17 @@ export class HeadlessSession {
         await this.rpc("Diode.executeCommand", { id, args });
     }
 
+    /**
+     * Дождаться готовности редактора (`Diode.whenReady`): extension host
+     * активирован (`*`, `workspaceContains:`, `onStartupFinished`) и фаза
+     * `eventually`. Текст на экране готовности не означает: расширения
+     * поднимаются после кадров с текстом и подсветкой, как у эталона.
+     */
+    public async waitForReady(timeoutMs = 60_000): Promise<void> {
+        const { ready } = await this.rpc<{ ready: boolean }>("Diode.whenReady", { timeoutMs });
+        if (!ready) throw new Error(`Diode.whenReady: редактор не готов за ${String(timeoutMs)} мс`);
+    }
+
     /** Текст канала Output (id или подпись). */
     public async getOutput(channel: string): Promise<string> {
         return (await this.rpc<{ text: string }>("Diode.getOutput", { channel })).text;

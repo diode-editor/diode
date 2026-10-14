@@ -62,6 +62,39 @@ function readEntryDirFile(name: string, environment: IPackagedAssetEnvironment):
  * новый каталог, а не чужой бинарь. Распаковка — `extractBundleToCache(Sync)`.
  */
 export function packagedAssetCacheDir(kind: string, bytes: Uint8Array, cacheRoot: string = userCacheDir()): string {
-    const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
-    return path.join(cacheRoot, kind, `${DIODE_VERSION}-${digest}`);
+    return cacheDirForDigest(kind, sha256Hex(bytes), cacheRoot);
+}
+
+/** Суффикс сайдкара с дайджестом ассета, который пишет сборка (`build-dist.mjs`). */
+export const PACKAGED_ASSET_DIGEST_SUFFIX = ".sha256";
+
+/**
+ * Как {@link packagedAssetCacheDir}, но по имени ассета и без чтения его байтов:
+ * SHA-256 посчитан при сборке и лежит рядом сайдкаром `<name>.sha256` (вшитым
+ * ассетом в SEA, файлом у self-extract). Нужен там, где каталог распаковки
+ * требуется на пути к первому кадру: хэш 13-мегабайтного `ts-server.bundle`
+ * на каждом старте стоил ~12 мс. Сайдкара нет или он битый — хэш по байтам,
+ * ключ тот же. `null` — нет самого ассета (dev).
+ */
+export function packagedAssetCacheDirByName(
+    kind: string,
+    name: string,
+    environment: IPackagedAssetEnvironment = processEnvironment,
+    cacheRoot: string = userCacheDir(),
+): string | null {
+    const sidecar = readPackagedAssetView(`${name}${PACKAGED_ASSET_DIGEST_SUFFIX}`, environment);
+    if (sidecar !== null) {
+        const digest = Buffer.from(sidecar).toString("latin1").trim();
+        if (/^[0-9a-f]{64}$/.test(digest)) return cacheDirForDigest(kind, digest, cacheRoot);
+    }
+    const bytes = readPackagedAssetView(name, environment);
+    return bytes === null ? null : packagedAssetCacheDir(kind, bytes, cacheRoot);
+}
+
+function sha256Hex(bytes: Uint8Array): string {
+    return createHash("sha256").update(bytes).digest("hex");
+}
+
+function cacheDirForDigest(kind: string, digest: string, cacheRoot: string): string {
+    return path.join(cacheRoot, kind, `${DIODE_VERSION}-${digest.slice(0, 12)}`);
 }
