@@ -23,8 +23,8 @@ import { DiodeSession } from "./runDiode.ts";
 // Два транспорта поверх одного окружения: `startHeadlessApp` (инспектор, основной
 // путь) и `startPtyApp` (ANSI-уровень, для sea-*). Изоляция — в одном месте.
 
-/** Сид-файл в изолированный воркспейс: относительный путь → содержимое. */
-export type SeedFiles = Readonly<Record<string, string>>;
+/** Сид-файл в изолированный воркспейс: относительный путь → текст (utf-8) или байты как есть (файл в чужой кодировке). */
+export type SeedFiles = Readonly<Record<string, string | Uint8Array>>;
 
 export interface AppEnvOptions {
     /** Сид-файлы воркспейса (относительные пути; родители создаются). */

@@ -1,5 +1,7 @@
 import iconv from "iconv-lite";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { setLazyModuleLoader } from "../../../base/common/lazyModule.ts";
 
 import {
     decodeBuffer,
@@ -190,11 +192,6 @@ describe("roundtrips (byte-exact)", () => {
     }
 });
 
-/**
- * The native utf-8 / UTF-16 codecs against the iconv-lite path they replace:
- * the reference below is the pre-native implementation (BOM stripped by us,
- * the body through iconv-lite). Edge cases first, then a seeded fuzz.
- */
 // Быстрый путь — именно мимо iconv: результат у них одинаковый (тесты ниже),
 // поэтому отличить можно только по тому, позвали ли iconv вообще.
 describe("utf-8 и UTF-16 не идут через iconv-lite", () => {
@@ -218,6 +215,53 @@ describe("utf-8 и UTF-16 не идут через iconv-lite", () => {
         expect(decode).toHaveBeenCalledTimes(1);
     });
 });
+
+// iconv-lite — ленивый кусок бандла: utf-8 и UTF-16 его не трогают, иначе он
+// грузился бы на открытии любого файла.
+describe("iconv-lite — ленивый кусок", () => {
+    let requested: string[] = [];
+
+    beforeEach(() => {
+        requested = [];
+        setLazyModuleLoader(<T>(id: string, importer: () => Promise<T>) => {
+            requested.push(id);
+            return importer();
+        });
+    });
+
+    afterEach(() => {
+        setLazyModuleLoader(undefined);
+    });
+
+    it("utf-8 и UTF-16 в обе стороны, BOM-сниф и запасной utf-8 — без iconv", async () => {
+        for (const id of ["utf8", "utf8bom", "utf16le", "utf16be", "martian"]) {
+            const bytes = await encodeText("привет", id);
+            await decodeBuffer(bytes, id);
+            decodeBufferByBOM(bytes);
+        }
+        await decodeBuffer(Buffer.from("abc"));
+        expect(requested).toEqual([]);
+    });
+
+    it("остальные кодировки спрашивают кусок iconv-lite", async () => {
+        const bytes = await encodeText("привет", "windows1251");
+        expect(requested).toEqual(["iconv-lite"]);
+        expect(await decodeBuffer(bytes, "windows1251")).toEqual({ text: "привет", encoding: "windows1251" });
+        expect(requested).toEqual(["iconv-lite", "iconv-lite"]);
+    });
+
+    it("отказ загрузки куска — отказ декода и записи, не тихий utf-8", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
+        await expect(decodeBuffer(Buffer.from([0xcf]), "windows1251")).rejects.toThrow("кусок не загрузился");
+        await expect(encodeText("П", "koi8r")).rejects.toThrow("кусок не загрузился");
+    });
+});
+
+/**
+ * The native utf-8 / UTF-16 codecs against the iconv-lite path they replace:
+ * the reference below is the pre-native implementation (BOM stripped by us,
+ * the body through iconv-lite). Edge cases first, then a seeded fuzz.
+ */
 
 describe("native codecs == iconv-lite", () => {
     const UNICODE_IDS = ["utf8", "utf8bom", "utf16le", "utf16be"];

@@ -59,6 +59,17 @@ export const LAZY_CHUNKS = [
             term.dispose();
         },
     },
+    // Кодировки кроме utf-8 и UTF-16 (те — нативно, encoding.ts): грузится на
+    // первом Reopen/Save with Encoding в такой кодировке, а не при открытии файла.
+    {
+        id: "iconv-lite",
+        reason: "кодировки кроме utf-8 и UTF-16",
+        // Однобайтная кодировка туда и обратно — как encoding.ts на reopen и save.
+        warmup: (iconv) => {
+            const bytes = iconv.encode("Привет, мир!\n", "windows1251", { addBOM: false });
+            iconv.decode(bytes, "windows1251", { stripBOM: false });
+        },
+    },
 ];
 
 /**

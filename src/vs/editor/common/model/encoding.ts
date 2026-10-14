@@ -1,4 +1,6 @@
-import iconv from "iconv-lite";
+import type IconvLiteModule from "iconv-lite";
+
+import { importLazyModule } from "../../../base/common/lazyModule.ts";
 
 /**
  * Charset axis of a document: the byte representation used at the disk
@@ -139,11 +141,16 @@ export interface IDecodedText {
     readonly encoding: string;
 }
 
-type IconvLite = typeof iconv;
+type IconvLite = typeof IconvLiteModule;
 
-/** iconv-lite for the charsets the native codecs do not cover. */
-function loadIconv(): Promise<IconvLite> {
-    return Promise.resolve(iconv);
+/**
+ * iconv-lite for the charsets the native codecs do not cover. A lazy bundle
+ * chunk (docs/arch/Common.md, «Ленивые куски бандла»): 540 KB that opening a
+ * utf-8 or UTF-16 file never parses. `default` is `module.exports` on every
+ * path (node's `import()` of CJS, the packaged chunk loader).
+ */
+async function loadIconv(): Promise<IconvLite> {
+    return (await importLazyModule("iconv-lite", () => import("iconv-lite"))).default;
 }
 
 /**
