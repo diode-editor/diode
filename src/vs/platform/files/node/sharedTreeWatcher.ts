@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
@@ -6,6 +5,7 @@ import type { ILogger } from "../../log/common/iLogger.ts";
 import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions } from "../common/iTreeFileWatcher.ts";
 
 import { isExcluded } from "./chokidarTreeWatcher.ts";
+import { passesThroughSymlink } from "./passesThroughSymlink.ts";
 
 /** Один живой обход дерева и все запросы, которые на нём едут. */
 interface ITraversal {
@@ -164,27 +164,6 @@ function reanchorsCleanly(traversal: ITraversal, relativeBase: string): boolean 
         if (isExcluded(traversal.root, current, traversal.excludes)) return false;
     }
     return !passesThroughSymlink(traversal.root, relativeBase);
-}
-
-/**
- * Лежит ли путь `root/relative` за симлинком (на Windows — и junction): сам он
- * или каталог по пути к нему от `root`. За ссылку обход `root` не заходит.
- * Синхронно: зовётся при заведении подписки, по `lstat` на сегмент. Пути нет —
- * не ссылка: появится каталогом, и обход предка его увидит.
- */
-export function passesThroughSymlink(root: string, relative: string): boolean {
-    let current = root;
-    for (const segment of relative.split(path.sep)) {
-        current = path.join(current, segment);
-        let stat: fs.Stats;
-        try {
-            stat = fs.lstatSync(current);
-        } catch {
-            return false;
-        }
-        if (stat.isSymbolicLink()) return true;
-    }
-    return false;
 }
 
 /** Шаблон вида `**\/<сегмент>` — тот, чей смысл не зависит от корня матчинга. */

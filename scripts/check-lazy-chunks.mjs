@@ -16,7 +16,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { buildLazyChunks, LAZY_CHUNKS, verifyLazyChunks } from "./build-lazy-chunks.mjs";
+import { buildLazyChunks, describeEntryChunks, LAZY_CHUNKS, verifyLazyChunks } from "./build-lazy-chunks.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const outDir = mkdtempSync(join(tmpdir(), "diode-lazy-check-"));
@@ -26,6 +26,7 @@ try {
     const mainMetafile = JSON.parse(readFileSync(join(outDir, "metafile-esm.json"), "utf8"));
     const chunks = await buildLazyChunks({ repoRoot, distDir: outDir, write: false });
     const errors = verifyLazyChunks({ mainMetafile, chunks });
+    for (const line of describeEntryChunks({ mainMetafile, chunks })) console.log(line);
     if (errors.length > 0) {
         console.error("Ленивые куски протекли в граф первого кадра:");
         for (const error of errors) console.error(`  ${error}`);

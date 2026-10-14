@@ -65,7 +65,6 @@ import { extensionKey, readExtensionDependencies } from "../platform/extensions/
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
-import { runTreeWatcherSubprocess } from "../platform/files/node/treeWatcherMain.ts";
 import { loadUserKeybindings } from "../platform/keybinding/node/keybindingsService.ts";
 import { TuiApplicationDIToken } from "../platform/layout/browser/tuiApplicationDIToken.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
@@ -96,7 +95,6 @@ import { ExtensionServiceDIToken } from "../workbench/services/extensions/common
 import { registerExtensionSemanticTokens } from "../workbench/services/extensions/common/extensionSemanticTokensContributor.ts";
 import { ExtensionThemeContributor } from "../workbench/services/extensions/common/extensionThemeContributor.ts";
 import { ExtensionTokenizationContributor } from "../workbench/services/extensions/common/extensionTokenizationContributor.ts";
-import { runExtensionHostSubprocess } from "../workbench/services/extensions/node/extensionHostSubprocess.ts";
 import { bundledTsServerTarget, ensureTsServer } from "../workbench/services/extensions/node/loadTsServer.ts";
 import { LanguageConfigurationService } from "../workbench/services/language/common/languageConfigurationService.ts";
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
@@ -135,15 +133,26 @@ import { startWorkbench } from "./workbenchStartup.ts";
 // этого упакованная сборка искала бы кусок в node_modules, которых у неё нет.
 setLazyModuleLoader(loadLazyModule);
 
+// Служебные роли — ленивые куски (`roles/*` в LAZY_CHUNKS): их код не лежит в
+// main.js, редактор его не парсит, а роль грузит свой кусок, только войдя в
+// ветку. Run-as-node остаётся здесь: ему нужен не наш код, а чужой скрипт.
 if (process.env.DIODE_RUN_AS_NODE === "1") {
     runAsNode();
 } else if (process.env.DIODE_FILE_WATCHER === "1") {
-    runTreeWatcherSubprocess();
+    const { runFileWatcherRole } = await loadLazyModule(
+        "roles/file-watcher",
+        () => import("./roles/fileWatcherRole.ts"),
+    );
+    runFileWatcherRole();
     // Как и ext-host: возвращается сразу, а процесс живёт на IPC-канале.
 } else if (process.env.DIODE_EXTENSION_HOST === "1") {
-    runExtensionHostSubprocess();
-    // runExtensionHostSubprocess() возвращается, но процесс остаётся живым
-    // на IPC-канале до disconnect/shutdown. Просто не идём в TUI-ветку.
+    const { runExtensionHostRole } = await loadLazyModule(
+        "roles/extension-host",
+        () => import("./roles/extensionHostRole.ts"),
+    );
+    runExtensionHostRole();
+    // Роль возвращается, но процесс остаётся живым на IPC-канале до
+    // disconnect/shutdown. Просто не идём в TUI-ветку.
 } else {
     await runEditor();
 }

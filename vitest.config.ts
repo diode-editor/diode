@@ -38,6 +38,7 @@ export default defineConfig({
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",
+        "src/vs/diode/roles/**", // входы ленивых кусков ролей (ext host, watcher): исполняются только в форке; гейт — e2e на SEA-бинаре и интеграционные сьюты ролей
         "src/vs/diode/runAsNode.ts", // node-режим SEA-бинаря (DIODE_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled; eval-режим — runAsNode.eval.test.ts (child-process, v8-покрытие форк не видит)
         "src/vs/diode/runAsNode.testEntry.ts", // child-process вход runAsNode.eval.test.ts — исполняется только в форке
         "src/vs/workbench/services/extensions/node/loadTsServer.ts", // выбор источника бандла завязан на SEA/self-extract окружение; чистая распаковка — extractBundleToCache (юниты), сквозняк — e2e lspBundled
