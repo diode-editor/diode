@@ -92,6 +92,7 @@ export const BUILD_INPUTS = [
     "scripts/resolve-version.mjs",
     "scripts/import-meta-url-shim.mjs",
     "scripts/lazy-chunk-code-cache.cjs",
+    "scripts/snapshot-entry.cjs",
     // Тесты в бинарь не попадают (pathspec без glob-магии: `*` совпадает и со `/`).
     ":(exclude)*.test.ts",
     ":(exclude)*.test.mjs",

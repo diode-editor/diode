@@ -13,7 +13,8 @@
  *  1. **Ловушки** (`snapshot-audit-prelude.cjs` перед `main.cjs`): каждое чтение
  *     окружения, времени, случайности и таймер на верхнем уровне — со стеком и
  *     модулем-виновником. Исключения — {@link ALLOWED_TOP_LEVEL} с причиной.
- *  2. **Отравленная сборка**: снапшот настоящего `main.cjs` собирается node из
+ *  2. **Отравленная сборка**: снапшот настоящего `main.cjs` собирается тем же
+ *     входом, что у бинаря (`snapshot-entry.cjs`: eager-компиляция), node из
  *     каталога с меткой, в cwd с меткой, с метками в HOME, TMPDIR, XDG_*, PATH,
  *     TERM, LANG, argv. Меток в блобе не может быть больше, чем у пустого
  *     снапшота того же node (он сам кладёт туда `execPath` и `argv` сборки и
@@ -38,7 +39,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
-import { SNAPSHOT_BUILD_FLAGS } from "./build-lazy-chunks.mjs";
+import { SNAPSHOT_BUILD_FLAGS, SNAPSHOT_ENTRY, snapshotEntryEnv } from "./build-lazy-chunks.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const PRELUDE = join(import.meta.dirname, "snapshot-audit-prelude.cjs");
@@ -245,7 +246,15 @@ export function findBakedEnvironment({ mainPath, workDir }) {
     const emptyBlob = join(workDir, "empty.blob");
     const mainBlob = join(workDir, "main.blob");
     buildSnapshot({ node, entry: empty, blob: emptyBlob, cwd, env, extraArgs: [MARKS.argv] });
-    buildSnapshot({ node, entry: mainPath, blob: mainBlob, cwd, env, extraArgs: [MARKS.argv] });
+    // Тот же вход, что у бинаря (build-sea.mjs): main.cjs, скомпилированный eagerly.
+    buildSnapshot({
+        node,
+        entry: SNAPSHOT_ENTRY,
+        blob: mainBlob,
+        cwd,
+        env: { ...env, ...snapshotEntryEnv(mainPath) },
+        extraArgs: [MARKS.argv],
+    });
 
     const count = (bytes, mark) => {
         const text = bytes.toString("latin1");

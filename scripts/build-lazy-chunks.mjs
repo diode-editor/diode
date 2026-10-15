@@ -47,6 +47,22 @@ import { resolveDiodeVersion } from "./resolve-version.mjs";
 export const SNAPSHOT_BUILD_FLAGS = ["--predictable"];
 
 /**
+ * Вход сборки V8-снапшота ядра (build-sea.mjs, гейт check-snapshot.mjs): исполняет
+ * `main.cjs`, скомпилированный eagerly, — байткод всех функций бандла едет в блобе
+ * (подробности — в самом файле). Путь к `main.cjs` — env {@link snapshotEntryEnv}.
+ */
+export const SNAPSHOT_ENTRY = join(import.meta.dirname, "snapshot-entry.cjs");
+
+/**
+ * Env процесса сборки снапшота: путь к `main.cjs` для {@link SNAPSHOT_ENTRY}.
+ * @param {string} mainPath
+ * @returns {Record<string, string>}
+ */
+export function snapshotEntryEnv(mainPath) {
+    return { DIODE_SNAPSHOT_MAIN: mainPath };
+}
+
+/**
  * Список ленивых кусков. Растёт с каждой частью этапа 1 (docs/TODO/OpenPerformance.md).
  *
  * `warmup` — что сделать с модулем при снятии кэша кода ({@link buildLazyChunkCodeCaches}):
