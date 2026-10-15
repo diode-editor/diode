@@ -22,12 +22,14 @@ jobs:
     strategy:
       matrix:
         # mode: чем упаковываем.
-        #   sea         — Node SEA (`node --build-sea`).
+        #   sea         — Node SEA (`node --build-sea`). Дефолт для всех платформ:
+        #                 V8-снапшот ядра (#620) возможен только в SEA.
         #   selfextract — sh-стаб + приклеенный payload (нетронутый node + main.cjs +
-        #                 diode.bundle). Обязателен на Intel macOS, где инъекция
-        #                 SEA-блоба портит Mach-O chained fixups → segfault до main()
-        #                 (#143, #144); на linux просто лучше — бинарь втрое
-        #                 меньше. Windows остаётся на SEA: стаб — POSIX sh.
+        #                 diode.bundle). Только Intel macOS: там node не собирает
+        #                 рабочий SEA — инъекция блоба портит Mach-O chained fixups
+        #                 → segfault до main() (#143, #144). Цена SEA на linux —
+        #                 бинарь ~150 МБ против ~48 у selfextract; принята ради
+        #                 снапшота (решение 2026-10-15).
         # linux-arm64 (Raspberry Pi 3/4/5 на 64-битной ОС) собирается на нативном
         # arm-раннере: node-pty компилируется и ripgrep приезжает под свою
         # архитектуру при npm install, smoke гоняется на реальном arm64.
@@ -35,11 +37,11 @@ jobs:
           - os: ubuntu-latest
             asset: diode-linux-x64
             binary: dist/diode
-            mode: selfextract
+            mode: sea
           - os: ubuntu-24.04-arm
             asset: diode-linux-arm64
             binary: dist/diode
-            mode: selfextract
+            mode: sea
           - os: macos-latest
             asset: diode-macos-arm64
             binary: dist/diode

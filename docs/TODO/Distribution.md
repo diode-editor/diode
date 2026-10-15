@@ -77,7 +77,9 @@
       и notability (у homebrew-core — звёзды/форки).
 - [ ] Подпись: Apple Developer ID для нотаризации macOS (Gatekeeper на бинарь из браузера),
       code signing для Windows (SmartScreen). Оба — деньги, не код.
-- [ ] macOS arm64 в режиме `sea` весит 161 МБ против 49 у selfextract — разобраться, почему не
-      selfextract и там (`build.yml`, комментарий про #143/#144 касается Intel).
+- [x] SEA или selfextract по платформам. Решение человека 2026-10-15: SEA везде, selfextract —
+      только Intel macOS, где node не собирает рабочий SEA (#143, #144). Linux x64/arm64 вернулись
+      на SEA: ~150 МБ против ~48 у selfextract, зато V8-снапшот ядра (#620) возможен только
+      в SEA. `.deb` больше не зависит от `tar`/`gzip` — их звал только стаб selfextract.
 - [x] Антивирусный скан SEA-сборки: пайплайн winget-pkgs (несколько антивирусов + Windows Sandbox)
       прошёл на v0.3.0 (`Validation-Completed`), опасение снято.
