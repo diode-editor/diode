@@ -146,7 +146,7 @@ EditorComponent`. Разведка 2026-09-27, ссылки на код акту
 |---|--:|---|
 | компиляция ESM (`compileSourceTextModule`) | 57 | ≈25 eager-компиляция IIFE-обёрток (webpack-рантаймы xterm/textmate/oniguruma), ≈32 preparse 3.4 МБ текста |
 | исполнение верхнего уровня | 32 | тела 667 модулей (13.8 — сам module body), webpack-рантаймы (5), esbuild-shim'ы CJS (3), semver-регэкспы |
-| загрузка undici | 9 | ESM-импорт `http` (`@tuidom/inspector` InspectorServer): фасад ESM перечисляет экспорты встроенного модуля, ленивый геттер `http` тянет undici. В CJS этого нет |
+| загрузка undici | 9 | ESM-импорт `http` (`@tuidom/inspector` InspectorServer): фасад ESM перечисляет экспорты встроенного модуля, ленивый геттер `http` тянет undici. В CJS этого нет. Второй будильник — `vscode-oniguruma` `loadWASM(bytes)`: проверка `instanceof Response` трогает ленивый глобал. Оба сняты в шаге 4 плана (на 4-ядерной машине импорт `http` стоит не 9, а ~42 мс) |
 | GC | 6.5 | куча +8 МБ за загрузку (3.7 → 11.7 МБ heapUsed) |
 | прочее | ~5 | |
 
@@ -192,6 +192,10 @@ failed`, «global handle not serialized: [Foreign]»):
   `child_process`, `perf_hooks`, `module`, `TextDecoder`, `Buffer`, `WeakRef`) — легло без
   вопросов; для `http`/`module`/`child_process`/`perf_hooks` node пишет «not yet fully
   verified», работоспособность после десериализации проверять e2e.
+- Оба места в движке сняты в `@tuidom/*` 0.9.1 (tuidom#35): сегментер создаётся при первом
+  вызове (`segmentGraphemes`), `node:http` — `process.getBuiltinModule` в конструкторе
+  `InspectorServer`. Регресс в движке ловит его гейт `npm run check:snapshot` (граф всех
+  публикуемых пакетов → `--build-snapshot` → проверка ширины и сервера после десериализации).
 
 **Что снапшот меняет в правилах.** Верхний уровень модулей исполняется при сборке, не при
 запуске. Значит, на уровне модуля нельзя: читать окружение в константы (`process.env`, `cwd`,
@@ -485,9 +489,17 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
      до кадра с текстом: парс бандла (`main:start` ≈ 200 мс, шаги 4–6 этапа), DI и монтирование
      ≈ 80 мс (рычаг 8), открытие файла ≈ 20 мс, скан/конфиг/темы ≈ 30 мс. Бюджет
      `STARTUP_BUDGET_OURS_MS` не зажат: это шаг 7.
-4. - [ ] **tuidom под снапшот** (свой PR в tuidom, публикацию версии запрашивать): `Intl.Segmenter`
-     лениво в `measureTextWidth.js` и `displayLine.js`; `http` в InspectorServer — ленивый
-     `createServer`. Само по себе даёт −9 мс (undici) уже сейчас.
+4. - [x] **tuidom под снапшот** — `@tuidom/*` 0.9.1 (tuidom#35): `Intl.Segmenter` создаётся при
+     первом вызове (`segmentGraphemes`), `node:http` в `InspectorServer` — `process.getBuiltinModule`
+     в конструкторе; гейт движка `npm run check:snapshot` (граф пакетов → `--build-snapshot`).
+     Одного подъёма движка мало: undici тут же будил `vscode-oniguruma` — `loadWASM(bytes)` проверяет
+     `instanceof Response`, и ленивый глобал `Response` грузит undici с `http` уже на подсветке
+     (`main:start` −50 мс, кадр с текстом — ±0). Поэтому `onigLib.ts` отдаёт `loadWASM`
+     инстанциатор (тест — `http`/undici не загружены после `getOnigLib` в свежем процессе). Импорт
+     `http` на 4-ядерной машине стоит ~42 мс, а не 9, как на 16 ядрах. Замер (`bench:open
+     --sizes=small --runs=15`, оба бинаря из копий через `DIODE_E2E_BINARY`, два захода
+     вперемешку): наших мс 391 / 370 → 340 / 341, до текста 425 / 409 → 374 / 377, `main:start`
+     220 / 201 → 157 / 165.
 5. - [ ] **CJS-бандл**: `format: cjs` в tsup, `--main-fields=module,main` (jsonc-parser в cjs
      резолвится в UMD с динамическим require), шим `import.meta.url` (7 мест), `await runEditor()`
      — в функцию. −12 мс без остального.
