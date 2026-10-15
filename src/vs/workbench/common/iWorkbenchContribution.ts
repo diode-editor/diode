@@ -29,10 +29,20 @@ export type IWorkbenchContribution = IDisposable;
  * ({@link LifecyclePhase}):
  * - `ready` — в `WorkbenchComponent.mount()` (view построена, лёгкие сервисы
  *   готовы; ≈ vscode `WorkbenchPhase.BlockRestore`) — до открытия файлов;
+ * - `afterRestored` — после восстановления редакторов, когда окно простаивает
+ *   (≈ vscode `WorkbenchPhase.AfterRestored`: фаза `Restored`, инстанцирование
+ *   через `runWhenGlobalIdle`). У нас это момент после кадра с подсветкой —
+ *   первым делом перехода в `eventually`, раньше его contribution'ов. Сама
+ *   фаза `restored` наступает до кадра с текстом и для этого не годится: всё,
+ *   что висит на ней, откладывало бы кадр. Сюда — проводка, без которой
+ *   первые кадры обходятся (каналы Output, change-bars, статус-бары);
  * - `eventually` — idle после первого кадра — для отложенной/тяжёлой работы,
  *   не влияющей на старт.
  */
-export type WorkbenchContributionPhase = "blockStartup" | Extract<LifecyclePhase, "ready" | "eventually">;
+export type WorkbenchContributionPhase =
+    | "blockStartup"
+    | "afterRestored"
+    | Extract<LifecyclePhase, "ready" | "eventually">;
 
 /** Запись в реестре: DI-токен contribution'а + его фаза. */
 export interface IWorkbenchContributionRegistration {

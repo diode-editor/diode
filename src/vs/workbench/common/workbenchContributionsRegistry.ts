@@ -19,7 +19,8 @@ export const WorkbenchContributionsRegistryDIToken = token<WorkbenchContribution
  * contribution'ы. `blockStartup` корень (`WorkbenchComponent`) прогоняет сам, в
  * конструкторе; остальное привязано к фазам `LifecycleService`: корень зовёт
  * {@link instantiateByPhase} на каждый переход — `ready` наступает в `mount()`,
- * `eventually` — после первого кадра.
+ * `eventually` — после первого кадра. `afterRestored` отдельного перехода не
+ * имеет: его пачка идёт первой в переходе в `eventually`.
  */
 export class WorkbenchContributionsRegistry extends Disposable {
     public static dependencies = [ServiceAccessorDIToken, WorkbenchContributionsDIToken] as const;
@@ -33,6 +34,11 @@ export class WorkbenchContributionsRegistry extends Disposable {
 
     /** Фазы, на которые contribution'ов нет (`starting`, `restored`), ничего не резолвят. */
     public instantiateByPhase(phase: WorkbenchContributionPhase | LifecyclePhase): void {
+        if (phase === "eventually") this.instantiate("afterRestored");
+        this.instantiate(phase);
+    }
+
+    private instantiate(phase: WorkbenchContributionPhase | LifecyclePhase): void {
         for (const registration of this.registrations) {
             if (registration.phase !== phase) continue;
             this.register(this.accessor.get(registration.token));

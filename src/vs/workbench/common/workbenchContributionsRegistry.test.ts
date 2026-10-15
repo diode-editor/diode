@@ -102,4 +102,27 @@ describe("WorkbenchContributionsRegistry", () => {
 
         expect(contribution.disposedFlag).toBe(true);
     });
+
+    it("afterRestored — своего перехода нет: идёт первым в переходе в eventually, раньше пачки eventually", () => {
+        const eventuallyToken = { id: "eventually" } as Token<IWorkbenchContribution>;
+        const afterRestoredToken = { id: "afterRestored" } as Token<IWorkbenchContribution>;
+        const { accessor, resolved } = fakeAccessor(
+            new Map<Token<unknown>, unknown>([
+                [eventuallyToken, new FakeContribution()],
+                [afterRestoredToken, new FakeContribution()],
+            ]),
+        );
+        // Порядок записей обратный ожидаемому — порядок держит фаза, а не список.
+        const registry = new WorkbenchContributionsRegistry(accessor, [
+            { token: eventuallyToken, phase: "eventually" },
+            { token: afterRestoredToken, phase: "afterRestored" },
+        ]);
+
+        registry.instantiateByPhase("ready");
+        registry.instantiateByPhase("restored");
+        expect(resolved).toEqual([]);
+
+        registry.instantiateByPhase("eventually");
+        expect(resolved).toEqual([afterRestoredToken, eventuallyToken]);
+    });
 });
