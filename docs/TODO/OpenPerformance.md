@@ -571,8 +571,9 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
        — 19 файлов зелёные. `performance.timeOrigin` после десериализации свой: вехи считают от
        старта процесса. Захваченный при сборке объект `process.env` живой, массив `process.argv` —
        нет (гейт его ловит). Кроссплатформенность: блоб собирается на целевой машине матрицы
-       `build.yml` (linux x64/arm64, macOS arm64/x64, Windows), самотест `build-sea.mjs` (`--version` и
-       run-as-node) — на каждой.
+       `build.yml`; SEA там — macOS arm64 и Windows, оба собрались со снапшотом, самотест
+       `build-sea.mjs` (`--version` и run-as-node) зелёный; Linux и macOS Intel — self-extract без
+       снапшота (пункт ниже).
      - **Замер** (4 ядра, шумно; база — `6fefd843`, #619; оба бинаря из копий через
        `DIODE_E2E_BINARY`, `bench:open --sizes=small --runs=15`, два захода вперемешку):
 
@@ -605,6 +606,14 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
        у node — `true`. Скрипты с `if (require.main === module) main()` под бинарём не стартуют;
        стоковые language-серверы так не делают. Гейт сверяет это с эталоном без снапшота.
    - **Кэш кода ядра** (`useCodeCache`, запасной путь) — не понадобился: снапшот взлетел.
+   - [ ] **Снапшот для self-extract.** SEA в релизе (`build.yml`) — только macOS arm64 и Windows;
+     linux x64/arm64 и macOS Intel едут self-extract'ом (`exec node main.cjs`, #143/#144) и
+     снапшота не получают: выигрыш шага 6 у них — ноль, бенч меряет SEA. Путь есть: node умеет
+     `--snapshot-blob` на рантайме — блоб собирает при `build:selfextract` node из payload
+     (`--predictable --build-snapshot`), стаб запускает `node --snapshot-blob main.blob main.cjs`, тот
+     же флаг — у форков ролей (`selfSpawnArgs`) и run-as-node. Блоб платформенно-зависим и
+     собирается на целевом раннере, как и сейчас payload. Не сделано: вопрос человеку, см.
+     [«Открытые вопросы»](#открытые-вопросы).
 7. - [ ] **Гейт**: зажать `STARTUP_BUDGET_OURS_MS` (сейчас 700) в `e2e/bench/startupBudget.bench.ts`
      по мере снятия; целевое — ≤ 50 мс над полом node на `small` (321 локально на 2026-09-28; после рычагов кухни 2026-10-14 — 386 на шумной 4-ядерной машине, где база была 536–576).
 8. Дальше — этап 2 (жадные проходы на больших файлах).
@@ -635,6 +644,11 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
 
   **Вопрос человеку (2026-10-15)**: дефолт — (b)/(c), диспетчер не делаем; вернуться к (a), если
   память LSP-сессий станет жалобой. Срок ответа — 2026-10-22, без ответа — дефолт.
+
+- **Снапшот у self-extract** (linux x64/arm64, macOS Intel — там нет SEA). Варианты: (a) сделать
+  отдельным PR через `node --snapshot-blob` (стаб, форки ролей, run-as-node; ожидаемо те же −90 мс
+  до текста у пользователей Linux); (b) не делать — выигрыш шага 6 остаётся только у macOS arm64 и
+  Windows. **Вопрос человеку (2026-10-15)**, дефолт — (a) следующим PR, срок — 2026-10-22.
 
 ### Этап 2 — жадные проходы: файл до десятков МБ открывается как маленький
 Каждый пункт измеряется на `xlarge` (13 МБ / 200 К строк) до и после:
