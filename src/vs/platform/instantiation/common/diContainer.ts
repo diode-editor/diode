@@ -1,3 +1,5 @@
+import { getInstantiationTracer } from "./instantiationTrace.ts";
+
 export class Token<T> {
     declare public readonly _: T;
     public readonly id: string;
@@ -82,7 +84,8 @@ export class Container implements ServiceAccessor {
         if (!factory) throw new Error(`No binding for "${tok.id}"`);
         this.resolving.add(tok);
         try {
-            const value = factory() as T;
+            const tracer = getInstantiationTracer();
+            const value = (tracer === undefined ? factory() : tracer.trace(tok.id, factory)) as T;
             this.cache.set(tok, value);
             return value;
         } finally {

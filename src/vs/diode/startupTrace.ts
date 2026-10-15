@@ -6,6 +6,11 @@ import type { Grid } from "@tuidom/core/rendering/grid";
 import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
 
 import { enablePerformanceMarks, getMarks, type IPerformanceMark, mark } from "../base/common/performance.ts";
+import {
+    enableInstantiationTrace,
+    getInstantiationTracer,
+    type IInstantiationTraceEntry,
+} from "../platform/instantiation/common/instantiationTrace.ts";
 
 /**
  * Трасса старта: белый ящик для бенча открытия файла (`e2e/bench/benchOpen.ts`,
@@ -17,12 +22,19 @@ import { enablePerformanceMarks, getMarks, type IPerformanceMark, mark } from ".
  * host поднят, фаза Eventually отработала) метки выгружаются в `<файл>` одним
  * JSON. Без env ничего из этого не происходит.
  *
+ * С `DIODE_STARTUP_TRACE_INSTANTIATIONS=1` поверх трассы DI-контейнер пишет ещё
+ * и созданные сервисы и контрибуции (`instantiationTrace.ts`, таблица — `npm run
+ * bench:services`). Отдельным флагом, потому что запись не бесплатна (≈2 мс
+ * на CI в окне DI): бенч и перф-гейт всегда идут под трассой, и их цифры она
+ * сдвигала бы.
+ *
  * Время в трассе — мс от `performance.timeOrigin` (старт процесса); сам
  * `timeOrigin` в epoch-мс тоже в файле, чтобы бенч совместил лестницу с
  * таймстемпами чёрного ящика (спаун ↔ timeOrigin — цена fork/exec).
  */
 
 export const STARTUP_TRACE_ENV = "DIODE_STARTUP_TRACE";
+export const STARTUP_TRACE_INSTANTIATIONS_ENV = "DIODE_STARTUP_TRACE_INSTANTIATIONS";
 
 /** Путь файла трассы из env, либо null — трасса выключена. */
 export function startupTracePath(env: Readonly<Record<string, string | undefined>> = process.env): string | null {
@@ -30,10 +42,16 @@ export function startupTracePath(env: Readonly<Record<string, string | undefined
     return value !== undefined && value.length > 0 ? value : null;
 }
 
-/** Включает метки, если env просит трассу; возвращает путь выгрузки либо null. */
+/**
+ * Включает метки, если env просит трассу (и трассу созданий DI, если просит и
+ * её); возвращает путь выгрузки либо null.
+ */
 export function setupStartupTrace(env: Readonly<Record<string, string | undefined>> = process.env): string | null {
     const path = startupTracePath(env);
-    if (path !== null) enablePerformanceMarks();
+    if (path !== null) {
+        enablePerformanceMarks();
+        if (env[STARTUP_TRACE_INSTANTIATIONS_ENV] === "1") enableInstantiationTrace();
+    }
     return path;
 }
 
@@ -62,6 +80,11 @@ export interface IStartupTrace {
     /** `performance.nodeTiming` — вехи самого node (bootstrapComplete и др.), мс от timeOrigin. */
     readonly nodeTiming: Readonly<Record<string, number>>;
     readonly marks: readonly IPerformanceMark[];
+    /**
+     * Созданные DI-контейнером сервисы и контрибуции (пусто без
+     * `DIODE_STARTUP_TRACE_INSTANTIATIONS=1`) — таблицу печатает `npm run bench:services`.
+     */
+    readonly instantiations: readonly IInstantiationTraceEntry[];
     /** true — старт дошёл до конца (extension host поднят); false — промежуточная выгрузка. */
     readonly complete: boolean;
 }
@@ -72,7 +95,14 @@ export function buildStartupTrace(complete: boolean): IStartupTrace {
     for (const [key, value] of Object.entries(nodePerformance.nodeTiming.toJSON() as Record<string, unknown>)) {
         if (typeof value === "number") nodeTiming[key] = value;
     }
-    return { pid: process.pid, timeOrigin: performance.timeOrigin, nodeTiming, marks: getMarks(), complete };
+    return {
+        pid: process.pid,
+        timeOrigin: performance.timeOrigin,
+        nodeTiming,
+        marks: getMarks(),
+        instantiations: getInstantiationTracer()?.getEntries() ?? [],
+        complete,
+    };
 }
 
 /** Пишет трассу в файл целиком (перезапись). Сбой записи — не повод ронять редактор. */

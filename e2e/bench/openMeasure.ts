@@ -6,7 +6,7 @@
  * (`startupBudget.bench.ts`).
  */
 
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -138,6 +138,11 @@ export interface OpenMeasureOptions {
     readonly workload?: boolean;
     /** Сколько ждать трассу (extension host поднимается после кадра). */
     readonly traceWaitMs?: number;
+    /**
+     * Куда сохранить трассу прогона (`--keep-traces`, вход `npm run bench:services`);
+     * тогда в ней есть и созданные сервисы (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`).
+     */
+    readonly keepTraceAs?: string;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -288,7 +293,11 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
     const warmup = options.warmup ?? false;
     const root = mkdtempSync(join(os.tmpdir(), "diode-bench-run-"));
     const tracePath = join(root, "startup-trace.json");
-    const env = await prepareAppEnv({ root, open: [fixture.path], env: { DIODE_STARTUP_TRACE: tracePath } });
+    // Трассу созданий DI пишем, только когда трассу сохраняют (`--keep-traces`):
+    // она не бесплатна и сдвигала бы цифры обычного прогона.
+    const traceEnv: Record<string, string> = { DIODE_STARTUP_TRACE: tracePath };
+    if (options.keepTraceAs !== undefined) traceEnv.DIODE_STARTUP_TRACE_INSTANTIATIONS = "1";
+    const env = await prepareAppEnv({ root, open: [fixture.path], env: traceEnv });
     const chunks: Chunk[] = [];
     const done = (screen: AnsiScreen) =>
         contentVisible(screen, fixture.marker) && (fixture.kind !== "ts" || highlightVisible(screen));
@@ -341,6 +350,7 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
             // не мерилась поверх спауна субпроцесса.
             const traceText = await waitForTrace(tracePath, performance.now() + (options.traceWaitMs ?? 15_000));
             const trace = traceText === null ? null : parseTrace(traceText);
+            if (traceText !== null && options.keepTraceAs !== undefined) writeFileSync(options.keepTraceAs, traceText);
             ladder = trace === null ? null : ladderFromTrace(trace, spawnEpoch);
             if (options.workload !== false) {
                 // Смерть процесса на правке — результат нагрузки, а не бенча:

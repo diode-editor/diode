@@ -14,12 +14,18 @@ import {
     mark,
     resetPerformanceMarks,
 } from "../base/common/performance.ts";
+import { Container, token } from "../platform/instantiation/common/diContainer.ts";
+import {
+    getInstantiationTracer,
+    resetInstantiationTrace,
+} from "../platform/instantiation/common/instantiationTrace.ts";
 
 import {
     buildStartupTrace,
     type IStartupTrace,
     setupStartupTrace,
     STARTUP_TRACE_ENV,
+    STARTUP_TRACE_INSTANTIATIONS_ENV,
     startupTracePath,
     TracingNodeTerminalBackend,
     writeStartupTrace,
@@ -28,23 +34,36 @@ import {
 describe("startupTracePath / setupStartupTrace", () => {
     afterEach(() => {
         resetPerformanceMarks();
+        resetInstantiationTrace();
     });
 
-    it("без env трасса выключена, метки не включаются", () => {
+    it("без env трасса выключена, метки и трасса созданий не включаются", () => {
         expect(startupTracePath({})).toBeNull();
         expect(startupTracePath({ [STARTUP_TRACE_ENV]: "" })).toBeNull();
         expect(setupStartupTrace({})).toBeNull();
         expect(isPerformanceMarksEnabled()).toBe(false);
+        expect(getInstantiationTracer()).toBeUndefined();
     });
 
-    it("env с путём включает метки и отдаёт путь", () => {
+    it("env с путём включает метки и отдаёт путь; трасса созданий — только по своему флагу", () => {
         expect(startupTracePath({ [STARTUP_TRACE_ENV]: "/tmp/trace.json" })).toBe("/tmp/trace.json");
         expect(setupStartupTrace({ [STARTUP_TRACE_ENV]: "/tmp/trace.json" })).toBe("/tmp/trace.json");
         expect(isPerformanceMarksEnabled()).toBe(true);
+        expect(getInstantiationTracer()).toBeUndefined();
     });
 
-    it("имя переменной — контракт с бенчем", () => {
+    it("флаг трассы созданий без пути трассы ничего не включает, с путём — включает", () => {
+        expect(setupStartupTrace({ [STARTUP_TRACE_INSTANTIATIONS_ENV]: "1" })).toBeNull();
+        expect(getInstantiationTracer()).toBeUndefined();
+        setupStartupTrace({ [STARTUP_TRACE_ENV]: "/tmp/trace.json", [STARTUP_TRACE_INSTANTIATIONS_ENV]: "0" });
+        expect(getInstantiationTracer()).toBeUndefined();
+        setupStartupTrace({ [STARTUP_TRACE_ENV]: "/tmp/trace.json", [STARTUP_TRACE_INSTANTIATIONS_ENV]: "1" });
+        expect(getInstantiationTracer()).toBeDefined();
+    });
+
+    it("имена переменных — контракт с бенчем", () => {
         expect(STARTUP_TRACE_ENV).toBe("DIODE_STARTUP_TRACE");
+        expect(STARTUP_TRACE_INSTANTIATIONS_ENV).toBe("DIODE_STARTUP_TRACE_INSTANTIATIONS");
     });
 });
 
@@ -119,6 +138,7 @@ describe("buildStartupTrace / writeStartupTrace", () => {
     let dir: string;
     afterEach(() => {
         resetPerformanceMarks();
+        resetInstantiationTrace();
         rmSync(dir, { recursive: true, force: true });
     });
 
@@ -136,6 +156,15 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         expect("name" in trace.nodeTiming).toBe(false);
         expect(trace.complete).toBe(false);
         expect(trace.marks.map((m) => m.name)).toEqual(["main:start", "frame"]);
+        expect(trace.instantiations).toEqual([]);
+    });
+
+    it("под трассой в снимок попадают созданные контейнером сервисы", () => {
+        dir = mkdtempSync(join(tmpdir(), "diode-trace-"));
+        setupStartupTrace({ [STARTUP_TRACE_ENV]: join(dir, "trace.json"), [STARTUP_TRACE_INSTANTIATIONS_ENV]: "1" });
+        const ValueDIToken = token<number>("Value");
+        new Container().bind(ValueDIToken, () => 42).get(ValueDIToken);
+        expect(buildStartupTrace(true).instantiations.map((e) => e.id)).toEqual(["Value"]);
     });
 
     it("пишет JSON в файл, complete как передан", () => {

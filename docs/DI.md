@@ -84,6 +84,11 @@ const workbench = container.get(WorkbenchComponentDIToken);
 - Все биндинги — lazy singletons.
 - Классы остаются plain (`static dependencies` не влияет на конструктор) — в
   тестах экземпляры создаются напрямую, `new StatusBarComponent(fake, theme)`.
+- Кто кого создал на старте и за сколько — трасса созданий
+  (`instantiationTrace.ts`, аналог `Trace` эталона): `Container.get` пишет каждое
+  создание (self/inclusive, родитель, фаза контрибуций), когда она включена, и не
+  делает ничего сверх одной проверки, когда выключена. Как снять таблицу —
+  [arch/Common.md](arch/Common.md#вехи-старта-performancets).
 
 ## Модули и профили
 

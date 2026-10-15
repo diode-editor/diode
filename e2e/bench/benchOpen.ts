@@ -13,6 +13,7 @@
  * server приезжает асинхронно позже.
  *
  * Запуск: `npm run bench:open [-- --sizes=small,xlarge --runs=3 --json=out.json --md=out.md --label="от сети, фон пуст"]`
+ * (`--keep-traces=<каталог>` — сохранить трассы прогонов для `npm run bench:services`)
  * Бинарь берётся из кэша e2e-сборок по хешу исходников (`getBinaryPath` →
  * scripts/e2e-artifacts.mjs; промах — одна сборка), либо
  * передаётся готовый через env `DIODE_E2E_BINARY`. Тяжёлый прогон — под лизу
@@ -42,6 +43,8 @@ interface CliOptions {
     /** Подпись условий локального прогона (машина, питание, фон). */
     label: string | null;
     workload: boolean;
+    /** Каталог, куда сложить трассы прогонов (`<размер>-<n>.json`), — вход `npm run bench:services`. */
+    traceDir: string | null;
 }
 
 export function parseCli(argv: readonly string[]): CliOptions {
@@ -52,6 +55,7 @@ export function parseCli(argv: readonly string[]): CliOptions {
         mdPath: null,
         label: null,
         workload: true,
+        traceDir: null,
     };
     for (const arg of argv) {
         if (arg.startsWith("--sizes=")) {
@@ -73,6 +77,8 @@ export function parseCli(argv: readonly string[]): CliOptions {
             options.mdPath = arg.slice("--md=".length);
         } else if (arg.startsWith("--label=")) {
             options.label = arg.slice("--label=".length);
+        } else if (arg.startsWith("--keep-traces=")) {
+            options.traceDir = arg.slice("--keep-traces=".length);
         } else if (arg === "--no-workload") {
             options.workload = false;
         } else {
@@ -110,6 +116,7 @@ async function main(): Promise<void> {
             `бинарь=${formatMs(floors.binary.medianMs)}`,
     );
 
+    if (cli.traceDir !== null) mkdirSync(cli.traceDir, { recursive: true });
     const fixtureDir = mkdtempSync(join(os.tmpdir(), "diode-bench-"));
     const sizes: SizeReport[] = [];
     try {
@@ -128,6 +135,10 @@ async function main(): Promise<void> {
                     timeoutMs: spec.timeoutMs,
                     warmup,
                     workload: cli.workload,
+                    keepTraceAs:
+                        cli.traceDir === null || warmup
+                            ? undefined
+                            : join(cli.traceDir, `${spec.key}-${String(i)}.json`),
                 });
                 results.push(result);
                 const keys =
