@@ -260,7 +260,11 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // `vscode.diff`: ext-host зовёт её по id — команда нужна до старта расширений.
     { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
 
-    // ── ready и eventually: фич-проводка ──────────────────────────────────────
+    // ── ready, afterRestored и eventually: фич-проводка ───────────────────────
+    // `afterRestored` — то, что эталон держит на `LifecyclePhase.Restored`
+    // (`OutputContribution`, `QuickDiffWorkbenchController`,
+    // `SCMActiveRepositoryController`, `TaskStatusBarContributions`) и
+    // инстанцирует по idle: у нас — после кадра с подсветкой.
     { token: EditorStatusContributionDIToken, phase: "ready" },
     { token: TerminalEnvStatusContributionDIToken, phase: "ready" },
     // when-ключи окружения (tier/os/cap_*/mode_*/macKeys): до первого нажатия.
@@ -298,18 +302,18 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. выше — снятие записи ненаблюдаемо
     { token: HistoryServiceDIToken, phase: "ready" },
     // Каналы Output как команды + пункты submenu селектора.
-    { token: OutputChannelActionsDIToken, phase: "ready" },
+    { token: OutputChannelActionsDIToken, phase: "afterRestored" },
     // Живые change-bars: считать дифф можно только после того, как есть редакторы.
-    { token: QuickDiffServiceDIToken, phase: "ready" },
+    { token: QuickDiffServiceDIToken, phase: "afterRestored" },
     // Автоосвежение снимочных сторон дифф-вкладок по onDidChangeFile (US-31).
     { token: DiffSnapshotRefreshContributionDIToken, phase: "ready" },
     // Ветка + sync-счётчики в статус-баре (из repo-state git-расширения).
-    { token: ScmStatusBarContributionDIToken, phase: "ready" },
+    { token: ScmStatusBarContributionDIToken, phase: "afterRestored" },
     // Ключ занятости git: на нём висит enablement мутирующих команд.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
     // `$(tools) N` бегущих задач.
-    { token: TaskStatusBarContributionDIToken, phase: "ready" },
+    { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
 ];
 
 /**

@@ -14,6 +14,7 @@ import { FileService } from "../../platform/files/common/fileService.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
+import { LifecycleServiceDIToken } from "../services/lifecycle/browser/lifecycleService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
@@ -73,6 +74,10 @@ describe("Workbench — живой гуттер quick diff", () => {
         editors = container.get(EditorServiceDIToken);
 
         commands.execute("workbench.openFile", filePath);
+        // Как у приложения: change-bars — contribution фазы `afterRestored`, он
+        // создаётся после открытия стартовых файлов и обязан подхватить уже
+        // активный редактор.
+        container.get(LifecycleServiceDIToken).setPhase("eventually");
         await settle(0);
     });
 

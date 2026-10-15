@@ -16,6 +16,7 @@ import type { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEd
 import type { WorkbenchComponent } from "../vs/workbench/browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../vs/workbench/browser/workbenchComponent.ts";
 import { EditorServiceDIToken } from "../vs/workbench/services/editor/common/editorService.ts";
+import { LifecycleServiceDIToken } from "../vs/workbench/services/lifecycle/browser/lifecycleService.ts";
 import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/themeTokens.ts";
 
 import { TestApp } from "./TestApp.ts";
@@ -29,6 +30,11 @@ export interface IAppHarnessOptions {
     readonly openFile?: string;
     /** Сфокусировать редактор и отрендерить кадр после boot'а. */
     readonly focusEditor?: boolean;
+    /**
+     * До какой фазы довести старт: по умолчанию `eventually`, как приложение;
+     * `ready` — остановиться сразу после `mount()` (до `afterRestored`).
+     */
+    readonly phase?: "ready" | "eventually";
     /** Реальный {@link IStateService} для тестов персистентности; по умолчанию NULL (не персистит). */
     readonly stateService?: IStateService;
     /**
@@ -112,6 +118,10 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         workbench.focusEditor();
         testApp.render();
     }
+    // Старт до конца, как у приложения (`startWorkbench`): файлы открыты —
+    // `restored`, дальше `eventually`, а с ним и contribution'ы `afterRestored`
+    // (каналы Output, change-bars, статус-бары). Кадров харнесс не ждёт.
+    container.get(LifecycleServiceDIToken).setPhase(options.phase ?? "eventually");
 
     const group = container.get(EditorServiceDIToken);
     const { userDataRoot } = container.get(IEnvironmentServiceDIToken);
