@@ -52,7 +52,7 @@ import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
  * Версия Node, уезжающая в payload. Держи в лок-степе с `node-version` в
  * `.github/workflows/build.yml` — там setup-node для сборки, здесь runtime юзера.
  */
-const NODE_VERSION = "25.9.0";
+const NODE_VERSION = "26.12.0";
 
 const SUPPORTED_TARGETS = new Set(["darwin-x64", "darwin-arm64", "linux-x64", "linux-arm64"]);
 const HOST_TARGET = `${process.platform}-${process.arch}`;

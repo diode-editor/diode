@@ -63,9 +63,13 @@ jobs:
       # Версия сборочного node. Для mode: selfextract держи в лок-степе с
       # NODE_VERSION в scripts/build-selfextract.mjs — там node, который уезжает
       # в payload и становится рантаймом пользователя.
+      # Точная версия, не мажор: в процессе из V8-снапшота (SEA `useSnapshot`)
+      # node до 26.11 роняет воркер с `node:net`/`http`/`v8` (SIGABRT
+      # `shutdown_wrap_template_.IsEmpty()`), а setup-node с мажором может взять
+      # из кэша раннера старую 26.x.
       - uses: actions/setup-node@v4
         with:
-          node-version: "25"
+          node-version: "26.12.0"
 
       - run: npm install
 
