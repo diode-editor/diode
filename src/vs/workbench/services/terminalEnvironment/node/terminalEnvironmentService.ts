@@ -62,6 +62,7 @@ export class TerminalEnvironmentService extends Disposable {
 
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private probeStarted = false;
+    private tmuxQueried = false;
 
     public constructor(
         backend: ITerminalBackend,
@@ -160,19 +161,14 @@ export class TerminalEnvironmentService extends Disposable {
      * probe never downgrades (a non-reply over a slow link must not lose an env-detected
      * capability), and a config-forced capability/tier always wins.
      *
-     * Имя внешнего терминала узнаётся здесь же: под tmux — у самого tmux
-     * (`client_termtype` и переменные клиента), без tmux — XTVERSION-пробой.
-     * Под tmux XTVERSION не шлём: на неё ответил бы сам tmux («tmux 3.4»).
+     * Имя внешнего терминала без tmux узнаётся здесь же XTVERSION-пробой; под
+     * tmux XTVERSION не шлём (ответил бы сам tmux, «tmux 3.4»), имя и сигналы ОС
+     * даёт {@link detectTmuxClient}.
      */
     public detect(): void {
         if (this.probeStarted) return;
         this.probeStarted = true;
-        if (this.baseModes.has("tmux")) {
-            void this.queryTmux().then((info) => {
-                this.noteOsSignals({ envPlatform: info.envPlatform, lcTerminal: info.lcTerminal });
-                this.noteTerminalName(info.termType);
-            });
-        } else {
+        if (!this.baseModes.has("tmux")) {
             this.backend.probeTerminalVersion((name) => {
                 this.noteTerminalName(name);
             });
@@ -185,6 +181,22 @@ export class TerminalEnvironmentService extends Disposable {
             if (tier === this.tierValue) return;
             this.tierValue = tier;
             this.emitChange();
+        });
+    }
+
+    /**
+     * Под tmux — имя внешнего терминала и сигналы ОС у самого tmux
+     * (`client_termtype` и переменные клиента); без tmux — no-op. Отдельно от
+     * {@link detect}, потому что опрос — спаун `tmux`, а синхронная часть спауна
+     * у процесса редактора стоит ~20 мс: старт зовёт это за первым кадром
+     * (`startWorkbench`), а не на пути к нему. Идемпотентен.
+     */
+    public detectTmuxClient(): void {
+        if (this.tmuxQueried || !this.baseModes.has("tmux")) return;
+        this.tmuxQueried = true;
+        void this.queryTmux().then((info) => {
+            this.noteOsSignals({ envPlatform: info.envPlatform, lcTerminal: info.lcTerminal });
+            this.noteTerminalName(info.termType);
         });
     }
 

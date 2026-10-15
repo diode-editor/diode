@@ -1,5 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness } from "../../TestUtils/AppTestHarness.ts";
 import type { ITempWorkspace } from "../../TestUtils/TempWorkspace.ts";
@@ -28,6 +28,7 @@ import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchCompone
 import { EditorServiceDIToken } from "../workbench/services/editor/common/editorService.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../workbench/services/notification/browser/notificationService.ts";
+import { TerminalEnvironmentServiceDIToken } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
 
 import { createTestContainer } from "./modules/testProfile.ts";
@@ -150,6 +151,7 @@ describe("startWorkbench", () => {
 
     it("проходит шаги и фазы в порядке старта; расширения и eventually — только после кадра с подсветкой", async () => {
         const startup = setup();
+        const tmuxProbe = vi.spyOn(startup.container.get(TerminalEnvironmentServiceDIToken), "detectTmuxClient");
 
         await startup.run(NO_TARGETS);
 
@@ -166,8 +168,10 @@ describe("startWorkbench", () => {
         startup.nextFrame();
         expect(startup.log.at(-1)).toBe("afterNextFrame");
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("restored");
-        // Второй (с подсветкой) — расширения, затем `eventually`.
+        expect(tmuxProbe).not.toHaveBeenCalled();
+        // Второй (с подсветкой) — опрос tmux, расширения, затем `eventually`.
         startup.nextFrame();
+        expect(tmuxProbe).toHaveBeenCalledOnce();
         expect(startup.log.slice(-2)).toEqual(["startExtensions", "phase:eventually"]);
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("eventually");
     });

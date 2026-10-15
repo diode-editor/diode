@@ -17,6 +17,7 @@ import { registerExtensionMenus } from "../workbench/services/extensions/common/
 import { registerExtensionViewFocusCommands } from "../workbench/services/extensions/common/extensionViewFocusCommands.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../workbench/services/notification/browser/notificationService.ts";
+import { TerminalEnvironmentServiceDIToken } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
 /**
  * То, что стартовая последовательность делает руками владельца процесса: у
@@ -98,6 +99,7 @@ export async function startWorkbench(
     const { targets } = options;
     const workbench = accessor.get(WorkbenchComponentDIToken);
     const lifecycle = accessor.get(LifecycleServiceDIToken);
+    const terminalEnv = accessor.get(TerminalEnvironmentServiceDIToken);
     const tokenizersHeld = accessor.get(TokenizationRegistryDIToken).hold();
 
     registerExtensionKeybindings(options.extensions, accessor.get(KeybindingRegistryDIToken), options.extensionsLogger);
@@ -181,6 +183,9 @@ export async function startWorkbench(
     host.afterNextFrame(() => {
         tokenizersHeld.dispose();
         host.afterNextFrame(() => {
+            // Опрос tmux (имя внешнего терминала, сигналы ОС) — спаун, как и
+            // extension host: синхронная часть стоит ~20 мс, поэтому за кадрами.
+            terminalEnv.detectTmuxClient();
             host.startExtensions();
             lifecycle.setPhase("eventually");
             mark("main:startup-complete");
