@@ -18,7 +18,7 @@ export NVM_DIR=/usr/local/share/nvm
 sudo apt-get update
 # tmux — рабочая оболочка для TUI: держит длинные сессии редактора и панели рядом с ним.
 # ncurses-term — полная terminfo-запись; без неё TUI внутри tmux разъезжаются.
-# build-essential и python3 — node-gyp. Под node 25 готовых сборок нативных
+# build-essential и python3 — node-gyp. Под node 26 готовых сборок нативных
 #   модулей (node-pty) ещё нет, они компилируются из исходников.
 sudo apt-get install -y --no-install-recommends \
 	tmux \

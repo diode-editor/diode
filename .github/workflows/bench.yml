@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '25'
+          node-version: '26.12.0'
 
       # node-pty собирается из исходников, если для текущей версии Node нет
       # prebuild (та же оговорка, что в ci.yml / e2e).
