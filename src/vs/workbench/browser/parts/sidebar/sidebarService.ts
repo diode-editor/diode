@@ -1,5 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKey, ContextKeyTypes } from "../../../../platform/contextkey/common/contextKeys.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -43,6 +44,10 @@ export class SidebarService implements IContextKeyContributor {
 
     private readonly viewlets = new Map<string, ISidebarViewlet>();
     private activeId: string | null = null;
+    private readonly onDidChangeActiveViewletEmitter = new Emitter<string>();
+
+    /** Смена активного вьюлета (id нового) — и стартовая установка, и команда показа. */
+    public readonly onDidChangeActiveViewlet = this.onDidChangeActiveViewletEmitter.event;
 
     public constructor(private readonly layout: LayoutService) {}
 
@@ -77,8 +82,10 @@ export class SidebarService implements IContextKeyContributor {
     public showViewlet(id: string, reveal = true): void {
         const viewlet = this.viewlets.get(id);
         if (viewlet === undefined) return;
+        const changed = this.activeId !== id;
         this.activeId = id;
         this.layout.setSidebarContent(viewlet.view);
+        if (changed) this.onDidChangeActiveViewletEmitter.fire(id);
         if (reveal) {
             this.layout.setSidebarVisible(true);
             viewlet.focus();

@@ -46,6 +46,11 @@ export interface IViewsHarness {
     readonly viewlets: string[];
     /** Вызовы `showViewlet` сайдбара: id и флаг reveal. */
     readonly shownViewlets: { id: string; reveal: boolean | undefined }[];
+    /**
+     * Показать вьюлет, как это делает команда (`showViewlet` сайдбара): кнопки
+     * заголовков ViewsService резолвит только у показанного контейнера.
+     */
+    showViewlet(containerId: string): void;
     /** Корневой контрол контейнера, отданный месту (сайдбару или панели). */
     root(containerId: string): TUIElement;
     /** Полоса контролов в таб-строке панели (`null` — контейнеру нечего показывать). */
@@ -63,13 +68,22 @@ export interface IViewsHarness {
 export function makeViewsHarness(contributions: readonly MenuContribution[] = []): IViewsHarness {
     const registered = new Map<string, { view: TUIElement; focus: () => void }>();
     const shownViewlets: { id: string; reveal: boolean | undefined }[] = [];
+    // Активный вьюлет — как у настоящего сервиса: от него зависит, считает ли
+    // ViewsService кнопки заголовков контейнера сейчас или при показе.
+    let activeViewlet: string | null = null;
+    const activeViewletEmitter = new Emitter<string>();
     const sidebar = {
         registerViewlet: (id: string, view: TUIElement, focus: () => void) => {
             registered.set(id, { view, focus });
         },
         showViewlet: (id: string, reveal?: boolean) => {
             shownViewlets.push({ id, reveal });
+            if (!registered.has(id) || activeViewlet === id) return;
+            activeViewlet = id;
+            activeViewletEmitter.fire(id);
         },
+        getActiveViewletId: () => activeViewlet,
+        onDidChangeActiveViewlet: activeViewletEmitter.event,
     } as unknown as SidebarService;
 
     const shown: IContextMenuDelegate[] = [];
@@ -137,6 +151,9 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
             return [...registered.keys()];
         },
         shownViewlets,
+        showViewlet: (containerId) => {
+            sidebar.showViewlet(containerId);
+        },
         root,
         focus: (containerId) => {
             // Как и root(): неизвестный контейнер — внятная ошибка, а не падение

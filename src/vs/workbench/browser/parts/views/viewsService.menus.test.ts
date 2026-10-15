@@ -68,6 +68,7 @@ function scmHarness(views = [CHANGES, GRAPH]): IViewsHarness {
         h.service.registerView(testView(id, "scm", (index + 1) * 10));
     });
     h.service.attachContainer("scm");
+    h.showViewlet("scm");
     return h;
 }
 
@@ -149,6 +150,7 @@ describe("ViewsService — inline-кнопки заголовка", () => {
         h.service.registerView(testView(CHANGES, "scm", 10));
         h.service.registerView(testView(GRAPH, "scm", 20));
         h.service.attachContainer("scm");
+        h.showViewlet("scm");
         const run = vi.fn();
         h.commands.register("scm.refreshChanges", run, "Refresh");
         expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
@@ -185,6 +187,7 @@ describe("ViewsService — inline-кнопки заголовка", () => {
 
         // И контейнер не «протух»: собранный позже, он получает свои кнопки.
         h.service.attachContainer("scm");
+        h.showViewlet("scm");
         expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
     });
 
@@ -347,5 +350,105 @@ describe("ViewsService — merged: меню контейнера уезжает 
 
         h.paneView("search").onDidRequestPaneMenu?.("search.results", { screenX: 0, screenY: 0 });
         expect(lastEntries(h)).toEqual([]);
+    });
+});
+
+// Как у эталона: тулбар заголовка создаётся только у открытого композита
+// (`CompositePart.createComposite` → `ViewPane.renderHeader`). Резолв меню
+// (when пунктов, `getKeybindingForCommand` на каждую кнопку) стоит дорого, а на
+// старте собраны все контейнеры при двух видимых, поэтому скрытый контейнер
+// кнопки не считает, а досчитывает при показе.
+describe("ViewsService — кнопки заголовка скрытого контейнера", () => {
+    function hiddenScm(contributions: MenuContribution[] = CONTRIBUTIONS): IViewsHarness {
+        const h = makeViewsHarness(contributions);
+        h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
+        h.service.registerView(testView(CHANGES, "scm", 10));
+        h.service.registerView(testView(GRAPH, "scm", 20));
+        return h;
+    }
+
+    it("непоказанный вьюлет меню не резолвит, показанный получает кнопки", () => {
+        const h = hiddenScm();
+        const resolve = vi.spyOn(h.menuService, "getEntryGroups");
+        h.service.attachContainer("scm");
+        h.service.refreshTitleActions();
+
+        expect(resolve).not.toHaveBeenCalled();
+        expect(buttonIcons(h, CHANGES)).toEqual([]);
+
+        h.showViewlet("scm");
+        expect(buttonIcons(h, CHANGES)).toEqual(["R"]);
+        expect(buttonIcons(h, GRAPH)).toEqual(["L"]);
+    });
+
+    it("смена ключей, пока вьюлет скрыт, видна сразу при показе", () => {
+        const h = hiddenScm([
+            {
+                menuId: MenuId.ViewTitle,
+                command: "scm.refreshChanges",
+                title: "Refresh",
+                icon: "R",
+                group: "navigation",
+                enablement: "!gitOperationInProgress",
+                visible: viewMenuVisible(CHANGES),
+            },
+        ]);
+        h.service.attachContainer("scm");
+        h.showViewlet("scm");
+        expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
+
+        h.service.registerContainer({ id: "explorer", title: "EXPLORER", location: "sidebar" });
+        h.service.registerView(testView("explorer.files", "explorer", 10));
+        h.service.attachContainer("explorer");
+        h.showViewlet("explorer");
+        h.contextKeys.set("gitOperationInProgress", true);
+        h.service.refreshTitleActions();
+        // Скрытый заголовок не трогали — в нём прежнее состояние.
+        expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
+
+        h.showViewlet("scm");
+        expect(buttonForegrounds(h, CHANGES)).toEqual(["disabledForeground"]);
+    });
+
+    it("повторный показ без изменений меню заново не резолвит", () => {
+        const h = hiddenScm();
+        h.service.attachContainer("scm");
+        h.showViewlet("scm");
+        h.service.registerContainer({ id: "explorer", title: "EXPLORER", location: "sidebar" });
+        h.service.registerView(testView("explorer.files", "explorer", 10));
+        h.service.attachContainer("explorer");
+        h.showViewlet("explorer");
+        const resolve = vi.spyOn(h.menuService, "getEntryGroups");
+
+        h.showViewlet("scm");
+        expect(resolve).not.toHaveBeenCalled();
+        expect(buttonIcons(h, CHANGES)).toEqual(["R"]);
+    });
+
+    it("неактивная вкладка панели получает полосу контролов, когда её делают активной", () => {
+        const h = makeViewsHarness([
+            {
+                menuId: MenuId.ViewTitle,
+                command: "output.clear",
+                title: "Clear",
+                icon: "C",
+                group: "navigation",
+                visible: viewMenuVisible("output.view"),
+            },
+        ]);
+        h.service.registerContainer({ id: "problems", title: "PROBLEMS", location: "panel", order: 0 });
+        h.service.registerView(testView("problems.view", "problems", 10));
+        h.service.registerContainer({ id: "output", title: "OUTPUT", location: "panel", order: 1 });
+        h.service.registerView(testView("output.view", "output", 10));
+        h.service.attachRegisteredContainers();
+        // Первая вкладка панели активна — вторая собрана, но не показана.
+        expect(h.panelService.getActiveViewId()).toBe("problems");
+        expect(h.tabActions("output")).toBeNull();
+
+        h.panelService.setActiveView("output");
+        expect(h.tabActions("output")).not.toBeNull();
+        const strip = h.tabActions("output")!;
+        const texts = strip.querySelectorAll("TextLabelElement").map((l) => (l as TextLabelElement).getText().trim());
+        expect(texts).toContain("C");
     });
 });

@@ -182,6 +182,12 @@ interface ContainerEntry {
     stack: VFlexElement | null;
     /** Что отдано месту (стопка в сайдбаре, сам PaneView в панели); null — не приаттачен. */
     view: TUIElement | null;
+    /**
+     * Кнопки заголовков не пересчитаны с прошлого изменения: контейнер в тот
+     * момент не был показан. Досчитываются, когда его покажут (см.
+     * {@link ViewsService.refreshContainerTitleActions}).
+     */
+    titleActionsStale: boolean;
 }
 
 /**
@@ -267,6 +273,14 @@ export class ViewsService {
         // состояние сам); здесь — Open Folder на уже собранном сайдбаре.
         stateService.onDidOpenWorkspace(() => {
             this.restoreViewsState();
+        });
+        // Показанный контейнер досчитывает кнопки заголовков, пропущенные, пока
+        // его не было видно.
+        sidebarService.onDidChangeActiveViewlet((id) => {
+            this.refreshStaleTitleActions(id);
+        });
+        panelService.onDidChangeActiveView((id) => {
+            this.refreshStaleTitleActions(id);
         });
     }
 
@@ -749,22 +763,38 @@ export class ViewsService {
         }
     }
 
-    /** Пере-резолвит inline-кнопки заголовков контейнера и его видимых секций. */
+    /**
+     * Пере-резолвит inline-кнопки заголовков контейнера и его видимых секций —
+     * только у показанного контейнера: активного вьюлета сайдбара или активной
+     * вкладки панели. Остальным достаточно пометки: резолв меню — самая дорогая
+     * часть сборки заголовка (`when` пунктов, `getKeybindingForCommand` на
+     * каждую кнопку), а скрытый заголовок никто не видит. Как у эталона: тулбар
+     * заголовка создаётся в `ViewPane.renderHeader`, то есть только у открытого
+     * композита (`CompositePart.createComposite`), и его меню слушает контекст,
+     * пока тулбар жив.
+     */
     private refreshContainerTitleActions(entry: ContainerEntry): void {
+        const shown = this.isShown(entry);
+        entry.titleActionsStale = !shown;
         const paneView = attached(entry).paneView;
         const headerViewId = this.headerTargetView(entry);
         for (const record of this.visibleViews(entry)) {
-            paneView.setPaneActions(record.id, inlineActions(this.viewTitleGroups(record.id)));
+            if (shown) {
+                paneView.setPaneActions(record.id, inlineActions(this.viewTitleGroups(record.id)));
+                // Пустое меню кнопкой не показываем: «⋯», которая ничего не
+                // открывает, выглядит как сломанная (так было у Explorer'а).
+                paneView.setPaneMenuVisible(record.id, this.paneMenuPossible(entry, record.id));
+            }
+            // Виджет и спиннер ставятся и скрытому контейнеру: они ничего не
+            // резолвят, а в момент показа кадр спиннера уже должен стоять.
             // Виджет уехавшей в таб-строку секции забирает заголовок контейнера —
             // у контрола один родитель, держать его в двух местах нельзя.
             paneView.setPaneTitleWidget(record.id, record.id === headerViewId ? null : record.titleWidget);
-            // Пустое меню кнопкой не показываем: «⋯», которая ничего не
-            // открывает, выглядит как сломанная (так было у Explorer'а).
-            paneView.setPaneMenuVisible(record.id, this.paneMenuPossible(entry, record.id));
             // Заголовки только что пересоздались — вернуть им кадр спиннера,
             // иначе операция, начатая до пересборки, теряет индикацию.
             this.applySpinner(entry, record);
         }
+        if (!shown) return;
         // Заголовок создан в attachContainer до первой пересборки секций.
         const header = attached(entry).header;
         const actions = inlineActions(this.titleGroups(entry));
@@ -781,6 +811,26 @@ export class ViewsService {
         // Stryker disable next-line OptionalChaining: до этого операнда цепочка доходит только при `!hasMenu`, а он ложен ровно тогда, когда секций 2+ и headerRecord пуст — то есть здесь запись всегда есть
         const empty = actions.length === 0 && widget === null && !hasMenu && headerRecord?.spinner == null;
         this.panelService.setViewActions(attached(entry).descriptor.id, empty ? null : header);
+    }
+
+    /** Контейнер стал показан — досчитать кнопки, пропущенные, пока он был скрыт. */
+    private refreshStaleTitleActions(containerId: string): void {
+        const entry = this.containers.get(containerId);
+        if (entry?.paneView == null || !entry.titleActionsStale) return;
+        this.refreshContainerTitleActions(entry);
+    }
+
+    /**
+     * Показан ли контейнер в своём месте: активный вьюлет сайдбара или активная
+     * вкладка панели. Видимость самого сайдбара и панели не учитывается — это
+     * один контейнер на место, а её смена идёт мимо этих сервисов (Ctrl+B,
+     * восстановление layout'а).
+     */
+    private isShown(entry: ContainerEntry): boolean {
+        const id = attached(entry).descriptor.id;
+        return this.isPanel(entry)
+            ? this.panelService.getActiveViewId() === id
+            : this.sidebarService.getActiveViewletId() === id;
     }
 
     /**
@@ -839,6 +889,7 @@ export class ViewsService {
                 header: null,
                 stack: null,
                 view: null,
+                titleActionsStale: false,
             };
             this.containers.set(containerId, entry);
         }
