@@ -1455,6 +1455,29 @@ export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
     };
 }
 
+/** `window.registerUriHandler` / `unregisterUriHandler`: чей обработчик URI. */
+export interface IWireUriHandlerRegistration {
+    readonly extensionId: string;
+}
+
+/** `window.handleUri`: URI (строкой) для обработчика расширения `extensionId`. */
+export interface IWireHandleUri {
+    readonly extensionId: string;
+    readonly uri: string;
+}
+
+/** Разбирает запрос `window.handleUri`; без строковых полей — ошибка запроса. */
+export function parseWireHandleUri(raw: unknown): IWireHandleUri {
+    const { extensionId, uri } = (typeof raw === "object" && raw !== null ? raw : {}) as {
+        extensionId?: unknown;
+        uri?: unknown;
+    };
+    if (typeof extensionId !== "string" || typeof uri !== "string") {
+        throw new Error("window.handleUri: extensionId and uri must be strings");
+    }
+    return { extensionId, uri };
+}
+
 /** Ответ хоста на `env.openExternal` (запрос — {@link IWireUriParams}). */
 export interface IWireOpenExternalResult {
     readonly opened: boolean;

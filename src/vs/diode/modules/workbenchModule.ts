@@ -21,6 +21,7 @@ import {
 import { type ContainerModule, ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
+import { URLService, URLServiceDIToken } from "../../platform/url/common/url.ts";
 import { IUserDataProfilesServiceDIToken } from "../../platform/userDataProfile/common/userDataProfile.ts";
 import {
     LanguageFeatureContextKeys,
@@ -388,6 +389,9 @@ export const workbenchModule: ContainerModule = (container) => {
             },
         });
     });
+    // URL продукта (`diode://…`): цепочка обработчиков — URI расширений
+    // подключает сервис расширений, источник — `Developer: Open URL`.
+    container.bind(URLServiceDIToken, URLService);
     // Shutdown-протокол: confirm-save участников (WorkbenchComponent записывает
     // EditorService) и единое прощание — участники подписываются там, где создаются.
     container.bind(LifecycleServiceDIToken, LifecycleService);

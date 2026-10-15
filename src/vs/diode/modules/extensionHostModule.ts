@@ -16,6 +16,7 @@ import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
+import { URLServiceDIToken } from "../../platform/url/common/url.ts";
 import type { IWorkspaceContextService } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
@@ -49,9 +50,15 @@ import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/brows
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
+import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
+import {
+    CONFIRMED_URI_HANDLER_EXTENSION_IDS_SETTING,
+    ExtensionUrlHandler,
+    installedExtensionDisplayName,
+} from "../../workbench/services/extensions/common/extensionUrlHandler.ts";
 import {
     ExtensionHost,
     ExtensionHostDIToken,
@@ -443,6 +450,34 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             });
         });
         // Stryker restore CallExpression,BlockStatement,StringLiteral
+
+        // URL расширениям (`diode://<id>/…`, `window.registerUriHandler`):
+        // доверие, буфер до активации и `onUri:<id>` — в ExtensionUrlHandler.
+        // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression: production-проводка модуля — решения живут в `ExtensionUrlHandler`/`installedExtensionDisplayName` и закрыты юнитами, сквозняк — e2e-сценарий extension-uri-handler
+        const host = container.get(ExtensionHostDIToken);
+        const notifications = container.get(NotificationServiceDIToken);
+        const urlHandler = new ExtensionUrlHandler({
+            handlers: host.uriHandlers,
+            activateByEvent: (event) => service.activateByEvent(event),
+            extensionDisplayName: (id) => installedExtensionDisplayName(ctx.extensions, id),
+            confirm: (message) =>
+                container
+                    .get(DialogServiceDIToken)
+                    .confirm({ title: "Open URI", message, confirmLabel: "Open", defaultButton: "confirm" }),
+            confirmedExtensionIds: () =>
+                container.get(IConfigurationServiceDIToken).get(CONFIRMED_URI_HANDLER_EXTENSION_IDS_SETTING),
+            notifyNotInstalled: (id) => {
+                notifications.show({
+                    severity: "warn",
+                    message: `Extension '${id}' is not installed, so it cannot open this URI.`,
+                    modal: false,
+                    items: [],
+                });
+            },
+            logger,
+        });
+        container.get(URLServiceDIToken).registerHandler(urlHandler);
+        // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression
 
         return service;
     });

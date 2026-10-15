@@ -45,7 +45,7 @@ export async function toExtensionRegistration(
         commandCategories: commandMeta.categories,
         // Полный набор — объявленные плюс неявные (`contributes.commands` /
         // `languages`): хост дальше только сравнивает строки.
-        activationEvents: computeActivationEvents(ext.manifest),
+        activationEvents: computeActivationEvents(ext.manifest, ext.id),
     };
     if (ext.isBuiltin) {
         const virtualPath = joinVirtualPath(ext.location, main);

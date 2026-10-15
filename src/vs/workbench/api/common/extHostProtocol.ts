@@ -54,6 +54,7 @@ import type {
     IWireFileDecorationsChanged,
     IWireFoldingParams,
     IWireFormattingParams,
+    IWireHandleUri,
     IWireHoverParams,
     IWireInlineCompletionParams,
     IWireInputBoxRequest,
@@ -107,6 +108,7 @@ import type {
     IWireTerminalShow,
     IWireTerminalTarget,
     IWireTextContentResult,
+    IWireUriHandlerRegistration,
     IWireUriParams,
     IWireValidationMessage,
     IWireWatcherCreate,
@@ -178,6 +180,8 @@ export interface IHostToSubprocess {
         readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
 
         readonly "window.inputBox.validate": readonly [IWireInputBoxValidate, IWireValidationMessage | null];
+        /** URI обработчику расширения (`$handleExternalUri`): ответ — когда обработчик отработал. */
+        readonly "window.handleUri": readonly [IWireHandleUri, null];
 
         /** Задачи провайдера расширения (`$provideTasks`). */
         readonly "tasks.provideTasks": readonly [IWireTaskProviderHandle, IWireTask[]];
@@ -300,6 +304,8 @@ export interface ISubprocessToHost {
         readonly "window.disposeTextEditorDecorationType": IWireDisposeDecorationType;
         readonly "window.fileDecorationsChanged": IWireFileDecorationsChanged;
         readonly "window.quickInput.cancel": IWireQuickInputCancel;
+        readonly "window.registerUriHandler": IWireUriHandlerRegistration;
+        readonly "window.unregisterUriHandler": IWireUriHandlerRegistration;
 
         readonly "output.append": IWireOutputAppend;
         readonly "output.show": IWireOutputShow;

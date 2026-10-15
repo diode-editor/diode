@@ -1,6 +1,6 @@
 # Интеграция с Claude Code: стоковое расширение в терминальном режиме
 
-Статус: **в работе** — пункт 1 (API-члены) сделан, дальше `registerUriHandler`, `environmentVariableCollection`, запись в магазине. Родственные документы:
+Статус: **в работе** — пункт 1 (API-члены и `registerUriHandler`) сделан, дальше `environmentVariableCollection`, запись в магазине. Родственные документы:
 [VISION.md](../VISION.md) (направления B и C), [IntegratedTerminal.md](IntegratedTerminal.md),
 [DiffEditable.md](DiffEditable.md), [Marketplace.md](Marketplace.md),
 матрица [API-COVERAGE.md](../public/API-COVERAGE.md).
@@ -75,9 +75,13 @@ diagnostic client»). Белого списка имён IDE в CLI нет: ва
       — семенем `env.initialize` до первой активации.
 - [x] Дефолт `claudeCode.useTerminal = true` курируемой инъекцией; id в
       `curatedConfigInjection` теперь сравнивается без учёта регистра.
-- [ ] `window.registerUriHandler` — не no-op, а настоящий: обработчик по
-      `diode://<publisher.name>/…`, активация `onUri`, команда Open URL
-      (`workbench.action.url.openUrl` эталона). Отдельный PR.
+- [x] `window.registerUriHandler` — настоящий, по эталону (`ExtHostUrls` +
+      `ExtensionUrlHandler`): обработчик по `diode://<publisher.name>/…`, буфер
+      до активации и `onUri:<id>`, вопрос человеку с доверием через
+      `extensions.confirmedUriHandlerExtensionIds`, источник — `Developer: Open URL`
+      (`workbench.action.url.openUrl`). Без галочки «больше не спрашивать» и без
+      установки отсутствующего расширения (отступления — в матрице). Протокол ОС
+      и `--open-url` не подключены: у TUI нет регистрации `diode://` в системе.
 - [ ] Запись `Anthropic.claude-code` в реестр магазина (платформенные vsix,
       ~120 МБ — лимиты валидатора см. [JavaLSP.md](JavaLSP.md)). Без неё
       стоковый e2e-сценарий не скачать через `fetchStockVsix`.

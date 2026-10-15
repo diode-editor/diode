@@ -32,6 +32,7 @@ export const OWNED_MEMBERS = {
         "createStatusBarItem",
         "createTextEditorDecorationType",
         "registerFileDecorationProvider",
+        "registerUriHandler",
     ],
     languages: [
         "createDiagnosticCollection",

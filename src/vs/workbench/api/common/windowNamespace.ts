@@ -14,6 +14,7 @@ import { createQuickInputApi } from "./quickInputNamespace.ts";
 import { createStatusBarMessage } from "./statusBarMessage.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
 import { createTreeViewNoopMembers } from "./treeViewNoop.ts";
+import { createUriHandlers } from "./uriHandlers.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     ColorThemeKind,
@@ -897,6 +898,10 @@ export function createWindowNamespace(
         onDidChangeTerminalShellIntegration: new EventEmitter<vscode.TerminalShellIntegrationChangeEvent>().event,
         onDidStartTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionStartEvent>().event,
         onDidEndTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionEndEvent>().event,
+
+        // Обработчик URI расширения (`diode://<id расширения>/...`): держит
+        // субпроцесс, доверие и доставку решает хост — см. uriHandlers.ts.
+        registerUriHandler: createUriHandlers(rpc, owner),
 
         // Настоящий output-канал: строки уезжают хосту (`output.append`) и
         // попадают в панель Output отдельным каналом с label = name (мост —

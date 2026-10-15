@@ -41,6 +41,7 @@
     "workbench.profiles.actions.switchProfile",
     "workbench.profiles.actions.createProfile",
     "workbench.profiles.actions.deleteProfile",
+    "workbench.action.url.openUrl",
     "workbench.action.editor.changeEncoding",
     "workbench.action.editor.changeEOL",
     "cursorLeft",

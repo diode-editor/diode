@@ -100,6 +100,8 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "task.quickOpen.skip": "window",
     "task.saveBeforeRun": "window",
     "task.verboseLogging": "window",
+    // Доверие обработчикам URI — на всю установку, как у эталона.
+    "extensions.confirmedUriHandlerExtensionIds": "application",
 };
 
 const registered = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();

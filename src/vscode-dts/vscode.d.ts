@@ -987,6 +987,30 @@ declare module "vscode" {
 		 * @returns a {@link TreeView}.
 		 */
 		export function createTreeView<T>(viewId: string, options: TreeViewOptions<T>): TreeView<T>;
+
+		/**
+		 * Registers a {@link UriHandler uri handler} capable of handling system-wide {@link Uri uris}.
+		 * In case there are multiple windows open, the topmost window will handle the uri.
+		 * A uri handler is scoped to the extension it is contributed from; it will only
+		 * be able to handle uris which are directed to the extension itself. A uri must respect
+		 * the following rules:
+		 *
+		 * - The uri-scheme must be `vscode.env.uriScheme`;
+		 * - The uri-authority must be the extension id (e.g. `my.extension`);
+		 * - The uri-path, -query and -fragment parts are arbitrary.
+		 *
+		 * For example, if the `my.extension` extension registers a uri handler, it will only
+		 * be allowed to handle uris with the prefix `product-name://my.extension`.
+		 *
+		 * An extension can only register a single uri handler in its entire activation lifetime.
+		 *
+		 * * *Note:* There is an activation event `onUri` that fires when a uri directed for
+		 * the current extension is about to be handled.
+		 *
+		 * @param handler The uri handler to register for this extension.
+		 * @returns A {@link Disposable disposable} that unregisters the handler.
+		 */
+		export function registerUriHandler(handler: UriHandler): Disposable;
 	}
 
 	/**
@@ -1004,6 +1028,21 @@ declare module "vscode" {
 		 * immediately on activity, or after a short time of user inactivity.
 		 */
 		readonly active: boolean;
+	}
+
+	/**
+	 * A uri handler is responsible for handling system-wide {@link Uri uris}.
+	 *
+	 * @see {@link window.registerUriHandler}.
+	 */
+	export interface UriHandler {
+
+		/**
+		 * Handle the provided system-wide {@link Uri}.
+		 *
+		 * @see {@link window.registerUriHandler}.
+		 */
+		handleUri(uri: Uri): ProviderResult<void>;
 	}
 
 	/**

@@ -98,6 +98,7 @@ import {
     readWorkspaceContainsPatterns,
 } from "../common/activationEvents.ts";
 import type { IExtensionHostCustomer } from "../common/extensionHostCustomer.ts";
+import type { IExtensionUriHandlers } from "../common/extensionUrlHandler.ts";
 
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
@@ -114,6 +115,7 @@ import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.t
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
+import { UriHandlersCustomer } from "./customers/uriHandlersCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { ExtensionPhases } from "./extensionPhases.ts";
@@ -477,6 +479,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly env: EnvCustomer;
     /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
     private readonly fileSystem: FileSystemCustomer;
+    /** Обработчики URI расширений (`window.registerUriHandler`). */
+    private readonly uriHandlersCustomer: UriHandlersCustomer;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
     private readonly storageHomes: () => IExtensionStorageHomes;
     /** Хранилище memento расширений (`globalState` / `workspaceState`). */
@@ -532,6 +536,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.commands = new CommandsCustomer(commandService, (event) => this.activateByEvent(event), this.logger);
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
         this.terminals = new TerminalCustomer(options.terminalSink);
+        this.uriHandlersCustomer = this.register(new UriHandlersCustomer());
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
@@ -560,6 +565,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             }),
             this.terminals,
             new TasksCustomer(options.taskSink),
+            this.uriHandlersCustomer,
         ];
     }
 
@@ -1250,6 +1256,11 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     /** Провайдер объявил, что содержимое недискового ресурса изменилось. */
     public get onDidChangeTextContent(): Event<Uri> {
         return this.fileSystem.onDidChangeTextContent;
+    }
+
+    /** Обработчики URI расширений: реестр спавна и доставка (см. UriHandlersCustomer). */
+    public get uriHandlers(): IExtensionUriHandlers {
+        return this.uriHandlersCustomer;
     }
 
     public hasExtension(id: string): boolean {
