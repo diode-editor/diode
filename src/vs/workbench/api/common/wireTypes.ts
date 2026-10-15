@@ -8,6 +8,14 @@ import type {
     SignatureHelpTriggerKind,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
+import {
+    EnvironmentVariableMutatorType,
+    type IEnvironmentVariableCollectionDescription,
+    type IEnvironmentVariableMutator,
+    type IEnvironmentVariableScope,
+    type SerializableEnvironmentDescriptionMap,
+    type SerializableEnvironmentVariableCollection,
+} from "../../../platform/terminal/common/environmentVariable.ts";
 
 /**
  * Wire-форма правки save-участника (subprocess → host). Либо замена текста в
@@ -1453,6 +1461,110 @@ export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
         machineId: typeof machineId === "string" ? machineId : "",
         shell: typeof shell === "string" ? shell : "",
     };
+}
+
+// ─── Коллекции переменных окружения расширений ──────────────────────────────
+
+/** `terminal.initEnvironmentVariableCollections`: коллекции, которые хост хранит, по расширениям. */
+export interface IWireEnvironmentVariableCollections {
+    readonly collections: readonly (readonly [string, SerializableEnvironmentVariableCollection])[];
+}
+
+/** `terminal.setEnvironmentVariableCollection`: коллекция расширения целиком; без `collection` — пустая. */
+export interface IWireSetEnvironmentVariableCollection {
+    readonly extensionId: string;
+    readonly persistent: boolean;
+    readonly collection?: SerializableEnvironmentVariableCollection;
+    readonly description: SerializableEnvironmentDescriptionMap;
+}
+
+const MUTATOR_TYPES: readonly number[] = [
+    EnvironmentVariableMutatorType.Replace,
+    EnvironmentVariableMutatorType.Append,
+    EnvironmentVariableMutatorType.Prepend,
+];
+
+function parseWireEnvironmentScope(raw: unknown): IEnvironmentVariableScope | undefined | null {
+    if (raw === undefined) return undefined;
+    if (typeof raw !== "object" || raw === null) return null;
+    const folder = (raw as { workspaceFolder?: unknown }).workspaceFolder;
+    if (folder === undefined) return {};
+    const { uri, name, index } = (typeof folder === "object" && folder !== null ? folder : {}) as {
+        uri?: unknown;
+        name?: unknown;
+        index?: unknown;
+    };
+    if (typeof uri !== "string" || typeof name !== "string" || typeof index !== "number") return null;
+    return { workspaceFolder: { uri, name, index } };
+}
+
+/** Мутатор с провода; структурно чужой — `null` (запись отбрасывается). */
+export function parseWireEnvironmentVariableMutator(raw: unknown): IEnvironmentVariableMutator | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const { variable, value, type, options, scope } = raw as Record<string, unknown>;
+    if (typeof variable !== "string" || typeof value !== "string" || typeof type !== "number") return null;
+    if (!MUTATOR_TYPES.includes(type)) return null;
+    const parsedScope = parseWireEnvironmentScope(scope);
+    if (parsedScope === null) return null;
+    const { applyAtProcessCreation, applyAtShellIntegration } = (
+        typeof options === "object" && options !== null ? options : {}
+    ) as { applyAtProcessCreation?: unknown; applyAtShellIntegration?: unknown };
+    return {
+        variable,
+        value,
+        type: type as EnvironmentVariableMutatorType,
+        options: {
+            ...(typeof applyAtProcessCreation === "boolean" ? { applyAtProcessCreation } : {}),
+            ...(typeof applyAtShellIntegration === "boolean" ? { applyAtShellIntegration } : {}),
+        },
+        ...(parsedScope === undefined ? {} : { scope: parsedScope }),
+    };
+}
+
+/** Записи коллекции `[ключ, мутатор]`; чужие записи отбрасываются. */
+export function parseWireEnvironmentVariableEntries(raw: unknown): [string, IEnvironmentVariableMutator][] {
+    if (!Array.isArray(raw)) return [];
+    const entries: [string, IEnvironmentVariableMutator][] = [];
+    for (const entry of raw as unknown[]) {
+        if (!Array.isArray(entry) || typeof entry[0] !== "string") continue;
+        const mutator = parseWireEnvironmentVariableMutator(entry[1]);
+        if (mutator !== null) entries.push([entry[0], mutator]);
+    }
+    return entries;
+}
+
+/** Разбирает семя `terminal.initEnvironmentVariableCollections`. */
+export function parseWireEnvironmentVariableCollections(
+    raw: unknown,
+): [string, [string, IEnvironmentVariableMutator][]][] {
+    const collections = (raw as { collections?: unknown } | null)?.collections;
+    if (!Array.isArray(collections)) return [];
+    const result: [string, [string, IEnvironmentVariableMutator][]][] = [];
+    for (const entry of collections as unknown[]) {
+        if (!Array.isArray(entry) || typeof entry[0] !== "string") continue;
+        result.push([entry[0], parseWireEnvironmentVariableEntries(entry[1])]);
+    }
+    return result;
+}
+
+/** Описания коллекции `[ключ области, описание]`; чужие записи отбрасываются. */
+export function parseWireEnvironmentDescriptions(raw: unknown): [string, IEnvironmentVariableCollectionDescription][] {
+    if (!Array.isArray(raw)) return [];
+    const result: [string, IEnvironmentVariableCollectionDescription][] = [];
+    for (const entry of raw as unknown[]) {
+        if (!Array.isArray(entry) || typeof entry[0] !== "string") continue;
+        const { description, scope } = (typeof entry[1] === "object" && entry[1] !== null ? entry[1] : {}) as {
+            description?: unknown;
+            scope?: unknown;
+        };
+        const parsedScope = parseWireEnvironmentScope(scope);
+        if (parsedScope === null) continue;
+        result.push([
+            entry[0],
+            { description: typeof description === "string" ? description : undefined, scope: parsedScope },
+        ]);
+    }
+    return result;
 }
 
 /** `window.registerUriHandler` / `unregisterUriHandler`: чей обработчик URI. */

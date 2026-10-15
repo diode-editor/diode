@@ -45,7 +45,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 208/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 214/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
@@ -303,7 +303,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## Типы с неполной поверхностью
 
-Активно 208 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 214 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.
@@ -316,7 +316,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `TerminalOptions` | 12/13 | `iconPath` |
 | `TreeViewOptions` | 4/5 | `dragAndDropController` (drag-and-drop в TUI нет) |
 | `ExtensionTerminalOptions` | 6/7 | `iconPath` |
-| `ExtensionContext` | 15/17 | `environmentVariableCollection`, `languageModelAccessInformation`. Из активных: `extension` — запись самого расширения из каталога `vscode.extensions` (телеметрии читают по ней `packageJSON.version`); `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
+| `ExtensionContext` | 16/17 | `languageModelAccessInformation`. Из активных: `environmentVariableCollection` — см. [семантические отклонения](#семантические-отклонения); `extension` — запись самого расширения из каталога `vscode.extensions` (телеметрии читают по ней `packageJSON.version`); `globalState`/`workspaceState` переживают перезапуск (хранилище на хосте); `globalState.setKeysForSync` — осознанный no-op (Settings Sync нет) |
 | `WorkspaceEdit` | 11/11 | — |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
 | `FileStat` | 4/5 | `permissions` |
@@ -336,6 +336,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `vscode.version` | возвращает версию **diode**, а не VS Code |
 | `Event<T>` | подписки оборачиваются собственным эмиттером хоста |
 | `TextEditorOptions.indentSize` | алиасится к `tabSize` — diode пока их не различает |
+| `environmentVariableCollection` | API целиком (`replace`/`append`/`prepend`, `get`, `forEach`, итерация, `delete`, `clear`, `description`, `persistent`, `getScoped` по папке). Коллекции всех расширений сливаются, как в эталоне (Replace отсекает остальные, порядок — обратный заведению), и ложатся на окружение **каждого** процесса терминала: шеллов человека, терминалов расширений и задач, в том числе при перезапуске терминала задачи; терминал со `strictEnv` их не получает. Область папки — по папке cwd терминала, иначе по корню воркспейса. `persistent` коллекции хранятся в состоянии воркспейса (`terminal.integrated.environmentVariableCollectionsV2`) и приезжают расширению уже в `activate()`; коллекции удалённых расширений забываются. **Отступления:** `applyAtShellIntegration` никуда не уходит (shell integration нет — переменные `VSCODE_ENV_*` некому читать); нет индикатора «окружение терминала устарело» и перезапуска по `terminal.integrated.environmentChangesRelaunch` — новые значения получает следующий процесс; переменные `${…}` в значениях не разворачиваются |
 | `SecretStorage` | **без шифрования**: связки ключей ОС у нас нет, секреты лежат открытым текстом в `<profileDir>/secrets.json` под правами `0600`. Всё остальное по контракту — `get`/`store`/`delete`/`keys` работают, `onDidChange` стреляет и на запись, и на удаление, значения переживают перезапуск и у каждого расширения свой лоток |
 | `Extension.extensionKind` | всегда `ExtensionKind.UI` — ровно как предписывает upstream, когда удалённого extension host'а нет (а в Diode его нет и не будет) |
 | `Extension.activate()` | у **уже активного** расширения отдаёт его `exports`, у неактивного — отклоняется с объяснением. Активацией распоряжается хост (события активации, per-extension изоляция, оживление после смерти субпроцесса); «субпроцесс просит хост поднять соседа» — отдельная задача со своим RPC |

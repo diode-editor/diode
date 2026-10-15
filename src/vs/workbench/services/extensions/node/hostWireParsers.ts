@@ -13,6 +13,10 @@ import type {
 } from "../../../../editor/common/languages/iSemanticTokensSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type {
+    IEnvironmentVariableCollectionDescription,
+    IEnvironmentVariableMutator,
+} from "../../../../platform/terminal/common/environmentVariable.ts";
+import type {
     IWireShellQuotedString,
     IWireShellQuotingOptions,
     IWireTask,
@@ -64,6 +68,8 @@ import {
     type IWireWatcherCreate,
     type IWireWorkspaceEditOp,
     parseRange,
+    parseWireEnvironmentDescriptions,
+    parseWireEnvironmentVariableEntries,
     parseWireSecretRef,
     parseWireSelections,
     parseWireStringArray,
@@ -630,6 +636,26 @@ export function parseWireSchemes(raw: unknown): string[] {
     const schemes = (raw as { schemes?: unknown } | null)?.schemes;
     if (!Array.isArray(schemes)) return [];
     return schemes.filter((s): s is string => typeof s === "string");
+}
+
+// ─── Коллекции окружения расширений ─────────────────────────────────────────
+
+/** Разбирает `terminal.setEnvironmentVariableCollection`; без id — `null`, без записей — пустая коллекция. */
+export function parseWireSetEnvironmentVariableCollection(raw: unknown): {
+    extensionId: string;
+    persistent: boolean;
+    collection: [string, IEnvironmentVariableMutator][];
+    description: [string, IEnvironmentVariableCollectionDescription][];
+} | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const { extensionId, persistent, collection, description } = raw as Record<string, unknown>;
+    if (typeof extensionId !== "string" || extensionId === "") return null;
+    return {
+        extensionId,
+        persistent: persistent !== false,
+        collection: parseWireEnvironmentVariableEntries(collection),
+        description: parseWireEnvironmentDescriptions(description),
+    };
 }
 
 // ─── Обработчики URI расширений ─────────────────────────────────────────────

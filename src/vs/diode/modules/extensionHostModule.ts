@@ -7,6 +7,7 @@ import { ConfigurationRegistryDIToken } from "../../platform/configuration/commo
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
+import { extensionKey } from "../../platform/extensions/common/extensionDependencies.ts";
 import type { IExtension } from "../../platform/extensions/common/iExtension.ts";
 import { IFileServiceDIToken } from "../../platform/files/common/files.ts";
 import { ITreeFileWatcherDIToken } from "../../platform/files/common/iTreeFileWatcherDIToken.ts";
@@ -49,6 +50,7 @@ import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskSe
 import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
+import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/terminal/common/environmentVariableService.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
@@ -334,6 +336,9 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // createTerminal расширений → инстансы встроенного терминала; жизнь
             // всех инстансов (и шеллов человека) — обратно в `window.terminals`.
             terminalSink: terminals(),
+            // `environmentVariableCollection` расширений → сервис ядра; его
+            // слияние ложится на окружение каждого процесса терминала.
+            environmentVariableCollections: container.get(EnvironmentVariableServiceDIToken),
             // vscode.tasks: провайдеры и исполнение — сервис задач ядра; жизнь
             // задач (и запущенных из палитры) — обратно расширениям.
             taskSink: new ExtensionTaskAdapter(
@@ -450,6 +455,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             });
         });
         // Stryker restore CallExpression,BlockStatement,StringLiteral
+
+        // Коллекции окружения удалённых расширений забываются, как только
+        // известен состав установленных (`_invalidateExtensionCollections` эталона).
+        // Stryker disable next-line ArrowFunction,MethodExpression: production-проводка модуля — решение живёт в `EnvironmentVariableService.setInstalledExtensions` и закрыто юнитами
+        container
+            .get(EnvironmentVariableServiceDIToken)
+            .setInstalledExtensions((id) => ctx.extensions.some((ext) => extensionKey(ext.id) === extensionKey(id)));
 
         // URL расширениям (`diode://<id>/…`, `window.registerUriHandler`):
         // доверие, буфер до активации и `onUri:<id>` — в ExtensionUrlHandler.

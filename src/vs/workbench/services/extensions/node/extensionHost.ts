@@ -56,6 +56,7 @@ import {
 } from "../../../../platform/extensions/common/extensionDependencies.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import type { IEnvironmentVariableCollectionStore } from "../../../../platform/terminal/common/environmentVariable.ts";
 import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IDocumentSyncTarget } from "../../../api/common/iDocumentSyncTarget.ts";
@@ -110,6 +111,10 @@ import {
     fallbackExtensionHostEnvironment,
     type IExtensionHostEnvironment,
 } from "./customers/envCustomer.ts";
+import {
+    createInMemoryEnvironmentVariableCollectionStore,
+    EnvironmentVariableCollectionsCustomer,
+} from "./customers/environmentVariableCollectionsCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
@@ -284,6 +289,11 @@ export interface IExtensionHostOptions {
      * `onDidOpenTerminal` не стреляет и список пуст.
      */
     readonly terminalSink?: IExtensionTerminalSink;
+    /**
+     * Хранилище коллекций окружения расширений (`environmentVariableCollection`):
+     * их применяет к окружению терминалов сервис ядра. Без него — в памяти.
+     */
+    readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     /**
      * Сток задач расширений (`vscode.tasks`: провайдеры, `fetchTasks`,
      * `executeTask`, события исполнений) — мост к сервису задач ядра. Если не
@@ -476,6 +486,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     /** Команды расширений в реестре ядра: прокси спавна и заглушки-активаторы. */
     private readonly commands: CommandsCustomer;
     private readonly terminals: TerminalCustomer;
+    /** Коллекции окружения расширений: в хранилище ядра и семенем обратно. */
+    private readonly environmentVariableCollections: EnvironmentVariableCollectionsCustomer;
     private readonly env: EnvCustomer;
     /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
     private readonly fileSystem: FileSystemCustomer;
@@ -536,6 +548,9 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.commands = new CommandsCustomer(commandService, (event) => this.activateByEvent(event), this.logger);
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
         this.terminals = new TerminalCustomer(options.terminalSink);
+        this.environmentVariableCollections = new EnvironmentVariableCollectionsCustomer(
+            options.environmentVariableCollections ?? createInMemoryEnvironmentVariableCollectionStore(),
+        );
         this.uriHandlersCustomer = this.register(new UriHandlersCustomer());
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
@@ -564,6 +579,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 notificationSink: options.notificationSink,
             }),
             this.terminals,
+            this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
             this.uriHandlersCustomer,
         ];
@@ -1356,6 +1372,9 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             // Терминалы — тоже ДО первой активации: bazel-java в `activate()`
             // ищет свой лог в `window.terminals`, прежде чем завести новый.
             this.terminals.pushInitialState();
+            // Коллекции окружения — ДО первой активации: `environmentVariableCollection`
+            // расширения видит сохранённое уже в `activate()`.
+            this.environmentVariableCollections.pushInitialState();
         });
         await this.readyPromise;
         return rpc;

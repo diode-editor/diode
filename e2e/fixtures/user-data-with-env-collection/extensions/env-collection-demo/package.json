@@ -1,0 +1,12 @@
+{
+    "name": "env-collection-demo",
+    "displayName": "Environment Collection Demo",
+    "description": "Демо ExtensionContext.environmentVariableCollection: расширение кладёт переменные в окружение терминалов, как Claude Code — порт своего сервера.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onStartupFinished"]
+}

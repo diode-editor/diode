@@ -15,6 +15,7 @@
 import type { IPty } from "node-pty";
 
 import { getSystemShell } from "../../../../base/node/shell.ts";
+import type { ITerminalEnvironmentContributor } from "../common/extensionEnvironment.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";
@@ -39,16 +40,23 @@ export interface EmbeddedTerminalOptions {
 
 /**
  * Окружение шелла: база (унаследованное или пустое при `strictEnv`), поверх —
- * `env` терминала (`null` снимает переменную, как `TerminalOptions.env`), и
- * наше обязательное: `TERM` эмулятора, без `TMUX` (внутри собственного
- * tmux-хоста он сбивает детект).
+ * `env` терминала (`null` снимает переменную, как `TerminalOptions.env`), затем
+ * довесок `contribute` (коллекции окружения расширений) и наше обязательное:
+ * `TERM` эмулятора, без `TMUX` (внутри собственного tmux-хоста он сбивает детект).
  */
 export function buildEnv(
     base: Record<string, string>,
     overrides: Readonly<Record<string, string | null>> | undefined,
+    contribute?: (env: Record<string, string | undefined>) => void,
 ): Record<string, string> {
-    const merged: Record<string, string | null> = { ...base, ...overrides, TERM: "xterm-256color", TMUX: null };
-    return Object.fromEntries(Object.entries(merged).filter((entry): entry is [string, string] => entry[1] !== null));
+    const env: Record<string, string | undefined> = {};
+    for (const [key, value] of Object.entries({ ...base, ...overrides })) {
+        if (value !== null) env[key] = value;
+    }
+    contribute?.(env);
+    env.TERM = "xterm-256color";
+    delete env.TMUX;
+    return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined));
 }
 
 /** Отфильтровать `undefined`-значения из process.env (node-pty ждёт `Record<string,string>`). */
@@ -67,7 +75,14 @@ export class EmbeddedTerminalSession extends XtermSurface {
     public shell: string;
     private pty: IPty;
 
-    public constructor(options: EmbeddedTerminalOptions) {
+    /**
+     * @param environment довесок к окружению каждого запуска процесса —
+     *   коллекции расширений (не при `strictEnv`)
+     */
+    public constructor(
+        options: EmbeddedTerminalOptions,
+        private readonly environment?: ITerminalEnvironmentContributor,
+    ) {
         super({ cols: options.cols, rows: options.rows, scrollback: options.scrollback });
 
         // `TerminalOptions.message` — `writeln` в эмулятор (`_writeInitialText`
@@ -111,14 +126,25 @@ export class EmbeddedTerminalSession extends XtermSurface {
     }
 
     private spawn(shell: string, options: EmbeddedTerminalOptions): IPty {
-        const env = buildEnv(options.strictEnv === true ? {} : currentEnv(), options.env);
+        const cwd = options.cwd ?? process.cwd();
+        const strict = options.strictEnv === true;
+        const environment = strict ? undefined : this.environment;
+        const env = buildEnv(
+            strict ? {} : currentEnv(),
+            options.env,
+            environment === undefined
+                ? undefined
+                : (target) => {
+                      environment.apply(target, cwd);
+                  },
+        );
         const { spawn } = loadNodePty();
         const pty = spawn(shell, options.args ?? [], {
             // Stryker disable next-line StringLiteral: эквивалентный — TERM уже задан в env (buildEnv), node-pty берёт его при пустом name
             name: "xterm-256color",
             cols: options.cols,
             rows: options.rows,
-            cwd: options.cwd ?? process.cwd(),
+            cwd,
             env,
         });
         // Вывод шелла → эмулятор → сигнал перерисовки контролу (см. feedOutput).
