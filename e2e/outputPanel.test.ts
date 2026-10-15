@@ -75,6 +75,22 @@ describe("Output panel (functional e2e)", () => {
         await session.waitForNode("SelectBoxElement");
     }, 120_000);
 
+    // Каналы Output (селектор и команды `workbench.action.output.show.*`) —
+    // contribution фазы `afterRestored`: как у эталона, он приходит после
+    // восстановления, у нас — после кадра с подсветкой (OpenPerformance, рычаг 8).
+    // Панель, открытая первой же клавишей, ещё до кадра с текстом, получает
+    // селектор, а команда канала работает.
+    it("OUTPUT, открытый сразу после старта, получает селектор и команды каналов", async () => {
+        app = await startOutputApp();
+        const { session } = app;
+        await session.key("Alt+U");
+        await session.waitForNode("SelectBoxElement");
+        await session.key("Alt+J"); // workbench.action.output.show.extensions
+        await session.waitForText((t) => t.includes("Extensions"));
+        const select = await session.node("SelectBoxElement");
+        expect(select?.state?.selectedText).toMatch(/Extensions/u);
+    }, 120_000);
+
     // ── Дефекты ─────────────────────────────────────────────────────────────
 
     it("[BUG-1] после смены канала мышью фокус не теряется", async () => {

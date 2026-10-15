@@ -233,7 +233,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 **Реестр + фазы.** `WorkbenchContributionsRegistry.instantiateByPhase(phase)`
 инстанцирует по фазе через DI (`accessor.get(token)` — авто-инжект
 `static dependencies` + кэш-синглтон) и забирает владение (`register`), поэтому
-dispose реестра сматывает все contribution'ы. Три фазы с contribution'ами:
+dispose реестра сматывает все contribution'ы. Четыре фазы с contribution'ами:
 - **`blockStartup`** (≈ vscode `WorkbenchPhase.BlockStartup`) — корень прогоняет
   её сам, в конструкторе, сразу после `LayoutService.attachRoot` (хост оверлеев)
   и до `setWorkspaceFolder` бутстрапа и старта extension host'а. Здесь живут
@@ -243,7 +243,7 @@ dispose реестра сматывает все contribution'ы. Три фаз�
   обязаны существовать до его активации), терминал, рекордер и Keyboard Doctor.
   Порядок вкладок и вьюлетов от порядка записей не зависит (`order` контейнеров),
   порядок overlay-сессий suggest/hover/parameterHints — зависит.
-- остальные две — фазы жизненного цикла (`LifecyclePhase` из
+- `ready` и `eventually` — фазы жизненного цикла (`LifecyclePhase` из
   `services/lifecycle/common/lifecyclePhase.ts`): корень подписан на
   `LifecycleService.onDidChangePhase` и зовёт `instantiateByPhase` синхронно на
   каждый переход:
@@ -257,6 +257,12 @@ dispose реестра сматывает все contribution'ы. Три фаз�
   (токенизаторы придержаны до первого кадра), и фоновая работа фазы не должна
   вставать перед цветом. Фаза — для тяжёлой/отложенной работы. Здесь же
   стартует фоновый прогрев грамматик (`main.ts`, по `onDidChangePhase`).
+- **`afterRestored`** (≈ vscode `WorkbenchPhase.AfterRestored`: фаза `Restored`,
+  инстанцирование через `runWhenGlobalIdle`) — своего перехода нет: пачка идёт
+  первой в переходе в `eventually`, раньше его contribution'ов. Фаза жизненного
+  цикла `restored` наступает до кадра с текстом, и всё, что висит на ней,
+  откладывало бы кадр. Здесь — то, что эталон держит на `Restored`: каналы Output,
+  change-bars, статус-бары SCM и задач (OpenPerformance, рычаг 8b).
 
 **Регистрация — явный массив** `WORKBENCH_CONTRIBUTIONS` в агрегаторе
 `src/vs/workbench/workbench.common.main.ts` (зеркало `WORKBENCH_ACTIONS`, без
