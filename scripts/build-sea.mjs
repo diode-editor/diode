@@ -5,7 +5,7 @@ import { writeFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
-import { buildLazyChunkCodeCaches, SNAPSHOT_BUILD_FLAGS } from "./build-lazy-chunks.mjs";
+import { buildLazyChunkCodeCaches, SNAPSHOT_BUILD_FLAGS, SNAPSHOT_ENTRY, snapshotEntryEnv } from "./build-lazy-chunks.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
@@ -56,7 +56,10 @@ buildBinary(lazyChunkCaches);
 /** @param {ReadonlyArray<{ asset: string, path: string }>} lazyChunkCaches */
 function buildBinary(lazyChunkCaches) {
     const seaConfig = {
-        main: mainJsPath,
+        // Вход снапшота — обёртка, которая компилирует main.cjs eagerly (байткод
+        // всех функций в блобе, у пользователя путь старта не компилирует лениво):
+        // scripts/snapshot-entry.cjs. Путь к main.cjs она берёт из env сборки.
+        main: SNAPSHOT_ENTRY,
         output: outputPath,
         mainFormat: "commonjs",
         // V8-снапшот ядра: при сборке main.cjs исполняет только верхний уровень модулей
@@ -98,6 +101,7 @@ function buildBinary(lazyChunkCaches) {
     execFileSync(process.execPath, [...SNAPSHOT_BUILD_FLAGS, "--build-sea", configPath], {
         stdio: "inherit",
         cwd: root,
+        env: { ...process.env, ...snapshotEntryEnv(mainJsPath) },
     });
 
     const binStats = statSync(outputPath);
