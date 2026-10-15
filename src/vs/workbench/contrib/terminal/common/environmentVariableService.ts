@@ -113,6 +113,7 @@ export class EnvironmentVariableService extends Disposable implements IEnvironme
         const raw = this.state.get(ENVIRONMENT_VARIABLE_COLLECTIONS_STATE);
         const collections = new Map<string, IEnvironmentVariableCollectionWithPersistence>();
         let dropped = false;
+        // Stryker disable next-line ArrayDeclaration: эквивалентный — элемент-заглушка не объект с id и отбрасывается ниже
         for (const entry of Array.isArray(raw) ? (raw as unknown[]) : []) {
             const { extensionIdentifier, collection, description } = (
                 typeof entry === "object" && entry !== null ? entry : {}

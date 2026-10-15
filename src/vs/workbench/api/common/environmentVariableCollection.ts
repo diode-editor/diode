@@ -145,8 +145,10 @@ class UnifiedEnvironmentVariableCollection {
         if (
             current?.value === value &&
             (current.type as number) === (type as number) &&
+            // Stryker disable next-line OptionalChaining: эквивалентный — опции есть у каждого мутатора (свои — `newOptions`, семя — разбор провода всегда кладёт объект)
             current.options?.applyAtProcessCreation === newOptions.applyAtProcessCreation &&
             current.options.applyAtShellIntegration === newOptions.applyAtShellIntegration &&
+            // Stryker disable next-line OptionalChaining,ConditionalExpression: эквивалентный — по ключу `<переменная>:::<uri>` у текущего и нового папка либо есть у обоих, либо нет у обоих, а коллекция области кешируется по uri вместе с папкой первого вызова, так что index у них один
             current.scope?.workspaceFolder?.index === scope?.workspaceFolder?.index
         ) {
             return;
@@ -208,7 +210,8 @@ class UnifiedEnvironmentVariableCollection {
         const key = scopeKey(scope);
         // Строка описания (до первого абзаца у MarkdownString — эталон бережёт так UI).
         const text = typeof description === "string" ? description : description?.value.split("\n\n")[0];
-        if (this.descriptionMap.has(key) && this.descriptionMap.get(key)?.description === text) return;
+        const current = this.descriptionMap.get(key);
+        if (current !== undefined && current.description === text) return;
         this.descriptionMap.set(key, { description: text, scope: toWireScope(scope) });
         this.onDidChangeEmitter.fire();
     }

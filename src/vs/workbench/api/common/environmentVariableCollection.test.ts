@@ -37,7 +37,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         c.append("B", "2");
         c.prepend("C", "3");
         expect(sent()).toHaveLength(3);
-        expect(sent().at(-1)).toEqual({
+        expect(sent().at(-1)).toStrictEqual({
             extensionId: "a.b",
             persistent: true,
             collection: [
@@ -72,6 +72,22 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         c.append("P", "2", { applyAtProcessCreation: true });
         c.append("P", "2", { applyAtProcessCreation: true, applyAtShellIntegration: true });
         expect(sent()).toHaveLength(5);
+    });
+
+    it("только в shell integration — допустимо (без ошибки), опции как переданы", () => {
+        const { collections } = setup();
+        const c = collections.get("a.b");
+        c.replace("A", "1", { applyAtProcessCreation: false, applyAtShellIntegration: true });
+        expect(c.get("A")?.options).toEqual({ applyAtProcessCreation: false, applyAtShellIntegration: true });
+    });
+
+    it("смена одного applyAtProcessCreation — новая нотификация", () => {
+        const { collections, sent } = setup();
+        const c = collections.get("a.b");
+        c.replace("A", "1", { applyAtProcessCreation: true, applyAtShellIntegration: true });
+        c.replace("A", "1", { applyAtProcessCreation: false, applyAtShellIntegration: true });
+        expect(sent()).toHaveLength(2);
+        expect(c.get("A")?.options.applyAtProcessCreation).toBe(false);
     });
 
     it("опции «ни при создании процесса, ни в shell integration» — эталонная ошибка", () => {
@@ -135,7 +151,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
     });
 
     it("clear без области — всё, с областью — только мутаторы и описание этой папки", () => {
-        const { collections } = setup();
+        const { collections, sent } = setup();
         const c = collections.get("a.b");
         const s0 = c.getScoped({ workspaceFolder: folder(0) });
         const s1 = c.getScoped({ workspaceFolder: folder(1) });
@@ -151,7 +167,9 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(s1.description).toBe("one");
         expect(c.get("G")?.value).toBe("g");
         c.description = "global";
+        const before = sent().length;
         c.clear();
+        expect(sent()).toHaveLength(before + 1);
         expect(c.get("G")).toBeUndefined();
         expect(s1.get("B")).toBeUndefined();
         expect(s1.description).toBeUndefined();
@@ -192,6 +210,17 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         scoped.persistent = false;
         expect(c.persistent).toBe(false);
         expect(sent().at(-1)?.persistent).toBe(false);
+    });
+
+    it("семя с областью без папки (сохранено старой сборкой): обход и clear области его не роняют", () => {
+        const { stub, collections } = setup();
+        stub.fire("terminal.initEnvironmentVariableCollections", {
+            collections: [["a.b", [["E", { variable: "E", value: "e", type: 1, options: {}, scope: {} }]]]],
+        });
+        const c = collections.get("a.b");
+        expect([...c].map(([variable]) => variable)).toEqual(["E"]);
+        c.getScoped({ workspaceFolder: folder(0) }).clear();
+        expect(c.get("E")?.value).toBe("e");
     });
 
     it("семя хоста: сохранённая коллекция видна расширению, её правка уходит хосту", () => {

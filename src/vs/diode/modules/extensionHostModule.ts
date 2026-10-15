@@ -458,10 +458,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
 
         // Коллекции окружения удалённых расширений забываются, как только
         // известен состав установленных (`_invalidateExtensionCollections` эталона).
-        // Stryker disable next-line ArrowFunction,MethodExpression: production-проводка модуля — решение живёт в `EnvironmentVariableService.setInstalledExtensions` и закрыто юнитами
+        // Stryker disable ArrowFunction,MethodExpression,ConditionalExpression,EqualityOperator: production-проводка модуля — решение живёт в `EnvironmentVariableService.setInstalledExtensions` и закрыто юнитами
         container
             .get(EnvironmentVariableServiceDIToken)
             .setInstalledExtensions((id) => ctx.extensions.some((ext) => extensionKey(ext.id) === extensionKey(id)));
+        // Stryker restore ArrowFunction,MethodExpression,ConditionalExpression,EqualityOperator
 
         // URL расширениям (`diode://<id>/…`, `window.registerUriHandler`):
         // доверие, буфер до активации и `onUri:<id>` — в ExtensionUrlHandler.

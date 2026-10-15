@@ -19,7 +19,7 @@ describe("parseWireEnvironmentVariableMutator", () => {
                 options: { applyAtProcessCreation: false, applyAtShellIntegration: true },
                 scope: SCOPE,
             }),
-        ).toEqual({
+        ).toStrictEqual({
             variable: "P",
             value: "v",
             type: 2,
@@ -29,7 +29,7 @@ describe("parseWireEnvironmentVariableMutator", () => {
     });
 
     it("без опций и области — пустые опции, области нет; не-булевы опции отброшены", () => {
-        expect(parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1 })).toEqual({
+        expect(parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1 })).toStrictEqual({
             variable: "P",
             value: "v",
             type: 1,
@@ -42,8 +42,10 @@ describe("parseWireEnvironmentVariableMutator", () => {
                 type: 3,
                 options: { applyAtProcessCreation: "yes", applyAtShellIntegration: 1 },
             }),
-        ).toEqual({ variable: "P", value: "v", type: 3, options: {} });
-        expect(parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1, options: null })).toEqual({
+        ).toStrictEqual({ variable: "P", value: "v", type: 3, options: {} });
+        expect(
+            parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1, options: null }),
+        ).toStrictEqual({
             variable: "P",
             value: "v",
             type: 1,
@@ -52,9 +54,9 @@ describe("parseWireEnvironmentVariableMutator", () => {
     });
 
     it("область без папки — `{}`", () => {
-        expect(parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1, scope: {} })?.scope).toEqual(
-            {},
-        );
+        expect(
+            parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1, scope: {} })?.scope,
+        ).toStrictEqual({});
     });
 
     it.each([
@@ -66,6 +68,8 @@ describe("parseWireEnvironmentVariableMutator", () => {
         { variable: "P", value: "v", type: 0 },
         { variable: "P", value: "v", type: 4 },
         { variable: "P", value: "v", type: 1, scope: null },
+        { variable: "P", value: "v", type: 1, scope: "folder" },
+        { variable: "P", value: "v", type: "1" },
         { variable: "P", value: "v", type: 1, scope: { workspaceFolder: null } },
         { variable: "P", value: "v", type: 1, scope: { workspaceFolder: { uri: 1, name: "a", index: 0 } } },
         { variable: "P", value: "v", type: 1, scope: { workspaceFolder: { uri: "u", name: 1, index: 0 } } },
@@ -86,15 +90,15 @@ describe("parseWireEnvironmentVariableEntries", () => {
                 "junk",
                 ["C", { variable: "C", value: "3", type: 3 }],
             ]),
-        ).toEqual([
+        ).toStrictEqual([
             ["A", { ...good, options: {} }],
             ["C", { variable: "C", value: "3", type: 3, options: {} }],
         ]);
     });
 
     it("не массив — пусто", () => {
-        expect(parseWireEnvironmentVariableEntries(undefined)).toEqual([]);
-        expect(parseWireEnvironmentVariableEntries({})).toEqual([]);
+        expect(parseWireEnvironmentVariableEntries(undefined)).toStrictEqual([]);
+        expect(parseWireEnvironmentVariableEntries({})).toStrictEqual([]);
     });
 });
 
@@ -109,15 +113,15 @@ describe("parseWireEnvironmentVariableCollections", () => {
                     ["c.d", "not-entries"],
                 ],
             }),
-        ).toEqual([
+        ).toStrictEqual([
             ["a.b", [["A", { variable: "A", value: "1", type: 1, options: {} }]]],
             ["c.d", []],
         ]);
     });
 
     it("без списка — пусто", () => {
-        expect(parseWireEnvironmentVariableCollections(null)).toEqual([]);
-        expect(parseWireEnvironmentVariableCollections({ collections: {} })).toEqual([]);
+        expect(parseWireEnvironmentVariableCollections(null)).toStrictEqual([]);
+        expect(parseWireEnvironmentVariableCollections({ collections: {} })).toStrictEqual([]);
     });
 });
 
@@ -132,7 +136,7 @@ describe("parseWireEnvironmentDescriptions", () => {
                 [1, { description: "x" }],
                 "junk",
             ]),
-        ).toEqual([
+        ).toStrictEqual([
             ["", { description: "d", scope: undefined }],
             ["file:///a", { description: undefined, scope: SCOPE }],
             ["nonobj", { description: undefined, scope: undefined }],
@@ -140,6 +144,6 @@ describe("parseWireEnvironmentDescriptions", () => {
     });
 
     it("не массив — пусто", () => {
-        expect(parseWireEnvironmentDescriptions(undefined)).toEqual([]);
+        expect(parseWireEnvironmentDescriptions(undefined)).toStrictEqual([]);
     });
 });

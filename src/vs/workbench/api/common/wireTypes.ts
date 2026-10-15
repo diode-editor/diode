@@ -1501,10 +1501,11 @@ function parseWireEnvironmentScope(raw: unknown): IEnvironmentVariableScope | un
 
 /** Мутатор с провода; структурно чужой — `null` (запись отбрасывается). */
 export function parseWireEnvironmentVariableMutator(raw: unknown): IEnvironmentVariableMutator | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const { variable, value, type, options, scope } = raw as Record<string, unknown>;
-    if (typeof variable !== "string" || typeof value !== "string" || typeof type !== "number") return null;
-    if (!MUTATOR_TYPES.includes(type)) return null;
+    // Деструктуризация примитива даёт `undefined`-поля — отсеют проверки ниже.
+    const { variable, value, type, options, scope } = (raw ?? {}) as Record<string, unknown>;
+    if (typeof variable !== "string" || typeof value !== "string") return null;
+    // Не число в `[1, 2, 3]` не найдётся.
+    if (!MUTATOR_TYPES.includes(type as number)) return null;
     const parsedScope = parseWireEnvironmentScope(scope);
     if (parsedScope === null) return null;
     const { applyAtProcessCreation, applyAtShellIntegration } = (
