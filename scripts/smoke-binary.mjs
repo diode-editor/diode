@@ -124,6 +124,31 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
                 `[smoke:node] direct ESM-TLA load failed status=${String(direct.status)}.\n${describeOutput(direct)}`,
             );
         }
+
+        // Рабочий поток с сетью — как фоновый анализ pyright (basedpyright). В процессе
+        // из V8-снапшота (SEA `useSnapshot`) node до 26.11 падал SIGABRT на первом же
+        // `stream_wrap` в воркере (`shutdown_wrap_template_.IsEmpty()`): `node:net`,
+        // `node:http`, `node:v8`. e2e pythonLsp идёт только на linux, а самотест — на
+        // каждой SEA-платформе релиза.
+        writeFileSync(
+            join(dir, "worker.cjs"),
+            'const { Worker } = require("node:worker_threads");\n' +
+                'const w = new Worker(\'require("node:net"); require("node:v8"); require("node:worker_threads").parentPort.postMessage("SMOKE-WORKER-OK")\', { eval: true });\n' +
+                "w.on(\"message\", (m) => { console.log(m); process.exit(0); });\n" +
+                "w.on(\"error\", (e) => { console.error(e); process.exit(1); });\n",
+        );
+        const worker = spawnSync(binaryPath, [join(dir, "worker.cjs")], {
+            timeout: timeoutMs,
+            stdio: "pipe",
+            encoding: "utf8",
+            env: { ...process.env, DIODE_RUN_AS_NODE: "1" },
+        });
+        if (worker.status !== 0 || !(worker.stdout ?? "").includes("SMOKE-WORKER-OK")) {
+            throw new Error(
+                `[smoke:node] worker thread with node:net failed status=${String(worker.status)} ` +
+                    `signal=${String(worker.signal)}.\n${describeOutput(worker)}`,
+            );
+        }
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }

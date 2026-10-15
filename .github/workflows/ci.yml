@@ -75,13 +75,28 @@ jobs:
         continue-on-error: true
         run: npm run lazy-chunks-check
 
+      # V8-снапшот ядра (SEA `useSnapshot`): main.cjs собирается в снапшот, верхний
+      # уровень модулей не читает окружение сборки (ловушки + отравленная сборка),
+      # после десериализации — окружение запуска (scripts/check-snapshot.mjs).
+      # Тем node, что вшивает релиз (build.yml): node до 26.11 в процессе из
+      # снапшота роняет воркер с node:net, и пробник гейта это ловит.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.12.0'
+
+      - name: Snapshot
+        id: snapshot
+        continue-on-error: true
+        run: npm run snapshot-check
+
       - name: Gate
-        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure'
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.snapshot.outcome == 'failure'
         run: |
           echo "typecheck: ${{ steps.typecheck.outcome }}"
           echo "lint:      ${{ steps.lint.outcome }}"
           echo "layers:    ${{ steps.layers.outcome }}"
           echo "lazy:      ${{ steps.lazy.outcome }}"
+          echo "snapshot:  ${{ steps.snapshot.outcome }}"
           echo 'Форматирование и сортировку импортов чинит `npm run lint:fix`, остальное — руками.'
           exit 1
 

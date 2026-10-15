@@ -90,6 +90,8 @@ export const BUILD_INPUTS = [
     "scripts/selfextract-*",
     "scripts/smoke-binary.mjs",
     "scripts/resolve-version.mjs",
+    "scripts/import-meta-url-shim.mjs",
+    "scripts/lazy-chunk-code-cache.cjs",
     // Тесты в бинарь не попадают (pathspec без glob-магии: `*` совпадает и со `/`).
     ":(exclude)*.test.ts",
     ":(exclude)*.test.mjs",
@@ -162,6 +164,24 @@ export function isAlive(pid) {
 
 function sleepSync(ms) {
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * `renameSync` с повтором на Windows: только что запускавшийся `diode.exe`
+ * (самотест build-sea.mjs) система ещё держит после выхода процесса — образ или
+ * проверка антивируса, — и переименование каталога с ним даёт EPERM/EBUSY.
+ */
+function renameWithRetry(from, to) {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            renameSync(from, to);
+            return;
+        } catch (err) {
+            const busy = err?.code === "EPERM" || err?.code === "EBUSY" || err?.code === "EACCES";
+            if (!isWindows || !busy || attempt >= 30) throw err;
+            sleepSync(500);
+        }
+    }
 }
 
 /**
@@ -402,7 +422,7 @@ export function ensureE2eArtifacts({ repoRoot, root = cacheRoot(), keep, log = (
                 const started = Date.now();
                 manifest = buildInto(tmp, { repoRoot, version, log });
                 freezeTree(tmp);
-                renameSync(tmp, dir);
+                renameWithRetry(tmp, dir);
                 log(`собрано за ${String(Math.round((Date.now() - started) / 1000))} с → ${dir}`);
             }
         } finally {

@@ -18,10 +18,12 @@ import {
     lazyChunkAssetName,
     lazyChunkCacheAssetName,
     lazyEntryChunksPlugin,
+    SNAPSHOT_BUILD_FLAGS,
     verifyLazyChunks,
 } from "./build-lazy-chunks.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
+const { LAZY_CHUNK_WRAPPER } = createRequire(import.meta.url)("./lazy-chunk-code-cache.cjs");
 
 /** metafile main.cjs: входы и импорты единственного выхода. */
 const main = (inputs, imports = []) => ({
@@ -295,24 +297,57 @@ test("buildLazyChunks: каждый кусок из списка собирае�
     }
 });
 
-test("buildLazyChunkCodeCaches: кэш кода каждого куска — дочерним node, принимается V8 этого же node", () => {
+test("buildLazyChunkCodeCaches: кэш, снятый процессом из снапшота, принимает пересобранный снапшот того же входа (два прохода build:sea), голый node — нет", () => {
     const dir = mkdtempSync(join(tmpdir(), "diode-lazy-cache-"));
     try {
         const code = "exports.x = (function () { return 1; })();\n";
         const path = join(dir, "x.cjs");
         writeFileSync(path, code);
+        // Вход снапшота — как run-as-node бинаря: своя куча, после десериализации
+        // грузит скрипт из argv и кладёт его путь в argv[1] (src/vs/diode/runAsNode.ts).
+        const runner = join(dir, "runner.cjs");
+        writeFileSync(
+            runner,
+            `const v8 = require("node:v8");
+globalThis.heap = Array.from({ length: 1000 }, (_, i) => ({ i }));
+v8.startupSnapshot.setDeserializeMainFunction(() => {
+    const path = require("node:path");
+    const script = path.resolve(process.argv[2]);
+    process.argv = [process.argv[0], script, ...process.argv.slice(3)];
+    require("node:module").createRequire(script)(script);
+});
+`,
+        );
+        // Два блоба одного входа — как бинари первого и второго прохода build-sea.mjs.
+        const buildBlob = (name) => {
+            const blob = join(dir, name);
+            execFileSync(process.execPath, [...SNAPSHOT_BUILD_FLAGS, "--snapshot-blob", blob, "--build-snapshot", runner]);
+            return blob;
+        };
+        const firstPass = buildBlob("first.blob");
+        const secondPass = buildBlob("second.blob");
         const caches = buildLazyChunkCodeCaches({
             chunks: [{ id: "@scope/x", asset: "lazy/@scope/x.cjs", path }],
             outDir: join(dir, "out"),
-            nodeBinary: process.execPath,
+            command: [process.execPath, "--snapshot-blob", firstPass, runner],
         });
         assert.deepEqual(caches, [{ asset: "lazy/@scope/x.v8cache", path: join(dir, "out", "lazy/@scope/x.v8cache") }]);
         assert.equal(lazyChunkCacheAssetName("@scope/x"), "lazy/@scope/x.v8cache");
-        const script = new vm.Script(`(function (exports, require, module, __filename, __dirname) {${code}\n})`, {
-            filename: "diode:lazy/@scope/x.cjs",
-            cachedData: readFileSync(caches[0].path),
-        });
-        assert.equal(script.cachedDataRejected, false);
+        const checker = join(dir, "checker.cjs");
+        writeFileSync(
+            checker,
+            `const vm = require("node:vm"), fs = require("node:fs");
+const script = new vm.Script(${JSON.stringify(`${LAZY_CHUNK_WRAPPER.prefix}${code}${LAZY_CHUNK_WRAPPER.suffix}`)}, {
+    filename: "diode:lazy/@scope/x.cjs",
+    cachedData: fs.readFileSync(process.argv[2]),
+});
+process.stdout.write(String(script.cachedDataRejected));
+`,
+        );
+        const inSnapshot = execFileSync(process.execPath, ["--snapshot-blob", secondPass, runner, checker, caches[0].path]);
+        assert.equal(String(inSnapshot), "false", "бинарь второго прохода отверг кэш — грузил бы куски без него");
+        const plain = execFileSync(process.execPath, [checker, caches[0].path]);
+        assert.equal(String(plain), "true", "голый node принял кэш снапшота — проверка выше ничего не доказывает");
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }
