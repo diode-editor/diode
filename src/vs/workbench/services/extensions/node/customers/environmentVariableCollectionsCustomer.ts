@@ -40,6 +40,7 @@ export class EnvironmentVariableCollectionsCustomer implements IExtensionHostCus
         store.add(
             rpc.handleNotification("terminal.setEnvironmentVariableCollection", (params): void => {
                 const update = parseWireSetEnvironmentVariableCollection(params);
+                // Stryker disable next-line ConditionalExpression: эквивалентный — без проверки `null` падает на `.collection` до записи в хранилище, RpcEndpoint глотает исключение нотификации; наблюдаемо то же «проигнорировано»
                 if (update === null) return;
                 if (update.collection.length === 0) {
                     this.store.delete(update.extensionId);

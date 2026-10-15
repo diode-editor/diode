@@ -8,13 +8,13 @@ import type {
     SignatureHelpTriggerKind,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
-import {
+import type {
     EnvironmentVariableMutatorType,
-    type IEnvironmentVariableCollectionDescription,
-    type IEnvironmentVariableMutator,
-    type IEnvironmentVariableScope,
-    type SerializableEnvironmentDescriptionMap,
-    type SerializableEnvironmentVariableCollection,
+    IEnvironmentVariableCollectionDescription,
+    IEnvironmentVariableMutator,
+    IEnvironmentVariableScope,
+    SerializableEnvironmentDescriptionMap,
+    SerializableEnvironmentVariableCollection,
 } from "../../../platform/terminal/common/environmentVariable.ts";
 
 /**
@@ -1478,11 +1478,12 @@ export interface IWireSetEnvironmentVariableCollection {
     readonly description: SerializableEnvironmentDescriptionMap;
 }
 
-const MUTATOR_TYPES: readonly number[] = [
-    EnvironmentVariableMutatorType.Replace,
-    EnvironmentVariableMutatorType.Append,
-    EnvironmentVariableMutatorType.Prepend,
-];
+/**
+ * Replace, Append, Prepend (`EnvironmentVariableMutatorType`). Числами, а не
+ * enum'ом: значение потянуло бы модуль слияния в субпроцесс — и в общий с
+ * главным бандлом граф (бюджет ленивых кусков).
+ */
+const MUTATOR_TYPES: readonly number[] = [1, 2, 3];
 
 function parseWireEnvironmentScope(raw: unknown): IEnvironmentVariableScope | undefined | null {
     if (raw === undefined) return undefined;

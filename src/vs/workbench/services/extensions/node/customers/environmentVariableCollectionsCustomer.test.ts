@@ -78,7 +78,7 @@ describe("EnvironmentVariableCollectionsCustomer", () => {
         expect(seeds).toHaveBeenCalledExactlyOnceWith({ collections: [["a.b", [["P", MUTATOR]]]] });
     });
 
-    it("без спавна (до attach и после смерти) семени нет", () => {
+    it("без спавна (до attach и после смерти) семени нет", async () => {
         const store = createInMemoryEnvironmentVariableCollectionStore();
         store.set("a.b", { persistent: true, map: new Map([["P", { ...MUTATOR, type: 1 as const }]]) });
         const customer = new EnvironmentVariableCollectionsCustomer(store);
@@ -91,6 +91,7 @@ describe("EnvironmentVariableCollectionsCustomer", () => {
         peer.handleNotification("terminal.initEnvironmentVariableCollections", seeds);
         customer.attach({ rpc: new RpcEndpoint(a), logger: undefined }).dispose();
         customer.pushInitialState();
+        await flushMicrotasks();
         expect(seeds).not.toHaveBeenCalled();
     });
 

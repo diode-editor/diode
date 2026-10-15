@@ -53,7 +53,8 @@ describe("buildEnv — довесок коллекций", () => {
             target.UNSET = undefined;
         });
         expect(seen).toEqual({ KEEP: "1", ADD: "3", TMUX: "t" });
-        expect(env).toEqual({ KEEP: "1", ADD: "3", FROM_EXT: "x", TERM: "xterm-256color" });
+        // Строго: переменная, которую довесок оставил `undefined`, в окружение не попадает вовсе.
+        expect(env).toStrictEqual({ KEEP: "1", ADD: "3", FROM_EXT: "x", TERM: "xterm-256color" });
     });
 });
 

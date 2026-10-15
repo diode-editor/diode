@@ -647,8 +647,8 @@ export function parseWireSetEnvironmentVariableCollection(raw: unknown): {
     collection: [string, IEnvironmentVariableMutator][];
     description: [string, IEnvironmentVariableCollectionDescription][];
 } | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const { extensionId, persistent, collection, description } = raw as Record<string, unknown>;
+    // Деструктуризация примитива даёт `undefined`-поля — отсеет проверка id.
+    const { extensionId, persistent, collection, description } = (raw ?? {}) as Record<string, unknown>;
     if (typeof extensionId !== "string" || extensionId === "") return null;
     return {
         extensionId,
