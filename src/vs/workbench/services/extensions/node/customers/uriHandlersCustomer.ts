@@ -39,6 +39,7 @@ export class UriHandlersCustomer extends Disposable implements IExtensionHostCus
         store.add(
             rpc.handleNotification("window.registerUriHandler", (params): void => {
                 const extensionId = parseWireUriHandlerRegistration(params);
+                // Stryker disable next-line ConditionalExpression: эквивалентный — без проверки `null` падает на `toLowerCase` до записи и события, RpcEndpoint глотает исключение нотификации; наблюдаемо то же «проигнорировано»
                 if (extensionId === null) return;
                 live.ids.add(extensionId.toLowerCase());
                 this.onDidRegisterEmitter.fire(extensionId);

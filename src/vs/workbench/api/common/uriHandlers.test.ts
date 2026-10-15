@@ -105,11 +105,14 @@ describe("window.registerUriHandler (субпроцесс)", () => {
         error.mockRestore();
     });
 
-    it("URI расширению без обработчика — молча null", async () => {
+    it("URI расширению без обработчика — молча null, без строки сбоя", async () => {
         const { stub } = setup();
+        const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
         await expect(
             stub.callRequest("window.handleUri", { extensionId: "x.y", uri: "diode://x.y/" }),
         ).resolves.toBeNull();
+        expect(error).not.toHaveBeenCalled();
+        error.mockRestore();
     });
 });
 

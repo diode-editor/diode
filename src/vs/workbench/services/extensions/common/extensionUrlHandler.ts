@@ -41,7 +41,7 @@ export interface IExtensionUrlHandlerOptions {
     confirmedExtensionIds(): unknown;
     /** URI неустановленному расширению: сказать человеку. */
     notifyNotInstalled(extensionId: string, uri: Uri): void;
-    readonly logger?: ILogger;
+    readonly logger: ILogger;
     /** Часы буфера (тестам — подменить). */
     readonly now?: () => number;
 }
@@ -123,7 +123,7 @@ export class ExtensionUrlHandler extends Disposable implements IURLHandler {
         this.uriBuffer.delete(key);
         for (const { uri } of uris) {
             this.options.handlers.handle(extensionId, uri.toString()).catch((err: unknown) => {
-                this.options.logger?.error(`failed to hand buffered uri to extension "${extensionId}"`, err);
+                this.options.logger.error(`failed to hand buffered uri to extension "${extensionId}"`, err);
             });
         }
     }
@@ -134,6 +134,7 @@ export class ExtensionUrlHandler extends Disposable implements IURLHandler {
         const next = new Map<string, { readonly timestamp: number; readonly uri: Uri }[]>();
         for (const [key, uris] of this.uriBuffer) {
             const fresh = uris.filter(({ timestamp }) => now - timestamp < FIVE_MINUTES);
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентный — пустой список в буфере `drain` снимает так же, как отсутствующий: доставлять нечего
             if (fresh.length > 0) next.set(key, fresh);
         }
         this.uriBuffer = next;

@@ -453,7 +453,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
 
         // URL расширениям (`diode://<id>/…`, `window.registerUriHandler`):
         // доверие, буфер до активации и `onUri:<id>` — в ExtensionUrlHandler.
-        // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression: production-проводка модуля — решения живут в `ExtensionUrlHandler`/`installedExtensionDisplayName` и закрыты юнитами, сквозняк — e2e-сценарий extension-uri-handler
+        // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression,BooleanLiteral,ArrayDeclaration: production-проводка модуля — решения живут в `ExtensionUrlHandler`/`installedExtensionDisplayName` и закрыты юнитами, сквозняк — e2e-сценарий extension-uri-handler
         const host = container.get(ExtensionHostDIToken);
         const notifications = container.get(NotificationServiceDIToken);
         const urlHandler = new ExtensionUrlHandler({
@@ -477,7 +477,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             logger,
         });
         container.get(URLServiceDIToken).registerHandler(urlHandler);
-        // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression
+        // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression,BooleanLiteral,ArrayDeclaration
 
         return service;
     });

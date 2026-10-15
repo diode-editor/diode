@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
 import { ExtensionUrlHandler } from "../common/extensionUrlHandler.ts";
 
 /**
@@ -23,6 +24,7 @@ describe("ExtensionHost — обработчики URI расширений (sub
             confirm,
             confirmedExtensionIds: () => [],
             notifyNotInstalled: () => undefined,
+            logger: NULL_LOGGER,
         });
         try {
             expect(harness.host.hasExtension("Test.Uri")).toBe(false);
