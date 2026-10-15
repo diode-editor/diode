@@ -51,14 +51,18 @@ describe("loadLazyModule — кэш кода V8", () => {
         });
     });
 
-    /** Кэш, снятый ровно так, как его снимает сборка SEA: дочерний node без флагов. */
+    /**
+     * Кэш, снятый тем же скриптом, что у сборки SEA (`scripts/lazy-chunk-code-cache.cjs`),
+     * но голым node, без снапшота: сборка снимает его внутри V8-снапшота под бинарь,
+     * а этот процесс — без снапшота. Обёртка и прогрев — одни и те же.
+     */
     function cacheFromBuild(assetName: string): Uint8Array {
         const chunk = path.join(dir, "chunk.cjs");
         const out = path.join(dir, "chunk.v8cache");
         writeFileSync(chunk, CODE);
         const env = { ...process.env };
         delete env.NODE_OPTIONS;
-        execFileSync(process.execPath, ["scripts/build-lazy-chunks.mjs", "--code-cache", chunk, assetName, out], {
+        execFileSync(process.execPath, ["scripts/lazy-chunk-code-cache.cjs", chunk, assetName, out], {
             env,
         });
         return readFileSync(out);

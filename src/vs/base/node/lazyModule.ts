@@ -17,7 +17,8 @@ import { readPackagedAssetView } from "./assets/packagedAsset.ts";
  * Откуда берётся кусок (тот же порядок, что у остальных упакованных ассетов,
  * {@link readPackagedAssetView}):
  *  - SEA — вшитый ассет `lazy/<id>.cjs` (без копии, `sea.getRawAsset`) и рядом
- *    его кэш кода V8 `lazy/<id>.v8cache`, снятый при сборке тем же node;
+ *    его кэш кода V8 `lazy/<id>.v8cache`, снятый при сборке тем же node
+ *    из V8-снапшота с той же read-only частью, что у бинаря;
  *  - self-extract и `node dist/main.cjs` — файл `lazy/<id>.cjs` рядом с `main.cjs`;
  *  - dev и тесты (tsx/vitest) — куска нет, работает `importer` — обычный
  *    `import("<id>")` из node_modules. В бандле это голый внешний `import()`:
@@ -47,7 +48,7 @@ export function lazyChunkCacheAssetName(id: string): string {
 
 /**
  * CJS-обёртка куска. Кэш кода V8 привязан к исходнику целиком, поэтому сборка
- * (`scripts/build-lazy-chunks.mjs`, `LAZY_CHUNK_WRAPPER`) оборачивает кусок
+ * (`scripts/lazy-chunk-code-cache.cjs`, `LAZY_CHUNK_WRAPPER`) оборачивает кусок
  * ровно так же; расхождение ловит юнит «кэш из сборки принят».
  */
 export const LAZY_CHUNK_WRAPPER = {
@@ -109,9 +110,11 @@ async function loadOnce<T>(id: string, importer: () => Promise<T>, source: ILazy
  * `compileFunction` снимается до компиляции тела и почти пуст — на xterm он
  * давал 37 → 30 мс, кэш скрипта — 37 → 12 (замер — docs/TODO/OpenPerformance.md).
  *
- * Кэш V8 отвергает молча, если не совпали версия V8, флаги или исходник. Отказ
+ * Кэш V8 отвергает молча, если не совпали версия V8, флаги, исходник или
+ * read-only часть V8-снапшота процесса (бинарь стартует из снапшота). Отказ
  * загрузку не ломает (кусок компилируется без кэша), но в SEA его быть не
- * должно — кэш снят тем же node, — поэтому он уходит в лог как непредвиденный.
+ * должно — кэш снят тем же node внутри снапшота с той же read-only частью
+ * (`buildLazyChunkCodeCaches`), — поэтому он уходит в лог как непредвиденный.
  */
 function evaluateChunk(code: string, assetName: string, cachedData: Uint8Array | undefined): unknown {
     // Имя файла — для стек-трейсов: `diode:lazy/<id>.cjs` сразу говорит, откуда код.

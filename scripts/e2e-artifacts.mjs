@@ -90,6 +90,8 @@ export const BUILD_INPUTS = [
     "scripts/selfextract-*",
     "scripts/smoke-binary.mjs",
     "scripts/resolve-version.mjs",
+    "scripts/import-meta-url-shim.mjs",
+    "scripts/lazy-chunk-code-cache.cjs",
     // Тесты в бинарь не попадают (pathspec без glob-магии: `*` совпадает и со `/`).
     ":(exclude)*.test.ts",
     ":(exclude)*.test.mjs",

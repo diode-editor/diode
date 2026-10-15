@@ -5,7 +5,7 @@ import { writeFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 import { buildDistArtifacts } from "./build-dist.mjs";
-import { buildLazyChunkCodeCaches } from "./build-lazy-chunks.mjs";
+import { buildLazyChunkCodeCaches, SNAPSHOT_BUILD_FLAGS } from "./build-lazy-chunks.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
@@ -39,8 +39,9 @@ const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBu
     distDir: dist,
 });
 
-// 1b. Кэш кода ленивых кусков — тем же node, что вшивается в бинарь (V8 и флаги
-// обязаны совпасть). Не в `<dist>/lazy/`: там его нашёл бы `node dist/main.cjs` под чужим node.
+// 1b. Кэш кода ленивых кусков — тем же node, что вшивается в бинарь, и процессом
+// из снапшота с той же read-only частью (V8 сверяет версию, флаги и снапшот).
+// Не в `<dist>/lazy/`: там его нашёл бы `node dist/main.cjs` под чужим node.
 const lazyChunkCaches = buildLazyChunkCodeCaches({
     chunks: lazyChunks,
     outDir: join(dist, "sea-cache"),
@@ -51,8 +52,13 @@ const lazyChunkCaches = buildLazyChunkCodeCaches({
 const seaConfig = {
     main: mainJsPath,
     output: outputPath,
-    // Ядро — CJS (tsup.config.ts): под него же V8-снапшот SEA (`useSnapshot`).
     mainFormat: "commonjs",
+    // V8-снапшот ядра: при сборке main.cjs исполняет только верхний уровень модулей
+    // и регистрирует вход `setDeserializeMainFunction` (src/vs/diode/main.ts), а
+    // бинарь на старте восстанавливает готовую кучу вместо парса и исполнения.
+    // Правила верхнего уровня под снапшот — docs/arch/Common.md, гейт —
+    // `npm run snapshot-check`.
+    useSnapshot: true,
     disableExperimentalSEAWarning: true,
     assets: {
         "diode.bundle": bundlePath,
@@ -81,8 +87,10 @@ console.log(`SEA config written to ${configPath}`);
 
 // 3. Build SEA binary
 // Тот же node, что собирает (он же — в ключе кэша e2e-сборок), и путь без шелла.
-console.log(`> node --build-sea ${configPath}`);
-execFileSync(process.execPath, ["--build-sea", configPath], { stdio: "inherit", cwd: root });
+// Флаги снапшота (`--predictable`) — те же, что у снапшота кэша кусков: иначе
+// бинарь отвергнет их кэш кода (buildLazyChunkCodeCaches).
+console.log(`> node ${SNAPSHOT_BUILD_FLAGS.join(" ")} --build-sea ${configPath}`);
+execFileSync(process.execPath, [...SNAPSHOT_BUILD_FLAGS, "--build-sea", configPath], { stdio: "inherit", cwd: root });
 
 // 4. Verify the output is a proper binary (not just a blob)
 const binStats = statSync(outputPath);

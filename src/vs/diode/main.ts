@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { startupSnapshot } from "node:v8";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
@@ -138,11 +139,28 @@ setLazyModuleLoader(loadLazyModule);
 // стек в stderr и код 1. Просто оставить промис без обработчика нельзя —
 // страховка `unhandledRejection` редактора (runEditor) унесла бы отказ в лог,
 // и процесс остался бы жить без UI.
-main().catch((err: unknown) => {
-    process.nextTick(() => {
-        throw err;
+function start(): void {
+    main().catch((err: unknown) => {
+        process.nextTick(() => {
+            throw err;
+        });
     });
-});
+}
+
+// ── V8-снапшот ────────────────────────────────────────────
+// SEA собирается с `useSnapshot` (scripts/build-sea.mjs): при сборке main.cjs
+// исполняет только верхний уровень модулей — до этой строки, — и куча уходит в
+// бинарь. Всё, что зависит от процесса (env роли, argv, cwd, терминал), читает
+// `start` уже после десериализации, у пользователя. Поэтому верхний уровень
+// модулей не читает окружение и не держит нативных объектов — правила в
+// docs/arch/Common.md («Верхний уровень модулей и V8-снапшот»), гейт —
+// `npm run snapshot-check`. Без снапшота (self-extract, `node dist/main.cjs`,
+// dev) `start` зовётся сразу.
+if (startupSnapshot.isBuildingSnapshot()) {
+    startupSnapshot.setDeserializeMainFunction(start);
+} else {
+    start();
+}
 
 async function main(): Promise<void> {
     // Служебные роли — ленивые куски (`roles/*` в LAZY_CHUNKS): их код не лежит в
