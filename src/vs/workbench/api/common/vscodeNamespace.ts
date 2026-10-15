@@ -7,6 +7,7 @@ import { UI_LOCALE } from "../../../platform/environment/common/uiLocale.ts";
 import { implementsApi } from "./apiSurface.ts";
 import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
+import { createCommentsNoop } from "./commentsNoop.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import type { IExtHostDisk } from "./extHostDisk.ts";
@@ -28,6 +29,9 @@ import {
     CodeActionTriggerKind,
     CodeLens,
     ColorThemeKind,
+    CommentMode,
+    CommentThreadCollapsibleState,
+    CommentThreadState,
     CompletionItem,
     CompletionItemKind,
     CompletionItemTag,
@@ -63,6 +67,7 @@ import {
     Location,
     LogLevel,
     MarkdownString,
+    NotebookCellOutputItem,
     OverviewRulerLane,
     ParameterInformation,
     Position,
@@ -102,6 +107,7 @@ import {
     TelemetryTrustedValue,
     TerminalExitReason,
     TerminalLocation,
+    TerminalShellExecutionCommandLineConfidence,
     TextDocumentChangeReason,
     TextDocumentSaveReason,
     TextEdit,
@@ -118,7 +124,13 @@ import {
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
-import { type IWireExtensionDescription, parseWireClipboardText, parseWireOpenExternalResult } from "./wireTypes.ts";
+import {
+    type IWireEnvInitialize,
+    type IWireExtensionDescription,
+    parseWireClipboardText,
+    parseWireEnvInitialize,
+    parseWireOpenExternalResult,
+} from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
@@ -187,11 +199,28 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
     });
 
+    // Константы окружения, которые знает только хост (`initData` эталона):
+    // семя `env.initialize` приходит до первой активации. Смены шелла нет —
+    // профилей терминала у нас нет, поэтому `onDidChangeShell` не стреляет.
+    let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "" };
+    rpc.handleNotification("env.initialize", (params) => {
+        hostEnvironment = parseWireEnvInitialize(params);
+    });
+
     // `env`: буфер обмена и открытие ссылки живут у хоста — он владеет
     // терминалом (OSC 52) и правом запускать системный обработчик, поэтому
     // расширение ходит туда запросами. Остальное — константы шима
     // (vscode-languageclient читает language/appName).
     const env = {
+        /** sha256 MAC-адреса машины (или uuid), стабилен между запусками — кэш хоста. */
+        get machineId(): string {
+            return hostEnvironment.machineId;
+        },
+        /** Шелл, которым запустился бы терминал без `shellPath` (Claude Code берёт из него `PATH` login-шелла). */
+        get shell(): string {
+            return hostEnvironment.shell;
+        },
+        onDidChangeShell: new EventEmitter<string>().event,
         appName: "Diode",
         appHost: "desktop",
         language: UI_LOCALE,
@@ -376,6 +405,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         // терминал всегда в панели.
         TerminalExitReason,
         TerminalLocation,
+        // Исполнений нет (shell integration не поднята), но enum — значение.
+        TerminalShellExecutionCommandLineConfidence,
         // `switch (env.uiKind) { case vscode.UIKind.Desktop: ... }` — типовой
         // разбор окружения в `activate()`; без runtime-поля он падал бы на
         // чтении `Desktop` у undefined, унося с собой всю активацию.
@@ -434,9 +465,18 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         ThemeIcon,
         // Расширения конструируют его при вызове `logUsage` — значение, а не тип.
         TelemetryTrustedValue,
+        // Notebook-редакторов нет, но элементы вывода строят на уровне модуля
+        // (Claude Code — `NotebookCellOutputItem.error(...).mime` при загрузке).
+        NotebookCellOutputItem,
         // Входа нет: сессии `undefined`, провайдеры принимаются и не зовутся
         // (authenticationNoop.ts). Без namespace'а `activate()` падал целиком.
         authentication: createAuthenticationNoop(rpc),
+        // Комментарии пока не рисуются: контроллер и треды инертные (commentsNoop.ts),
+        // enum'ы — значения, ими расширение выставляет состояние треда.
+        comments: createCommentsNoop(rpc),
+        CommentThreadCollapsibleState,
+        CommentMode,
+        CommentThreadState,
     };
 
     return {

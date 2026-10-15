@@ -1,0 +1,18 @@
+{
+    "name": "status-message-demo",
+    "displayName": "Status Message Demo",
+    "description": "Демо window.setStatusBarMessage и констант env хоста: стек сообщений в статус-баре, как у Claude Code при ревизии диффа.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "statusMessageDemo.timed", "title": "Status Message Demo: Show Timed Message" },
+            { "command": "statusMessageDemo.env", "title": "Status Message Demo: Show Host Environment" }
+        ]
+    }
+}

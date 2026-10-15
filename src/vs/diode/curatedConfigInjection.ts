@@ -28,16 +28,29 @@
  * после правки pom/gradle «Synchronize now / Never», и с #352 этот вопрос у нас
  * отвечаем — подменять его на `"automatic"` значило бы молча забрать у человека
  * решение, которое ему оставляет VS Code.
+ *
+ * Anthropic.claude-code: манифестный дефолт `claudeCode.useTerminal: false`
+ * поднимает чат в webview-панели, которой в TUI нет и не будет (потолок —
+ * docs/public/API-COVERAGE.md). Терминальный режим — `claude` CLI в нашем
+ * терминале, подключённый к `ide`-серверу расширения, — единственный рабочий;
+ * без дефолта человеку пришлось бы искать и включать его руками.
+ *
+ * Id сравнивается без учёта регистра: id расширений VS Code регистронезависимы,
+ * а в манифестах издатели пишутся по-разному (`Anthropic`, `DetachHead`).
  */
 export function curatedConfigInjection(extensionId: string): Record<string, unknown> {
-    if (extensionId === "detachhead.basedpyright") {
+    const id = extensionId.toLowerCase();
+    if (id === "detachhead.basedpyright") {
         return { "basedpyright.importStrategy": "useBundled" };
     }
-    if (extensionId === "charliermarsh.ruff") {
+    if (id === "charliermarsh.ruff") {
         return { "ruff.importStrategy": "useBundled" };
     }
-    if (extensionId === "redhat.java") {
+    if (id === "redhat.java") {
         return { "java.jdt.ls.lombokSupport.enabled": false };
+    }
+    if (id === "anthropic.claude-code") {
+        return { "claudeCode.useTerminal": true };
     }
     return {};
 }

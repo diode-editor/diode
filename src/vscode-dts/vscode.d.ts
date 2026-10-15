@@ -779,6 +779,38 @@ declare module "vscode" {
 		export function createOutputChannel(name: string, languageId?: string): OutputChannel;
 
 		/**
+		 * Set a message to the status bar. This is a short hand for the more powerful
+		 * status bar {@link window.createStatusBarItem items}.
+		 *
+		 * @param text The message to show, supports icon substitution as in status bar {@link StatusBarItem.text items}.
+		 * @param hideAfterTimeout Timeout in milliseconds after which the message will be disposed.
+		 * @returns A disposable which hides the status bar message.
+		 */
+		export function setStatusBarMessage(text: string, hideAfterTimeout: number): Disposable;
+
+		/**
+		 * Set a message to the status bar. This is a short hand for the more powerful
+		 * status bar {@link window.createStatusBarItem items}.
+		 *
+		 * @param text The message to show, supports icon substitution as in status bar {@link StatusBarItem.text items}.
+		 * @param hideWhenDone Thenable on which completion (resolve or reject) the message will be disposed.
+		 * @returns A disposable which hides the status bar message.
+		 */
+		export function setStatusBarMessage(text: string, hideWhenDone: Thenable<any>): Disposable;
+
+		/**
+		 * Set a message to the status bar. This is a short hand for the more powerful
+		 * status bar {@link window.createStatusBarItem items}.
+		 *
+		 * *Note* that status bar messages stack and that they must be disposed when no
+		 * longer used.
+		 *
+		 * @param text The message to show, supports icon substitution as in status bar {@link StatusBarItem.text items}.
+		 * @returns A disposable which hides the status bar message.
+		 */
+		export function setStatusBarMessage(text: string): Disposable;
+
+		/**
 		 * Show progress in the editor. Progress is shown while running the given callback
 		 * and while the promise it returned isn't resolved nor rejected. The location at which
 		 * progress should show (and other details) is defined via the passed {@linkcode ProgressOptions}.
@@ -884,6 +916,25 @@ declare module "vscode" {
 		 * An {@link Event} which fires when a terminal is disposed.
 		 */
 		export const onDidCloseTerminal: Event<Terminal>;
+
+		/**
+		 * Fires when shell integration activates or one of its properties changes in a terminal.
+		 */
+		export const onDidChangeTerminalShellIntegration: Event<TerminalShellIntegrationChangeEvent>;
+
+		/**
+		 * This will be fired when a terminal command is started. This event will fire only when
+		 * [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration) is
+		 * activated for the terminal.
+		 */
+		export const onDidStartTerminalShellExecution: Event<TerminalShellExecutionStartEvent>;
+
+		/**
+		 * This will be fired when a terminal command is ended. This event will fire only when
+		 * [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration) is
+		 * activated for the terminal.
+		 */
+		export const onDidEndTerminalShellExecution: Event<TerminalShellExecutionEndEvent>;
 
 		/**
 		 * Creates a {@link Terminal} with a backing shell process. The cwd of the terminal will be the workspace
@@ -7729,6 +7780,11 @@ declare module "vscode" {
 		export const clipboard: Clipboard;
 
 		/**
+		 * A unique identifier for the computer.
+		 */
+		export const machineId: string;
+
+		/**
 		 * A unique identifier for the current session.
 		 * Changes each time the editor is started.
 		 */
@@ -7747,6 +7803,12 @@ declare module "vscode" {
 		export const onDidChangeTelemetryEnabled: Event<boolean>;
 
 		/**
+		 * An {@link Event} which fires when the default shell changes. This fires with the new
+		 * shell path.
+		 */
+		export const onDidChangeShell: Event<string>;
+
+		/**
 		 * The name of a remote. Defined by extensions, popular samples are `wsl` for the Windows
 		 * Subsystem for Linux or `ssh-remote` for remotes using a secure shell.
 		 *
@@ -7756,6 +7818,13 @@ declare module "vscode" {
 		 * a specific extension runs remote or not.
 		 */
 		export const remoteName: string | undefined;
+
+		/**
+		 * The detected default shell for the extension host, this is overridden by the
+		 * `terminal.integrated.defaultProfile` setting for the extension host's platform. Note that in
+		 * environments that do not support a shell the value is the empty string.
+		 */
+		export const shell: string;
 
 		/**
 		 * The UI kind property indicates from which UI extensions
@@ -7831,6 +7900,18 @@ declare module "vscode" {
 		 * The current state of the {@link Terminal}.
 		 */
 		readonly state: TerminalState;
+
+		/**
+		 * An object that contains [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration)-powered
+		 * features for the terminal. This will always be `undefined` immediately after the terminal
+		 * is created. Listen to {@link window.onDidChangeTerminalShellIntegration} to be notified
+		 * when shell integration is activated for a terminal.
+		 *
+		 * Note that this object may remain undefined if shell integration never activates. For
+		 * example Command Prompt does not support shell integration and a user's shell setup could
+		 * conflict with the automatic shell integration activation.
+		 */
+		readonly shellIntegration: TerminalShellIntegration | undefined;
 
 		/**
 		 * Send text to the terminal. The text is written to the stdin of the underlying pty process
@@ -10022,6 +10103,735 @@ declare module "vscode" {
 		 */
 		export function registerAuthenticationProvider(id: string, label: string, provider: AuthenticationProvider, options?: AuthenticationProviderOptions): Disposable;
 	}
+
+	/**
+	 * One representation of a {@link NotebookCellOutput notebook output}, defined by MIME type and data.
+	 */
+	export class NotebookCellOutputItem {
+
+		/**
+		 * Factory function to create a `NotebookCellOutputItem` from a string.
+		 *
+		 * *Note* that an UTF-8 encoder is used to create bytes for the string.
+		 *
+		 * @param value A string.
+		 * @param mime Optional MIME type, defaults to `text/plain`.
+		 * @returns A new output item object.
+		 */
+		static text(value: string, mime?: string): NotebookCellOutputItem;
+
+		/**
+		 * Factory function to create a `NotebookCellOutputItem` from
+		 * a JSON object.
+		 *
+		 * *Note* that this function is not expecting "stringified JSON" but
+		 * an object that can be stringified. This function will throw an error
+		 * when the passed value cannot be JSON-stringified.
+		 *
+		 * @param value A JSON-stringifyable value.
+		 * @param mime Optional MIME type, defaults to `application/json`
+		 * @returns A new output item object.
+		 */
+		static json(value: any, mime?: string): NotebookCellOutputItem;
+
+		/**
+		 * Factory function to create a `NotebookCellOutputItem` that uses
+		 * uses the `application/vnd.code.notebook.stdout` mime type.
+		 *
+		 * @param value A string.
+		 * @returns A new output item object.
+		 */
+		static stdout(value: string): NotebookCellOutputItem;
+
+		/**
+		 * Factory function to create a `NotebookCellOutputItem` that uses
+		 * uses the `application/vnd.code.notebook.stderr` mime type.
+		 *
+		 * @param value A string.
+		 * @returns A new output item object.
+		 */
+		static stderr(value: string): NotebookCellOutputItem;
+
+		/**
+		 * Factory function to create a `NotebookCellOutputItem` that uses
+		 * uses the `application/vnd.code.notebook.error` mime type.
+		 *
+		 * @param value An error object.
+		 * @returns A new output item object.
+		 */
+		static error(value: Error): NotebookCellOutputItem;
+
+		/**
+		 * The mime type which determines how the {@linkcode NotebookCellOutputItem.data data}-property
+		 * is interpreted.
+		 *
+		 * Notebooks have built-in support for certain mime-types, extensions can add support for new
+		 * types and override existing types.
+		 */
+		mime: string;
+
+		/**
+		 * The data of this output item. Must always be an array of unsigned 8-bit integers.
+		 */
+		data: Uint8Array;
+
+		/**
+		 * Create a new notebook cell output item.
+		 *
+		 * @param data The value of the output item.
+		 * @param mime The mime type of the output item.
+		 */
+		constructor(data: Uint8Array, mime: string);
+	}
+
+	/**
+	 * [Shell integration](https://code.visualstudio.com/docs/terminal/shell-integration)-powered capabilities owned by a terminal.
+	 */
+	export interface TerminalShellIntegration {
+		/**
+		 * The current working directory of the terminal. This {@link Uri} may represent a file on
+		 * another machine (eg. ssh into another machine). This requires the shell integration to
+		 * support working directory reporting.
+		 */
+		readonly cwd: Uri | undefined;
+
+		/**
+		 * Execute a command, sending ^C as necessary to interrupt any running command if needed.
+		 *
+		 * @param commandLine The command line to execute, this is the exact text that will be sent
+		 * to the terminal.
+		 *
+		 * @throws When run on a terminal doesn't support this API, such as task terminals.
+		 *
+		 * @example
+		 * // Execute a command in a terminal immediately after being created
+		 * const myTerm = window.createTerminal();
+		 * window.onDidChangeTerminalShellIntegration(async ({ terminal, shellIntegration }) => {
+		 *   if (terminal === myTerm) {
+		 *     const execution = shellIntegration.executeCommand('echo "Hello world"');
+		 *     window.onDidEndTerminalShellExecution(event => {
+		 *       if (event.execution === execution) {
+		 *         console.log(`Command exited with code ${event.exitCode}`);
+		 *       }
+		 *     });
+		 *   }
+		 * }));
+		 * // Fallback to sendText if there is no shell integration within 3 seconds of launching
+		 * setTimeout(() => {
+		 *   if (!myTerm.shellIntegration) {
+		 *     myTerm.sendText('echo "Hello world"');
+		 *     // Without shell integration, we can't know when the command has finished or what the
+		 *     // exit code was.
+		 *   }
+		 * }, 3000);
+		 *
+		 * @example
+		 * // Send command to terminal that has been alive for a while
+		 * const commandLine = 'echo "Hello world"';
+		 * if (term.shellIntegration) {
+		 *   const execution = shellIntegration.executeCommand({ commandLine });
+		 *   window.onDidEndTerminalShellExecution(event => {
+		 *     if (event.execution === execution) {
+		 *       console.log(`Command exited with code ${event.exitCode}`);
+		 *     }
+		 *   });
+		 * } else {
+		 *   term.sendText(commandLine);
+		 *   // Without shell integration, we can't know when the command has finished or what the
+		 *   // exit code was.
+		 * }
+		 */
+		executeCommand(commandLine: string): TerminalShellExecution;
+
+		/**
+		 * Execute a command, sending ^C as necessary to interrupt any running command if needed.
+		 *
+		 * *Note* This is not guaranteed to work as [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration)
+		 * must be activated. Check whether {@link TerminalShellExecution.exitCode} is rejected to
+		 * verify whether it was successful.
+		 *
+		 * @param executable A command to run.
+		 * @param args Arguments to launch the executable with. The arguments will be escaped such
+		 * that they are interpreted as single arguments when the argument both contains whitespace
+		 * and does not include any single quote, double quote or backtick characters.
+		 *
+		 * Note that this escaping is not intended to be a security measure, be careful when passing
+		 * untrusted data to this API as strings like `$(...)` can often be used in shells to
+		 * execute code within a string.
+		 *
+		 * @example
+		 * // Execute a command in a terminal immediately after being created
+		 * const myTerm = window.createTerminal();
+		 * window.onDidChangeTerminalShellIntegration(async ({ terminal, shellIntegration }) => {
+		 *   if (terminal === myTerm) {
+		 *     const command = shellIntegration.executeCommand({
+		 *       command: 'echo',
+		 *       args: ['Hello world']
+		 *     });
+		 *     const code = await command.exitCode;
+		 *     console.log(`Command exited with code ${code}`);
+		 *   }
+		 * }));
+		 * // Fallback to sendText if there is no shell integration within 3 seconds of launching
+		 * setTimeout(() => {
+		 *   if (!myTerm.shellIntegration) {
+		 *     myTerm.sendText('echo "Hello world"');
+		 *     // Without shell integration, we can't know when the command has finished or what the
+		 *     // exit code was.
+		 *   }
+		 * }, 3000);
+		 *
+		 * @example
+		 * // Send command to terminal that has been alive for a while
+		 * const commandLine = 'echo "Hello world"';
+		 * if (term.shellIntegration) {
+		 *   const command = term.shellIntegration.executeCommand({
+		 *     command: 'echo',
+		 *     args: ['Hello world']
+		 *   });
+		 *   const code = await command.exitCode;
+		 *   console.log(`Command exited with code ${code}`);
+		 * } else {
+		 *   term.sendText(commandLine);
+		 *   // Without shell integration, we can't know when the command has finished or what the
+		 *   // exit code was.
+		 * }
+		 */
+		executeCommand(executable: string, args: string[]): TerminalShellExecution;
+	}
+
+	/**
+	 * A command that was executed in a terminal.
+	 */
+	export interface TerminalShellExecution {
+		/**
+		 * The command line that was executed. The {@link TerminalShellExecutionCommandLineConfidence confidence}
+		 * of this value depends on the specific shell's shell integration implementation. This
+		 * value may become more accurate after {@link window.onDidEndTerminalShellExecution} is
+		 * fired.
+		 *
+		 * @example
+		 * // Log the details of the command line on start and end
+		 * window.onDidStartTerminalShellExecution(event => {
+		 *   const commandLine = event.execution.commandLine;
+		 *   console.log(`Command started\n${summarizeCommandLine(commandLine)}`);
+		 * });
+		 * window.onDidEndTerminalShellExecution(event => {
+		 *   const commandLine = event.execution.commandLine;
+		 *   console.log(`Command ended\n${summarizeCommandLine(commandLine)}`);
+		 * });
+		 * function summarizeCommandLine(commandLine: TerminalShellExecutionCommandLine) {
+		 *   return [
+		 *     `  Command line: ${command.commandLine.value}`,
+		 *     `  Confidence: ${command.commandLine.confidence}`,
+		 *     `  Trusted: ${command.commandLine.isTrusted}
+		 *   ].join('\n');
+		 * }
+		 */
+		readonly commandLine: TerminalShellExecutionCommandLine;
+
+		/**
+		 * The working directory that was reported by the shell when this command executed. This
+		 * {@link Uri} may represent a file on another machine (eg. ssh into another machine). This
+		 * requires the shell integration to support working directory reporting.
+		 */
+		readonly cwd: Uri | undefined;
+
+		/**
+		 * Creates a stream of raw data (including escape sequences) that is written to the
+		 * terminal. This will only include data that was written after `read` was called for
+		 * the first time, ie. you must call `read` immediately after the command is executed via
+		 * {@link TerminalShellIntegration.executeCommand} or
+		 * {@link window.onDidStartTerminalShellExecution} to not miss any data.
+		 *
+		 * @example
+		 * // Log all data written to the terminal for a command
+		 * const command = term.shellIntegration.executeCommand({ commandLine: 'echo "Hello world"' });
+		 * const stream = command.read();
+		 * for await (const data of stream) {
+		 *   console.log(data);
+		 * }
+		 */
+		read(): AsyncIterable<string>;
+	}
+
+	/**
+	 * A command line that was executed in a terminal.
+	 */
+	export interface TerminalShellExecutionCommandLine {
+		/**
+		 * The full command line that was executed, including both the command and its arguments.
+		 */
+		readonly value: string;
+
+		/**
+		 * Whether the command line value came from a trusted source and is therefore safe to
+		 * execute without user additional confirmation, such as a notification that asks "Do you
+		 * want to execute (command)?". This verification is likely only needed if you are going to
+		 * execute the command again.
+		 *
+		 * This is `true` only when the command line was reported explicitly by the shell
+		 * integration script (ie. {@link TerminalShellExecutionCommandLineConfidence.High high confidence})
+		 * and it used a nonce for verification.
+		 */
+		readonly isTrusted: boolean;
+
+		/**
+		 * The confidence of the command line value which is determined by how the value was
+		 * obtained. This depends upon the implementation of the shell integration script.
+		 */
+		readonly confidence: TerminalShellExecutionCommandLineConfidence;
+	}
+
+	/**
+	 * The confidence of a {@link TerminalShellExecutionCommandLine} value.
+	 */
+	export enum TerminalShellExecutionCommandLineConfidence {
+		/**
+		 * The command line value confidence is low. This means that the value was read from the
+		 * terminal buffer using markers reported by the shell integration script. Additionally one
+		 * of the following conditions will be met:
+		 *
+		 * - The command started on the very left-most column which is unusual, or
+		 * - The command is multi-line which is more difficult to accurately detect due to line
+		 *   continuation characters and right prompts.
+		 * - Command line markers were not reported by the shell integration script.
+		 */
+		Low = 0,
+
+		/**
+		 * The command line value confidence is medium. This means that the value was read from the
+		 * terminal buffer using markers reported by the shell integration script. The command is
+		 * single-line and does not start on the very left-most column (which is unusual).
+		 */
+		Medium = 1,
+
+		/**
+		 * The command line value confidence is high. This means that the value was explicitly sent
+		 * from the shell integration script or the command was executed via the
+		 * {@link TerminalShellIntegration.executeCommand} API.
+		 */
+		High = 2
+	}
+
+	/**
+	 * An event signalling that a terminal's shell integration has changed.
+	 */
+	export interface TerminalShellIntegrationChangeEvent {
+		/**
+		 * The terminal that shell integration has been activated in.
+		 */
+		readonly terminal: Terminal;
+
+		/**
+		 * The shell integration object.
+		 */
+		readonly shellIntegration: TerminalShellIntegration;
+	}
+
+	/**
+	 * An event signalling that an execution has started in a terminal.
+	 */
+	export interface TerminalShellExecutionStartEvent {
+		/**
+		 * The terminal that shell integration has been activated in.
+		 */
+		readonly terminal: Terminal;
+
+		/**
+		 * The shell integration object.
+		 */
+		readonly shellIntegration: TerminalShellIntegration;
+
+		/**
+		 * The terminal shell execution that has ended.
+		 */
+		readonly execution: TerminalShellExecution;
+	}
+
+	/**
+	 * An event signalling that an execution has ended in a terminal.
+	 */
+	export interface TerminalShellExecutionEndEvent {
+		/**
+		 * The terminal that shell integration has been activated in.
+		 */
+		readonly terminal: Terminal;
+
+		/**
+		 * The shell integration object.
+		 */
+		readonly shellIntegration: TerminalShellIntegration;
+
+		/**
+		 * The terminal shell execution that has ended.
+		 */
+		readonly execution: TerminalShellExecution;
+
+		/**
+		 * The exit code reported by the shell.
+		 *
+		 * When this is `undefined` it can mean several things:
+		 *
+		 * - The shell either did not report an exit  code (ie. the shell integration script is
+		 *   misbehaving)
+		 * - The shell reported a command started before the command finished (eg. a sub-shell was
+		 *   opened).
+		 * - The user canceled the command via ctrl+c.
+		 * - The user pressed enter when there was no input.
+		 *
+		 * Generally this should not happen. Depending on the use case, it may be best to treat this
+		 * as a failure.
+		 *
+		 * @example
+		 * const execution = shellIntegration.executeCommand({
+		 *   command: 'echo',
+		 *   args: ['Hello world']
+		 * });
+		 * window.onDidEndTerminalShellExecution(event => {
+		 *   if (event.execution === execution) {
+		 *     if (event.exitCode === undefined) {
+		 * 	     console.log('Command finished but exit code is unknown');
+		 *     } else if (event.exitCode === 0) {
+		 * 	     console.log('Command succeeded');
+		 *     } else {
+		 * 	     console.log('Command failed');
+		 *     }
+		 *   }
+		 * });
+		 */
+		readonly exitCode: number | undefined;
+	}
+
+	/**
+	 * Collapsible state of a {@link CommentThread comment thread}
+	 */
+	export enum CommentThreadCollapsibleState {
+		/**
+		 * Determines an item is collapsed
+		 */
+		Collapsed = 0,
+
+		/**
+		 * Determines an item is expanded
+		 */
+		Expanded = 1
+	}
+
+	/**
+	 * Comment mode of a {@link Comment}
+	 */
+	export enum CommentMode {
+		/**
+		 * Displays the comment editor
+		 */
+		Editing = 0,
+
+		/**
+		 * Displays the preview of the comment
+		 */
+		Preview = 1
+	}
+
+	/**
+	 * The state of a comment thread.
+	 */
+	export enum CommentThreadState {
+		/**
+		 * Unresolved thread state
+		 */
+		Unresolved = 0,
+		/**
+		 * Resolved thread state
+		 */
+		Resolved = 1
+	}
+
+	/**
+	 * A collection of {@link Comment comments} representing a conversation at a particular range in a document.
+	 */
+	export interface CommentThread {
+		/**
+		 * The uri of the document the thread has been created on.
+		 */
+		readonly uri: Uri;
+
+		/**
+		 * The range the comment thread is located within the document. The thread icon will be shown
+		 * at the last line of the range. When set to undefined, the comment will be associated with the
+		 * file, and not a specific range.
+		 */
+		range: Range | undefined;
+
+		/**
+		 * The ordered comments of the thread.
+		 */
+		comments: readonly Comment[];
+
+		/**
+		 * Whether the thread should be collapsed or expanded when opening the document.
+		 * Defaults to Collapsed.
+		 */
+		collapsibleState: CommentThreadCollapsibleState;
+
+		/**
+		 * Whether the thread supports reply.
+		 * Defaults to true.
+		 */
+		canReply: boolean | CommentAuthorInformation;
+
+		/**
+		 * Context value of the comment thread. This can be used to contribute thread specific actions.
+		 * For example, a comment thread is given a context value as `editable`. When contributing actions to `comments/commentThread/title`
+		 * using `menus` extension point, you can specify context value for key `commentThread` in `when` expression like `commentThread == editable`.
+		 * ```json
+		 * "contributes": {
+		 *   "menus": {
+		 *     "comments/commentThread/title": [
+		 *       {
+		 *         "command": "extension.deleteCommentThread",
+		 *         "when": "commentThread == editable"
+		 *       }
+		 *     ]
+		 *   }
+		 * }
+		 * ```
+		 * This will show action `extension.deleteCommentThread` only for comment threads with `contextValue` is `editable`.
+		 */
+		contextValue?: string;
+
+		/**
+		 * The optional human-readable label describing the {@link CommentThread Comment Thread}
+		 */
+		label?: string;
+
+		/**
+		 * The optional state of a comment thread, which may affect how the comment is displayed.
+		 */
+		state?: CommentThreadState;
+
+		/**
+		 * Dispose this comment thread.
+		 *
+		 * Once disposed, this comment thread will be removed from visible editors and Comment Panel when appropriate.
+		 */
+		dispose(): void;
+	}
+
+	/**
+	 * Author information of a {@link Comment}
+	 */
+	export interface CommentAuthorInformation {
+		/**
+		 * The display name of the author of the comment
+		 */
+		name: string;
+
+		/**
+		 * The optional icon path for the author
+		 */
+		iconPath?: Uri;
+	}
+
+	/**
+	 * Reactions of a {@link Comment}
+	 */
+	export interface CommentReaction {
+		/**
+		 * The human-readable label for the reaction
+		 */
+		readonly label: string;
+
+		/**
+		 * Icon for the reaction shown in UI.
+		 */
+		readonly iconPath: string | Uri;
+
+		/**
+		 * The number of users who have reacted to this reaction
+		 */
+		readonly count: number;
+
+		/**
+		 * Whether the {@link CommentAuthorInformation author} of the comment has reacted to this reaction
+		 */
+		readonly authorHasReacted: boolean;
+	}
+
+	/**
+	 * A comment is displayed within the editor or the Comments Panel, depending on how it is provided.
+	 */
+	export interface Comment {
+		/**
+		 * The human-readable comment body
+		 */
+		body: string | MarkdownString;
+
+		/**
+		 * {@link CommentMode Comment mode} of the comment
+		 */
+		mode: CommentMode;
+
+		/**
+		 * The {@link CommentAuthorInformation author information} of the comment
+		 */
+		author: CommentAuthorInformation;
+
+		/**
+		 * Context value of the comment. This can be used to contribute comment specific actions.
+		 * For example, a comment is given a context value as `editable`. When contributing actions to `comments/comment/title`
+		 * using `menus` extension point, you can specify context value for key `comment` in `when` expression like `comment == editable`.
+		 * ```json
+		 *	"contributes": {
+		 *		"menus": {
+		 *			"comments/comment/title": [
+		 *				{
+		 *					"command": "extension.deleteComment",
+		 *					"when": "comment == editable"
+		 *				}
+		 *			]
+		 *		}
+		 *	}
+		 * ```
+		 * This will show action `extension.deleteComment` only for comments with `contextValue` is `editable`.
+		 */
+		contextValue?: string;
+
+		/**
+		 * Optional reactions of the {@link Comment}
+		 */
+		reactions?: CommentReaction[];
+
+		/**
+		 * Optional label describing the {@link Comment}
+		 * Label will be rendered next to authorName if exists.
+		 */
+		label?: string;
+
+		/**
+		 * Optional timestamp that will be displayed in comments.
+		 * The date will be formatted according to the user's locale and settings.
+		 */
+		timestamp?: Date;
+	}
+
+	/**
+	 * Command argument for actions registered in `comments/commentThread/context`.
+	 */
+	export interface CommentReply {
+		/**
+		 * The active {@link CommentThread comment thread}
+		 */
+		thread: CommentThread;
+
+		/**
+		 * The value in the comment editor
+		 */
+		text: string;
+	}
+
+	/**
+	 * The ranges a CommentingRangeProvider enables commenting on.
+	 */
+	export interface CommentingRanges {
+		/**
+		 * Enables comments to be added to a file without a specific range.
+		 */
+		enableFileComments: boolean;
+
+		/**
+		 * The ranges which allow new comment threads creation.
+		 */
+		ranges?: Range[];
+	}
+
+	/**
+	 * Commenting range provider for a {@link CommentController comment controller}.
+	 */
+	export interface CommentingRangeProvider {
+		/**
+		 * Provide a list of ranges which allow new comment threads creation or null for a given document
+		 */
+		provideCommentingRanges(document: TextDocument, token: CancellationToken): ProviderResult<Range[] | CommentingRanges>;
+	}
+
+	/**
+	 * Represents a {@link CommentController comment controller}'s {@link CommentController.options options}.
+	 */
+	export interface CommentOptions {
+		/**
+		 * An optional string to show on the comment input box when it's collapsed.
+		 */
+		prompt?: string;
+
+		/**
+		 * An optional string to show as placeholder in the comment input box when it's focused.
+		 */
+		placeHolder?: string;
+	}
+
+	/**
+	 * A comment controller is able to provide {@link CommentThread comments} support to the editor and
+	 * provide users various ways to interact with comments.
+	 */
+	export interface CommentController {
+		/**
+		 * The id of this comment controller.
+		 */
+		readonly id: string;
+
+		/**
+		 * The human-readable label of this comment controller.
+		 */
+		readonly label: string;
+
+		/**
+		 * Comment controller options
+		 */
+		options?: CommentOptions;
+
+		/**
+		 * Optional commenting range provider. Provide a list {@link Range ranges} which support commenting to any given resource uri.
+		 *
+		 * If not provided, users cannot leave any comments.
+		 */
+		commentingRangeProvider?: CommentingRangeProvider;
+
+		/**
+		 * Create a {@link CommentThread comment thread}. The comment thread will be displayed in visible text editors (if the resource matches)
+		 * and Comments Panel once created.
+		 *
+		 * @param uri The uri of the document the thread has been created on.
+		 * @param range The range the comment thread is located within the document.
+		 * @param comments The ordered comments of the thread.
+		 */
+		createCommentThread(uri: Uri, range: Range, comments: readonly Comment[]): CommentThread;
+
+		/**
+		 * Optional reaction handler for creating and deleting reactions on a {@link Comment}.
+		 */
+		reactionHandler?: (comment: Comment, reaction: CommentReaction) => Thenable<void>;
+
+		/**
+		 * Dispose this comment controller.
+		 *
+		 * Once disposed, all {@link CommentThread comment threads} created by this comment controller will also be removed from the editor
+		 * and Comments Panel.
+		 */
+		dispose(): void;
+	}
+
+	namespace comments {
+		/**
+		 * Creates a new {@link CommentController comment controller} instance.
+		 *
+		 * @param id An `id` for the comment controller.
+		 * @param label A human-readable string for the comment controller.
+		 * @returns An instance of {@link CommentController comment controller}.
+		 */
+		export function createCommentController(id: string, label: string): CommentController;
+	}
+
 }
 
 /**

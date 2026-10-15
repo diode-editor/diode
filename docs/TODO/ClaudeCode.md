@@ -1,6 +1,6 @@
 # Интеграция с Claude Code: стоковое расширение в терминальном режиме
 
-Статус: **решение принято, работа не начата.** Родственные документы:
+Статус: **в работе** — пункт 1 (API-члены) сделан, дальше `registerUriHandler`, `environmentVariableCollection`, запись в магазине. Родственные документы:
 [VISION.md](../VISION.md) (направления B и C), [IntegratedTerminal.md](IntegratedTerminal.md),
 [DiffEditable.md](DiffEditable.md), [Marketplace.md](Marketplace.md),
 матрица [API-COVERAGE.md](../public/API-COVERAGE.md).
@@ -58,18 +58,30 @@ diagnostic client»). Белого списка имён IDE в CLI нет: ва
 
 ### 1. Мелочи (разблокируют активацию)
 
-- [ ] `NotebookCellOutputItem` со статиками `error`/`text`/`json`/`stdout`/`stderr`
-      и полем `mime` (`application/vnd.code.notebook.error` и т.д.).
-- [ ] `window.registerUriHandler`, `window.setStatusBarMessage`,
-      `comments.createCommentController` — честные no-op с `Disposable`.
-- [ ] `ExtensionContext.extension` (`Extension<T>` c `packageJSON`, тот же объект,
-      что отдаёт `extensions.getExtension`).
-- [ ] `env.shell`, `env.machineId`.
-- [ ] Дефолт `claudeCode.useTerminal = true` курируемой инъекцией (`curatedConfigInjection` — переопределение дефолта в общем реестре настроек):
-      webview-режим у нас невозможен, пользователь не должен крутить это руками.
+Сверено с бандлом 2.1.300 (15.10.2026): к списку пробы добавились
+`onDidChangeTerminalShellIntegration` (ждёт 3 с и уходит в `sendText`),
+`comments.createCommentController` (тред на каждый ханк диффа — лениво, на
+первом диффе), `languages.getDiagnostics`/`onDidChangeDiagnostics`.
+
+- [x] `NotebookCellOutputItem` — эталонный класс со всеми статиками и нормализацией mime.
+- [x] `window.setStatusBarMessage` — эталонный общий пункт полосы со стеком сообщений.
+- [x] `comments.createCommentController` — декларации подняты, рантайм инертный
+      (тред с эталонными дефолтами, строка в Output); enum'ы — значения.
+- [x] Shell integration: три события `window` валидные и молчат,
+      `Terminal.shellIntegration` — `undefined` (контракт «не активировалась»).
+- [x] `ExtensionContext.extension` — был сделан раньше.
+- [x] `env.shell` (шелл встроенного терминала), `env.onDidChangeShell`,
+      `env.machineId` (sha256 MAC, кэш `telemetry.machineId` в application-состоянии)
+      — семенем `env.initialize` до первой активации.
+- [x] Дефолт `claudeCode.useTerminal = true` курируемой инъекцией; id в
+      `curatedConfigInjection` теперь сравнивается без учёта регистра.
+- [ ] `window.registerUriHandler` — не no-op, а настоящий: обработчик по
+      `diode://<publisher.name>/…`, активация `onUri`, команда Open URL
+      (`workbench.action.url.openUrl` эталона). Отдельный PR.
 - [ ] Запись `Anthropic.claude-code` в реестр магазина (платформенные vsix,
-      ~112 МБ — лимиты валидатора см. [JavaLSP.md](JavaLSP.md)).
-- [ ] Обновить матрицу API-COVERAGE в тех же PR.
+      ~120 МБ — лимиты валидатора см. [JavaLSP.md](JavaLSP.md)). Без неё
+      стоковый e2e-сценарий не скачать через `fetchStockVsix`.
+- [x] Матрица API-COVERAGE обновлена.
 
 ### 2. Терминал для расширений (крупное)
 

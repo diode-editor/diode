@@ -104,7 +104,11 @@ import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
 import { DocumentsCustomer, MAX_SYNCED_DOCUMENT_CHARS } from "./customers/documentsCustomer.ts";
 import { EditorCustomer } from "./customers/editorCustomer.ts";
-import { EnvCustomer } from "./customers/envCustomer.ts";
+import {
+    EnvCustomer,
+    fallbackExtensionHostEnvironment,
+    type IExtensionHostEnvironment,
+} from "./customers/envCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
@@ -296,6 +300,12 @@ export interface IExtensionHostOptions {
      */
     readonly externalOpener?: IExternalOpener;
     /**
+     * Константы `env`, которые знает только хост (`machineId`, `shell`). Если
+     * не переданы — id считается заново на каждый хост (без кэша между
+     * запусками), шелл — системный.
+     */
+    readonly environment?: IExtensionHostEnvironment;
+    /**
      * Снимки ВСЕХ открытых документов для наполнения `workspace.textDocuments`
      * на `host.ready` (по одному на документ; см. `openDocumentSnapshots`).
      * Хост пушит их как `editor.didOpen` при готовности subprocess'а — чтобы
@@ -464,6 +474,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     /** Команды расширений в реестре ядра: прокси спавна и заглушки-активаторы. */
     private readonly commands: CommandsCustomer;
     private readonly terminals: TerminalCustomer;
+    private readonly env: EnvCustomer;
     /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
     private readonly fileSystem: FileSystemCustomer;
     /** Корни каталогов хранения расширений; зовётся на каждой активации (см. `storageHomes`). */
@@ -524,10 +535,15 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
+        this.env = new EnvCustomer(
+            options.clipboard,
+            options.externalOpener,
+            options.environment ?? fallbackExtensionHostEnvironment(),
+        );
         this.customers = [
             new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
             this.commands,
-            new EnvCustomer(options.clipboard, options.externalOpener),
+            this.env,
             this.fileSystem,
             this.decorations,
             this.editor,
@@ -1310,6 +1326,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             // Push конфигурацию ДО стартового active-editor и первого
             // activateExtension: расширение читает getConfiguration уже в activate().
             this.configurationCustomer?.pushInitialState();
+            // `env.machineId`/`env.shell` синхронные — тоже до первой активации.
+            this.env.pushInitialState();
             // Полоса групп, затем мета активного редактора — до первой активации.
             this.editor.pushInitialState();
             // Активная тема — тоже ДО первой активации: расширение читает

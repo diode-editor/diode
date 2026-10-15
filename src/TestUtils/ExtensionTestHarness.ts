@@ -73,6 +73,7 @@ import { prepareRename, renameSymbol } from "../vs/workbench/contrib/rename/brow
 import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/contrib/suggest/browser/provideCompletions.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
+import type { IExtensionHostEnvironment } from "../vs/workbench/services/extensions/node/customers/envCustomer.ts";
 import {
     ExtensionHost,
     type IExtensionHostConfigProvider,
@@ -300,6 +301,8 @@ export interface IExtensionHarnessOptions {
      * `writeFile`); тесты обхода передают карту каталогов в памяти.
      */
     readonly workspaceScanner?: IWorkspaceScanner;
+    /** Константы `env` хоста (`machineId`, `shell`); по умолчанию — фоллбэк хоста. */
+    readonly environment?: IExtensionHostEnvironment;
     /**
      * Чем транспилировать `.ts` в subprocess'е. По умолчанию `"tsx"`; `"node"`
      * нужен тестам ESM-расширений — см. {@link SubprocessLoader}.
@@ -457,6 +460,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
         ...(options.extensionState !== undefined ? { extensionState: options.extensionState } : {}),
         ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
+        ...(options.environment !== undefined ? { environment: options.environment } : {}),
     });
 
     // Языковые провайдеры (languages.register) → прокси в реестрах ядра — как в extensionHostModule.

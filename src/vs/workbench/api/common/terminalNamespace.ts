@@ -187,6 +187,10 @@ class TerminalRecord {
             // Ввод человека хост пока не пересказывает: состояние — как у
             // терминала, с которым ещё не работали (отступление, см. API-COVERAGE).
             state: { isInteractedWith: false, shell: undefined },
+            // Shell integration нет (скриптов внедрения и разбора OSC 633 тоже):
+            // по контракту это «так и не активировалась» — значение остаётся
+            // `undefined`, и расширения уходят в свой фоллбэк на `sendText`.
+            shellIntegration: undefined,
             sendText: (text: string, shouldExecute = true): void => {
                 rpc.notify("terminal.sendText", { terminal: live(), text, shouldExecute });
             },

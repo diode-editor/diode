@@ -26,7 +26,9 @@
   `<userDataDir>/User/globalStorage/storage.json` (тот же файл, что у эталона).
   Здесь живёт то, что должно быть видно из любого профиля: реестр профилей
   (`userDataProfiles`) и их привязки к воркспейсам (`profileAssociations`) —
-  [Configuration.md](Configuration.md#профили-user-data-profiles).
+  [Configuration.md](Configuration.md#профили-user-data-profiles), — и
+  идентификатор машины для `vscode.env.machineId` (`telemetry.machineId`, тот же
+  ключ, что у эталона; `services/extensions/node/machineIdState.ts`).
 - **`global`** — per active profile: `<profileDir>/globalState.json`. Fallback,
   когда воркспейс не открыт (запуск без папки).
 - **`workspace`** — per-project: `<profileDir>/workspaceStorage/<workspaceId>/state.json`.
