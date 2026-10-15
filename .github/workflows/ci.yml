@@ -78,6 +78,12 @@ jobs:
       # V8-снапшот ядра (SEA `useSnapshot`): main.cjs собирается в снапшот, верхний
       # уровень модулей не читает окружение сборки (ловушки + отравленная сборка),
       # после десериализации — окружение запуска (scripts/check-snapshot.mjs).
+      # Тем node, что вшивает релиз (build.yml): node до 26.11 в процессе из
+      # снапшота роняет воркер с node:net, и пробник гейта это ловит.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.12.0'
+
       - name: Snapshot
         id: snapshot
         continue-on-error: true

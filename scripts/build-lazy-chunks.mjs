@@ -33,16 +33,16 @@
 
 import { execFileSync } from "node:child_process";
 import { builtinModules, createRequire } from "node:module";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { resolveDiodeVersion } from "./resolve-version.mjs";
 
 /**
- * Флаги node, с которыми собирается любой V8-снапшот сборки — бинаря (build-sea.mjs)
- * и вспомогательный для кэша кусков: `--predictable` делает read-only часть
- * снапшота воспроизводимой, иначе кэш кода кусков бинарь отвергает
- * ({@link buildLazyChunkCodeCaches}).
+ * Флаги node, с которыми собирается V8-снапшот бинаря (build-sea.mjs, оба прохода)
+ * и гейта снапшота: `--predictable` делает снапшот воспроизводимым для проверки
+ * кэша кода, иначе кэш кусков, снятый бинарём первого прохода, бинарь второго
+ * отвергает ({@link buildLazyChunkCodeCaches}).
  */
 export const SNAPSHOT_BUILD_FLAGS = ["--predictable"];
 
@@ -190,46 +190,38 @@ export function lazyChunkCacheAssetName(id) {
 /**
  * Снимает кэш кода каждого куска в `<outDir>/<lazy/<id>.v8cache>` для SEA.
  *
- * Бинарь стартует из V8-снапшота (`useSnapshot`, build-sea.mjs), а V8 принимает
- * кэш кода, только если совпали версия, флаги и контрольная сумма read-only части
- * снапшота процесса. Поэтому кэш снимает не голый `nodeBinary`, а процесс из
- * вспомогательного снапшота `lazy-chunk-code-cache.cjs`. Оба снапшота собраны
- * с `--predictable`: так их read-only часть совпадает байт в байт, хотя кучи
- * разные (без флага она плавает от сборки к сборке, и кэш отвергается даже
- * пересобранным снапшотом того же скрипта). Без `NODE_OPTIONS`: флаги V8 обязаны
+ * Бинарь стартует из V8-снапшота ядра (`useSnapshot`, build-sea.mjs), а V8
+ * принимает кэш кода, только если совпали версия, флаги и снапшот процесса: у
+ * node 26 — снапшот того же входа, собранный с `--predictable`
+ * ({@link SNAPSHOT_BUILD_FLAGS}; без флага кэш отвергает даже пересобранный
+ * снапшот того же скрипта). Поэтому кэш снимает сам бинарь первого прохода
+ * сборки в режиме run-as-node, а второй проход вшивает его в бинарь, собранный из
+ * того же `main.cjs` с теми же флагами. Без `NODE_OPTIONS`: флаги V8 обязаны
  * совпасть с рантаймом бинаря. Кэш едет только в SEA: self-extract и
  * `node dist/main.cjs` стартуют без снапшота, и кэш им не подходит.
  *
- * @param {{ chunks: ReadonlyArray<{ id: string, asset: string, path: string }>, outDir: string, nodeBinary: string }} params
+ * @param {{ chunks: ReadonlyArray<{ id: string, asset: string, path: string }>, outDir: string, command: readonly string[] }} params
+ *   `command` — чем исполнять `lazy-chunk-code-cache.cjs`: `[бинарь]` (с
+ *   `DIODE_RUN_AS_NODE=1`) или любая команда с той же семантикой argv.
  * @returns {Array<{ asset: string, path: string }>}
  */
-export function buildLazyChunkCodeCaches({ chunks, outDir, nodeBinary }) {
+export function buildLazyChunkCodeCaches({ chunks, outDir, command }) {
     const warmups = new Map(LAZY_CHUNKS.map(({ id, warmup }) => [id, warmup]));
-    const env = { ...process.env };
+    const env = { ...process.env, DIODE_RUN_AS_NODE: "1" };
     delete env.NODE_OPTIONS;
-    // Съём кэша — самостоятельный CJS (вход снапшота тянет только встроенные модули).
     // Путь — здесь, а не константой модуля: tsup вклеивает этот файл в свой конфиг,
     // и `import.meta.dirname` верхнего уровня там указывал бы на корень репозитория.
     const script = join(import.meta.dirname, "lazy-chunk-code-cache.cjs");
-    mkdirSync(outDir, { recursive: true });
-    const blob = join(outDir, "code-cache.blob");
-    execFileSync(nodeBinary, [...SNAPSHOT_BUILD_FLAGS, "--snapshot-blob", blob, "--build-snapshot", script], {
-        env,
-        stdio: "inherit",
+    const [file, ...prefix] = command;
+    return chunks.map(({ id, asset, path }) => {
+        const cacheAsset = lazyChunkCacheAssetName(id);
+        const out = join(outDir, cacheAsset);
+        mkdirSync(dirname(out), { recursive: true });
+        const warmup = warmups.get(id);
+        const args = [...prefix, script, path, asset, out, ...(warmup ? [String(warmup)] : [])];
+        execFileSync(file, args, { env, stdio: "inherit" });
+        return { asset: cacheAsset, path: out };
     });
-    try {
-        return chunks.map(({ id, asset, path }) => {
-            const cacheAsset = lazyChunkCacheAssetName(id);
-            const out = join(outDir, cacheAsset);
-            mkdirSync(dirname(out), { recursive: true });
-            const warmup = warmups.get(id);
-            const args = ["--snapshot-blob", blob, script, path, asset, out, ...(warmup ? [String(warmup)] : [])];
-            execFileSync(nodeBinary, args, { env, stdio: "inherit" });
-            return { asset: cacheAsset, path: out };
-        });
-    } finally {
-        rmSync(blob, { force: true });
-    }
 }
 
 /**

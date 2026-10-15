@@ -2,28 +2,22 @@
 /**
  * Кэш кода V8 для ленивого куска (`lazy/<id>.v8cache`, scripts/build-lazy-chunks.mjs).
  *
- * Отдельный CJS-файл, а не функция в build-lazy-chunks.mjs, потому что сборка SEA
- * зовёт его ВНУТРИ V8-снапшота: бинарь стартует из снапшота (`useSnapshot`), а V8
- * принимает кэш кода, только если совпала контрольная сумма read-only части
- * снапшота процесса. Кэш, снятый голым node, бинарь отвергает, и наоборот.
- * Read-only часть одинакова у любых снапшотов одного node, собранных с
- * `--predictable` (без него она плавает от сборки к сборке, проверено на пустом
- * скрипте). Поэтому `build-sea.mjs` собирает бинарь `node --predictable
- * --build-sea`, а {@link buildLazyChunkCodeCaches} — крошечный снапшот из этого
- * файла с тем же флагом и снимает кэш каждого куска процессом из него. Записка —
- * docs/TODO/OpenPerformance.md, шаг 6.
+ * Отдельный CJS-файл без импортов из репозитория, а не функция в
+ * build-lazy-chunks.mjs, потому что сборка SEA исполняет его САМИМ бинарём в
+ * режиме run-as-node (`DIODE_RUN_AS_NODE=1 diode lazy-chunk-code-cache.cjs …`):
+ * бинарь стартует из V8-снапшота ядра (`useSnapshot`), а V8 принимает кэш кода,
+ * только если процесс восстановлен из снапшота того же входа, собранного с
+ * `--predictable` (node 26; у node 25 хватало любого `--predictable`-снапшота).
+ * Кэш, снятый голым node, бинарь отвергает, и наоборот. Записка —
+ * docs/TODO/OpenPerformance.md, шаг 6; сборка — {@link buildLazyChunkCodeCaches}.
  *
- * Снапшот принимает один файл, который тянет только встроенные модули node, —
- * отсюда CJS без импортов из репозитория.
- *
- * Запуск: `node [--snapshot-blob <blob>] lazy-chunk-code-cache.cjs <кусок> <ассет> <выход> [<прогрев>]`.
- * Без снапшота кэш годится голому node — так его снимают юниты загрузчика.
+ * Запуск: `[DIODE_RUN_AS_NODE=1 diode | node] lazy-chunk-code-cache.cjs <кусок> <ассет> <выход> [<прогрев>]`.
+ * Голым node кэш годится голому node — так его снимают юниты загрузчика.
  */
 
 const { createRequire } = require("node:module");
 const fs = require("node:fs");
 const path = require("node:path");
-const v8 = require("node:v8");
 const vm = require("node:vm");
 
 /**
@@ -70,10 +64,9 @@ async function runFromArgv(args) {
     process.exit(0);
 }
 
-// Вход снапшота исполняется без `module` и с `require` только для встроенных модулей.
-if (v8.startupSnapshot.isBuildingSnapshot()) {
-    v8.startupSnapshot.setDeserializeMainFunction(() => runFromArgv(process.argv.slice(2)));
-} else if (require.main === module) {
+// Запуск скриптом: у node `require.main === module`, а run-as-node бинаря грузит
+// скрипт через `import()` (`require.main` пуст) и кладёт его путь в argv[1].
+if (require.main === module || path.resolve(process.argv[1] ?? "") === __filename) {
     void runFromArgv(process.argv.slice(2));
 } else {
     // Обёртку сверяет с загрузчиком юнит сборки (build-lazy-chunks.test.mjs).

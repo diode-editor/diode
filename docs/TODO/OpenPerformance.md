@@ -559,10 +559,14 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
        read-only часть снапшота процесса, а она плавает от сборки к сборке даже на пустом скрипте
        (`--hash-seed` не помогает — дело не в сиде, а в потоках и GC). С `--predictable` при сборке
        read-only часть одинакова у любого снапшота этого node, хотя кучи разные. Поэтому бинарь —
-       `node --predictable --build-sea`, а кэш кусков снимает процесс из крошечного
-       `--predictable`-снапшота `scripts/lazy-chunk-code-cache.cjs` (юнит: кэш принят процессом из
-       другого такого снапшота и отвергнут голым node). Хэш-сид в read-only данные не попадает —
-       безопасность строк не меняется.
+       `node --predictable --build-sea`. Хэш-сид в read-only данные не попадает — безопасность
+       строк не меняется. **На node 26 этого мало:** кэш принимает только снапшот того же входа
+       (крошечный вспомогательный снапшот, которого хватало на 25, даёт отказ — те же четыре e2e
+       на CI). Поэтому `build:sea` — два прохода: бинарь первого прохода сам снимает кэш кусков в
+       режиме run-as-node (`scripts/lazy-chunk-code-cache.cjs`), второй вшивает его; оба снапшота —
+       из одного `main.cjs` с `--predictable` (юнит: кэш, снятый в одном таком снапшоте, принят
+       отдельно пересобранным и отвергнут голым node). Цена — второй `--build-sea`: `build:sea`
+       ≈15 с на node 26 (было 9 с на 25 с одним проходом).
      - **Проверено:** e2e на SEA-бинаре со снапшотом — `sea-startup`, `sea-assets`, `sea-install`,
        `sea-extensions`, `sea-git`, `lspBundled`, `lspCompletion`, `hover`, `eslintLsp`,
        `languageServerTeardown`, `terminalLazyStart`, `encodingLazy` (windows-1251), `roleChunks`,

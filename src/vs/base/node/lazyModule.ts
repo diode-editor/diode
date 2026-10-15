@@ -17,8 +17,8 @@ import { readPackagedAssetView } from "./assets/packagedAsset.ts";
  * Откуда берётся кусок (тот же порядок, что у остальных упакованных ассетов,
  * {@link readPackagedAssetView}):
  *  - SEA — вшитый ассет `lazy/<id>.cjs` (без копии, `sea.getRawAsset`) и рядом
- *    его кэш кода V8 `lazy/<id>.v8cache`, снятый при сборке тем же node
- *    из V8-снапшота с той же read-only частью, что у бинаря;
+ *    его кэш кода V8 `lazy/<id>.v8cache`, снятый при сборке бинарём первого
+ *    прохода (тот же node и снапшот того же `main.cjs`);
  *  - self-extract и `node dist/main.cjs` — файл `lazy/<id>.cjs` рядом с `main.cjs`;
  *  - dev и тесты (tsx/vitest) — куска нет, работает `importer` — обычный
  *    `import("<id>")` из node_modules. В бандле это голый внешний `import()`:
@@ -111,9 +111,9 @@ async function loadOnce<T>(id: string, importer: () => Promise<T>, source: ILazy
  * давал 37 → 30 мс, кэш скрипта — 37 → 12 (замер — docs/TODO/OpenPerformance.md).
  *
  * Кэш V8 отвергает молча, если не совпали версия V8, флаги, исходник или
- * read-only часть V8-снапшота процесса (бинарь стартует из снапшота). Отказ
- * загрузку не ломает (кусок компилируется без кэша), но в SEA его быть не
- * должно — кэш снят тем же node внутри снапшота с той же read-only частью
+ * V8-снапшот процесса (бинарь стартует из снапшота). Отказ загрузку не ломает
+ * (кусок компилируется без кэша), но в SEA его быть не должно — кэш снят
+ * бинарём первого прохода сборки из снапшота того же входа
  * (`buildLazyChunkCodeCaches`), — поэтому он уходит в лог как непредвиденный.
  */
 function evaluateChunk(code: string, assetName: string, cachedData: Uint8Array | undefined): unknown {
