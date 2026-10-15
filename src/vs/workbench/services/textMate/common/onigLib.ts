@@ -22,7 +22,11 @@ export function getOnigLib(assets: IAssetAccess): Promise<IOnigLib> {
 
 async function loadOnigLib(assets: IAssetAccess): Promise<IOnigLib> {
     const wasmBytes = await assets.read("onig.wasm");
-    await oniguruma.loadWASM(wasmBytes);
+    // Инстанциатор, а не байты: с байтами `loadWASM` проверяет `instanceof Response`,
+    // а ленивый глобал `Response` грузит undici вместе с `http` (~40 мс на старте).
+    // Копия: `instantiate` типизирован на буфер поверх `ArrayBuffer`, а ассет — `ArrayBufferLike`.
+    const wasm = new Uint8Array(wasmBytes);
+    await oniguruma.loadWASM({ instantiator: (imports) => WebAssembly.instantiate(wasm, imports) });
     return {
         createOnigScanner(patterns: string[]) {
             return oniguruma.createOnigScanner(patterns);
