@@ -110,21 +110,21 @@ env-флагом, который выставляет спавнящая сто�
 
 | Роль | Флаг | Entry | Где код | Что там |
 |---|---|---|---|---|
-| редактор | — | `runEditor()` | `main.js` | TUI, модель, сервисы |
-| node | `DIODE_RUN_AS_NODE=1` | `runAsNode.ts` | `main.js` | нас запустили как `node` (language-серверы, резолверы расширений) |
+| редактор | — | `runEditor()` | `main.cjs` | TUI, модель, сервисы |
+| node | `DIODE_RUN_AS_NODE=1` | `runAsNode.ts` | `main.cjs` | нас запустили как `node` (language-серверы, резолверы расширений) |
 | extension host | `DIODE_EXTENSION_HOST=1` | `vs/diode/roles/extensionHostRole.ts` → `extensionHostSubprocess.ts` | кусок `lazy/roles/extension-host.cjs` | код расширений |
 | watcher | `DIODE_FILE_WATCHER=1` | `vs/diode/roles/fileWatcherRole.ts` → `platform/files/node/treeWatcherMain.ts` | кусок `lazy/roles/file-watcher.cjs` | обход дерева и подписка на файловые события |
 
 Правила, общие для всех ролей (нарушение каждого — уже пойманный баг):
 
-- **Код служебной роли — ленивый кусок бандла.** `main.js` один на все роли и
+- **Код служебной роли — ленивый кусок бандла.** `main.cjs` один на все роли и
   исполняет свои статические импорты до развилки, поэтому код, нужный только
   роли, в него не входит: `main.ts` грузит кусок роли `loadLazyModule`, войдя в
   её ветку, а редактор реализацию vscode API не парсит. Общие с редактором модули
   кусок несёт своей копией — и со своим состоянием уровня модуля: что `main.ts`
   ставит процессу до развилки (загрузчик кусков), вход роли ставит заново в свою
   копию. Размер копии держит гейт `lazy-chunks-check` → [arch/Common.md](arch/Common.md#ленивые-куски-бандла).
-  Node-режим в `main.js` остаётся, и каждый language-сервер платит парс
+  Node-режим в `main.cjs` остаётся, и каждый language-сервер платит парс
   редактора — открытый вопрос, см. [TODO/OpenPerformance.md](TODO/OpenPerformance.md).
 
 - **Node-режим проверяется первым.** Флаг роли наследуется через `spawn`, а

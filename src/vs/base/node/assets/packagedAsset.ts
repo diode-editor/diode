@@ -23,7 +23,7 @@ const processEnvironment: IPackagedAssetEnvironment = { isSea: isSeaBinary, read
 /**
  * Байты упакованного ассета (`rg.bundle`, `node-pty.bundle`, `ts-server.bundle`):
  *  - SEA — вшитый ассет (`node:sea.getAsset`);
- *  - self-extract — файл с тем же именем рядом с `main.js` (`build-selfextract.mjs`);
+ *  - self-extract — файл с тем же именем рядом с `main.cjs` (`build-selfextract.mjs`);
  *  - dev (или ассет в эту сборку не кладётся) — `null`, вызывающий берёт node_modules.
  */
 export function readPackagedAsset(

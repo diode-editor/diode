@@ -9,7 +9,7 @@ import * as path from "node:path";
  *
  * Отдельным модулем, а не в `sharedTreeWatcher.ts`: её зовёт и редактор
  * (`watcherIncludes.ts`), а сам `SharedTreeWatcher` живёт только в watcher-процессе
- * (кусок `roles/file-watcher`) — импорт из него тянул бы обход дерева в `main.js`.
+ * (кусок `roles/file-watcher`) — импорт из него тянул бы обход дерева в `main.cjs`.
  */
 export function passesThroughSymlink(root: string, relative: string): boolean {
     let current = root;

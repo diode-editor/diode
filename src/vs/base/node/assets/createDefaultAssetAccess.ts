@@ -20,14 +20,14 @@ const SEA_BUNDLE_KEY = BUNDLE_FILE_NAME;
  *     файл, достаётся через `sea.getRawAsset()` — вид без копии (8 МБ на каждом
  *     старте). Только для чтения: потребители декодируют текст и отдают
  *     `onig.wasm` в `WebAssembly`, запись в вид уронила бы процесс;
- *   - **self-extract** — бандл лежит файлом рядом с `main.js` (см.
+ *   - **self-extract** — бандл лежит файлом рядом с `main.cjs` (см.
  *     `scripts/build-selfextract.mjs`); формат тот же, меняется только источник байтов;
  *   - **dev/tests** — {@link FsAssetAccess} с mapping'ом на реальные файлы
  *     в `extensions/` и `node_modules/vscode-oniguruma`.
  *
- * `node:sea` доступен только через `require()` внутри SEA-сборки —
- * статический ESM-импорт падает даже в работающем SEA executable
- * (`mainFormat: "module"`).
+ * `node:sea` доступен только через `require()` внутри SEA-сборки — статический
+ * импорт из модуля под tsx/vitest падает (`ERR_UNKNOWN_BUILTIN_MODULE`), а бандл
+ * исполняет тот же код, что и dev.
  */
 export function createDefaultAssetAccess(): IAssetAccess {
     const seaBundle = tryLoadSeaBundle();

@@ -157,7 +157,7 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
 
 /**
  * yauzl нужен только установке и чтению `.vsix`, поэтому он — ленивый кусок
- * бандла (`scripts/build-lazy-chunks.mjs`): в `main.js` его нет, упакованная
+ * бандла (`scripts/build-lazy-chunks.mjs`): в `main.cjs` его нет, упакованная
  * сборка грузит его из ассета при первой установке, dev — из node_modules.
  */
 function loadYauzl(): Promise<typeof Yauzl> {

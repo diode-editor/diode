@@ -1,16 +1,19 @@
 // Запуск: node --test scripts/ (npm run test:scripts).
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
+import { pathToFileURL } from "node:url";
 import * as vm from "node:vm";
 
 import {
     buildLazyChunkCodeCaches,
     buildLazyChunks,
     describeEntryChunks,
+    importMetaUrlShim,
     LAZY_CHUNKS,
     lazyChunkAssetName,
     lazyChunkCacheAssetName,
@@ -20,12 +23,12 @@ import {
 
 const repoRoot = resolve(import.meta.dirname, "..");
 
-/** metafile main.js: входы и импорты единственного выхода. */
+/** metafile main.cjs: входы и импорты единственного выхода. */
 const main = (inputs, imports = []) => ({
     inputs: {},
     outputs: {
-        "dist/main.js": { inputs: Object.fromEntries(inputs.map((i) => [i, { bytesInOutput: 1 }])), imports },
-        "dist/main.js.map": { inputs: {}, imports: [] },
+        "dist/main.cjs": { inputs: Object.fromEntries(inputs.map((i) => [i, { bytesInOutput: 1 }])), imports },
+        "dist/main.cjs.map": { inputs: {}, imports: [] },
     },
 });
 /** metafile куска: входы и импорты его выхода. */
@@ -54,13 +57,13 @@ test("verifyLazyChunks: кусок вне ядра, ядро зовёт его �
     assert.deepEqual(errors, []);
 });
 
-test("verifyLazyChunks: модуль куска в main.js — нарушение, обёртка <stdin> не считается", () => {
+test("verifyLazyChunks: модуль куска в main.cjs — нарушение, обёртка <stdin> не считается", () => {
     const errors = verifyLazyChunks({
         mainMetafile: main(["<stdin>", "node_modules/pend/index.js"]),
         chunks: [chunk("yauzl", ["<stdin>", "node_modules/yauzl/index.js", "node_modules/pend/index.js"])],
     });
     assert.equal(errors.length, 1);
-    assert.match(errors[0], /^yauzl: модуль node_modules\/pend\/index\.js лежит и в куске, и в main\.js/);
+    assert.match(errors[0], /^yauzl: модуль node_modules\/pend\/index\.js лежит и в куске, и в main\.cjs/);
 });
 
 test("verifyLazyChunks: статический импорт куска из ядра — нарушение, import() — нет", () => {
@@ -76,7 +79,7 @@ test("verifyLazyChunks: статический импорт куска из яд
         chunks: [chunk("yauzl", [])],
     });
     assert.deepEqual(errors, [
-        "yauzl: main.js импортирует кусок статически (import-statement) — только через loadLazyModule / importLazyModule",
+        "yauzl: main.cjs импортирует кусок статически (import-statement) — только через loadLazyModule / importLazyModule",
     ]);
 });
 
@@ -137,17 +140,17 @@ test("verifyLazyChunks: копия общих модулей больше бюд
     assert.equal(errors.length, 1);
     assert.match(
         errors[0],
-        /^roles\/x: общих с main\.js модулей 2\.9 КБ — больше бюджета 2 КБ \(крупнейшие: src\/b\.ts 2\.0 КБ, src\/a\.ts 1\.0 КБ\)/,
+        /^roles\/x: общих с main\.cjs модулей 2\.9 КБ — больше бюджета 2 КБ \(крупнейшие: src\/b\.ts 2\.0 КБ, src\/a\.ts 1\.0 КБ\)/,
     );
 });
 
-test("verifyLazyChunks: вход куска из нашего кода в main.js — нарушение, бюджет не проверяется", () => {
+test("verifyLazyChunks: вход куска из нашего кода в main.cjs — нарушение, бюджет не проверяется", () => {
     const errors = verifyLazyChunks({
         mainMetafile: main(["src/vs/diode/main.ts", "src/roles/x.ts"]),
         chunks: [entryChunk("roles/x", "src/roles/x.ts", { "src/roles/x.ts": 5000 })],
     });
     assert.deepEqual(errors, [
-        "roles/x: вход src/roles/x.ts лежит в main.js — ядро импортирует роль статически, кусок бесполезен",
+        "roles/x: вход src/roles/x.ts лежит в main.cjs — ядро импортирует роль статически, кусок бесполезен",
     ]);
 });
 
@@ -175,7 +178,7 @@ test("describeEntryChunks: размер куска и копия общих мо
         mainMetafile: main(["src/a.ts"]),
         chunks: [chunk("yauzl", []), entryChunk("roles/x", "src/roles/x.ts", { "src/roles/x.ts": 1024, "src/a.ts": 512 }, 3)],
     });
-    assert.deepEqual(lines, ["roles/x: кусок 1.5 КБ, из них общих с main.js 0.5 КБ (бюджет 3 КБ)"]);
+    assert.deepEqual(lines, ["roles/x: кусок 1.5 КБ, из них общих с main.cjs 0.5 КБ (бюджет 3 КБ)"]);
 });
 
 test('lazyEntryChunksPlugin: import() входа куска — внешний import("<id>"), чужие пути не трогает', async () => {
@@ -210,7 +213,51 @@ test('lazyEntryChunksPlugin: import() входа куска — внешний i
     assert.equal(Object.keys(output.inputs).includes("scripts/build-lazy-chunks.mjs"), true);
 });
 
-test("lazyChunkAssetName: lazy/<id>.cjs — путь рядом с main.js и ключ SEA-ассета", () => {
+test("importMetaUrlShim: import.meta.url в CJS — URL главного скрипта и у ядра, и у куска, в момент вызова", async () => {
+    const esbuild = await import("esbuild");
+    const dir = mkdtempSync(join(tmpdir(), "diode-meta-url-"));
+    try {
+        const shim = importMetaUrlShim(repoRoot);
+        const result = await esbuild.build({
+            stdin: { contents: "module.exports = () => import.meta.url;", resolveDir: repoRoot, loader: "js" },
+            bundle: true,
+            platform: "node",
+            format: "cjs",
+            write: false,
+            logLevel: "silent",
+            define: shim.define,
+            inject: shim.inject,
+        });
+        const code = result.outputFiles[0].text;
+        assert.equal(code.includes("import.meta"), false);
+        // Ядро: бандл — сам главный скрипт.
+        const core = join(dir, "main.cjs");
+        writeFileSync(core, `${code}\nconsole.log(module.exports());\n`);
+        assert.equal(execFileSync(process.execPath, [core], { encoding: "utf8" }).trim(), pathToFileURL(core).href);
+        // Кусок: исполняется загрузчиком в обёртке (filename `diode:lazy/…`), главный
+        // скрипт — другой. Смена главного после загрузки видна: значение не запечено.
+        const loader = join(dir, "loader.cjs");
+        writeFileSync(
+            loader,
+            `const vm = require("node:vm"), { createRequire } = require("node:module");
+const wrapper = new vm.Script(${JSON.stringify(`(function (exports, require, module) {${code}\n})`)}, { filename: "diode:lazy/x.cjs" }).runInThisContext();
+const m = { exports: {} };
+wrapper(m.exports, createRequire(process.execPath), m);
+console.log(m.exports());
+require.main.filename = "/elsewhere/main.cjs";
+console.log(m.exports());
+`,
+        );
+        assert.deepEqual(execFileSync(process.execPath, [loader], { encoding: "utf8" }).trim().split("\n"), [
+            pathToFileURL(loader).href,
+            "file:///elsewhere/main.cjs",
+        ]);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test("lazyChunkAssetName: lazy/<id>.cjs — путь рядом с main.cjs и ключ SEA-ассета", () => {
     assert.equal(lazyChunkAssetName("yauzl"), "lazy/yauzl.cjs");
     assert.equal(lazyChunkAssetName("@xterm/headless"), "lazy/@xterm/headless.cjs");
 });
@@ -225,7 +272,7 @@ test("buildLazyChunks: каждый кусок из списка собирае�
         );
         for (const c of chunks) {
             assert.equal(c.path, join(distDir, lazyChunkAssetName(c.id)));
-            // Пустой main.js: проверяется только самодостаточность куска.
+            // Пустой main.cjs: проверяется только самодостаточность куска.
             assert.deepEqual(verifyLazyChunks({ mainMetafile: main([]), chunks: [c] }), []);
         }
         // Исполнение — как у загрузчика: обёртка модуля и require только builtin'ов.

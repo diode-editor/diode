@@ -1,17 +1,17 @@
 /**
  * Ленивые куски бандла («распил»): зависимости, которые не нужны до первого
- * кадра, не лежат в `dist/main.js`, а собираются отдельными CJS-файлами
- * `lazy/<id>.cjs`. SEA вшивает их ассетами, self-extract и `node dist/main.js`
- * берут файлом рядом с `main.js`. Грузит их `loadLazyModule`
+ * кадра, не лежат в `dist/main.cjs`, а собираются отдельными CJS-файлами
+ * `lazy/<id>.cjs`. SEA вшивает их ассетами, self-extract и `node dist/main.cjs`
+ * берут файлом рядом с `main.cjs`. Грузит их `loadLazyModule`
  * (`src/vs/base/node/lazyModule.ts`) при первом обращении к фиче.
  *
  * Как это держится:
  *  - `tsup.config.ts` объявляет каждый `id` из {@link LAZY_CHUNKS} внешним:
- *    в `main.js` остаётся голый `import("<id>")` — запасной путь dev-сборки,
+ *    в `main.cjs` остаётся голый `import("<id>")` — запасной путь dev-сборки,
  *    в упакованной сборке до него не доходит (загрузчик находит кусок раньше);
  *  - {@link buildLazyChunks} собирает куски esbuild'ом (CJS, platform node);
  *  - {@link verifyLazyChunks} — храповик на граф первого кадра: ни один модуль
- *    куска не попал в `main.js`, `main.js` не импортирует кусок статически,
+ *    куска не попал в `main.cjs`, `main.cjs` не импортирует кусок статически,
  *    кусок не тянет ничего, кроме встроенных модулей node. Его зовёт сборка
  *    (`build-dist.mjs`) и CI (`scripts/check-lazy-chunks.mjs`, job `static`).
  *
@@ -20,11 +20,11 @@
  *
  * Два вида кусков:
  *  - пакет (`id` — имя пакета из node_modules): листовая библиотека без нашего
- *    кода, ни один её модуль не лежит в `main.js`;
+ *    кода, ни один её модуль не лежит в `main.cjs`;
  *  - наш код (`entry` — путь к модулю-входу): роль процесса (extension host,
  *    file watcher). Её граф делит с ядром общие модули (`base/common`, протокол
  *    RPC, `vscodeTypes`): кусок несёт их копией, ядро — своей. Гейт держит
- *    вход вне `main.js` и цену копии — `sharedBudgetKb`, см. {@link verifyLazyChunks}.
+ *    вход вне `main.cjs` и цену копии — `sharedBudgetKb`, см. {@link verifyLazyChunks}.
  *
  * Новая часть распила — запись в {@link LAZY_CHUNKS} плюс `loadLazyModule` (node) или `importLazyModule` (common) на
  * её шве; остальное (external, сборка, ассеты SEA, payload self-extract,
@@ -107,13 +107,38 @@ export const LAZY_CHUNKS = [
     },
 ];
 
+/**
+ * Поля `package.json` для резолва пакетов в CJS-сборках ядра и кусков из нашего
+ * кода: `module` раньше `main`, как резолвила ESM-сборка ядра. Под CJS esbuild
+ * по умолчанию берёт `main`, а у jsonc-parser там UMD с динамическим `require`
+ * внутри фабрики: esbuild его не вклеит, и бандл падает в рантайме.
+ */
+export const MAIN_FIELDS = ["module", "main"];
+
+/**
+ * Шим `import.meta.url` для CJS-сборок — ядра (`tsup.config.ts`) и кусков из
+ * нашего кода, один на всех: ленивый геттер URL главного скрипта процесса
+ * (`scripts/import-meta-url-shim.mjs`, там же — почему не `__filename` и не
+ * `process.argv[1]`). Путь — от `repoRoot`: tsup бандлит свой конфиг вместе с
+ * этим модулем, и `import.meta.dirname` здесь указывал бы на корень.
+ *
+ * @param {string} repoRoot
+ * @returns {{ define: Record<string, string>, inject: string[] }}
+ */
+export function importMetaUrlShim(repoRoot) {
+    return {
+        define: { "import.meta.url": "__diode_import_meta.url" },
+        inject: [join(repoRoot, "scripts", "import-meta-url-shim.mjs")],
+    };
+}
+
 /** Имена всех кусков: кусок вправе звать другой кусок `import()`'ом (ext host — iconv). */
 const LAZY_CHUNK_IDS = new Set(LAZY_CHUNKS.map(({ id }) => id));
 
 /**
  * Плагин esbuild для сборки ядра (`tsup.config.ts`): `import()` модуля-входа
  * куска из нашего кода становится внешним `import("<id>")`, как у кусков-пакетов.
- * Без него esbuild без code-splitting вклеил бы вход в `main.js` целиком.
+ * Без него esbuild без code-splitting вклеил бы вход в `main.cjs` целиком.
  * Статический импорт входа плагин превращает так же — его ловит гейт
  * ({@link verifyLazyChunks}, правило 2), а не молчаливая вклейка.
  *
@@ -136,7 +161,7 @@ export function lazyEntryChunksPlugin(repoRoot) {
 }
 
 /**
- * Имя ассета куска: ключ SEA-ассета и путь файла относительно `main.js`.
+ * Имя ассета куска: ключ SEA-ассета и путь файла относительно `main.cjs`.
  * Та же формула — в `lazyChunkAssetName` (`src/vs/base/node/lazyModule.ts`).
  *
  * @param {string} id
@@ -193,7 +218,7 @@ export async function createLazyChunkCodeCache(code, assetName, warmup) {
  * процессом `nodeBinary` — без флагов и без `NODE_OPTIONS`: V8 принимает кэш,
  * только если версия и флаги совпали с теми, что будут в рантайме. Поэтому кэш
  * едет только в SEA (вшивается тот же `process.execPath`, что собирает), а не в
- * self-extract (свой node) и не файлом рядом с `main.js` (его запускает любой node).
+ * self-extract (свой node) и не файлом рядом с `main.cjs` (его запускает любой node).
  *
  * @param {{ chunks: ReadonlyArray<{ id: string, asset: string, path: string }>, outDir: string, nodeBinary: string }} params
  * @returns {Array<{ asset: string, path: string }>}
@@ -244,21 +269,17 @@ export async function buildLazyChunks({ repoRoot, distDir, write = true }) {
                 ? {}
                 : {
                       external: [...LAZY_CHUNK_IDS].filter((other) => other !== id),
-                      // Пакеты — той же сборкой, что в main.js (tsup собирает ESM: module раньше main).
-                      // Иначе общий модуль в куске и в ядре — разные файлы, и гейт копию не видит;
-                      // а UMD-сборка jsonc-parser в бандле ломается (require внутри фабрики).
-                      mainFields: ["module", "main"],
-                      // Та же версия, что tsup зашивает в main.js (tsup.config.ts). import.meta в
-                      // CJS пуст, а читает его entryDir() (packagedRuntime.ts) — каталог main.js, где
-                      // вне SEA лежат ассеты и куски. Процесс роли запущен как `node <main.js>`
-                      // (selfSpawnArgs), поэтому main.js — его главный скрипт, process.argv[1].
+                      // Пакеты — той же сборкой, что в main.cjs (MAIN_FIELDS). Иначе общий модуль в
+                      // куске и в ядре — разные файлы, и гейт копию не видит; а UMD-сборка
+                      // jsonc-parser в бандле ломается (require внутри фабрики).
+                      mainFields: MAIN_FIELDS,
+                      // Та же версия, что tsup зашивает в main.cjs (tsup.config.ts), и тот же шим
+                      // import.meta.url: entryDir() (packagedRuntime.ts) куска — каталог main.cjs.
                       define: {
                           __DIODE_VERSION__: JSON.stringify(resolveDiodeVersion()),
-                          "import.meta.url": "__diode_main_url",
+                          ...importMetaUrlShim(repoRoot).define,
                       },
-                      banner: {
-                          js: 'var __diode_main_url = require("node:url").pathToFileURL(process.argv[1] ?? "").href;',
-                      },
+                      inject: importMetaUrlShim(repoRoot).inject,
                   }),
         });
         if (write) {
@@ -282,9 +303,9 @@ function isBuiltin(path) {
 /**
  * Храповик на граф первого кадра. Пустой массив — всё чисто.
  *
- * Кусок-пакет: ни один его модуль не лежит в `main.js`. Кусок из нашего кода
+ * Кусок-пакет: ни один его модуль не лежит в `main.cjs`. Кусок из нашего кода
  * (`entry`) делит с ядром общие модули, и запретить пересечение нельзя, поэтому
- * правило другое: вход куска не лежит в `main.js` (иначе ядро тянет роль
+ * правило другое: вход куска не лежит в `main.cjs` (иначе ядро тянет роль
  * статически и кусок бесполезен), а общие модули кусок несёт копией не больше
  * `sharedBudgetKb`. Копия — цена в процессе роли (лишний парс) и состояние
  * уровня модуля в двух экземплярах; утечка кода роли в ядро делает её больше
@@ -295,16 +316,16 @@ function isBuiltin(path) {
  */
 export function verifyLazyChunks({ mainMetafile, chunks }) {
     const errors = [];
-    const mainOutputs = Object.entries(mainMetafile.outputs).filter(([file]) => file.endsWith(".js"));
+    const mainOutputs = codeOutputs(mainMetafile);
     const mainInputs = new Set(mainOutputs.flatMap(([, output]) => Object.keys(output.inputs)));
 
     for (const { id, metafile, entry, sharedBudgetKb } of chunks) {
         // 1. Модули куска не продублированы в ядре. Ввод stdin-обёртки — не модуль куска.
         if (entry === undefined) {
-            // Пакет целиком уехал из main.js.
+            // Пакет целиком уехал из main.cjs.
             for (const input of Object.keys(metafile.inputs)) {
                 if (input !== "<stdin>" && mainInputs.has(input)) {
-                    errors.push(`${id}: модуль ${input} лежит и в куске, и в main.js — его тянет статический импорт ядра`);
+                    errors.push(`${id}: модуль ${input} лежит и в куске, и в main.cjs — его тянет статический импорт ядра`);
                 }
             }
         } else {
@@ -332,6 +353,15 @@ export function verifyLazyChunks({ mainMetafile, chunks }) {
 }
 
 /**
+ * Выходы с кодом (`main.cjs`, без `.map`).
+ *
+ * @param {import("esbuild").Metafile} metafile
+ */
+function codeOutputs(metafile) {
+    return Object.entries(metafile.outputs).filter(([file]) => /[.]c?js$/.test(file));
+}
+
+/**
  * Общие с ядром модули куска (крупные первыми) и их суммарный размер в куске —
  * столько процесс роли парсит второй раз.
  *
@@ -355,18 +385,14 @@ function sharedWithMain(metafile, mainInputs) {
  * @returns {string[]}
  */
 export function describeEntryChunks({ mainMetafile, chunks }) {
-    const mainInputs = new Set(
-        Object.entries(mainMetafile.outputs)
-            .filter(([file]) => file.endsWith(".js"))
-            .flatMap(([, output]) => Object.keys(output.inputs)),
-    );
+    const mainInputs = new Set(codeOutputs(mainMetafile).flatMap(([, output]) => Object.keys(output.inputs)));
     return chunks
         .filter((c) => c.entry !== undefined)
         .map(({ id, metafile, sharedBudgetKb }) => {
             const total = Object.values(metafile.outputs).reduce((sum, output) => sum + output.bytes, 0);
             const { sharedBytes } = sharedWithMain(metafile, mainInputs);
             const kb = (/** @type {number} */ n) => (n / 1024).toFixed(1);
-            return `${id}: кусок ${kb(total)} КБ, из них общих с main.js ${kb(sharedBytes)} КБ (бюджет ${sharedBudgetKb} КБ)`;
+            return `${id}: кусок ${kb(total)} КБ, из них общих с main.cjs ${kb(sharedBytes)} КБ (бюджет ${sharedBudgetKb} КБ)`;
         });
 }
 
@@ -381,7 +407,7 @@ function verifyEntryChunk({ id, metafile, entry, sharedBudgetKb, mainInputs }) {
         return [`${id}: у куска из нашего кода нет sharedBudgetKb — сколько общих с ядром модулей он вправе нести копией`];
     }
     if (mainInputs.has(entry)) {
-        return [`${id}: вход ${entry} лежит в main.js — ядро импортирует роль статически, кусок бесполезен`];
+        return [`${id}: вход ${entry} лежит в main.cjs — ядро импортирует роль статически, кусок бесполезен`];
     }
     const { shared, sharedBytes } = sharedWithMain(metafile, mainInputs);
     if (sharedBytes <= sharedBudgetKb * 1024) return [];
@@ -390,7 +416,7 @@ function verifyEntryChunk({ id, metafile, entry, sharedBudgetKb, mainInputs }) {
         .map(([input, { bytesInOutput }]) => `${input} ${(bytesInOutput / 1024).toFixed(1)} КБ`)
         .join(", ");
     return [
-        `${id}: общих с main.js модулей ${(sharedBytes / 1024).toFixed(1)} КБ — больше бюджета ${sharedBudgetKb} КБ ` +
+        `${id}: общих с main.cjs модулей ${(sharedBytes / 1024).toFixed(1)} КБ — больше бюджета ${sharedBudgetKb} КБ ` +
             `(крупнейшие: ${top}). Код роли протёк в ядро статическим импортом, или роль потянула лишнее из ядра`,
     ];
 }

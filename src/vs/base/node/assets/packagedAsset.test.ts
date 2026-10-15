@@ -169,7 +169,7 @@ describe("packagedAssetCacheDirByName", () => {
         }
     });
 
-    it("self-extract: сайдкар файлом рядом с main.js", () => {
+    it("self-extract: сайдкар файлом рядом с main.cjs", () => {
         writeFileSync(path.join(dir, "ts-server.bundle.sha256"), digest);
 
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(

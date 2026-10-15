@@ -33,14 +33,14 @@ function run(cmd) {
     execSync(cmd, { stdio: "inherit", cwd: root });
 }
 
-// 1. Собираем dist/main.js + dist/diode.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
+// 1. Собираем dist/main.cjs + dist/diode.bundle + dist/node-pty.bundle + dist/rg.bundle (общее с build-selfextract.mjs).
 const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath, lazyChunks } = await buildDistArtifacts({
     repoRoot: root,
     distDir: dist,
 });
 
 // 1b. Кэш кода ленивых кусков — тем же node, что вшивается в бинарь (V8 и флаги
-// обязаны совпасть). Не в `<dist>/lazy/`: там его нашёл бы `node dist/main.js` под чужим node.
+// обязаны совпасть). Не в `<dist>/lazy/`: там его нашёл бы `node dist/main.cjs` под чужим node.
 const lazyChunkCaches = buildLazyChunkCodeCaches({
     chunks: lazyChunks,
     outDir: join(dist, "sea-cache"),
@@ -51,7 +51,8 @@ const lazyChunkCaches = buildLazyChunkCodeCaches({
 const seaConfig = {
     main: mainJsPath,
     output: outputPath,
-    mainFormat: "module",
+    // Ядро — CJS (tsup.config.ts): под него же V8-снапшот SEA (`useSnapshot`).
+    mainFormat: "commonjs",
     disableExperimentalSEAWarning: true,
     assets: {
         "diode.bundle": bundlePath,
