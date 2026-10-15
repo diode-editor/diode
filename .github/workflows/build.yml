@@ -23,7 +23,7 @@ jobs:
       matrix:
         # mode: чем упаковываем.
         #   sea         — Node SEA (`node --build-sea`).
-        #   selfextract — sh-стаб + приклеенный payload (нетронутый node + main.js +
+        #   selfextract — sh-стаб + приклеенный payload (нетронутый node + main.cjs +
         #                 diode.bundle). Обязателен на Intel macOS, где инъекция
         #                 SEA-блоба портит Mach-O chained fixups → segfault до main()
         #                 (#143, #144); на linux просто лучше — бинарь втрое

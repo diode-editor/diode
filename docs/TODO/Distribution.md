@@ -72,7 +72,7 @@
 
 - [ ] Devcontainer feature `ghcr.io/diode-editor/features/diode` — аудитория из VISION живёт в девконтейнерах.
 - [ ] scoop bucket (Windows без winget), AUR `diode-bin` (после лицензии — только PKGBUILD).
-- [ ] Режим «запуск из системного node» (`main.js` + `diode.bundle` без SEA/selfextract): открывает
+- [ ] Режим «запуск из системного node» (`main.cjs` + `diode.bundle` без SEA/selfextract): открывает
       homebrew-core, nixpkgs и порт FreeBSD, которым нужна сборка из исходников. Требует ещё
       и notability (у homebrew-core — звёзды/форки).
 - [ ] Подпись: Apple Developer ID для нотаризации macOS (Gatekeeper на бинарь из браузера),

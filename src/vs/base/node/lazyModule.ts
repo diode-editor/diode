@@ -9,7 +9,7 @@ import { readPackagedAssetView } from "./assets/packagedAsset.ts";
 /**
  * Ленивые куски бандла («распил», docs/TODO/OpenPerformance.md, этап 1).
  *
- * Зависимость, которая не нужна до первого кадра, не лежит в `dist/main.js`:
+ * Зависимость, которая не нужна до первого кадра, не лежит в `dist/main.cjs`:
  * `scripts/build-lazy-chunks.mjs` собирает её отдельным самодостаточным
  * CJS-файлом `lazy/<id>.cjs`, а `tsup.config.ts` объявляет её внешней. Кусок
  * парсится, только когда фиче он впервые понадобился, — не на каждом старте.
@@ -18,7 +18,7 @@ import { readPackagedAssetView } from "./assets/packagedAsset.ts";
  * {@link readPackagedAssetView}):
  *  - SEA — вшитый ассет `lazy/<id>.cjs` (без копии, `sea.getRawAsset`) и рядом
  *    его кэш кода V8 `lazy/<id>.v8cache`, снятый при сборке тем же node;
- *  - self-extract и `node dist/main.js` — файл `lazy/<id>.cjs` рядом с `main.js`;
+ *  - self-extract и `node dist/main.cjs` — файл `lazy/<id>.cjs` рядом с `main.cjs`;
  *  - dev и тесты (tsx/vitest) — куска нет, работает `importer` — обычный
  *    `import("<id>")` из node_modules. В бандле это голый внешний `import()`:
  *    упакованная сборка до него не доходит, кусок находится раньше.
@@ -33,7 +33,7 @@ export interface ILazyModuleSource {
 const packagedSource: ILazyModuleSource = { read: (assetName) => readPackagedAssetView(assetName) };
 
 /**
- * Имя ассета куска: ключ SEA-ассета и путь файла относительно `main.js`.
+ * Имя ассета куска: ключ SEA-ассета и путь файла относительно `main.cjs`.
  * Та же формула — в `lazyChunkAssetName` (`scripts/build-lazy-chunks.mjs`).
  */
 export function lazyChunkAssetName(id: string): string {

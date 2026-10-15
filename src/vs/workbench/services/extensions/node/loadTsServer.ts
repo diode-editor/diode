@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { extractBundleToCache } from "../../../../base/node/assets/extractBundleToCache.ts";
 import { packagedAssetCacheDirByName, readPackagedAssetView } from "../../../../base/node/assets/packagedAsset.ts";
 
-/** Имя SEA-ассета / файла рядом с main.js (лок-степ с scripts/pack-ts-server.mjs и build-*). */
+/** Имя SEA-ассета / файла рядом с main.cjs (лок-степ с scripts/pack-ts-server.mjs и build-*). */
 const ASSET_NAME = "ts-server.bundle";
 
 /** Виртуальные пути внутри бандла (лок-степ с scripts/pack-ts-server.mjs). */

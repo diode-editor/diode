@@ -20,7 +20,7 @@ import { waitUntil } from "./helpers/waitFor.ts";
  * node_modules, которых у SEA нет. Остальное (активация, LSP, watcher) идёт через
  * куски в каждом e2e расширений; здесь — шов «кусок из куска», который они не видят.
  *
- * Self-extract — второй путь того же шва: там куски — файлы рядом с `main.js`, и
+ * Self-extract — второй путь того же шва: там куски — файлы рядом с `main.cjs`, и
  * копия `entryDir()` в куске обязана найти этот каталог без `import.meta` (кусок —
  * CJS; см. `define` в scripts/build-lazy-chunks.mjs).
  */
@@ -94,7 +94,7 @@ describe("роли процесса на SEA — ленивые куски", () 
     }, 120_000);
 
     it.skipIf(process.platform === "win32")(
-        "self-extract: куски — файлы рядом с main.js, extension host находит кусок iconv",
+        "self-extract: куски — файлы рядом с main.cjs, extension host находит кусок iconv",
         async () => {
             const app = await startHeadlessApp({
                 files: { "cp1251.txt": iconv.encode(TEXT, "windows1251") },

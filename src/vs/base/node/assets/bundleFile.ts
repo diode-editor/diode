@@ -3,8 +3,8 @@ import * as path from "node:path";
 
 /**
  * Чтение `diode.bundle` с реальной ФС — источник ассетов для упакованных сборок,
- * которые не являются SEA (self-extract: рядом с `main.js` лежат `node`,
- * `main.js` и `diode.bundle`, см. `scripts/build-selfextract.mjs`).
+ * которые не являются SEA (self-extract: рядом с `main.cjs` лежат `node`,
+ * `main.cjs` и `diode.bundle`, см. `scripts/build-selfextract.mjs`).
  *
  * Формат разбирает {@link AssetBundleFormat}; здесь только I/O — байты уходят
  * в `BundleAssetAccess`, тот же, что и под SEA.

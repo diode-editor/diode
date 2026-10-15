@@ -33,7 +33,7 @@ describe("BundleFile", () => {
         writeFileSync(join(target, "diode.bundle"), bundle);
     }
 
-    it("резолвит путь рядом с main.js", () => {
+    it("резолвит путь рядом с main.cjs", () => {
         expect(bundleFilePath("/opt/diode")).toBe(join("/opt/diode", "diode.bundle"));
     });
 

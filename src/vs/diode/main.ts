@@ -128,33 +128,46 @@ import { startWorkbench } from "./workbenchStartup.ts";
 
 // ── Ленивые куски бандла ──────────────────────────────────
 // common-код берёт куски через importLazyModule (base/common/lazyModule.ts), а
-// откуда они приходят (ассет SEA, файл рядом с main.js, node_modules в dev),
+// откуда они приходят (ассет SEA, файл рядом с main.cjs, node_modules в dev),
 // знает только node-загрузчик. Подставляем его до любой роли процесса: без
 // этого упакованная сборка искала бы кусок в node_modules, которых у неё нет.
 setLazyModuleLoader(loadLazyModule);
 
-// Служебные роли — ленивые куски (`roles/*` в LAZY_CHUNKS): их код не лежит в
-// main.js, редактор его не парсит, а роль грузит свой кусок, только войдя в
-// ветку. Run-as-node остаётся здесь: ему нужен не наш код, а чужой скрипт.
-if (process.env.DIODE_RUN_AS_NODE === "1") {
-    runAsNode();
-} else if (process.env.DIODE_FILE_WATCHER === "1") {
-    const { runFileWatcherRole } = await loadLazyModule(
-        "roles/file-watcher",
-        () => import("./roles/fileWatcherRole.ts"),
-    );
-    runFileWatcherRole();
-    // Как и ext-host: возвращается сразу, а процесс живёт на IPC-канале.
-} else if (process.env.DIODE_EXTENSION_HOST === "1") {
-    const { runExtensionHostRole } = await loadLazyModule(
-        "roles/extension-host",
-        () => import("./roles/extensionHostRole.ts"),
-    );
-    runExtensionHostRole();
-    // Роль возвращается, но процесс остаётся живым на IPC-канале до
-    // disconnect/shutdown. Просто не идём в TUI-ветку.
-} else {
-    await runEditor();
+// Бандл — CJS (`dist/main.cjs`), top-level await в нём нет. Отказ входа
+// бросается заново исключением вне промиса, как отказ top-level await ESM-ядра:
+// стек в stderr и код 1. Просто оставить промис без обработчика нельзя —
+// страховка `unhandledRejection` редактора (runEditor) унесла бы отказ в лог,
+// и процесс остался бы жить без UI.
+main().catch((err: unknown) => {
+    process.nextTick(() => {
+        throw err;
+    });
+});
+
+async function main(): Promise<void> {
+    // Служебные роли — ленивые куски (`roles/*` в LAZY_CHUNKS): их код не лежит в
+    // main.cjs, редактор его не парсит, а роль грузит свой кусок, только войдя в
+    // ветку. Run-as-node остаётся здесь: ему нужен не наш код, а чужой скрипт.
+    if (process.env.DIODE_RUN_AS_NODE === "1") {
+        runAsNode();
+    } else if (process.env.DIODE_FILE_WATCHER === "1") {
+        const { runFileWatcherRole } = await loadLazyModule(
+            "roles/file-watcher",
+            () => import("./roles/fileWatcherRole.ts"),
+        );
+        runFileWatcherRole();
+        // Как и ext-host: возвращается сразу, а процесс живёт на IPC-канале.
+    } else if (process.env.DIODE_EXTENSION_HOST === "1") {
+        const { runExtensionHostRole } = await loadLazyModule(
+            "roles/extension-host",
+            () => import("./roles/extensionHostRole.ts"),
+        );
+        runExtensionHostRole();
+        // Роль возвращается, но процесс остаётся живым на IPC-канале до
+        // disconnect/shutdown. Просто не идём в TUI-ветку.
+    } else {
+        await runEditor();
+    }
 }
 
 async function runEditor(): Promise<void> {

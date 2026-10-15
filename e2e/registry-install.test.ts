@@ -333,7 +333,7 @@ describe("SEA binary — install from file registry", () => {
         expect(list.stdout.trim()).toBe("acme.needsfuture@1.0.0");
     });
 
-    // semver — ленивый кусок бандла (`lazy/semver.cjs`): в main.js его нет, а
+    // semver — ленивый кусок бандла (`lazy/semver.cjs`): в main.cjs его нет, а
     // запасной import("semver") в SEA упал бы. Выбор версии ниже — это разбор
     // версий meta (semver.valid), матчинг engines (satisfies) и сравнение (gt)
     // целиком внутри бинаря: верная версия и есть доказательство, что кусок

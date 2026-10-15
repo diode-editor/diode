@@ -12,11 +12,11 @@
  * Результат:
  *
  *     [ #!/bin/sh стаб (scripts/selfextract-stub.sh) ][ payload.tar.gz ]
- *       payload = node + main.js + diode.bundle + lazy/*.cjs (ленивые куски бандла)
+ *       payload = node + main.cjs + diode.bundle + lazy/*.cjs (ленивые куски бандла)
  *
  * Стаб при первом запуске распаковывает payload в
- * `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` и делает `exec node main.js "$@"`.
- * Не-SEA чтение `diode.bundle` рядом с `main.js` обеспечивает
+ * `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` и делает `exec node main.cjs "$@"`.
+ * Не-SEA чтение `diode.bundle` рядом с `main.cjs` обеспечивает
  * `src/Common/Assets/BundleFile.ts`.
  *
  * Использование:
@@ -29,7 +29,7 @@
  *   --out     путь результата (по умолчанию <dist-dir>/diode)
  *   --dist-dir  каталог сборки вместо `dist/` (e2e собирает в кэш по хешу
  *             исходников, см. scripts/e2e-artifacts.mjs)
- *   --reuse-dist  не пересобирать `dist/main.js` и бандлы, взять уже собранные
+ *   --reuse-dist  не пересобирать `dist/main.cjs` и бандлы, взять уже собранные
  *             (e2e: SEA только что собрала их в globalSetup). Без этого флага
  *             tsup с `clean: true` стирает весь `dist/` — включая SEA-бинарь,
  *             который в этот момент могут исполнять соседи.
@@ -72,7 +72,7 @@ async function main() {
     const version = resolveDiodeVersion({ repoRoot: root });
     console.log(`[selfextract] target=${target} version=${version}`);
 
-    // 1. dist/main.js + dist/diode.bundle (общее с build-sea.mjs).
+    // 1. dist/main.cjs + dist/diode.bundle (общее с build-sea.mjs).
     const { mainJsPath, bundlePath, tsServerBundlePath, lazyChunks } = args.reuseDist
         ? existingDistArtifacts(distDir)
         : await buildDistArtifacts({ repoRoot: root, distDir });
@@ -95,7 +95,7 @@ async function main() {
         const reported = smokeTestBinary(outputPath, { cwd: root });
         smokeTestNodeMode(outputPath);
         console.log(`[selfextract] Smoke: ${outputPath} --version → ${reported}`);
-        // Версия, зашитая в main.js, обязана совпадать с версией в ключе кэша: иначе
+        // Версия, зашитая в main.cjs, обязана совпадать с версией в ключе кэша: иначе
         // распаковка ведётся в каталог, не соответствующий содержимому payload'а.
         if (reported !== version) {
             throw new Error(
@@ -135,7 +135,7 @@ function existingDistArtifacts(distDir) {
         return { asset, path: join(distDir, asset) };
     });
     const paths = {
-        mainJsPath: join(distDir, "main.js"),
+        mainJsPath: join(distDir, "main.cjs"),
         bundlePath: join(distDir, "diode.bundle"),
         tsServerBundlePath: join(distDir, "ts-server.bundle"),
         tsServerDigestPath: join(distDir, "ts-server.bundle.sha256"),
@@ -214,7 +214,7 @@ async function downloadNode({ target }) {
 }
 
 /**
- * Стейджит node + main.js + diode.bundle + ts-server.bundle + ленивые куски и возвращает payload.tar.gz байтами.
+ * Стейджит node + main.cjs + diode.bundle + ts-server.bundle + ленивые куски и возвращает payload.tar.gz байтами.
  * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }>, distDir: string }} params
  * @returns {Buffer}
  */
@@ -225,21 +225,21 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
 
     cpSync(nodeBinary, join(stageDir, "node"));
     chmodSync(join(stageDir, "node"), 0o755);
-    cpSync(mainJsPath, join(stageDir, "main.js"));
+    cpSync(mainJsPath, join(stageDir, "main.cjs"));
     cpSync(bundlePath, join(stageDir, "diode.bundle"));
-    // ts-server.bundle — файлом рядом с main.js: loadTsServer.ts читает его через
+    // ts-server.bundle — файлом рядом с main.cjs: loadTsServer.ts читает его через
     // entryDir() (единый код-путь с SEA-ассетом) и распаковывает в кэш.
     cpSync(tsServerBundlePath, join(stageDir, "ts-server.bundle"));
     cpSync(`${tsServerBundlePath}.sha256`, join(stageDir, "ts-server.bundle.sha256"));
-    // Ленивые куски — файлами `lazy/<id>.cjs` рядом с main.js, как их ищет lazyModule.ts.
+    // Ленивые куски — файлами `lazy/<id>.cjs` рядом с main.cjs, как их ищет lazyModule.ts.
     for (const { asset, path } of lazyChunks) {
         mkdirSync(dirname(join(stageDir, asset)), { recursive: true });
         cpSync(path, join(stageDir, asset));
     }
 
-    // node-pty стейджим как node_modules/node-pty рядом с main.js: self-extract —
+    // node-pty стейджим как node_modules/node-pty рядом с main.cjs: self-extract —
     // НЕ SEA, поэтому loadNodePty.ts идёт dev-путём createRequire(import.meta.url)
-    // → require("node-pty"), а его разрешение стартует рядом с main.js. Кладём ту
+    // → require("node-pty"), а его разрешение стартует рядом с main.cjs. Кладём ту
     // же отфильтрованную раскладку, что и в node-pty.bundle (package.json + lib/**
     // рантайм-JS + build/Release/*), нативный .node помечаем исполняемым.
     // Натив — всегда архитектуры хоста сборки (см. pack-node-pty.mjs), поэтому

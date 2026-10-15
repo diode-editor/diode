@@ -18,7 +18,7 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
  * напрямую и читаем stdout/exit code — без PTY (и без ConPTY-флака). Главная
  * ценность на Windows: только здесь реально исполняется путь установки в SEA —
  * yauzl из ленивого куска `lazy/yauzl.cjs` (ассет бинаря, `loadLazyModule`).
- * В `main.js` yauzl нет вовсе, запасной `import("yauzl")` в SEA упал бы, так
+ * В `main.cjs` yauzl нет вовсе, запасной `import("yauzl")` в SEA упал бы, так
  * что успешная установка и есть доказательство, что кусок загрузился.
  */
 
