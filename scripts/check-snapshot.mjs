@@ -266,10 +266,14 @@ export function findBakedEnvironment({ mainPath, workDir }) {
  * Проверка 3: поведение после десериализации отравленного блоба в чистом окружении.
  * Возвращает список расхождений (пустой — всё как у пользователя).
  *
- * @param {{ mainPath: string, blob: string, node: string, workDir: string }} params
+ * Запускает обычный `process.execPath` (тот же node, что собирал блоб, но не из
+ * каталога с меткой): иначе путь рантайма в тексте ошибки выглядел бы утечкой.
+ *
+ * @param {{ mainPath: string, blob: string, workDir: string }} params
  * @returns {string[]}
  */
-export function checkDeserializedBehaviour({ mainPath, blob, node, workDir }) {
+export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
+    const node = process.execPath;
     const problems = [];
     const runHome = join(workDir, "run-home");
     const runTmp = join(workDir, "run-tmp");
@@ -356,7 +360,20 @@ export function checkDeserializedBehaviour({ mainPath, blob, node, workDir }) {
         cwd: runCwd,
     });
 
+    // run-as-node: рабочий поток с сетью — фоновый анализ pyright. node до 26.11 в
+    // процессе из user-снапшота падал SIGABRT на первом `stream_wrap` в воркере
+    // (`shutdown_wrap_template_.IsEmpty()`, nodejs/node#65978).
+    const workerScript = join(scriptDir, "worker.cjs");
+    writeFileSync(
+        workerScript,
+        'const { Worker } = require("node:worker_threads");\n' +
+            'const w = new Worker(\'require("node:net"); require("node:v8"); require("node:worker_threads").parentPort.postMessage("ok")\', { eval: true });\n' +
+            "w.on(\"message\", (m) => { process.stdout.write(JSON.stringify({ worker: m })); process.exit(0); });\n",
+    );
+    const workerRun = probe("run-as-node воркер с node:net", [workerScript], { worker: "ok" });
+
     for (const [name, r] of [
+        ["run-as-node воркер", workerRun],
         ["--version", version],
         ["--list-extensions", list],
         ["run-as-node -e", evalRun],
@@ -397,14 +414,14 @@ async function main() {
         }
 
         const poisonDir = mkdirIn(workDir, "poison");
-        const { leaks, blob, node } = findBakedEnvironment({ mainPath, workDir: poisonDir });
+        const { leaks, blob } = findBakedEnvironment({ mainPath, workDir: poisonDir });
         if (leaks.length > 0) {
             failed = true;
             console.error("Окружение сборки запеклось в кучу снапшота (метки в блобе сверх пустого снапшота):");
             for (const l of leaks) console.error(`  ${l.value}: ${l.mark} — ${String(l.inMain)} против ${String(l.inEmpty)}`);
         }
 
-        const problems = checkDeserializedBehaviour({ mainPath, blob, node, workDir: mkdirIn(workDir, "run") });
+        const problems = checkDeserializedBehaviour({ mainPath, blob, workDir: mkdirIn(workDir, "run") });
         if (problems.length > 0) {
             failed = true;
             console.error("После десериализации снапшот ведёт себя не так, как у пользователя:");
