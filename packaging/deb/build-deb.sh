@@ -3,8 +3,8 @@
 #
 #   packaging/deb/build-deb.sh <binary> <arch: amd64|arm64> <version> <out-dir>
 #
-# Бинарь — self-extract сборка (`diode-linux-x64` / `diode-linux-arm64`); пакет кладёт его
-# в /usr/bin/diode и объявляет рантайм-зависимости распакованного node.
+# Бинарь — SEA-сборка (`diode-linux-x64` / `diode-linux-arm64`); пакет кладёт его
+# в /usr/bin/diode и объявляет рантайм-зависимости вшитого node (`ldd`: libc, libstdc++, libatomic).
 # Результат: <out-dir>/diode_<version>_<arch>.deb
 
 set -euo pipefail
@@ -38,7 +38,7 @@ Priority: optional
 Architecture: ${arch}
 Maintainer: Diode <noreply@diode-editor.github.io>
 Installed-Size: ${size_kb}
-Depends: libc6, libstdc++6, tar, gzip
+Depends: libc6, libstdc++6, libatomic1
 Homepage: https://diode-editor.github.io
 Description: Terminal text editor with VS Code keys, extensions and LSP
  Diode is a non-modal terminal text editor that keeps the VS Code keyboard
