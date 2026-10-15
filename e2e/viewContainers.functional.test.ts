@@ -70,6 +70,25 @@ describe("View containers (functional e2e)", () => {
         expect(titleRow.trimEnd().length).toBeGreaterThan(" EXPLORER".length);
     });
 
+    // Кнопки заголовка ViewsService резолвит только у показанного контейнера,
+    // скрытый досчитывает их при показе (OpenPerformance, рычаг 8). Команда
+    // показа сразу после старта — первая клавиша, какую примет инспектор, —
+    // ещё до фазы `eventually`: заголовок обязан прийти уже с кнопкой.
+    it("контейнер, показанный сразу после старта, приходит с кнопками заголовка", async () => {
+        const app = await useHeadlessApp({ files: FILES, keybindings: KEYS, cols: 100, rows: 30 });
+        const { session } = app;
+
+        await session.key("F6");
+        await session.waitForText((t) => t.includes("SEARCH"));
+        const header = await session.node("#paneHeader-workbench-search-results");
+        expect(header).not.toBeNull();
+        const { x, y, width } = header!.box;
+        const row = frameToText(await session.captureFrame()).split("\n")[y].slice(x, x + width);
+        // Collapse All (`\ueac5`) — inline-кнопка группы navigation у Search.
+        expect(row).toContain("SEARCH");
+        expect(row).toContain("\ueac5");
+    });
+
     it("Search — тоже один контейнер одной секции, переключение места не ломает корень", async () => {
         const app = await openApp();
         const { session } = app;

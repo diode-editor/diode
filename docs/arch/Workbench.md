@@ -396,7 +396,11 @@ top-уровень — `getSubmenus(MenubarMainMenu)`, entries каждого м
 по-прежнему резолвятся при открытии, а постоянный UI (inline-кнопки заголовков
 view) пере-резолвится по `ContextKeyService.onDidChange` — событие коалесцировано
 в тик и не стреляет на запись того же значения (иначе оно бы срабатывало перед
-каждым кейбиндом, см. `WorkbenchContextKeys.update`).
+каждым кейбиндом, см. `WorkbenchContextKeys.update`). Резолвит только показанный
+контейнер (активный вьюлет сайдбара, активная вкладка панели): скрытый лишь
+помечается и досчитывается при показе (`SidebarService.onDidChangeActiveViewlet`,
+`PanelService.onDidChangeActiveView`) — как у эталона, где тулбар заголовка живёт
+только у открытого композита. На старте собраны все 8 контейнеров, видны два.
 
 **`enablement` — доступность против видимости.** У `CommandAction`,
 `CommandMenuPlacement` и `IMenuContribution` рядом с `when` есть `enablement`

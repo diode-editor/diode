@@ -107,4 +107,20 @@ describe("SidebarService", () => {
         expect(visibleKeys()).toEqual([false, false]);
         expect(set.mock.calls.map(([key]) => key)).not.toContain(undefined);
     });
+
+    it("onDidChangeActiveViewlet — только на смену активного вьюлета, и на стартовую установку тоже", () => {
+        const { layout } = fakeLayout();
+        const service = new SidebarService(layout);
+        service.registerViewlet("explorer", viewA, vi.fn());
+        service.registerViewlet("scm", viewB, vi.fn());
+        const fired: string[] = [];
+        service.onDidChangeActiveViewlet((id) => fired.push(id));
+
+        service.showViewlet("explorer", false);
+        service.showViewlet("explorer");
+        service.showViewlet("ghost");
+        service.showViewlet("scm");
+
+        expect(fired).toEqual(["explorer", "scm"]);
+    });
 });

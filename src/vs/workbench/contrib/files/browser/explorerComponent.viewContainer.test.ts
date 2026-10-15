@@ -31,6 +31,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
     function attach(): void {
         h.service.registerContainer({ id: EXPLORER_VIEWLET_ID, title: "EXPLORER", location: "sidebar" });
         h.service.attachContainer(EXPLORER_VIEWLET_ID);
+        h.showViewlet(EXPLORER_VIEWLET_ID);
     }
 
     beforeEach(() => {

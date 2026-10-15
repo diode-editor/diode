@@ -19,7 +19,9 @@ export const ViewTitleActionsContributionDIToken = token<ViewTitleActionsContrib
  *
  * Событие уже коалесцировано сервисом (одно на тик, только реально
  * изменившиеся ключи), поэтому пере-резолв здесь безусловный: разбирать, какие
- * именно ключи задеты, значило бы парсить when-выражения всех пунктов.
+ * именно ключи задеты, значило бы парсить when-выражения всех пунктов. Резолвят
+ * только показанные контейнеры — скрытые досчитываются при показе (см.
+ * `ViewsService.refreshContainerTitleActions`).
  */
 export class ViewTitleActionsContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [ContextKeyServiceDIToken, ViewsServiceDIToken] as const;
