@@ -25,8 +25,10 @@ export class ExtensionOwner {
      * Исполняет `fn` с владельцем `id` и возвращает её результат. Прежний
      * владелец восстанавливается и при исключении — вложенный вызов (одно
      * расширение синхронно зовёт API из колбэка другого) не теряет внешнего.
+     * `undefined` — «ничей»: общий объект шима, который заводится внутри
+     * вызова расширения, но ему не принадлежит (пункт `setStatusBarMessage`).
      */
-    public runAs<T>(id: string, fn: () => T): T {
+    public runAs<T>(id: string | undefined, fn: () => T): T {
         const previous = this.id;
         this.id = id;
         try {

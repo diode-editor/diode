@@ -21,6 +21,17 @@ describe("curatedConfigInjection", () => {
         expect(curatedConfigInjection("redhat.java")).not.toHaveProperty("java.configuration.updateBuildConfiguration");
     });
 
+    it("Anthropic.claude-code: терминальный режим вместо webview-чата, которого в TUI нет", () => {
+        expect(curatedConfigInjection("anthropic.claude-code")).toEqual({ "claudeCode.useTerminal": true });
+    });
+
+    it("id сравнивается без учёта регистра — как в манифесте издателя", () => {
+        expect(curatedConfigInjection("Anthropic.claude-code")).toEqual({ "claudeCode.useTerminal": true });
+        expect(curatedConfigInjection("DetachHead.basedpyright")).toEqual({
+            "basedpyright.importStrategy": "useBundled",
+        });
+    });
+
     it("незнакомое расширение — пустой слой, манифестные дефолты не трогаются", () => {
         expect(curatedConfigInjection("vscjava.vscode-java-dependency")).toEqual({});
         expect(curatedConfigInjection("")).toEqual({});

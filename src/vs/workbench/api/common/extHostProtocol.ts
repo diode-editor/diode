@@ -47,6 +47,7 @@ import type {
     IWireDocumentSemanticTokensParams,
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
+    IWireEnvInitialize,
     IWireExecuteCommandParams,
     IWireExtensionCatalog,
     IWireExtensionId,
@@ -189,6 +190,7 @@ export interface IHostToSubprocess {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
 
         readonly "workspace.initialize": IWireWorkspaceInitialize;
+        readonly "env.initialize": IWireEnvInitialize;
         readonly "workspace.configurationChanged": IWireConfigurationChanged;
         readonly "workspace.didSaveTextDocument": IWireDidSaveParams;
         readonly "workspace.watcher.events": IWireWatcherEvents;

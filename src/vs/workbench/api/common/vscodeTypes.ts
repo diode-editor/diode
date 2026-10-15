@@ -868,6 +868,17 @@ export enum TerminalLocation {
     Editor = 2,
 }
 
+/**
+ * Насколько точна командная строка исполнения (`vscode.TerminalShellExecutionCommandLineConfidence`).
+ * Исполнений у нас нет (shell integration не поднята), но enum — значение:
+ * расширения сравнивают с ним `execution.commandLine.confidence`.
+ */
+export enum TerminalShellExecutionCommandLineConfidence {
+    Low = 0,
+    Medium = 1,
+    High = 2,
+}
+
 /** Почему терминал закрылся (`vscode.TerminalExitReason`). */
 export enum TerminalExitReason {
     Unknown = 0,
@@ -2143,5 +2154,92 @@ export class TelemetryTrustedValue<T = unknown> implements vscode.TelemetryTrust
 
     public constructor(value: T) {
         this.value = value;
+    }
+}
+
+// ── Комментарии (`extHostTypes.ts` эталона) ──────────────────────────────────
+// Панели комментариев нет (commentsNoop.ts), но enum'ы — значения: расширение
+// выставляет ими состояние треда (`thread.state = CommentThreadState.Resolved`).
+
+export enum CommentThreadCollapsibleState {
+    Collapsed = 0,
+    Expanded = 1,
+}
+
+export enum CommentMode {
+    Editing = 0,
+    Preview = 1,
+}
+
+export enum CommentThreadState {
+    Unresolved = 0,
+    Resolved = 1,
+}
+
+// ── Notebook-вывод (`extHostTypes/notebooks.ts` эталона) ──────────────────────
+
+/** `type/subtype[;параметры]` — `_simplePattern` эталона (`base/common/mime.ts`). */
+const MIME_PATTERN = /^(.+)\/(.+?)(;.+)?$/;
+
+/**
+ * Строгий `normalizeMimeType` эталона: тип и подтип — в нижний регистр,
+ * параметры как есть (RFC 2045, 5.1); не-mime — `undefined`.
+ */
+function normalizeMimeType(mime: string): string | undefined {
+    const match = MIME_PATTERN.exec(mime);
+    if (match === null) return undefined;
+    // Группа параметров необязательна — без них её значение `undefined`.
+    const [, type, subtype, parameters = ""] = match;
+    return `${type.toLowerCase()}/${subtype.toLowerCase()}${parameters}`;
+}
+
+/**
+ * Элемент вывода ячейки (`vscode.NotebookCellOutputItem`). Notebook-редакторов
+ * в Diode нет, но класс обязан быть значением: расширения строят элементы на
+ * уровне модуля (Claude Code — десять `NotebookCellOutputItem.error(...).mime`
+ * при загрузке, без класса точка входа не грузится вовсе). Поведение —
+ * эталонное, включая отказ на кривом mime.
+ */
+export class NotebookCellOutputItem implements vscode.NotebookCellOutputItem {
+    public data: Uint8Array;
+    public mime: string;
+
+    public constructor(data: Uint8Array, mime: string) {
+        const normalized = normalizeMimeType(mime);
+        if (normalized === undefined) {
+            throw new Error(`INVALID mime type: ${mime}. Must be in the format "type/subtype[;optionalparameter]"`);
+        }
+        this.data = data;
+        this.mime = normalized;
+    }
+
+    public static error(err: Error | { name: string; message?: string; stack?: string }): NotebookCellOutputItem {
+        return NotebookCellOutputItem.json(
+            { name: err.name, message: err.message, stack: err.stack },
+            "application/vnd.code.notebook.error",
+        );
+    }
+
+    public static stdout(value: string): NotebookCellOutputItem {
+        return NotebookCellOutputItem.text(value, "application/vnd.code.notebook.stdout");
+    }
+
+    public static stderr(value: string): NotebookCellOutputItem {
+        return NotebookCellOutputItem.text(value, "application/vnd.code.notebook.stderr");
+    }
+
+    public static bytes(value: Uint8Array, mime = "application/octet-stream"): NotebookCellOutputItem {
+        return new NotebookCellOutputItem(value, mime);
+    }
+
+    public static text(value: string, mime = "text/plain"): NotebookCellOutputItem {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion -- как эталон: расширение без типов передаёт и не строку
+        return new NotebookCellOutputItem(new TextEncoder().encode(String(value)), mime);
+    }
+
+    // Дефолт `text/x-json` — эталонный рантайм; JSDoc d.ts обещает
+    // `application/json`, но расширения видят то, что отдаёт рантайм эталона.
+    public static json(value: unknown, mime = "text/x-json"): NotebookCellOutputItem {
+        return NotebookCellOutputItem.text(JSON.stringify(value, undefined, "\t"), mime);
     }
 }

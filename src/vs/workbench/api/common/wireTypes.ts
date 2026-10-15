@@ -1432,6 +1432,29 @@ export function parseWireClipboardText(raw: unknown): IWireClipboardText {
     return { text: typeof text === "string" ? text : "" };
 }
 
+/**
+ * Семя `env.initialize`: константы окружения, которые знает только хост, —
+ * `env.machineId` (кэш в его application-состоянии) и `env.shell` (шелл,
+ * которым запустился бы терминал). Приходит до первой активации: оба члена
+ * синхронные и читаются прямо в `activate()`.
+ */
+export interface IWireEnvInitialize {
+    readonly machineId: string;
+    readonly shell: string;
+}
+
+/** Разбирает семя `env.initialize`; не-строка — пустая строка (как «неизвестно» у эталона). */
+export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
+    const { machineId, shell } = (typeof raw === "object" && raw !== null ? raw : {}) as {
+        machineId?: unknown;
+        shell?: unknown;
+    };
+    return {
+        machineId: typeof machineId === "string" ? machineId : "",
+        shell: typeof shell === "string" ? shell : "",
+    };
+}
+
 /** Ответ хоста на `env.openExternal` (запрос — {@link IWireUriParams}). */
 export interface IWireOpenExternalResult {
     readonly opened: boolean;

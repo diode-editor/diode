@@ -47,6 +47,7 @@ import {
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
 import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
+import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
@@ -65,6 +66,7 @@ import {
     extensionStorageHomes,
     type IExtensionStorageHomes,
 } from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
+import { resolveMachineId } from "../../workbench/services/extensions/node/machineIdState.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
@@ -303,6 +305,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // env.openExternal — системный обработчик, а без графического сеанса
             // (ssh, контейнер) ссылка отдаётся человеку: буфер плюс сообщение.
             externalOpener: container.get(ExternalOpenerDIToken),
+            // env.machineId — кэш в application-состоянии, как у эталона;
+            // env.shell — тот же шелл, которым запускается встроенный терминал.
+            // Stryker disable ObjectLiteral,ArrowFunction: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение живёт в `resolveMachineId`/`EnvCustomer` и закрыто юнитами, сквозняк — e2e-сценарий status-bar-message
+            environment: {
+                machineId: () => resolveMachineId(container.get(StateServiceDIToken)),
+                defaultShell: container.get(DefaultShellResolverDIToken),
+            },
+            // Stryker restore ObjectLiteral,ArrowFunction
             // createOutputChannel расширений → канал в панели Output;
             // show() открывает панель (как toggleOutputAction) и переключает канал.
             outputSink: new ExtensionOutputAdapter(

@@ -31,20 +31,21 @@
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 14/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 21/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 30/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 34/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
-| [`vscode.env`](#vscodeenv) | 🟡 | 12/21 |
+| [`vscode.env`](#vscodeenv) | 🟡 | 15/21 |
 | [`vscode.tasks`](#vscodetasks) | 🟡 | 8/8 |
 | [`vscode.authentication`](#vscodeauthentication) | 🟡 | 4/4 |
+| [`vscode.comments`](#vscodecomments) | 🟡 | 1/1 |
 | [`vscode.debug`](#пока-не-поднятые-namespace) | 🕐 | 0/18 |
 | [`vscode.scm`](#пока-не-поднятые-namespace) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#пока-не-поднятые-namespace) | 🕐 | 0/3 |
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 187/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 207/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
@@ -102,7 +103,7 @@ notebook-поверхность — нет.
 
 ## vscode.window
 
-🟡 **30/57.** Редакторы (включая событие выделения), активная тема, сообщения, прогресс,
+🟡 **34/57.** Редакторы (включая событие выделения), активная тема, сообщения, прогресс,
 output-каналы, декорации, пункты статус-бара и ввод (строка + выбор из списка) — рабочие;
 терминалы расширений; диалоги файлов пока не отданы расширениям, деревья — заглушка без панели;
 webview — потолок.
@@ -123,9 +124,10 @@ webview — потолок.
 | `showInputBox` | 🟡 | `title`, `prompt`, `placeHolder`, `value`, `password` (набранное закрыто маской `*` и не видно ни на экране, ни в инспекторе), `validateInput` (строкой и объектной формой со строгостью — ошибка блокирует Enter; асинхронная валидация поддержана, устаревшие ответы отбрасываются), токен отмены. Не поддержаны `valueSelection`, `ignoreFocusOut` |
 | quick input прочее (`showWorkspaceFolderPick`, `showOpenDialog`, `showSaveDialog`, `createQuickPick`, `createInputBox`) | 🕐 | объектные формы (пошаговые мастера) и диалоги файлов |
 | `createStatusBarItem` | 🟡 | пункт в полосе: `text` со значками `$(name)`, `name`, `alignment`, `priority`, команда по клику, `show`/`hide`/`dispose`. Стабы: `tooltip` принимается, но не показывается (виджета подсказки в TUI нет); `color`/`backgroundColor`/`accessibilityInformation` ни на что не влияют. Текст длиннее 24 символов усекается — ширина полосы в терминале дефицитна |
-| `setStatusBarMessage` | 🕐 | |
+| `setStatusBarMessage` | ✅ | все три перегрузки (таймаут, thenable, до `dispose`). Как в эталоне: один общий пункт полосы на все расширения (id `status.extensionMessage`, слева, имя «Extension Status»), сообщения стеком — видно самое свежее, снятие верхнего возвращает предыдущее. Пункт заводится на первом сообщении и скрывается через меню видимости полосы, как остальные |
 | `createTerminal`, `terminals`, `activeTerminal`, `onDidOpenTerminal`, `onDidCloseTerminal`, `onDidChangeActiveTerminal` | 🟡 | терминал расширения — настоящий шелл встроенного терминала в нижней панели (вкладка в списке терминалов). Позиционная форма и `TerminalOptions`: `name`, `shellPath`, `shellArgs`, `cwd`, `env` (`null` снимает переменную), `strictEnv`, `hideFromUser` (фоновый терминал: в `terminals` есть, во вкладках — после `show()`), `message`. `terminals` — все терминалы, включая шеллы, открытые человеком (у них `creationOptions` — чем их запустили); `activeTerminal` и события — тоже по всем. `Terminal`: `sendText` (переводы строк — Enter, как в эталоне), `show(preserveFocus)` открывает панель на вкладке TERMINAL, `hide` прячет её, только если показан этот терминал, `dispose`, `processId`, `exitStatus` с причиной (`Process` — шелл вышел, `User` — Kill, `Extension` — `dispose()`). После `dispose()` методы бросают, как в эталоне. `ExtensionTerminalOptions` (`pty`): процессом владеет расширение, хост держит эмулятор — `onDidWrite` рисуется в панели (склейка вывода 5 мс, как в эталоне), `open` зовётся сразу при создании, набор человека и `sendText` приходят в `handleInput` (после `open`), размер виджета — в `setDimensions`, `onDidClose` закрывает терминал с его кодом, закрытие терминала зовёт `close()`; смерть субпроцесса расширений закрывает его pty-терминалы. `open` получает начальный размер 80×24, настоящий размер виджета приезжает следом `setDimensions`; `onDidOverrideDimensions` и `onDidChangeName` не поддержаны. Не поддержаны: `location`/`color`/`isTransient`/`shellIntegrationNonce` принимаются и игнорируются (терминал всегда в панели); `state.isInteractedWith` всегда `false`; строковые `shellArgs` режутся по пробелам; имя терминала не следует за заголовком процесса |
-| `onDidChangeTerminalState`, shell integration (3 события), `registerTerminalLinkProvider`, `registerTerminalProfileProvider` | 🕐 | |
+| `onDidChangeTerminalShellIntegration`, `onDidStartTerminalShellExecution`, `onDidEndTerminalShellExecution` | 🟡 | shell integration (скрипты внедрения, разбор OSC 633) не поднята: `Terminal.shellIntegration` всегда `undefined` — по контракту «так и не активировалась», а события валидные и никогда не стреляют. Расширения, ждущие интеграцию (Claude Code — 3 с), уходят в свой фоллбэк на `sendText` |
+| `onDidChangeTerminalState`, `registerTerminalLinkProvider`, `registerTerminalProfileProvider` | 🕐 | |
 | деревья (`registerTreeDataProvider`, `createTreeView`) | 🟡 | декларации подняты, рантайм — заглушка: дерево пока не рисуется, провайдер никто не зовёт. Регистрация проходит (иначе расширение с деревом умирало на активации целиком), в Output — одна строка на view, что панели не будет. `createTreeView` без `treeDataProvider` бросает, как эталон; `TreeView` инертный: `visible` — `false`, `selection` пустой, события не стреляют, `reveal` сразу резолвится, `title`/`message`/`description`/`badge` записываются и ни на что не влияют. Значения `TreeItem` (дефолт `collapsibleState` — `None`), `TreeItemCollapsibleState`, `TreeItemCheckboxState`, `ThemeIcon` — настоящие |
 | `onDidChangeTextEditorSelection` | ✅ | каждое движение каретки/смена выделения в редакторе; `kind` едет от жеста — набор и кейбинд дают `Keyboard`, мышь `Mouse`, команда расширения `Command`, остальное (undo/redo, find, фолдинг, программная правка) — `undefined`, как и разрешает upstream. Выделение, которое расширение поставило само, эхом не возвращается |
 | события редактора (`onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
@@ -197,7 +199,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## vscode.env
 
-🟡 **12/21.** Поднято то, что в терминале имеет смысл и реализовано по-настоящему: буфер обмена и
+🟡 **15/21.** Поднято то, что в терминале имеет смысл и реализовано по-настоящему: буфер обмена и
 открытие внешней ссылки плюс константы окружения, которые расширения читают прямо в `activate()`
 (`vscode-languageclient` — `language`/`appName`, стоковый `redhat.java` — `uiKind` и телеметрию,
 `@vscode/extension-telemetry` — логгер телеметрии).
@@ -212,10 +214,22 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `sessionId` | 🟡 | случайный uuid на сеанс extension host'а: стабилен внутри запуска, различается между запусками. Отклонение от эталона — там id переживает перезапуск extension host'а, у нас шим собирается заново вместе с субпроцессом |
 | `isTelemetryEnabled`, `onDidChangeTelemetryEnabled` | ✅ | телеметрии в Diode нет вовсе — ни своей, ни канала для чужой, поэтому флаг всегда `false`, а событие валидное и никогда не стреляет (менять нечего) |
 | `createTelemetryLogger` | ✅ | эталонный логгер при выключенной телеметрии: `isUsageEnabled`/`isErrorsEnabled` — `false`, `logUsage`/`logError` до отправителя не доходят, `onDidChangeEnableStates` не стреляет, на первом `dispose` — `flush` отправителя. Проверка отправителя и её тексты — эталонные. Без члена падал `@vscode/extension-telemetry` (репортер строит логгер в конструкторе), а с ним — вся активация `hashicorp.terraform`. `TelemetryTrustedValue` — настоящий класс |
-| `machineId`, `isNewAppInstall`, `isAppPortable` | 🕐 | |
-| `shell`, `onDidChangeShell` | 🕐 | |
+| `machineId` | ✅ | как в эталоне: sha256 от первого настоящего MAC-адреса в hex (без адреса — uuid), кэш в application-состоянии под тем же ключом `telemetry.machineId` — стабилен между запусками |
+| `shell` | ✅ | шелл, которым запускается встроенный терминал без `shellPath` (`$SHELL` → шелл учётной записи → `sh`; Windows — `%COMSPEC%`). Профилей терминала нет, поэтому настройкой он не меняется |
+| `onDidChangeShell` | ✅ | валидное событие; без профилей терминала шелл не меняется, и оно не стреляет |
+| `isNewAppInstall`, `isAppPortable` | 🕐 | |
 | `asExternalUri` | 🕐 | нужен вместе с `registerUriHandler` |
 | `logLevel`, `onDidChangeLogLevel` | 🕐 | |
+
+## vscode.comments
+
+🟡 **1/1.** Декларации подняты целиком (контроллер, тред, комментарий и их enum'ы), рантайм —
+инертный: тредов в гаттере и панели Comments пока нет. Namespace есть, потому что без него падала
+фича расширения целиком: Claude Code вешает тред на каждый ханк предложенного диффа.
+
+| член | статус | комментарий |
+| --- | :-: | --- |
+| `createCommentController` | 🟡 | контроллер с `id`/`label`; `createCommentThread` отдаёт тред с эталонными дефолтами (свёрнут, `canReply: true`), поля записываемые, `dispose` безвреден. Ничего не рисуется, `commentingRangeProvider` и `reactionHandler` никто не зовёт; в Output — одна строка на id контроллера, что тредов не будет. `CommentThreadCollapsibleState`, `CommentMode`, `CommentThreadState` — настоящие enum'ы |
 
 ## vscode.authentication
 
@@ -287,7 +301,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## Типы с неполной поверхностью
 
-Активно 187 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 207 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.
@@ -297,7 +311,6 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextDocument` | 19/19 | — (класс документа проверяется компилятором: `implements vscode.TextDocument`). 🟡 `save` — всегда `false` («не сохранено»), у закрытого документа — отказ, как upstream: запроса «сохранить документ по uri» к хосту пока нет. `getWordRangeAtPosition` — дефолтное определение слова upstream (`DEFAULT_WORD_REGEXP`) либо регекс расширения; языковых word-definition (`wordPattern`) нет, регекс, матчащий пустую строку, — исключение. Рабочие и `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
-| `Terminal` | 9/10 | `shellIntegration` |
 | `TerminalOptions` | 12/13 | `iconPath` |
 | `TreeViewOptions` | 4/5 | `dragAndDropController` (drag-and-drop в TUI нет) |
 | `ExtensionTerminalOptions` | 6/7 | `iconPath` |

@@ -1675,10 +1675,12 @@ describe("ExtensionHost — семена handshake", () => {
         const seeds = child.sent
             .slice(0, firstActivation)
             .map((m) => (m.kind === "notif" ? m.method : `${m.kind}:${(m as { method?: string }).method ?? ""}`));
-        // Порядок — контракт: расширение читает конфигурацию, раскладку, активный
-        // редактор, тему, каталог и открытые документы уже в activate().
+        // Порядок — контракт: расширение читает конфигурацию, окружение хоста
+        // (`env.machineId`/`env.shell`), раскладку, активный редактор, тему,
+        // каталог и открытые документы уже в activate().
         expect(seeds).toEqual([
             "workspace.initialize",
+            "env.initialize",
             "editor.layoutChanged",
             "editor.activeEditorChanged",
             "window.themeChanged",

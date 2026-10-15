@@ -11,6 +11,7 @@ import {
 } from "./extHostTypeConverters.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
+import { createStatusBarMessage } from "./statusBarMessage.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
 import { createTreeViewNoopMembers } from "./treeViewNoop.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -619,6 +620,139 @@ export function createWindowNamespace(
         rpc.notify("window.fileDecorationsChanged", { decorations });
     }
 
+    // Настоящий пункт статус-бара: состояние живёт здесь, а в полосу уезжает
+    // нотификациями `window.statusBarItem.{update,dispose}` (мост —
+    // ExtensionStatusBarAdapter). Провод молчит, пока пункт не показан: в
+    // VS Code `createStatusBarItem` НЕ показывает пункт, это делает `show()`.
+    //
+    // Отклонения (см. постановку заявки): `tooltip` принимается, но не
+    // показывается (виджета подсказки в TUI нет), `color`/`backgroundColor`/
+    // `accessibilityInformation` ни на что не влияют.
+    const createStatusBarItem = (
+        idOrAlignment?: string | vscode.StatusBarAlignment,
+        alignmentOrPriority?: vscode.StatusBarAlignment | number,
+        priorityArg?: number,
+    ): vscode.StatusBarItem => {
+        // Две перегрузки: с явным id первым аргументом и без него.
+        const withId = typeof idOrAlignment === "string";
+        const explicitId = withId ? idOrAlignment : undefined;
+        const alignment = (withId ? alignmentOrPriority : idOrAlignment) as vscode.StatusBarAlignment | undefined;
+        const priority = withId ? priorityArg : alignmentOrPriority;
+        const handle = nextStatusBarItemHandle++;
+        // `vscode.StatusBarAlignment` из типов расширения и наш рантайм-enum —
+        // разные номинальные типы с одними и теми же значениями; сравниваем
+        // их как числа, иначе TS видит несовместимые enum'ы.
+        const side: "left" | "right" =
+            (alignment as number | undefined) === (StatusBarAlignment.Right as number) ? "right" : "left";
+
+        let text = "";
+        let name: string | undefined;
+        let command: string | vscode.Command | undefined;
+        let visible = false;
+        let disposed = false;
+
+        /**
+         * Id пункта для полосы. Явный — как его задало расширение; иначе
+         * синтезируем из имени, чтобы «скрыл через меню видимости» пережило
+         * перезапуск редактора (id хранится в состоянии). Пункт без имени
+         * скрыть нельзя в принципе — ему хватает id по счётчику.
+         *
+         * Как в VS Code (`asStatusBarItemIdentifier`), id префиксуется id
+         * расширения-владельца: `<owner>.<id>`. Владелец фиксируется здесь,
+         * при создании, — имя задаётся позже, и к тому моменту окружающего
+         * владельца уже нет.
+         */
+        const fallbackId = `item-${String(handle)}`;
+        const prefix = owner.current === undefined ? "" : `${owner.current}.`;
+        const currentId = (): string =>
+            prefix + (explicitId ?? (name !== undefined ? slugify(name, fallbackId) : fallbackId));
+
+        /** Команда клика в wire-форме: строка либо `Command` (command + arguments). */
+        const commandWire = (): { command?: string; arguments?: readonly unknown[] } => {
+            if (typeof command === "string") return { command };
+            if (command === undefined) return {};
+            return {
+                command: command.command,
+                ...(Array.isArray(command.arguments) ? { arguments: command.arguments } : {}),
+            };
+        };
+
+        const push = (): void => {
+            if (disposed || !visible) return;
+            rpc.notify("window.statusBarItem.update", {
+                handle,
+                id: currentId(),
+                alignment: side,
+                ...(Number.isFinite(priority) ? { priority } : {}),
+                text,
+                ...(name !== undefined ? { name } : {}),
+                ...commandWire(),
+            });
+        };
+
+        const unpush = (): void => {
+            if (!visible) return;
+            visible = false;
+            rpc.notify("window.statusBarItem.dispose", { handle });
+        };
+
+        const item: vscode.StatusBarItem = {
+            get id(): string {
+                return currentId();
+            },
+            get alignment(): vscode.StatusBarAlignment {
+                return alignment ?? StatusBarAlignment.Left;
+            },
+            get priority(): number | undefined {
+                return priority;
+            },
+            get name(): string | undefined {
+                return name;
+            },
+            set name(value: string | undefined) {
+                name = value;
+                push();
+            },
+            get text(): string {
+                return text;
+            },
+            set text(value: string) {
+                text = value;
+                push();
+            },
+            get command(): string | vscode.Command | undefined {
+                return command;
+            },
+            set command(value: string | vscode.Command | undefined) {
+                command = value;
+                push();
+            },
+            // Принимаются и читаются обратно, но на полосу не влияют — см.
+            // «Границы» постановки: подсказка требует виджета движка, цвета —
+            // новых токенов темы и посегментных стилей.
+            tooltip: undefined,
+            color: undefined,
+            backgroundColor: undefined,
+            accessibilityInformation: undefined,
+            show: (): void => {
+                if (disposed || visible) return;
+                visible = true;
+                push();
+            },
+            // Отдельного гейта по `disposed` ни hide, ни dispose не нужны:
+            // `unpush` сам молчит на непоказанном пункте, а инертность
+            // ручки после dispose держат `show`/`push` (сценарий 6).
+            hide: (): void => {
+                unpush();
+            },
+            dispose: (): void => {
+                unpush();
+                disposed = true;
+            },
+        };
+        return item;
+    };
+
     const windowNs = {
         // Webview — не будет by design, но члены обязаны существовать: без них
         // расширение с чат-панелью умирало на активации ЦЕЛИКОМ (см. webviewNoop.ts).
@@ -626,6 +760,15 @@ export function createWindowNamespace(
         // Деревья пока не рисуются (Phase 8b), но регистрация обязана проходить:
         // без неё расширение с деревом целей умирало на активации (см. treeViewNoop.ts).
         ...createTreeViewNoopMembers(rpc),
+
+        createStatusBarItem,
+        // Общий пункт сообщений — ничей: заводится на первом сообщении, но вне
+        // владельца вызова, поэтому id без префикса расширения (statusBarMessage.ts).
+        setStatusBarMessage: createStatusBarMessage(() =>
+            owner.runAs(undefined, () =>
+                createStatusBarItem("status.extensionMessage", StatusBarAlignment.Left, Number.MIN_VALUE),
+            ),
+        ),
 
         get activeTextEditor(): vscode.TextEditor | undefined {
             if (activeEditorUri === null) return undefined;
@@ -746,6 +889,14 @@ export function createWindowNamespace(
         onDidOpenTerminal: terminals.onDidOpenTerminal,
         onDidCloseTerminal: terminals.onDidCloseTerminal,
         onDidChangeActiveTerminal: terminals.onDidChangeActiveTerminal,
+        // Shell integration нет — `Terminal.shellIntegration` навсегда
+        // `undefined`, поэтому события валидные и никогда не стреляют: нечему
+        // активироваться и нечего исполнять. Расширение, подписавшееся на них
+        // (Claude Code ждёт `onDidChangeTerminalShellIntegration` 3 с), уходит
+        // в свой фоллбэк на `sendText`.
+        onDidChangeTerminalShellIntegration: new EventEmitter<vscode.TerminalShellIntegrationChangeEvent>().event,
+        onDidStartTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionStartEvent>().event,
+        onDidEndTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionEndEvent>().event,
 
         // Настоящий output-канал: строки уезжают хосту (`output.append`) и
         // попадают в панель Output отдельным каналом с label = name (мост —
@@ -818,139 +969,6 @@ export function createWindowNamespace(
                 },
                 ...logChannelExtras,
             };
-        },
-
-        // Настоящий пункт статус-бара: состояние живёт здесь, а в полосу уезжает
-        // нотификациями `window.statusBarItem.{update,dispose}` (мост —
-        // ExtensionStatusBarAdapter). Провод молчит, пока пункт не показан: в
-        // VS Code `createStatusBarItem` НЕ показывает пункт, это делает `show()`.
-        //
-        // Отклонения (см. постановку заявки): `tooltip` принимается, но не
-        // показывается (виджета подсказки в TUI нет), `color`/`backgroundColor`/
-        // `accessibilityInformation` ни на что не влияют.
-        createStatusBarItem: (
-            idOrAlignment?: string | vscode.StatusBarAlignment,
-            alignmentOrPriority?: vscode.StatusBarAlignment | number,
-            priorityArg?: number,
-        ): vscode.StatusBarItem => {
-            // Две перегрузки: с явным id первым аргументом и без него.
-            const withId = typeof idOrAlignment === "string";
-            const explicitId = withId ? idOrAlignment : undefined;
-            const alignment = (withId ? alignmentOrPriority : idOrAlignment) as vscode.StatusBarAlignment | undefined;
-            const priority = withId ? priorityArg : alignmentOrPriority;
-            const handle = nextStatusBarItemHandle++;
-            // `vscode.StatusBarAlignment` из типов расширения и наш рантайм-enum —
-            // разные номинальные типы с одними и теми же значениями; сравниваем
-            // их как числа, иначе TS видит несовместимые enum'ы.
-            const side: "left" | "right" =
-                (alignment as number | undefined) === (StatusBarAlignment.Right as number) ? "right" : "left";
-
-            let text = "";
-            let name: string | undefined;
-            let command: string | vscode.Command | undefined;
-            let visible = false;
-            let disposed = false;
-
-            /**
-             * Id пункта для полосы. Явный — как его задало расширение; иначе
-             * синтезируем из имени, чтобы «скрыл через меню видимости» пережило
-             * перезапуск редактора (id хранится в состоянии). Пункт без имени
-             * скрыть нельзя в принципе — ему хватает id по счётчику.
-             *
-             * Как в VS Code (`asStatusBarItemIdentifier`), id префиксуется id
-             * расширения-владельца: `<owner>.<id>`. Владелец фиксируется здесь,
-             * при создании, — имя задаётся позже, и к тому моменту окружающего
-             * владельца уже нет.
-             */
-            const fallbackId = `item-${String(handle)}`;
-            const prefix = owner.current === undefined ? "" : `${owner.current}.`;
-            const currentId = (): string =>
-                prefix + (explicitId ?? (name !== undefined ? slugify(name, fallbackId) : fallbackId));
-
-            /** Команда клика в wire-форме: строка либо `Command` (command + arguments). */
-            const commandWire = (): { command?: string; arguments?: readonly unknown[] } => {
-                if (typeof command === "string") return { command };
-                if (command === undefined) return {};
-                return {
-                    command: command.command,
-                    ...(Array.isArray(command.arguments) ? { arguments: command.arguments } : {}),
-                };
-            };
-
-            const push = (): void => {
-                if (disposed || !visible) return;
-                rpc.notify("window.statusBarItem.update", {
-                    handle,
-                    id: currentId(),
-                    alignment: side,
-                    ...(Number.isFinite(priority) ? { priority } : {}),
-                    text,
-                    ...(name !== undefined ? { name } : {}),
-                    ...commandWire(),
-                });
-            };
-
-            const unpush = (): void => {
-                if (!visible) return;
-                visible = false;
-                rpc.notify("window.statusBarItem.dispose", { handle });
-            };
-
-            const item: vscode.StatusBarItem = {
-                get id(): string {
-                    return currentId();
-                },
-                get alignment(): vscode.StatusBarAlignment {
-                    return alignment ?? StatusBarAlignment.Left;
-                },
-                get priority(): number | undefined {
-                    return priority;
-                },
-                get name(): string | undefined {
-                    return name;
-                },
-                set name(value: string | undefined) {
-                    name = value;
-                    push();
-                },
-                get text(): string {
-                    return text;
-                },
-                set text(value: string) {
-                    text = value;
-                    push();
-                },
-                get command(): string | vscode.Command | undefined {
-                    return command;
-                },
-                set command(value: string | vscode.Command | undefined) {
-                    command = value;
-                    push();
-                },
-                // Принимаются и читаются обратно, но на полосу не влияют — см.
-                // «Границы» постановки: подсказка требует виджета движка, цвета —
-                // новых токенов темы и посегментных стилей.
-                tooltip: undefined,
-                color: undefined,
-                backgroundColor: undefined,
-                accessibilityInformation: undefined,
-                show: (): void => {
-                    if (disposed || visible) return;
-                    visible = true;
-                    push();
-                },
-                // Отдельного гейта по `disposed` ни hide, ни dispose не нужны:
-                // `unpush` сам молчит на непоказанном пункте, а инертность
-                // ручки после dispose держат `show`/`push` (сценарий 6).
-                hide: (): void => {
-                    unpush();
-                },
-                dispose: (): void => {
-                    unpush();
-                    disposed = true;
-                },
-            };
-            return item;
         },
 
         onDidChangeVisibleTextEditors: makeListenerEvent(visibleEditorsListeners),
