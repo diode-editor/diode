@@ -889,6 +889,7 @@ export class ViewsService {
                 header: null,
                 stack: null,
                 view: null,
+                // Stryker disable next-line BooleanLiteral: эквивалентный — до attachContainer показ упирается в `paneView === null`, а сам attach всегда пересобирает секции и переписывает флаг
                 titleActionsStale: false,
             };
             this.containers.set(containerId, entry);
