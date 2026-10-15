@@ -148,6 +148,25 @@ macOS Intel, #143/#144) стартует без снапшота — верхн�
 чтение диска и построение документа размечает владелец модели в workbench (`TextFileModel`).
 План и что меряется — [TODO/OpenPerformance.md](../TODO/OpenPerformance.md).
 
+**Трасса созданий DI** (аналог `Trace` в `instantiationService.ts` и таблицы контрибуций «Developer:
+Startup Performance» эталона) — поверх вех, по второму флагу `DIODE_STARTUP_TRACE_INSTANTIATIONS=1`.
+`Container.get` (`platform/instantiation/common/instantiationTrace.ts`) пишет каждое создание:
+токен, старт, inclusive и self (без вложенных созданий), кто запросил (токен-родитель,
+`contributions:<фаза>` или первая функция стека за контейнером) и фазу контрибуций; реестр
+контрибуций помечает свои создания. Выгрузка — поле `instantiations` того же JSON. Отдельным флагом,
+потому что запись не бесплатна (≈2 мс на CI в окне DI, стек вызывателя форматируется лениво, при
+выгрузке), а бенч и перф-гейт всегда идут под трассой. Без флага цена — одна проверка на промахе
+кэша контейнера (микробенч: единицы мкс на 200 созданий). Таблица:
+
+```bash
+npm run bench:open -- --sizes=small --runs=15 --keep-traces=/tmp/traces   # трассы с флагом
+npm run bench:services -- /tmp/traces/*.json [--sort=self|inclusive|start] [--top=40] [--min=0.3]
+```
+
+`bench:services` (`e2e/bench/startupServices.ts`) печатает медианы по трассам: сумму созданий по
+окнам лестницы, контрибуции в порядке создания и создания по self. Время вне DI (рендер, `new` мимо
+контейнера, компиляция) таблица не видит — это CPU-профиль и вехи.
+
 ## Common/Assets/
 Унифицированный доступ к статическим ассетам (грамматики, `onig.wasm`, манифесты builtin-расширений) через один интерфейс `IAssetAccess` над виртуальными POSIX-путями — потребители не знают, откуда физически читаются файлы. Две реализации: `BundleAssetAccess` (in-memory mini-archive) и `FsAssetAccess` (dev, mapping `virtualPrefix → fsRoot`). `CompositeAssetAccess` — longest-prefix роутер, склеивающий builtin- и user-ассеты в одно адресное пространство. Сборка bundle — `scripts/pack-assets.mjs`.
 

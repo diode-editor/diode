@@ -828,7 +828,9 @@ Stryker вставляет `// @ts-nocheck` в начало каждого `.js/
 подъёма V8 и полом быть не может). После открытия бенч гоняет нагрузку (вставка, Enter, undo,
 Ctrl+End, поиск) и меряет латентность клавиши до кадра; колонка peak RSS — `VmHWM` процесса.
 Локально: `npm run bench:open -- --sizes=small,medium,xlarge --runs=5 --label="условия"` — под лизой
-`heavy-run` (бенч собирает SEA).
+`heavy-run` (бенч собирает SEA). `--keep-traces=<каталог>` сохраняет трассы прогонов вместе с трассой созданий
+DI, `npm run bench:services -- <каталог>/*.json` печатает по ним таблицу сервисов и контрибуций
+([arch/Common.md](arch/Common.md#вехи-старта-performancets)).
 
 Гейт: `e2e/bench/startupBudget.bench.ts` в `npm run test:perf` (`vitest.perf.config.ts` включает
 `e2e/bench/**/*.bench.ts`) меряет `small` тем же модулем и роняет прогон, если медиана «наших мс»

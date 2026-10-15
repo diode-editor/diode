@@ -2,6 +2,7 @@ import { Disposable } from "../../base/common/lifecycle.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
+import { getInstantiationTracer } from "../../platform/instantiation/common/instantiationTrace.ts";
 import type { LifecyclePhase } from "../services/lifecycle/common/lifecyclePhase.ts";
 
 import type { IWorkbenchContributionRegistration, WorkbenchContributionPhase } from "./iWorkbenchContribution.ts";
@@ -39,9 +40,12 @@ export class WorkbenchContributionsRegistry extends Disposable {
     }
 
     private instantiate(phase: WorkbenchContributionPhase | LifecyclePhase): void {
+        const tracer = getInstantiationTracer();
         for (const registration of this.registrations) {
             if (registration.phase !== phase) continue;
-            this.register(this.accessor.get(registration.token));
+            // Под трассой старта создание помечено фазой и флагом контрибуции.
+            const get = () => this.accessor.get(registration.token);
+            this.register(tracer === undefined ? get() : tracer.contribution(phase, get));
         }
     }
 }

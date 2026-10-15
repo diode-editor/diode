@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Disposable } from "../../base/common/lifecycle.ts";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
+import { Container, token } from "../../platform/instantiation/common/diContainer.ts";
+import {
+    enableInstantiationTrace,
+    resetInstantiationTrace,
+} from "../../platform/instantiation/common/instantiationTrace.ts";
 
 import type { IWorkbenchContribution, IWorkbenchContributionRegistration } from "./iWorkbenchContribution.ts";
 import { WorkbenchContributionsRegistry } from "./workbenchContributionsRegistry.ts";
@@ -124,5 +129,58 @@ describe("WorkbenchContributionsRegistry", () => {
 
         registry.instantiateByPhase("eventually");
         expect(resolved).toEqual([afterRestoredToken, eventuallyToken]);
+    });
+
+    describe("под трассой созданий", () => {
+        afterEach(() => {
+            resetInstantiationTrace();
+        });
+
+        it("контрибуция помечена фазой и флагом, её зависимость — фазой и родителем", () => {
+            const tracer = enableInstantiationTrace();
+            const DepDIToken = token<object>("Dep");
+            const ContribDIToken = token<IWorkbenchContribution>("Contrib");
+            class Contrib extends FakeContribution {
+                public static dependencies = [DepDIToken] as const;
+                public constructor(public readonly dep: object) {
+                    super();
+                }
+            }
+            const container = new Container().bind(DepDIToken, () => ({})).bind(ContribDIToken, Contrib);
+            const registry = new WorkbenchContributionsRegistry(container, [
+                { token: ContribDIToken, phase: "blockStartup" },
+            ]);
+
+            registry.instantiateByPhase("blockStartup");
+
+            const entries = tracer.getEntries();
+            expect(entries.map((e) => [e.id, e.requester, e.phase, e.contribution])).toEqual([
+                ["Dep", "Contrib", "blockStartup", false],
+                ["Contrib", "contributions:blockStartup", "blockStartup", true],
+            ]);
+            // Создание вне фазы — без фазы и без флага, даже сразу после неё.
+            const LaterDIToken = token<object>("Later");
+            container.bind(LaterDIToken, () => ({})).get(LaterDIToken);
+            expect(tracer.getEntries().at(-1)).toMatchObject({ id: "Later", phase: null, contribution: false });
+        });
+
+        it("уже созданная контрибуция записи не даёт и флаг не протекает дальше", () => {
+            const tracer = enableInstantiationTrace();
+            const ContribDIToken = token<IWorkbenchContribution>("Contrib");
+            const OtherDIToken = token<object>("Other");
+            const container = new Container()
+                .bind(ContribDIToken, () => new FakeContribution())
+                .bind(OtherDIToken, () => ({}));
+            container.get(ContribDIToken);
+            const registry = new WorkbenchContributionsRegistry(container, [{ token: ContribDIToken, phase: "ready" }]);
+
+            registry.instantiateByPhase("ready");
+            container.get(OtherDIToken);
+
+            expect(tracer.getEntries().map((e) => [e.id, e.contribution, e.phase])).toEqual([
+                ["Contrib", false, null],
+                ["Other", false, null],
+            ]);
+        });
     });
 });
