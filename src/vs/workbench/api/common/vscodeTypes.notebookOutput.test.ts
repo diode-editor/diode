@@ -4,6 +4,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
+import { NotebookCellOutputItem as RuntimeNotebookCellOutputItem } from "./vscodeTypes.ts";
 
 /**
  * `NotebookCellOutputItem` — значение в namespace: Claude Code зовёт
@@ -49,6 +50,14 @@ describe("vscode.NotebookCellOutputItem", () => {
         expect(NotebookCellOutputItem.stdout("o").mime).toBe("application/vnd.code.notebook.stdout");
         expect(NotebookCellOutputItem.stderr("e").mime).toBe("application/vnd.code.notebook.stderr");
         expect(decode(NotebookCellOutputItem.stderr("e").data)).toBe("e");
+    });
+
+    it("bytes (рантайм эталона, вне d.ts) — байты как есть, дефолтный mime application/octet-stream", () => {
+        const bytes = new Uint8Array([0, 255]);
+        const item = RuntimeNotebookCellOutputItem.bytes(bytes);
+        expect(item.data).toBe(bytes);
+        expect(item.mime).toBe("application/octet-stream");
+        expect(RuntimeNotebookCellOutputItem.bytes(bytes, "image/png").mime).toBe("image/png");
     });
 
     it("конструктор нормализует тип и подтип в нижний регистр, параметры — как есть", () => {

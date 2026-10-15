@@ -307,10 +307,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             externalOpener: container.get(ExternalOpenerDIToken),
             // env.machineId — кэш в application-состоянии, как у эталона;
             // env.shell — тот же шелл, которым запускается встроенный терминал.
+            // Stryker disable ObjectLiteral,ArrowFunction: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение живёт в `resolveMachineId`/`EnvCustomer` и закрыто юнитами, сквозняк — e2e-сценарий status-bar-message
             environment: {
                 machineId: () => resolveMachineId(container.get(StateServiceDIToken)),
                 defaultShell: container.get(DefaultShellResolverDIToken),
             },
+            // Stryker restore ObjectLiteral,ArrowFunction
             // createOutputChannel расширений → канал в панели Output;
             // show() открывает панель (как toggleOutputAction) и переключает канал.
             outputSink: new ExtensionOutputAdapter(

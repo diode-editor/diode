@@ -27,5 +27,6 @@ export function getMac(interfaces: NetworkInterfaces = networkInterfaces): strin
  */
 export function getMachineId(interfaces: NetworkInterfaces = networkInterfaces): string {
     const mac = getMac(interfaces);
+    // Stryker disable next-line StringLiteral: эквивалентный — пустая кодировка у `Hash.update` и есть utf8 по умолчанию
     return mac === undefined ? randomUUID() : createHash("sha256").update(mac, "utf8").digest("hex");
 }
