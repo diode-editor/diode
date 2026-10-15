@@ -128,8 +128,8 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
         // Рабочий поток с сетью — как фоновый анализ pyright (basedpyright). В процессе
         // из V8-снапшота (SEA `useSnapshot`) node до 26.11 падал SIGABRT на первом же
         // `stream_wrap` в воркере (`shutdown_wrap_template_.IsEmpty()`): `node:net`,
-        // `node:http`, `node:v8`. e2e pythonLsp идёт только на linux, а SEA в релизе —
-        // macOS и Windows; самотест — на каждой.
+        // `node:http`, `node:v8`. e2e pythonLsp идёт только на linux, а самотест — на
+        // каждой SEA-платформе релиза.
         writeFileSync(
             join(dir, "worker.cjs"),
             'const { Worker } = require("node:worker_threads");\n' +

@@ -537,7 +537,7 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
        двухбайтовая строка. ASCII-копия того же бандла (`[^\x00-\x7f]` → `?`, голый SEA, медиана
        из 25): ESM 168 → 155 мс, CJS 174 → 161, RSS −3…−7 МБ. Как снять без потери номеров строк
        (`minifyWhitespace` их ломает) — не решено; в этот шаг не входит.
-6. - [~] **`useSnapshot` в SEA** — **заблокировано node 25** (ниже, «Блокер»): бинарь стартует из V8-снапшота ядра (`useSnapshot: true` в
+6. - [x] **`useSnapshot` в SEA**: бинарь стартует из V8-снапшота ядра (`useSnapshot: true` в
      `scripts/build-sea.mjs`). При сборке `main.cjs` исполняет только верхний уровень модулей и
      регистрирует `start` через `setDeserializeMainFunction` (`src/vs/diode/main.ts`): развилка ролей,
      CLI, `runEditor` — уже у пользователя, после десериализации. Без снапшота (self-extract,
@@ -571,9 +571,9 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
        — 19 файлов зелёные. `performance.timeOrigin` после десериализации свой: вехи считают от
        старта процесса. Захваченный при сборке объект `process.env` живой, массив `process.argv` —
        нет (гейт его ловит). Кроссплатформенность: блоб собирается на целевой машине матрицы
-       `build.yml`; SEA там — macOS arm64 и Windows, оба собрались со снапшотом, самотест
-       `build-sea.mjs` (`--version` и run-as-node) зелёный; Linux и macOS Intel — self-extract без
-       снапшота (пункт ниже).
+       `build.yml`; SEA там — linux x64/arm64 (с #621), macOS arm64 и Windows, все собираются со
+       снапшотом, самотест `build-sea.mjs` (`--version` и run-as-node) зелёный; macOS Intel —
+       self-extract без снапшота (пункт ниже).
      - **Замер** (4 ядра, шумно; база — `6fefd843`, #619; оба бинаря из копий через
        `DIODE_E2E_BINARY`, `bench:open --sizes=small --runs=15`, два захода вперемешку):
 
@@ -590,17 +590,17 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
        node: пустой SEA 30 мс, пустой SEA со снапшотом 37 — **≈7 мс** (не 11). `build:sea` 7.4 → 9.0 с,
        бинарь 161 975 336 → 175 176 744 байт (+13.2 МБ: блоб 16.6 МБ вместо исходника 3.4 МБ).
        Кэш кода ядра (`useCodeCache`) не понадобился.
-     - **Блокер — node 25.9.** В процессе из user-снапшота любой рабочий поток, который грузит
+     - **Блокер — node 25.9 (снят: node поднят до 26.12.0, #622).** В процессе из user-снапшота любой рабочий поток, который грузит
        `stream_wrap` (`node:net`, `node:http`, `node:v8`), падает SIGABRT: `Assertion failed:
        shutdown_wrap_template_.IsEmpty()` (`LibuvStreamWrap::Initialize`). Так падает сервер
        basedpyright (фоновый анализ в воркере) — CI e2e ubuntu: `pythonLsp`, `python-lsp`,
        `marketplace`. Воспроизводится на голом node и крошечном снапшоте; падает в 24.22, 25.9 и
        26.0–26.10, исправлено в **26.11.0** (по changelog — вероятно, nodejs/node#65978 «src: fix abort
        when two Environments share an IsolateData»). e2e pythonLsp идёт только на linux, а SEA в
-       релизе — macOS и Windows: без проверки это уехало бы пользователям. Теперь ловят самотест
-       `build-sea.mjs` (run-as-node воркер с `node:net` — на каждой SEA-платформе) и пробник гейта
-       `snapshot-check`. На node 26.12 гейт зелёный целиком. Вопрос человеку — поднять node до 26.11+
-       отдельным PR раньше снапшота или временно уйти на `useCodeCache`, см. «Открытые вопросы».
+       релизе тогда был только у macOS и Windows: без проверки это уехало бы пользователям. Теперь
+       ловят самотест `build-sea.mjs` (run-as-node воркер с `node:net` — на каждой SEA-платформе) и
+       пробник гейта `snapshot-check`. Замеры выше сняты на node 25.9 (до падения воркера они не
+       доходят).
      - **Цена: `main:start` → кадр с текстом +25 мс** (195 → 220 в обоих заходах): то, что
        снапшот не исполнил при сборке, компилируется лениво — гипотеза, не проверено: без
        preparse-данных, которые даёт обычная компиляция скрипта. Следующий рычаг: прогреть путь
@@ -617,9 +617,9 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
        у node — `true`. Скрипты с `if (require.main === module) main()` под бинарём не стартуют;
        стоковые language-серверы так не делают. Гейт сверяет это с эталоном без снапшота.
    - **Кэш кода ядра** (`useCodeCache`, запасной путь) — не понадобился: снапшот взлетел.
-   - [ ] **Снапшот для self-extract.** SEA в релизе (`build.yml`) — только macOS arm64 и Windows;
-     linux x64/arm64 и macOS Intel едут self-extract'ом (`exec node main.cjs`, #143/#144) и
-     снапшота не получают: выигрыш шага 6 у них — ноль, бенч меряет SEA. Путь есть: node умеет
+   - [ ] **Снапшот для self-extract** — теперь только macOS Intel: linux x64/arm64 с #621 снова
+     SEA и снапшот получают. macOS Intel едет self-extract'ом (`exec node main.cjs`, #143/#144) и
+     снапшота не получает: выигрыш шага 6 у него — ноль, бенч меряет SEA. Путь есть: node умеет
      `--snapshot-blob` на рантайме — блоб собирает при `build:selfextract` node из payload
      (`--predictable --build-snapshot`), стаб запускает `node --snapshot-blob main.blob main.cjs`, тот
      же флаг — у форков ролей (`selfSpawnArgs`) и run-as-node. Блоб платформенно-зависим и
@@ -653,22 +653,18 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
     старту редактора, плюс два входа ядра и распил `main.ts`;
   - (c) больше не трогать (то же, что (b)).
 
-  **Вопрос человеку (2026-10-15)**: дефолт — (b)/(c), диспетчер не делаем; вернуться к (a), если
-  память LSP-сессий станет жалобой. Срок ответа — 2026-10-22, без ответа — дефолт.
+  **Решено (2026-10-15): (b)** — диспетчер не делаем; вернуться к (a), если память LSP-сессий
+  станет жалобой.
 
-- **Снапшот упёрся в node 25** (блокер шага 6, 2026-10-15). Варианты:
-  (a) поднять node 25 → 26.11+ отдельным PR, затем влить снапшот. 25 — нечётная ветка, уже EOL;
-  26 становится LTS. Цена: прогон всего CI на 26, node-pty под новый ABI (prebuild или сборка на
-  раннерах), node в payload self-extract (`NODE_VERSION`), `setup-node` в workflow, devcontainer;
-  (b) влить сейчас `useCodeCache` вместо снапшота (исследование: 111 → 69 наших, то есть примерно
-  половина выигрыша), а снапшот — после подъёма node;
-  (c) держать PR снапшота до подъёма node, ничего не вливать.
-  **Вопрос человеку**: дефолт — (a), срок — 2026-10-17.
+- **Снапшот упёрся в node 25** — **решено (2026-10-15): (a)**, node поднят до 26.12.0 отдельным PR
+  (#622) раньше снапшота. Варианты были: (a) подъём node; (b) временно `useCodeCache` (примерно
+  половина выигрыша); (c) держать PR снапшота.
 
-- **Снапшот у self-extract** (linux x64/arm64, macOS Intel — там нет SEA). Варианты: (a) сделать
-  отдельным PR через `node --snapshot-blob` (стаб, форки ролей, run-as-node; ожидаемо те же −90 мс
-  до текста у пользователей Linux); (b) не делать — выигрыш шага 6 остаётся только у macOS arm64 и
-  Windows. **Вопрос человеку (2026-10-15)**, дефолт — (a) следующим PR, срок — 2026-10-22.
+- **Снапшот у self-extract** — **решено (2026-10-15)**: «везде SEA, self-extract только для маков
+  на Intel, где node не может собрать SEA». Linux x64/arm64 переведены на SEA (#621, бинарь
+  ~48 → ~150 МБ — цена принята) и получают снапшот вместе с SEA. Открыт только macOS Intel:
+  `node --snapshot-blob` в стабе, форках ролей и run-as-node — пункт «Снапшот для self-extract»
+  выше.
 
 ### Этап 2 — жадные проходы: файл до десятков МБ открывается как маленький
 Каждый пункт измеряется на `xlarge` (13 МБ / 200 К строк) до и после:
