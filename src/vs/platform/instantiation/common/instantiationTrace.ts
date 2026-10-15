@@ -58,19 +58,21 @@ export class InstantiationTracer {
     private readonly entries: RawEntry[] = [];
     private readonly stack: Frame[] = [];
     private readonly phases: string[] = [];
-    private pendingContribution = false;
+    /** Фаза контрибуции, чьё создание идёт следующим на верхнем уровне; null — не контрибуция. */
+    private pendingContribution: string | null = null;
 
     /** Создаёт значение `factory` под записью `id`; исключение пробрасывает, запись не оставляет. */
     public trace<T>(id: string, factory: () => T): T {
         const parent = this.stack.at(-1);
         const phase = this.phases.at(-1) ?? null;
-        const contribution = this.pendingContribution;
-        this.pendingContribution = false;
+        const contributionPhase = this.pendingContribution;
+        this.pendingContribution = null;
+        const contribution = contributionPhase !== null;
         const requester =
             parent !== undefined
                 ? parent.id
-                : contribution && phase !== null
-                  ? `contributions:${phase}`
+                : contributionPhase !== null
+                  ? `contributions:${contributionPhase}`
                   : captureCaller();
         const frame: Frame = {
             id,
@@ -113,11 +115,11 @@ export class InstantiationTracer {
      */
     public contribution<T>(phase: string, run: () => T): T {
         this.phases.push(phase);
-        this.pendingContribution = true;
+        this.pendingContribution = phase;
         try {
             return run();
         } finally {
-            this.pendingContribution = false;
+            this.pendingContribution = null;
             this.phases.pop();
         }
     }
@@ -150,14 +152,17 @@ function captureCaller(): Error {
  * строка `main.cjs`, ни о чём не говорящая.
  */
 function callerName(error: Error): string {
-    const lines = (error.stack ?? "").split("\n").slice(1);
-    for (const line of lines) {
+    // Stryker disable next-line StringLiteral: `stack` у Error в V8 — всегда строка, фоллбэк — страховка типа
+    for (const line of (error.stack ?? "").split("\n")) {
         // `at name (file:line:col)`; безымянная функция — `at file:line:col`, её
-        // пропускаем, как и кадры самого node (`processTicksAndRejections` после await).
-        const match = /^\s*at (?:async )?(.+?) \((.*)\)$/.exec(line);
+        // пропускаем, как и кадры самого node (`processTicksAndRejections` после
+        // await). Первая строка стека (`Error`) не совпадает ни с чем.
+        const match = /at (?:async )?(.+?) \((.*)\)/.exec(line);
         if (match === null || match[2].startsWith("node:")) continue;
         const name = match[1];
-        if (name === "captureCaller" || /^(?:InstantiationTracer|Container)\./.test(name)) continue;
+        if (name === "captureCaller" || name.startsWith("InstantiationTracer.") || name.startsWith("Container.")) {
+            continue;
+        }
         return name;
     }
     return "?";

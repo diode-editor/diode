@@ -52,6 +52,21 @@ describe("InstantiationTracer", () => {
         ]);
     });
 
+    it("создания подряд на верхнем уровне не вкладываются друг в друга", () => {
+        const tracer = new InstantiationTracer();
+        tracer.trace("First", () => {
+            vi.advanceTimersByTime(2);
+        });
+        tracer.trace("Second", () => {
+            vi.advanceTimersByTime(3);
+        });
+
+        const [first, second] = tracer.getEntries();
+        expect(second).toMatchObject({ id: "Second", depth: 0, inclusive: 3, self: 3 });
+        expect(second.requester).not.toBe("First");
+        expect(first).toMatchObject({ id: "First", inclusive: 2, self: 2 });
+    });
+
     it("фаза контрибуций метит всё внутри, а флаг — только первое создание верхнего уровня", () => {
         const tracer = new InstantiationTracer();
         const result = tracer.contribution("ready", () =>
