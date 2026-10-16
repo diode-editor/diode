@@ -190,6 +190,7 @@ import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
 import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeConfigContribution.ts";
 import { URL_ACTIONS } from "./contrib/url/browser/urlActions.ts";
 import { USER_DATA_PROFILE_ACTIONS } from "./contrib/userDataProfile/browser/userDataProfileActions.ts";
+import { WORD_HIGHLIGHTER_ACTIONS } from "./contrib/wordHighlighter/browser/wordHighlighterActions.ts";
 import { HistoryServiceDIToken } from "./services/history/browser/historyService.ts";
 import { TerminalEnvContextKeysContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvContextKeysContribution.ts";
 import { TerminalEnvStatusContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
@@ -432,6 +433,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     inputUndoAction,
     inputRedoAction,
     ...FIND_ACTIONS,
+    ...WORD_HIGHLIGHTER_ACTIONS,
     ...INLINE_COMPLETIONS_ACTIONS,
     toggleSidebarAction,
     showExplorerAction,
