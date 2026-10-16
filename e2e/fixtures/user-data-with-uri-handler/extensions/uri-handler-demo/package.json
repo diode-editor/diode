@@ -1,0 +1,12 @@
+{
+    "name": "uri-handler-demo",
+    "displayName": "URI Handler Demo",
+    "description": "Демо window.registerUriHandler: ленивое расширение поднимается по onUri и получает URL, как Claude Code — diode://anthropic.claude-code/install-plugin.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onUri"]
+}

@@ -632,6 +632,14 @@ export function parseWireSchemes(raw: unknown): string[] {
     return schemes.filter((s): s is string => typeof s === "string");
 }
 
+// ─── Обработчики URI расширений ─────────────────────────────────────────────
+
+/** Разбирает `window.registerUriHandler`/`unregisterUriHandler`: id расширения или `null`. */
+export function parseWireUriHandlerRegistration(raw: unknown): string | null {
+    const extensionId = (raw as { extensionId?: unknown } | null)?.extensionId;
+    return typeof extensionId === "string" && extensionId !== "" ? extensionId : null;
+}
+
 // ─── Файловые watcher'ы расширений ──────────────────────────────────────────
 
 /** Разбирает `workspace.watcher.create`; `null` — параметры структурно чужие. */

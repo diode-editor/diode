@@ -12,69 +12,88 @@ import {
 
 describe("computeActivationEvents", () => {
     it("объявленные события отдаются как есть", () => {
-        expect(computeActivationEvents({ activationEvents: ["onStartupFinished", "onLanguage:java"] })).toEqual([
-            "onStartupFinished",
-            "onLanguage:java",
-        ]);
+        expect(
+            computeActivationEvents({ activationEvents: ["onStartupFinished", "onLanguage:java"] }, "pub.ext"),
+        ).toEqual(["onStartupFinished", "onLanguage:java"]);
     });
 
     it("каждая contributes.commands добавляет НЕЯВНОЕ onCommand:<id>", () => {
         expect(
-            computeActivationEvents({
-                activationEvents: ["onLanguage:python"],
-                contributes: {
-                    commands: [
-                        { command: "ruff.restart", title: "Restart Server" },
-                        { command: "ruff.showLogs", title: "Show client logs" },
-                    ],
+            computeActivationEvents(
+                {
+                    activationEvents: ["onLanguage:python"],
+                    contributes: {
+                        commands: [
+                            { command: "ruff.restart", title: "Restart Server" },
+                            { command: "ruff.showLogs", title: "Show client logs" },
+                        ],
+                    },
                 },
-            }),
+                "pub.ext",
+            ),
         ).toEqual(["onLanguage:python", "onCommand:ruff.restart", "onCommand:ruff.showLogs"]);
     });
 
     it("каждый contributes.languages добавляет НЕЯВНОЕ onLanguage:<id>", () => {
         expect(
-            computeActivationEvents({
-                activationEvents: ["onStartupFinished"],
-                contributes: { languages: [{ id: "toml" }, { id: "ini" }] },
-            }),
+            computeActivationEvents(
+                {
+                    activationEvents: ["onStartupFinished"],
+                    contributes: { languages: [{ id: "toml" }, { id: "ini" }] },
+                },
+                "pub.ext",
+            ),
         ).toEqual(["onStartupFinished", "onLanguage:toml", "onLanguage:ini"]);
     });
 
     it("каждый contributes.taskDefinitions добавляет НЕЯВНОЕ onTaskType:<type>; без типа или с пустым — нет", () => {
         expect(
-            computeActivationEvents({
-                activationEvents: ["onStartupFinished"],
-                contributes: { taskDefinitions: [{ type: "bazel" }, {}, { type: "" }, { type: "npm" }] },
-            }),
+            computeActivationEvents(
+                {
+                    activationEvents: ["onStartupFinished"],
+                    contributes: { taskDefinitions: [{ type: "bazel" }, {}, { type: "" }, { type: "npm" }] },
+                },
+                "pub.ext",
+            ),
         ).toEqual(["onStartupFinished", "onTaskType:bazel", "onTaskType:npm"]);
     });
 
     it("неявное событие не дублирует уже объявленное руками", () => {
         expect(
-            computeActivationEvents({
-                activationEvents: ["onCommand:a.b", "onLanguage:x"],
-                contributes: { commands: [{ command: "a.b", title: "A B" }], languages: [{ id: "x" }] },
-            }),
+            computeActivationEvents(
+                {
+                    activationEvents: ["onCommand:a.b", "onLanguage:x"],
+                    contributes: { commands: [{ command: "a.b", title: "A B" }], languages: [{ id: "x" }] },
+                },
+                "pub.ext",
+            ),
         ).toEqual(["onCommand:a.b", "onLanguage:x"]);
     });
 
     it("записи без строкового id неявных событий не дают", () => {
         expect(
-            computeActivationEvents({
-                activationEvents: ["onStartupFinished"],
-                contributes: { commands: [{ title: "No id" } as never], languages: [{} as never] },
-            }),
+            computeActivationEvents(
+                {
+                    activationEvents: ["onStartupFinished"],
+                    contributes: { commands: [{ title: "No id" } as never], languages: [{} as never] },
+                },
+                "pub.ext",
+            ),
         ).toEqual(["onStartupFinished"]);
     });
 
     it("манифест без событий — eager * (отклонение от эталона ради опубликованных расширений), плюс неявные", () => {
-        expect(computeActivationEvents({})).toEqual(["*"]);
-        expect(computeActivationEvents({ activationEvents: [] })).toEqual(["*"]);
-        expect(computeActivationEvents({ contributes: { commands: [{ command: "a.b", title: "A" }] } })).toEqual([
-            "*",
-            "onCommand:a.b",
-        ]);
+        expect(computeActivationEvents({}, "pub.ext")).toEqual(["*"]);
+        expect(computeActivationEvents({ activationEvents: [] }, "pub.ext")).toEqual(["*"]);
+        expect(
+            computeActivationEvents({ contributes: { commands: [{ command: "a.b", title: "A" }] } }, "pub.ext"),
+        ).toEqual(["*", "onCommand:a.b"]);
+    });
+
+    it("голый onUri — onUri:<id в нижнем регистре>, с аргументом — как есть", () => {
+        expect(
+            computeActivationEvents({ activationEvents: ["onUri", "onUri:other.ext", "onStartupFinished"] }, "Pub.Ext"),
+        ).toEqual(["onUri:pub.ext", "onUri:other.ext", "onStartupFinished"]);
     });
 
     it("генераторы перечислены явно — по точке расширения на каждый", () => {

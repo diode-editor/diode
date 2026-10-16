@@ -2,6 +2,7 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
 
 import { editorConfiguration } from "./editorConfiguration.ts";
 import { explorerConfiguration } from "./explorerConfiguration.ts";
+import { extensionsConfiguration } from "./extensionsConfiguration.ts";
 import { filesConfiguration } from "./filesConfiguration.ts";
 import { scmConfiguration } from "./scmConfiguration.ts";
 import { searchConfiguration } from "./searchConfiguration.ts";
@@ -30,6 +31,7 @@ export const CONFIGURATION_CONTRIBUTIONS = [
     searchConfiguration,
     terminalConfiguration,
     tasksConfiguration,
+    extensionsConfiguration,
 ] as const satisfies readonly IConfigurationNode[];
 
 /** Значение одного JSON-schema типа. */

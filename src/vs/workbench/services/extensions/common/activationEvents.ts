@@ -54,8 +54,8 @@ const NO_CONTRIBUTIONS: readonly never[] = [];
  * - `taskDefinitions` ⇒ `onTaskType:<type>` — провайдер задач встаёт, когда
  *   Run Task спрашивает задачи его типа.
  *
- * Генераторы для поверхностей, которых у нас нет (`onView`, `onUri`, …),
- * появятся вместе с поверхностью.
+ * Генераторы для поверхностей, которых у нас нет (`onView`, …), появятся
+ * вместе с поверхностью.
  */
 export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationEventGenerator[] = [
     {
@@ -89,7 +89,9 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
 
 /**
  * Полный набор событий активации расширения: объявленные в манифесте плюс
- * неявные от генераторов, без повторов.
+ * неявные от генераторов, без повторов. Голый `onUri` манифеста становится
+ * `onUri:<id расширения в нижнем регистре>` (`_readActivationEvents` эталона):
+ * его зовёт обработчик URL, адресуя конкретное расширение.
  *
  * **Отклонение от эталона — дефолт `*`:** манифест без событий (пусто или нет
  * поля) считается eager. У vscode пусто значит пусто, но в нашем магазине уже
@@ -100,8 +102,11 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
  */
 export function computeActivationEvents(
     manifest: Pick<IExtensionManifest, "activationEvents" | "contributes">,
+    extensionId: string,
 ): readonly string[] {
-    const declared = manifest.activationEvents ?? [];
+    const declared = (manifest.activationEvents ?? []).map((event) =>
+        event === "onUri" ? `onUri:${extensionId.toLowerCase()}` : event,
+    );
     const events = declared.length > 0 ? [...declared] : ["*"];
     const contributes = manifest.contributes ?? {};
     for (const generator of IMPLICIT_ACTIVATION_EVENT_GENERATORS) {

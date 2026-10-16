@@ -188,6 +188,7 @@ import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/termin
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
 import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeConfigContribution.ts";
+import { URL_ACTIONS } from "./contrib/url/browser/urlActions.ts";
 import { USER_DATA_PROFILE_ACTIONS } from "./contrib/userDataProfile/browser/userDataProfileActions.ts";
 import { HistoryServiceDIToken } from "./services/history/browser/historyService.ts";
 import { TerminalEnvContextKeysContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvContextKeysContribution.ts";
@@ -334,6 +335,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...QUICK_ACCESS_ACTIONS,
     ...THEME_ACTIONS,
     ...USER_DATA_PROFILE_ACTIONS,
+    ...URL_ACTIONS,
     changeEncodingAction,
     changeEolAction,
     cursorLeftAction,

@@ -31,7 +31,7 @@
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 14/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 21/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 34/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 35/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -45,7 +45,7 @@
 | [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 207/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 208/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
@@ -103,7 +103,7 @@ notebook-поверхность — нет.
 
 ## vscode.window
 
-🟡 **34/57.** Редакторы (включая событие выделения), активная тема, сообщения, прогресс,
+🟡 **35/57.** Редакторы (включая событие выделения), активная тема, сообщения, прогресс,
 output-каналы, декорации, пункты статус-бара и ввод (строка + выбор из списка) — рабочие;
 терминалы расширений; диалоги файлов пока не отданы расширениям, деревья — заглушка без панели;
 webview — потолок.
@@ -133,7 +133,8 @@ webview — потолок.
 | события редактора (`onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
 | notebook-редакторы (7 членов) | 🕐 | |
 | `activeColorTheme`, `onDidChangeActiveColorTheme` | ✅ | вид активной темы (`ColorThemeKind`) верен уже в `activate()`; событие стреляет на каждой смене темы, в том числе между двумя тёмными (как upstream: «changed **or has changes**»). Имя темы расширению не отдаётся — в `vscode.ColorTheme` его и нет |
-| `registerUriHandler`, `withScmProgress` | 🕐 | |
+| `registerUriHandler` | ✅ | один обработчик на расширение (повторная регистрация — эталонная ошибка `Protocol handler already registered…`), адрес — `diode://<id расширения>/…` (`env.uriScheme`). URL расширению, которое обработчик ещё не завело, копится в буфере (пять минут, как у эталона) и поднимает расширение по [`onUri`](#события-активации-activationevents); заведённый на активации обработчик получает буфер. Перед доставкой — вопрос «Allow '…' extension to open this URI?»; без вопроса — расширения из эталонной настройки `extensions.confirmedUriHandlerExtensionIds`. Источник URL — команда `Developer: Open URL` (`workbench.action.url.openUrl`, как у эталона); протокол ОС и `--open-url` не подключены. **Отступления:** галочки «Do not ask me again» в диалоге нет — доверие задаётся той же настройкой, диалог о ней говорит; URL неустановленному расширению не ставит его, а сообщает, что расширения нет |
+| `withScmProgress` | 🕐 | |
 | `createWebviewPanel`, `registerWebviewPanelSerializer`, `registerWebviewViewProvider` | ⛔ | webview — требует браузера; декларации не подняты, но в рантайме члены есть как инертный no-op (панели нет, в Output одна строка про неподдерживаемый webview) — иначе расширение с чат-панелью умирало на активации целиком |
 | `registerCustomEditorProvider` | ⛔ | кастомные редакторы построены на webview; в рантайме — тот же инертный no-op, что у трёх соседей выше (у `redhat.java` на нём висит редактор настроек форматтера, и падение на регистрации убивало всю активацию) |
 
@@ -218,7 +219,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `shell` | ✅ | шелл, которым запускается встроенный терминал без `shellPath` (`$SHELL` → шелл учётной записи → `sh`; Windows — `%COMSPEC%`). Профилей терминала нет, поэтому настройкой он не меняется |
 | `onDidChangeShell` | ✅ | валидное событие; без профилей терминала шелл не меняется, и оно не стреляет |
 | `isNewAppInstall`, `isAppPortable` | 🕐 | |
-| `asExternalUri` | 🕐 | нужен вместе с `registerUriHandler` |
+| `asExternalUri` | 🕐 | обработчики URI есть (`window.registerUriHandler`), но внешнего источника `diode://` (протокол ОС) нет — отдавать наружу пока нечего |
 | `logLevel`, `onDidChangeLogLevel` | 🕐 | |
 
 ## vscode.comments
@@ -250,7 +251,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 решает, запустится ли расширение вообще. Расширение, чьи события не поддержаны, устанавливается,
 показывается в каталоге — и молчит навсегда.
 
-Активно **6 из 32** видов событий upstream 1.127.0 (`*` плюс 31 именованный вид из схемы
+Активно **7 из 32** видов событий upstream 1.127.0 (`*` плюс 31 именованный вид из схемы
 `activationEvents`). Строки ниже перечисляют все; неподдержанные сгруппированы по поверхности,
 которой они ждут.
 
@@ -261,7 +262,8 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `onLanguage:<id>` | ✅ | когда языку впервые понадобились фичи — у любой модели (новый документ, смена языка, фоновая вкладка, дифф), как `requestRichLanguageFeatures` эталона; вместе с ним — голое `onLanguage` |
 | `onCommand:<id>` | ✅ | плюс **неявные** события из `contributes.commands` (как `ImplicitActivationEvents` эталона): команда видна в палитре до активации, её исполнение ждёт `activate()`. Неявные `onLanguage:<id>` дают и `contributes.languages` |
 | `workspaceContains:<паттерн>` | 🟡 | обе семантики префикса есть (проверка существования пути и поиск по дереву); глобы матчатся нашим `glob.ts` — **якорно по относительному пути**, тогда как за эталонным `workspaceContains:` стоит поиск на ripgrep, где паттерн без `/` ищется на любой глубине (`workspaceContains:*.py` у нас — только корень). Рекурсивные паттерны (`**/pyproject.toml`) совпадают |
-| `onUri`, `onOpenExternalUri` | 🕐 | нужны вместе с `registerUriHandler` / `env.asExternalUri` |
+| `onUri` | ✅ | URL расширению без обработчика (`diode://<id>/…`) поднимает его перед доставкой; голое `onUri` манифеста становится `onUri:<id>`, как в эталоне |
+| `onOpenExternalUri` | 🕐 | вместе с `env.asExternalUri` |
 | `onView:<id>`, `onWalkthrough:<id>` | 🕐 | ждут своих поверхностей (`contributes.views`, walkthrough) |
 | `onWebviewPanel:<id>`, `onCustomEditor:<id>`, `onRenderer:<id>` | ⛔ | поверхности webview-природы — см. [потолок](#не-будет-by-design) |
 | `onDebug`, `onDebugInitialConfigurations`, `onDebugDynamicConfigurations`, `onDebugResolve:<type>`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | вместе с `vscode.debug` |
@@ -301,7 +303,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## Типы с неполной поверхностью
 
-Активно 207 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 208 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.

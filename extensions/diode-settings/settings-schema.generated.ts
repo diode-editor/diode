@@ -182,6 +182,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Ask for confirmation before undoing a destructive file operation.",
     },
     {
+        key: "extensions.confirmedUriHandlerExtensionIds",
+        type: "array",
+        default: [],
+        description:
+            "When an extension is listed here, a confirmation prompt will not be shown when that extension handles a URI.",
+    },
+    {
         key: "files.enableTrash",
         type: "boolean",
         default: true,
