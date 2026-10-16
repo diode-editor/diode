@@ -55,7 +55,9 @@ function isInside(relative: string): boolean {
 
 /** Порядок обхода дерева: посегментно, префикс (родитель) раньше продолжений. */
 function compareSegments(a: readonly string[], b: readonly string[]): number {
+    // Stryker disable next-line MethodExpression,EqualityOperator: лишний шаг за концом короткого сравнивает с undefined — оба сравнения ложны, решает длина ниже
     const n = Math.min(a.length, b.length);
+    // Stryker disable next-line EqualityOperator: см. выше — шаг за концом ничего не решает
     for (let i = 0; i < n; i++) {
         if (a[i] < b[i]) return -1;
         if (a[i] > b[i]) return 1;

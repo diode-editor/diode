@@ -52,6 +52,18 @@ describe("bubbleFileDecorations", () => {
         expect(bubbleFileDecorations([second, first], ROOT).get(p("d"))?.color).toBe(1);
     });
 
+    it("первый различающийся сегмент решает раньше длины: «a/x.ts» раньше «z.ts»", () => {
+        // Короткий путь с бо́льшим сегментом: по длине он был бы первым.
+        const result = bubbleFileDecorations(
+            [
+                { path: p("d", "a", "x.ts"), color: 2, badge: "M", propagate: true },
+                { path: p("d", "z.ts"), color: 1, badge: "M", propagate: true },
+            ],
+            ROOT,
+        );
+        expect(result.get(p("d"))?.color).toBe(2);
+    });
+
     it("родитель раньше своих детей: декорация папки задаёт цвет её предкам", () => {
         const result = bubbleFileDecorations(
             [
