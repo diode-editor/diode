@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
@@ -35,22 +35,14 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("hello"));
         await editor.sendKey("F9");
         await editor.waitForText((t) => t.includes("TERMINAL"));
-        const prompt = `${basename(sampleDir)}$`;
-        await editor.waitForText((t) => t.includes(prompt));
+        // Приглашение не ищем по тексту: путь tmpdir на раннере длинный и переносится.
+        await editor.waitForText((t) => /TERMINAL[\s\S]*\$/.test(t));
 
-        // Пустая ячейка под приглашением — фон терминала, не панели вокруг.
+        // Ячейка в правой части панели над статус-баром — пустое поле терминала, не панель вокруг.
         const frame = await editor.captureFrame();
-        const promptIndex = frame.cells.findIndex(
-            (_, i) =>
-                frame.cells
-                    .slice(i, i + prompt.length)
-                    .map((c) => c.char)
-                    .join("") === prompt,
-        );
-        if (promptIndex === -1) throw new Error("приглашение шелла не найдено в кадре");
-        const below = frame.cells[promptIndex + frame.cols * 2];
-        if (below?.bg !== MOCHA_BASE) {
-            throw new Error(`фон терминала ${String(below?.bg?.toString(16))}, ожидался фон панели Mocha 1e1e2e`);
+        const cell = frame.cells[(frame.rows - 2) * frame.cols + Math.floor(frame.cols * 0.75)];
+        if (cell?.bg !== MOCHA_BASE) {
+            throw new Error(`фон терминала ${String(cell?.bg?.toString(16))}, ожидался фон панели Mocha 1e1e2e`);
         }
         await editor.capture("mocha");
     },
