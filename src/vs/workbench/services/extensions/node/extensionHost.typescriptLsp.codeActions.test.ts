@@ -39,6 +39,9 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 //    "assert"), обратные правки которых схлопываются в одну точку — именно на
 //    этой форме undo перемешивал текст. Ядро контракта закрыто герметично в
 //    textDocument.inverseEdits.test.ts / undoManager.externalBatch.test.ts.
+// 3. Organize Imports, когда менять нечего (CommonJS `require()` в .js): сервер
+//    действия не отдаёт, клиент подставляет холостое (эталонное TS-расширение
+//    отдаёт его всегда) — команда молчит, а не пишет «No organize imports action».
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -48,7 +51,8 @@ const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
+    getLanguageIdForResource: (filePath) =>
+        filePath.endsWith(".ts") ? "typescript" : filePath.endsWith(".js") ? "javascript" : undefined,
     getLanguageDisplayName: () => undefined,
 };
 
@@ -60,6 +64,9 @@ const MAIN_TS = 'import { zeta } from "./zeta";\nimport { alpha } from "./alpha"
 const UNUSED_TS = 'import { alpha, zeta } from "./both.js";\n\nalpha();\n';
 const BOTH_TS = "export function alpha(): void {}\nexport function zeta(): void {}\n";
 const UNUSED_FIXED = 'import { alpha } from "./both.js";\n\nalpha();\n';
+
+// CommonJS: tsserver'у сортировать нечего — ответ organizeImports пустой.
+const REQUIRE_JS = 'const z = require("./zeta.js");\nconst a = require("./alpha.js");\n\na.alpha();\nz.zeta();\n';
 
 function lspClientRegistration(): IExtensionRegistration {
     return {
@@ -145,6 +152,63 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             expect(alphaLine).toBeGreaterThanOrEqual(0);
             expect(zetaLine).toBeGreaterThan(alphaLine); // отсортировано
             expect(text).toContain("alpha();");
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("на CommonJS-файле .js команда применяется вхолостую — без сообщения", { timeout: 180_000 }, async () => {
+        const harness: IExtensionHarness = await createExtensionTestHarness({
+            languageService: TS_LANGUAGE_SERVICE,
+            activateEvents: [],
+            configuration: {
+                diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
+            },
+            extensions: [lspClientRegistration()],
+        });
+        try {
+            harness.writeFile("alpha.js", "exports.alpha = () => {};\n");
+            harness.writeFile("zeta.js", "exports.zeta = () => {};\n");
+            const mainPath = harness.writeFile("main.js", REQUIRE_JS);
+            const mainUri = Uri.file(mainPath).toString();
+
+            harness.group.openFile(mainPath);
+            await harness.host.activateByEvent("onLanguage:typescript");
+
+            const actions = await until("organize imports action для .js", async () => {
+                const found = await provideCodeActions(harness, {
+                    uri: mainUri,
+                    languageId: "javascript",
+                    versionId: documentVersion(harness, mainUri),
+                    range: createRange(0, 0, 5, 0),
+                    only: "source.organizeImports",
+                });
+                return found.length > 0 ? found : null;
+            });
+            expect(actions.map((a) => [a.title, a.kind])).toEqual([["Organize Imports", "source.organizeImports.ts"]]);
+
+            const notices: string[] = [];
+            const statusBar = {
+                addEntry: (entry: { text: string }) => {
+                    notices.push(entry.text);
+                    return { dispose: () => undefined };
+                },
+            } as unknown as StatusBarService;
+            const accessor = new Container();
+            accessor.bind(EditorServiceDIToken, () => harness.group);
+            accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
+            accessor.bind(StatusBarServiceDIToken, () => statusBar);
+            registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, organizeImportsAction);
+            const versionBefore = documentVersion(harness, mainUri);
+
+            await harness.commandRegistry.execute("editor.action.organizeImports");
+            await settle();
+
+            // Ни сообщения («No organize imports action» / «Code action failed»),
+            // ни правки буфера: пустой edit не трогает документ.
+            expect(notices).toEqual([]);
+            expect(harness.group.getActiveEditor()?.getText()).toBe(REQUIRE_JS);
+            expect(documentVersion(harness, mainUri)).toBe(versionBefore);
         } finally {
             await harness.dispose();
         }
