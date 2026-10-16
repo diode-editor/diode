@@ -469,6 +469,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["Dark 2026", "Dark Modern", "Dark+", "Monokai", "Light Modern", "Light+"],
     },
     {
+        key: "workbench.editor.closeOnFileDelete",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether editors showing a file that was opened during the session should close automatically when getting deleted or renamed by some other process. Disabling this will keep the editor open  on such an event. Note that deleting from within the application will always close the editor and that editors with unsaved changes will never close to preserve your data.",
+    },
+    {
         key: "workbench.editor.enablePreview",
         type: "boolean",
         default: true,

@@ -53,6 +53,10 @@ export class BulkEditBuffers implements IBulkEditBuffers {
         return active?.undoContext ?? null;
     }
 
+    public didDelete(resource: string): void {
+        this.editors.handleDeletedFile(Uri.parse(resource));
+    }
+
     /** Вкладка ресурса: активная, если это она (её view-state и есть действующая). */
     private paneFor(resource: string): TextEditorPane | null {
         const active = this.editors.getActiveTabEditor();

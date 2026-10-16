@@ -137,6 +137,12 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     closeEditor(group: EditorGroup, target: IEditorPane | number): Promise<boolean>;
     closeEditors(group: EditorGroup, panes: readonly IEditorPane[]): Promise<boolean>;
     closeAllEditors(group: EditorGroup): Promise<boolean>;
+    /**
+     * Файл или каталог удалён изнутри редактора: чистые вкладки под ним
+     * закрываются. Удаление через файловый сервис доходит само
+     * (`FileOperation.Delete`); зовут его те, кто удаляет мимо сервиса (корзина).
+     */
+    handleDeletedFile(resource: Uri): void;
     /** Спросит ли закрытие вкладки о несохранённом (документ больше нигде не виден). */
     needsCloseConfirm(pane: IEditorPane): boolean;
     /** Изменённые стороны дифф-вкладки, которых нет больше ни на одной поверхности. */

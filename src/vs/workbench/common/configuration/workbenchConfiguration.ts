@@ -29,6 +29,19 @@ export const workbenchConfiguration = {
                 "preview mode. Making a change in a preview mode editor will persist it, as will the " +
                 "'Keep Open' option in its tab context menu.",
         },
+        // Внешнее удаление файла: по умолчанию вкладка остаётся (зачёркнутой,
+        // модель orphaned); `true` — чистая вкладка закрывается. Удаление из
+        // самого редактора закрывает чистые вкладки всегда. Читает EditorService.
+        "workbench.editor.closeOnFileDelete": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether editors showing a file that was opened during the session should close " +
+                "automatically when getting deleted or renamed by some other process. Disabling this will keep " +
+                "the editor open  on such an event. Note that deleting from within the application will always " +
+                "close the editor and that editors with unsaved changes will never close to preserve your data.",
+        },
         // Раскрытие папки кликом по имени и Enter (`expandOnlyOnTwistieClick`
         // дерева). Читает Explorer на каждом жесте.
         "workbench.tree.expandMode": {

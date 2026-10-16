@@ -53,6 +53,13 @@ function diskEtag(stat: IDiskStat): string {
 const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled" });
 
 /**
+ * Пауза перед перепроверкой пропавшего файла (эталон: `TextFileEditorModel.onDidFilesChange`,
+ * те же 100 мс). Атомарная запись чужим редактором — удаление и тут же новый файл;
+ * если через паузу файл на месте, это была запись, а не удаление.
+ */
+export const ORPHAN_CHECK_DELAY_MS = 100;
+
+/**
  * Per-file модель текстового файла без view (аналог `ITextFileEditorModel` VS Code):
  * поверх буфера ({@link BaseTextEditorModel}: документ, язык, EOL, история) — ось
  * кодировки, dirty-статус против диска, запись на диск (save/saveAs + save-участник)
@@ -80,6 +87,11 @@ export class TextFileModel extends BaseTextEditorModel {
     private diskConflictValue = false;
     private readonly onDidChangeDiskStateEmitter = this.register(new Emitter<void>());
     private fileWatch: IDisposable | null = null;
+    /** Файл удалён с диска, а модель жива (`TextFileEditorModelState.ORPHAN` эталона). */
+    private orphanedValue = false;
+    private readonly onDidChangeOrphanedEmitter = this.register(new Emitter<void>());
+    /** Отложенная перепроверка пропавшего файла ({@link ORPHAN_CHECK_DELAY_MS}). */
+    private orphanCheck: ReturnType<typeof setTimeout> | null = null;
     /** Номер последней перечитки с диска: асинхронный reopen сверяет его, прежде чем писать в документ. */
     private loadGeneration = 0;
 
@@ -151,6 +163,23 @@ export class TextFileModel extends BaseTextEditorModel {
     public readonly onDidChangeDiskState = this.onDidChangeDiskStateEmitter.event;
 
     /**
+     * Файл модели удалён с диска (orphaned): вкладка зачёркнута, текст буфера
+     * жив, сохранение пересоздаст файл. Снимается, когда файл вернулся
+     * (восстановили, записали снаружи) и после сохранения. Безымянный буфер и
+     * файл, которого не было уже при открытии, orphaned не бывают.
+     */
+    public get isOrphaned(): boolean {
+        return this.orphanedValue;
+    }
+
+    /**
+     * Смена {@link isOrphaned}. Вкладки видят её и через {@link onDidChangeDiskState}
+     * (файрится следом); отдельное событие — для тех, кому нужен именно факт удаления
+     * (`workbench.editor.closeOnFileDelete`).
+     */
+    public readonly onDidChangeOrphaned = this.onDidChangeOrphanedEmitter.event;
+
+    /**
      * Событие смены кодировки (setEncoding, reopenWithEncoding или детект при
      * открытии другого файла). Подписка живёт на модели.
      */
@@ -196,6 +225,7 @@ export class TextFileModel extends BaseTextEditorModel {
                 // Stryker disable next-line UpdateOperator: см. readDiskBytes
                 this.loadGeneration++;
                 this.fileWatch?.dispose();
+                this.cancelOrphanCheck();
             },
         });
     }
@@ -264,6 +294,9 @@ export class TextFileModel extends BaseTextEditorModel {
         this.applyEncoding(encoding);
         this.diskStat = this.readDiskStat(filePath);
         this.diskConflictValue = false;
+        // Файл прочитан с диска — он есть. Пропавший файл перечитка не воскрешает
+        // (байтов нет — документ пуст), флаг остаётся; событие шлёт вызывающий.
+        if (this.diskStat !== null) this.orphanedValue = false;
         this.replaceText(content);
         mark("textfile:document-built", { lines: this.doc.lineCount });
         // Язык — после текста: у перечитки того же файла он прежний (no-op), а
@@ -300,6 +333,8 @@ export class TextFileModel extends BaseTextEditorModel {
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.markSaved();
         this.setDiskConflict(false);
+        // Сохранение пересоздало удалённый файл.
+        this.setOrphaned(false);
         this.fireSaved();
         return "saved";
     }
@@ -379,6 +414,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.doc.setLanguage(this.resolveLanguageId(newPath));
         this.markSaved();
         this.setDiskConflict(false);
+        this.setOrphaned(false);
         this.startWatchingFile(newPath);
         this.fireSaved();
     }
@@ -400,14 +436,18 @@ export class TextFileModel extends BaseTextEditorModel {
      * (удалён/недоступен) не считаем конфликтом: `save` просто пересоздаст его.
      */
     private hasExternalChange(filePath: string): boolean {
-        if (this.diskStat === null) return false;
-        const current = this.readDiskStat(filePath);
-        if (current === null) return false;
+        return this.differsFromDisk(this.readDiskStat(filePath));
+    }
+
+    /** Отличается ли stat файла от снимка последней синхронизации (`null` — файла нет). */
+    private differsFromDisk(current: IDiskStat | null): boolean {
+        if (this.diskStat === null || current === null) return false;
         return current.mtimeMs !== this.diskStat.mtimeMs || current.size !== this.diskStat.size;
     }
 
     /** (Пере)подписывается на внешние изменения текущего файла через `fileWatcher`. */
     private startWatchingFile(filePath: string): void {
+        this.cancelOrphanCheck();
         this.fileWatch?.dispose();
         this.fileWatch =
             this.fileWatcher?.watchFile(filePath, () => {
@@ -419,17 +459,51 @@ export class TextFileModel extends BaseTextEditorModel {
      * Реакция на сигнал watcher'а. Собственную запись отсеиваем сверкой stat
      * (после save `diskStat` уже обновлён). Реальное внешнее изменение: чистый
      * буфер — тихо перечитываем с диска (как VS Code); «грязный» — взводим флаг
-     * конфликта, чтобы предупредить при сохранении. Удаление/недоступность
-     * игнорируем (частый промежуточный шаг атомарной записи чужим редактором).
+     * конфликта, чтобы предупредить при сохранении.
+     *
+     * Пропавший файл сразу удалением не считаем: это частый промежуточный шаг
+     * атомарной записи чужим редактором. Через {@link ORPHAN_CHECK_DELAY_MS}
+     * перепроверяем, и если файла всё ещё нет — модель orphaned (эталон).
+     * Вернувшийся файл снимает флаг, а дальше — как любое внешнее изменение.
      */
     private handleExternalFileChange(filePath: string): void {
-        if (!this.hasExternalChange(filePath)) return;
+        const current = this.readDiskStat(filePath);
+        if (current === null) {
+            this.scheduleOrphanCheck(filePath);
+            return;
+        }
+        this.cancelOrphanCheck();
+        this.setOrphaned(false);
+        if (!this.differsFromDisk(current)) return;
         if (this.isModified) {
             this.setDiskConflict(true);
         } else {
             this.revertToDisk();
             this.fireDiskStateChange();
         }
+    }
+
+    private scheduleOrphanCheck(filePath: string): void {
+        // Файла не было уже при открытии — пропадать нечему.
+        if (this.orphanedValue || this.diskStat === null) return;
+        this.cancelOrphanCheck();
+        this.orphanCheck = setTimeout(() => {
+            this.orphanCheck = null;
+            if (this.readDiskStat(filePath) === null) this.setOrphaned(true);
+        }, ORPHAN_CHECK_DELAY_MS);
+    }
+
+    private cancelOrphanCheck(): void {
+        if (this.orphanCheck === null) return;
+        clearTimeout(this.orphanCheck);
+        this.orphanCheck = null;
+    }
+
+    private setOrphaned(value: boolean): void {
+        if (this.orphanedValue === value) return;
+        this.orphanedValue = value;
+        this.onDidChangeOrphanedEmitter.fire();
+        this.fireDiskStateChange();
     }
 
     private setDiskConflict(value: boolean): void {
