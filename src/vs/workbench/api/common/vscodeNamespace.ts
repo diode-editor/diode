@@ -78,6 +78,7 @@ import {
     Range,
     RelativePattern,
     Selection,
+    SelectionRange,
     SemanticTokens,
     SemanticTokensBuilder,
     SemanticTokensEdit,
@@ -317,6 +318,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         Position,
         Range,
         Selection,
+        SelectionRange,
         TextEdit,
         Uri,
         // База для createFileSystemWatcher: встроенный git строит им и watcher

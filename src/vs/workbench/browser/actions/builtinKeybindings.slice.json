@@ -295,6 +295,20 @@
         },
         "editor.action.showContextMenu": "shift+f10",
         "editor.action.showHover": "ctrl+k ctrl+u",
+        "editor.action.smartSelect.expand": {
+            "*": "shift+alt+right",
+            "mac-legacy (Terminal.app) #1": "ctrl+shift+right",
+            "mac-legacy (tmux) #1": "ctrl+shift+right",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+right",
+            "mac-cmd (kitty) #1": "ctrl+shift+meta+right"
+        },
+        "editor.action.smartSelect.shrink": {
+            "*": "shift+alt+left",
+            "mac-legacy (Terminal.app) #1": "ctrl+shift+left",
+            "mac-legacy (tmux) #1": "ctrl+shift+left",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+left",
+            "mac-cmd (kitty) #1": "ctrl+shift+meta+left"
+        },
         "editor.action.toggleWordWrap": "alt+z",
         "editor.action.triggerParameterHints": "ctrl+k ctrl+space",
         "editor.action.triggerSuggest": "ctrl+space",

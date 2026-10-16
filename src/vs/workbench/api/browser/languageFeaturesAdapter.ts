@@ -124,6 +124,10 @@ export class LanguageFeaturesAdapter extends Disposable {
                 prepareRename: (request) => this.bridge.prepareRename(handle, request),
                 provideRenameEdits: (request, newName) => this.bridge.provideRenameEdits(handle, request, newName),
             }),
+        selectionRange: ({ handle, selector }) =>
+            this.languageFeatures.selectionRangeProvider.register(selector, {
+                provideSelectionRanges: (request, token) => this.bridge.provideSelectionRanges(handle, request, token),
+            }),
         // Upstream `MainThreadDocumentSemanticTokensProvider`: id ответа ходит
         // строкой в ядре и числом по проводу, «нет прошлого» — 0.
         semanticTokens: ({ handle, selector, legend = EMPTY_LEGEND, hasOnDidChange }) =>

@@ -6833,6 +6833,19 @@ declare module "vscode" {
 		export function registerFoldingRangeProvider(selector: DocumentSelector, provider: FoldingRangeProvider): Disposable;
 
 		/**
+		 * Register a selection range provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A selection range provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerSelectionRangeProvider(selector: DocumentSelector, provider: SelectionRangeProvider): Disposable;
+
+		/**
 		 * Creates a new {@link LanguageStatusItem language status item}.
 		 *
 		 * @param id The identifier of the item.
@@ -6926,6 +6939,52 @@ declare module "vscode" {
 		 */
 		provideFoldingRanges(document: TextDocument, context: FoldingContext, token: CancellationToken): ProviderResult<FoldingRange[]>;
 	}
+
+	/**
+	 * A selection range represents a part of a selection hierarchy. A selection range
+	 * may have a parent selection range that contains it.
+	 */
+	export class SelectionRange {
+
+		/**
+		 * The {@link Range} of this selection range.
+		 */
+		range: Range;
+
+		/**
+		 * The parent selection range containing this range.
+		 */
+		parent?: SelectionRange;
+
+		/**
+		 * Creates a new selection range.
+		 *
+		 * @param range The range of the selection range.
+		 * @param parent The parent of the selection range.
+		 */
+		constructor(range: Range, parent?: SelectionRange);
+	}
+
+	/**
+	 * The selection range provider interface defines the contract between extensions and the "Expand and Shrink Selection" feature.
+	 */
+	export interface SelectionRangeProvider {
+		/**
+		 * Provide selection ranges for the given positions.
+		 *
+		 * Selection ranges should be computed individually and independent for each position. The editor will merge
+		 * and deduplicate ranges but providers must return hierarchies of selection ranges so that a range
+		 * is {@link Range.contains contained} by its parent.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param positions The positions at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns Selection ranges or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideSelectionRanges(document: TextDocument, positions: readonly Position[], token: CancellationToken): ProviderResult<SelectionRange[]>;
+	}
+
 
 
 	/**

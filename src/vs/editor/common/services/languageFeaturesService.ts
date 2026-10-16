@@ -11,6 +11,7 @@ import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
 import type { RenameProvider } from "../languages/iRenameSource.ts";
+import type { SelectionRangeProvider } from "../languages/iSelectionRangeSource.ts";
 import type {
     DocumentRangeSemanticTokensProvider,
     DocumentSemanticTokensProvider,
@@ -33,6 +34,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly codeActionProvider = new LanguageFeatureRegistry<CodeActionProvider>();
     public readonly foldingRangeProvider = new LanguageFeatureRegistry<FoldingRangeProvider>();
     public readonly inlineCompletionsProvider = new LanguageFeatureRegistry<InlineCompletionsProvider>();
+    public readonly selectionRangeProvider = new LanguageFeatureRegistry<SelectionRangeProvider>();
     public readonly documentSemanticTokensProvider = new LanguageFeatureRegistry<DocumentSemanticTokensProvider>();
     public readonly documentRangeSemanticTokensProvider =
         new LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>();

@@ -1,6 +1,7 @@
 import { CancellationTokenNone, type ICancellationToken } from "../../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import type { IRange } from "../../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../../editor/common/languages/iCodeActionSource.ts";
 import type {
@@ -25,6 +26,7 @@ import type {
     ICoreRenameResult,
     IRenameRequest,
 } from "../../../../../editor/common/languages/iRenameSource.ts";
+import type { ISelectionRangeRequest } from "../../../../../editor/common/languages/iSelectionRangeSource.ts";
 import {
     type IRangeSemanticTokensRequest,
     type ISemanticTokens,
@@ -497,6 +499,24 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * `null` — спрашивать некого или провайдер ничего не дал; отказ RPC —
      * исключение. Срока нет, как в upstream: ненужный запрос отменяет токен.
      */
+    /**
+     * Запрашивает у selection-range-провайдера `handle` иерархии выделений для
+     * позиций кареток (`languages.provideSelectionRanges`). `[]` — субпроцесса
+     * нет, документ ему не синхронизирован или расширение не ответило за срок.
+     */
+    public async provideSelectionRanges(
+        handle: number,
+        req: ISelectionRangeRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly (readonly IRange[])[]> {
+        return this.request(
+            "languages.provideSelectionRanges",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId, positions: req.positions },
+            [],
+            { token },
+        );
+    }
+
     public async provideDocumentSemanticTokens(
         handle: number,
         req: ISemanticTokensRequest,

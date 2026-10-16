@@ -1,5 +1,6 @@
 import { Uri } from "../../../base/common/uri.ts";
 import type { CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
+import type { IPosition } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { CompletionTriggerKind } from "../../../editor/common/languages/iCompletionSource.ts";
@@ -447,6 +448,17 @@ export interface IWireReleaseSemanticTokens extends IWireProviderHandle {
     readonly resultId: number;
 }
 
+// ─── Selection ranges (Expand/Shrink Selection) ──────────────────────────────
+
+/**
+ * Параметры запроса иерархий выделений (host → subprocess): позиции кареток,
+ * 0-based. Ответ — `IRange[][]`, выровненный по `positions`: цепочка
+ * `SelectionRange.parent` развёрнута от внутреннего диапазона к внешнему.
+ */
+export interface IWireSelectionRangeParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly positions: readonly IPosition[];
+}
+
 // ─── Definition (LSP) ────────────────────────────────────────────────────────
 
 /** Параметры запроса definition (host → subprocess): документ, позиция, провайдер. */
@@ -477,6 +489,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "folding",
     "inlineCompletions",
     "rename",
+    "selectionRange",
     "semanticTokens",
     "rangeSemanticTokens",
 ] as const;

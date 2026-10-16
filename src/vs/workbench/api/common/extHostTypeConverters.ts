@@ -9,7 +9,7 @@
  */
 import type * as vscode from "vscode";
 
-import { comparePositions, createPosition } from "../../../editor/common/core/iPosition.ts";
+import { comparePositions, createPosition, type IPosition } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
@@ -610,6 +610,38 @@ export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRa
         end,
         ...(isFiniteNumber(kind) ? { kind } : {}),
     };
+}
+
+/**
+ * Разворачивает ответ `provideSelectionRanges` в цепочки диапазонов по
+ * позициям, от внутреннего к внешнему (upstream `SelectionRangeAdapter`).
+ * Ответ не по каждой позиции, битый диапазон или ступень, не содержащая
+ * предыдущую (у первой — саму позицию), бракуют ответ целиком — эталон
+ * в этих случаях бросает. Зацикленный `parent` обрывается на повторе.
+ */
+export function serializeSelectionRanges(raw: unknown, positions: readonly IPosition[]): IRange[][] {
+    if (!Array.isArray(raw) || raw.length === 0 || raw.length !== positions.length) return [];
+    const result: IRange[][] = [];
+    for (let i = 0; i < positions.length; i++) {
+        const chain: IRange[] = [];
+        let last: IRange = { start: positions[i], end: positions[i] };
+        const seen = new Set<unknown>();
+        let node: unknown = raw[i];
+        while (typeof node === "object" && node !== null && !seen.has(node)) {
+            seen.add(node);
+            const range = rangeFrom((node as { range?: unknown }).range);
+            if (range === null || !containsRange(range, last)) return [];
+            chain.push(range);
+            last = range;
+            node = (node as { parent?: unknown }).parent;
+        }
+        result.push(chain);
+    }
+    return result;
+}
+
+function containsRange(outer: IRange, inner: IRange): boolean {
+    return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
 }
 
 /**

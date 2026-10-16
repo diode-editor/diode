@@ -247,10 +247,9 @@
     },
     "MenubarSelectionMenu": {
         "1_select": [
-            "editor.action.selectAll"
-        ],
-        "2_expand": [
-            "cursorWordRightSelect"
+            "editor.action.selectAll",
+            "editor.action.smartSelect.expand",
+            "editor.action.smartSelect.shrink"
         ],
         "2_line": [
             "editor.action.copyLinesUpAction",

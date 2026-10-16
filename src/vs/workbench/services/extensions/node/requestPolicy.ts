@@ -33,6 +33,7 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.applyCodeAction": 10000,
     "languages.prepareRename": 5000,
     "languages.provideRenameEdits": 10000,
+    "languages.provideSelectionRanges": 5000,
 } as const satisfies Readonly<Record<string, number>>;
 
 /** Метод провода со сроком ответа (ключ {@link DEFAULT_REQUEST_TIMEOUTS}). */

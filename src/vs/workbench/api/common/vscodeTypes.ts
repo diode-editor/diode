@@ -366,6 +366,24 @@ export class FoldingRange implements vscode.FoldingRange {
     }
 }
 
+/**
+ * Ступень иерархии выделений (`vscode.SelectionRange`, перенос эталона):
+ * родитель обязан содержать диапазон. vscode-languageclient строит её на
+ * каждый ответ `textDocument/selectionRange`.
+ */
+export class SelectionRange implements vscode.SelectionRange {
+    public range: Range;
+    public parent?: SelectionRange;
+
+    public constructor(range: Range, parent?: SelectionRange) {
+        this.range = range;
+        this.parent = parent;
+        if (parent !== undefined && !parent.range.contains(this.range)) {
+            throw new Error("Invalid argument: parent must contain this range");
+        }
+    }
+}
+
 // ─── Semantic coloring (перенос `extHostTypes.ts` эталона) ───────────────────
 // vscode-languageclient конструирует эти классы в конвертере ответа сервера:
 // без них ответ semanticTokens падал бы на «is not a constructor».

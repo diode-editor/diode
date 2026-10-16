@@ -1,3 +1,4 @@
+import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type {
     ICoreCompletionResult,
@@ -86,6 +87,7 @@ import type {
     IWireSecretRef,
     IWireSecretValue,
     IWireSecretWrite,
+    IWireSelectionRangeParams,
     IWireSetDecorations,
     IWireSetEditorOptionsParams,
     IWireSetEnvironmentVariableCollection,
@@ -173,6 +175,7 @@ export interface IHostToSubprocess {
         readonly "languages.applyCodeAction": readonly [{ readonly id: string }, boolean];
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];
         readonly "languages.provideRenameEdits": readonly [IWireRenameParams, WireRenameResult];
+        readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.provideTextDocumentContent": readonly [IWireUriParams, IWireTextContentResult];

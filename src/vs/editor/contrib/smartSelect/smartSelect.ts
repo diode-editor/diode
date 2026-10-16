@@ -1,0 +1,131 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
+import type { CharacterPair } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
+import type { IPosition } from "../../common/core/iPosition.ts";
+import { comparePositions } from "../../common/core/iPosition.ts";
+import { createRange, type IRange, rangeContainsPosition, rangesEqual } from "../../common/core/iRange.ts";
+import type { SelectionRangeProvider } from "../../common/languages/iSelectionRangeSource.ts";
+import type { ITextDocument } from "../../common/model/iTextDocument.ts";
+
+import { type IsCodeAt, provideBracketSelectionRanges } from "./bracketSelections.ts";
+import { firstNonWhitespaceIndex, lastNonWhitespaceEnd } from "./lineText.ts";
+import { provideWordSelectionRanges } from "./wordSelections.ts";
+
+/** Настройки `editor.smartSelect.*` (upstream `SelectionRangesOptions`). */
+export interface ISelectionRangesOptions {
+    readonly selectLeadingAndTrailingWhitespace: boolean;
+    readonly selectSubwords: boolean;
+}
+
+/** Всё, из чего собираются диапазоны одного запроса. */
+export interface ISelectionRangesInput {
+    readonly document: ITextDocument;
+    readonly uri: string;
+    readonly positions: readonly IPosition[];
+    /** Языковые провайдеры, подошедшие документу (`registry.ordered`). */
+    readonly providers: readonly SelectionRangeProvider[];
+    /** Скобки языка (`brackets` language configuration) — для фоллбека без провайдеров. */
+    readonly brackets: readonly CharacterPair[];
+    readonly isCodeAt?: IsCodeAt;
+    readonly options: ISelectionRangesOptions;
+}
+
+/**
+ * Иерархии выделений для каждой позиции, от внутренней к внешней (upstream
+ * `smartSelect.ts:provideSelectionRanges`). Провайдер слов спрашивается
+ * всегда; скобочный — только когда языковых провайдеров нет. Ответы
+ * сливаются: сортировка от узкого к широкому, затем цепочка, где каждый
+ * следующий диапазон строго содержит предыдущий. С
+ * `selectLeadingAndTrailingWhitespace` при переходе на другие строки
+ * вставляются ступени «строки без отступа» и «строки целиком».
+ *
+ * Ответ провайдера, не выровненный по позициям, отбрасывается целиком; сбой
+ * провайдера — «ответа нет», остальные не страдают.
+ */
+export async function provideSelectionRanges(
+    input: ISelectionRangesInput,
+    token: ICancellationToken,
+): Promise<IRange[][]> {
+    const { document, positions, options } = input;
+    const request = { uri: input.uri, languageId: document.languageId, versionId: document.versionId, positions };
+    const answers: Promise<readonly (readonly IRange[])[]>[] = input.providers.map((provider) =>
+        provider.provideSelectionRanges(request, token).catch(() => []),
+    );
+    if (input.providers.length === 0) {
+        answers.push(
+            Promise.resolve(provideBracketSelectionRanges(document, positions, input.brackets, input.isCodeAt)),
+        );
+    }
+    answers.push(Promise.resolve(provideWordSelectionRanges(document, positions, options.selectSubwords)));
+
+    const raw: IRange[][] = positions.map(() => []);
+    for (const answer of await Promise.all(answers)) {
+        if (answer.length !== positions.length) continue;
+        positions.forEach((position, i) => {
+            for (const range of answer[i]) {
+                if (rangeContainsPosition(range, position)) raw[i].push(range);
+            }
+        });
+    }
+
+    return raw.map((ranges) => {
+        const chain = toChain(ranges);
+        return options.selectLeadingAndTrailingWhitespace ? withLineTrivia(document, chain) : chain;
+    });
+}
+
+function rangeContainsRange(outer: IRange, inner: IRange): boolean {
+    return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
+}
+
+/** «Строго шире»: содержит и не совпадает. */
+function strictlyContains(outer: IRange, inner: IRange): boolean {
+    return rangeContainsRange(outer, inner) && !rangesEqual(outer, inner);
+}
+
+/**
+ * Узкие первыми: позднее начало — раньше, при равном начале — раньше конец.
+ * Дальше цепочка: диапазон, не содержащий предыдущий (пересекающийся сбоку)
+ * или равный ему, выпадает.
+ */
+function toChain(ranges: IRange[]): IRange[] {
+    ranges.sort((a, b) => comparePositions(b.start, a.start) || comparePositions(a.end, b.end));
+    const chain: IRange[] = [];
+    for (const range of ranges) {
+        const last = chain.at(-1);
+        if (last === undefined || strictlyContains(range, last)) chain.push(range);
+    }
+    return chain;
+}
+
+/**
+ * Ступени между диапазоном и следующим, который выходит на другие строки:
+ * те же строки без отступа и хвостовых пробелов, затем строки целиком
+ * (каждая — только если строго между соседями).
+ */
+function withLineTrivia(document: ITextDocument, chain: readonly IRange[]): IRange[] {
+    if (chain.length === 0) return [];
+    const result: IRange[] = [chain[0]];
+    for (let i = 1; i < chain.length; i++) {
+        const prev = chain[i - 1];
+        const cur = chain[i];
+        if (cur.start.line !== prev.start.line || cur.end.line !== prev.end.line) {
+            const first = firstNonWhitespaceIndex(document.getLineContent(prev.start.line));
+            const last = lastNonWhitespaceEnd(document.getLineContent(prev.end.line));
+            const trimmed =
+                first === -1 || last === -1 ? null : createRange(prev.start.line, first, prev.end.line, last);
+            if (trimmed !== null && strictlyContains(trimmed, prev) && strictlyContains(cur, trimmed)) {
+                result.push(trimmed);
+            }
+            const full = createRange(prev.start.line, 0, prev.end.line, document.getLineLength(prev.end.line));
+            if (
+                rangeContainsRange(full, prev) &&
+                (trimmed === null || !rangesEqual(full, trimmed)) &&
+                strictlyContains(cur, full)
+            ) {
+                result.push(full);
+            }
+        }
+        result.push(cur);
+    }
+    return result;
+}

@@ -83,6 +83,7 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.applyCodeAction": 10000,
             "languages.prepareRename": 5000,
             "languages.provideRenameEdits": 10000,
+            "languages.provideSelectionRanges": 5000,
         });
     });
 });

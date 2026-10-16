@@ -177,6 +177,7 @@ import { ScmInputComponentDIToken } from "./contrib/scm/browser/scmInputComponen
 import { ScmStatusBarContributionDIToken } from "./contrib/scm/browser/scmStatusBarContribution.ts";
 import { SEARCH_ACTIONS } from "./contrib/search/browser/searchActions.ts";
 import { SearchComponentDIToken } from "./contrib/search/browser/searchComponent.ts";
+import { SMART_SELECT_ACTIONS } from "./contrib/smartSelect/browser/smartSelectActions.ts";
 import { CompletionServiceDIToken } from "./contrib/suggest/browser/completionService.ts";
 import { SUGGEST_ACTIONS } from "./contrib/suggest/browser/suggestActions.ts";
 import { SuggestComponentDIToken } from "./contrib/suggest/browser/suggestComponent.ts";
@@ -369,6 +370,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     scrollLineDownAction,
     toggleWordWrapAction,
     ...MULTI_CURSOR_ACTIONS,
+    ...SMART_SELECT_ACTIONS,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,

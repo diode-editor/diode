@@ -238,6 +238,10 @@ import {
     SearchRevealTargetDIToken,
 } from "../../workbench/contrib/search/browser/searchComponent.ts";
 import {
+    SmartSelectService,
+    SmartSelectServiceDIToken,
+} from "../../workbench/contrib/smartSelect/browser/smartSelectService.ts";
+import {
     CompletionService,
     CompletionServiceDIToken,
 } from "../../workbench/contrib/suggest/browser/completionService.ts";
@@ -520,6 +524,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // Rename Symbol: сервис поверх реестра rename-провайдеров (поле нового
     // имени — quick input, правки накладывает провайдер через workspace.applyEdit).
     container.bind(RenameServiceDIToken, RenameService);
+    // Expand/Shrink Selection: иерархии от selection-range-провайдеров реестра
+    // плюс встроенные (слова, скобки языка), стек ступеней — по редактору.
+    container.bind(SmartSelectServiceDIToken, SmartSelectService);
     // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.
     // Он же IJumpRecorder — шов, которым сайты прыжков сообщают о переходе.
     container.bind(HistoryEditorSourceDIToken, () => container.get(EditorServiceDIToken));

@@ -238,8 +238,6 @@ export const cursorWordRightAction: CommandAction = {
 export const cursorWordRightSelectAction: CommandAction = {
     id: "cursorWordRightSelect",
     title: "Cursor Word Right Select",
-    // Label только в меню — семантика пункта, не команды.
-    menus: [{ menuId: MenuId.MenubarSelectionMenu, title: "Expand Selection (Word)", group: "2_expand", order: 10 }],
     keybinding: parseKeybinding("ctrl+shift+right"),
     keybindings: [parseChord("ctrl+k shift+right")],
     when: "textViewFocus",

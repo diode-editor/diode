@@ -109,6 +109,22 @@ export const MAC_KEYBINDING_DELTAS: readonly MacKeybindingDelta[] = [
     { command: "editor.action.nextMatchFindAction", mac: [{ keys: "meta+g", from: "cmd" }] },
     { command: "editor.action.previousMatchFindAction", mac: [{ keys: "shift+meta+g", from: "cmd" }] },
     { command: "editor.action.selectAll", pcOnly: ["mod+a"], mac: [{ keys: "meta+a", from: "cmd" }] },
+    {
+        command: "editor.action.smartSelect.expand",
+        pcOnly: ["shift+alt+right"],
+        mac: [
+            { keys: "ctrl+shift+meta+right", from: "cmd" },
+            { keys: "ctrl+shift+right", from: "legacy" },
+        ],
+    },
+    {
+        command: "editor.action.smartSelect.shrink",
+        pcOnly: ["shift+alt+left"],
+        mac: [
+            { keys: "ctrl+shift+meta+left", from: "cmd" },
+            { keys: "ctrl+shift+left", from: "legacy" },
+        ],
+    },
     { command: "editor.action.triggerSuggest", mac: [{ keys: "alt+escape", from: "extended" }] },
     { command: "editor.fold", pcOnly: ["ctrl+shift+["], mac: [{ keys: "alt+meta+[", from: "cmd" }] },
     { command: "editor.unfold", pcOnly: ["ctrl+shift+]"], mac: [{ keys: "alt+meta+]", from: "cmd" }] },
