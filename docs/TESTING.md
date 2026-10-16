@@ -834,7 +834,9 @@ DI, `npm run bench:services -- <каталог>/*.json` печатает по н
 
 Гейт: `e2e/bench/startupBudget.bench.ts` в `npm run test:perf` (`vitest.perf.config.ts` включает
 `e2e/bench/**/*.bench.ts`) меряет `small` тем же модулем и роняет прогон, если медиана «наших мс»
-над полом node выше бюджета `STARTUP_BUDGET_OURS_MS`. Бюджет — храповик: этап «Кухня»
+над полом node выше бюджета `STARTUP_BUDGET_OURS_MS`. В CI он идёт шагом `npm run test:perf:startup`
+job'а `e2e (ubuntu-latest)` — бюджет откалиброван по этому раннеру, локальная машина может быть
+медленнее. Бюджет — храповик: этап «Кухня»
 ([TODO/OpenPerformance.md](TODO/OpenPerformance.md)) зажимает его по мере снятия стоимости; ослаблять
 без замера нельзя. Vitest bench своих бюджетов не умеет — исключение из функции бенча роняет файл
 с ненулевым кодом, этим гейт и пользуется.
