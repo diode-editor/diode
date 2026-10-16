@@ -1,6 +1,27 @@
 # Интеграция с Claude Code: стоковое расширение в терминальном режиме
 
-Статус: **в работе** — пункт 1 (API-члены, `registerUriHandler`) и `environmentVariableCollection` сделаны: стоковое расширение активируется и поднимает MCP-сервер; дальше дифф (пункт 3), `getDiagnostics` (пункт 4), запись в магазине. Родственные документы:
+Статус: **в работе** — пункты 1 и 2 сделаны: стоковое `Anthropic.claude-code`
+2.1.300 активируется, поднимает MCP-сервер, `claude` из нижней панели видит IDE
+(`CLAUDE_CODE_SSE_PORT`). Дальше — раскладка (Claude вкладкой справа, см.
+«Раскладка»), дифф (пункт 3), `getDiagnostics` (пункт 4), запись в магазине.
+
+**Сделано (16.10.2026):**
+- #627 — `window.setStatusBarMessage`, `env.shell`/`onDidChangeShell`/`machineId`,
+  `NotebookCellOutputItem`, `comments` (инертный), события shell integration,
+  дефолт `claudeCode.useTerminal`.
+- #629 — `window.registerUriHandler`, событие `onUri`, `Developer: Open URL`,
+  настройка `extensions.confirmedUriHandlerExtensionIds`.
+- #631 — `ExtensionContext.environmentVariableCollection`: коллекции всех
+  расширений в окружении каждого процесса терминала, хранение в состоянии
+  воркспейса.
+- #630 — встроенный терминал снова открывается при запуске из исходников
+  (нашлось по ходу живой проверки).
+
+Как сейчас выглядит: «✻ Claude Code» в статус-баре (и палитра `Claude Code:
+Open in Terminal`) открывает `claude` в **нижней панели** TERMINAL — `location`
+терминала мы пока выбрасываем.
+
+Родственные документы:
 [VISION.md](../VISION.md) (направления B и C), [IntegratedTerminal.md](IntegratedTerminal.md),
 [DiffEditable.md](DiffEditable.md), [Marketplace.md](Marketplace.md),
 матрица [API-COVERAGE.md](../public/API-COVERAGE.md).
@@ -147,17 +168,60 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
       путь из `MarkerService` в субпроцесс (сейчас диагностики идут только
       субпроцесс → хост). Без этого инструмент `getDiagnostics` у Claude пуст.
 
-### Раскладка
+### Раскладка — Claude вкладкой справа (разведка 16.10.2026)
 
-У нас один сайдбар, второго (правого), куда VS Code кладёт Claude, нет.
-Терминал, который расширение просит открыть `ViewColumn.Beside`, можно
-отдать нижней панели TERMINAL или вьюлету сайдбара — решить при реализации
-пункта 2. Отдельно проверить ширину: TUI Claude Code в 40 колонках сайдбара.
+Как делает стоковое расширение (2.1.289/2.1.300):
+- Правая (вторая) боковая панель у него только для **webview** — нативного
+  чата (`secondarySidebar` → `claudeVSCodeSidebarSecondary`). В режиме
+  `useTerminal` терминала в боковой панели нет.
+- Все точки входа режима терминала зовут `claude-vscode.terminal.open`, а тот —
+  `createTerminal({ name: "Claude Code", location: { viewColumn: ViewColumn.Beside },
+  isTransient: true, … })`: **терминал-вкладка в области редакторов, в группе
+  справа**. Это и есть «правая панель» в VS Code. Вариант «window» —
+  `ViewColumn.One` + `moveEditorToNewWindow` (для TUI не нужен).
+- Точки входа: пункт статус-бара «✻ Claude Code»; кнопка в заголовке
+  редактора (`editor/title`, `when: config.claudeCode.useTerminal`);
+  `Ctrl+Esc` → `claude-vscode.terminal.open.keyboard` (тот же `when`);
+  палитра. Свой терминал через `tabGroups`/`TabInputTerminal` не ищет.
+
+Что есть у нас:
+- `TerminalOptions.location` в d.ts поднят, но в рантайме выбрасывается —
+  терминал всегда в панели (`terminalNamespace.ts`).
+- Вкладки редактора подключаемые (`IEditorPane` + `IEditorPaneFactory`:
+  текст, дифф, Keyboard Shortcuts, страница расширения); `TerminalViewElement(session)`
+  самостоятельный; `terminalFocus` считается по типу элемента в фокусе; группы
+  и `ViewColumn.Beside` для `showTextDocument` есть.
+- When-ключей `config.*` нет (проверено вживую: `config.claudeCode.useTerminal`
+  — `false` при включённой настройке) → мертвы `Ctrl+Esc` и кнопка в заголовке.
+- Точки меню `editor/title` нет («неизвестная точка меню»), панели действий
+  справа от вкладок — тоже.
+
+План, по убыванию пользы:
+- [ ] **Терминал вкладкой в области редакторов** (`TerminalLocation.Editor`,
+      `{ viewColumn }`, `{ parentTerminal }`): `location` по проводу на хост;
+      у инстанса `TerminalService` место «панель/редактор» (в
+      `window.terminals` — оба, в списке панели — только панельные);
+      `TerminalEditorPane` (`vscode-terminal:/<id>`, метка — имя терминала,
+      закрыть вкладку = убить процесс, выход процесса закрывает вкладку,
+      `show()` — показать вкладку, фабрика singleton, `isTransient` — без
+      рестора); `Beside` — группа правее активной (нет — сплит), `One` — первая.
+      Проверить клавиши области редакторов внутри терминала (`Ctrl+W`,
+      `Ctrl+Tab`). Побочно — эталонные `Terminal: Create New Terminal in Editor
+      Area` / `Move Terminal into Editor Area`.
+- [ ] **When-ключи `config.*`** (`ConfigurationContextKeys` эталона) —
+      оживляет `Ctrl+Esc` и пригодится всем расширениям.
+- [ ] **Точка меню `editor/title`**: панель действий справа от вкладок
+      группы, `MenuId.EditorTitle`, группа `navigation`; SVG-иконку в TUI не
+      нарисовать — фоллбэк на кодикон или заголовок. Тот же вклад нужен
+      пункту 3 (кнопки accept/reject диффа).
+- [ ] Настоящая правая боковая панель с переносом видов (Terminal) — большая
+      работа над раскладкой, расширение само её не использует; пока «правая
+      панель» = сплит справа из первого пункта.
 
 ## Порядок
 
-1 + 2 одним заходом (после него `claude` в нашем терминале работает с выделением
-и открытым файлом), затем 3, затем 4.
+1 + 2 — сделаны. Дальше раскладка (терминал вкладкой справа → `config.*` →
+`editor/title`), затем 3, затем 4.
 
 ## Устаревшее в VISION.md
 
