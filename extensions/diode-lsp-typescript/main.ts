@@ -1,8 +1,14 @@
 import { existsSync } from "node:fs";
 
 import * as vscode from "vscode";
-import { LanguageClient, type LanguageClientOptions, type ServerOptions } from "vscode-languageclient/node";
+import {
+    LanguageClient,
+    type LanguageClientOptions,
+    type ProvideCodeActionsSignature,
+    type ServerOptions,
+} from "vscode-languageclient/node";
 
+import { needsNoopOrganizeImports } from "./lib/organizeImports.ts";
 import { LANGUAGE_SERVERS, resolveServerCommand } from "./lib/resolveServer.ts";
 
 /** Poll готовности вшитого сервера: распаковка стартует при регистрации builtin'ов. */
@@ -85,6 +91,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             // нашего withProgress ниже, который виден всегда.
             progressOnInitialization: true,
             ...(Object.keys(initializationOptions).length > 0 ? { initializationOptions } : {}),
+            middleware: { provideCodeActions: withNoopOrganizeImports },
         };
 
         const client = new LanguageClient(spec.id, spec.displayName, serverOptions, clientOptions);
@@ -107,6 +114,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 ),
         );
     }
+}
+
+/**
+ * Organize Imports есть всегда, как у эталонного TS-расширения: сервер молчит,
+ * когда менять нечего, — подставляем холостое действие с пустым edit
+ * (применяется без правок и без шага отмены). Почему — `lib/organizeImports.ts`.
+ */
+async function withNoopOrganizeImports(
+    document: vscode.TextDocument,
+    range: vscode.Range,
+    context: vscode.CodeActionContext,
+    token: vscode.CancellationToken,
+    next: ProvideCodeActionsSignature,
+): Promise<(vscode.Command | vscode.CodeAction)[] | null | undefined> {
+    const actions = await next(document, range, context, token);
+    const kinds = (actions ?? []).map((action) =>
+        action instanceof vscode.CodeAction ? action.kind?.value : undefined,
+    );
+    if (!needsNoopOrganizeImports(context.only?.value, kinds)) return actions;
+    const noop = new vscode.CodeAction("Organize Imports", vscode.CodeActionKind.SourceOrganizeImports.append("ts"));
+    noop.edit = new vscode.WorkspaceEdit();
+    return [...(actions ?? []), noop];
 }
 
 /** Ждёт появления файла poll'ом; возвращается и по успеху, и по таймауту. */
