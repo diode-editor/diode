@@ -73,7 +73,6 @@ import { LogService } from "../platform/log/common/logService.ts";
 import { RingBufferSink } from "../platform/log/common/ringBufferSink.ts";
 import { FileSink } from "../platform/log/node/fileSink.ts";
 import { loadApplicationState, loadState } from "../platform/state/node/stateService.ts";
-import { terminalTitleSequence } from "../platform/terminal/common/terminalTitleSink.ts";
 import { createDefaultTokenClassificationRegistry } from "../platform/theme/common/tokenClassificationRegistry.ts";
 import {
     type IUserDataProfile,
@@ -550,9 +549,10 @@ async function runEditor(): Promise<void> {
         userDataProfile: {
             profilesService,
             currentProfile: activeProfile,
-            // Заголовок окна терминала — OSC через тот же бэкенд, что у буфера обмена.
+            // Заголовок окна терминала — OSC 0 напрямую, без tmux passthrough (tmux
+            // сам ставит заголовок панели); прежний заголовок бэкенд вернёт в teardown.
             terminalTitle: (title) => {
-                backend.writeOscSequence(terminalTitleSequence(title));
+                backend.setWindowTitle(title);
             },
         },
     });
