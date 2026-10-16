@@ -9,6 +9,7 @@
 - [API-COVERAGE.md](API-COVERAGE.md) — матрица готовности API расширений VS Code
 - [ROADMAP.md](ROADMAP.md) — статус «альфа», цель и порядок движения
 - [INSTALL.md](INSTALL.md) — все каналы установки: quick install, npm, Homebrew, apt, winget, nightly
+- [TMUX.md](TMUX.md) — Diode в tmux: рецепт `.tmux.conf`, чтобы заголовок окна попал в заголовок внешнего терминала и в имя окна tmux
 
 Правила каталога:
 
