@@ -182,6 +182,18 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Ask for confirmation before undoing a destructive file operation.",
     },
     {
+        key: "explorer.decorations.badges",
+        type: "boolean",
+        default: true,
+        description: "Controls whether file decorations should use badges.",
+    },
+    {
+        key: "explorer.decorations.colors",
+        type: "boolean",
+        default: true,
+        description: "Controls whether file decorations should use colors.",
+    },
+    {
         key: "extensions.confirmedUriHandlerExtensionIds",
         type: "array",
         default: [],

@@ -407,4 +407,25 @@ describe("ExplorerService — files.exclude", () => {
         expect(view.refreshCount).toBe(0);
         service.dispose();
     });
+
+    it("explorer.decorations.* пересобирает декорации, чужая настройка — нет", () => {
+        const ws = createTempWorkspace({ prefix: "diode-explorer-deco-settings-" });
+        const config = emittingConfig({ "explorer.decorations.colors": true, "explorer.decorations.badges": true });
+        const service = createService({ configurationService: config });
+        service.setRootPath(ws.dir);
+        const view = fakeView();
+        service.attachView(view);
+        service.setFileDecorations([{ path: ws.path("a.ts"), badge: "M" }]);
+        expect(view.refreshCount).toBe(1);
+
+        config.set("editor.tabSize", 2);
+        expect(view.refreshCount).toBe(1);
+
+        config.set("explorer.decorations.badges", false);
+        expect(view.refreshCount).toBe(2);
+        config.set("explorer.decorations.colors", false);
+        expect(view.refreshCount).toBe(3);
+        service.dispose();
+        ws.dispose();
+    });
 });

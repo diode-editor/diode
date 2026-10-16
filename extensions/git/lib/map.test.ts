@@ -7,6 +7,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration(" M")).toEqual({
             badge: "M",
             colorId: "gitDecoration.modifiedResourceForeground",
+            propagate: true,
         });
     });
 
@@ -14,6 +15,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("A ")).toEqual({
             badge: "A",
             colorId: "gitDecoration.addedResourceForeground",
+            propagate: true,
         });
     });
 
@@ -21,6 +23,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("D ")).toEqual({
             badge: "D",
             colorId: "gitDecoration.deletedResourceForeground",
+            propagate: false,
         });
     });
 
@@ -28,6 +31,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("R ")).toEqual({
             badge: "R",
             colorId: "gitDecoration.renamedResourceForeground",
+            propagate: true,
         });
     });
 
@@ -35,6 +39,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("C ")).toEqual({
             badge: "C",
             colorId: "gitDecoration.renamedResourceForeground",
+            propagate: true,
         });
     });
 
@@ -42,6 +47,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("??")).toEqual({
             badge: "U",
             colorId: "gitDecoration.untrackedResourceForeground",
+            propagate: true,
         });
     });
 
@@ -49,6 +55,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("!!")).toEqual({
             badge: "I",
             colorId: "gitDecoration.ignoredResourceForeground",
+            propagate: false,
         });
     });
 
@@ -56,6 +63,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("UU")).toEqual({
             badge: "U",
             colorId: "gitDecoration.conflictingResourceForeground",
+            propagate: true,
         });
     });
 
@@ -63,6 +71,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("DD")).toEqual({
             badge: "U",
             colorId: "gitDecoration.conflictingResourceForeground",
+            propagate: true,
         });
     });
 
@@ -78,6 +87,7 @@ describe("statusToDecoration", () => {
         expect(statusToDecoration("TT")).toEqual({
             badge: "M",
             colorId: "gitDecoration.modifiedResourceForeground",
+            propagate: true,
         });
     });
 });

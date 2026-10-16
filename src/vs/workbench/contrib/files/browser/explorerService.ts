@@ -12,11 +12,14 @@ import { ITreeFileWatcherDIToken } from "../../../../platform/files/common/iTree
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 
+import { bubbleFileDecorations, type IFileDecorationEntry } from "./bubbleFileDecorations.ts";
 import { FileTreeDataProvider, type FileTreeNode, nodeSegments } from "./fileTreeDataProvider.ts";
 
 export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
 
 const COMPACT_FOLDERS_SETTING = "explorer.compactFolders";
+const DECORATION_COLORS_SETTING = "explorer.decorations.colors";
+const DECORATION_BADGES_SETTING = "explorer.decorations.badges";
 
 /**
  * Цепочка строк дерева от корня до `filePath`. Предков раскрываем по ходу:
@@ -113,6 +116,9 @@ export class ExplorerService extends Disposable {
     private view: IExplorerView | null = null;
     private readonly onDidChangeRootEmitter = this.register(new Emitter<void>());
     private readonly configurationService: IConfigurationService;
+    /** Последний набор декораций от расширений — пересобирается на смену `explorer.decorations.*`. */
+    // Stryker disable next-line ArrayDeclaration: мусор в начальном наборе без path и propagate даёт ключ-undefined, которого нет ни у одной строки дерева
+    private fileDecorations: readonly IFileDecorationEntry[] = [];
 
     public constructor(
         fileClipboard: IFileClipboard,
@@ -136,6 +142,12 @@ export class ExplorerService extends Disposable {
         // заново (от `files.exclude` зависит, единственный ли ребёнок у папки).
         this.register(
             configurationService.onDidChangeConfiguration((event) => {
+                if (
+                    event.affectsConfiguration(DECORATION_COLORS_SETTING) ||
+                    event.affectsConfiguration(DECORATION_BADGES_SETTING)
+                ) {
+                    this.applyFileDecorations();
+                }
                 if (
                     !event.affectsConfiguration(FILES_EXCLUDE_SETTING) &&
                     !event.affectsConfiguration(COMPACT_FOLDERS_SETTING)
@@ -277,15 +289,28 @@ export class ExplorerService extends Disposable {
     }
 
     /**
-     * Проставляет статус-декорации файлов (цвет имени + буква-бейдж) по абсолютному
-     * пути и перерисовывает дерево. Цвета приходят уже резолвнутыми — тема тут
+     * Проставляет статус-декорации файлов (цвет имени + бейдж) по абсолютному
+     * пути и перерисовывает дерево. Декорации с `propagate` всплывают к папкам
+     * ({@link bubbleFileDecorations}). Цвета приходят уже резолвнутыми — тема тут
      * ни при чём. Пустой список снимает все декорации.
      */
-    public setFileDecorations(entries: readonly { path: string; color?: number; badge?: string }[]): void {
+    public setFileDecorations(entries: readonly IFileDecorationEntry[]): void {
+        this.fileDecorations = entries;
+        this.applyFileDecorations();
+    }
+
+    /**
+     * Раздаёт провайдеру держимый набор с учётом `explorer.decorations.colors`
+     * и `explorer.decorations.badges` (эталон гасит ими цвет и бейдж у всех строк).
+     */
+    private applyFileDecorations(): void {
         if (!this.provider || !this.view) return;
+        const colors = this.configurationService.get(DECORATION_COLORS_SETTING);
+        const badges = this.configurationService.get(DECORATION_BADGES_SETTING);
+        const decorations = bubbleFileDecorations(this.fileDecorations, this.provider.rootPath);
         const map = new Map<string, { color?: number; badge?: string }>();
-        for (const entry of entries) {
-            map.set(entry.path, { color: entry.color, badge: entry.badge });
+        for (const [filePath, { color, badge }] of decorations) {
+            map.set(filePath, { color: colors ? color : undefined, badge: badges ? badge : undefined });
         }
         this.provider.setGitStatus(map);
         void this.view.refresh();

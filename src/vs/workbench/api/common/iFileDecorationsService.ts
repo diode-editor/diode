@@ -12,7 +12,7 @@ export interface IFileDecorationsService {
      * Проставляет полный набор файловых декораций (по абсолютному пути). Пустой
      * массив снимает все.
      */
-    setFileDecorations(entries: readonly { path: string; color?: number; badge?: string }[]): void;
+    setFileDecorations(entries: readonly { path: string; color?: number; badge?: string; propagate?: boolean }[]): void;
 }
 
 /** No-op реализация — для тестов/профилей без моста декораций. */
