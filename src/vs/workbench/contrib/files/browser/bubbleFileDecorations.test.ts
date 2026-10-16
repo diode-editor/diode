@@ -45,6 +45,13 @@ describe("bubbleFileDecorations", () => {
         expect(result.get(p("src", "lib"))).toStrictEqual({ color: 2, badge: BUBBLE_BADGE });
     });
 
+    it("порядок набора не важен: обе перестановки дают один и тот же цвет", () => {
+        const first = { path: p("d", "a.ts"), color: 1, badge: "M", propagate: true };
+        const second = { path: p("d", "b.ts"), color: 2, badge: "M", propagate: true };
+        expect(bubbleFileDecorations([first, second], ROOT).get(p("d"))?.color).toBe(1);
+        expect(bubbleFileDecorations([second, first], ROOT).get(p("d"))?.color).toBe(1);
+    });
+
     it("родитель раньше своих детей: декорация папки задаёт цвет её предкам", () => {
         const result = bubbleFileDecorations(
             [

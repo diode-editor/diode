@@ -44,16 +44,21 @@ export function bubbleFileDecorations(
     return result;
 }
 
-/** Путь (относительно корня) лежит строго под корнем. */
+/**
+ * Путь (относительно корня) не выходит за корень. Сам корень (`""`) и его
+ * родитель (`".."`) проходят, но всплывать им некуда: предков под корнем у
+ * них нет.
+ */
 function isInside(relative: string): boolean {
-    return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+    return !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
 
 /** Порядок обхода дерева: посегментно, префикс (родитель) раньше продолжений. */
 function compareSegments(a: readonly string[], b: readonly string[]): number {
     const n = Math.min(a.length, b.length);
     for (let i = 0; i < n; i++) {
-        if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
+        if (a[i] < b[i]) return -1;
+        if (a[i] > b[i]) return 1;
     }
     return a.length - b.length;
 }

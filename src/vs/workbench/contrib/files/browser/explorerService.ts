@@ -117,6 +117,7 @@ export class ExplorerService extends Disposable {
     private readonly onDidChangeRootEmitter = this.register(new Emitter<void>());
     private readonly configurationService: IConfigurationService;
     /** Последний набор декораций от расширений — пересобирается на смену `explorer.decorations.*`. */
+    // Stryker disable next-line ArrayDeclaration: мусор в начальном наборе без path и propagate даёт ключ-undefined, которого нет ни у одной строки дерева
     private fileDecorations: readonly IFileDecorationEntry[] = [];
 
     public constructor(
