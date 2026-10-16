@@ -82,5 +82,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-16-bcb13a029a23.json",
+    "generatedAt": "2026-10-16T09:50:40.669Z",
+    "commit": "bcb13a029a23",
+    "binaryVersion": "nightly-bcb13a0",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
