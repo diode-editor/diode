@@ -10,6 +10,7 @@ import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { importModule } from "../../../../base/node/importModule.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import type { ExtHostEnvironmentVariableCollections } from "../../../api/common/environmentVariableCollection.ts";
 import { ExtensionApiFactory, VSCODE_GLOBAL_KEY_NAME } from "../../../api/common/extensionApiFactory.ts";
 import { ExtensionPaths } from "../../../api/common/extensionPaths.ts";
 import type { IExtensionSecretsFactory } from "../../../api/common/extensionSecrets.ts";
@@ -87,6 +88,8 @@ interface ExtensionContext {
      * который хост шлёт семенем ДО первой активации, — берём его.
      */
     readonly extension: vscode.Extension<unknown>;
+    /** Коллекция окружения терминалов расширения — переживает его повторную активацию. */
+    readonly environmentVariableCollection: vscode.GlobalEnvironmentVariableCollection;
 }
 
 /**
@@ -147,7 +150,14 @@ export function runExtensionHostSubprocess(): void {
     const logger = createStderrLogger();
     const rpc: SubprocessRpc = new RpcEndpoint(channel, logger);
 
-    const { configStore, extensionExports, secrets, paths, extensions: catalog } = installVscodeStub(rpc, logger);
+    const {
+        configStore,
+        extensionExports,
+        secrets,
+        environmentVariableCollections,
+        paths,
+        extensions: catalog,
+    } = installVscodeStub(rpc, logger);
 
     const extensions = new Map<string, ActivatedExtension>();
 
@@ -218,6 +228,7 @@ export function runExtensionHostSubprocess(): void {
             logUri: Uri.file(storage.logPath),
             logPath: storage.logPath,
             extension,
+            environmentVariableCollection: environmentVariableCollections.get(id),
         };
         const active: ActivatedExtension = { id, mod: loaded, context };
         extensions.set(id, active);
@@ -442,12 +453,13 @@ function installVscodeStub(
     configStore: WorkspaceConfigStore;
     extensionExports: Map<string, unknown>;
     secrets: IExtensionSecretsFactory;
+    environmentVariableCollections: ExtHostEnvironmentVariableCollections;
     paths: ExtensionPaths;
     /** `vscode.extensions` общего namespace — источник `ExtensionContext.extension`. */
     extensions: typeof vscode.extensions;
 } {
     const host = buildVscodeNamespace(rpc, createNodeExtHostDisk());
-    const { configStore, extensionExports, secrets } = host;
+    const { configStore, extensionExports, secrets, environmentVariableCollections } = host;
     // Общий namespace, не оверлей владельца: `extensions` оверлей не перекрывает
     // (`extensionApiFactory.ts`), объект у всех расширений один и тот же.
     const extensions = host.namespace.extensions;
@@ -500,6 +512,7 @@ function installVscodeStub(
         configStore,
         extensionExports,
         secrets,
+        environmentVariableCollections,
         paths,
         extensions,
         dispose: (): void => {

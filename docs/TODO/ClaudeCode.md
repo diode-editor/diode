@@ -1,6 +1,6 @@
 # Интеграция с Claude Code: стоковое расширение в терминальном режиме
 
-Статус: **в работе** — пункт 1 (API-члены и `registerUriHandler`) сделан, дальше `environmentVariableCollection`, запись в магазине. Родственные документы:
+Статус: **в работе** — пункт 1 (API-члены, `registerUriHandler`) и `environmentVariableCollection` сделаны: стоковое расширение активируется и поднимает MCP-сервер; дальше дифф (пункт 3), `getDiagnostics` (пункт 4), запись в магазине. Родственные документы:
 [VISION.md](../VISION.md) (направления B и C), [IntegratedTerminal.md](IntegratedTerminal.md),
 [DiffEditable.md](DiffEditable.md), [Marketplace.md](Marketplace.md),
 матрица [API-COVERAGE.md](../public/API-COVERAGE.md).
@@ -102,9 +102,11 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 - [x] `ExtensionTerminalOptions.pty` (`Pseudoterminal`): эмулятор на хосте, байты по
       проводу — лог BJLS у bazel-java. Не поддержаны `onDidOverrideDimensions`,
       `onDidChangeName`; `open` получает начальный размер, настоящий — следом.
-- [ ] `ExtensionContext.environmentVariableCollection`: коллекции всех расширений
+- [x] `ExtensionContext.environmentVariableCollection`: коллекции всех расширений
       вливаются в окружение **каждого** нашего терминала (так `claude`, набранный
-      руками в нижней панели, тоже увидит IDE через `CLAUDE_CODE_SSE_PORT`).
+      руками в нижней панели, тоже увидит IDE через `CLAUDE_CODE_SSE_PORT` —
+      проверено вживую на 2.1.300). Сохранение между запусками, `strictEnv`,
+      область папки — как у эталона; отступления — в матрице.
 - [ ] Shell integration не делаем: у расширения фоллбэк на `sendText` через 2 с.
       События `onDidChangeTerminalShellIntegration`/`onDidStart…`/`onDidEnd…`
       — no-op-события. Link/profile-провайдеры — «позже».

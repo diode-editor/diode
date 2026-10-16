@@ -48,6 +48,7 @@ import type {
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
     IWireEnvInitialize,
+    IWireEnvironmentVariableCollections,
     IWireExecuteCommandParams,
     IWireExtensionCatalog,
     IWireExtensionId,
@@ -87,6 +88,7 @@ import type {
     IWireSecretWrite,
     IWireSetDecorations,
     IWireSetEditorOptionsParams,
+    IWireSetEnvironmentVariableCollection,
     IWireSetSelectionParams,
     IWireShowMessageRequest,
     IWireShowMessageResult,
@@ -214,6 +216,8 @@ export interface IHostToSubprocess {
         readonly "extensions.catalog": IWireExtensionCatalog;
         readonly "extensions.activated": IWireExtensionId;
 
+        /** Коллекции окружения, которые хранит хост (`$initEnvironmentVariableCollections`), — до первой активации. */
+        readonly "terminal.initEnvironmentVariableCollections": IWireEnvironmentVariableCollections;
         readonly "terminal.opened": IWireTerminalOpened;
         readonly "terminal.closed": IWireTerminalClosed;
         readonly "terminal.activeChanged": IWireTerminalActive;
@@ -310,6 +314,8 @@ export interface ISubprocessToHost {
         readonly "output.append": IWireOutputAppend;
         readonly "output.show": IWireOutputShow;
 
+        /** Коллекция окружения расширения целиком (`$setEnvironmentVariableCollection`). */
+        readonly "terminal.setEnvironmentVariableCollection": IWireSetEnvironmentVariableCollection;
         readonly "terminal.create": IWireTerminalCreate;
         readonly "terminal.show": IWireTerminalShow;
         readonly "terminal.hide": IWireTerminalTarget;

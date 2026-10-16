@@ -112,12 +112,14 @@ export const LAZY_CHUNKS = [
     // extension host'у: редактор её не парсит, ext host грузит кусок, войдя в
     // свою ветку main.ts. Бюджет — замер плюс ~5 %: общее с ядром (143 КБ из
     // 371) — vscodeTypes, протокол RPC, vscode-uri, jsonc-parser, base/common.
+    // 150 → 155: законный рост протокола — парсеры коллекций окружения
+    // (`environmentVariableCollection`) и их enum нужны обеим сторонам (151.3 КБ).
     // Состав и цена — docs/TODO/OpenPerformance.md.
     {
         id: "roles/extension-host",
         reason: "роль extension host: реализация vscode API",
         entry: "src/vs/diode/roles/extensionHostRole.ts",
-        sharedBudgetKb: 150,
+        sharedBudgetKb: 155,
     },
     // Watcher-процесс: своего кода — ~12 КБ (обход дерева, сервер протокола),
     // общее с ядром (63 КБ из 75) — chokidar: редактор держит его для подписок

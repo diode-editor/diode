@@ -869,6 +869,16 @@ export enum TerminalLocation {
 }
 
 /**
+ * Вид мутатора коллекции окружения (`vscode.EnvironmentVariableMutatorType`);
+ * значения — эталонные и совпадают с проводом (`platform/terminal/common/environmentVariable.ts`).
+ */
+export enum EnvironmentVariableMutatorType {
+    Replace = 1,
+    Append = 2,
+    Prepend = 3,
+}
+
+/**
  * Насколько точна командная строка исполнения (`vscode.TerminalShellExecutionCommandLineConfidence`).
  * Исполнений у нас нет (shell integration не поднята), но enum — значение:
  * расширения сравнивают с ним `execution.commandLine.confidence`.

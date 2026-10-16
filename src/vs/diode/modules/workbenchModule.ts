@@ -23,6 +23,7 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
 import { URLService, URLServiceDIToken } from "../../platform/url/common/url.ts";
 import { IUserDataProfilesServiceDIToken } from "../../platform/userDataProfile/common/userDataProfile.ts";
+import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import {
     LanguageFeatureContextKeys,
     LanguageFeatureContextKeysDIToken,
@@ -257,6 +258,11 @@ import {
 } from "../../workbench/contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalService, TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
+import {
+    EnvironmentVariableService,
+    EnvironmentVariableServiceDIToken,
+} from "../../workbench/contrib/terminal/common/environmentVariableService.ts";
+import { createExtensionEnvironmentContributor } from "../../workbench/contrib/terminal/common/extensionEnvironment.ts";
 import {
     ExtensionPtySessionFactoryDIToken,
     TerminalSessionFactoryDIToken,
@@ -564,9 +570,22 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(OutputServiceDIToken, OutputService);
     container.bind(OutputComponentDIToken, OutputComponent);
     container.bind(OutputChannelActionsDIToken, OutputChannelActions);
-    // Прод-фабрика сессий терминала: реальная связка node-pty + @xterm/headless.
-    // Тестовый профиль перебивает биндинг на FakeTerminalSurface (см. TestProfile).
-    container.bind(TerminalSessionFactoryDIToken, () => (options) => new EmbeddedTerminalSession(options));
+    // Коллекции переменных окружения расширений (`environmentVariableCollection`):
+    // их присылает extension host, применяет каждый запуск процесса терминала.
+    container.bind(EnvironmentVariableServiceDIToken, EnvironmentVariableService);
+    // Прод-фабрика сессий терминала: реальная связка node-pty + @xterm/headless,
+    // окружение процесса — с коллекциями расширений. Тестовый профиль перебивает
+    // биндинг на FakeTerminalSurface (см. TestProfile).
+    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression: production-проводка модуля — решения живут в `createExtensionEnvironmentContributor`/`buildEnv` и закрыты юнитами, сквозняк — e2e-сценарий extension-environment-collection
+    container.bind(TerminalSessionFactoryDIToken, () => {
+        const environment = createExtensionEnvironmentContributor(
+            () => container.get(EnvironmentVariableServiceDIToken).mergedCollection,
+            container.get(IWorkspaceContextServiceDIToken),
+            process.platform === "win32",
+        );
+        return (options) => new EmbeddedTerminalSession(options, environment);
+    });
+    // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression
     // Pty-терминалы расширений (`window.createTerminal({ pty })`): только эмулятор,
     // процессом владеет субпроцесс расширений.
     // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита; сквозняк — e2e-сценарий extension-terminal

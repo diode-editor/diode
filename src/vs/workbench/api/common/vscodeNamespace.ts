@@ -8,6 +8,7 @@ import { implementsApi } from "./apiSurface.ts";
 import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createCommentsNoop } from "./commentsNoop.ts";
+import { ExtHostEnvironmentVariableCollections } from "./environmentVariableCollection.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import type { IExtHostDisk } from "./extHostDisk.ts";
@@ -48,6 +49,7 @@ import {
     DocumentHighlightKind,
     DocumentLink,
     EndOfLine,
+    EnvironmentVariableMutatorType,
     EventEmitter,
     ExtensionKind,
     ExtensionMode,
@@ -150,6 +152,8 @@ export interface IVscodeHost {
     readonly extensionExports: Map<string, unknown>;
     /** Фабрика `ExtensionContext.secrets` — по одному хранилищу на расширение. */
     readonly secrets: IExtensionSecretsFactory;
+    /** `ExtensionContext.environmentVariableCollection` — по коллекции на расширение. */
+    readonly environmentVariableCollections: ExtHostEnvironmentVariableCollections;
     /** Владелец создающего вызова — его выставляет оверлей расширения (`extensionApiFactory.ts`). */
     readonly owner: ExtensionOwner;
     /** Каталог расширений от хоста — по нему индексируются их корни. */
@@ -289,6 +293,9 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     // Секреты расширения (`ExtensionContext.secrets`) — тоже за хостом: он
     // владеет user-data, в которой они переживают перезапуск.
     const secrets = createExtensionSecretsFactory(rpc);
+    // Коллекции окружения терминалов (`ExtensionContext.environmentVariableCollection`):
+    // живут здесь, хост хранит их и применяет к окружению каждого терминала.
+    const environmentVariableCollections = new ExtHostEnvironmentVariableCollections(rpc);
 
     // Задачи (`ExtHostTask` эталона): провайдеры, исполнение и события жизни
     // задач ядра — см. tasksNamespace.ts.
@@ -407,6 +414,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         TerminalLocation,
         // Исполнений нет (shell integration не поднята), но enum — значение.
         TerminalShellExecutionCommandLineConfidence,
+        EnvironmentVariableMutatorType,
         // `switch (env.uiKind) { case vscode.UIKind.Desktop: ... }` — типовой
         // разбор окружения в `activate()`; без runtime-поля он падал бы на
         // чтении `Desktop` у undefined, унося с собой всю активацию.
@@ -484,6 +492,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         configStore: ctx.configStore,
         extensionExports: exportsById,
         secrets,
+        environmentVariableCollections,
         owner: ctx.owner,
         onDidReceiveCatalog,
     };

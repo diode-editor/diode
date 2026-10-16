@@ -41,6 +41,7 @@ import { NULL_FILE_WATCHER } from "../vs/platform/files/common/iFileWatcher.ts";
 import { TrashService } from "../vs/platform/files/node/trashService.ts";
 import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
 import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
+import type { IEnvironmentVariableCollectionStore } from "../vs/platform/terminal/common/environmentVariable.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
 import { bindDocumentSync, openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
@@ -303,6 +304,8 @@ export interface IExtensionHarnessOptions {
     readonly workspaceScanner?: IWorkspaceScanner;
     /** Константы `env` хоста (`machineId`, `shell`); по умолчанию — фоллбэк хоста. */
     readonly environment?: IExtensionHostEnvironment;
+    /** Хранилище коллекций окружения расширений; по умолчанию — в памяти хоста. */
+    readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     /**
      * Чем транспилировать `.ts` в subprocess'е. По умолчанию `"tsx"`; `"node"`
      * нужен тестам ESM-расширений — см. {@link SubprocessLoader}.
@@ -461,6 +464,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.extensionState !== undefined ? { extensionState: options.extensionState } : {}),
         ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
         ...(options.environment !== undefined ? { environment: options.environment } : {}),
+        ...(options.environmentVariableCollections !== undefined
+            ? { environmentVariableCollections: options.environmentVariableCollections }
+            : {}),
     });
 
     // Языковые провайдеры (languages.register) → прокси в реестрах ядра — как в extensionHostModule.
