@@ -106,8 +106,11 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "Title Bar foreground when the window is active.",
     },
+    // В VS Code у terminal.background дефолта нет (null): терминал в панели
+    // рисуется фоном панели — тема без цветов терминала (Catppuccin) не
+    // получает чёрный прямоугольник посреди своей панели.
     "terminal.background": {
-        defaults: { dark: "#181818", light: "#F8F8F8" },
+        defaults: { dark: "panel.background", light: "panel.background" },
         description: "The background of the Integrated Terminal's viewport.",
     },
     "terminal.foreground": {
