@@ -494,6 +494,15 @@ node --snapshot-blob probe.blob --build-snapshot probe.cjs && node --snapshot-bl
           (`DisplayLine` → `segmentGraphemes`), render 7, остальное — flush и бэкенд. ICU — цена
           первого измерения текста: без этого кадра её заплатил бы кадр с текстом. Снять её можно
           только ASCII-фастпасом в tuidom — это отдельный рычаг, к рычагу 8 он не относится.
+          - [x] **Снято: фастпас `segmentGraphemes`, `@tuidom/*` 0.10.0 (tuidom#38).** Строка, где
+            каждый код — отдельная графема (ASCII, латиница, кириллица, греческий, пунктуация,
+            рамки, символы, PUA иконок), режется по кодам без ICU. С первого кода вне набора хвост
+            уходит в `Intl.Segmenter` от верной границы. Ответ тот же: тест tuidom сверяет с ICU
+            каждый код BMP. Так же устроен VS Code: `isBasicASCII` и своя таблица
+            `GraphemeBreakTree`. **Замер** (база — `92d0f1c6`, оба SEA, фастпас подменой `dist`,
+            `bench:open --sizes=small --runs=15`, 2 захода вперемешку, медианы по 30): до текста
+            **221.0 → 208.3**, наших 185 → **170**, «DI собран → смонтирован» 61.5 → 49.9, до
+            подсветки 339 → 323, peak RSS 216 → 213 МБ. На CI ждём ≈ −9…−10 мс до текста.
         - **Конструктор `WorkbenchComponent` — 38**: контрибуции `blockStartup` — 19.5 (около 20
           компонентов вьюшек и их сервисов, каждый ≤ 2.5: Search 2.3, Diagnostics 1.4,
           Extensions 1.4, Suggest 1.1, ScmInput 1.2, TerminalPanel 1.0…), ядро (EditorPart,
