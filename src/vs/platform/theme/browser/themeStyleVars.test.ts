@@ -9,16 +9,6 @@ import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
 import { applyThemeVars, computeThemeVars } from "./themeStyleVars.ts";
 
-function themeWithoutTerminalColors(): WorkbenchTheme {
-    const base = WorkbenchTheme.fromThemeFile({ name: "no-terminal-colors", type: "dark", colors: {} });
-    const colors = { ...base.colors };
-    delete colors["terminal.background"];
-    delete colors["terminal.foreground"];
-    colors["panel.background"] = 0x111111;
-    colors["editor.foreground"] = 0x222222;
-    return new WorkbenchTheme("no-terminal-colors", "dark", colors, base.tokenTheme);
-}
-
 describe("applyThemeVars — тема → корневой var-scope", () => {
     it("вся палитра доступна виджетам через styleVar", () => {
         const root = new BodyElement();
@@ -31,14 +21,32 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("terminal.background")).toBe(theme.getRequiredColor("terminal.background"));
     });
 
-    it("терминал без своих цветов темы наследует panel/editor (бывший фоллбэк моста)", () => {
+    it("терминал без своих цветов темы рисуется фоном панели — как в VS Code, а не дефолтным тёмным", () => {
         const root = new BodyElement();
         root.setAsRoot();
-        applyThemeVars(root, themeWithoutTerminalColors());
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "panel-only",
+            type: "dark",
+            colors: { "panel.background": "#1E1E2E" },
+        });
+        applyThemeVars(root, theme);
         root.performStyleResolution(ROOT_STYLE_CONTEXT);
 
-        expect(root.styleVar("terminal.background")).toBe(0x111111);
-        expect(root.styleVar("terminal.foreground")).toBe(0x222222);
+        expect(root.styleVar("terminal.background")).toBe(0x1e1e2e);
+    });
+
+    it("собственный terminal.background темы побеждает фон панели", () => {
+        const root = new BodyElement();
+        root.setAsRoot();
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "own-terminal",
+            type: "light",
+            colors: { "panel.background": "#EEEEEE", "terminal.background": "#FFFFFF" },
+        });
+        applyThemeVars(root, theme);
+        root.performStyleResolution(ROOT_STYLE_CONTEXT);
+
+        expect(root.styleVar("terminal.background")).toBe(0xffffff);
     });
 
     it("строка меню красится цветами titleBar темы (menuBar.* — токены tuidom без ключа в темах VS Code)", () => {
