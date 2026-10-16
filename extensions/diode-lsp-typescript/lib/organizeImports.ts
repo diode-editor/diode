@@ -33,6 +33,7 @@ function kindContains(parent: string, kind: string): boolean {
  * imports нет.
  */
 export function needsNoopOrganizeImports(only: string | undefined, kinds: readonly (string | undefined)[]): boolean {
-    if (only === undefined || !kindContains(only, ORGANIZE_IMPORTS_TS_KIND)) return false;
+    // Stryker disable next-line ConditionalExpression: эквивалентный — без гарда `undefined` доходит до kindContains, и `"source.organizeImports.ts".startsWith("undefined.")` тоже даёт false
+    if (only === undefined ||!kindContains(only, ORGANIZE_IMPORTS_TS_KIND)) return false;
     return !kinds.some((kind) => kind !== undefined && kindContains(ORGANIZE_IMPORTS_KIND, kind));
 }
