@@ -176,12 +176,21 @@ describe("KeybindingRegistry", () => {
             expect(result).toBe("save");
         });
 
-        it("does NOT code-fallback for alt+letter (only ctrl/meta)", () => {
+        it("matches alt+s when key is Cyrillic \u0441 but code is KeyS", () => {
             const registry = new KeybindingRegistry();
             registry.register(kb("alt+s"), "do-something");
 
-            // alt+с with code=KeyS — should NOT match, alt shortcuts are layout-sensitive
+            // Alt+\u0441 in the Russian layout is the physical S key: Alt+S, as in VS Code
             const result = resolve(registry, makeEvent({ key: "\u0441", code: "KeyS", altKey: true }));
+
+            expect(result).toBe("do-something");
+        });
+
+        it("does NOT code-fallback for alt+<Latin letter> (AZERTY Alt+a sits on KeyQ)", () => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb("alt+q"), "quit");
+
+            const result = resolve(registry, makeEvent({ key: "a", code: "KeyQ", altKey: true }));
 
             expect(result).toBeUndefined();
         });

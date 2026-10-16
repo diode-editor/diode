@@ -357,9 +357,12 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
 
     if (event.key.toLowerCase() === binding.key.toLowerCase()) return true;
 
-    // Layout-independent fallback: for single-letter Ctrl/Meta shortcuts match by physical key code.
-    // This makes e.g. Ctrl+S work even when the Russian layout is active.
-    if (binding.key.length === 1 && (event.ctrlKey || event.metaKey) && event.code != null && event.code !== "") {
+    // Layout-independent fallback: for single-letter shortcuts match by physical key code.
+    // This makes e.g. Ctrl+S work even when the Russian layout is active. With Alt only a
+    // non-Latin key falls back (Alt+а → Alt+F): a Latin key decides by itself, so AZERTY Alt+a
+    // (physical Q) stays Alt+A — the same rule as the menu bar mnemonics.
+    const physicalFallback = event.ctrlKey || event.metaKey || (event.altKey && event.key.charCodeAt(0) >= 0x80);
+    if (binding.key.length === 1 && physicalFallback && event.code != null && event.code !== "") {
         const expectedCode = `Key${binding.key.toUpperCase()}`;
         if (event.code === expectedCode) return true;
     }
