@@ -346,7 +346,13 @@ class GitDecorations {
             if (!this.config().decorations) return undefined;
             const entry = this.status.get(uri.fsPath);
             if (entry === undefined) return undefined;
-            return new vscode.FileDecoration(entry.deco.badge, undefined, new vscode.ThemeColor(entry.deco.colorId));
+            const decoration = new vscode.FileDecoration(
+                entry.deco.badge,
+                undefined,
+                new vscode.ThemeColor(entry.deco.colorId),
+            );
+            decoration.propagate = entry.deco.propagate;
+            return decoration;
         } catch {
             return undefined;
         }

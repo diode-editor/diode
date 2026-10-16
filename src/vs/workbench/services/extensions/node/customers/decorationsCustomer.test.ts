@@ -185,6 +185,25 @@ describe("DecorationsCustomer — декорации файлов", () => {
         await flushMicrotasks(10);
         expect(h.fileCalls.at(-1)?.map((e) => e.path)).toEqual(["/badge.md", "/color.md", "/unknown-color.md"]);
     });
+
+    it("propagate доезжает до дерева как есть и обновляется следующим набором", async () => {
+        const h = setup();
+        h.peer.notify("window.fileDecorationsChanged", {
+            decorations: [
+                { uri: "file:///up.md", badge: "M", propagate: true },
+                { uri: "file:///gone.md", badge: "D", propagate: false },
+            ],
+        });
+        await flushMicrotasks(10);
+        expect(h.fileCalls.at(-1)).toStrictEqual([
+            { path: "/up.md", badge: "M", propagate: true },
+            { path: "/gone.md", badge: "D", propagate: false },
+        ]);
+
+        h.peer.notify("window.fileDecorationsChanged", { decorations: [{ uri: "file:///up.md", badge: "M" }] });
+        await flushMicrotasks(10);
+        expect(h.fileCalls.at(-1)?.[0]).toStrictEqual({ path: "/up.md", badge: "M" });
+    });
 });
 
 describe("DecorationsCustomer — тема", () => {

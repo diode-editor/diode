@@ -66,6 +66,8 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "explorer.confirmUndo": "window",
     "explorer.autoReveal": "window",
     "explorer.compactFolders": "window",
+    "explorer.decorations.colors": "window",
+    "explorer.decorations.badges": "window",
 
     "files.enableTrash": "window",
     "files.exclude": "resource",

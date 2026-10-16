@@ -6,7 +6,7 @@ import type { IFileDecorationsService } from "../common/iFileDecorationsService.
  * структурно — слой Extensions не тянет конкретный сервис.
  */
 export interface IFileDecorationsTarget {
-    setFileDecorations(entries: readonly { path: string; color?: number; badge?: string }[]): void;
+    setFileDecorations(entries: readonly { path: string; color?: number; badge?: string; propagate?: boolean }[]): void;
 }
 
 /**
@@ -21,7 +21,9 @@ export class FileDecorationsServiceAdapter implements IFileDecorationsService {
         this.explorer = explorer;
     }
 
-    public setFileDecorations(entries: readonly { path: string; color?: number; badge?: string }[]): void {
+    public setFileDecorations(
+        entries: readonly { path: string; color?: number; badge?: string; propagate?: boolean }[],
+    ): void {
         this.explorer.setFileDecorations(entries);
     }
 }

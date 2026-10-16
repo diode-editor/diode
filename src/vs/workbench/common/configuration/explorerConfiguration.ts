@@ -32,5 +32,18 @@ export const explorerConfiguration = {
                 "Controls whether the Explorer should render folders in a compact form. In such a form, single child folders will be compressed in a combined tree element. Useful for Java package structures, for example.",
             default: true,
         },
+        // Без цвета бейдж рисуется цветом строки: у дерева один цвет на имя и бейдж.
+        "explorer.decorations.colors": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls whether file decorations should use colors.",
+            default: true,
+        },
+        "explorer.decorations.badges": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls whether file decorations should use badges.",
+            default: true,
+        },
     },
 } as const satisfies IConfigurationNode;
