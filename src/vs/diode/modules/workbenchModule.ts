@@ -576,7 +576,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // Прод-фабрика сессий терминала: реальная связка node-pty + @xterm/headless,
     // окружение процесса — с коллекциями расширений. Тестовый профиль перебивает
     // биндинг на FakeTerminalSurface (см. TestProfile).
-    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression: production-проводка модуля — решения живут в `createExtensionEnvironmentContributor`/`buildEnv` и закрыты юнитами, сквозняк — e2e-сценарий extension-environment-collection
+    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression: production-проводка модуля — решения живут в `createExtensionEnvironmentContributor`/`buildEnv` и закрыты юнитами, сквозняк — e2e-сценарий extension-environment-collection
     container.bind(TerminalSessionFactoryDIToken, () => {
         const environment = createExtensionEnvironmentContributor(
             () => container.get(EnvironmentVariableServiceDIToken).mergedCollection,
@@ -585,7 +585,7 @@ export const workbenchModule: ContainerModule = (container) => {
         );
         return (options) => new EmbeddedTerminalSession(options, environment);
     });
-    // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression
+    // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression
     // Pty-терминалы расширений (`window.createTerminal({ pty })`): только эмулятор,
     // процессом владеет субпроцесс расширений.
     // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита; сквозняк — e2e-сценарий extension-terminal
