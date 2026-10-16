@@ -1,6 +1,6 @@
 # Бенчмарк открытия файла
 
-Цифры живут не здесь: их раз в неделю снимает CI-джоба
+Цифры живут не здесь: их на каждый пуш в `main` снимает CI-джоба
 [`bench.yml`](../../.github/workflows/bench.yml) (`npm run bench:open` на собранном SEA-бинаре,
 shared runner GitHub Actions) и кладёт в ветку данных
 [`bench-data`](https://github.com/diode-editor/diode/tree/bench-data/open):

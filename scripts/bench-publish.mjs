@@ -25,7 +25,7 @@ import { join } from "node:path";
 const BRANCH_README = `# bench-data
 
 Ветка данных бенчмарков Diode. Пишет её джоба \`.github/workflows/bench.yml\`
-(раз в неделю и по кнопке) через \`scripts/bench-publish.mjs\`; руками сюда не коммитят.
+(на каждый пуш в main и по кнопке) через \`scripts/bench-publish.mjs\`; руками сюда не коммитят.
 История нужна странице <https://diode-editor.github.io/benchmarks/> — она читает
 \`open/index.json\` и сырые отчёты отсюда через raw.githubusercontent.com.
 

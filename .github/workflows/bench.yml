@@ -4,7 +4,7 @@
 # отчёт и кладёт его в ветку данных `bench-data` (scripts/bench-publish.mjs):
 # сырой JSON прогона, latest.json/latest.md и индекс прогонов. Страница
 # https://diode-editor.github.io/benchmarks/ читает эту ветку через
-# raw.githubusercontent.com и рисует последний прогон и историю по неделям.
+# raw.githubusercontent.com и рисует последний прогон и историю прогонов.
 #
 # Раньше отчёт открывался PR-ом в docs/public — Actions в этом репозитории не
 # может создавать PR (настройка организации), и оба прогона падали на последнем
@@ -15,13 +15,21 @@ name: Bench
 
 on:
   workflow_dispatch:
-  schedule:
-    # Раз в неделю: чаще цифры читать некому.
-    - cron: '0 4 * * 1'
+  # На каждый пуш в main: фичи вливаются по нескольку в день, и недельный прогон
+  # не показывал, какой коммит сдвинул старт. Прогон ~6 мин, репозиторий публичный.
+  # Правки только документации цифр не меняют.
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 permissions:
   contents: write
 
+# Прогоны не отменяются (cancel-in-progress: false), но в очереди группы GitHub
+# держит только один ожидающий: серия пушей во время прогона сводится к одному
+# прогону на самой свежей голове main.
 concurrency:
   group: bench-data
   cancel-in-progress: false
