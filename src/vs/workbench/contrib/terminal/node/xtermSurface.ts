@@ -74,12 +74,16 @@ const NEW_LINE_AT_START = "\n\x1b[G";
 const CLEAR_ALL = "\x1b[2J\x1b[3J\x1b[H";
 
 /**
- * Пространство имён `import()` над @xterm/headless. Пакет — CJS-бандл webpack'а:
- * именованных экспортов node в нём не находит, значения лежат только в `default`
- * (`module.exports`) — и у `import()`, и у куска из `loadLazyModule`.
+ * Пространство имён `import()` над @xterm/headless — двух форм. CJS-сборка
+ * (`main`, её же собирает ленивый кусок `loadLazyModule`): значения в `default`
+ * (`module.exports`). ESM-сборка (поле `module` пакета — её берёт загрузчик tsx
+ * при запуске из исходников): только именованные экспорты, `default` нет.
  */
-export interface XtermNamespace {
-    default: typeof XtermModule;
+export type XtermNamespace = { readonly default: typeof XtermModule } | typeof XtermModule;
+
+/** Модуль xterm из пространства имён любой из двух форм ({@link XtermNamespace}). */
+export function xtermModuleOf(namespace: XtermNamespace): typeof XtermModule {
+    return "default" in namespace ? namespace.default : namespace;
 }
 
 /** @xterm/headless — ленивый кусок: грузится при первой сессии терминала, не на старте. */
@@ -123,7 +127,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         const scrollback = options.scrollback ?? 1000;
         this.xtermReady = loadXterm()
             .then((xterm) => {
-                this.attachTerminal(xterm.default, scrollback);
+                this.attachTerminal(xtermModuleOf(xterm), scrollback);
             })
             .catch((error: unknown) => {
                 this.failToLoad(error);

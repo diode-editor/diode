@@ -188,6 +188,28 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.dispose();
     }, 20000);
 
+    it("ESM-форма пространства имён (только именованный `Terminal`, без `default` — так модуль отдаёт tsx из исходников) — эмулятор тоже строится", async () => {
+        const real = await import("@xterm/headless");
+        const constructed: unknown[] = [];
+        class SpyTerminal extends real.default.Terminal {
+            public constructor(options: ConstructorParameters<typeof real.default.Terminal>[0]) {
+                super(options);
+                constructed.push(options);
+            }
+        }
+        const namespace: XtermNamespace = { ...real.default, Terminal: SpyTerminal };
+        setLazyModuleLoader(<T>() => Promise.resolve(namespace as T));
+        const session = new EmbeddedTerminalSession({
+            cols: 21,
+            rows: 3,
+            shell: "/bin/bash",
+            args: ["-c", "exit 0"],
+        });
+        await session.xtermReady;
+        expect(constructed).toStrictEqual([{ cols: 21, rows: 3, allowProposedApi: true, scrollback: 1000 }]);
+        session.dispose();
+    }, 20000);
+
     it("шелл, который успел вывести и выйти до куска: вывод на экране, код выхода — как был", async () => {
         const loader = holdLoader();
         const session = new EmbeddedTerminalSession({
