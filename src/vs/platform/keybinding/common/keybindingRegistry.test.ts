@@ -184,6 +184,8 @@ describe("KeybindingRegistry", () => {
             const result = resolve(registry, makeEvent({ key: "\u0441", code: "KeyS", altKey: true }));
 
             expect(result).toBe("do-something");
+            // The boundary: U+0080 is already outside ASCII, so it falls back too.
+            expect(resolve(registry, makeEvent({ key: "\u0080", code: "KeyS", altKey: true }))).toBe("do-something");
         });
 
         it("does NOT code-fallback for alt+<Latin letter> (AZERTY Alt+a sits on KeyQ)", () => {
