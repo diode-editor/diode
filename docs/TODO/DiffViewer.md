@@ -189,6 +189,9 @@ git (`diode-diff:` + `IOriginalResourceProvider`), правую — открыт
 - **US-27. ★ Навигация по изменениям.** F7 / Shift+F7 («Go to Next/Previous Difference»).
   → Каретка прыгает к следующему/предыдущему изменению; если оно внутри свёрнутого
   куска — кусок раскрывается; строка попадает в видимую область.
+  F7/Shift+F7 при `editorTextFocus` уже занят `editor.action.wordHighlight.next/prev`
+  (переход по вхождениям слова): в диффе бинд нужен с `when` на `isInDiffEditor` и
+  весом не ниже `EditorContrib` — как `editor.action.accessibleDiffViewer.next` у эталона.
 - **US-28. Правка запрещена, текст живёт.** Ввод символа, Delete, Ctrl+V, Ctrl+X. →
   Ничего не меняется, вкладка носит метку-замок; при этом Ctrl+C, движение каретки,
   выделение, Home/End/PageUp/PageDown работают (уже так в inline — не должно сломаться).

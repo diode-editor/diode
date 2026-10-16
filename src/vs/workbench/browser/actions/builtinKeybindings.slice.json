@@ -298,6 +298,8 @@
         "editor.action.toggleWordWrap": "alt+z",
         "editor.action.triggerParameterHints": "ctrl+k ctrl+space",
         "editor.action.triggerSuggest": "ctrl+space",
+        "editor.action.wordHighlight.next": "f7",
+        "editor.action.wordHighlight.prev": "shift+f7",
         "editor.fold": {
             "*": "ctrl+k alt+f",
             "pc csi-u #1": "ctrl+shift+[",

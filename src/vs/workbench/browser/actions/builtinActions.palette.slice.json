@@ -236,6 +236,8 @@
     "editor.action.nextMatchFindAction",
     "editor.action.previousMatchFindAction",
     "closeFindWidget",
+    "editor.action.wordHighlight.next",
+    "editor.action.wordHighlight.prev",
     "editor.action.inlineSuggest.trigger",
     "editor.action.inlineSuggest.commit",
     "editor.action.inlineSuggest.hide",
