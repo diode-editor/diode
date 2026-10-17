@@ -35,6 +35,8 @@ describe("provideWordSelectionRanges — wordSelections эталона", () => {
         expect(steps("zA\n", 0, 0)).toEqual(["z", "zA", "zA\n"]);
         // Заглавные подряд — одно подслово с хвостом из строчных.
         expect(steps("ABc\n", 0, 2)).toEqual(["ABc", "ABc", "ABc\n"]);
+        // Как в эталоне, регистр знают только латинские буквы: `ж` — не строчная.
+        expect(steps("жBar\n", 0, 2)).toEqual(["жBar", "жBar", "жBar\n"]);
         // Цифра — не заглавная: границы подслова нет.
         expect(steps("foo1bar\n", 0, 5)).toEqual(["foo1bar", "foo1bar", "foo1bar\n"]);
     });
