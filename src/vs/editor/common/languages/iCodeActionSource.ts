@@ -62,5 +62,15 @@ export interface CodeActionProvider {
      */
     readonly providedCodeActionKinds: readonly string[];
     provideCodeActions(request: ICodeActionRequest, token: ICancellationToken): Promise<readonly ICoreCodeAction[]>;
-    applyCodeAction(id: string): Promise<boolean>;
+    applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
+}
+
+/** Повод применения действия (`ApplyCodeActionReason` эталона в нужном нам объёме). */
+export interface IApplyCodeActionOptions {
+    /**
+     * Действие применяет конвейер сохранения (`editor.codeActionsOnSave`). Его
+     * правки не подпадают под `files.refactoring.autoSave` — как у эталона,
+     * где `respectAutoSaveConfig` снят для `ApplyCodeActionReason.OnSave`.
+     */
+    readonly onSave?: boolean;
 }

@@ -90,6 +90,10 @@ import {
     SetContextCommandContribution,
     SetContextCommandContributionDIToken,
 } from "../../workbench/browser/setContextCommandContribution.ts";
+import {
+    UndoRefusalNotificationContribution,
+    UndoRefusalNotificationContributionDIToken,
+} from "../../workbench/browser/undoRefusalNotificationContribution.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "../../workbench/browser/workbenchComponent.ts";
 import { WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../workbench/browser/workbenchContextKeys.ts";
 import { WorkbenchStateService, WorkbenchStateServiceDIToken } from "../../workbench/browser/workbenchStateService.ts";
@@ -384,6 +388,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(NotificationsComponentDIToken, NotificationsComponent);
     // Неудача открытия ресурса — человеку тостом (см. EditorService.onDidFailOpen).
     container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
+    // Отказ отмены шага нескольких документов — человеку тостом (UndoRedoService.onDidRefuse).
+    container.bind(UndoRefusalNotificationContributionDIToken, UndoRefusalNotificationContribution);
     // Открытие внешних ссылок (env.openExternal расширений): системный
     // обработчик, а без графического сеанса — URL в буфер и сообщением на экран.
     // Швы отдаём колбэками: сервис в `node`, а поверхность сообщений в `browser`.

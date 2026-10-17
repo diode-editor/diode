@@ -172,7 +172,7 @@ export interface IHostToSubprocess {
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];
         readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, ITextEdit[]];
         readonly "languages.provideCodeActions": readonly [IWireCodeActionParams, WireCodeAction[]];
-        readonly "languages.applyCodeAction": readonly [{ readonly id: string }, boolean];
+        readonly "languages.applyCodeAction": readonly [{ readonly id: string; readonly onSave?: boolean }, boolean];
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];
         readonly "languages.provideRenameEdits": readonly [IWireRenameParams, WireRenameResult];
         readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];

@@ -463,7 +463,10 @@ hide-toggle (`isHiddenByDefault`). См.
   буферы видит через порт `IBulkEditBuffers` (`contrib/bulkEdit/common`:
   буфер, `"read-only"` или `null` — «не открыт, правим по диску»), шаги
   документов забирает из их истории (`applyExternalEditsDetached`) и
-  складывает в ОДИН элемент `UndoRedoService`; контракт и люфты —
+  складывает в ОДИН элемент `UndoRedoService`, который ложится в историю
+  всех открытых затронутых буферов (`pushWorkspaceElement`; файл, открытый
+  позже, принимает его через `adopt`; отказ отмены — тост
+  `UndoRefusalNotificationContribution`); контракт и люфты —
   [LSP.md](../TODO/LSP.md), строка `workspace.applyEdit`), `TerminalEnvironment/`,
   `Terminal/` (EmbeddedTerminalSession, фабрика, загрузчик node-pty,
   `TerminalService`), `Diagnostics/` (валидатор settings.json,

@@ -108,7 +108,7 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.codeActionProvider.register(selector, {
                 providedCodeActionKinds,
                 provideCodeActions: (request, token) => this.bridge.provideCodeActions(handle, request, token),
-                applyCodeAction: (id) => this.bridge.applyCodeAction(id),
+                applyCodeAction: (id, options) => this.bridge.applyCodeAction(id, options),
             }),
         folding: ({ handle, selector }) =>
             this.languageFeatures.foldingRangeProvider.register(selector, {

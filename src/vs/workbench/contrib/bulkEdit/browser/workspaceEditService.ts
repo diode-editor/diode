@@ -72,6 +72,12 @@ type ITextSlot =
           readonly base: string;
           /** Кодировка дискового представления. */
           readonly encoding: string;
+          /**
+           * Файл появился по этому пути в этом же edit'е (создание, перенос):
+           * перед повтором шага его там ещё нет — его вернёт файловая операция
+           * шага, идущая раньше правки.
+           */
+          readonly bornInEdit: boolean;
           readonly edits: ITextEdit[];
       };
 
@@ -107,6 +113,11 @@ class ResourceProjection {
         if (known === undefined) return readTextFile(this.files, filePath);
         if (known === null) return Promise.resolve(null);
         return Promise.resolve({ text: known, encoding: DEFAULT_PROJECTION_ENCODING });
+    }
+
+    /** Тронул ли edit этот путь (иначе про него отвечает диск). */
+    public knows(filePath: string): boolean {
+        return this.state.has(filePath);
     }
 
     public createFile(filePath: string, contents: string): void {
@@ -223,10 +234,14 @@ export class WorkspaceEditService {
      *
      * Открытый ресурс правится через свой буфер и остаётся «грязным» (как в
      * VS Code), закрытый — записью на диск: буфера у него нет, и «грязным» он
-     * быть не может. Весь edit — ОДИН шаг отмены; бакет истории выбирает
-     * {@link IBulkEditBuffers.undoContext}.
+     * быть не может. Весь edit — ОДИН шаг отмены в истории всех открытых
+     * затронутых буферов ({@link IBulkEditBuffers.undoParticipants}).
      */
-    public async applyWorkspaceEdit(edits: BulkEdit, label: string): Promise<boolean> {
+    public async applyWorkspaceEdit(
+        edits: BulkEdit,
+        label: string,
+        options?: { respectAutoSaveConfig?: boolean },
+    ): Promise<boolean> {
         // Пустой список — мусорный запрос: вакуумный успех пустого edit'а
         // отвечает сам вызывающий, не доходя до сервиса. Здесь ничего не
         // применено — врать `true` нельзя.
@@ -256,10 +271,29 @@ export class WorkspaceEditService {
                 .flatMap((entry) => (entry.kind === "text" ? [entry.slot] : []))
                 .filter((slot) => slot.buffer !== null)
                 .map((slot) => slot.resource);
-            const context = this.buffers.undoContext(touched) ?? WORKSPACE_UNDO_CONTEXT;
-            this.undoRedo.pushElement(buildUndoElement(label, resources, ops), context);
+            this.undoRedo.pushWorkspaceElement(
+                buildUndoElement(label, resources, ops),
+                this.buffers.undoParticipants(touched),
+            );
         }
+        if (options?.respectAutoSaveConfig === true) await this.saveRefactoring(plan);
         return true;
+    }
+
+    /**
+     * `files.refactoring.autoSave`: рефакторинг, тронувший больше одного
+     * ресурса, сохраняет свои грязные буферы (эталон — `BulkEditService._saveAll`).
+     * Закрытые файлы и так записаны на диск; без сохранения буферов «Move to
+     * a new file» оставил бы новый файл на диске, а исходник — только в
+     * буфере. Отказ одного сохранения не мешает остальным.
+     */
+    private async saveRefactoring(plan: readonly PlanEntry[]): Promise<void> {
+        if (!this.config.get("files.refactoring.autoSave")) return;
+        if (touchedResources(plan).size <= 1) return;
+        const buffers = plan.flatMap((entry) =>
+            entry.kind === "text" && entry.slot.buffer !== null ? [entry.slot.buffer] : [],
+        );
+        await Promise.allSettled(buffers.map((buffer) => buffer.save()));
     }
 
     /**
@@ -338,7 +372,15 @@ export class WorkspaceEditService {
         const filePath = uri.fsPath;
         const source = await projection.read(filePath);
         if (source === null) return null;
-        return { resource, filePath, buffer: null, base: source.text, encoding: source.encoding, edits: [] };
+        return {
+            resource,
+            filePath,
+            buffer: null,
+            base: source.text,
+            encoding: source.encoding,
+            bornInEdit: projection.knows(filePath),
+            edits: [],
+        };
     }
 
     /** Исполняет одну запись плана, накапливая обратимые шаги. */
@@ -366,13 +408,17 @@ export class WorkspaceEditService {
         const before = slot.base;
         const after = applyEditsToText(before, slot.edits);
         const encoding = slot.encoding;
+        const bornInEdit = slot.bornInEdit;
         const files = this.files;
         await writeTextFile(files, filePath, after, encoding);
         ops.push({
             // Предусловие отката: на диске ровно то, что мы записали. Файл
             // изменили снаружи — откат затёр бы чужую правку.
             canUndo: async () => (await readTextFile(files, filePath))?.text === after,
-            canRedo: async () => (await readTextFile(files, filePath))?.text === before,
+            canRedo: async () => {
+                const current = await readTextFile(files, filePath);
+                return current === null ? bornInEdit : current.text === before;
+            },
             undo: () => writeTextFile(files, filePath, before, encoding),
             redo: () => writeTextFile(files, filePath, after, encoding),
         });
@@ -603,10 +649,27 @@ async function projectFileEdit(edit: WorkspaceFileEdit, projection: ResourceProj
     projection.remove(edit.from);
 }
 
+/** Ресурсы, которые трогает план (`uri.toString()`): правки и обе стороны файловых операций. */
+function touchedResources(plan: readonly PlanEntry[]): Set<string> {
+    const touched = new Set<string>();
+    for (const entry of plan) {
+        if (entry.kind === "text") {
+            touched.add(entry.slot.resource);
+            continue;
+        }
+        for (const filePath of fileEditPaths(entry.edit)) touched.add(Uri.file(filePath).toString());
+    }
+    return touched;
+}
+
+/** Пути, которые трогает файловая операция: у переноса — обе стороны. */
+function fileEditPaths(edit: WorkspaceFileEdit): string[] {
+    return edit.kind === "rename" ? [edit.from, edit.to] : [edit.kind === "delete" ? edit.from : edit.to];
+}
+
 /** Трогает ли файловая операция ресурс, по которому уже копятся текстовые правки. */
 function touchesTextSlot(edit: WorkspaceFileEdit, slots: ReadonlyMap<string, ITextSlot>): boolean {
-    const paths = edit.kind === "rename" ? [edit.from, edit.to] : [edit.kind === "delete" ? edit.from : edit.to];
-    return paths.some((filePath) => slots.has(Uri.file(filePath).toString()));
+    return fileEditPaths(edit).some((filePath) => slots.has(Uri.file(filePath).toString()));
 }
 
 /**

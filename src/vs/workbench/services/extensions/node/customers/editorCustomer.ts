@@ -87,7 +87,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
             rpc.handleRequest("workspace.applyEdit", async (params): Promise<boolean> => {
                 const ops = parseWireApplyWorkspaceEditParams(params);
                 if (ops === null) return false;
-                return this.editorOptions.applyWorkspaceEdit(ops);
+                return this.editorOptions.applyWorkspaceEdit(ops, { isRefactoring: params.isRefactoring === true });
             }),
         );
         // Полоса групп: снимки по изменениям (коалесинг в адаптере). Инвариант

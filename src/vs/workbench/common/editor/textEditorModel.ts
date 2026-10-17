@@ -238,8 +238,17 @@ export abstract class BaseTextEditorModel extends Disposable {
      * бы каждый молча).
      */
     private resetUndoHistory(): void {
-        this.undoRedoService.clear(this.undoContext);
+        this.undoRedoService.clear(this.undoContext, "replaced");
         this.undoManagerValue.clear();
+    }
+
+    /**
+     * Буфер файла `resource` только что открыт: шаги нескольких документов,
+     * тронувшие этот файл до открытия (создание, запись на диск), встают и в
+     * его историю — Ctrl+Z отсюда откатывает их (см. `UndoRedoService.adopt`).
+     */
+    protected adoptWorkspaceUndo(resource: string, label: string): void {
+        this.undoRedoService.adopt(this.undoContext, resource, label);
     }
 
     /** Текущая версия — «сохранённая»: буфер чистый. */

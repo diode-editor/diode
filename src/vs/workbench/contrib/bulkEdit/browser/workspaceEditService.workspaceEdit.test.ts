@@ -67,9 +67,13 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
                     buffer.text = applyToText(buffer.text, edits);
                     return buffer.step;
                 },
+                save: () => Promise.resolve(),
             };
         },
-        undoContext: (touched) => (touched.length > 0 ? `buffer:${touched[0]}` : null),
+        // Участник — только первый тронутый буфер: здесь проверяется сам edit;
+        // шаг в истории нескольких буферов — workspaceEditService.undoAcrossFiles.test.ts.
+        undoParticipants: (touched) =>
+            touched.length > 0 ? [{ context: `buffer:${touched[0]}`, label: touched[0], owner: true }] : [],
         didDelete: NULL_BULK_EDIT_BUFFERS.didDelete,
     };
 }
@@ -637,6 +641,11 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         expect(await undoRedo.undo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
         expect(fs.existsSync(created)).toBe(false);
         expect(fs.existsSync(path.join(tmpDir, "new"))).toBe(false);
+
+        // Повтор: правка файла, которого перед повтором ещё нет, — не отказ:
+        // его вернёт создание, идущее в шаге раньше.
+        expect(await undoRedo.redo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
+        expect(read(created)).toBe("// moved\nexport const a = 1;\n");
     });
 
     it("создание БЕЗ содержимого даёт пустой файл — правка ложится в него одна", async () => {
@@ -656,7 +665,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
     });
 
     it("переименование + правка по НОВОМУ пути в одном edit'е", async () => {
-        const { service } = makeService();
+        const { service, undoRedo } = makeService();
         const from = write("old.ts", "content\n");
         const to = path.join(tmpDir, "new.ts");
 
@@ -671,6 +680,27 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         expect(applied).toBe(true);
         expect(fs.existsSync(from)).toBe(false);
         expect(read(to)).toBe("// renamed\ncontent\n");
+
+        // Отмена и повтор: перед повтором нового пути ещё нет — его вернёт
+        // перенос, идущий в шаге раньше правки.
+        expect(await undoRedo.undo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
+        expect(read(from)).toBe("content\n");
+        expect(await undoRedo.redo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
+        expect(read(to)).toBe("// renamed\ncontent\n");
+    });
+
+    it("правка файла, которого не было в edit'е, на повторе без файла — отказ", async () => {
+        const { service, undoRedo } = makeService();
+        const file = write("a.ts", "before\n");
+        await service.applyWorkspaceEdit(
+            [{ resource: resourceOf(file), edits: [replaceFirstLine("after\n")] }],
+            "Edit",
+        );
+        await undoRedo.undo(WORKSPACE_UNDO_CONTEXT);
+        fs.rmSync(file);
+
+        expect(await undoRedo.redo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
+        expect(fs.existsSync(file)).toBe(false);
     });
 
     it("файловая операция по ресурсу, который УЖЕ правится текстом, отбивает edit", async () => {

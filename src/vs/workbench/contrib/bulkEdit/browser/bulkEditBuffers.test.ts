@@ -16,6 +16,9 @@ interface IFakePane {
     uri: Uri;
     readOnly: boolean;
     undoContext: string;
+    label: string;
+    isModified: boolean;
+    save: ReturnType<typeof vi.fn>;
     getText: () => string;
     applyExternalEditsDetached: ReturnType<typeof vi.fn>;
 }
@@ -25,6 +28,9 @@ function pane(file: string, overrides: Partial<IFakePane> = {}): IFakePane {
         uri: Uri.file(file),
         readOnly: false,
         undoContext: `ctx:${file}`,
+        label: file.split("/").at(-1) ?? file,
+        isModified: true,
+        save: vi.fn(() => Promise.resolve("saved")),
         getText: () => `text of ${file}`,
         applyExternalEditsDetached: vi.fn(() => ({ label: "s", resources: [], undo: () => {}, redo: () => {} })),
         ...overrides,
@@ -71,6 +77,21 @@ describe("BulkEditBuffers.get", () => {
         expect(active.applyExternalEditsDetached).toHaveBeenCalledExactlyOnceWith([edit], "Workspace Edit");
     });
 
+    it("save сохраняет только изменённый буфер (files.refactoring.autoSave)", async () => {
+        const dirty = pane(A);
+        const clean = pane(B, { isModified: false });
+        const buffers = new BulkEditBuffers(...fakes({ active: dirty, rest: [clean] }));
+
+        const targets = [buffers.get(dirty.uri.toString()), buffers.get(clean.uri.toString())];
+        for (const target of targets) {
+            if (target === null || target === "read-only") throw new Error("ожидался буфер");
+            await target.save();
+        }
+
+        expect(dirty.save).toHaveBeenCalledOnce();
+        expect(clean.save).not.toHaveBeenCalled();
+    });
+
     it("ресурс без вкладки и без модели — null: его правит диск", () => {
         const buffers = new BulkEditBuffers(...fakes({ active: pane(A) }));
         expect(buffers.get(Uri.file(B).toString())).toBeNull();
@@ -108,35 +129,42 @@ describe("BulkEditBuffers.get", () => {
     });
 });
 
-describe("BulkEditBuffers.undoContext", () => {
-    it("тронута активная вкладка — её бакет (Ctrl+Z там, где вызвали действие)", () => {
+describe("BulkEditBuffers.undoParticipants", () => {
+    it("каждая вкладка тронутого ресурса — участник со своей правкой (Ctrl+Z из любой)", () => {
         const active = pane(A);
         const other = pane(B);
         const buffers = new BulkEditBuffers(...fakes({ active, rest: [other] }));
 
-        expect(buffers.undoContext([other.uri.toString(), active.uri.toString()])).toBe(`ctx:${A}`);
+        expect(buffers.undoParticipants([other.uri.toString(), active.uri.toString()])).toEqual([
+            { context: `ctx:${B}`, label: "b.ts", owner: true },
+            { context: `ctx:${A}`, label: "a.ts", owner: true },
+        ]);
     });
 
-    it("активная вкладка не тронута — бакет первого тронутого ресурса", () => {
+    it("сплит одного документа — один участник: бакет у них общий", () => {
         const active = pane(A);
-        const other = pane(B);
-        const buffers = new BulkEditBuffers(...fakes({ active, rest: [other] }));
+        const split = pane(A);
+        const buffers = new BulkEditBuffers(...fakes({ active, rest: [split, pane(B)] }));
 
-        expect(buffers.undoContext([other.uri.toString()])).toBe(`ctx:${B}`);
+        expect(buffers.undoParticipants([active.uri.toString(), Uri.file(B).toString()])).toEqual([
+            { context: `ctx:${A}`, label: "a.ts", owner: true },
+            { context: `ctx:${B}`, label: "b.ts", owner: true },
+        ]);
     });
 
-    it("ни один тронутый ресурс не открыт — бакет активной вкладки (действие вызвали из неё)", () => {
+    it("ни один тронутый ресурс не открыт — якорь на активной вкладке, без своей правки", () => {
         const active = pane(A);
         const buffers = new BulkEditBuffers(...fakes({ active }));
 
-        expect(buffers.undoContext([])).toBe(`ctx:${A}`);
-        expect(buffers.undoContext([Uri.file("/proj/closed.ts").toString()])).toBe(`ctx:${A}`);
+        const anchor = [{ context: `ctx:${A}`, label: "a.ts", owner: false }];
+        expect(buffers.undoParticipants([])).toEqual(anchor);
+        expect(buffers.undoParticipants([Uri.file("/proj/closed.ts").toString()])).toEqual(anchor);
     });
 
-    it("вкладок нет вовсе — null: шаг уйдёт в бакет workspace-операций", () => {
+    it("вкладок нет вовсе — участников нет: шаг уйдёт в бакет workspace-операций", () => {
         const buffers = new BulkEditBuffers(...fakes());
-        expect(buffers.undoContext([])).toBeNull();
-        expect(buffers.undoContext([Uri.file(A).toString()])).toBeNull();
+        expect(buffers.undoParticipants([])).toEqual([]);
+        expect(buffers.undoParticipants([Uri.file(A).toString()])).toEqual([]);
     });
 });
 

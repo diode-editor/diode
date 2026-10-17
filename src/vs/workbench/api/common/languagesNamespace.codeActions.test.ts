@@ -29,6 +29,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
     stub: IStubRpc;
     languages: typeof vscode.languages;
     appliedEdits: vscode.WorkspaceEdit[];
+    appliedMetadata: (vscode.WorkspaceEditMetadata | undefined)[];
     executed: { command: string; args: unknown[] }[];
 } {
     const stub = makeStubRpc();
@@ -42,10 +43,12 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         owner: new ExtensionOwner(),
     };
     const appliedEdits: vscode.WorkspaceEdit[] = [];
+    const appliedMetadata: (vscode.WorkspaceEditMetadata | undefined)[] = [];
     const executed: { command: string; args: unknown[] }[] = [];
     const { languages } = createLanguagesNamespace(ctx, {
-        applyEdit: (edit) => {
+        applyEdit: (edit, metadata) => {
             appliedEdits.push(edit);
+            appliedMetadata.push(metadata);
             return Promise.resolve(true);
         },
         executeCommand: (command, ...args) => {
@@ -56,7 +59,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
     });
     // Документ запросов открыт зеркалом (`editor.didOpen`): запросы текста не везут.
     ctx.documentSync.open({ uri: URI, languageId: "python", version: 1, text: TEXT });
-    return { ctx, stub, languages, appliedEdits, executed };
+    return { ctx, stub, languages, appliedEdits, appliedMetadata, executed };
 }
 
 const URI = "file:///proj/main.py";
@@ -352,6 +355,20 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(appliedEdits).toHaveLength(1);
         expect(appliedEdits[0]).toBe(action.edit);
         expect(executed).toEqual([]);
+    });
+
+    it("правки действия — рефакторинг (files.refactoring.autoSave), кроме применённых при сохранении", async () => {
+        const { stub, languages, appliedMetadata } = makeCtx();
+        languages.registerCodeActionsProvider("python", {
+            provideCodeActions: () => [editAction("Fix", "quickfix")],
+        } as unknown as vscode.CodeActionProvider);
+
+        expect(await stub.callRequest("languages.applyCodeAction", { id: await provideAndPick(stub) })).toBe(true);
+        expect(
+            await stub.callRequest("languages.applyCodeAction", { id: await provideAndPick(stub), onSave: true }),
+        ).toBe(true);
+        // Эталон: `respectAutoSaveConfig: codeActionReason !== ApplyCodeActionReason.OnSave`.
+        expect(appliedMetadata).toEqual([{ isRefactoring: true }, { isRefactoring: false }]);
     });
 
     it("отказ applyEdit — false, команда действия НЕ исполняется («наполовину» нельзя)", async () => {

@@ -183,7 +183,17 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         expect(h.editorOptions.applyWorkspaceEdit).not.toHaveBeenCalled();
         const ops = [{ kind: "delete", resource: "file:///b.ts" }];
         await expect(h.peer.request("workspace.applyEdit", { ops })).resolves.toBe(true);
-        expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenCalledWith(ops);
+        expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenCalledWith(ops, { isRefactoring: false });
+    });
+
+    it("workspace.applyEdit: isRefactoring доезжает до порта; не-true — не рефакторинг", async () => {
+        const h = setup();
+        h.attachTo();
+        const ops = [{ kind: "delete", resource: "file:///b.ts" }];
+        await h.peer.request("workspace.applyEdit", { ops, isRefactoring: true });
+        expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenLastCalledWith(ops, { isRefactoring: true });
+        await h.peer.request("workspace.applyEdit", { ops, isRefactoring: "yes" } as never);
+        expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenLastCalledWith(ops, { isRefactoring: false });
     });
 
     async function expectFlushedReply(method: string, params: object, call: string, result: unknown): Promise<void> {

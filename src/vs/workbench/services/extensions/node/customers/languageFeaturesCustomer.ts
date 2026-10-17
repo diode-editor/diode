@@ -3,7 +3,11 @@ import { Emitter } from "../../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { IRange } from "../../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../../editor/common/core/iTextEdit.ts";
-import type { ICodeActionRequest, ICoreCodeAction } from "../../../../../editor/common/languages/iCodeActionSource.ts";
+import type {
+    IApplyCodeActionOptions,
+    ICodeActionRequest,
+    ICoreCodeAction,
+} from "../../../../../editor/common/languages/iCodeActionSource.ts";
 import type {
     ICompletionRequest,
     ICoreCompletionResult,
@@ -452,10 +456,16 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
      * `workspace.applyEdit` + команда действия — всё на его стороне. `false` —
      * субпроцесса нет, действие протухло, правки не легли или таймаут
      * отведённый срок. `id` уникален сквозь провайдеров: кэш
-     * субпроцесса сам знает, чьё это действие.
+     * субпроцесса сам знает, чьё это действие. `onSave` — действие применяет
+     * конвейер сохранения: его правки не сохраняются по
+     * `files.refactoring.autoSave`.
      */
-    public async applyCodeAction(id: string): Promise<boolean> {
-        return this.request("languages.applyCodeAction", { id }, false);
+    public async applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean> {
+        return this.request(
+            "languages.applyCodeAction",
+            { id, ...(options?.onSave === true ? { onSave: true } : {}) },
+            false,
+        );
     }
 
     /**

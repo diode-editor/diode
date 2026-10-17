@@ -54,6 +54,8 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
                     ],
                 },
             ],
+            // Правка code action — рефакторинг: files.refactoring.autoSave.
+            isRefactoring: true,
         });
     });
 

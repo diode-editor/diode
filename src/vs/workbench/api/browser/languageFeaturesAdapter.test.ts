@@ -270,7 +270,10 @@ describe("LanguageFeaturesAdapter", () => {
         expect(await codeActions.provideCodeActions(request, token)).toEqual([{ id: "3.0", title: "fix" }]);
         expect(bridge.provideCodeActions).toHaveBeenCalledWith(3, request, token);
         expect(await codeActions.applyCodeAction("3.0")).toBe(true);
-        expect(bridge.applyCodeAction).toHaveBeenCalledWith("3.0");
+        expect(bridge.applyCodeAction).toHaveBeenCalledWith("3.0", undefined);
+        // Повод «при сохранении» доезжает до моста.
+        await codeActions.applyCodeAction("3.0", { onSave: true });
+        expect(bridge.applyCodeAction).toHaveBeenLastCalledWith("3.0", { onSave: true });
         expect(features.codeActionProvider.ordered(MD)[0].providedCodeActionKinds).toEqual([]);
     });
 

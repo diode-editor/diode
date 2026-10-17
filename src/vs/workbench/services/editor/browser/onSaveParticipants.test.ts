@@ -4,7 +4,11 @@ import { createTestConfigurationService } from "../../../../../TestUtils/testCon
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ISelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type {
+    IApplyCodeActionOptions,
+    ICodeActionRequest,
+    ICoreCodeAction,
+} from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -39,7 +43,7 @@ const SNAPSHOT: ISaveSnapshot = {
 /** Провайдер code actions теста: что вернуть на запрос и чем ответить на apply. */
 interface IFakeCodeActions {
     provide(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[] | null>;
-    apply(id: string): Promise<boolean>;
+    apply(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
 }
 
 /**
@@ -58,7 +62,7 @@ function host(overrides: {
         languageFeatures.codeActionProvider.register("*", {
             providedCodeActionKinds: [],
             provideCodeActions: async (request) => (await codeActions.provide(request)) ?? [],
-            applyCodeAction: (id) => codeActions.apply(id),
+            applyCodeAction: (id, options) => codeActions.apply(id, options),
         });
     }
     if (format !== undefined) {
@@ -163,7 +167,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
     });
 
     it("неактивные (disabled) действия при сохранении не применяются, активные — да", async () => {
-        const applied: string[] = [];
+        const applied: [string, IApplyCodeActionOptions | undefined][] = [];
         const participant = createCodeActionsOnSaveParticipant(
             host({
                 configuration: config({ "editor.codeActionsOnSave": { "source.fixAll": true } }),
@@ -173,8 +177,8 @@ describe("createCodeActionsOnSaveParticipant", () => {
                             { id: "1.0", title: "Fix all", disabled: "Nothing to fix" },
                             { id: "1.1", title: "Fix lint" },
                         ]),
-                    apply: (id) => {
-                        applied.push(id);
+                    apply: (id, options) => {
+                        applied.push([id, options]);
                         return Promise.resolve(true);
                     },
                 },
@@ -182,7 +186,8 @@ describe("createCodeActionsOnSaveParticipant", () => {
         );
 
         expect(await participant(SNAPSHOT)).toEqual([]);
-        expect(applied).toEqual(["1.1"]);
+        // Повод «при сохранении»: правки не подпадают под files.refactoring.autoSave.
+        expect(applied).toEqual([["1.1", { onSave: true }]]);
     });
 
     it("без панели диапазон и версия берутся из снапшота", async () => {

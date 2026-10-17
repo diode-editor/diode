@@ -8,7 +8,11 @@ import { Disposable, DisposableStore, type IDisposable } from "../../../../base/
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type {
+    IApplyCodeActionOptions,
+    ICodeActionRequest,
+    ICoreCodeAction,
+} from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type {
     ICompletionRequest,
     ICoreCompletionResult,
@@ -1217,8 +1221,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideCodeActions(handle, req, token);
     }
 
-    public applyCodeAction(id: string): Promise<boolean> {
-        return this.languageFeatures.applyCodeAction(id);
+    public applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean> {
+        return this.languageFeatures.applyCodeAction(id, options);
     }
 
     public prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
