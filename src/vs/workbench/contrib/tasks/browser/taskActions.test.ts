@@ -4,9 +4,12 @@ import { makeTask } from "../../../../../TestUtils/taskFixtures.ts";
 import { buildTaskServiceHarness, tasksJsonOf } from "../../../../../TestUtils/taskServiceHarness.ts";
 import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor, Token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ITaskDefinitionSchema } from "../../../api/common/taskIdentity.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 
 import {
     reRunTaskAction,
@@ -36,6 +39,9 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
         [TaskServiceDIToken, h.service],
         [QuickInputServiceDIToken, h.quickInput],
         [IConfigurationServiceDIToken, h.configuration],
+        [IFileServiceDIToken, h.files],
+        [EditorServiceDIToken, h.editors],
+        [NotificationServiceDIToken, h.notifications],
     ]);
     const accessor = { get: (token: Token<unknown>) => services.get(token) } as unknown as ServiceAccessor;
     const npm = (label: string, extra: Record<string, unknown> = {}) =>
@@ -58,6 +64,7 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 const folderLabel = (type: string): string => `${CODICON_GLYPHS.folder ?? ""} ${type}`;
+const configureATask = `${CODICON_GLYPHS.plus ?? ""} Configure a Task`;
 
 describe("Run Task — двухуровневый пикер", () => {
     it("первый уровень: configured (подсказка у первой), типы (contributed) и «Show All Tasks...»", async () => {
@@ -129,13 +136,14 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("отмена на втором уровне — ничего; ни задач, ни типов — строка «No tasks found»", async () => {
+    it("отмена на втором уровне — ничего; ни задач, ни типов — «Configure a Task» (и по ней — Configure Task)", async () => {
         const h = build();
-        h.answerPicks("No tasks found");
+        h.answerPicks(configureATask, undefined);
         await runTaskAction.run(h.accessor);
         await flush();
-        expect(h.lastPickLabels()).toStrictEqual(["No tasks found"]);
-        expect(h.picks).toHaveLength(1);
+        expect(h.picks[0].items.map((i) => [i.label, i.hint])).toStrictEqual([[configureATask, "configured"]]);
+        expect(h.picks[1].placeholder).toBe("Select a task to configure");
+        expect(h.picks).toHaveLength(2);
         expect(h.launched()).toStrictEqual([]);
         h.withNpm(["x"]);
         h.answerPicks(folderLabel("npm"), undefined);
@@ -356,6 +364,7 @@ describe("Rerun / Restart / Terminate / Show Running", () => {
             ["workbench.action.tasks.restartTask", "Tasks: Restart Running Task"],
             ["workbench.action.tasks.terminate", "Tasks: Terminate Task"],
             ["workbench.action.tasks.showTasks", "Tasks: Show Running Tasks"],
+            ["workbench.action.tasks.configureTaskRunner", "Tasks: Configure Task"],
         ]);
         expect(
             TASKS_ACTIONS.flatMap((a) => (a.menus ?? []).map((m) => [m.title, m.group, m.order, m.enablement])),
@@ -364,6 +373,7 @@ describe("Rerun / Restart / Terminate / Show Running", () => {
             ["Restart Running Task...", "5_manage", 2, "taskRunning"],
             ["Terminate Task...", "5_manage", 3, "taskRunning"],
             ["Show Running Tasks...", "5_manage", 1, "taskRunning"],
+            ["Configure Tasks...", "7_configure", 1, undefined],
         ]);
     });
 });

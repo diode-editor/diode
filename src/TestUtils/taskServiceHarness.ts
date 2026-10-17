@@ -35,10 +35,18 @@ export interface ITaskServiceHarnessOptions {
     readonly folder?: IWorkspaceFolder | null;
 }
 
+/** Открытый в редакторе файл: каретка и показанный диапазон (что сделала команда). */
+export interface IFakeOpenedEditor {
+    readonly uri: Uri;
+    readonly goToPosition: ReturnType<typeof vi.fn<(line: number, column?: number) => void>>;
+    readonly revealRange: ReturnType<typeof vi.fn<(range: unknown) => void>>;
+}
+
 /**
  * Сервис задач поверх настоящего TerminalService с фейковыми сессиями и
- * фейковыми краями: ФС (tasks.json), редакторы, диалог, пикер. Пикер
- * отвечает по сценарию `answerPicks` — строкой с такой подписью (`undefined` — отмена).
+ * фейковыми краями: ФС (tasks.json — чтение и запись), редакторы, диалог,
+ * пикер. Пикер отвечает по сценарию `answerPicks` — строкой с такой подписью
+ * (`undefined` — отмена).
  */
 export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}) {
     const views = makeViewsHarness();
@@ -61,6 +69,18 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         if (tasksJson === undefined) return Promise.reject(new Error(`ENOENT ${uri.fsPath}`));
         return Promise.resolve({ value: new TextEncoder().encode(tasksJson) } as IFileContent);
     });
+    // Каталог `.diode` есть, пока есть tasks.json (или его создали).
+    let configFolderExists = tasksJson !== undefined;
+    const exists = vi.fn(() => Promise.resolve(configFolderExists));
+    const createFolder = vi.fn(() => {
+        configFolderExists = true;
+        return Promise.resolve();
+    });
+    const writeFile = vi.fn((_uri: Uri, value: Uint8Array) => {
+        tasksJson = new TextDecoder().decode(value);
+        return Promise.resolve({});
+    });
+    const files = { readFile, writeFile, exists, createFolder } as unknown as IFileService;
     const folder = options.folder === null ? undefined : (options.folder ?? TASK_FOLDER);
     const workspace = {
         getWorkspace: () => ({ id: folder === undefined ? null : "ws", folders: folder === undefined ? [] : [folder] }),
@@ -68,10 +88,19 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     let dirty: unknown[] = [];
     let activeEditor: { uri: Uri; primaryCursorLine: number } | null = null;
     const saveAll = vi.fn(() => Promise.resolve());
+    let opened: IFakeOpenedEditor | null = null;
+    const openUri = vi.fn((uri: Uri) => {
+        opened = { uri, goToPosition: vi.fn(), revealRange: vi.fn() };
+        return Promise.resolve();
+    });
+    let openModel: { isModified: boolean; revertToDisk: ReturnType<typeof vi.fn> } | null = null;
     const editors = {
         getActiveTabEditor: () => activeEditor,
+        getActiveEditor: () => opened,
         collectDirty: () => dirty,
         saveAll,
+        openUri,
+        textFileModels: { get: () => openModel },
     } as unknown as IEditorService;
     const confirm = vi.fn(() => Promise.resolve(true));
     const dialogs = { confirm } as unknown as DialogService;
@@ -95,7 +124,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         () => "/bin/bash",
         configuration,
         workspace,
-        { readFile } as unknown as IFileService,
+        files,
         editors,
         dialogs,
         notifications,
@@ -113,6 +142,20 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         sessions,
         configuration,
         readFile,
+        writeFile,
+        createFolder,
+        files,
+        editors,
+        openUri,
+        /** Редактор, открытый последним `openUri`. */
+        opened: (): IFakeOpenedEditor | null => opened,
+        /** Текущий текст tasks.json (`undefined` — файла нет). */
+        tasksJson: (): string | undefined => tasksJson,
+        /** tasks.json открыт в редакторе: с несохранёнными правками или нет. */
+        openTasksJsonModel: (isModified: boolean) => {
+            openModel = { isModified, revertToDisk: vi.fn() };
+            return openModel;
+        },
         saveAll,
         confirm,
         notifications,

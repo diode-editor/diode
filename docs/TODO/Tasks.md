@@ -45,11 +45,14 @@
 - [ ] История «recently used» в пикере (`task.quickOpen.history`).
 - [ ] `inputs` / `${input:…}` / `${command:…}` — задача с ними падает с явной ошибкой
   «переменная не поддержана», а не запускается с литералом.
-- [ ] Configure Task, шаблоны tasks.json, User Tasks, Open Workspace Tasks — Diode tasks.json
-  только читает.
+- [x] Configure Task (`workbench.action.tasks.configureTaskRunner`) и шаблоны tasks.json
+  («Create tasks.json file from template»), «Configure a Task» в пустом Run Task.
+- [ ] User Tasks (Open User Tasks), Open Workspace Tasks, кнопка «Configure Task» у строк Run Task.
 - [ ] Rerun Task для активного терминала (`rerunForActiveTerminal`), Rerun All Running Tasks.
-- [ ] `resolveTask` провайдера для записей tasks.json с типом провайдера (кастомизация задачи
-  расширения): такая запись — warn в лог `tasks`, в пикер не попадает.
+- [x] Записи tasks.json с типом провайдера (кастомизация задачи расширения) сливаются с задачей
+  провайдера по ключу определения.
+- [ ] `resolveTask` провайдера для такой записи, когда `provideTasks` задачи не дал (сейчас —
+  ошибка эталона в лог `tasks`, задачи нет).
 - [ ] `runOptions.instanceLimit` > 1 — одна копия задачи, лимит пишется предупреждением.
 - [ ] Мультирут: задачи берутся из первой папки воркспейса.
 - [ ] Импорт `.vscode/tasks.json` (вместе с настройками VS Code) — сейчас `.vscode/` не читается.

@@ -75,6 +75,7 @@ describe("parseTasksJson — задача shell/process", () => {
             problemMatchers: ["$tsc"],
             hasDefinedMatchers: true,
             runOptions: { reevaluateOnRerun: false, instanceLimit: 1, instancePolicy: "silent" },
+            configIndex: 0,
         });
     });
 
@@ -230,12 +231,13 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
         );
     });
 
-    it("запись с типом провайдера — предупреждение, задача не попадает в список", () => {
-        const { task, problems } = one({ label: "b", type: "bazel", target: "//a" });
-        expect(task).toBeUndefined();
-        expect(problems[0]).toMatch(
-            /^Warning: task of type 'bazel' customizes a task of an extension; this is not supported yet\./u,
-        );
+    it("запись с незнакомым типом провайдера — ошибка эталона, ни задачи, ни кастомизации", () => {
+        const result = parse({ version: "2.0.0", tasks: [{ label: "b", type: "bazel", target: "//a" }] });
+        expect(result.tasks).toStrictEqual([]);
+        expect(result.configuring).toStrictEqual([]);
+        expect(result.problems).toStrictEqual([
+            "Error: there is no registered task type 'bazel'. Did you miss installing an extension that provides a corresponding task provider?",
+        ]);
     });
 
     it("dependsOn, runOn folderOpen, instanceLimit > 1, inputs — предупреждения, задача остаётся", () => {
@@ -277,11 +279,13 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
     it("версия не 2.0.0 — ни одной задачи и ошибка; не объект и без tasks — пусто молча", () => {
         expect(parse({ version: "0.1.0", tasks: [{ label: "a", command: "x" }] })).toStrictEqual({
             tasks: [],
+            configuring: [],
             problems: ["Error: tasks.json version '0.1.0' is not supported. Use version \"2.0.0\"."],
         });
-        expect(parse([1])).toStrictEqual({ tasks: [], problems: [] });
-        expect(parse({ version: "2.0.0" })).toStrictEqual({ tasks: [], problems: [] });
-        expect(parse({ version: "2.0.0", tasks: [1, null] })).toStrictEqual({ tasks: [], problems: [] });
+        const empty = { tasks: [], configuring: [], problems: [] };
+        expect(parse([1])).toStrictEqual(empty);
+        expect(parse({ version: "2.0.0" })).toStrictEqual(empty);
+        expect(parse({ version: "2.0.0", tasks: [1, null] })).toStrictEqual(empty);
     });
 });
 

@@ -1,6 +1,6 @@
 // Команды задач (`task.contribution.ts` + `_registerCommands` эталона): Run
 // Task, Rerun Last Task, Restart Running Task, Terminate Task, Show Running
-// Tasks — с заголовками палитры эталона и пунктами меню Terminal.
+// Tasks, Configure Task — с заголовками палитры эталона и пунктами меню Terminal.
 
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
@@ -9,12 +9,14 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { ITask } from "../common/tasks.ts";
 
+import { configureTaskCommand } from "./configureTask.ts";
 import { pickTaskToRun } from "./taskQuickPick.ts";
 import { TaskServiceDIToken } from "./taskService.ts";
 
 /** Группы меню Terminal эталона (`TerminalMenuBarGroup`). */
 export const TERMINAL_MENU_RUN_GROUP = "3_run";
 export const TERMINAL_MENU_MANAGE_GROUP = "5_manage";
+export const TERMINAL_MENU_CONFIGURE_GROUP = "7_configure";
 
 /** `TASK_RUNNING_STATE` эталона: пункты «управления» гаснут, пока ничего не бежит. */
 const TASK_RUNNING = "taskRunning";
@@ -43,7 +45,9 @@ export async function runTaskCommand(accessor: ServiceAccessor, arg?: unknown): 
             accessor.get(IConfigurationServiceDIToken),
             type,
         );
-        if (task !== undefined) runInBackground(task);
+        // `null` — «Configure a Task» пустого пикера.
+        if (task === null) await configureTaskCommand(accessor);
+        else if (task !== undefined) runInBackground(task);
     };
     const identifier = service.taskIdentifierOf(arg);
     if (identifier === undefined) {
@@ -179,6 +183,22 @@ export const showTasksAction: CommandAction = {
     },
 };
 
+export const configureTaskAction: CommandAction = {
+    id: "workbench.action.tasks.configureTaskRunner",
+    title: "Tasks: Configure Task",
+    menus: [
+        {
+            menuId: MenuId.MenubarTerminalMenu,
+            group: TERMINAL_MENU_CONFIGURE_GROUP,
+            order: 1,
+            title: "Configure Tasks...",
+        },
+    ],
+    run(accessor) {
+        return configureTaskCommand(accessor);
+    },
+};
+
 /** Экшены задач. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const TASKS_ACTIONS: readonly CommandAction[] = [
     runTaskAction,
@@ -186,4 +206,5 @@ export const TASKS_ACTIONS: readonly CommandAction[] = [
     restartTaskAction,
     terminateTaskAction,
     showTasksAction,
+    configureTaskAction,
 ];

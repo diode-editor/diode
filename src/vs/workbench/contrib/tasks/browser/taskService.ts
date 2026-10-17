@@ -2,8 +2,9 @@
 // задачи из `.diode/tasks.json` и от провайдеров расширений, запуск через
 // {@link TerminalTaskSystem}, Rerun / Restart / Terminate / Show Running,
 // политика повторного запуска (`instancePolicy`), `task.saveBeforeRun`,
-// активация провайдеров (`onTaskType:`) и ключ `taskRunning`.
-// Пикеры — `taskQuickPick.ts`, команды — `taskActions.ts`.
+// активация провайдеров (`onTaskType:`), кастомизации задач провайдеров из
+// tasks.json и ключ `taskRunning`. Пикеры — `taskQuickPick.ts`, команды —
+// `taskActions.ts`, Configure Task — `configureTask.ts`.
 
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -49,8 +50,13 @@ import { type OutputService, OutputServiceDIToken } from "../../../services/outp
 import { type TerminalService, TerminalServiceDIToken } from "../../terminal/browser/terminalService.ts";
 import { type DefaultShellResolver, DefaultShellResolverDIToken } from "../../terminal/common/defaultShell.ts";
 import type { IExtensionPtyTerminals } from "../../terminal/common/extensionPtyTerminals.ts";
-import { currentTaskPlatform, parseTasksJson, type TaskPlatform } from "../common/taskConfiguration.ts";
-import { compareTasks, type ITask, taskMatches } from "../common/tasks.ts";
+import {
+    createCustomizedTask,
+    currentTaskPlatform,
+    parseTasksJson,
+    type TaskPlatform,
+} from "../common/taskConfiguration.ts";
+import { compareTasks, type IConfiguringTask, type ITask, taskMatches } from "../common/tasks.ts";
 
 import {
     type ITaskEvent,
@@ -84,7 +90,6 @@ export interface ITaskQuickPickEntry extends QuickPickItem {
 /** Сколько ждать провайдера и активации расширений (`raceTimeout(…, 5000)` эталона). */
 export const TASK_PROVIDER_TIMEOUT_MS = 5000;
 
-/** Где лежит конфигурация задач папки — как у эталона (Diode её только читает). */
 /** tasks.json проекта относительно папки (у эталона — `.vscode/tasks.json`). */
 export const TASKS_JSON_PATH = workspaceConfigFilePath("tasks.json");
 
@@ -92,6 +97,14 @@ export const TaskServiceDIToken = token<TaskService>("TaskService");
 
 /** Канал лога задач (панель Output, «Tasks»). */
 const TASKS_LOG_CHANNEL = "tasks";
+
+/** Задачи tasks.json папки: свои и кастомизации задач провайдеров. */
+export interface IWorkspaceTaskConfiguration {
+    readonly tasks: readonly ITask[];
+    readonly configuring: readonly IConfiguringTask[];
+}
+
+const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [] };
 
 /**
  * Активатор провайдеров: поднять расширения, которые дают задачи типа (или
@@ -141,8 +154,10 @@ export class TaskService extends Disposable {
     private readonly definitions = new Map<string, ITaskDefinitionSchema>();
     // Stryker disable next-line ArrowFunction: эквивалентный — гонка с таймаутом одинаково ждёт и undefined, и пустой промис
     private activator: TaskProviderActivator = () => Promise.resolve();
-    /** Текст tasks.json, о проблемах которого уже сказано в лог. */
+    /** Текст tasks.json (и известные типы), о проблемах которого уже сказано в лог. */
     private reportedTasksJson: string | undefined;
+    /** Кастомизации, о которых уже сказано «провайдер такую задачу не дал». */
+    private readonly reportedUnmatched = new Set<string>();
     private readonly platform: TaskPlatform = currentTaskPlatform();
 
     public readonly onDidStateChange: Event<ITaskEvent>;
@@ -251,24 +266,42 @@ export class TaskService extends Disposable {
 
     /** Задачи tasks.json первой папки (мультирута нет); перечитываются на каждом запросе. */
     public async getWorkspaceTasks(): Promise<readonly ITask[]> {
+        return (await this.getWorkspaceConfiguration()).tasks;
+    }
+
+    /**
+     * Свои задачи tasks.json и записи-кастомизации задач провайдеров
+     * (`getWorkspaceTasks` эталона: `set` и `configurations`).
+     */
+    public async getWorkspaceConfiguration(): Promise<IWorkspaceTaskConfiguration> {
         const folder = this.folder();
         // Stryker disable next-line ConditionalExpression: эквивалентный — без папки чтение ниже падает в catch и даёт тот же пустой список
-        if (folder === undefined) return [];
+        if (folder === undefined) return NO_WORKSPACE_TASKS;
         let text: string;
         try {
             const content = await this.files.readFile(Uri.joinPath(folder.uri, TASKS_JSON_PATH));
             text = new TextDecoder().decode(content.value);
         } catch {
-            return [];
+            return NO_WORKSPACE_TASKS;
         }
-        const { tasks, problems } = parseTasksJson(text, folder, this.platform);
-        if (text !== this.reportedTasksJson) {
-            this.reportedTasksJson = text;
+        const { tasks, configuring, problems } = parseTasksJson(text, folder, this.platform, (type) =>
+            this.definitions.get(type),
+        );
+        // Тип провайдера мог появиться после прошлого чтения — тогда сказать заново.
+        const reportKey = `${text}\0${this.taskDefinitionTypes().join(",")}`;
+        if (reportKey !== this.reportedTasksJson) {
+            this.reportedTasksJson = reportKey;
             for (const problem of problems) this.logger.warn(problem);
             // Ошибки (не предупреждения) человеку — тостом с переходом в лог (`_showOutput` эталона).
             if (problems.some((problem) => problem.startsWith("Error:"))) this.promptToShowOutput();
         }
-        return tasks;
+        return { tasks, configuring };
+    }
+
+    /** tasks.json папки, из которой берутся задачи (первой); без папки — `undefined`. */
+    public tasksJsonUri(): Uri | undefined {
+        const folder = this.folder();
+        return folder === undefined ? undefined : Uri.joinPath(folder.uri, TASKS_JSON_PATH);
     }
 
     /**
@@ -287,11 +320,52 @@ export class TaskService extends Disposable {
     /**
      * tasks.json и задачи провайдеров (только типа `type`, если он задан) без
      * фильтра (`_getGroupedTasks` эталона): среди них команда Run Task ищет
-     * задачу по аргументу.
+     * задачу по аргументу. Задача провайдера, которую кастомизирует запись
+     * tasks.json, приходит слитой с ней; запись, которой провайдер задачи не
+     * дал, — ошибкой эталона в лог (`resolveTask` провайдера не спрашиваем).
      */
     public async groupedTasks(type?: string): Promise<ITask[]> {
-        const [workspace, contributed] = await Promise.all([this.getWorkspaceTasks(), this.contributedTasks(type)]);
-        return [...workspace, ...contributed];
+        const [workspace, contributed] = await Promise.all([
+            this.getWorkspaceConfiguration(),
+            this.contributedTasks(type),
+        ]);
+        // По ключу определения, а не по id: id задачи с `CustomExecution` даёт само расширение.
+        const byKey = new Map(workspace.configuring.map((configuring) => [configuring.configures._key, configuring]));
+        const merged = contributed.map((task) => {
+            const configuring = byKey.get(task.definition._key);
+            if (configuring === undefined) return task;
+            byKey.delete(task.definition._key);
+            return createCustomizedTask(task, configuring);
+        });
+        for (const unmatched of byKey.values()) {
+            if (type === undefined || unmatched.type === type) this.reportUnmatched(unmatched);
+        }
+        return [...workspace.tasks, ...merged];
+    }
+
+    /**
+     * Задача, которую кастомизирует запись tasks.json (`_toTask` эталона для
+     * `ConfiguringTask`): задача провайдера, слитая с записью; провайдер её не
+     * дал — `undefined` (и ошибка в лог).
+     */
+    public async resolveConfiguringTask(configuring: IConfiguringTask): Promise<ITask | undefined> {
+        return (await this.groupedTasks(configuring.type)).find(
+            (task) =>
+                task.configIndex === configuring.configIndex && task.definition._key === configuring.configures._key,
+        );
+    }
+
+    private reportUnmatched(configuring: IConfiguringTask): void {
+        const element = JSON.stringify(configuring.element, undefined, 4);
+        const key = `${configuring._id}\0${element}`;
+        if (this.reportedUnmatched.has(key)) return;
+        this.reportedUnmatched.add(key);
+        // Провайдеры выключены (`task.autoDetect: off`) — задач типа нет вовсе (текст эталона).
+        this.logger.warn(
+            this.isProvideTasksEnabled()
+                ? `Error: The ${configuring.type} task detection didn't contribute a task for the following configuration:\n${element}\nThe task will be ignored.`
+                : `Warning: ${configuring.type} tasks are unavailable in the current environment.`,
+        );
     }
 
     /** Бегущие задачи в порядке запуска. */
