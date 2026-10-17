@@ -380,10 +380,9 @@ function customizationFrom(
     const section = external[platform];
     const os: Json = isObject(section) ? section : {};
     // Слияние с пустыми опциями отсеивает незаданные env/shell (как у задачи — с опциями по умолчанию).
-    const options = mergeOptions(
-        mergeOptions({}, optionsFrom(external.options, problems)),
-        optionsFrom(os.options, problems),
-    );
+    const options =
+        mergeOptions(mergeOptions({}, optionsFrom(external.options, problems)), optionsFrom(os.options, problems)) ??
+        {};
     const presentation = { ...presentationFrom(external.presentation), ...presentationFrom(os.presentation) };
     const name = label ?? String(external.type);
     if (external.dependsOn !== undefined) {
@@ -397,7 +396,7 @@ function customizationFrom(
         ...(typeof external.isBackground === "boolean" ? { isBackground: external.isBackground } : {}),
         ...(external.problemMatcher !== undefined ? { problemMatchers: matchersOf(external.problemMatcher) } : {}),
         presentation,
-        ...(options !== undefined && Object.keys(options).length > 0 ? { options } : {}),
+        ...(Object.keys(options).length > 0 ? { options } : {}),
         runOptions: runOptionsFrom(external.runOptions, name, problems),
     };
 }

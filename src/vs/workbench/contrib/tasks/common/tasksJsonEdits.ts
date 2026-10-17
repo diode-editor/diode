@@ -36,7 +36,10 @@ export function expandTemplateTabs(content: string, indentation: ITasksJsonInden
     );
 }
 
-function formattingOf(text: string, indentation: ITasksJsonIndentation): FormattingOptions {
+function formattingOf(
+    text: string,
+    indentation: ITasksJsonIndentation,
+): Required<Pick<FormattingOptions, "insertSpaces" | "tabSize" | "eol">> {
     return { ...indentation, eol: text.includes("\r\n") ? "\r\n" : "\n" };
 }
 
@@ -100,24 +103,36 @@ export function appendTaskEntry(
     if (text.trim() === "") return { text: newTasksJsonWith(entry, indentation), index: 0 };
     const options = { formattingOptions: formattingOf(text, indentation) };
     let next = text;
+    // Stryker disable next-line OptionalChaining: эквивалентный — текст пригоден для записи (контракт), разбор даёт объект; `?.` — для типов
     if (parseObject(next)?.version === undefined) {
         next = applyEdits(next, modify(next, ["version"], "2.0.0", options));
     }
-    const root = parseTree(next, [], { allowTrailingComma: true, disallowComments: false });
-    const tasks = root === undefined ? undefined : findNodeAtLocation(root, ["tasks"]);
+    const tasks = findTasksNode(next, []);
     if (tasks?.type !== "array") {
         return { text: applyEdits(next, modify(next, ["tasks"], [entry], options)), index: 0 };
     }
-    return {
-        text: insertLastElement(next, tasks, entry, options.formattingOptions),
-        index: tasks.children?.length ?? 0,
-    };
+    // Stryker disable next-line ArrayDeclaration: эквивалентный — у узла-массива jsonc-parser `children` есть всегда (у пустого — []); фоллбэк — для типов
+    const children = tasks.children ?? [];
+    return { text: insertLastElement(next, tasks, children, entry, options.formattingOptions), index: children.length };
 }
 
-/** Отступ строки, в которой лежит смещение. */
+/** Узел `tasks` (или `tasks[index]`, если путь продолжен); пустой текст — `undefined`. */
+function findTasksNode(text: string, rest: readonly number[]): Node | undefined {
+    // Разбор терпимый сам: висячие запятые — ошибка в `errors`, дерево строится всё равно.
+    const root = parseTree(text);
+    return root === undefined ? undefined : findNodeAtLocation(root, ["tasks", ...rest]);
+}
+
+function lineStartOf(text: string, offset: number): number {
+    return text.lastIndexOf("\n", offset - 1) + 1;
+}
+
+/** Отступ строки, в которой лежит смещение: пробелы и табы от начала строки. */
 function lineIndentAt(text: string, offset: number): string {
-    const lineStart = text.lastIndexOf("\n", offset - 1) + 1;
-    return /^[ \t]*/u.exec(text.slice(lineStart))?.[0] ?? "";
+    const lineStart = lineStartOf(text, offset);
+    let end = lineStart;
+    while (text.charAt(end) === " " || text.charAt(end) === "\t") end++;
+    return text.slice(lineStart, end);
 }
 
 /**
@@ -126,41 +141,50 @@ function lineIndentAt(text: string, offset: number): string {
  * комментариями. Отступ элемента — как у последнего элемента на своей строке,
  * иначе отступ строки массива плюс шаг.
  */
-function insertLastElement(text: string, array: Node, entry: Json, formatting: FormattingOptions): string {
-    const eol = formatting.eol ?? "\n";
-    const unit = formatting.insertSpaces === true ? " ".repeat(formatting.tabSize ?? 4) : "\t";
+function insertLastElement(
+    text: string,
+    array: Node,
+    children: readonly Node[],
+    entry: Json,
+    formatting: Required<Pick<FormattingOptions, "insertSpaces" | "tabSize" | "eol">>,
+): string {
+    const { eol } = formatting;
+    const unit = formatting.insertSpaces ? " ".repeat(formatting.tabSize) : "\t";
     const close = array.offset + array.length - 1;
-    const arrayIndent = lineIndentAt(text, close);
-    const last = array.children?.at(-1);
-    const lastOnOwnLine =
-        last !== undefined && /^[ \t]*$/u.test(text.slice(text.lastIndexOf("\n", last.offset - 1) + 1, last.offset));
-    const indent =
-        last !== undefined && lastOnOwnLine ? lineIndentAt(text, last.offset) : lineIndentAt(text, array.offset) + unit;
-    // Пробелы и переводы строк перед `]` уходят: элемент встаёт за последним непробельным (запятой или комментарием).
+    // Пробелы и переводы строк перед `]` уходят: элемент встаёт за последним непробельным
+    // (запятой, комментарием или `[`).
     let insertAt = close;
-    while (insertAt > array.offset + 1 && /\s/u.test(text.charAt(insertAt - 1))) insertAt--;
-    const body = JSON.stringify(entry, undefined, unit)
-        .split("\n")
-        .join(eol + indent);
-    const element = `${eol}${indent}${body}${eol}${arrayIndent}`;
-    const lastEnd = last === undefined ? undefined : last.offset + last.length;
-    const comma = lastEnd !== undefined && !hasComma(text, lastEnd, close) ? "," : "";
-    if (lastEnd === undefined || comma === "") return text.slice(0, insertAt) + element + text.slice(close);
+    while (/\s/u.test(text.charAt(insertAt - 1))) insertAt--;
+    const elementAt = (indent: string): string => {
+        const body = JSON.stringify(entry, undefined, unit)
+            .split("\n")
+            .join(eol + indent);
+        return `${eol}${indent}${body}${eol}${lineIndentAt(text, close)}`;
+    };
+    const last = children.at(-1);
+    const arrayStepIndent = lineIndentAt(text, array.offset) + unit;
+    if (last === undefined) return text.slice(0, insertAt) + elementAt(arrayStepIndent) + text.slice(close);
+    // Последний элемент один в начале своей строки — его отступ; иначе (делит строку с `[`) — от массива.
+    const lastIndent = lineIndentAt(text, last.offset);
+    const ownLine = lineStartOf(text, last.offset) + lastIndent.length === last.offset;
+    const element = elementAt(ownLine ? lastIndent : arrayStepIndent);
+    const lastEnd = last.offset + last.length;
+    const comma = hasComma(text, lastEnd, close) ? "" : ",";
     return text.slice(0, lastEnd) + comma + text.slice(lastEnd, insertAt) + element + text.slice(close);
 }
 
-/** Есть ли запятая между концом последнего элемента и `]` (висячая запятая JSONC). */
+/**
+ * Есть ли запятая между концом последнего элемента и `]` (висячая запятая
+ * JSONC). Двоеточия там не бывает — любой разделитель в этом промежутке запятая.
+ */
 function hasComma(text: string, from: number, to: number): boolean {
     let found = false;
-    visit(
-        text,
-        {
-            onSeparator: (character, offset) => {
-                if (character === "," && offset >= from && offset < to) found = true;
-            },
+    visit(text, {
+        onSeparator: (_character, offset) => {
+            // Stryker disable next-line EqualityOperator: эквивалентный — на `to` стоит `]`, разделителя там не бывает
+            if (offset >= from && offset < to) found = true;
         },
-        { allowTrailingComma: true, disallowComments: false },
-    );
+    });
     return found;
 }
 
@@ -183,7 +207,6 @@ export function taskEntryRange(
     text: string,
     index: number,
 ): { readonly start: number; readonly end: number } | undefined {
-    const root = parseTree(text, [], { allowTrailingComma: true, disallowComments: false });
-    const node = root === undefined ? undefined : findNodeAtLocation(root, ["tasks", index]);
+    const node = findTasksNode(text, [index]);
     return node === undefined ? undefined : { start: node.offset, end: node.offset + node.length };
 }

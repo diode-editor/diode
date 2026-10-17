@@ -89,8 +89,10 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     let activeEditor: { uri: Uri; primaryCursorLine: number } | null = null;
     const saveAll = vi.fn(() => Promise.resolve());
     let opened: IFakeOpenedEditor | null = null;
+    let openFails = false;
     const openUri = vi.fn((uri: Uri) => {
-        opened = { uri, goToPosition: vi.fn(), revealRange: vi.fn() };
+        // Не открылось — активным остаётся прежний редактор (как при сбое провайдера ресурса).
+        if (!openFails) opened = { uri, goToPosition: vi.fn(), revealRange: vi.fn() };
         return Promise.resolve();
     });
     let openModel: { isModified: boolean; revertToDisk: ReturnType<typeof vi.fn> } | null = null;
@@ -149,6 +151,10 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         openUri,
         /** Редактор, открытый последним `openUri`. */
         opened: (): IFakeOpenedEditor | null => opened,
+        /** Следующие `openUri` ресурс не открывают. */
+        setOpenFails: (fails: boolean): void => {
+            openFails = fails;
+        },
         /** Текущий текст tasks.json (`undefined` — файла нет). */
         tasksJson: (): string | undefined => tasksJson,
         /** tasks.json открыт в редакторе: с несохранёнными правками или нет. */

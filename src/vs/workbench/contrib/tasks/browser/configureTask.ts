@@ -80,17 +80,18 @@ export async function configureTaskCommand(accessor: ServiceAccessor): Promise<v
     if (entry === undefined || uri === undefined) return;
     if (entry.task !== undefined) {
         await (isConfiguredTask(entry.task)
-            ? openConfig(context, uri, entry.task)
+            ? openConfig(context, uri, text, entry.task)
             : customize(context, uri, entry.task));
-    } else if (entry.tasksJson === true) {
+    } else {
+        // Строка без задачи — только «Create/Open tasks.json file».
         await openTaskFile(context, uri);
     }
 }
 
 /** Своя задача (или уже кастомизированная): tasks.json на её записи. */
-async function openConfig(context: IConfigureContext, uri: Uri, task: ITask): Promise<void> {
-    // Stryker disable next-line ConditionalExpression: эквивалентный — у своей задачи индекс записи есть всегда; -1 — для типов
-    await openAtEntry(context, uri, (await readText(context.files, uri)) ?? "", task.configIndex ?? -1);
+async function openConfig(context: IConfigureContext, uri: Uri, text: string | undefined, task: ITask): Promise<void> {
+    // Stryker disable next-line StringLiteral,UnaryOperator: эквивалентный — своя задача прочитана из этого файла, у неё есть и текст, и индекс записи; фоллбэки — для типов
+    await openAtEntry(context, uri, text ?? "", task.configIndex ?? -1);
 }
 
 /** Задача провайдера: её кастомизация — в конец `tasks`, файл — на ней (`customize` эталона). */
@@ -173,9 +174,11 @@ function indentationOf(configuration: IConfigurationService): ITasksJsonIndentat
 }
 
 async function readText(files: IFileService, uri: Uri | undefined): Promise<string | undefined> {
+    // Stryker disable next-line ConditionalExpression: эквивалентный — readFile(undefined) бросает, и catch ниже даёт тот же undefined; проверка — для типов
     if (uri === undefined) return undefined;
     try {
         return new TextDecoder().decode((await files.readFile(uri)).value);
+        // Stryker disable next-line BlockStatement: эквивалентный — пустой catch тоже возвращает undefined
     } catch {
         return undefined;
     }

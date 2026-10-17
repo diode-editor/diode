@@ -29,7 +29,7 @@ interface IRunTaskEntry extends ITaskQuickPickEntry {
     readonly configure?: true;
 }
 
-/** Задачи первого уровня: свои и записи-кастомизации tasks.json без скрытых, по подписи. */
+/** Задачи первого уровня: свои и записи-кастомизации tasks.json без скрытых (порядок — по подписи в строках). */
 interface IConfiguredTasks {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
@@ -43,7 +43,7 @@ function withGroupLabel(entries: readonly IRunTaskEntry[], label: string): IRunT
 async function configuredTasks(service: TaskService): Promise<IConfiguredTasks> {
     const { tasks, configuring } = await service.getWorkspaceConfiguration();
     return {
-        tasks: tasks.filter((task) => task.hide !== true).sort(compareTasks),
+        tasks: tasks.filter((task) => task.hide !== true),
         configuring: configuring.filter((entry) => entry.customization.hide !== true),
     };
 }

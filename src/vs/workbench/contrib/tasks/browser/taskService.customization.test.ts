@@ -90,12 +90,25 @@ describe("TaskService — кастомизации задач провайдер
         h.withNpm(["lint"]);
         await h.service.groupedTasks("gulp");
         expect(h.logger.warn).not.toHaveBeenCalled();
-        await h.service.groupedTasks();
         await h.service.groupedTasks("npm");
+        await h.service.groupedTasks();
         expect(h.logger.warn).toHaveBeenCalledTimes(1);
         expect(h.logger.warn.mock.calls[0][0]).toBe(
             'Error: The npm task detection didn\'t contribute a task for the following configuration:\n{\n    "type": "npm",\n    "script": "gone"\n}\nThe task will be ignored.',
         );
+        h.dispose();
+    });
+
+    it("две записи без задачи — по сообщению на каждую", async () => {
+        const h = build({
+            tasksJson: tasksJsonOf([
+                { type: "npm", script: "x" },
+                { type: "npm", script: "y" },
+            ]),
+        });
+        h.withNpm(["lint"]);
+        await h.service.groupedTasks();
+        expect(h.logger.warn).toHaveBeenCalledTimes(2);
         h.dispose();
     });
 
@@ -127,6 +140,7 @@ describe("TaskService — кастомизации задач провайдер
     it("resolveConfiguringTask — слитая задача той записи; провайдер не дал — undefined", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
+                { label: "own", command: "x" },
                 { type: "npm", script: "lint", label: "A" },
                 { type: "npm", script: "gone", label: "B" },
             ]),

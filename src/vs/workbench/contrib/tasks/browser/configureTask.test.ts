@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { makeTask } from "../../../../../TestUtils/taskFixtures.ts";
 import { buildTaskServiceHarness, tasksJsonOf } from "../../../../../TestUtils/taskServiceHarness.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
+import { type IFileContent, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor, Token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ITaskDefinitionSchema } from "../../../api/common/taskIdentity.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
@@ -125,6 +126,47 @@ describe("Configure Task — пикер", () => {
         await configureTaskAction.run(h.accessor);
         expect(h.lastPickLabels()).toStrictEqual(["npm: lint"]);
         expect(h.writeFile).not.toHaveBeenCalled();
+        h.dispose();
+    });
+});
+
+describe("Configure Task — открытие на записи", () => {
+    const twoTasks = tasksJsonOf([
+        { label: "a", command: "x" },
+        { label: "b", command: "y" },
+    ]);
+
+    it("файл не открылся — каретку не трогаем ни в чём (ни без редактора, ни в чужом)", async () => {
+        const h = build({ tasksJson: twoTasks });
+        h.setOpenFails(true);
+        h.answerPicks("b");
+        await configureTaskAction.run(h.accessor);
+        expect(h.opened()).toBeNull();
+        h.setOpenFails(false);
+        await h.editors.openUri(Uri.file("/ws/other.txt"));
+        const other = h.opened();
+        h.setOpenFails(true);
+        h.answerPicks("b");
+        await configureTaskAction.run(h.accessor);
+        expect(other?.goToPosition).not.toHaveBeenCalled();
+        h.dispose();
+    });
+
+    it("файл поменялся между чтениями и записи уже нет — файл открыт, каретка на месте", async () => {
+        const h = build({ tasksJson: twoTasks });
+        // Первое чтение — список задач сервиса, второе — текст для поиска записи.
+        h.readFile.mockImplementationOnce(() =>
+            Promise.resolve({ value: new TextEncoder().encode(twoTasks) } as IFileContent),
+        );
+        h.readFile.mockImplementationOnce(() =>
+            Promise.resolve({
+                value: new TextEncoder().encode(tasksJsonOf([{ label: "a", command: "x" }])),
+            } as IFileContent),
+        );
+        h.answerPicks("b");
+        await configureTaskAction.run(h.accessor);
+        expect(h.openUri).toHaveBeenCalledTimes(1);
+        expect(h.opened()?.goToPosition).not.toHaveBeenCalled();
         h.dispose();
     });
 });

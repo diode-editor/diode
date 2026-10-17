@@ -288,7 +288,7 @@ export class TaskService extends Disposable {
             this.definitions.get(type),
         );
         // Тип провайдера мог появиться после прошлого чтения — тогда сказать заново.
-        const reportKey = `${text}\0${this.taskDefinitionTypes().join(",")}`;
+        const reportKey = JSON.stringify([text, this.taskDefinitionTypes()]);
         if (reportKey !== this.reportedTasksJson) {
             this.reportedTasksJson = reportKey;
             for (const problem of problems) this.logger.warn(problem);
@@ -350,14 +350,14 @@ export class TaskService extends Disposable {
      */
     public async resolveConfiguringTask(configuring: IConfiguringTask): Promise<ITask | undefined> {
         return (await this.groupedTasks(configuring.type)).find(
-            (task) =>
-                task.configIndex === configuring.configIndex && task.definition._key === configuring.configures._key,
+            // Индекс записи у задачи — только у задачи из этой записи (свои задачи стоят на других индексах).
+            (task) => task.configIndex === configuring.configIndex,
         );
     }
 
     private reportUnmatched(configuring: IConfiguringTask): void {
         const element = JSON.stringify(configuring.element, undefined, 4);
-        const key = `${configuring._id}\0${element}`;
+        const key = JSON.stringify([configuring._id, element]);
         if (this.reportedUnmatched.has(key)) return;
         this.reportedUnmatched.add(key);
         // Провайдеры выключены (`task.autoDetect: off`) — задач типа нет вовсе (текст эталона).

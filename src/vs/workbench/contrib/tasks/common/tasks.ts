@@ -186,9 +186,9 @@ export interface IConfiguringTask {
     readonly element: Readonly<Record<string, unknown>>;
 }
 
-/** Задача tasks.json: своя задача или кастомизация задачи провайдера. */
+/** Задача tasks.json: своя задача или кастомизация задачи провайдера — у обеих есть запись в файле. */
 export function isConfiguredTask(task: ITask): boolean {
-    return task.source.kind === "workspace" || task.configIndex !== undefined;
+    return task.configIndex !== undefined;
 }
 
 /** Папка задачи — её рабочий каталог и `${workspaceFolder}`. */

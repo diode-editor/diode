@@ -85,11 +85,32 @@ describe("parseTasksJson — кастомизации задач провайд�
             runOptions: DEFAULT_RUN_OPTIONS,
         });
         expect(bare._label).toBe("npm");
+        expect(bare.customization).toStrictEqual({ presentation: {}, runOptions: DEFAULT_RUN_OPTIONS });
+    });
+
+    it("label не строкой или пустой — подпись по обязательному; обязательное не строкой — JSON", () => {
+        const labels = configure([
+            { type: "npm", script: "a", label: 5 },
+            { type: "npm", script: "b", label: "" },
+        ]).configuring.map((c) => [c._label, c.customization.label]);
+        expect(labels).toStrictEqual([
+            ["npm: a", undefined],
+            ["npm: b", undefined],
+        ]);
+        const objectSchema: ITaskDefinitionSchema = { ...npmSchema, required: ["spec"], properties: { spec: {} } };
+        const [withObject] = parseTasksJson(
+            JSON.stringify({ version: "2.0.0", tasks: [{ type: "npm", spec: { a: 1 } }] }),
+            folder,
+            "linux",
+            () => objectSchema,
+        ).configuring;
+        expect(withObject._label).toBe('npm: {"a":1}');
     });
 
     it("незнакомый тип, тип не строкой, dependsOn, кривые опции — сообщения эталона", () => {
         const { configuring, problems } = configure([
             { type: 1, label: "t" },
+            { type: "", label: "e" },
             { type: "bazel", label: "b" },
             { type: "npm", script: "a", dependsOn: ["b"], options: { cwd: 1 } },
         ]);
@@ -97,7 +118,10 @@ describe("parseTasksJson — кастомизации задач провайд�
         expect(problems[0]).toMatch(
             /^Error: tasks configuration must have a type property\. The configuration will be ignored\.\n\{\n {4}"type": 1,/u,
         );
-        expect(problems.slice(1)).toStrictEqual([
+        expect(problems[1]).toMatch(
+            /^Error: tasks configuration must have a type property\. The configuration will be ignored\.\n\{\n {4}"type": "",/u,
+        );
+        expect(problems.slice(2)).toStrictEqual([
             "Error: there is no registered task type 'bazel'. Did you miss installing an extension that provides a corresponding task provider?",
             "Warning: options.cwd must be of type string. Ignoring value 1",
             "Warning: task 'npm': dependsOn is not supported; the task runs without its dependencies.",
@@ -113,6 +137,8 @@ describe("parseTasksJson — кастомизации задач провайд�
             () => strict,
         );
         expect(configuring).toStrictEqual([]);
+        // Сначала — сообщение схемы о негодном обязательном свойстве, затем — эталонное «unknown type».
+        expect(problems).toHaveLength(2);
         expect(problems.at(-1)).toBe(
             `Error: the task configuration '{"type":"npm"}' is using an unknown type. The task configuration will be ignored.`,
         );

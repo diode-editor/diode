@@ -69,6 +69,20 @@ describe("appendTaskEntry", () => {
             index: 0,
         });
     });
+
+    it("отступ — как у последней записи на своей строке, даже не кратный шагу; чужая версия не трогается", () => {
+        const text = '{\n  "version": "0.1.0",\n  "tasks": [\n      {"a": 1}\n  ]\n}';
+        expect(appendTaskEntry(text, { b: 2 }, { insertSpaces: true, tabSize: 2 }).text).toBe(
+            '{\n  "version": "0.1.0",\n  "tasks": [\n      {"a": 1},\n      {\n        "b": 2\n      }\n  ]\n}',
+        );
+    });
+
+    it("запись делит строку с `[` и переносит `{` — отступ от массива; запятая после `]` не считается", () => {
+        const text = '{\n  "version": "2.0.0",\n  "tasks": [{\n    "a": 1\n  }],\n  "x": [1, 2]\n}';
+        expect(appendTaskEntry(text, { b: 2 }, { insertSpaces: true, tabSize: 2 }).text).toBe(
+            '{\n  "version": "2.0.0",\n  "tasks": [{\n    "a": 1\n  },\n    {\n      "b": 2\n    }\n  ],\n  "x": [1, 2]\n}',
+        );
+    });
 });
 
 describe("шаблоны и новый файл", () => {
@@ -89,6 +103,9 @@ describe("шаблоны и новый файл", () => {
     it("applyTaskTemplate — пустой файл получает шаблон; иначе ключи шаблона поверх", () => {
         const [, , , others] = getTaskTemplates();
         expect(applyTaskTemplate("", others.content, tabs)).toBe(others.content);
+        expect(applyTaskTemplate(" \n", others.content, tabs)).toBe(others.content);
+        // Новые ключи — отформатированы отступом редактора.
+        expect(applyTaskTemplate('{\n    "x": 1\n}', others.content, spaces4)).toContain('\n    "version": "2.0.0",\n');
         const merged = applyTaskTemplate('{ "version": "1.0.0", "x": 1 }', others.content, spaces4);
         expect(JSON.parse(merged)).toStrictEqual({
             version: "2.0.0",
@@ -111,6 +128,9 @@ describe("разбор и поиск", () => {
     it("isWritableTasksJson / tasksJsonHasTasks", () => {
         expect(isWritableTasksJson("")).toBe(true);
         expect(isWritableTasksJson("{ // c\n }")).toBe(true);
+        expect(isWritableTasksJson('{ "a": 1, }')).toBe(true);
+        expect(isWritableTasksJson(" \n\t")).toBe(true);
+        expect(isWritableTasksJson("5")).toBe(false);
         expect(isWritableTasksJson("{ oops")).toBe(false);
         expect(isWritableTasksJson("[]")).toBe(false);
         expect(isWritableTasksJson("null")).toBe(false);
