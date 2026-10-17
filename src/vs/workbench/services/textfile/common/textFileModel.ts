@@ -294,9 +294,9 @@ export class TextFileModel extends BaseTextEditorModel {
         this.applyEncoding(encoding);
         this.diskStat = this.readDiskStat(filePath);
         this.diskConflictValue = false;
-        // Файл прочитан с диска — он есть. Пропавший файл перечитка не воскрешает
-        // (байтов нет — документ пуст), флаг остаётся; событие шлёт вызывающий.
-        if (this.diskStat !== null) this.orphanedValue = false;
+        // Файл прочитан с диска — он есть (вернулся, а watcher промолчал).
+        // Пропавший файл перечитка не воскрешает: байтов нет, флаг остаётся.
+        if (this.diskStat !== null) this.setOrphaned(false);
         this.replaceText(content);
         mark("textfile:document-built", { lines: this.doc.lineCount });
         // Язык — после текста: у перечитки того же файла он прежний (no-op), а
@@ -494,8 +494,7 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     private cancelOrphanCheck(): void {
-        if (this.orphanCheck === null) return;
-        clearTimeout(this.orphanCheck);
+        clearTimeout(this.orphanCheck ?? undefined);
         this.orphanCheck = null;
     }
 

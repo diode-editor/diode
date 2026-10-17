@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
@@ -13,11 +14,13 @@ import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import type { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { FileService } from "../../../../platform/files/common/fileService.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { ORPHAN_CHECK_DELAY_MS } from "../../textfile/common/textFileModel.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
@@ -56,14 +59,16 @@ describe("EditorService — вкладки удалённого файла", () 
     let files: FileService;
     let watcher: FakeFileWatcher;
     let service: EditorService;
+    let config: InMemoryConfigurationService;
 
     function createService(closeOnFileDelete: boolean): EditorService {
+        config = createTestConfigurationService({ "workbench.editor.closeOnFileDelete": closeOnFileDelete });
         return new EditorService(
             new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
             new TokenizationRegistry(),
             NULL_TOKEN_STYLE_RESOLVER,
             NULL_LANGUAGE_SERVICE,
-            createTestConfigurationService({ "workbench.editor.closeOnFileDelete": closeOnFileDelete }),
+            config,
             new UndoRedoService(),
             watcher,
             createTestEditorContextMenuController(),
@@ -148,6 +153,25 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(service.editorGroups.groups.flatMap((group) => group.getPanes())).toEqual([]);
         });
 
+        it("панель другого вида под удалённым каталогом остаётся", () => {
+            const other: IEditorPane = {
+                uri: Uri.file(ws.path("src/c.txt")),
+                label: "c.txt (preview)",
+                view: new TUIElement(),
+                isModified: false,
+                readOnly: true,
+                getSelectedTexts: () => [],
+                onDidChangeState: () => ({ dispose: () => undefined }),
+                focusEditor: () => undefined,
+                dispose: () => undefined,
+            };
+            service.openPane(other);
+
+            service.handleDeletedFile(Uri.file(ws.path("src")));
+
+            expect(service.editorGroups.groups[0].getPanes()).toEqual([other]);
+        });
+
         it("вкладки без файловой модели по тому же пути (снимок) остаются", () => {
             const snapshot = service.openTextSnapshot(Uri.file(ws.path("a.txt")), {
                 text: "snapshot\n",
@@ -195,11 +219,27 @@ describe("EditorService — вкладки удалённого файла", () 
             service.openFile(ws.path("b.txt"));
             type(textPane(0, 1));
 
+            service.openFile(ws.path("src/c.txt"));
+
             deleteExternally("a.txt");
             deleteExternally("b.txt");
 
-            expect(tabs()).toEqual([ws.path("b.txt")]);
+            // Чистая c.txt жива: закрываются только вкладки удалённого файла.
+            expect(tabs()).toEqual([ws.path("b.txt"), ws.path("src/c.txt")]);
             expect(textPane(0, 0).isOrphaned).toBe(true);
+        });
+
+        it("closeOnFileDelete включили, пока вкладка была зачёркнута: вернувшийся файл её не закрывает", async () => {
+            vi.useFakeTimers();
+            service.openFile(ws.path("a.txt"));
+            deleteExternally("a.txt");
+            await config.updateValue("workbench.editor.closeOnFileDelete", true);
+
+            fs.writeFileSync(ws.path("a.txt"), "back\n");
+            watcher.fire(ws.path("a.txt"));
+
+            expect(tabs()).toEqual([ws.path("a.txt")]);
+            expect(textPane(0, 0).isOrphaned).toBe(false);
         });
 
         it("closeOnFileDelete: вернувшийся файл вкладку не закрывает", () => {

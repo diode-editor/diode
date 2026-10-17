@@ -62,6 +62,16 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
     }
 
+    /** В корзину и обратно — переносом, как корзина: mtime и размер те же до наносекунды. */
+    function trashAndRestore(fp: string): void {
+        fs.renameSync(fp, `${fp}.trashed`);
+        watcher.fire(fp);
+        vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
+        expect(pane.model.isOrphaned).toBe(true);
+        fs.renameSync(`${fp}.trashed`, fp);
+        watcher.fire(fp);
+    }
+
     it("пропавший файл после перепроверки — orphaned; текст буфера жив и не грязный", () => {
         const fp = open("a.txt", "keep\n");
 
@@ -88,6 +98,8 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         watcher.fire(fp);
         fs.writeFileSync(fp, "v2 longer\n");
         watcher.fire(fp);
+        // Вернувшийся файл гасит отложенную перепроверку.
+        expect(vi.getTimerCount()).toBe(0);
         vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
 
         expect(pane.model.isOrphaned).toBe(false);
@@ -120,17 +132,48 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
 
     it("файл вернулся тем же (восстановление из корзины сохраняет mtime) — флаг снят, текст прежний", () => {
         const fp = open("a.txt", "v1\n");
-        const stat = fs.statSync(fp);
-        const bytes = fs.readFileSync(fp);
-        deleteExternally(fp);
-
-        fs.writeFileSync(fp, bytes);
-        fs.utimesSync(fp, stat.atime, stat.mtime);
-        watcher.fire(fp);
+        trashAndRestore(fp);
 
         expect(pane.model.isOrphaned).toBe(false);
         expect(pane.getText()).toBe("v1\n");
         expect(pane.isModified).toBe(false);
+        // Только смены флага (взвёлся, снялся): перечитки тот же файл не вызывает.
+        expect(diskStateEvents).toBe(2);
+    });
+
+    it("тот же файл вернулся под «грязный» буфер — флаг снят без ложного конфликта", () => {
+        const fp = open("a.txt", "v1\n");
+        pane.viewState.type("Z");
+        trashAndRestore(fp);
+
+        expect(pane.model.isOrphaned).toBe(false);
+        expect(pane.hasDiskConflict).toBe(false);
+        expect(pane.getText()).toBe("Zv1\n");
+    });
+
+    it("вернувшийся без события watcher'а файл флаг снимает перечиткой — с событием", () => {
+        const fp = open("a.txt", "v1\n");
+        deleteExternally(fp);
+        fs.writeFileSync(fp, "back\n");
+
+        pane.revertToDisk();
+
+        expect(pane.model.isOrphaned).toBe(false);
+        expect(orphanedEvents).toBe(2);
+        expect(pane.getText()).toBe("back\n");
+    });
+
+    it("файл, которого не было при открытии, появился снаружи — не перечитка и не orphaned", () => {
+        const fp = ws.path("late.txt");
+        pane.openFile(Uri.file(fp));
+        pane.viewState.type("draft");
+
+        fs.writeFileSync(fp, "someone else\n");
+        watcher.fire(fp);
+
+        expect(pane.getText()).toBe("draft");
+        expect(pane.hasDiskConflict).toBe(false);
+        expect(pane.model.isOrphaned).toBe(false);
     });
 
     it("«грязный» orphaned остаётся грязным; вернувшийся файл даёт конфликт, а не перечитку", () => {

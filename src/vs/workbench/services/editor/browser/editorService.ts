@@ -405,7 +405,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         // `handleDeletedFile(…, isExternal: true)`), иначе остаются зачёркнутыми.
         this.register(
             this.textFileModels.onDidChangeModelOrphaned((model) => {
-                if (!model.isOrphaned || model.isModified) return;
+                // «Грязные» отсеивает closeCleanEditors.
+                if (!model.isOrphaned) return;
                 if (!this.configurationService.get(CLOSE_ON_FILE_DELETE_SETTING_KEY)) return;
                 this.closeCleanEditors((pane) => pane.fileModel === model);
             }),
@@ -593,8 +594,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 .getPanes()
                 .filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane)
                 .filter((pane) => pane.fileModel !== null && !pane.isModified && matches(pane));
-            // Чистые вкладки подтверждения не спрашивают — закрытие синхронно.
-            if (panes.length > 0) void this.closeEditors(group, panes);
+            // Чистые вкладки подтверждения не спрашивают — закрытие синхронно;
+            // пустой список ничего не закрывает.
+            void this.closeEditors(group, panes);
         }
     }
 
