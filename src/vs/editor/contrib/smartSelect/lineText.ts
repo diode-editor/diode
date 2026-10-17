@@ -6,22 +6,15 @@ import type { ITextDocument } from "../../common/model/iTextDocument.ts";
  * `getLineLastNonWhitespaceColumn` (`strings.firstNonWhitespaceIndex`):
  * пробелом считаются только пробел и табуляция.
  */
-const isIndent = (ch: string): boolean => ch === " " || ch === "\t";
 
 /** Индекс первого непробельного символа; `-1` — строка пустая или из одних пробелов. */
 export function firstNonWhitespaceIndex(line: string): number {
-    for (let i = 0; i < line.length; i++) {
-        if (!isIndent(line[i])) return i;
-    }
-    return -1;
+    return line.search(/[^ \t]/);
 }
 
-/** Индекс ПОСЛЕ последнего непробельного символа; `-1` — строка пустая или из одних пробелов. */
+/** Индекс ПОСЛЕ последнего непробельного символа; у строки из одних пробелов — 0. */
 export function lastNonWhitespaceEnd(line: string): number {
-    for (let i = line.length - 1; i >= 0; i--) {
-        if (!isIndent(line[i])) return i + 1;
-    }
-    return -1;
+    return line.replace(/[ \t]+$/, "").length;
 }
 
 export function isBlankLine(line: string): boolean {

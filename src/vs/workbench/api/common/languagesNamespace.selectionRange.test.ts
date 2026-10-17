@@ -102,6 +102,35 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         errors.mockRestore();
     });
 
+    it("запрос идёт провайдеру своего handle; на чужую версию документа провайдер не зовётся", async () => {
+        const { stub, languages } = makeCtx();
+        const first = vi.fn(() => []);
+        const second = vi.fn(() => [chain()]);
+        languages.registerSelectionRangeProvider("typescript", { provideSelectionRanges: first });
+        languages.registerSelectionRangeProvider("typescript", { provideSelectionRanges: second });
+
+        expect(await stub.callRequest("languages.provideSelectionRanges", params({ handle: 1, version: 7 }))).toEqual(
+            [],
+        );
+        expect(second).not.toHaveBeenCalled();
+        expect(await stub.callRequest("languages.provideSelectionRanges", params({ handle: 1 }))).toHaveLength(1);
+        expect(second).toHaveBeenCalledOnce();
+        expect(first).not.toHaveBeenCalled();
+    });
+
+    it("родитель с тем же концом, что у ребёнка, — законная ступень", async () => {
+        const { stub, languages } = makeCtx();
+        const args = new SelectionRange(new Range(0, 5, 0, 16));
+        const beta = new SelectionRange(new Range(0, 12, 0, 16), args) as unknown as vscode.SelectionRange;
+        languages.registerSelectionRangeProvider("typescript", { provideSelectionRanges: () => [beta] });
+        expect(
+            await stub.callRequest(
+                "languages.provideSelectionRanges",
+                params({ positions: [{ line: 0, character: 14 }] }),
+            ),
+        ).toEqual([[createRange(0, 12, 0, 16), createRange(0, 5, 0, 16)]]);
+    });
+
     it("без позиций в запросе провайдер получает пустой список", async () => {
         const { stub, languages } = makeCtx();
         const provide = vi.fn(() => []);

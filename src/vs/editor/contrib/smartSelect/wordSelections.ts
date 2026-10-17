@@ -39,9 +39,10 @@ export function provideWordSelectionRanges(
     });
 }
 
-const isLower = (ch: string | undefined): boolean => ch !== undefined && ch >= "a" && ch <= "z";
-const isUpper = (ch: string | undefined): boolean => ch !== undefined && ch >= "A" && ch <= "Z";
-const isSeparator = (ch: string | undefined): boolean => ch === "_" || ch === "-";
+const isLower = (ch: string): boolean => ch >= "a" && ch <= "z";
+const isUpper = (ch: string): boolean => ch >= "A" && ch <= "Z";
+// Stryker disable next-line ConditionalExpression,StringLiteral: `-` в слово DEFAULT_WORD_REGEXP не попадает — ветка эталона, мёртвая при нашем регексе
+const isSeparator = (ch: string): boolean => ch === "_" || ch === "-";
 
 /**
  * Подслово слова `word` вокруг смещения `offset` (upstream `_addInWordRanges`):
@@ -51,11 +52,12 @@ const isSeparator = (ch: string | undefined): boolean => ch === "_" || ch === "-
 function subwordAt(word: string, offset: number): { start: number; end: number } | null {
     let start = offset;
     let end = offset;
-    let lastCh: string | undefined;
+    // `charAt` за концом слова даёт "" — ни буква, ни разделитель.
+    let lastCh = "";
 
     // Левая граница.
     for (; start >= 0; start--) {
-        const ch = word[start];
+        const ch = word.charAt(start);
         if (start !== offset && isSeparator(ch)) break; // foo-bar ИЛИ foo_bar
         if (isLower(ch) && isUpper(lastCh)) break; // fooBar
         lastCh = ch;
@@ -64,7 +66,7 @@ function subwordAt(word: string, offset: number): { start: number; end: number }
 
     // Правая граница.
     for (; end < word.length; end++) {
-        const ch = word[end];
+        const ch = word.charAt(end);
         if (isUpper(ch) && isLower(lastCh)) break; // fooBar
         if (isSeparator(ch)) break; // foo-bar ИЛИ foo_bar
         lastCh = ch;

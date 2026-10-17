@@ -493,13 +493,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 
     /**
-     * Токены документа от провайдера `handle` (`languages.provideDocumentSemanticTokens`):
-     * полный ответ или дельта к ответу `previousResultId`; `resultId` ответа —
-     * его id в субпроцессе строкой (upstream `MainThreadDocumentSemanticTokensProvider`).
-     * `null` — спрашивать некого или провайдер ничего не дал; отказ RPC —
-     * исключение. Срока нет, как в upstream: ненужный запрос отменяет токен.
-     */
-    /**
      * Запрашивает у selection-range-провайдера `handle` иерархии выделений для
      * позиций кареток (`languages.provideSelectionRanges`). `[]` — субпроцесса
      * нет, документ ему не синхронизирован или расширение не ответило за срок.
@@ -517,6 +510,13 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
+    /**
+     * Токены документа от провайдера `handle` (`languages.provideDocumentSemanticTokens`):
+     * полный ответ или дельта к ответу `previousResultId`; `resultId` ответа —
+     * его id в субпроцессе строкой (upstream `MainThreadDocumentSemanticTokensProvider`).
+     * `null` — спрашивать некого или провайдер ничего не дал; отказ RPC —
+     * исключение. Срока нет, как в upstream: ненужный запрос отменяет токен.
+     */
     public async provideDocumentSemanticTokens(
         handle: number,
         req: ISemanticTokensRequest,

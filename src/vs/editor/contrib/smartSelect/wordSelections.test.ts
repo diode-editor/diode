@@ -28,6 +28,19 @@ describe("provideWordSelectionRanges — wordSelections эталона", () => {
         expect(steps("foo_bar\n", 0, 3)).toEqual(["foo", "foo_bar", "foo_bar\n"]);
     });
 
+    it("границы camelCase на крайних буквах a/z/A/Z", () => {
+        expect(steps("aZb\n", 0, 2)).toEqual(["Zb", "aZb", "aZb\n"]);
+        expect(steps("zAb\n", 0, 2)).toEqual(["Ab", "zAb", "zAb\n"]);
+        expect(steps("aZ\n", 0, 0)).toEqual(["a", "aZ", "aZ\n"]);
+        expect(steps("zA\n", 0, 0)).toEqual(["z", "zA", "zA\n"]);
+        // Цифра — не заглавная: границы подслова нет.
+        expect(steps("foo1bar\n", 0, 5)).toEqual(["foo1bar", "foo1bar", "foo1bar\n"]);
+    });
+
+    it("каретка за хвостовым `_` — подслова нет, только слово", () => {
+        expect(steps("foo_ x\n", 0, 4)).toEqual(["foo_", "foo_ x\n"]);
+    });
+
     it("слово из одного подслова схлопывается при слиянии, а здесь отдаётся дважды", () => {
         expect(steps("value\n", 0, 2)).toEqual(["value", "value", "value\n"]);
     });

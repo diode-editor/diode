@@ -47,6 +47,36 @@ describe("provideSelectionRanges — слияние эталона", () => {
         ]);
     });
 
+    it("табуляция — тоже отступ и хвостовой пробел", async () => {
+        const text = "\tfoo(bar)\t\nb";
+        expect(await steps(text, [createPosition(0, 6)])).toEqual([["bar", "(bar)", "foo(bar)", "\tfoo(bar)\t", text]]);
+    });
+
+    it("ступени строк — и когда следующий диапазон выходит на строки только вверх или только вниз", async () => {
+        const text = "f {\n x y\n}\n";
+        const caret = [createPosition(1, 1)];
+        const up = provider(() => [[createRange(0, 0, 1, 4)]]);
+        expect(await steps(text, caret, { providers: [up] })).toEqual([["x", "x y", " x y", "f {\n x y", text]]);
+        const down = provider(() => [[createRange(1, 1, 2, 1)]]);
+        expect(await steps(text, caret, { providers: [down] })).toEqual([["x", "x y", "x y\n}", " x y\n}", text]]);
+    });
+
+    it("следующий диапазон на тех же строках — ступеней строк между ними нет", async () => {
+        const text = "  foo bar  \nz";
+        const lsp = provider(() => [[createRange(0, 0, 0, 9)]]);
+        expect(await steps(text, [createPosition(0, 3)], { providers: [lsp] })).toEqual([
+            ["foo", "  foo bar", "  foo bar  ", text],
+        ]);
+    });
+
+    it("диапазон с пустой строки: «без отступа» нет, «строки целиком» совпадают с ним — не повторяются", async () => {
+        const text = "a\n\nfoo\nb";
+        const lsp = provider(() => [[createRange(1, 0, 2, 3), createRange(0, 0, 2, 3)]]);
+        expect(await steps(text, [createPosition(2, 1)], { providers: [lsp] })).toEqual([
+            ["foo", "\nfoo", "a\n\nfoo", text],
+        ]);
+    });
+
     it("selectLeadingAndTrailingWhitespace: false — без ступеней строк", async () => {
         const text = "a\n  foo(bar)  \nb";
         const options = { selectLeadingAndTrailingWhitespace: false, selectSubwords: true };

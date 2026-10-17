@@ -620,7 +620,7 @@ export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRa
  * в этих случаях бросает. Зацикленный `parent` обрывается на повторе.
  */
 export function serializeSelectionRanges(raw: unknown, positions: readonly IPosition[]): IRange[][] {
-    if (!Array.isArray(raw) || raw.length === 0 || raw.length !== positions.length) return [];
+    if (!Array.isArray(raw) || raw.length !== positions.length) return [];
     const result: IRange[][] = [];
     for (let i = 0; i < positions.length; i++) {
         const chain: IRange[] = [];

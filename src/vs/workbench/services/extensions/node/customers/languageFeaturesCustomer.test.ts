@@ -580,3 +580,34 @@ describe("LanguageFeaturesCustomer — семантические токены",
         expect(changed.mock.calls).toStrictEqual([[4]]);
     });
 });
+
+describe("LanguageFeaturesCustomer — иерархии выделений", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, positions: [{ line: 2, character: 4 }] };
+
+    it("позиции кареток и токен уходят по проводу, ответ — как есть", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideSelectionRanges": (params) => {
+                seen.push(params);
+                return [[CORE_RANGE]];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideSelectionRanges(1, REQ, caller.token)).toEqual([[CORE_RANGE]]);
+        expect(seen).toEqual([
+            { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, positions: REQ.positions },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("отказ RPC или спавна нет — иерархий нет", async () => {
+        const h = setupAnswering({
+            "languages.provideSelectionRanges": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideSelectionRanges(1, REQ)).toEqual([]);
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideSelectionRanges(1, REQ)).toEqual([]);
+    });
+});

@@ -34,6 +34,7 @@ export class SmartSelectController {
     private state: SelectionRanges[] | undefined;
     private stateVersionId = 0;
     private selectionListener: IDisposable | undefined;
+    // Stryker disable next-line BooleanLiteral: до первой подписки флаг не читается, а после — всегда сброшен finally
     private ignoreSelection = false;
 
     public constructor(private readonly viewState: EditorViewState) {}
@@ -47,7 +48,7 @@ export class SmartSelectController {
             const versionId = document.versionId;
             const ranges = await compute(selections.map((selection) => selection.active));
             // Ответ без иерархии на каждую каретку — невалиден.
-            if (ranges.length === 0 || ranges.length !== selections.length) return;
+            if (ranges.length !== selections.length) return;
             // Пока считали, человек ушёл кареткой или правил — ответ протух.
             if (document.versionId !== versionId || !sameSelections(this.viewState.selections, selections)) return;
 
@@ -61,7 +62,6 @@ export class SmartSelectController {
                 return new SelectionRanges(0, [selected, ...enclosing]);
             });
             this.stateVersionId = versionId;
-            this.selectionListener?.dispose();
             this.selectionListener = this.viewState.onDidChangeCursorPosition(() => {
                 if (!this.ignoreSelection) this.forget();
             });
@@ -81,6 +81,7 @@ export class SmartSelectController {
     }
 
     private forget(): void {
+        // Stryker disable next-line OptionalChaining: при живом стеке подписка есть всегда, `?.` — только для типов
         this.selectionListener?.dispose();
         this.selectionListener = undefined;
         this.state = undefined;

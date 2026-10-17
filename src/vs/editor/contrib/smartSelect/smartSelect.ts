@@ -103,29 +103,35 @@ function toChain(ranges: IRange[]): IRange[] {
  * (каждая — только если строго между соседями).
  */
 function withLineTrivia(document: ITextDocument, chain: readonly IRange[]): IRange[] {
-    if (chain.length === 0) return [];
-    const result: IRange[] = [chain[0]];
-    for (let i = 1; i < chain.length; i++) {
-        const prev = chain[i - 1];
-        const cur = chain[i];
-        if (cur.start.line !== prev.start.line || cur.end.line !== prev.end.line) {
-            const first = firstNonWhitespaceIndex(document.getLineContent(prev.start.line));
-            const last = lastNonWhitespaceEnd(document.getLineContent(prev.end.line));
-            const trimmed =
-                first === -1 || last === -1 ? null : createRange(prev.start.line, first, prev.end.line, last);
-            if (trimmed !== null && strictlyContains(trimmed, prev) && strictlyContains(cur, trimmed)) {
-                result.push(trimmed);
-            }
-            const full = createRange(prev.start.line, 0, prev.end.line, document.getLineLength(prev.end.line));
-            if (
-                rangeContainsRange(full, prev) &&
-                (trimmed === null || !rangesEqual(full, trimmed)) &&
-                strictlyContains(cur, full)
-            ) {
-                result.push(full);
-            }
+    const result: IRange[] = [];
+    let prev: IRange | undefined;
+    for (const cur of chain) {
+        if (prev !== undefined && (cur.start.line !== prev.start.line || cur.end.line !== prev.end.line)) {
+            result.push(...lineSteps(document, prev, cur));
         }
         result.push(cur);
+        prev = cur;
     }
     return result;
+}
+
+function lineSteps(document: ITextDocument, prev: IRange, cur: IRange): IRange[] {
+    const steps: IRange[] = [];
+    const first = firstNonWhitespaceIndex(document.getLineContent(prev.start.line));
+    // Конец на строке из пробелов: хвост — 0, у эталона — «до начала строки».
+    // Разнятся они, только если prev кончается ровно в начале такой строки.
+    const last = lastNonWhitespaceEnd(document.getLineContent(prev.end.line));
+    const trimmed = first === -1 ? null : createRange(prev.start.line, first, prev.end.line, last);
+    if (trimmed !== null && strictlyContains(trimmed, prev) && strictlyContains(cur, trimmed)) {
+        steps.push(trimmed);
+    }
+    const full = createRange(prev.start.line, 0, prev.end.line, document.getLineLength(prev.end.line));
+    if (
+        strictlyContains(full, prev) &&
+        (trimmed === null || !rangesEqual(full, trimmed)) &&
+        strictlyContains(cur, full)
+    ) {
+        steps.push(full);
+    }
+    return steps;
 }

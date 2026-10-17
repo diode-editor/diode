@@ -78,9 +78,8 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         const controller = new SmartSelectController(state);
         const compute = vi.fn(HIERARCHY);
         await controller.run(true, compute);
+        // Правка за кареткой выделение не сдвигает — события курсора нет, ловит версия.
         state.document.applyEdits([{ range: createRange(0, 17, 0, 17), text: ";" }]);
-        state.selections = [createSelection(0, 5, 0, 10)];
-        // Подписка снята ещё на смене выделения; версия — вторая линия.
         await controller.run(true, compute);
         expect(compute).toHaveBeenCalledTimes(2);
     });
@@ -90,6 +89,14 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         state.selections = [createSelection(0, 5, 0, 10)];
         await new SmartSelectController(state).run(true, HIERARCHY);
         expect(texts(state)).toEqual(["alpha, beta"]);
+    });
+
+    it("ступени только вокруг выделения целиком: уже его и задевшие один край — мимо", async () => {
+        const state = makeState(7);
+        // active = 16: слово `beta` — внутри выделения и не содержит его начало.
+        state.selections = [createSelection(0, 5, 0, 16)];
+        await new SmartSelectController(state).run(true, HIERARCHY);
+        expect(texts(state)).toEqual([TEXT]);
     });
 
     it("мультикурсор: каждая каретка — по своей иерархии", async () => {
@@ -108,9 +115,37 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         });
         expect(state.selections).toEqual([createCursorSelection(0, 2)]);
 
+        // Правка, пока считали, — тоже протух, даже если выделение на месте.
+        await controller.run(true, (positions) => {
+            state.document.applyEdits([{ range: createRange(0, 17, 0, 17), text: ";" }]);
+            return HIERARCHY(positions);
+        });
+        expect(state.selections).toEqual([createCursorSelection(0, 2)]);
+
         await controller.run(true, () => Promise.resolve([]));
         await controller.run(true, () => Promise.resolve([[], []]));
         expect(state.selections).toEqual([createCursorSelection(0, 2)]);
+    });
+
+    it("протух и при смене числа кареток, одной из них или только anchor", async () => {
+        const changes = [
+            [createCursorSelection(0, 7), createCursorSelection(0, 13)],
+            [createCursorSelection(0, 7), createCursorSelection(0, 14)],
+            [createSelection(0, 6, 0, 13)],
+        ];
+        for (const [initial, during] of [
+            [[createCursorSelection(0, 7)], changes[0]],
+            [changes[0], [createCursorSelection(0, 7)]],
+            [changes[0], changes[1]],
+            [[createCursorSelection(0, 13)], changes[2]],
+        ]) {
+            const state = new EditorViewState(new TextDocument(TEXT), initial);
+            await new SmartSelectController(state).run(true, (positions) => {
+                state.selections = during;
+                return HIERARCHY(positions);
+            });
+            expect(state.selections).toEqual(during);
+        }
     });
 
     it("ступень, равная текущей, проскакивается в обе стороны", async () => {

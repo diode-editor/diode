@@ -42,7 +42,6 @@ export function provideBracketSelectionRanges(
     const scanner = new BracketScanner(document, brackets, isCodeAt);
     return positions.map((position) => {
         const bucket: IRange[] = [];
-        if (scanner.isEmpty) return bucket;
         const closings = collectUnmatchedClosings(scanner, position);
         pairUnmatchedOpenings(scanner, position, closings, (open, close) => {
             const outer = createRange(open.line, open.start, close.line, close.end);
@@ -81,7 +80,7 @@ function collectUnmatchedClosings(scanner: BracketScanner, position: IPosition):
 /**
  * Скобки перед позицией, от ближней к дальней: незакрытая внутри открывающая
  * получает ближайшую из незакрытых закрывающих того же ключа
- * (`_bracketsLeftYield`). Закрывающих не осталось — дальше искать нечего.
+ * (`_bracketsLeftYield`).
  */
 function pairUnmatchedOpenings(
     scanner: BracketScanner,
@@ -90,7 +89,7 @@ function pairUnmatchedOpenings(
     onPair: (open: IBracketHit, close: IBracketHit) => void,
 ): void {
     const depth = new Map<string, number>();
-    for (let line = position.line; line >= 0 && closings.size > 0; line--) {
+    for (let line = position.line; line >= 0; line--) {
         const hits = scanner.hitsOnLine(line);
         for (let i = hits.length - 1; i >= 0; i--) {
             const hit = hits[i];
@@ -101,11 +100,8 @@ function pairUnmatchedOpenings(
             } else if (closed > 0) {
                 depth.set(hit.key, closed - 1);
             } else {
-                const queue = closings.get(hit.key);
-                const close = queue?.shift();
-                if (queue === undefined || close === undefined) continue;
-                if (queue.length === 0) closings.delete(hit.key);
-                onPair(hit, close);
+                const close = closings.get(hit.key)?.shift();
+                if (close !== undefined) onPair(hit, close);
             }
         }
     }
@@ -128,7 +124,8 @@ function addBracketLeading(document: ITextDocument, bracket: IRange, bucket: IRa
     const { end } = bracket;
     const startLine = bracket.start.line;
     const first = firstNonWhitespaceIndex(document.getLineContent(startLine));
-    if (first !== -1 && first !== bracket.start.character) {
+    // Строка со скобкой не пустая: `first` есть всегда.
+    if (first !== bracket.start.character) {
         bucket.push(createRange(startLine, first, end.line, end.character));
         bucket.push(createRange(startLine, 0, end.line, end.character));
     }
@@ -143,7 +140,7 @@ function addBracketLeading(document: ITextDocument, bracket: IRange, bucket: IRa
     }
 }
 
-/** Скобки документа построчно, с кэшем на один запрос. */
+/** Скобки документа построчно, с кэшем на один запрос (каретки сканируют одни и те же строки). */
 class BracketScanner {
     /** Скобки, длинные первыми: `[[` не должна распасться на две `[`. */
     private readonly candidates: readonly { readonly text: string; readonly isOpen: boolean; readonly key: string }[];
@@ -156,16 +153,13 @@ class BracketScanner {
     ) {
         const candidates: { text: string; isOpen: boolean; key: string }[] = [];
         for (const [open, close] of brackets) {
-            // Симметричная «пара» (`|`) направления не несёт — эталон её тоже не матчит.
-            if (open === "" || close === "" || open === close) continue;
+            // Пустая «скобка» зациклила бы скан. Симметричную (`|`) отдельно не
+            // отсекаем: открывающая всегда находится первой, закрывающих не будет.
+            if (open === "" || close === "") continue;
             candidates.push({ text: open, isOpen: true, key: open });
             candidates.push({ text: close, isOpen: false, key: open });
         }
         this.candidates = candidates.sort((a, b) => b.text.length - a.text.length);
-    }
-
-    public get isEmpty(): boolean {
-        return this.candidates.length === 0;
     }
 
     public get lineCount(): number {
@@ -173,18 +167,22 @@ class BracketScanner {
     }
 
     public hitsOnLine(line: number): readonly IBracketHit[] {
+        // Stryker disable all: кэш — только скорость, ответ с ним и без него один
         let hits = this.cache.get(line);
         if (hits === undefined) {
             hits = this.scanLine(line);
             this.cache.set(line, hits);
         }
+        // Stryker restore all
         return hits;
     }
 
     private scanLine(line: number): IBracketHit[] {
         const text = this.document.getLineContent(line);
+        // Stryker disable next-line ArrayDeclaration: чужой элемент — «скобка» без ключа и позиции, ни с чем не парится
         const hits: IBracketHit[] = [];
         let i = 0;
+        // Stryker disable next-line EqualityOperator: на i === length непустая скобка не находится — лишний шаг ничего не добавит
         while (i < text.length) {
             const found = this.candidates.find((c) => text.startsWith(c.text, i) && isWholeBracket(text, i, c.text));
             if (found === undefined) {

@@ -3,16 +3,15 @@ import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { LanguageConfigurationServiceDIToken } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
-import { standardTokenTypeAt } from "../../../../editor/common/languages/standardTokenType.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
-import type { IsCodeAt } from "../../../../editor/contrib/smartSelect/bracketSelections.ts";
 import {
     type ISelectionRangesOptions,
     provideSelectionRanges,
 } from "../../../../editor/contrib/smartSelect/smartSelect.ts";
 import { SmartSelectController } from "../../../../editor/contrib/smartSelect/smartSelectController.ts";
+import { tokenCodeAt } from "../../../../editor/contrib/smartSelect/tokenCodeAt.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -74,7 +73,7 @@ export class SmartSelectService {
                 positions,
                 providers: this.languageFeatures.selectionRangeProvider.ordered(editor),
                 brackets,
-                isCodeAt: codeAt(viewState, positions),
+                isCodeAt: tokenCodeAt(viewState.tokenStore, positions),
                 options: this.options(document.languageId),
             },
             CancellationTokenNone,
@@ -90,17 +89,4 @@ export class SmartSelectService {
             selectSubwords: read("selectSubwords"),
         };
     }
-}
-
-/**
- * Скобки в строках и комментариях пару не образуют (эталон судит по токенам
- * TextMate). Строки до самой нижней каретки размечаются, как у рендера; у
- * строк за фронтиром токенизации токенов нет — их скобки считаются кодом.
- */
-function codeAt(viewState: EditorViewState, positions: readonly IPosition[]): IsCodeAt {
-    const store = viewState.tokenStore;
-    if (store === undefined) return () => true;
-    store.tokenizeUpTo(Math.max(...positions.map((position) => position.line)));
-    return (line, character) =>
-        line >= store.invalidLineIndex || standardTokenTypeAt(store.getLineTokens(line), character) === "other";
 }

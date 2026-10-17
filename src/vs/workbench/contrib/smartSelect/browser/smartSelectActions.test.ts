@@ -90,4 +90,15 @@ describe("Expand / Shrink Selection — команды и бинды", () => {
         });
         expect(await press("Shift+Alt+ArrowRight", 3)).toEqual(["fooBar", "(fooBar)", "\n  call(fooBar)\n"]);
     });
+
+    it("настройки читаются с языковой секцией", async () => {
+        boot({
+            "[plaintext]": {
+                "editor.smartSelect.selectSubwords": false,
+                "editor.smartSelect.selectLeadingAndTrailingWhitespace": false,
+            },
+        });
+        expect(h.activeEditor().viewState.document.languageId).toBe("plaintext");
+        expect(await press("Shift+Alt+ArrowRight", 3)).toEqual(["fooBar", "(fooBar)", "\n  call(fooBar)\n"]);
+    });
 });
