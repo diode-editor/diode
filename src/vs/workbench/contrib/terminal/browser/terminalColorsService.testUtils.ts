@@ -2,13 +2,16 @@ import { type HostTerminalColors, NO_HOST_COLORS } from "@tuidom/core/backend/iT
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
+import { LifecycleService } from "../../../services/lifecycle/browser/lifecycleService.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { TerminalColorsService } from "./terminalColorsService.ts";
 
 /**
  * Сервис цветов терминала для юнитов компонента: хост-терминал — мок, отвечающий
- * `hostColors` (по умолчанию — ничего не сообщил).
+ * `hostColors` (по умолчанию — ничего не сообщил). Старт уже в фазе `restored` —
+ * хост спрашивается сразу.
  */
 export function makeTerminalColors(
     themeService: ThemeService,
@@ -17,5 +20,7 @@ export function makeTerminalColors(
 ): { colors: TerminalColorsService; backend: MockTerminalBackend } {
     const backend = new MockTerminalBackend();
     backend.hostColors = hostColors;
-    return { colors: new TerminalColorsService(themeService, configuration, backend), backend };
+    const lifecycle = new LifecycleService(new DialogService());
+    lifecycle.setPhase("restored");
+    return { colors: new TerminalColorsService(themeService, configuration, backend, lifecycle), backend };
 }

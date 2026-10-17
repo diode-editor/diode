@@ -3,6 +3,11 @@
 // `terminal.integrated.colorSource`: тема (`terminal.ansi*`, как в vscode) либо
 // хост-терминал, в котором запущен diode (его ответы на OSC 4/10/11). Чего хост не
 // сообщил, берётся из темы поштучно. Смена темы или настройки — новое событие.
+//
+// Хост спрашивается не раньше фазы `restored`: к ней `app.run()` уже перевёл tty в
+// raw-режим. Запрос из конструктора (сервис строится до `run()`) уходил, пока tty
+// ещё в cooked-режиме с ECHO, — ядро печатало ответы терминала (`^[]10;rgb:…`) на
+// основной экран, и после выхода из alt-screen они оставались мусором в шелле.
 
 import type { HostTerminalColors, ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 
@@ -14,6 +19,9 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import { TerminalBackendDIToken } from "../../../../platform/terminal/common/terminalBackendDIToken.ts";
 import { TERMINAL_ANSI_COLOR_KEYS } from "../../../../platform/theme/common/colors/terminalColors.ts";
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { LifecycleService } from "../../../services/lifecycle/browser/lifecycleService.ts";
+import { LifecycleServiceDIToken } from "../../../services/lifecycle/browser/lifecycleService.ts";
+import { LIFECYCLE_PHASES } from "../../../services/lifecycle/common/lifecyclePhase.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
@@ -46,27 +54,45 @@ export function resolveTerminalColors(theme: WorkbenchTheme, host: HostTerminalC
 
 /**
  * Держит актуальные {@link ITerminalColors} и сообщает об их смене. Хост-терминал
- * спрашивается один раз и только в режиме `host` — в режиме темы diode в терминал
- * запросов не шлёт.
+ * спрашивается один раз, только в режиме `host` и не раньше фазы `restored` — в
+ * режиме темы diode в терминал запросов не шлёт.
  */
 export class TerminalColorsService extends Disposable {
-    public static dependencies = [ThemeServiceDIToken, IConfigurationServiceDIToken, TerminalBackendDIToken] as const;
+    public static dependencies = [
+        ThemeServiceDIToken,
+        IConfigurationServiceDIToken,
+        TerminalBackendDIToken,
+        LifecycleServiceDIToken,
+    ] as const;
 
     private readonly onDidChangeEmitter = this.register(new Emitter<ITerminalColors>());
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
     private hostColors: HostTerminalColors | undefined;
     private hostProbeStarted = false;
+    /** tty уже в raw-режиме (фаза `restored`) — ответы терминала не уйдут эхом на экран. */
+    private terminalReady = false;
     private current: ITerminalColors;
 
     public constructor(
         private readonly themeService: ThemeService,
         private readonly configuration: IConfigurationService,
         private readonly backend: ITerminalBackend,
+        lifecycle: LifecycleService,
     ) {
         super();
         this.current = this.compute();
-        this.probeHostIfNeeded();
+        const onTerminalReady = (): void => {
+            this.terminalReady = true;
+            this.probeHostIfNeeded();
+        };
+        if (LIFECYCLE_PHASES.indexOf(lifecycle.phase) >= LIFECYCLE_PHASES.indexOf("restored")) onTerminalReady();
+        else
+            this.register(
+                lifecycle.onDidChangePhase((phase) => {
+                    if (phase === "restored") onTerminalReady();
+                }),
+            );
         this.register(
             themeService.onThemeChange(() => {
                 this.update();
@@ -99,7 +125,7 @@ export class TerminalColorsService extends Disposable {
     }
 
     private probeHostIfNeeded(): void {
-        if (!this.usesHost || this.hostProbeStarted) return;
+        if (!this.terminalReady || !this.usesHost || this.hostProbeStarted) return;
         this.hostProbeStarted = true;
         this.backend.probeHostColors((colors) => {
             this.hostColors = colors;
