@@ -200,7 +200,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     const { languages } = createLanguagesNamespace(ctx, {
         // Правки code action ложатся тем же путём, что workspace.applyEdit;
         // команды действия — локальный реестр с прокси-мостом до хоста.
-        applyEdit: (edit) => workspace.applyEdit(edit),
+        applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
     });
 

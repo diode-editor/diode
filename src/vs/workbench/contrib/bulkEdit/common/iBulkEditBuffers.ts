@@ -1,6 +1,7 @@
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
+import type { IUndoParticipant } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 /**
  * Открытый буфер ресурса — цель текстовых правок bulk edit'а.
@@ -21,6 +22,12 @@ export interface IBulkEditBuffer {
      * `null` — применять нечего (правки ничего не изменили).
      */
     applyEdits(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null;
+    /**
+     * Сохраняет буфер, если он изменён (`files.refactoring.autoSave`). Отказ
+     * сохранения (конфликт с диском, безымянный буфер) — не ошибка: буфер
+     * остаётся грязным, как у эталона, который лишь пишет его в лог.
+     */
+    save(): Promise<void>;
 }
 
 /**
@@ -37,15 +44,17 @@ export type BulkEditTarget = IBulkEditBuffer | "read-only" | null;
 export interface IBulkEditBuffers {
     get(resource: string): BulkEditTarget;
     /**
-     * Бакет истории, в который ложится ОДИН шаг на весь edit. `touched` —
-     * ресурсы с правками в открытых буферах, в порядке появления в edit'е.
+     * Бакеты истории, в которые ложится ОДИН шаг на весь edit
+     * (`UndoRedoService.pushWorkspaceElement`). `touched` — ресурсы с правками
+     * в открытых буферах, в порядке появления в edit'е.
      *
-     * Реализация отдаёт бакет того из них, который сейчас активен (Ctrl+Z
-     * сработает там, где пользователь вызвал действие), иначе — первого.
-     * `null` — бакета нет, и шаг идёт в общий бакет workspace-операций (отмена
-     * в проводнике).
+     * Каждый открытый тронутый ресурс — участник со своей правкой: Ctrl+Z из
+     * любой его вкладки откатывает весь шаг. Не тронут ни один открытый —
+     * участник один, без правки: вкладка, в которой вызвали действие. Пусто —
+     * вкладок нет, и шаг идёт в общий бакет workspace-операций (отмена в
+     * проводнике).
      */
-    undoContext(touched: readonly string[]): string | null;
+    undoParticipants(touched: readonly string[]): IUndoParticipant[];
     /**
      * Ресурс удалён мимо файлового сервиса — в системную корзину (`ITrashService`),
      * поэтому `FileOperation.Delete` от сервиса не придёт. Реализация поступает с
@@ -60,7 +69,7 @@ export interface IBulkEditBuffers {
  */
 export const NULL_BULK_EDIT_BUFFERS: IBulkEditBuffers = {
     get: () => null,
-    undoContext: () => null,
+    undoParticipants: () => [],
     didDelete: () => {
         /* вкладок нет — закрывать нечего */
     },

@@ -626,7 +626,7 @@ export function createWorkspaceNamespace(
         // и применяются per-документ undoable-батчами (см. `IEditorOptionsService`).
         // Файловые операции WorkspaceEdit не поддержаны — честный `false` без
         // запроса: VS Code применяет такой edit атомарно, «наполовину» нельзя.
-        applyEdit: (edit: vscode.WorkspaceEdit): Thenable<boolean> => {
+        applyEdit: (edit: vscode.WorkspaceEdit, metadata?: vscode.WorkspaceEditMetadata): Thenable<boolean> => {
             if (!(edit instanceof WorkspaceEdit)) return Promise.resolve(false);
             const ops = serializeWorkspaceEdit(edit);
             // Операция из одних битых правок — отказ всего edit'а (all-or-nothing).
@@ -634,7 +634,12 @@ export function createWorkspaceNamespace(
             // Пустой edit (или один шум вроде чистых EOL-правок) — вакуумный
             // успех, как у VS Code: применять нечего, но и отказа нет.
             if (ops.length === 0) return Promise.resolve(true);
-            const params: IWireApplyWorkspaceEditParams = { ops };
+            // `isRefactoring` — затронутые файлы подпадают под
+            // `files.refactoring.autoSave` (`respectAutoSaveConfig` эталона).
+            const params: IWireApplyWorkspaceEditParams = {
+                ops,
+                ...(metadata?.isRefactoring === true ? { isRefactoring: true } : {}),
+            };
             return rpc.request("workspace.applyEdit", params);
         },
         // Файл ВНЕ папок воркспейса — `undefined`, как в эталоне («Returns

@@ -101,6 +101,9 @@ export interface IEditorOptionsService {
      * пересекающиеся правки) — не применяется НИЧЕГО и возвращается `false`.
      * Пустой список — тоже `false`: вакуумный успех пустого edit'а субпроцесс
      * отвечает сам, без RPC.
+     *
+     * `isRefactoring` — после применения затронутые грязные буферы
+     * сохраняются по `files.refactoring.autoSave`.
      */
-    applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): Promise<boolean>;
+    applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[], options?: { isRefactoring?: boolean }): Promise<boolean>;
 }

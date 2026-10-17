@@ -85,7 +85,7 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
             for (const { action, provider } of items) {
                 // Неактивные не применяются (эталон берёт `validActions`).
                 if (action.disabled !== undefined) continue;
-                await provider.applyCodeAction(action.id);
+                await provider.applyCodeAction(action.id, { onSave: true });
             }
         }
         return [];

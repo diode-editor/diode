@@ -276,6 +276,24 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
+    it("isRefactoring едет флагом (files.refactoring.autoSave); без него поля нет", () => {
+        const { stub, workspace } = makeWorkspace();
+        const edit = new WorkspaceEdit();
+        edit.insert(URI_A, new Position(0, 0), "x");
+
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit, { isRefactoring: true });
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit, { isRefactoring: false });
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+
+        const sent = stub.requests.filter((r) => r.method === "workspace.applyEdit").map((r) => r.params);
+        expect(sent.map((params) => (params as { isRefactoring?: boolean }).isRefactoring)).toEqual([
+            true,
+            undefined,
+            undefined,
+        ]);
+        expect(Object.keys(sent[1] as object)).toEqual(["ops"]);
+    });
+
     it("объект не-WorkspaceEdit (мимо типов) — честный false без RPC", async () => {
         const { stub, workspace } = makeWorkspace();
         await expect(workspace.applyEdit({} as unknown as vscode.WorkspaceEdit)).resolves.toBe(false);

@@ -89,6 +89,8 @@ describe("workbenchModule — доступ bulk edit'а к буферам", () =
         expect(target).not.toBe("read-only");
         expect(buffers.get("file:///nowhere/closed.ts")).toBeNull();
         // Бакет истории для тронутого буфера — бакет его вкладки.
-        expect(buffers.undoContext([pane.uri.toString()])).toBe(pane.undoContext);
+        expect(buffers.undoParticipants([pane.uri.toString()])).toEqual([
+            { context: pane.undoContext, label: pane.label, owner: true },
+        ]);
     });
 });

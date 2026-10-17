@@ -261,6 +261,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.uriValue = uri;
         const filePath = uri.fsPath;
         this.loadDocumentFromDisk(filePath);
+        this.adoptWorkspaceUndo(filePath, path.basename(filePath));
         this.startWatchingFile(filePath);
     }
 

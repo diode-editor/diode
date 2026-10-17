@@ -18,6 +18,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
     stub: IStubRpc;
     languages: typeof vscode.languages;
     appliedEdits: vscode.WorkspaceEdit[];
+    appliedMetadata: (vscode.WorkspaceEditMetadata | undefined)[];
     documentSync: DocumentSyncTracker;
 } {
     const stub = makeStubRpc();
@@ -31,9 +32,11 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         owner: new ExtensionOwner(),
     };
     const appliedEdits: vscode.WorkspaceEdit[] = [];
+    const appliedMetadata: (vscode.WorkspaceEditMetadata | undefined)[] = [];
     const { languages } = createLanguagesNamespace(ctx, {
-        applyEdit: (edit) => {
+        applyEdit: (edit, metadata) => {
             appliedEdits.push(edit);
+            appliedMetadata.push(metadata);
             return Promise.resolve(true);
         },
         executeCommand: () => Promise.resolve(undefined),
@@ -42,7 +45,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
     // Документ открыт document sync'ом (как `editor.didOpen`): запросы текста
     // не везут, провайдер читает зеркало версии 1.
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
-    return { stub, languages, appliedEdits, documentSync: ctx.documentSync };
+    return { stub, languages, appliedEdits, appliedMetadata, documentSync: ctx.documentSync };
 }
 
 const URI = "file:///proj/main.ts";
@@ -338,12 +341,14 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
 
 describe("LanguagesNamespace — languages.provideRenameEdits", () => {
     it("WorkspaceEdit провайдера уезжает в applyEdit, ответ — applied", async () => {
-        const { stub, languages, appliedEdits } = makeCtx();
+        const { stub, languages, appliedEdits, appliedMetadata } = makeCtx();
         const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
 
         expect(await stub.callRequest("languages.provideRenameEdits", renameParams())).toEqual({ applied: true });
         expect(appliedEdits).toHaveLength(1);
+        // Переименование — рефакторинг: эталон шлёт `respectAutoSaveConfig: true`.
+        expect(appliedMetadata).toEqual([{ isRefactoring: true }]);
         expect(appliedEdits[0].get(Uri.parse(URI) as unknown as vscode.Uri)[0].newText).toBe("renamed");
         // Новое имя и позиция доезжают провайдеру дословно.
         const [document, position, newName] = provideRenameEdits.mock.calls[0] as unknown as [

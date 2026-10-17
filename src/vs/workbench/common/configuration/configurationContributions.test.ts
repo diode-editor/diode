@@ -17,7 +17,7 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  *   с этим скоупом (`editorConfigurationBaseNode`), включая `formatOnSave` и
  *   `codeActionsOnSave`; наши `editor.inlineSuggest.{delay,requestTimeout}`
  *   своих у эталона не имеют и идут за семьёй.
- * - `explorer.*`, `files.enableTrash`, `workbench.colorTheme`,
+ * - `explorer.*`, `files.enableTrash`, `files.refactoring.autoSave`, `workbench.colorTheme`,
  *   `workbench.editor.enablePreview`, `workbench.editor.closeOnFileDelete`,
  *   `workbench.tree.expandMode` — `window`: у эталона скоуп не указан, то
  *   есть дефолтный `WINDOW` (одно значение на окно).
@@ -74,6 +74,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "explorer.decorations.badges": "window",
 
     "files.enableTrash": "window",
+    "files.refactoring.autoSave": "window",
     "files.exclude": "resource",
     "files.watcherExclude": "resource",
     "files.watcherInclude": "resource",

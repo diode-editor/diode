@@ -164,7 +164,10 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return true;
     }
 
-    public async applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): Promise<boolean> {
+    public async applyWorkspaceEdit(
+        ops: readonly IWireWorkspaceEditOp[],
+        options?: { isRefactoring?: boolean },
+    ): Promise<boolean> {
         // Пустой список — мусорный запрос: вакуумный успех пустого edit'а
         // субпроцесс отвечает сам, не отправляя RPC. Здесь ничего не применено —
         // врать `true` нельзя.
@@ -173,7 +176,9 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         // Файловая операция по недисковому ресурсу (`output:`, `jdt:`) —
         // создавать и переименовывать там нечего: отбиваем edit целиком.
         if (edits === null) return false;
-        return this.workspaceEdits.applyWorkspaceEdit(edits, "Workspace Edit");
+        return this.workspaceEdits.applyWorkspaceEdit(edits, "Workspace Edit", {
+            respectAutoSaveConfig: options?.isRefactoring === true,
+        });
     }
 
     /**

@@ -24,7 +24,7 @@ export const SCENARIO_SLICES = 4;
  * тяжёлой полосе (последовательно, после остальных; см. vitest.e2e.config.ts).
  * В обычные срезы они не попадают.
  */
-export const HEAVY_SCENARIOS: readonly string[] = ["java-lsp.scenario.ts"];
+export const HEAVY_SCENARIOS: readonly string[] = ["java-lsp.scenario.ts", "javaMoveTypeUndo.scenario.ts"];
 
 const e2eDir = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 

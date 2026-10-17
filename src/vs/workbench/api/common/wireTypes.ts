@@ -1098,6 +1098,12 @@ export type IWireWorkspaceEditOp =
  */
 export interface IWireApplyWorkspaceEditParams {
     readonly ops: readonly IWireWorkspaceEditOp[];
+    /**
+     * `WorkspaceEditMetadata.isRefactoring` (и правки code action/rename):
+     * после применения затронутые файлы сохраняются по
+     * `files.refactoring.autoSave`.
+     */
+    readonly isRefactoring?: boolean;
 }
 
 // ─── Decorations (Chunk 4 — host-bridge) ─────────────────────────────────────

@@ -10,6 +10,17 @@ export const filesConfiguration = {
             default: true,
             description: "Move files to the OS trash when available; when disabled, delete permanently.",
         },
+        // Ключ, дефолт и описание — дословно эталон (`bulkEditService.ts`, у
+        // эталона без `scope`, то есть window). Читает `WorkspaceEditService`:
+        // рефакторинг, тронувший больше одного файла, сохраняет их — иначе
+        // «Move to a new file» оставляет новый файл на диске, а исходник
+        // грязным в буфере, и закрытие без сохранения дублирует класс.
+        "files.refactoring.autoSave": {
+            scope: "window",
+            type: "boolean",
+            default: true,
+            description: "Controls if files that were part of a refactoring are saved automatically",
+        },
         // Глобы, которых «нет»: вход не показывается в дереве Explorer'а, не
         // попадает в индекс файлов (Quick Open), не находится поиском и не
         // виден `workspace.findFiles` расширения. Семантика ключей и разбор

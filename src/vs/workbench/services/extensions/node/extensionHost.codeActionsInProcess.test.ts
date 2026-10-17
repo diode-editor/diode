@@ -93,12 +93,16 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
             expect.objectContaining({ isCancellationRequested: false }),
         );
 
+        // Повод «при сохранении» доезжает флагом; без него поля нет вовсе.
+        expect(await host.applyCodeAction("1.0", { onSave: true })).toBe(true);
+        expect(apply).toHaveBeenLastCalledWith({ id: "1.0", onSave: true }, expect.anything());
+
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
         expect(await host.provideCodeActions(3, requestOf())).toEqual([]);
         expect(await host.applyCodeAction("1.0")).toBe(false);
         expect(provide).toHaveBeenCalledTimes(1);
-        expect(apply).toHaveBeenCalledTimes(1);
+        expect(apply).toHaveBeenCalledTimes(2);
     });
 
     it("параметры provide едут как есть; only не выдумывается без запроса", async () => {

@@ -122,6 +122,7 @@ import { WindowTitleContributionDIToken } from "./browser/parts/titlebar/windowT
 import { ViewProgressContributionDIToken } from "./browser/parts/views/viewProgressContribution.ts";
 import { ViewTitleActionsContributionDIToken } from "./browser/parts/views/viewTitleActionsContribution.ts";
 import { SetContextCommandContributionDIToken } from "./browser/setContextCommandContribution.ts";
+import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusalNotificationContribution.ts";
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
@@ -288,6 +289,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // открытия, иначе первая же неудача пройдёт молча.
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тост не появляется, и это ловит e2e-сценарий virtualDocument
     { token: OpenFailureNotificationContributionDIToken, phase: "ready" },
+    // Отказ Ctrl+Z на шаге нескольких документов: без тоста он выглядит как
+    // сломанная клавиша.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тоста нет, и это ловит e2e-сценарий move-to-new-file-undo
+    { token: UndoRefusalNotificationContributionDIToken, phase: "ready" },
     // Спиннеры занятости в заголовках секций: подписка должна стоять до первой
     // операции, иначе её начало пройдёт мимо.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения

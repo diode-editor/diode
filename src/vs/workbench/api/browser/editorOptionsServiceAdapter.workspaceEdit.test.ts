@@ -15,13 +15,16 @@ import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 // `contrib/bulkEdit/node/workspaceEditService`.
 
 /** Исполнитель-шпион: запоминает модель, с которой его позвали. */
-function spyService(result = true): { service: IBulkEditService; calls: { edits: BulkEdit; label: string }[] } {
-    const calls: { edits: BulkEdit; label: string }[] = [];
+function spyService(result = true): {
+    service: IBulkEditService;
+    calls: { edits: BulkEdit; label: string; options?: { respectAutoSaveConfig?: boolean } }[];
+} {
+    const calls: { edits: BulkEdit; label: string; options?: { respectAutoSaveConfig?: boolean } }[] = [];
     return {
         calls,
         service: {
-            applyWorkspaceEdit: (edits, label) => {
-                calls.push({ edits, label });
+            applyWorkspaceEdit: (edits, label, options) => {
+                calls.push({ edits, label, ...(options ? { options } : {}) });
                 return Promise.resolve(result);
             },
         },
@@ -49,6 +52,20 @@ function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): 
 }
 
 describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
+    it("isRefactoring становится respectAutoSaveConfig исполнителя (files.refactoring.autoSave)", async () => {
+        const { service, calls } = spyService();
+        const adapter = createAdapter(emptyGroup(), service);
+        const ops: IWireWorkspaceEditOp[] = [{ kind: "text", resource: A.toString(), edits: [EDIT_A] }];
+
+        await adapter.applyWorkspaceEdit(ops, { isRefactoring: true });
+        await adapter.applyWorkspaceEdit(ops);
+
+        expect(calls.map((call) => call.options)).toEqual([
+            { respectAutoSaveConfig: true },
+            { respectAutoSaveConfig: false },
+        ]);
+    });
+
     it("переводит текстовые операции в модель правок БЕЗ клампа и отдаёт ответ исполнителя", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);

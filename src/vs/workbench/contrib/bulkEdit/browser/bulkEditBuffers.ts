@@ -1,4 +1,5 @@
 import { Uri } from "../../../../base/common/uri.ts";
+import type { IUndoParticipant } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
@@ -6,7 +7,7 @@ import type { BulkEditTarget, IBulkEditBuffers } from "../common/iBulkEditBuffer
 
 /**
  * {@link IBulkEditBuffers} поверх полосы групп редакторов: по какому ресурсу
- * bulk edit обязан идти через буфер, а не через диск, и в какой бакет истории
+ * bulk edit обязан идти через буфер, а не через диск, и в какие бакеты истории
  * положить свой единственный шаг.
  *
  * «Открыт» — это не только вкладка: модель файла живёт в реестре
@@ -35,22 +36,27 @@ export class BulkEditBuffers implements IBulkEditBuffers {
         return {
             text: () => pane.getText(),
             applyEdits: (edits, label) => pane.applyExternalEditsDetached(edits, label),
+            save: async () => {
+                if (pane.isModified) await pane.save();
+            },
         };
     }
 
-    public undoContext(touched: readonly string[]): string | null {
-        const active = this.editors.getActiveTabEditor();
-        // Активная вкладка тронута — её бакет: Ctrl+Z сработает там, где
-        // пользователь вызвал действие.
-        if (active !== null && touched.includes(active.uri.toString())) return active.undoContext;
+    public undoParticipants(touched: readonly string[]): IUndoParticipant[] {
+        const participants = new Map<string, IUndoParticipant>();
         for (const resource of touched) {
             const pane = this.paneFor(resource);
-            if (pane !== null) return pane.undoContext;
+            // Сплит-вью одного документа делят модель, а с ней и бакет.
+            if (pane !== null && !participants.has(pane.undoContext)) {
+                participants.set(pane.undoContext, { context: pane.undoContext, label: pane.label, owner: true });
+            }
         }
+        if (participants.size > 0) return [...participants.values()];
         // Ни один тронутый ресурс не открыт (правки только по закрытым файлам,
         // файловые операции): якорим шаг на активной вкладке — действие вызвали
         // из неё. Вкладок нет вовсе — шаг уйдёт в бакет workspace-операций.
-        return active?.undoContext ?? null;
+        const active = this.editors.getActiveTabEditor();
+        return active === null ? [] : [{ context: active.undoContext, label: active.label, owner: false }];
     }
 
     public didDelete(resource: string): void {

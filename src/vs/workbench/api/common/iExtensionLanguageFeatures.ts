@@ -2,7 +2,11 @@ import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
-import type { ICodeActionRequest, ICoreCodeAction } from "../../../editor/common/languages/iCodeActionSource.ts";
+import type {
+    IApplyCodeActionOptions,
+    ICodeActionRequest,
+    ICoreCodeAction,
+} from "../../../editor/common/languages/iCodeActionSource.ts";
 import type {
     ICompletionRequest,
     ICoreCompletionResult,
@@ -85,7 +89,7 @@ export interface IExtensionLanguageFeaturesBridge {
         request: ICodeActionRequest,
         token: ICancellationToken,
     ): Promise<readonly ICoreCodeAction[]>;
-    applyCodeAction(id: string): Promise<boolean>;
+    applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
     provideFoldingRanges(
         handle: number,
         request: IFoldingRequest,

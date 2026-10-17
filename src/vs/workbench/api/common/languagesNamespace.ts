@@ -303,7 +303,7 @@ function reportProviderFailure(method: string, err: unknown, owner: string | und
  * которым applyCodeAction не нужен.
  */
 export interface ICodeActionDeps {
-    readonly applyEdit: (edit: vscode.WorkspaceEdit) => Thenable<boolean>;
+    readonly applyEdit: (edit: vscode.WorkspaceEdit, metadata?: vscode.WorkspaceEditMetadata) => Thenable<boolean>;
     readonly executeCommand: (command: string, ...args: unknown[]) => Thenable<unknown>;
 }
 
@@ -651,7 +651,9 @@ export function createLanguagesNamespace(
         }
         // Не-правки от провайдера («нет результата») — ядро спросит следующего.
         if (!(edit instanceof WorkspaceEdit)) return { applied: false };
-        const ok = await codeActionDeps.applyEdit(edit);
+        // Переименование — рефакторинг: затронутые файлы подпадают под
+        // `files.refactoring.autoSave` (эталон: `respectAutoSaveConfig: true`).
+        const ok = await codeActionDeps.applyEdit(edit, { isRefactoring: true });
         return ok ? { applied: true } : { applied: false, error: "Rename failed to apply edits" };
     });
 
@@ -826,7 +828,10 @@ export function createLanguagesNamespace(
 
         let applied = false;
         if (action.edit instanceof WorkspaceEdit) {
-            const ok = await codeActionDeps.applyEdit(action.edit);
+            // Правки действия — рефакторинг (`files.refactoring.autoSave`),
+            // кроме применённых конвейером сохранения: эталон снимает
+            // `respectAutoSaveConfig` для `ApplyCodeActionReason.OnSave`.
+            const ok = await codeActionDeps.applyEdit(action.edit, { isRefactoring: params.onSave !== true });
             // Правки не легли — команду не запускаем: VS Code применяет edit
             // ПЕРЕД командой, и продолжать после отказа значило бы исполнить
             // действие наполовину.

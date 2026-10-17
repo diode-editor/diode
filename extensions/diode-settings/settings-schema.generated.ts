@@ -235,6 +235,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Glob patterns to hide from the file tree and from search. Matched relative to the folder.",
     },
     {
+        key: "files.refactoring.autoSave",
+        type: "boolean",
+        default: true,
+        description: "Controls if files that were part of a refactoring are saved automatically",
+    },
+    {
         key: "files.watcherExclude",
         type: "object",
         default: {
