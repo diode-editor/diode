@@ -1,8 +1,9 @@
 // Модель задач (`contrib/tasks/common/tasks.ts` эталона) в объёме первой
 // итерации: задача из tasks.json (`CustomTask`) и задача провайдера
 // расширения (`ContributedTask`) — одна форма с источником; исполнение —
-// шелл, процесс или pty расширения (`CustomExecution`). Problem matchers
-// хранятся, но ни на что не влияют (см. docs/TODO/Tasks.md).
+// шелл, процесс или pty расширения (`CustomExecution`); запись tasks.json с
+// типом провайдера (`ConfiguringTask`) перекрывает поля задачи расширения.
+// Problem matchers хранятся, но ни на что не влияют (см. docs/TODO/Tasks.md).
 
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IKeyedTaskIdentifier } from "../../../api/common/taskIdentity.ts";
@@ -144,6 +145,50 @@ export interface ITask {
     readonly problemMatchers: readonly string[];
     readonly hasDefinedMatchers: boolean;
     readonly runOptions: IRunOptions;
+    /**
+     * Индекс записи в `tasks` tasks.json, из которой задача взята: своя задача
+     * или кастомизация задачи провайдера. У задачи провайдера без записи — нет.
+     */
+    readonly configIndex?: number;
+}
+
+/**
+ * Что запись tasks.json с типом провайдера перекрывает у задачи расширения
+ * (`createCustomTask` эталона): заданное здесь — поверх полей провайдера.
+ */
+export interface ITaskCustomization {
+    readonly label?: string;
+    readonly detail?: string;
+    readonly hide?: boolean;
+    readonly group?: ITaskGroup;
+    readonly isBackground?: boolean;
+    readonly problemMatchers?: readonly string[];
+    readonly presentation?: Partial<IPresentationOptions>;
+    readonly options?: ICommandOptions;
+    readonly runOptions: IRunOptions;
+}
+
+/**
+ * Запись tasks.json с типом провайдера (`ConfiguringTask` эталона): ещё не
+ * задача — её находят среди задач провайдера по ключу определения.
+ */
+export interface IConfiguringTask {
+    /** `${расширение}.${_key}` — тот же id, что у задачи провайдера, которую запись кастомизирует. */
+    readonly _id: string;
+    /** `label` записи или «{тип}: {первое обязательное свойство}». */
+    readonly _label: string;
+    readonly type: string;
+    readonly configures: IKeyedTaskIdentifier;
+    readonly folder: IWorkspaceFolder;
+    readonly configIndex: number;
+    readonly customization: ITaskCustomization;
+    /** Запись как в файле — для сообщения «провайдер такую задачу не дал». */
+    readonly element: Readonly<Record<string, unknown>>;
+}
+
+/** Задача tasks.json: своя задача или кастомизация задачи провайдера — у обеих есть запись в файле. */
+export function isConfiguredTask(task: ITask): boolean {
+    return task.configIndex !== undefined;
 }
 
 /** Папка задачи — её рабочий каталог и `${workspaceFolder}`. */

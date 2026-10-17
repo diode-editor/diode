@@ -278,6 +278,7 @@
     "workbench.action.tasks.restartTask",
     "workbench.action.tasks.terminate",
     "workbench.action.tasks.showTasks",
+    "workbench.action.tasks.configureTaskRunner",
     "notifications.clearAll",
     "notifications.focusMessage",
     "workbench.files.action.compareWithSaved",

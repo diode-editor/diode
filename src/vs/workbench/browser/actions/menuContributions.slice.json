@@ -282,6 +282,9 @@
             "workbench.action.tasks.showTasks",
             "workbench.action.tasks.restartTask",
             "workbench.action.tasks.terminate"
+        ],
+        "7_configure": [
+            "workbench.action.tasks.configureTaskRunner"
         ]
     },
     "MenubarViewMenu": {

@@ -1509,8 +1509,14 @@ hide-toggle (`isHiddenByDefault`). См.
   `shell`/`process`, `command` (строка, массив, `{value, quoting}`), `args`, `options`
   (`cwd`/`env`/`shell`), `presentation`, `runOptions`, `detail`, `hide`, `isBackground`, `group`
   (хранится), секции `linux`/`osx`/`windows`, глобальные `options`/`presentation`. Неподдержанное —
-  предупреждение в лог `Tasks` (тексты эталона, где они есть), задача не падает; запись с типом
-  провайдера пропускается (В4: `resolveTask` отложен). Файл перечитывается на каждом запросе
+  предупреждение в лог `Tasks` (тексты эталона, где они есть), задача не падает. Запись с типом
+  провайдера — кастомизация задачи расширения (`ConfiguringTask` эталона, `IConfiguringTask`):
+  определение по схеме типа из `contributes.taskDefinitions` (типа нет — ошибка эталона), подпись —
+  `label` или «тип: первое обязательное». Сервис сливает её с задачей провайдера по `_key`
+  определения (`createCustomizedTask` ≈ `createCustomTask`: `label`, `detail`, `hide`, `group`,
+  `isBackground`, матчеры, `presentation`, `options`, `runOptions` записи поверх; id, определение и
+  исполнение — провайдера); не дал провайдер такой задачи — ошибка эталона в лог, `resolveTask`
+  провайдера не спрашивается. Файл перечитывается на каждом запросе
   задач (дёшево; правка применяется без вотчера), о проблемах одного и того же текста говорится
   один раз.
 - **Переменные** (`common/taskVariables.ts`) — с нуля по `variableResolver.ts` эталона:
@@ -1546,12 +1552,24 @@ hide-toggle (`isHiddenByDefault`). См.
   (`$(folder) <type>`) + «Show All Tasks...», второй — задачи типа + «Go back ↩». Разделителей
   групп у нашего quick pick нет — подпись группы («configured»/«contributed») стоит подсказкой
   справа у первой строки группы; второй строки нет — `detail` (`task.quickOpen.detail`) идёт в
-  описание строки. «Configure a Task» эталона нет (tasks.json не пишем) — при пустом списке
-  строка «No tasks found».
+  описание строки. Кастомизации стоят в «configured» по подписи, задачу провайдера под ними
+  ищут только по выбору (первый уровень провайдеров не опрашивает, как эталон с `ConfiguringTask`).
+  Своих задач нет — строка «Configure a Task» (ведёт в Configure Task).
+- **Configure Task** (`browser/configureTask.ts`, `_runConfigureTasks` эталона): пикер всех задач
+  + «Create tasks.json file from template» / «Open tasks.json file», пока своих нет. Своя (или
+  кастомизированная) задача — tasks.json открывается кареткой на её записи; задача провайдера —
+  её кастомизация (`customizationEntryOf` ≈ `_createCustomizableTask`) дописывается в конец `tasks`
+  и файл открывается на ней; строка файла — шаблоны эталона (`common/taskTemplates.ts`: MSBuild,
+  maven, .NET Core, Others; табы → пробелы по `editor.insertSpaces`/`tabSize`). Правка текста —
+  `common/tasksJsonEdits.ts`: запись вставляется перед `]` руками, а не `modify` jsonc-parser — тот
+  переформатировал бы соседнюю запись и унёс бы её хвостовой комментарий; остальной текст файла
+  не меняется. Битый файл — предупреждение эталона, открытый с несохранёнными правками — ошибка
+  эталона, файл не пишется; чистый открытый перечитывается сразу после записи.
 - **Команды** (`browser/taskActions.ts`): `workbench.action.tasks.{runTask,reRunTask,restartTask,
-  terminate,showTasks}` с заголовками палитры эталона и аргументами (`runTask` — подпись или
-  определение `{type,…}`, `terminate` — `'terminateAll'`); меню Terminal меню-бара (новое:
-  New Terminal, Run Task..., Show Running/Restart/Terminate — последние гаснут без `taskRunning`).
+  terminate,showTasks,configureTaskRunner}` с заголовками палитры эталона и аргументами (`runTask` —
+  подпись или определение `{type,…}`, `terminate` — `'terminateAll'`); меню Terminal меню-бара
+  (новое: New Terminal, Run Task..., Show Running/Restart/Terminate — последние гаснут без
+  `taskRunning`, Configure Tasks...).
   Команда кончается запуском, а не задачей.
 - **Статус-бар** (`browser/taskStatusBarContribution.ts`): `$(tools) N` бегущих, id
   `status.runningTasks`, клик — Show Running Tasks; подсказок у записей статус-бара нет.
@@ -1564,7 +1582,11 @@ hide-toggle (`isHiddenByDefault`). См.
 по метке, а не uuid; на Windows аргументы шелла уходят массивом (у эталона для cmd/powershell —
 одной строкой); пикер второго уровня на время загрузки провайдеров (до 5 с) не показывается —
 busy-состояния (`picker.busy` эталона) у нашего quick pick нет; `markdownDescription` настроек —
-обычным `description` (реестр настроек markdown-описаний не знает).
+обычным `description` (реестр настроек markdown-описаний не знает). Configure Task: кнопки-шестерёнки
+«Configure Task» у строк Run Task нет (кнопок у строк нашего quick pick нет); выделения у редактора
+нет — запись показывается кареткой в её начале и прокруткой к ней; кастомизация задачи провайдера
+без папки пишется в tasks.json первой папки (у эталона — ничего не делает); файл без задач
+получает ключи шаблона `modify`'ем поверх своих ключей (у эталона — `updateValue('tasks', …)`).
 
 ## Конвенции системы команд
 
