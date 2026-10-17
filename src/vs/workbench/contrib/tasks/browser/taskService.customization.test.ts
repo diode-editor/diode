@@ -91,6 +91,7 @@ describe("TaskService — кастомизации задач провайдер
         await h.service.groupedTasks("gulp");
         expect(h.logger.warn).not.toHaveBeenCalled();
         await h.service.groupedTasks("npm");
+        expect(h.logger.warn).toHaveBeenCalledTimes(1);
         await h.service.groupedTasks();
         expect(h.logger.warn).toHaveBeenCalledTimes(1);
         expect(h.logger.warn.mock.calls[0][0]).toBe(

@@ -38,10 +38,8 @@ export const CREATE_TASKS_JSON = "Create tasks.json file from template";
 export const OPEN_TASKS_JSON = "Open tasks.json file";
 export const TASK_TEMPLATE_PLACEHOLDER = "Select a Task Template";
 
-/** Строка пикера: задача или «создать/открыть tasks.json». */
-interface IConfigureTaskEntry extends ITaskQuickPickEntry {
-    readonly tasksJson?: true;
-}
+/** Строка пикера: с задачей — задача, без неё — «создать/открыть tasks.json». */
+type IConfigureTaskEntry = ITaskQuickPickEntry;
 
 interface IConfigureContext {
     readonly service: TaskService;
@@ -68,7 +66,7 @@ export async function configureTaskCommand(accessor: ServiceAccessor): Promise<v
     const entries: IConfigureTaskEntry[] = service.taskEntries(sorted);
     const needsCreateOrOpen = !sorted.some(isConfiguredTask);
     if (needsCreateOrOpen && uri !== undefined) {
-        entries.push({ label: text === undefined ? CREATE_TASKS_JSON : OPEN_TASKS_JSON, tasksJson: true });
+        entries.push({ label: text === undefined ? CREATE_TASKS_JSON : OPEN_TASKS_JSON });
     }
     // Одна своя задача и ничего больше — сразу к ней, без пикера (как эталон).
     const entry =
@@ -176,10 +174,8 @@ function indentationOf(configuration: IConfigurationService): ITasksJsonIndentat
 async function readText(files: IFileService, uri: Uri | undefined): Promise<string | undefined> {
     // Stryker disable next-line ConditionalExpression: эквивалентный — readFile(undefined) бросает, и catch ниже даёт тот же undefined; проверка — для типов
     if (uri === undefined) return undefined;
-    try {
-        return new TextDecoder().decode((await files.readFile(uri)).value);
-        // Stryker disable next-line BlockStatement: эквивалентный — пустой catch тоже возвращает undefined
-    } catch {
-        return undefined;
-    }
+    return files.readFile(uri).then(
+        (content) => new TextDecoder().decode(content.value),
+        () => undefined,
+    );
 }

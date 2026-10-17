@@ -120,6 +120,7 @@ export function appendTaskEntry(
 function findTasksNode(text: string, rest: readonly number[]): Node | undefined {
     // Разбор терпимый сам: висячие запятые — ошибка в `errors`, дерево строится всё равно.
     const root = parseTree(text);
+    // Stryker disable next-line ConditionalExpression: эквивалентный — findNodeAtLocation без корня сам отвечает undefined; проверка — для типов
     return root === undefined ? undefined : findNodeAtLocation(root, ["tasks", ...rest]);
 }
 
