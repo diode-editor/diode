@@ -22,6 +22,8 @@ diode              # empty window — pick a folder from inside
 `diode -g file.ts:42:7` opens a file with the caret already there, and
 `diode -d old.ts new.ts` opens a diff. `diode --help` lists the rest.
 
+Inside tmux, see [docs/public/TMUX.md](docs/public/TMUX.md) to make the window title show up.
+
 ## Other ways to install
 
 Every channel delivers the same single-file binary from

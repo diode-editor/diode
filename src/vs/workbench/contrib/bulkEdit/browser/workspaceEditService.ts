@@ -15,7 +15,11 @@ import {
     IFileServiceDIToken,
     isFileOperationError,
 } from "../../../../platform/files/common/files.ts";
-import { type ITrashService, ITrashServiceDIToken } from "../../../../platform/files/common/iTrashService.ts";
+import {
+    type ITrashEntry,
+    type ITrashService,
+    ITrashServiceDIToken,
+} from "../../../../platform/files/common/iTrashService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
 import {
@@ -436,13 +440,20 @@ export class WorkspaceEditService {
             const from = edit.from;
             resources.push(from);
             if (this.willMoveToTrash()) {
-                let entry = await this.trash.trash(from);
+                // Корзина — мимо файлового сервиса: о вкладках удалённого
+                // сообщаем сами (безвозвратное удаление сообщает сервис).
+                const trash = async (): Promise<ITrashEntry> => {
+                    const trashed = await this.trash.trash(from);
+                    this.buffers.didDelete(Uri.file(from).toString());
+                    return trashed;
+                };
+                let entry = await trash();
                 ops.push({
                     undo: async () => {
                         await this.trash.restore(entry);
                     },
                     redo: async () => {
-                        entry = await this.trash.trash(from);
+                        entry = await trash();
                     },
                 });
             } else {

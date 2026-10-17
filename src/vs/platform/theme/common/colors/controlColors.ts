@@ -64,6 +64,11 @@ export const controlColors = {
         defaults: { dark: "#808080", light: "#8E8E90" },
         description: "List/Tree foreground color for items that are deemphasized (e.g. cut in explorer).",
     },
+    // Имя вкладки удалённого файла (orphaned) — как декорация VS Code.
+    "list.errorForeground": {
+        defaults: { dark: "#F88070", light: "#B01011" },
+        description: "Foreground color of list items containing errors.",
+    },
     // Значения — из реестра VS Code (`colorRegistry.ts`); `dropdown.listBackground`
     // там `null` (наследует editorWidget.background), поэтому берём то, что и так
     // везут наши импортированные темы.

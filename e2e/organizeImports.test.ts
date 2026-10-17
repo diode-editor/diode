@@ -10,7 +10,9 @@ import { waitUntil } from "./helpers/waitFor.ts";
 /**
  * Organize Imports (#196) от стокового `typescript-language-server` в
  * SEA-бинаре: команда из палитры гонит source-действие через провайдерный шов,
- * правки сервера (готовый WorkspaceEdit) ложатся в буфер.
+ * правки сервера (готовый WorkspaceEdit) ложатся в буфер — и в .ts, и в .js.
+ * Тишина там, где менять нечего (CommonJS), закрыта интеграционным сьютом
+ * extensionHost.typescriptLsp.codeActions.test.ts.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -26,6 +28,11 @@ const ALPHA_IMPORT = 'import { alpha } from "./alpha";';
 const ZETA_IMPORT = 'import { zeta } from "./zeta";';
 // Импорты в обратном порядке + ошибка типов (readiness по undercurl).
 const MAIN_TS = `${ZETA_IMPORT}\n${ALPHA_IMPORT}\n\nconst bad: number = "oops";\n\nalpha();\nzeta();\n`;
+
+const ALPHA_JS_IMPORT = 'import { alpha } from "./alpha.js";';
+const ZETA_JS_IMPORT = 'import { zeta } from "./zeta.js";';
+// Readiness — undercurl на обращении к необъявленному (checkJs).
+const MAIN_JS = `${ZETA_JS_IMPORT}\n${ALPHA_JS_IMPORT}\n\nalpha();\nzeta();\nundeclaredName;\n`;
 
 /** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
@@ -76,6 +83,42 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "импорты пересортированы правками tsserver'а", timeoutMs: 60_000, intervalMs: 500 },
             );
             expect(frameToText(frame)).toContain("alpha();");
+        });
+
+        it("в .js палитра → Organize Imports пересортировывает ES-импорты", { timeout: 240_000 }, async () => {
+            const { session } = await useHeadlessApp({
+                files: {
+                    "jsconfig.json": JSON.stringify({ compilerOptions: { checkJs: true } }),
+                    "alpha.js": "export function alpha() {}\n",
+                    "zeta.js": "export function zeta() {}\n",
+                    "main.js": MAIN_JS,
+                },
+                settings: LSP_SETTINGS,
+                open: ["main.js"],
+            });
+            await session.waitForNode("EditorElement");
+
+            await waitUntil(
+                () => session.captureFrame(),
+                (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
+                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            );
+
+            await session.key("Ctrl+P");
+            await session.text(">Organize Imports");
+            await session.waitForText((text) => text.includes("Organize Imports"), { timeoutMs: 30_000 });
+            await session.key("Enter");
+
+            await waitUntil(
+                () => session.captureFrame(),
+                (f) => {
+                    const text = frameToText(f);
+                    const alpha = text.indexOf(ALPHA_JS_IMPORT);
+                    const zeta = text.indexOf(ZETA_JS_IMPORT);
+                    return alpha >= 0 && zeta > alpha;
+                },
+                { describe: "импорты .js пересортированы правками tsserver'а", timeoutMs: 60_000, intervalMs: 500 },
+            );
         });
     },
 );

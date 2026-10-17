@@ -106,7 +106,7 @@ class SpawnDecorations {
     private readonly editorDecorationsByFile = new Map<string, Map<number, readonly IRange[]>>();
     private readonly fileDecorationState = new Map<
         string,
-        { badge: string | undefined; colorId: string | undefined }
+        { badge: string | undefined; colorId: string | undefined; propagate: boolean | undefined }
     >();
 
     public constructor(
@@ -146,7 +146,7 @@ class SpawnDecorations {
             if (d.badge === undefined && d.colorId === undefined) {
                 this.fileDecorationState.delete(filePath);
             } else {
-                this.fileDecorationState.set(filePath, { badge: d.badge, colorId: d.colorId });
+                this.fileDecorationState.set(filePath, { badge: d.badge, colorId: d.colorId, propagate: d.propagate });
             }
         }
         this.pushFileDecorations();
@@ -187,16 +187,21 @@ class SpawnDecorations {
         this.editorDecorations.setGutterChangeDecorations(uri, decorations);
     }
 
-    /** Пере-резолвит держимые файловые декорации и проталкивает полный набор в дерево. */
+    /**
+     * Пере-резолвит держимые файловые декорации и проталкивает полный набор в
+     * дерево. `propagate` едет как есть: всплытие к папкам считает дерево — оно
+     * знает свой корень.
+     */
     private pushFileDecorations(): void {
-        const entries: { path: string; color?: number; badge?: string }[] = [];
-        for (const [path, { badge, colorId }] of this.fileDecorationState) {
+        const entries: { path: string; color?: number; badge?: string; propagate?: boolean }[] = [];
+        for (const [path, { badge, colorId, propagate }] of this.fileDecorationState) {
             // Stryker disable next-line ConditionalExpression: резолвер на неизвестный (в т.ч. пустой) id отдаёт undefined — цвета нет в обоих случаях
             const color = colorId === undefined ? undefined : this.themeColorResolver.resolve(colorId);
             entries.push({
                 path,
                 ...(color === undefined ? {} : { color }),
                 ...(badge === undefined ? {} : { badge }),
+                ...(propagate === undefined ? {} : { propagate }),
             });
         }
         this.fileDecorations.setFileDecorations(entries);

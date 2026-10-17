@@ -63,9 +63,9 @@ function makeEditorSpy(): {
 
 function makeFileSpy(): {
     service: IFileDecorationsService;
-    latest(): { path: string; color?: number; badge?: string }[] | undefined;
+    latest(): { path: string; color?: number; badge?: string; propagate?: boolean }[] | undefined;
 } {
-    const calls: { path: string; color?: number; badge?: string }[][] = [];
+    const calls: { path: string; color?: number; badge?: string; propagate?: boolean }[][] = [];
     return {
         service: { setFileDecorations: (entries) => calls.push([...entries]) },
         latest: () => calls.at(-1),
@@ -134,6 +134,11 @@ describe("builtin git plugin (integration)", () => {
             themeColorResolver: makeThemeResolver(),
         });
         makeRepo(harness.tmpDir);
+        // Удалённый файл: декорация есть, но к папкам не всплывает (как в эталоне).
+        fs.writeFileSync(path.join(harness.tmpDir, "gone.txt"), "g\n");
+        git(harness.tmpDir, "add", "gone.txt");
+        git(harness.tmpDir, "commit", "-qm", "gone");
+        fs.rmSync(path.join(harness.tmpDir, "gone.txt"));
         harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
 
         await registerAndActivate(harness.host, gitRegistration());
@@ -147,8 +152,17 @@ describe("builtin git plugin (integration)", () => {
         const entries = fileSpy.latest()!;
         const tracked = entries.find((e) => e.path.endsWith("tracked.txt"));
         const untracked = entries.find((e) => e.path.endsWith("untracked.txt"));
-        expect(tracked).toMatchObject({ badge: "M", color: COLORS["gitDecoration.modifiedResourceForeground"] });
-        expect(untracked).toMatchObject({ badge: "U", color: COLORS["gitDecoration.untrackedResourceForeground"] });
+        expect(tracked).toMatchObject({
+            badge: "M",
+            color: COLORS["gitDecoration.modifiedResourceForeground"],
+            propagate: true,
+        });
+        expect(untracked).toMatchObject({
+            badge: "U",
+            color: COLORS["gitDecoration.untrackedResourceForeground"],
+            propagate: true,
+        });
+        expect(entries.find((e) => e.path.endsWith("gone.txt"))).toMatchObject({ badge: "D", propagate: false });
 
         // Гуттер расширение больше НЕ считает: оно отдаёт версию из HEAD по схеме
         // git:, а дифф против живого буфера делает ядро (QuickDiffService).

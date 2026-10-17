@@ -120,7 +120,7 @@ webview — потолок.
 | `withProgress` | 🟡 | спиннер в статус-баре, message/increment живые; отмена не поддержана — токен не стреляет |
 | `tabGroups` | 🟡 | снимки `Tab` на момент вызова (идентичность не гарантируется), `Tab.group` — объект своей группы в том же снимке; `onDidChangeTabs` живой, `close` работает |
 | `createTextEditorDecorationType` | ✅ | gutter change-bar'ы, overview ruler |
-| `registerFileDecorationProvider` | ✅ | файловые декорации в explorer |
+| `registerFileDecorationProvider` | ✅ | файловые декорации в explorer; `propagate` всплывает к папкам (цвет + «●») |
 | `showQuickPick` | 🟡 | список строк и `QuickPickItem` на общем QuickInput-оверлее: фильтрация по `label`, `canPickMany` с чекбоксами и `picked`, `placeHolder`, `title`, токен отмены; список-промис ждётся и показывается заполненным. Не поддержаны `QuickPickItemKind.Separator`, `iconPath`, `buttons`, `alwaysShow`, `matchOnDescription`/`matchOnDetail`, `ignoreFocusOut`, устаревший `onDidSelectItem`; `detail` рисуется на месте `description`, только когда `description` пуст (строка списка однострочная) |
 | `showInputBox` | 🟡 | `title`, `prompt`, `placeHolder`, `value`, `password` (набранное закрыто маской `*` и не видно ни на экране, ни в инспекторе), `validateInput` (строкой и объектной формой со строгостью — ошибка блокирует Enter; асинхронная валидация поддержана, устаревшие ответы отбрасываются), токен отмены. Не поддержаны `valueSelection`, `ignoreFocusOut` |
 | quick input прочее (`showWorkspaceFolderPick`, `showOpenDialog`, `showSaveDialog`, `createQuickPick`, `createInputBox`) | 🕐 | объектные формы (пошаговые мастера) и диалоги файлов |

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
@@ -56,9 +57,10 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         opened.push(filePath as string);
         openOptions.push(options);
     });
+    // Дефолты реестра нужны декорациям: `explorer.decorations.*` по умолчанию включены.
     const service = new ExplorerService(
         clipboard,
-        NULL_CONFIGURATION_SERVICE,
+        createTestConfigurationService(),
         diskFileService(),
         NULL_TREE_FILE_WATCHER,
     );

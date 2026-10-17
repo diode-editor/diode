@@ -134,6 +134,11 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.isModified;
     }
 
+    /** Файл вкладки удалён с диска (зачёркнутая вкладка); у синтетики — никогда. */
+    public get isOrphaned(): boolean {
+        return this.fileModel?.isOrphaned ?? false;
+    }
+
     public get eol(): EndOfLine {
         return this.model.eol;
     }

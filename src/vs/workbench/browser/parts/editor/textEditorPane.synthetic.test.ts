@@ -29,13 +29,14 @@ describe("TextEditorPane над синтетической моделью", () =
         return new TextEditorPane(model, component);
     }
 
-    it("файловых осей нет: имя, путь, конфликт, кодировка по умолчанию", () => {
+    it("файловых осей нет: имя, путь, конфликт, удаление, кодировка по умолчанию", () => {
         const pane = syntheticPane();
 
         expect(pane.fileModel).toBeNull();
         expect(pane.fileName).toBeNull();
         expect(pane.absoluteFilePath).toBeNull();
         expect(pane.hasDiskConflict).toBe(false);
+        expect(pane.isOrphaned).toBe(false);
         expect(pane.encoding).toBe(DEFAULT_ENCODING);
         expect(pane.isModified).toBe(false);
         pane.dispose();

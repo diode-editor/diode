@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { IFileService } from "../../../../platform/files/common/files.ts";
 import { TrashService } from "../../../../platform/files/node/trashService.ts";
@@ -336,5 +337,26 @@ describe.skipIf(process.platform !== "linux")("WorkspaceEditService — delete (
 
         await element!.redo();
         expect(fs.existsSync(src)).toBe(false);
+    });
+
+    it("корзина идёт мимо файлового сервиса — об удалении (и о redo) сообщает буферам сама", async () => {
+        const deleted: string[] = [];
+        const service = new WorkspaceEditService(
+            new UndoRedoService(),
+            new TrashService(),
+            configWith(true),
+            { ...NULL_BULK_EDIT_BUFFERS, didDelete: (resource) => deleted.push(resource) },
+            diskFileService(),
+        );
+        const src = write("dir/a.txt");
+        const dir = path.dirname(src);
+
+        const element = await service.applyFileEdits([{ kind: "delete", from: dir }], "Delete");
+        expect(deleted).toEqual([Uri.file(dir).toString()]);
+
+        await element!.undo();
+        expect(deleted).toHaveLength(1);
+        await element!.redo();
+        expect(deleted).toEqual([Uri.file(dir).toString(), Uri.file(dir).toString()]);
     });
 });

@@ -1,19 +1,25 @@
-/** A resource decoration: a single-letter badge plus a theme color id. */
+/**
+ * A resource decoration: a single-letter badge plus a theme color id.
+ * `propagate` — всплывает ли декорация к папкам-предкам в дереве: как в
+ * эталоне (`Resource.resourceDecoration`), удалённые не всплывают; ignored
+ * там отдаёт отдельный провайдер без `propagate`.
+ */
 export interface IStatusDecoration {
     badge: string;
     colorId: string;
+    propagate: boolean;
 }
 
 // Effective single-status letter → badge + `gitDecoration.*` color id.
 const DECORATION_BY_STATUS = {
-    M: { badge: "M", colorId: "gitDecoration.modifiedResourceForeground" },
-    A: { badge: "A", colorId: "gitDecoration.addedResourceForeground" },
-    D: { badge: "D", colorId: "gitDecoration.deletedResourceForeground" },
-    R: { badge: "R", colorId: "gitDecoration.renamedResourceForeground" },
-    C: { badge: "C", colorId: "gitDecoration.renamedResourceForeground" },
-    "?": { badge: "U", colorId: "gitDecoration.untrackedResourceForeground" },
-    "!": { badge: "I", colorId: "gitDecoration.ignoredResourceForeground" },
-    U: { badge: "U", colorId: "gitDecoration.conflictingResourceForeground" },
+    M: { badge: "M", colorId: "gitDecoration.modifiedResourceForeground", propagate: true },
+    A: { badge: "A", colorId: "gitDecoration.addedResourceForeground", propagate: true },
+    D: { badge: "D", colorId: "gitDecoration.deletedResourceForeground", propagate: false },
+    R: { badge: "R", colorId: "gitDecoration.renamedResourceForeground", propagate: true },
+    C: { badge: "C", colorId: "gitDecoration.renamedResourceForeground", propagate: true },
+    "?": { badge: "U", colorId: "gitDecoration.untrackedResourceForeground", propagate: true },
+    "!": { badge: "I", colorId: "gitDecoration.ignoredResourceForeground", propagate: false },
+    U: { badge: "U", colorId: "gitDecoration.conflictingResourceForeground", propagate: true },
 } satisfies Record<string, IStatusDecoration>;
 
 // Тот же справочник для поиска по ПРОИЗВОЛЬНОЙ букве: `Record<string, T>` отдал бы

@@ -139,3 +139,17 @@ describe("BulkEditBuffers.undoContext", () => {
         expect(buffers.undoContext([Uri.file(A).toString()])).toBeNull();
     });
 });
+
+describe("BulkEditBuffers.didDelete", () => {
+    it("удаление мимо файлового сервиса уходит в EditorService.handleDeletedFile тем же ресурсом", () => {
+        const handleDeletedFile = vi.fn();
+        const [, registry] = fakes();
+        const editors = { handleDeletedFile } as unknown as IEditorService;
+        const buffers = new BulkEditBuffers(editors, registry);
+
+        buffers.didDelete(Uri.file("/proj/src").toString());
+
+        expect(handleDeletedFile).toHaveBeenCalledTimes(1);
+        expect((handleDeletedFile.mock.calls[0][0] as Uri).fsPath).toBe(Uri.file("/proj/src").fsPath);
+    });
+});

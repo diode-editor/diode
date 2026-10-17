@@ -1,3 +1,4 @@
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { MenuBarElement } from "@tuidom/elements/menu/menuBarElement";
 import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
@@ -600,5 +601,48 @@ describe("Workbench — keybinding vs menu mnemonic", () => {
         // Без кейбинда мнемоника жива.
         testApp.sendKey("Alt+G");
         expect(testApp.querySelector("PopupMenuElement")).not.toBeNull();
+    });
+});
+
+describe("Workbench — mnemonics and Alt keybindings in a non-Latin layout", () => {
+    /** Kitty with report-alternate-keys: the terminal sends the base-layout key, the engine puts it in `code`. */
+    function sendKittyAltKey(testApp: TestApp, key: string, code: string): void {
+        const target = testApp.app.focusManager?.activeElement ?? testApp.app.root!;
+        target.dispatchEvent(new TUIKeyboardEvent("keydown", { key, code, altKey: true, bubbles: true }));
+    }
+
+    it("Alt+а (Russian layout, legacy ESC prefix — tmux) opens File", () => {
+        const { testApp } = createAppTestHarness();
+
+        testApp.sendKey("Alt+а");
+
+        const popup = testApp.querySelector("PopupMenuElement") as PopupMenuElement | null;
+        expect(popup && itemLabels(popup)[0]).toBe("New Untitled File");
+    });
+
+    it("Alt+у (Russian layout, kitty: code KeyE) opens Edit", () => {
+        const { testApp } = createAppTestHarness();
+
+        sendKittyAltKey(testApp, "у", "KeyE");
+
+        const popup = testApp.querySelector("PopupMenuElement") as PopupMenuElement | null;
+        expect(popup && itemLabels(popup)[0]).toBe("Undo");
+    });
+
+    it("an alt+<letter> keybinding fires from the same physical key in the Russian layout, both input paths", () => {
+        const { testApp, commands } = createAppTestHarness({
+            containerOverrides: (container) => {
+                container.bind(UserKeybindingsDIToken, () => [
+                    { key: "alt+v", command: "workbench.action.togglePanel" },
+                ]);
+            },
+        });
+        const executeSpy = vi.spyOn(commands, "execute");
+
+        testApp.sendKey("Alt+м");
+        sendKittyAltKey(testApp, "м", "KeyV");
+
+        expect(executeSpy.mock.calls.filter(([id]) => id === "workbench.action.togglePanel")).toHaveLength(2);
+        expect(testApp.querySelector("PopupMenuElement")).toBeNull();
     });
 });

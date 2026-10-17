@@ -104,11 +104,13 @@
   profile.») и не-`application`-ключи в `User/settings.json`, пока активен именованный профиль. У нас —
   только warn в канал `configuration`; `User/settings.json`, открытый из именованного профиля, не
   валидируется вовсе. Место — диагностики настроек (`contrib/preferences`, `settingsDiagnostics.ts`).
-- [ ] **Заголовок окна в tmux не ставится** (находка 8) — правка в tuidom: `writeOscSequence`
-  заворачивает OSC в DCS passthrough, а tmux сам понимает OSC 0/2 и ждёт прямой вывод.
-- [ ] **Заголовок терминала не восстанавливается после выхода** (находка 11) — push/pop заголовка
-  (`CSI 22;0t` / `CSI 23;0t`) поддержан не всеми терминалами; решить, ставить ли пустой заголовок
-  на прощании (vim делает push/pop).
+- [x] **Заголовок окна в tmux не ставится** (находка 8) — `NodeTerminalBackend.setWindowTitle`
+  (tuidom 0.11) пишет OSC 0 напрямую, без DCS passthrough; рецепт `.tmux.conf` для пользователя —
+  [docs/public/TMUX.md](../public/TMUX.md).
+- [x] **Заголовок терминала не восстанавливается после выхода** (находка 11) — push/pop, как vim:
+  первый `setWindowTitle` кладёт прежний заголовок на стек (`CSI 22;0t`), `teardown` бэкенда его
+  снимает (`CSI 23;0t`). Терминал без стека заголовков последовательность игнорирует, заголовок
+  у него остаётся нашим — пустой заголовок на прощании не ставим (у vim так же).
 - [ ] **Одна версия расширения на все профили** (отступление итерации 2): обновил в одном профиле —
   обновилось во всех. Эталон держит каталоги `<id>-<version>` рядом и учитывает версию в
   `extensions.json` профиля; у нас `version` в файле справочный. Вместе с этим — `metadata`
@@ -200,12 +202,15 @@ Slug `..` проходил `PROFILE_ID_PATTERN`, `location` = `profiles/..` = `U
 **7. Средняя, исправлено частично — длинное имя (300 символов) → `ENAMETOOLONG` при mkdir, команда
 падает только в лог.** Починка: slug режется до 64 символов. Общая проблема молчаливых отказов — п. 9.
 
-**8. Средняя, НЕ исправлено (нужна правка tuidom) — в tmux заголовок окна не ставится.**
+**8. Средняя, исправлено (tuidom 0.11) — в tmux заголовок окна не ставился.**
 `tmux -L x new-session "diode --profile Work myproj"` → `#{pane_title}` = имя хоста. `writeOscSequence`
 бэкенда tuidom оборачивает OSC 0 в DCS-passthrough tmux: при дефолтном `allow-passthrough off` он
 отбрасывается, при `on` уходит во внешний терминал, а не в заголовок панели. OSC 0/2 tmux понимает
 сам (как у shell'ов/vim) — нужен прямой вывод, а `writeDirect` у `NodeTerminalBackend` приватный → PR
 в tuidom (публичный `setTitle`/`writeDirect`). Вне tmux (`env -u TMUX`) заголовок верный, см. ниже.
+Починка: `NodeTerminalBackend.setWindowTitle` пишет OSC 0 напрямую; в tmux 3.6 `#{pane_title}` и
+(с `automatic-rename-format '#{pane_title}'`) имя окна — `myproj - Work - Diode`. Рецепт
+`.tmux.conf` — [docs/public/TMUX.md](../public/TMUX.md).
 
 **9. Средняя, исправлено — отказы команд профилей были молчаливы.** Ошибка `createNamedProfile`
 (ENAMETOOLONG, EACCES на mkdir, до починки — `does not exist` у `..`) была видна только в логе
@@ -221,8 +226,10 @@ the settings file from the Default profile.») и не-`application`-ключи 
 активен именованный профиль. У нас — только warn в канал `configuration`; `User/settings.json`, открытый
 из именованного профиля, не валидируется вовсе (ни подсказок, ни Unknown Setting).
 
-**11. Низкая — заголовок терминала не восстанавливается после выхода**: после `Ctrl+Q` у панели
+**11. Низкая, исправлено (tuidom 0.11) — заголовок терминала не восстанавливался после выхода**: после `Ctrl+Q` у панели
 остаётся `myproj - Work - Diode` (vim и др. делают push/pop заголовка `CSI 22;0t`/`CSI 23;0t`).
+Починка: тот же push/pop в бэкенде — первый `setWindowTitle` сохраняет, `teardown` восстанавливает;
+в tmux после `Ctrl+Q` у панели снова прежний заголовок.
 
 **12. Низкая, исправлено — Copy from current ломал отступ соседней строки**: при вырезании последнего
 ключа (`terminal.integrated.colorSource`) `jsonc` `modify` оставлял `"editor.detectIndentation": false`

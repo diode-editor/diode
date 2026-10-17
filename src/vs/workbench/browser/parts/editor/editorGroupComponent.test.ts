@@ -7,7 +7,7 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
@@ -20,13 +20,14 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
-import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import { type IFileWatcher, NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
+import { ORPHAN_CHECK_DELAY_MS } from "../../../services/textfile/common/textFileModel.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
@@ -42,6 +43,7 @@ function createEditorGroup(
     overrides: {
         languageService?: ILanguageService;
         themeService?: ThemeService;
+        fileWatcher?: IFileWatcher;
     } = {},
 ): IEditorGroup {
     const themeService = overrides.themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -54,7 +56,7 @@ function createEditorGroup(
         overrides.languageService ?? NULL_LANGUAGE_SERVICE,
         NULL_CONFIGURATION_SERVICE,
         new UndoRedoService(),
-        NULL_FILE_WATCHER,
+        overrides.fileWatcher ?? NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
         undefined,
@@ -328,6 +330,46 @@ describe("EditorGroupComponent", () => {
             dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
             await new Promise((resolve) => setTimeout(resolve, 0));
             expect(tabLabels(component)).toEqual(["b.ts"]);
+        });
+    });
+
+    describe("удалённый файл", () => {
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it("вкладка зачёркнута, красная и с хвостом (deleted); вернувшийся файл снимает всё", () => {
+            vi.useFakeTimers();
+            let onChange = (): void => undefined;
+            const fileWatcher: IFileWatcher = {
+                watchFile: (_path, cb) => {
+                    onChange = cb;
+                    return { dispose: () => undefined };
+                },
+            };
+            const { service, component } = createEditorGroup({ fileWatcher });
+            const fp = writeFile("a.ts", "a");
+            service.openFile(fp);
+            const item = (): ReturnType<EditorTabStripElement["getItemElements"]>[number] =>
+                tabStrip(component).getItemElements()[0];
+
+            fs.rmSync(fp);
+            onChange();
+            vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
+
+            expect(item().getDeleted()).toBe(true);
+            expect(tabLabels(component)).toEqual(["a.ts (deleted)"]);
+            // Кадр: имя окрашено list.errorForeground (дефолт реестра — #F88070).
+            const backend = renderElement(component.view, 40, 3, { themeVars: true });
+            const labelX =
+                item().globalPosition.x + backend.getTextAt(new Point(item().globalPosition.x, 0), 20).indexOf("a.ts");
+            expect(backend.getFgAt(new Point(labelX, 0))).toBe(0xf88070);
+
+            fs.writeFileSync(fp, "a");
+            onChange();
+
+            expect(item().getDeleted()).toBe(false);
+            expect(tabLabels(component)).toEqual(["a.ts"]);
         });
     });
 

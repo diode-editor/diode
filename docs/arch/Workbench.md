@@ -892,7 +892,14 @@ hide-toggle (`isHiddenByDefault`). См.
     `TextFileSaveParticipant`), перечитка (`revertToDisk`/`reopenWithEncoding`) и
     слежение за файлом на диске
     через `IFileWatcher` (авто-перечитка чистого буфера / `hasDiskConflict` у
-    «грязного»). **Владеет движком undo**: `UndoManager` (класс — в
+    «грязного» / `isOrphaned` у удалённого — вкладка зачёркнута). Удалённый
+    файл и вкладки (эталон `EditorService.handleDeletedFile`): удаление
+    изнутри редактора — `FileOperation.Delete` файлового сервиса или, для
+    корзины, которая идёт мимо сервиса, `IBulkEditBuffers.didDelete` →
+    `EditorService.handleDeletedFile` — закрывает ЧИСТЫЕ вкладки файла и всего
+    под удалённым каталогом; внешнее — только при
+    `workbench.editor.closeOnFileDelete` (дефолт `false`: вкладка остаётся
+    зачёркнутой). Вкладка с несохранёнными правками не закрывается никогда. **Владеет движком undo**: `UndoManager` (класс — в
     `src/vs/editor`) — один на документ (перечитка его чистит, а не пересоздаёт); модель сама
     роутит шаги в `UndoRedoService` (`undoContext`), а `undo/redo(view)`
     принимают «действующую вью», которой восстанавливается снимок выделений.
@@ -1216,7 +1223,9 @@ hide-toggle (`isHiddenByDefault`). См.
     листенеры `KeybindingDispatcher` (клавишные — в конструкторе, ДО `MenuBarComponent`:
     мнемоники меню слушают тот же корень в bubble-фазе, а съеденную кейбиндом клавишу
     диспетчер гасит `stopImmediatePropagation` — кейбинд на Alt+буква сильнее мнемоники,
-    как в VS Code) и фокус-хуки, регистрирует список
+    как в VS Code; в не-латинской раскладке и мнемоника, и `alt+буква`/`ctrl+буква`
+    матчатся по физической клавише `event.code` — `Alt+а` в русской = `Alt+F`, и в tmux
+    тоже: движок выводит `code` из кириллицы ЙЦУКЕН) и фокус-хуки, регистрирует список
     `WORKBENCH_ACTIONS` одним циклом (получает его токеном `CommandActionsDIToken`). Фич-компоненты и их сервисы он не резолвит —
     их инстанцирует реестр contribution'ов в фазе `blockStartup` (в конструкторе
     корня); фич-проводка (autoReveal, live-reload темы, контекст-меню редактора,
