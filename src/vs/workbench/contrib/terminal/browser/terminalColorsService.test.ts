@@ -5,6 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
+import { LifecycleService } from "../../../services/lifecycle/browser/lifecycleService.ts";
+import type { LifecyclePhase } from "../../../services/lifecycle/common/lifecyclePhase.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { lightPlusTheme } from "../../../services/themes/common/themes/lightPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -43,16 +46,28 @@ const PARTIAL_HOST = {
     ),
 };
 
-function build(settings: Record<string, unknown> = {}, hostColors = NO_HOST_COLORS) {
+/** Жизненный цикл в фазе `phase`: `restored` — `app.run()` уже перевёл tty в raw-режим. */
+function lifecycleAt(phase: LifecyclePhase): LifecycleService {
+    const lifecycle = new LifecycleService(new DialogService());
+    lifecycle.setPhase(phase);
+    return lifecycle;
+}
+
+function build(
+    settings: Record<string, unknown> = {},
+    hostColors = NO_HOST_COLORS,
+    phase: LifecyclePhase = "restored",
+) {
     const themeService = new ThemeService(DARK);
     const configuration = createTestConfigurationService(settings);
     const backend = new MockTerminalBackend();
     backend.hostColors = hostColors;
     const probe = vi.spyOn(backend, "probeHostColors");
-    const service = new TerminalColorsService(themeService, configuration, backend);
+    const lifecycle = lifecycleAt(phase);
+    const service = new TerminalColorsService(themeService, configuration, backend, lifecycle);
     const changes = vi.fn();
     service.onDidChange(changes);
-    return { service, themeService, configuration, probe, changes };
+    return { service, themeService, configuration, lifecycle, probe, changes };
 }
 
 describe("resolveTerminalColors", () => {
@@ -102,6 +117,44 @@ describe("TerminalColorsService", () => {
         expect(service.colors.background).toBe(packRgb(1, 2, 3));
     });
 
+    it("до фазы restored хост не спрашивается: ответ в cooked-tty ушёл бы эхом на экран", () => {
+        const { service, lifecycle, probe } = build(
+            { "terminal.integrated.colorSource": "host" },
+            PARTIAL_HOST,
+            "starting",
+        );
+        lifecycle.setPhase("ready");
+        expect(probe).not.toHaveBeenCalled();
+        expect(service.colors.ansi).toEqual(VSCODE_DARK_ANSI);
+
+        lifecycle.setPhase("restored");
+        expect(probe).toHaveBeenCalledOnce();
+        expect(service.colors.ansi[1]).toBe(packRgb(200, 0, 0));
+
+        lifecycle.setPhase("eventually");
+        expect(probe).toHaveBeenCalledOnce();
+    });
+
+    it("сервис, построенный уже после restored, спрашивает хост сразу", () => {
+        const { probe } = build({ "terminal.integrated.colorSource": "host" }, PARTIAL_HOST, "eventually");
+        expect(probe).toHaveBeenCalledOnce();
+    });
+
+    it("переключение на host до restored — опрос откладывается до фазы", async () => {
+        const { configuration, lifecycle, probe } = build({}, PARTIAL_HOST, "ready");
+        await configuration.updateValue("terminal.integrated.colorSource", "host");
+        expect(probe).not.toHaveBeenCalled();
+
+        lifecycle.setPhase("restored");
+        expect(probe).toHaveBeenCalledOnce();
+    });
+
+    it("theme к фазе restored — хост не спрашивается и тогда", () => {
+        const { lifecycle, probe } = build({}, PARTIAL_HOST, "starting");
+        lifecycle.setPhase("eventually");
+        expect(probe).not.toHaveBeenCalled();
+    });
+
     it("хост отвечает позже: до ответа — тема, ответ — новое событие с цветами хоста", () => {
         const themeService = new ThemeService(DARK);
         const backend = new MockTerminalBackend();
@@ -113,6 +166,7 @@ describe("TerminalColorsService", () => {
             themeService,
             createTestConfigurationService({ "terminal.integrated.colorSource": "host" }),
             backend,
+            lifecycleAt("restored"),
         );
         const changes = vi.fn();
         service.onDidChange(changes);
