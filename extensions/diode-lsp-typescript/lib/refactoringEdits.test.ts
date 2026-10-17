@@ -111,6 +111,34 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.applyRefactoringEdit).not.toHaveBeenCalled();
     });
 
+    it("правка внутри чужой команды идёт штатным путём клиента", async () => {
+        const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH });
+        const next = vi.fn(() => ({ applied: true }));
+        await middleware.executeCommand("_typescript.organizeImports", [], async () => {
+            await middleware.handleApplyEdit(MOVE, next);
+        });
+        expect(next).toHaveBeenCalledExactlyOnceWith(MOVE);
+        expect(host.applyRefactoringEdit).not.toHaveBeenCalled();
+    });
+
+    it("окно считается от САМОЙ РАННЕЙ из идущих команд", async () => {
+        const times = [10_000, 20_000];
+        const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH }, { now: () => times.shift() ?? 0 });
+        await middleware.executeCommand(APPLY_REFACTORING_COMMAND, [], async () => {
+            // Вторая команда стартовала позже, чем сервер создал файл первой.
+            await middleware.executeCommand(APPLY_REFACTORING_COMMAND, [], async () => {
+                await middleware.handleApplyEdit(MOVE, vi.fn());
+            });
+        });
+        expect(host.unlink).toHaveBeenCalledOnce();
+    });
+
+    it("время создания берётся из birthtime, если файловая система его хранит", async () => {
+        const { host, middleware } = makeHost({ "/proj/src/Foo.ts": { size: 0, birthtimeMs: 10_100, ctimeMs: 1 } });
+        await duringRefactoring(middleware, MOVE);
+        expect(host.unlink).toHaveBeenCalledOnce();
+    });
+
     it("чужая команда окна не открывает и уходит дальше как есть", async () => {
         const { middleware } = makeHost({});
         const next = vi.fn(() => "result");
@@ -166,10 +194,13 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.stat).not.toHaveBeenCalled();
     });
 
-    it("documentChanges от сервера не переписываются", async () => {
+    it("documentChanges от сервера не переписываются (даже рядом с changes)", async () => {
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH });
         const params: ApplyWorkspaceEditParams = {
-            edit: { documentChanges: [{ textDocument: { uri: NEW, version: null }, edits: [INSERT] }] },
+            edit: {
+                documentChanges: [{ textDocument: { uri: NEW, version: null }, edits: [INSERT] }],
+                changes: { [NEW]: [INSERT] },
+            },
         };
         await duringRefactoring(middleware, params);
         expect(host.stat).not.toHaveBeenCalled();

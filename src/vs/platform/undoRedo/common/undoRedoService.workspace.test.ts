@@ -292,6 +292,8 @@ describe("UndoRedoService — шаг нескольких документов",
         const second = step("Rename", ["/p/Foo.ts", "/p/x.ts"]);
         const foreign = step("Other", ["/p/a.ts"]);
         const plain = step("Typing", ["/p/Foo.ts"]);
+        // Бакет b создан раньше бакета a: обход бакетов дал бы обратный порядок.
+        service.canUndo("b");
         service.pushWorkspaceElement(first.element, [A]);
         service.pushWorkspaceElement(foreign.element, [A]);
         service.pushWorkspaceElement(second.element, [B]);
@@ -309,6 +311,20 @@ describe("UndoRedoService — шаг нескольких документов",
         service.clear("foo");
         expect(await service.undo("a")).toBe(true);
         expect(foreign.undo).toHaveBeenCalledOnce();
+        expect(await service.undo("a")).toBe(true);
+        expect(first.undo).toHaveBeenCalledOnce();
+    });
+
+    it("сброс бакета с обычными шагами в undo и redo — шаги просто уходят", async () => {
+        const service = new UndoRedoService();
+        service.pushElement(step("One").element, "a");
+        service.pushElement(step("Two").element, "a");
+        await service.undo("a");
+
+        service.clear("a", "replaced");
+
+        expect(service.canUndo("a")).toBe(false);
+        expect(service.canRedo("a")).toBe(false);
     });
 
     it("сломанный шаг и шаг, где бакет уже участник, повторно не принимаются", () => {

@@ -182,6 +182,25 @@ describe("WorkspaceEditService — отмена во всех затронуты
     });
 });
 
+describe("WorkspaceEditService — буфер с правкой шага перечитан с диска", () => {
+    it("отмена отказывает: файл изменён несовместимо (строка эталона)", async () => {
+        const h = harness();
+        const a = h.open("a.ts", SOURCE);
+        const b = h.open("b.ts", USER);
+        await h.service.applyWorkspaceEdit(moveFoo(h), "Move to a new file");
+
+        b.fileModel?.revertToDisk();
+        a.undo();
+        await vi.waitFor(() => {
+            expect(h.refusals).toHaveLength(1);
+        });
+
+        expect(h.refusals[0].message).toBe(
+            "Could not undo 'Move to a new file' across all files. The following files have been modified in an incompatible way: b.ts.",
+        );
+    });
+});
+
 describe("WorkspaceEditService — files.refactoring.autoSave", () => {
     it("рефакторинг больше чем по одному ресурсу сохраняет свои грязные буферы", async () => {
         const h = harness();

@@ -657,17 +657,19 @@ function touchedResources(plan: readonly PlanEntry[]): Set<string> {
             touched.add(entry.slot.resource);
             continue;
         }
-        const edit = entry.edit;
-        const paths = edit.kind === "rename" ? [edit.from, edit.to] : [edit.kind === "delete" ? edit.from : edit.to];
-        for (const filePath of paths) touched.add(Uri.file(filePath).toString());
+        for (const filePath of fileEditPaths(entry.edit)) touched.add(Uri.file(filePath).toString());
     }
     return touched;
 }
 
+/** Пути, которые трогает файловая операция: у переноса — обе стороны. */
+function fileEditPaths(edit: WorkspaceFileEdit): string[] {
+    return edit.kind === "rename" ? [edit.from, edit.to] : [edit.kind === "delete" ? edit.from : edit.to];
+}
+
 /** Трогает ли файловая операция ресурс, по которому уже копятся текстовые правки. */
 function touchesTextSlot(edit: WorkspaceFileEdit, slots: ReadonlyMap<string, ITextSlot>): boolean {
-    const paths = edit.kind === "rename" ? [edit.from, edit.to] : [edit.kind === "delete" ? edit.from : edit.to];
-    return paths.some((filePath) => slots.has(Uri.file(filePath).toString()));
+    return fileEditPaths(edit).some((filePath) => slots.has(Uri.file(filePath).toString()));
 }
 
 /**

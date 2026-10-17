@@ -112,19 +112,18 @@ export class UndoRedoService {
      * поэтому порядок шагов в нём — порядок их кладки.
      */
     public adopt(context: string, resource: string, label: string): void {
-        const adopted = new Set<IUndoRedoElement>();
+        const adopted = new Map<IUndoRedoElement, WorkspaceElementState>();
         for (const stack of this.undoStacks.values()) {
             for (const element of stack) {
                 const state = this.workspaceElements.get(element);
                 if (state === undefined || state.removed.size > 0 || state.participants.has(context)) continue;
-                if (element.resources.includes(resource)) adopted.add(element);
+                if (element.resources.includes(resource)) adopted.set(element, state);
             }
         }
-        const ordered = [...adopted].sort(
-            (a, b) => (this.workspaceElements.get(a)?.order ?? 0) - (this.workspaceElements.get(b)?.order ?? 0),
-        );
-        for (const element of ordered) {
-            this.workspaceElements.get(element)?.participants.set(context, { context, label, owner: false });
+        // Бакеты обходятся в порядке их создания, а не кладки шагов.
+        const ordered = [...adopted].sort(([, a], [, b]) => a.order - b.order);
+        for (const [element, state] of ordered) {
+            state.participants.set(context, { context, label, owner: false });
             this.stack(this.undoStacks, context).push(element);
         }
     }
@@ -223,6 +222,7 @@ export class UndoRedoService {
         stacks: Map<string, IUndoRedoElement[]>,
     ): void {
         const state = this.workspaceElements.get(element);
+        // Stryker disable next-line ConditionalExpression: шаг лежит в бакете, только пока бакет — его участник (pushWorkspaceElement/adopt кладут обоих сразу, leave снимает обоих), поэтому при известном `state` участник есть всегда
         const participant = state?.participants.get(context);
         if (state === undefined || participant === undefined) return;
         state.participants.delete(context);
@@ -253,6 +253,7 @@ export class UndoRedoService {
         for (const context of state.participants.keys()) {
             const redo = this.stack(this.redoStacks, context);
             const index = redo.indexOf(element);
+            // Stryker disable next-line ConditionalExpression: из redo шаг уходит только отсюда и сразу из всех участников, поэтому в redo участника он есть всегда; гард — от `splice(-1)`, который снял бы чужой шаг
             if (index >= 0) redo.splice(index, 1);
         }
     }
@@ -278,7 +279,6 @@ export class UndoRedoService {
                 this.stack(this.undoStacks, context).length = 0;
                 this.truncateRedo(context);
             }
-            this.workspaceElements.delete(element);
             this.onDidRefuseEmitter.fire({
                 element,
                 message: `Could not ${kind} '${element.label}' across all files. ${removedMessage(state.removed)}`,
