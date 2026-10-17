@@ -292,5 +292,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-17-de2264bfcfc3.json",
+    "generatedAt": "2026-10-17T10:01:46.964Z",
+    "commit": "de2264bfcfc3",
+    "binaryVersion": "nightly-de2264b",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
