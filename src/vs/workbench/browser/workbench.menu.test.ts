@@ -243,7 +243,8 @@ describe("Workbench — menu bar wiring", () => {
         const popup = openMenu(testApp, "s");
         expect(itemLabels(popup)).toEqual([
             "Select All",
-            "Expand Selection (Word)",
+            "Expand Selection",
+            "Shrink Selection",
             "Copy Line Up",
             "Copy Line Down",
             "Move Line Up",
@@ -270,14 +271,15 @@ describe("Workbench — menu bar wiring", () => {
         expect(executeSpy).toHaveBeenCalledWith("editor.action.selectAll");
     });
 
-    it("Selection → Expand Selection (Word) runs cursorWordRightSelect", () => {
+    it("Selection → Expand / Shrink Selection run the smart select commands", () => {
         const { testApp, commands } = createAppTestHarness();
         const executeSpy = vi.spyOn(commands, "execute");
-        const popup = openMenu(testApp, "s");
 
-        entryByLabel(popup, "Expand Selection (Word)").onSelect?.();
+        entryByLabel(openMenu(testApp, "s"), "Expand Selection").onSelect?.();
+        expect(executeSpy).toHaveBeenCalledWith("editor.action.smartSelect.expand");
 
-        expect(executeSpy).toHaveBeenCalledWith("cursorWordRightSelect");
+        entryByLabel(openMenu(testApp, "s"), "Shrink Selection").onSelect?.();
+        expect(executeSpy).toHaveBeenCalledWith("editor.action.smartSelect.shrink");
     });
 
     it("opens the View menu and renders its entries", () => {

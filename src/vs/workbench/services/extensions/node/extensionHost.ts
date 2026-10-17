@@ -6,6 +6,7 @@ import {
 import { type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type {
@@ -30,6 +31,7 @@ import type {
     ICoreRenameResult,
     IRenameRequest,
 } from "../../../../editor/common/languages/iRenameSource.ts";
+import type { ISelectionRangeRequest } from "../../../../editor/common/languages/iSelectionRangeSource.ts";
 import type {
     IRangeSemanticTokensRequest,
     ISemanticTokens,
@@ -1131,6 +1133,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly IFoldingRegion[]> {
         return this.languageFeatures.provideFoldingRanges(handle, req, token);
+    }
+
+    public provideSelectionRanges(
+        handle: number,
+        req: ISelectionRangeRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly (readonly IRange[])[]> {
+        return this.languageFeatures.provideSelectionRanges(handle, req, token);
     }
 
     public provideDocumentSemanticTokens(

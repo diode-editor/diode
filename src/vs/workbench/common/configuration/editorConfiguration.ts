@@ -56,6 +56,19 @@ export const editorConfiguration = {
             default: "configuredByTheme",
             description: "Controls whether the semanticHighlighting is shown for the languages that support it.",
         },
+        // Эталон: SmartSelect (editorOptions.ts) — Expand/Shrink Selection.
+        "editor.smartSelect.selectLeadingAndTrailingWhitespace": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Whether leading and trailing whitespace should always be selected.",
+        },
+        "editor.smartSelect.selectSubwords": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Whether subwords (like 'foo' in 'fooBar' or 'foo_bar') should be selected.",
+        },
         "editor.emptySelectionClipboard": {
             scope: "language-overridable",
             type: "boolean",

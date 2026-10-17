@@ -1,5 +1,6 @@
 import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../editor/common/languages/iCodeActionSource.ts";
 import type {
@@ -24,6 +25,7 @@ import type {
     ICoreRenameResult,
     IRenameRequest,
 } from "../../../editor/common/languages/iRenameSource.ts";
+import type { ISelectionRangeRequest } from "../../../editor/common/languages/iSelectionRangeSource.ts";
 import type {
     IRangeSemanticTokensRequest,
     ISemanticTokens,
@@ -97,6 +99,11 @@ export interface IExtensionLanguageFeaturesBridge {
     prepareRename(handle: number, request: IRenameRequest): Promise<ICoreRenameLocation | null>;
     /** Правки накладывает сам субпроцесс (`workspace.applyEdit`) — сюда едет только исход. */
     provideRenameEdits(handle: number, request: IRenameRequest, newName: string): Promise<ICoreRenameResult>;
+    provideSelectionRanges(
+        handle: number,
+        request: ISelectionRangeRequest,
+        token: ICancellationToken,
+    ): Promise<readonly (readonly IRange[])[]>;
     /**
      * Токены документа; `previousResultId` — числовой id прошлого ответа этого
      * провайдера (0 — нет). У ответа `resultId` — тот же id строкой.

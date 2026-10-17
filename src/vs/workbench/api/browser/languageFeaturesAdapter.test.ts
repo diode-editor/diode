@@ -73,6 +73,7 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideRenameEdits: vi.fn((handle: number, _request: unknown, newName: string) =>
             Promise.resolve({ applied: newName === `ok${String(handle)}` }),
         ),
+        provideSelectionRanges: vi.fn((handle: number) => Promise.resolve([[createRange(0, 0, 0, handle)]])),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -164,6 +165,24 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideRenameEdits).toHaveBeenCalledWith(9, REQUEST, "ok9");
         // Новое имя доезжает дословно: чужое имя провайдер не применяет.
         expect(await provider.provideRenameEdits(REQUEST, "other")).toEqual({ applied: false });
+    });
+
+    it("selectionRange — прокси в своём реестре, зовёт хост со своим handle и токеном", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 7, kind: "selectionRange", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.selectionRangeProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            positions: [{ line: 0, character: 1 }],
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideSelectionRanges(request, token)).toEqual([[createRange(0, 0, 0, 7)]]);
+        expect(bridge.provideSelectionRanges).toHaveBeenCalledWith(7, request, token);
     });
 
     it("signatureHelp: триггеры из метаданных регистрации, без метаданных — пустые", async () => {

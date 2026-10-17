@@ -128,6 +128,18 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: [true, false, "configuredByTheme"],
     },
     {
+        key: "editor.smartSelect.selectLeadingAndTrailingWhitespace",
+        type: "boolean",
+        default: true,
+        description: "Whether leading and trailing whitespace should always be selected.",
+    },
+    {
+        key: "editor.smartSelect.selectSubwords",
+        type: "boolean",
+        default: true,
+        description: "Whether subwords (like 'foo' in 'fooBar' or 'foo_bar') should be selected.",
+    },
+    {
         key: "editor.suggestOnTriggerCharacters",
         type: "boolean",
         default: true,

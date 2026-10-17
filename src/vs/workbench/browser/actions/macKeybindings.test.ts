@@ -197,6 +197,8 @@ describe("таблица мак-дельт", () => {
             "editor.action.nextMatchFindAction | meta+g@cmd",
             "editor.action.previousMatchFindAction | shift+meta+g@cmd",
             "editor.action.selectAll | -mod+a | meta+a@cmd",
+            "editor.action.smartSelect.expand | -shift+alt+right | ctrl+shift+meta+right@cmd ctrl+shift+right@legacy",
+            "editor.action.smartSelect.shrink | -shift+alt+left | ctrl+shift+meta+left@cmd ctrl+shift+left@legacy",
             "editor.action.triggerSuggest | alt+escape@extended",
             "editor.fold | -ctrl+shift+[ | alt+meta+[@cmd",
             "editor.unfold | -ctrl+shift+] | alt+meta+]@cmd",

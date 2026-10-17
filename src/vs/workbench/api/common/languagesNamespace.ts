@@ -2,6 +2,7 @@ import type * as vscode from "vscode";
 
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
+import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type {
     ICoreCompletionItem,
     ICoreCompletionResult,
@@ -26,6 +27,7 @@ import {
     serializeHoverContents,
     serializeInlineCompletionItem,
     serializeRenamePrepare,
+    serializeSelectionRanges,
     serializeSignatureHelp,
     serializeTextEdit,
     toVscodeRange,
@@ -63,6 +65,7 @@ import type {
     IWireReferenceParams,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
+    IWireSelectionRangeParams,
     IWireSignatureHelpParams,
     Received,
     WireCodeAction,
@@ -114,6 +117,12 @@ export interface IDefinitionRegistration {
 export interface IRenameRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.RenameProvider;
+}
+
+/** Зарегистрированный selection-range-провайдер (Expand/Shrink Selection). */
+export interface ISelectionRangeRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.SelectionRangeProvider;
 }
 
 /** Зарегистрированный hover-провайдер. */
@@ -325,6 +334,7 @@ export function createLanguagesNamespace(
     const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
+    const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
     const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
@@ -490,6 +500,27 @@ export function createLanguagesNamespace(
         if (contents.length === 0) return null;
         const range = rangeFrom((result as { range?: unknown }).range);
         return { contents, ...(range === null ? {} : { range }) };
+    });
+
+    rpc.handleRequest("languages.provideSelectionRanges", async (params, cancellation): Promise<IRange[][]> => {
+        const p: Received<IWireSelectionRangeParams> = params;
+        // Провайдер мог сняться, пока запрос летел: отвечаем «иерархий нет».
+        const reg = selectionRangeProviders.get(p.handle ?? -1);
+        if (reg === undefined) return [];
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
+        const wirePositions = p.positions ?? [];
+        const positions = wirePositions.map((pos) => new Position(pos.line, pos.character));
+        let result: unknown;
+        try {
+            result = await callWithVscodeToken(cancellation, (token) =>
+                reg.provider.provideSelectionRanges(doc, positions, token),
+            );
+        } catch (err) {
+            reportProviderFailure("provideSelectionRanges", err, reg.owner);
+            // Сбойный провайдер = «иерархий нет»: `result` остаётся неприсвоенным.
+        }
+        return serializeSelectionRanges(result, wirePositions);
     });
 
     rpc.handleRequest(
@@ -1301,7 +1332,11 @@ export function createLanguagesNamespace(
         registerDocumentLinkProvider: registerNoopProvider,
         registerColorProvider: registerNoopProvider,
         registerOnTypeFormattingEditProvider: registerNoopProvider,
-        registerSelectionRangeProvider: registerNoopProvider,
+        registerSelectionRangeProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.SelectionRangeProvider,
+        ): vscode.Disposable =>
+            registerByHandle(selectionRangeProviders, "selectionRange", selector, { selector, provider }),
         registerDocumentSemanticTokensProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentSemanticTokensProvider,

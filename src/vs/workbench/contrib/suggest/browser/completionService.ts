@@ -18,6 +18,7 @@ import type {
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
+import { type StandardTokenType, standardTokenTypeAt } from "../../../../editor/common/languages/standardTokenType.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -43,8 +44,6 @@ import {
     type IQuickSuggestionsOptions,
     readQuickSuggestions,
     shouldAutoTrigger,
-    type StandardTokenType,
-    standardTokenTypeAt,
     valueFor,
 } from "./quickSuggestions.ts";
 import type { SuggestComponent } from "./suggestComponent.ts";

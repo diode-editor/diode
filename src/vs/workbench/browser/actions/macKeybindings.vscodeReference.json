@@ -643,6 +643,26 @@
         "meta+k meta+i"
       ]
     },
+    "editor.action.smartSelect.expand": {
+      "vscodeCommand": "editor.action.smartSelect.expand",
+      "linux": [
+        "shift+alt+right"
+      ],
+      "mac": [
+        "ctrl+shift+meta+right",
+        "ctrl+shift+right"
+      ]
+    },
+    "editor.action.smartSelect.shrink": {
+      "vscodeCommand": "editor.action.smartSelect.shrink",
+      "linux": [
+        "shift+alt+left"
+      ],
+      "mac": [
+        "ctrl+shift+meta+left",
+        "ctrl+shift+left"
+      ]
+    },
     "editor.action.toggleWordWrap": {
       "vscodeCommand": "editor.action.toggleWordWrap",
       "linux": [
