@@ -51,8 +51,15 @@ import { SuggestComponentDIToken } from "./suggestComponent.ts";
 
 export const CompletionServiceDIToken = token<CompletionService>("CompletionService");
 
-/** Символы, образующие «слово» под курсором (префикс автодополнения). */
-const WORD_CHAR = /[\w.-]/;
+/**
+ * Символы, образующие «слово» под курсором (префикс автодополнения): буквы и
+ * цифры любого алфавита, как в эталонном `DEFAULT_WORD_REGEXP`, по которому
+ * решает {@link shouldAutoTrigger}. ASCII-`\w` здесь расходился с ним: на
+ * кириллице quick suggest открывал попап с пустым префиксом (весь список
+ * слов), а следующая же буква — «несловесный добор» — закрывала его, и через
+ * `quickSuggestionsDelay` он открывался снова: мерцание на каждом символе.
+ */
+const WORD_CHAR = /[\p{L}\p{M}\p{N}_.-]/u;
 
 /** `CompletionItemKind.Text` — для word-based элементов. */
 const KIND_TEXT = 0;

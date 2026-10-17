@@ -19,6 +19,15 @@ describe("collectWordCompletions", () => {
         expect(collectWordCompletions(["a1 = 12; _x.y-z"], "")).toEqual(["a1", "_x"]);
     });
 
+    it("собирает слова любого алфавита, а не только ASCII", () => {
+        expect(collectWordCompletions(["фыва привет_2 naïve 1тест"], "")).toEqual([
+            "фыва",
+            "привет_2",
+            "naïve",
+            "тест",
+        ]);
+    });
+
     it("пропускает документы крупнее лимита (защита больших файлов)", () => {
         const big = "word ".repeat(500); // > лимита ниже
         expect(collectWordCompletions([big, "small tiny"], "", { maxBytesPerText: 100 })).toEqual(["small", "tiny"]);
