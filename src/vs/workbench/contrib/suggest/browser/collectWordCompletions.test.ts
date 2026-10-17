@@ -20,7 +20,12 @@ describe("collectWordCompletions", () => {
     });
 
     it("собирает слова любого алфавита, а не только ASCII", () => {
-        expect(collectWordCompletions(["фыва привет_2 naïve 1тест"], "")).toEqual(["фыва", "привет_2", "naïve", "тест"]);
+        expect(collectWordCompletions(["фыва привет_2 naïve 1тест"], "")).toEqual([
+            "фыва",
+            "привет_2",
+            "naïve",
+            "тест",
+        ]);
     });
 
     it("пропускает документы крупнее лимита (защита больших файлов)", () => {
