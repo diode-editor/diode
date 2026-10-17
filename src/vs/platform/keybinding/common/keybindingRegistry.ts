@@ -362,12 +362,8 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
     // non-Latin key falls back (Alt+а → Alt+F): a Latin key decides by itself, so AZERTY Alt+a
     // (physical Q) stays Alt+A — the same rule as the menu bar mnemonics.
     const physicalFallback = event.ctrlKey || event.metaKey || (event.altKey && event.key.charCodeAt(0) >= 0x80);
-    if (binding.key.length === 1 && physicalFallback && event.code != null && event.code !== "") {
-        const expectedCode = `Key${binding.key.toUpperCase()}`;
-        if (event.code === expectedCode) return true;
-    }
-
-    return false;
+    // No guards for multi-char keys or a missing code: `Key${"ENTER"}` is never a real code.
+    return physicalFallback && event.code === `Key${binding.key.toUpperCase()}`;
 }
 
 export class KeybindingRegistry implements IDisposable {
