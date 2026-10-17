@@ -1788,11 +1788,31 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         void service;
     });
 
-    it("не-ASCII буква тоже открывает: слово — по определению эталона, а не по \\w", async () => {
-        const { service, fake } = quickSetup({ line: "", character: 0 });
+    it("не-ASCII буква тоже запрашивает: слово — по определению эталона, а не по \\w", async () => {
+        const { service, fake, source } = quickSetup({ line: "", character: 0 });
         fake.type("п", 1);
         await flushTimers();
+        expect(source).toHaveBeenCalled();
+        // Префикс — «п», а не пустая строка: под него из ITEMS не подошло ничего,
+        // и авто-попап не показывается (иначе он открылся бы полным списком).
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("набор кириллицей сужает открытый попап, а не закрывает и переоткрывает его на каждой букве", async () => {
+        const fake = makeEditor("", 0, "привет пример проверка");
+        const { service, component, body } = createService(makeGroup(fake.editor, undefined), makeStateService(), {});
+        TestApp.create(body, new Size(80, 24));
+        fake.type("п", 1);
+        await flushTimers();
+        expect(component.view.items.map((i) => i.label)).toEqual(["привет", "пример", "проверка"]);
+        let closes = 0;
+        service.onDidClose(() => closes++);
+        fake.type("пр", 2);
+        fake.type("при", 3);
+        await flushTimers();
+        expect(closes).toBe(0);
         expect(service.isOpen()).toBe(true);
+        expect(component.view.items.map((i) => i.label)).toEqual(["привет", "пример"]);
     });
 
     it("набор внутри слова — нет, а буква перед словом — да", async () => {
