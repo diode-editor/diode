@@ -222,5 +222,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-17-b6360d2cf23c.json",
+    "generatedAt": "2026-10-17T01:45:21.819Z",
+    "commit": "b6360d2cf23c",
+    "binaryVersion": "nightly-b6360d2",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
