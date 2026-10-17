@@ -84,6 +84,13 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         expect(compute).toHaveBeenCalledTimes(2);
     });
 
+    it("правка до первого шага — не помеха: стека ещё нет, забывать нечего", async () => {
+        const state = makeState(7);
+        state.document.applyEdits([{ range: createRange(0, 17, 0, 17), text: ";" }]);
+        await new SmartSelectController(state).run(true, HIERARCHY);
+        expect(texts(state)).toEqual(["alpha"]);
+    });
+
     it("ступени внутри текущего выделения пропускаются: первый шаг — шире выделения", async () => {
         const state = makeState(7);
         state.selections = [createSelection(0, 5, 0, 10)];

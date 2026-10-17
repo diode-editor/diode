@@ -33,6 +33,8 @@ describe("provideWordSelectionRanges — wordSelections эталона", () => {
         expect(steps("zAb\n", 0, 2)).toEqual(["Ab", "zAb", "zAb\n"]);
         expect(steps("aZ\n", 0, 0)).toEqual(["a", "aZ", "aZ\n"]);
         expect(steps("zA\n", 0, 0)).toEqual(["z", "zA", "zA\n"]);
+        // Заглавные подряд — одно подслово с хвостом из строчных.
+        expect(steps("ABc\n", 0, 2)).toEqual(["ABc", "ABc", "ABc\n"]);
         // Цифра — не заглавная: границы подслова нет.
         expect(steps("foo1bar\n", 0, 5)).toEqual(["foo1bar", "foo1bar", "foo1bar\n"]);
     });

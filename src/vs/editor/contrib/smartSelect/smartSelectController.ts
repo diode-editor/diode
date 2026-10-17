@@ -41,7 +41,7 @@ export class SmartSelectController {
 
     public async run(forward: boolean, compute: ComputeSelectionRanges): Promise<void> {
         const document = this.viewState.document;
-        if (this.state !== undefined && this.stateVersionId !== document.versionId) this.forget();
+        if (this.stateVersionId !== document.versionId) this.forget();
 
         if (this.state === undefined) {
             const selections = this.viewState.selections;
@@ -81,7 +81,6 @@ export class SmartSelectController {
     }
 
     private forget(): void {
-        // Stryker disable next-line OptionalChaining: при живом стеке подписка есть всегда, `?.` — только для типов
         this.selectionListener?.dispose();
         this.selectionListener = undefined;
         this.state = undefined;

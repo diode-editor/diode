@@ -116,6 +116,9 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(await stub.callRequest("languages.provideSelectionRanges", params({ handle: 1 }))).toHaveLength(1);
         expect(second).toHaveBeenCalledOnce();
         expect(first).not.toHaveBeenCalled();
+        // Без handle — ничей запрос: никого не зовём.
+        expect(await stub.callRequest("languages.provideSelectionRanges", params({ handle: undefined }))).toEqual([]);
+        expect(second).toHaveBeenCalledOnce();
     });
 
     it("родитель с тем же концом, что у ребёнка, — законная ступень", async () => {
@@ -153,6 +156,9 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(await call()).toEqual([]);
         answer = null;
         expect(await call()).toEqual([]);
+        // null вместо узла — иерархии у этой позиции нет, ответ цел.
+        answer = [null];
+        expect(await call()).toEqual([[]]);
         // Первая ступень обязана содержать каретку (0,7).
         answer = [{ range: asVscode(new Range(0, 12, 0, 16)) }];
         expect(await call()).toEqual([]);

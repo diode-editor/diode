@@ -69,6 +69,19 @@ describe("provideSelectionRanges — слияние эталона", () => {
         ]);
     });
 
+    it("строка без отступа и хвоста: «строка целиком» совпадает с «без пробелов» — одна ступень", async () => {
+        const text = "a b\nc";
+        expect(await steps(text, [createPosition(0, 0)])).toEqual([["a", "a b", text]]);
+    });
+
+    it("диапазон со строки из пробелов: «без отступа» нет, «строки целиком» — есть", async () => {
+        const text = "a\n  \nfoo\nb";
+        const lsp = provider(() => [[createRange(1, 1, 2, 3), createRange(0, 0, 2, 3)]]);
+        expect(await steps(text, [createPosition(2, 1)], { providers: [lsp] })).toEqual([
+            ["foo", " \nfoo", "  \nfoo", "a\n  \nfoo", text],
+        ]);
+    });
+
     it("диапазон с пустой строки: «без отступа» нет, «строки целиком» совпадают с ним — не повторяются", async () => {
         const text = "a\n\nfoo\nb";
         const lsp = provider(() => [[createRange(1, 0, 2, 3), createRange(0, 0, 2, 3)]]);
