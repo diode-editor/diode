@@ -229,6 +229,25 @@ describe("UndoRedoService — шаг нескольких документов",
         );
     });
 
+    it("несколько потерянных файлов одной причины — через запятую", async () => {
+        const { service, refusals } = serviceWithRefusals();
+        const c: IUndoParticipant = { context: "c", label: "c.ts", owner: true };
+        const d: IUndoParticipant = { context: "d", label: "d.ts", owner: true };
+        const e: IUndoParticipant = { context: "e", label: "e.ts", owner: true };
+        service.pushWorkspaceElement(step("Many").element, [A, B, c, d, e]);
+        service.clear("b");
+        service.clear("c");
+        service.clear("d", "replaced");
+        service.clear("e", "replaced");
+
+        await service.undo("a");
+
+        expect(refusals.at(-1)?.message).toBe(
+            "Could not undo 'Many' across all files. The following files have been closed and modified on disk: b.ts, c.ts.\n" +
+                "The following files have been modified in an incompatible way: d.ts, e.ts.",
+        );
+    });
+
     it("сломанный шаг на повторе — «Could not redo», redo участников сброшен", async () => {
         const { service, refusals } = serviceWithRefusals();
         const { element } = step("Rename");

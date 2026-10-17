@@ -222,9 +222,10 @@ export class UndoRedoService {
         stacks: Map<string, IUndoRedoElement[]>,
     ): void {
         const state = this.workspaceElements.get(element);
-        // Stryker disable next-line ConditionalExpression: шаг лежит в бакете, только пока бакет — его участник (pushWorkspaceElement/adopt кладут обоих сразу, leave снимает обоих), поэтому при известном `state` участник есть всегда
-        const participant = state?.participants.get(context);
-        if (state === undefined || participant === undefined) return;
+        if (state === undefined) return;
+        const participant = state.participants.get(context);
+        // Stryker disable next-line ConditionalExpression: шаг лежит в бакете, только пока бакет — его участник (pushWorkspaceElement/adopt кладут обоих сразу, leave снимает обоих), поэтому участник здесь есть всегда
+        if (participant === undefined) return;
         state.participants.delete(context);
         if (!participant.owner) return;
         if (stacks === this.undoStacks) {
