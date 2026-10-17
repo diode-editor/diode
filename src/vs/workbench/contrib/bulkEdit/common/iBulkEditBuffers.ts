@@ -46,12 +46,24 @@ export interface IBulkEditBuffers {
      * в проводнике).
      */
     undoContext(touched: readonly string[]): string | null;
+    /**
+     * Ресурс удалён мимо файлового сервиса — в системную корзину (`ITrashService`),
+     * поэтому `FileOperation.Delete` от сервиса не придёт. Реализация поступает с
+     * вкладками так же, как на него: чистые под ресурсом закрываются.
+     */
+    didDelete(resource: string): void;
 }
 
 /**
  * Открытых буферов нет — весь edit ложится на диск. Дефолт для профилей без
  * редактора (node-режим, тесты сервиса) и значение до связывания в DI.
  */
-export const NULL_BULK_EDIT_BUFFERS: IBulkEditBuffers = { get: () => null, undoContext: () => null };
+export const NULL_BULK_EDIT_BUFFERS: IBulkEditBuffers = {
+    get: () => null,
+    undoContext: () => null,
+    didDelete: () => {
+        /* вкладок нет — закрывать нечего */
+    },
+};
 
 export const IBulkEditBuffersDIToken = token<IBulkEditBuffers>("IBulkEditBuffers");

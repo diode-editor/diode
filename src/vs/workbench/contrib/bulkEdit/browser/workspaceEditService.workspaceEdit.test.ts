@@ -70,6 +70,7 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
             };
         },
         undoContext: (touched) => (touched.length > 0 ? `buffer:${touched[0]}` : null),
+        didDelete: NULL_BULK_EDIT_BUFFERS.didDelete,
     };
 }
 

@@ -3,10 +3,17 @@ import * as path from "node:path";
 import type { IEditorPane } from "./iEditorPane.ts";
 
 /**
+ * Хвост метки вкладки удалённого файла (orphaned). Отступление от эталона по
+ * решению человека: VS Code 1.127 показывает удаление только зачёркиванием и
+ * цветом, а зачёркивание (SGR 9) рисуют не все терминалы — текст виден везде.
+ */
+export const DELETED_TAB_SUFFIX = " (deleted)";
+
+/**
  * Метки вкладок для набора редакторов ОДНОЙ группы: обычно это имя файла, но
  * если несколько открытых файлов делят один basename, к ним добавляется
  * минимальный различающий суффикс родительского пути (как в VS Code), чтобы
- * вкладки нельзя было спутать. Общая для tab strip'а
+ * вкладки нельзя было спутать. У удалённого файла — ещё и {@link DELETED_TAB_SUFFIX}. Общая для tab strip'а
  * ({@link import("./editorGroupComponent.ts").EditorGroupComponent}) и оверлея
  * переключателя Ctrl+Tab
  * ({@link import("./tabSwitcherComponent.ts").TabSwitcherComponent}) — списки
@@ -56,5 +63,7 @@ export function computeTabLabels(
             }
         });
     }
-    return labels;
+    // Хвост — после различающего суффикса: тёзок различаем по пути, а не по
+    // тому, удалён ли файл.
+    return labels.map((label, i) => (editors[i].isOrphaned === true ? label + DELETED_TAB_SUFFIX : label));
 }

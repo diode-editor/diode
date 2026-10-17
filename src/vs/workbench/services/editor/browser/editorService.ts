@@ -73,6 +73,9 @@ import { TextEditorPaneBuilder, TextEditorPaneBuilderDIToken } from "./textEdito
 /** Настройка режима предпросмотра вкладок (`workbenchConfiguration`). */
 const PREVIEW_SETTING_KEY = "workbench.editor.enablePreview";
 
+/** Закрывать ли чистую вкладку файла, удалённого снаружи (`workbenchConfiguration`). */
+const CLOSE_ON_FILE_DELETE_SETTING_KEY = "workbench.editor.closeOnFileDelete";
+
 /**
  * Короткая причина отказа — для лога и для сообщения человеку. Стек здесь не
  * нужен (в тост он не влезет, а виноватого называет сама схема ресурса), но
@@ -394,6 +397,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 if (event.operation === FileOperation.Move && event.target !== undefined) {
                     this.handleMovedFile(event.resource, event.target);
                 }
+                if (event.operation === FileOperation.Delete) this.handleDeletedFile(event.resource);
+            }),
+        );
+        // Файл удалили снаружи, модель уже перепроверила и стала orphaned:
+        // при `closeOnFileDelete` чистые вкладки уходят (эталон
+        // `handleDeletedFile(…, isExternal: true)`), иначе остаются зачёркнутыми.
+        this.register(
+            this.textFileModels.onDidChangeModelOrphaned((model) => {
+                // «Грязные» отсеивает closeCleanEditors.
+                if (!model.isOrphaned) return;
+                if (!this.configurationService.get(CLOSE_ON_FILE_DELETE_SETTING_KEY)) return;
+                this.closeCleanEditors((pane) => pane.fileModel === model);
             }),
         );
         // Выключили предпросмотр — висящие превью прикалываем, иначе следующее
@@ -549,6 +564,39 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             // Замещение событий не шлёт: перерисовку полосы и смену активного
             // редактора даёт повторная активация текущей вкладки.
             if (moved) group.activateTab(group.activeIndex, { focus: focusActive });
+        }
+    }
+
+    // ─── Удаление файла изнутри: чистые вкладки закрываются ─────────────────
+
+    /**
+     * Файл или каталог удалили изнутри редактора (проводник, `workspace.applyEdit`,
+     * отмена создания): каждая ЧИСТАЯ вкладка файла, равного `resource` или
+     * лежащего под ним, закрывается (VS Code `EditorService.handleDeletedFile` с
+     * `isExternal: false` — независимо от `closeOnFileDelete`). Вкладка с
+     * несохранёнными правками остаётся: её модель станет orphaned по сигналу
+     * watcher'а, и вкладка зачеркнётся — данные человека не теряются.
+     */
+    public handleDeletedFile(resource: Uri): void {
+        // «Равен или лежит под» — та же проверка, что у переноса: перенос «на себя»
+        // отдаёт ресурс, если он под `resource`, и `null` иначе.
+        this.closeCleanEditors((pane) => movedResource(pane.uri, resource, resource) !== null);
+    }
+
+    /**
+     * Закрывает чистые файловые вкладки всех групп, подошедшие под `matches`.
+     * Стороны диффа не трогаем — их ресурсы фиксирует владелец диффа.
+     */
+    private closeCleanEditors(matches: (pane: TextEditorPane) => boolean): void {
+        // Копия списка: опустевшая группа уходит из полосы прямо в цикле.
+        for (const group of [...this.editorGroups.groups]) {
+            const panes = group
+                .getPanes()
+                .filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane)
+                .filter((pane) => pane.fileModel !== null && !pane.isModified && matches(pane));
+            // Чистые вкладки подтверждения не спрашивают — закрытие синхронно;
+            // пустой список ничего не закрывает.
+            void this.closeEditors(group, panes);
         }
     }
 

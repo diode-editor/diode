@@ -166,6 +166,7 @@ export class EditorGroupComponent extends Component {
                 iconColor: fi.color,
                 isModified: editor.isModified,
                 isReadOnly: editor.readOnly,
+                isDeleted: editor.isOrphaned === true,
             };
         });
 

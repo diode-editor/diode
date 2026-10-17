@@ -61,6 +61,7 @@ export class TextFileModelService extends Disposable {
     );
     private readonly onDidSaveModelEmitter = this.register(new Emitter<TextFileModel>());
     private readonly onDidChangeModelLanguageEmitter = this.register(new Emitter<TextFileModel>());
+    private readonly onDidChangeModelOrphanedEmitter = this.register(new Emitter<TextFileModel>());
 
     /**
      * Сохранение любой модели сервиса — после того, как реестр перепривязал
@@ -70,6 +71,12 @@ export class TextFileModelService extends Disposable {
 
     /** Смена языка документа любой модели сервиса (настройки `"[lang]"` читаются заново). */
     public readonly onDidChangeModelLanguage = this.onDidChangeModelLanguageEmitter.event;
+
+    /**
+     * Файл модели удалён с диска или вернулся ({@link TextFileModel.isOrphaned}) —
+     * аналог `ITextFileEditorModelManager.onDidChangeOrphaned` эталона.
+     */
+    public readonly onDidChangeModelOrphaned = this.onDidChangeModelOrphanedEmitter.event;
 
     public constructor(
         private readonly languageService: ILanguageService,
@@ -149,6 +156,9 @@ export class TextFileModelService extends Disposable {
         });
         model.onDidChangeLanguage(() => {
             this.onDidChangeModelLanguageEmitter.fire(model);
+        });
+        model.onDidChangeOrphaned(() => {
+            this.onDidChangeModelOrphanedEmitter.fire(model);
         });
     }
 }

@@ -46,6 +46,7 @@ const REQUIRED_COLORS: (keyof IWorkbenchColors)[] = [
     "list.inactiveSelectionForeground",
     "list.hoverBackground",
     "list.deemphasizedForeground",
+    "list.errorForeground",
     "button.background",
     "button.foreground",
     "button.hoverBackground",

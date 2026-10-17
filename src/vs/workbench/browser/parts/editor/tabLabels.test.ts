@@ -5,7 +5,7 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
 import type { IEditorPane } from "./iEditorPane.ts";
-import { computeTabLabels } from "./tabLabels.ts";
+import { computeTabLabels, DELETED_TAB_SUFFIX } from "./tabLabels.ts";
 
 function pane(uriPath: string): IEditorPane {
     return {
@@ -46,5 +46,27 @@ describe("computeTabLabels — разводка тёзок минимальны�
         // Без filter(Boolean) dirname("/") дал бы [""], а "/m/n" — ["", "m", "n"],
         // и суффиксы получили бы ведущий разделитель.
         expect(labels("/n/a.ts", "/m/n/a.ts")).toEqual(["a.ts — n", "a.ts — m/n"]);
+    });
+});
+
+describe("computeTabLabels — удалённый файл", () => {
+    it("у orphaned-вкладки хвост (deleted), у живой и у панели без понятия — нет", () => {
+        const deleted = { ...pane("/p/a.ts"), isOrphaned: true };
+        const alive = { ...pane("/p/b.ts"), isOrphaned: false };
+        const other = pane("/p/c.ts");
+        expect(computeTabLabels([deleted, alive, other], (editor) => editor.label)).toEqual([
+            `a.ts${DELETED_TAB_SUFFIX}`,
+            "b.ts",
+            "c.ts",
+        ]);
+        expect(DELETED_TAB_SUFFIX).toBe(" (deleted)");
+    });
+
+    it("хвост идёт после различающего суффикса и тёзок не разводит", () => {
+        const deleted = { ...pane("/x/a.ts"), isOrphaned: true };
+        expect(computeTabLabels([deleted, pane("/y/a.ts")], (editor) => editor.label)).toEqual([
+            `a.ts — x${DELETED_TAB_SUFFIX}`,
+            "a.ts — y",
+        ]);
     });
 });
