@@ -10,7 +10,7 @@
 `e2e/references.test.ts`, `e2e/parameterHints.test.ts`;
 скриншот-сценарии `goto-definition`, `lsp-completion`, `references`,
 `parameter-hints`).
-Открыто — «Отложенное» ниже (gopls, реестр для basedpyright, закрытие остальных стабов).
+Открыто — «Отложенное» ниже (gopls — [GoLSP.md](GoLSP.md), реестр для basedpyright, закрытие остальных стабов).
 
 ## Архитектура (проверена спайком, ветка `worktree-lsp-spike`)
 
@@ -205,7 +205,7 @@ diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSa
   закоммиченной фикстуры (политика — [TESTING.md](../TESTING.md)). Folding у
   python — indentation-based ядра (сервер `textDocument/foldingRange` не
   реализует). Запись `proxy-openvsx` в реестре магазина — сделана
-  ([Marketplace.md](Marketplace.md)); дальше — gopls (маршрут «бинарь в PATH»).
+  ([Marketplace.md](Marketplace.md)); дальше — gopls: стоковый `golang.go`, сервер ставит себе само расширение (`go install`), пул задач — [GoLSP.md](GoLSP.md).
 - **Второй Python-сервер — ruff сделан (#305)**: настоящий `charliermarsh.ruff`
   с open-vsx рядом с basedpyright — линт-диагностики (pull с re-pull на
   правку буфера), quickfix по диагностике (safe-фикс `isPreferred`),
