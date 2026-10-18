@@ -83,10 +83,9 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
         }
         layers.push(layer);
         this.resolved.delete(languageId);
+        // toDisposable срабатывает один раз — слой в массиве ещё есть.
         return toDisposable(() => {
-            const index = layers.indexOf(layer);
-            if (index < 0) return;
-            layers.splice(index, 1);
+            layers.splice(layers.indexOf(layer), 1);
             this.resolved.delete(languageId);
         });
     }
@@ -98,9 +97,8 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
         let flight = this.flights.get(languageId);
         if (flight === undefined) {
             flight = this.load(languageId).then((file) => {
+                // Слой мог прийти раньше файла — get() сливает их (до файла кэша нет).
                 this.files.set(languageId, file);
-                // Слой мог прийти раньше файла — get() сливает их.
-                this.resolved.delete(languageId);
                 return this.get(languageId) ?? EMPTY_LANGUAGE_CONFIGURATION;
             });
             this.flights.set(languageId, flight);

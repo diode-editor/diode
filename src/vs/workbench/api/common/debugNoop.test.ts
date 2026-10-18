@@ -83,12 +83,15 @@ describe("vscode.debug — null-объект: сессий нет и не буд
         vscode.debug.registerDebugConfigurationProvider("go", {});
         vscode.debug.registerDebugAdapterDescriptorFactory("go", { createDebugAdapterDescriptor: () => undefined });
         vscode.debug.registerDebugConfigurationProvider("delve", {});
+        // Фабрика адаптера своего типа — тоже повод сказать (без провайдера конфигураций).
+        vscode.debug.registerDebugAdapterDescriptorFactory("lldb", { createDebugAdapterDescriptor: () => undefined });
         vscode.debug.registerDebugAdapterTrackerFactory("*", { createDebugAdapterTracker: () => undefined });
         await vscode.debug.startDebugging(undefined, "a");
         await vscode.debug.startDebugging(undefined, "b");
         expect(warnings(stub)).toEqual([
             'extensions/Extensions/warn: отладка "go" в TUI пока не поддержана — сессий не будет, остальное расширение работает',
             'extensions/Extensions/warn: отладка "delve" в TUI пока не поддержана — сессий не будет, остальное расширение работает',
+            'extensions/Extensions/warn: отладка "lldb" в TUI пока не поддержана — сессий не будет, остальное расширение работает',
             "extensions/Extensions/warn: запуск отладки в TUI пока не поддержан — сессия не начата",
         ]);
     });

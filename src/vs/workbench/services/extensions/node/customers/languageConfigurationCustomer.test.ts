@@ -11,13 +11,17 @@ import { LanguageConfigurationCustomer } from "./languageConfigurationCustomer.t
 /** Регистратор слоёв: живые слои по порядку заведения. */
 function recordingService() {
     const live: { languageId: string; configuration: ILanguageConfiguration }[] = [];
+    /** Сколько раз снимали слои — повторное снятие одного слоя тоже считается. */
+    const disposals = { count: 0 };
     return {
         live,
+        disposals,
         register: (languageId: string, configuration: ILanguageConfiguration) => {
             const layer = { languageId, configuration };
             live.push(layer);
             return {
                 dispose: () => {
+                    disposals.count++;
                     const index = live.indexOf(layer);
                     if (index >= 0) live.splice(index, 1);
                 },
@@ -71,13 +75,16 @@ describe("LanguageConfigurationCustomer", () => {
         expect(service.live).toEqual([]);
     });
 
-    it("смерть субпроцесса снимает все его слои", async () => {
+    it("смерть субпроцесса снимает все его слои — уже снятые повторно не трогает", async () => {
         const { service, peer, spawn } = setup();
         peer.notify("languages.setLanguageConfiguration", { handle: 0, languageId: "go", configuration: COMMENTS });
         peer.notify("languages.setLanguageConfiguration", { handle: 1, languageId: "go", configuration: {} });
+        peer.notify("languages.unsetLanguageConfiguration", { handle: 0 });
         await flushMicrotasks();
+        expect(service.disposals.count).toBe(1);
         spawn.dispose();
         expect(service.live).toEqual([]);
+        expect(service.disposals.count).toBe(2);
     });
 });
 

@@ -83,6 +83,7 @@ function toWireComments(comments: vscode.CommentRule): ICommentRule {
  */
 function toWireAutoClosingPair(pair: vscode.AutoClosingPair): IAutoClosingPair {
     const notIn: ("string" | "comment")[] = [];
+    // Stryker disable next-line ArrayDeclaration: фолбэк-массив пуст по смыслу — любой не-SyntaxTokenType элемент отсеялся бы ниже, наблюдаемо то же
     for (const kind of pair.notIn ?? []) {
         if ((kind as number) === (SyntaxTokenType.String as number)) notIn.push("string");
         else if ((kind as number) === (SyntaxTokenType.Comment as number)) notIn.push("comment");

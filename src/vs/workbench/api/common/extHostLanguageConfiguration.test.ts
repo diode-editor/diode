@@ -81,7 +81,8 @@ describe("languages.setLanguageConfiguration", () => {
         const { setLanguageConfiguration, sent } = setup();
         setLanguageConfiguration("go", { comments: { lineComment: { comment: "#", noIndent: true } } });
         setLanguageConfiguration("go", {});
-        expect(sent().map((n) => (n.params as { configuration: unknown }).configuration)).toEqual([
+        // toStrictEqual: незаданная секция не едет даже `undefined`-полем — иначе затёрла бы секцию файла.
+        expect(sent().map((n) => (n.params as { configuration: unknown }).configuration)).toStrictEqual([
             { comments: { lineComment: "#", blockComment: undefined } },
             {},
         ]);

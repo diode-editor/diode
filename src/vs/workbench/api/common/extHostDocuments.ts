@@ -306,15 +306,14 @@ function firstNonWhitespace(text: string): number {
  */
 export class DocumentRegistry {
     private readonly documents = new Map<string, ExtHostTextDocument>();
-    private readonly wordDefinitions = new Map<string, RegExp>();
+    private readonly wordDefinitions = new Map<string, RegExp | undefined>();
 
     /** Определение слова языка для `getWordRangeAtPosition` всех документов (и эфемерных). */
     public readonly wordDefinitionFor: WordDefinitionLookup = (languageId) => this.wordDefinitions.get(languageId);
 
     /** `undefined` снимает определение — язык возвращается к дефолтному слову. */
     public setWordDefinitionFor(languageId: string, wordDefinition: RegExp | undefined): void {
-        if (wordDefinition === undefined) this.wordDefinitions.delete(languageId);
-        else this.wordDefinitions.set(languageId, wordDefinition);
+        this.wordDefinitions.set(languageId, wordDefinition);
     }
 
     public get(uri: Uri): ExtHostTextDocument | undefined {

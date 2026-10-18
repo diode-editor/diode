@@ -112,7 +112,6 @@ function createInertRunProfile(
 /** Прогон, который некому показать: отчёты о тестах принимаются и забываются. */
 function createInertTestRun(name: string | undefined, persist: boolean): vscode.TestRun {
     const onDidDispose = new EventEmitter<void>();
-    let ended = false;
     return {
         name,
         token: new CancellationTokenSource().token,
@@ -125,10 +124,9 @@ function createInertTestRun(name: string | undefined, persist: boolean): vscode.
         passed: (): void => undefined,
         appendOutput: (): void => undefined,
         addCoverage: (): void => undefined,
-        // Как у эталона: `end` завершает прогон один раз, подписчики узнают о его конце.
+        // Как у эталона: `end` завершает прогон один раз, подписчики узнают о его
+        // конце; снятый эмиттер повторный `end` уже никому не доставит.
         end: (): void => {
-            if (ended) return;
-            ended = true;
             onDidDispose.fire();
             onDidDispose.dispose();
         },

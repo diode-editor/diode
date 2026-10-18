@@ -158,6 +158,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
             // разделитель просто не показываем — иначе он стал бы выбираемым пунктом.
             const resolved = awaited.filter(
                 (item) =>
+                    // Stryker disable next-line ConditionalExpression,StringLiteral: отсев строк — быстрый выход; у строки `kind` нет (`undefined`), и второй операнд оставит её сам
                     typeof item === "string" ||
                     (item.kind as number | undefined) !== (QuickPickItemKind.Separator as number),
             );

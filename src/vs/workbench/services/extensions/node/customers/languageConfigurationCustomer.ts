@@ -19,6 +19,7 @@ export class LanguageConfigurationCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("languages.setLanguageConfiguration", (params) => {
                 const parsed = parseWireLanguageConfiguration(params);
+                // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
                 if (parsed === null) return;
                 // Повтор handle — новый слой вместо прежнего, не второй поверх.
                 layers.get(parsed.handle)?.dispose();
@@ -31,7 +32,9 @@ export class LanguageConfigurationCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("languages.unsetLanguageConfiguration", (params) => {
                 const parsed = parseWireLanguageProviderUnregistration(params);
+                // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
                 if (parsed === null) return;
+                // Stryker disable next-line OptionalChaining: неизвестный handle без `?.` бросает — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
                 layers.get(parsed.handle)?.dispose();
                 layers.delete(parsed.handle);
             }),
@@ -39,7 +42,6 @@ export class LanguageConfigurationCustomer implements IExtensionHostCustomer {
         store.add({
             dispose: () => {
                 for (const layer of layers.values()) layer.dispose();
-                layers.clear();
             },
         });
         return store;

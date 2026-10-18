@@ -52,6 +52,7 @@ describe("значения-типы Test API — по эталону", () => {
 
     it("TestCoverageCount проверяет границы с текстами эталона", () => {
         expect(new TestCoverageCount(2, 2)).toEqual({ covered: 2, total: 2 });
+        expect(new TestCoverageCount(0, 0)).toEqual({ covered: 0, total: 0 });
         expect(() => new TestCoverageCount(3, 2)).toThrow(
             "The total number of covered items (3) cannot be greater than the total (2)",
         );
