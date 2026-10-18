@@ -1134,6 +1134,18 @@ export interface IWireApplyWorkspaceEditParams {
     readonly isRefactoring?: boolean;
 }
 
+/** Параметры `workspace.saveAll` (subprocess → host), как `$saveAll` эталона. */
+export interface IWireSaveAllParams {
+    readonly includeUntitled?: boolean;
+}
+
+/**
+ * Ответ хоста на `workspace.save` (запрос — {@link IWireUriParams}): ресурс
+ * сохранённого документа; `null` — не открыт или не сохранился (`undefined`
+ * эталона, которого в JSON нет).
+ */
+export type IWireSaveResult = IWireUriParams | null;
+
 // ─── Decorations (Chunk 4 — host-bridge) ─────────────────────────────────────
 
 /**

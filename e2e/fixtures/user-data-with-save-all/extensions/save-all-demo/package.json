@@ -1,0 +1,15 @@
+{
+    "name": "save-all-demo",
+    "displayName": "Save All Demo",
+    "description": "Демо workspace.saveAll: команда сохраняет все несохранённые файлы, как golang.go перед `go mod tidy`, и показывает ответ.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onCommand:saveAllDemo.run"],
+    "contributes": {
+        "commands": [{ "command": "saveAllDemo.run", "title": "Save All Demo: Save Everything" }]
+    }
+}

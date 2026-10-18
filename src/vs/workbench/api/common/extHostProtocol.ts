@@ -83,6 +83,8 @@ import type {
     IWireReferenceParams,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
+    IWireSaveAllParams,
+    IWireSaveResult,
     IWireSchemes,
     IWireSecretKeys,
     IWireSecretKeysRequest,
@@ -246,6 +248,10 @@ export interface ISubprocessToHost {
          * `editor.didOpen` нового документа — после `await` он уже в реестре.
          */
         readonly "workspace.createUntitledDocument": readonly [IWireCreateUntitledParams, IWireUriParams];
+        /** `workspace.saveAll` (`$saveAll`): `true` — сохранено всё. */
+        readonly "workspace.saveAll": readonly [IWireSaveAllParams, boolean];
+        /** `workspace.save` (`$save` без Save As). */
+        readonly "workspace.save": readonly [IWireUriParams, IWireSaveResult];
 
         readonly "editor.setOptions": readonly [IWireSetEditorOptionsParams, null];
         /** Обработчик есть, отправителя пока нет: субпроцесс читает опции из своего прокси. */

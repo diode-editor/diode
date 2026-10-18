@@ -30,7 +30,7 @@
 | поверхность | статус | члены |
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 16/40 |
-| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 21/45 |
+| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 24/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 35/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
@@ -77,9 +77,9 @@
 
 ## vscode.workspace
 
-🟡 **20/45.** Документы, конфигурация, события сохранения, файловые watcher'ы, доступ к диску,
-поиск файлов по glob и bulk `applyEdit` (включая закрытые файлы и файловые операции) — рабочие;
-notebook-поверхность — нет.
+🟡 **24/45.** Документы, конфигурация, сохранение и его события, файловые watcher'ы, доступ к
+диску, поиск файлов по glob и bulk `applyEdit` (включая закрытые файлы и файловые операции) —
+рабочие; notebook-поверхность — нет.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
@@ -101,7 +101,9 @@ notebook-поверхность — нет.
 | notebook-поверхность (8 членов: `notebookDocuments`, `openNotebookDocument`, `registerNotebookSerializer`, события) | 🕐 | |
 | `registerTaskProvider` | ✅ | устаревший двойник `tasks.registerTaskProvider` — тот же вызов |
 | `workspaceFile` | ✅ | `Uri` файла `.code-workspace`, если окно открыто через него (файл с одной папкой); иначе `undefined`. `name` такого окна — `<файл> (Workspace)`, как в VS Code |
-| `rootPath`, `updateWorkspaceFolders`, `save`, `saveAs`, `saveAll`, `decode`, `encode` | 🕐 | |
+| `saveAll` | 🟡 | сохраняет все несохранённые файлы всех групп (как `$saveAll` эталона); файл, изменённый на диске, не перезаписывается, сбой записи — `false`, остальные при этом сохраняются. Отклонение: `includeUntitled` не открывает Save As на безымянные буферы — они остаются несохранёнными, и ответ `false` |
+| `save` | ✅ | сохраняет открытый документ ресурса (и чистый — `force` эталона), результат — его `Uri`; не открыт, безымянный, конфликт с диском или сбой записи — `undefined` |
+| `rootPath`, `updateWorkspaceFolders`, `saveAs`, `decode`, `encode` | 🕐 | |
 
 ## vscode.window
 

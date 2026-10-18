@@ -7,6 +7,7 @@ import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
+import { createLoggerSpy } from "../../../../../TestUtils/themeExtensionFixture.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
@@ -17,6 +18,7 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/i
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
@@ -31,6 +33,7 @@ function createEditorService(
         languageService?: ILanguageService;
         configurationService?: IConfigurationService;
         themeService?: ThemeService;
+        logService?: ILogService;
     } = {},
 ): EditorService {
     const themeService = overrides.themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -43,7 +46,7 @@ function createEditorService(
         new UndoRedoService(),
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
-        NULL_LOG_SERVICE,
+        overrides.logService ?? NULL_LOG_SERVICE,
         undefined,
         undefined,
         undefined,
@@ -462,7 +465,7 @@ describe("EditorService", () => {
             ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
             ctrl.openFile(clean);
 
-            await ctrl.saveAll();
+            await expect(ctrl.saveAll()).resolves.toBe(true);
 
             expect(fs.readFileSync(dirty, "utf8")).toBe("a\r\nb");
             expect(fs.readFileSync(clean, "utf8")).toBe("c");
@@ -476,10 +479,100 @@ describe("EditorService", () => {
             ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
             fs.writeFileSync(file, "changed outside");
 
-            await ctrl.saveAll();
+            await expect(ctrl.saveAll()).resolves.toBe(false);
 
             expect(fs.readFileSync(file, "utf8")).toBe("changed outside");
             expect(ctrl.collectDirty()).toHaveLength(1);
+        });
+
+        it("сбой записи — false и ошибка в лог, остальные файлы всё равно сохраняются", async () => {
+            const logger = createLoggerSpy();
+            const ctrl = createEditorService({ logService: { createLogger: () => logger } as unknown as ILogService });
+            const locked = writeFile("locked/a.ts", "a\nb");
+            const other = writeFile("b.ts", "c\nd");
+            ctrl.openFile(locked);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            ctrl.openFile(other);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            fs.chmodSync(path.dirname(locked), 0o500);
+            try {
+                await expect(ctrl.saveAll()).resolves.toBe(false);
+            } finally {
+                fs.chmodSync(path.dirname(locked), 0o700);
+            }
+
+            expect(fs.readFileSync(locked, "utf8")).toBe("a\nb");
+            expect(fs.readFileSync(other, "utf8")).toBe("c\r\nd");
+            expect(logger.error).toHaveBeenCalledTimes(1);
+            expect(logger.error).toHaveBeenCalledWith(
+                expect.stringContaining(`cannot save ${Uri.file(locked).toString()}: `),
+            );
+        });
+
+        it("безымянный буфер пропускается; с includeUntitled он не сохранён — false", async () => {
+            const ctrl = createEditorService();
+            const file = writeFile("a.ts", "a\nb");
+            ctrl.newUntitled();
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            ctrl.openFile(file);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+
+            await expect(ctrl.saveAll({ includeUntitled: true })).resolves.toBe(false);
+            expect(fs.readFileSync(file, "utf8")).toBe("a\r\nb");
+            await expect(ctrl.saveAll()).resolves.toBe(true);
+            await expect(ctrl.saveAll({ includeUntitled: false })).resolves.toBe(true);
+            expect(ctrl.collectDirty()).toHaveLength(1);
+        });
+    });
+
+    describe("save (workspace.save расширений)", () => {
+        it("сохраняет открытый документ ресурса, даже чистый, и возвращает его ресурс", async () => {
+            const ctrl = createEditorService();
+            const file = writeFile("a.ts", "a\nb");
+            ctrl.openFile(file);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            ctrl.openFile(writeFile("b.ts", "c"));
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            const second = Uri.file(path.join(tmpDir, "b.ts"));
+            expect((await ctrl.save(second))?.toString()).toBe(second.toString());
+            expect(fs.readFileSync(file, "utf8")).toBe("a\nb");
+
+            const saved = await ctrl.save(Uri.file(file));
+
+            expect(saved?.toString()).toBe(Uri.file(file).toString());
+            expect(fs.readFileSync(file, "utf8")).toBe("a\r\nb");
+            fs.unlinkSync(file);
+            await expect(ctrl.save(Uri.file(file))).resolves.toBeDefined();
+            expect(fs.readFileSync(file, "utf8")).toBe("a\r\nb");
+        });
+
+        it("не открыт, безымянный, конфликт с диском или сбой записи — undefined", async () => {
+            const ctrl = createEditorService();
+            await expect(ctrl.save(Uri.file(path.join(tmpDir, "none.ts")))).resolves.toBeUndefined();
+            // Открытые файлы не подменяют запрошенный ресурс.
+            const open = writeFile("open.ts", "a\nb");
+            ctrl.openFile(open);
+            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            await expect(ctrl.save(Uri.file(path.join(tmpDir, "none.ts")))).resolves.toBeUndefined();
+            expect(fs.readFileSync(open, "utf8")).toBe("a\nb");
+
+            ctrl.newUntitled();
+            await expect(ctrl.save(ctrl.getActiveEditor()!.uri)).resolves.toBeUndefined();
+
+            const changed = writeFile("changed.ts", "a");
+            ctrl.openFile(changed);
+            fs.writeFileSync(changed, "changed outside");
+            await expect(ctrl.save(Uri.file(changed))).resolves.toBeUndefined();
+            expect(fs.readFileSync(changed, "utf8")).toBe("changed outside");
+
+            const locked = writeFile("locked/a.ts", "a");
+            ctrl.openFile(locked);
+            fs.chmodSync(path.dirname(locked), 0o500);
+            try {
+                await expect(ctrl.save(Uri.file(locked))).resolves.toBeUndefined();
+            } finally {
+                fs.chmodSync(path.dirname(locked), 0o700);
+            }
         });
     });
 

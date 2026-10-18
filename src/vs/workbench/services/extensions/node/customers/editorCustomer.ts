@@ -6,7 +6,11 @@ import type {
     IEditorOptionsService,
     IEditorOptionsState,
 } from "../../../../api/common/iEditorOptionsService.ts";
-import { type IWireShowTextDocumentResult, parseWireSelections } from "../../../../api/common/wireTypes.ts";
+import {
+    type IWireSaveResult,
+    type IWireShowTextDocumentResult,
+    parseWireSelections,
+} from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
     parseWireApplyWorkspaceEditParams,
@@ -89,6 +93,21 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 const ops = parseWireApplyWorkspaceEditParams(params);
                 if (ops === null) return false;
                 return this.editorOptions.applyWorkspaceEdit(ops, { isRefactoring: params.isRefactoring === true });
+            }),
+        );
+        // `workspace.saveAll` / `workspace.save` (`$saveAll` / `$save` эталона):
+        // golang.go сохраняет всё перед `gopls.tidy` и vulncheck.
+        store.add(
+            rpc.handleRequest("workspace.saveAll", (params): Promise<boolean> => {
+                return this.editorOptions.saveAll(params.includeUntitled === true);
+            }),
+        );
+        store.add(
+            rpc.handleRequest("workspace.save", async (params): Promise<IWireSaveResult> => {
+                const p: { uri?: unknown } = params;
+                if (typeof p.uri !== "string") return null;
+                const saved = await this.editorOptions.save(p.uri);
+                return saved === null ? null : { uri: saved };
             }),
         );
         // Полоса групп: снимки по изменениям (коалесинг в адаптере). Инвариант

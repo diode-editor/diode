@@ -42,7 +42,7 @@ import type { ISerializedEditor } from "../../../common/stateKeys.ts";
 import { DialogService, DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
-import type { TextFileModel } from "../../textfile/common/textFileModel.ts";
+import type { SaveOutcome, TextFileModel } from "../../textfile/common/textFileModel.ts";
 import { TextFileModelService, TextFileModelServiceDIToken } from "../../textfile/common/textFileModelService.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
@@ -1181,12 +1181,47 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /**
      * Сохранить все несохранённые документы (`saveAll` эталона — перед запуском
-     * задачи). Безымянный буфер пути не имеет и пропускается (диалог Save As
-     * посреди запуска задачи не открываем); файл, изменённый на диске,
-     * не перезаписывается — его сохранит человек сам.
+     * задачи и `workspace.saveAll` расширений). Безымянный буфер пути не имеет
+     * и пропускается (диалог Save As посреди запуска задачи не открываем); файл,
+     * изменённый на диске, не перезаписывается — его сохранит человек сам.
+     *
+     * `true` — сохранено всё, что просили (`success` эталона). Конфликт с диском
+     * и сбой записи — `false`, остальные буферы при этом всё равно сохраняются.
+     * С `includeUntitled` эталон спрашивает путь каждого безымянного буфера
+     * диалогом Save As; у нас такого диалога на произвольный буфер нет, и
+     * оставшийся несохранённым безымянный буфер — честный `false`.
      */
-    public async saveAll(): Promise<void> {
-        for (const editor of this.dirtyEditors()) await editor.save();
+    public async saveAll(options?: { includeUntitled?: boolean }): Promise<boolean> {
+        let success = true;
+        for (const editor of this.dirtyEditors()) {
+            const outcome = await this.trySave(editor);
+            if (outcome === "saved" || (outcome === "no-file" && options?.includeUntitled !== true)) continue;
+            success = false;
+        }
+        return success;
+    }
+
+    /**
+     * Сохранить открытый документ ресурса (`$save` эталона без Save As —
+     * `workspace.save` расширений): пишется и чистый буфер (`force` эталона).
+     * Результат — ресурс сохранённого документа; `undefined` — документ не
+     * открыт, у буфера нет пути, файл изменён на диске или запись упала.
+     */
+    public async save(resource: Uri): Promise<Uri | undefined> {
+        const key = resource.toString();
+        const editor = this.getTextSurfaces().find((pane) => pane.uri.toString() === key);
+        if (editor === undefined) return undefined;
+        return (await this.trySave(editor)) === "saved" ? editor.uri : undefined;
+    }
+
+    /** Сохранение без исключения: сбой записи — в лог и `undefined`. */
+    private async trySave(editor: TextEditorPane): Promise<SaveOutcome | undefined> {
+        try {
+            return await editor.save();
+        } catch (error) {
+            this.logger.error(`cannot save ${editor.uri.toString()}: ${describeError(error)}`);
+            return undefined;
+        }
     }
 
     /**
