@@ -19,7 +19,7 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
 import { HoverComponentDIToken } from "./hoverComponent.ts";
-import { HoverServiceDIToken, stripMarkdown } from "./hoverService.ts";
+import { HoverServiceDIToken, splitMarkdownSections, stripMarkdown } from "./hoverService.ts";
 
 describe("stripMarkdown — плоский текст для TUI-попапа", () => {
     it("снимает fenced-ограждения, инлайн-код, жирный/курсив и ссылки", () => {
@@ -63,6 +63,42 @@ describe("stripMarkdown — плоский текст для TUI-попапа", 
         // Индекс прятки двузначный — регулярка возврата обязана читать `\d+`, не `\d`.
         const source = Array.from({ length: 12 }, (_, i) => `\\*${String(i)}\\*`).join(" ");
         expect(stripMarkdown(source)).toBe("*0* *1* *2* *3* *4* *5* *6* *7* *8* *9* *10* *11*");
+    });
+});
+
+describe("splitMarkdownSections — секции по thematic break", () => {
+    it("`---`, `***`, `___` (с пробелами и отступом до 3) режут на секции; пустые остаются", () => {
+        expect(splitMarkdownSections("a\n\n---\n\nb\n\n***\n\nc\n\n_ _ _\n\nd")).toEqual(["a", "b", "c", "d"]);
+        expect(splitMarkdownSections("---\n\n   - - - -  \n\nтолько текст\n\n---")).toEqual([
+            "",
+            "",
+            "только текст",
+            "",
+        ]);
+    });
+
+    it("не разделитель: две черты, смесь символов, отступ 4, символ после", () => {
+        expect(splitMarkdownSections("a\n\n--\n\n-*-\n\n    ---\n\n---x")).toEqual([
+            "a\n\n--\n\n-*-\n\n    ---\n\n---x",
+        ]);
+    });
+
+    it("`---` внутри fenced-блока — содержимое; закрывающее ограждение — того же вида и не короче", () => {
+        expect(splitMarkdownSections("```yaml\n---\nkey: 1\n```\n\n---\n\nдока")).toEqual(["---\nkey: 1", "дока"]);
+        // Внутри ````-блока ни ```, ни ~~~~ его не закрывают — разрез один, после блока.
+        // (Сами ```` stripMarkdown снимает неточно — его старое ограничение, тут смотрим только разрез.)
+        const sections = splitMarkdownSections("````\n```\n---\n~~~~\n````\n---\nx");
+        expect(sections).toHaveLength(2);
+        expect(sections[1]).toBe("x");
+    });
+
+    it("`---` под строкой абзаца — setext-заголовок: линия выпадает, `***` под абзацем — разделитель", () => {
+        expect(splitMarkdownSections("Заголовок\n---\nтекст")).toEqual(["Заголовок\nтекст"]);
+        expect(splitMarkdownSections("абзац\n***\nтекст")).toEqual(["абзац", "текст"]);
+    });
+
+    it("секции стрипаются по отдельности", () => {
+        expect(splitMarkdownSections("**a**\n\n---\n\n[b](https://x)")).toEqual(["a", "b"]);
     });
 });
 
@@ -155,6 +191,42 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(lines[0]).toBe("первый провайдер");
         expect(lines[1]).toBe("─".repeat(30));
         expect(lines[2]).toBe("второй провайдер");
+    });
+
+    it("разделитель с краю контента отделяет его от соседнего; без разделителя контенты в одном блоке", async () => {
+        useHovers(hoverOf(["сигнатура\n\n---", "дока", "ещё", "***\n\nссылка"]));
+
+        await service().showHover();
+
+        expect(component().view.linesFor(20)).toEqual([
+            "сигнатура",
+            "─".repeat(20),
+            "дока",
+            "",
+            "ещё",
+            "─".repeat(20),
+            "ссылка",
+        ]);
+    });
+
+    it("thematic break внутри hover'а (gopls) рисуется на кадре линией, как граница блоков", async () => {
+        useHovers(
+            hoverOf([
+                "```go\nfunc greet.Hello(name string) string\n```\n\n---\n\nHello greets.\n\n\n---\n\n[`greet.Hello` on pkg.go.dev](https://pkg.go.dev/x/greet#Hello)",
+            ]),
+        );
+
+        await service().showHover();
+        h.testApp.render();
+
+        const frame = h.testApp.backend.screenToString();
+        expect(frame).not.toContain("---");
+        const rows = frame.split("\n");
+        const at = rows.findIndex((row) => row.includes("func greet.Hello(name string) string"));
+        expect(rows[at + 1]).toMatch(/│ ─{20,} │/u);
+        expect(rows[at + 2]).toContain("│ Hello greets.");
+        expect(rows[at + 3]).toMatch(/│ ─{20,} │/u);
+        expect(rows[at + 4]).toContain("│ greet.Hello on pkg.go.dev");
     });
 
     it("пустой результат, пустой после стрипа и отсутствие провайдеров — попап не открывается", async () => {
