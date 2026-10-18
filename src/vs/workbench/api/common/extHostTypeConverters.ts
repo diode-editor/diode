@@ -529,6 +529,7 @@ export function serializeCompletionItem(item: vscode.CompletionItem, id: string)
     const filterText = (item as { filterText?: unknown }).filterText;
     const documentation = readDocumentation(item);
     const range = readRange(item);
+    const additionalEdits = readAdditionalTextEdits(item);
     return {
         label,
         insertText: readInsertText(item, label),
@@ -549,7 +550,23 @@ export function serializeCompletionItem(item: vscode.CompletionItem, id: string)
         ...(range !== undefined ? { range } : {}),
         ...(typeof sortText === "string" ? { sortText } : {}),
         ...(typeof filterText === "string" ? { filterText } : {}),
+        ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
     };
+}
+
+/**
+ * Читает `additionalTextEdits` пункта автодополнения в wire-правки; битые
+ * правки пропускаются, нет поля — пустой список.
+ */
+export function readAdditionalTextEdits(item: vscode.CompletionItem): IWireEditorEdit[] {
+    const raw = (item as { additionalTextEdits?: unknown }).additionalTextEdits;
+    const edits: IWireEditorEdit[] = [];
+    if (!Array.isArray(raw)) return edits;
+    for (const edit of raw) {
+        const wire = serializeTextEdit(edit);
+        if (wire !== null) edits.push(wire);
+    }
+    return edits;
 }
 
 /**

@@ -647,6 +647,7 @@ export class CompletionItem implements vscode.CompletionItem {
     public sortText?: string;
     public filterText?: string;
     public preselect?: boolean;
+    public additionalTextEdits?: TextEdit[];
 
     public constructor(label: string, kind?: CompletionItemKind) {
         this.label = label;
