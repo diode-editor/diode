@@ -166,8 +166,15 @@ gopls жив, даже когда активация падает (дыра №1
       как в эталоне: безымянный буфер ядра `untitled:Untitled-N` (грязный, правимый,
       Save As), а не read-only вкладка — untitled-модели в ядре уже были (File → New
       Untitled File), понадобился только мост.
-- [ ] **B8. Мелочи** (№13–№14): `createQuickPick`, `showOpenDialog`/`showSaveDialog`,
+- [~] **B8. Мелочи** (№13–№14): `createQuickPick`, `showOpenDialog`/`showSaveDialog`,
       `updateWorkspaceFolders`, формат лога отказа активации.
+      - [x] лог отказа активации не-`Error` значением — само значение (#659);
+      - [x] `window.createQuickPick` — объектная форма эталона; живьём проверен
+        `Go: Generate Interface Stubs` (поле `lazyEnum` → `pickLazyEnum`: поиск
+        `fmt.Stringer` через `interactive/listEnum`, gopls вписывает заглушку).
+        Индикатора `busy` у оверлея нет — список просто пуст, пока сервер думает;
+      - [ ] `showOpenDialog`/`showSaveDialog`;
+      - [ ] `updateWorkspaceFolders`.
 
 ### Волна C — заработает само, когда фичи появятся в ядре (ради Go не делаем)
 

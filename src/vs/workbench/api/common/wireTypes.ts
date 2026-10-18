@@ -1431,6 +1431,94 @@ export function parseWireQuickPickResult(raw: unknown): IWireQuickPickResult {
     return { indices: indices.filter((i): i is number => Number.isInteger(i) && i >= 0) };
 }
 
+// ─── Объектный пикер (window.createQuickPick) ─────────────────────────────────
+// Форма эталона (`$createOrUpdate` / `$onDid*` в `extHostQuickOpen.ts`): живой
+// объект расширения копит изменения своих свойств и шлёт их хосту ДИФФОМ, а хост
+// пересказывает действия человека событиями. Пикер адресуется тем же `handle`,
+// что и показы `showQuickPick` (общий счётчик субпроцесса).
+
+/**
+ * Пункт объектного пикера. `handle` — индекс пункта в массиве `items`
+ * расширения: разделители (`QuickPickItemKind.Separator`) по проводу не едут,
+ * поэтому позиция в присланном массиве с индексом у расширения не совпадает.
+ * `detail` отдельно от `description` — по нему идёт поиск (`matchOnDetail`),
+ * даже когда на экране он уступает место описанию.
+ */
+export interface IWireQuickPickSessionItem {
+    readonly handle: number;
+    readonly label: string;
+    readonly description?: string;
+    readonly detail?: string;
+    /** `alwaysShow`: фильтр по запросу пункт не прячет. */
+    readonly alwaysShow?: boolean;
+}
+
+/**
+ * Изменение объектного пикера (`window.quickPick.update`, subprocess → host).
+ * Каждое поле — «расширение его поменяло»; отсутствующее — «не трогали»,
+ * `null` — «сбросили в `undefined`» (так же, как `_pendingUpdate` эталона).
+ */
+export interface IWireQuickPickUpdate {
+    readonly handle: number;
+    readonly visible?: boolean;
+    readonly title?: string | null;
+    readonly step?: number | null;
+    readonly totalSteps?: number | null;
+    readonly placeholder?: string | null;
+    readonly prompt?: string | null;
+    readonly value?: string;
+    readonly busy?: boolean;
+    readonly enabled?: boolean;
+    readonly canSelectMany?: boolean;
+    readonly matchOnDescription?: boolean;
+    readonly matchOnDetail?: boolean;
+    readonly keepScrollPosition?: boolean;
+    readonly items?: readonly IWireQuickPickSessionItem[];
+    /** Handle'ы пунктов. */
+    readonly activeItems?: readonly number[];
+    /** Handle'ы пунктов. */
+    readonly selectedItems?: readonly number[];
+}
+
+/** Объектный пикер снят расширением (`window.quickPick.dispose`, subprocess → host). */
+export interface IWireQuickPickDispose {
+    readonly handle: number;
+}
+
+/**
+ * Действие человека в объектном пикере (`window.quickPick.event`, host →
+ * subprocess) — `$onDidChangeValue` / `$onDidAccept` / `$onDidChangeActive` /
+ * `$onDidChangeSelection` / `$onDidHide` эталона одной нотификацией.
+ */
+export type IWireQuickPickEvent =
+    | { readonly handle: number; readonly kind: "changeValue"; readonly value: string }
+    | { readonly handle: number; readonly kind: "accept" }
+    | { readonly handle: number; readonly kind: "changeActive"; readonly items: readonly number[] }
+    | { readonly handle: number; readonly kind: "changeSelection"; readonly items: readonly number[] }
+    | { readonly handle: number; readonly kind: "hide" };
+
+/** Разбирает `window.quickPick.event` (host → subprocess); `null` — чужая форма. */
+export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as { handle?: unknown; kind?: unknown; value?: unknown; items?: unknown };
+    if (typeof p.handle !== "number") return null;
+    const handle = p.handle;
+    switch (p.kind) {
+        case "changeValue":
+            return typeof p.value === "string" ? { handle, kind: "changeValue", value: p.value } : null;
+        case "accept":
+        case "hide":
+            return { handle, kind: p.kind };
+        case "changeActive":
+        case "changeSelection":
+            if (!Array.isArray(p.items)) return null;
+            return { handle, kind: p.kind, items: p.items.filter((i): i is number => Number.isInteger(i)) };
+        default:
+            return null;
+    }
+}
+
 // ─── Сообщения расширения (window.show{Information,Warning,Error}Message) ────
 // Сообщение — ЗАПРОС, а не уведомление: перегрузка с кнопками обязана вернуть
 // расширению выбранное, поэтому ответа ждут все показы с кнопками. Адреса показа

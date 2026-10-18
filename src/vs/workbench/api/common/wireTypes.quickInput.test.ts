@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireInputBoxResult, parseWireQuickPickResult } from "./wireTypes.ts";
+import { parseWireInputBoxResult, parseWireQuickPickEvent, parseWireQuickPickResult } from "./wireTypes.ts";
 
 describe("parseWireInputBoxResult", () => {
     it("строка — введённое значение, всё прочее — отмена", () => {
@@ -26,5 +26,38 @@ describe("parseWireQuickPickResult", () => {
         expect(parseWireQuickPickResult({ indices: null })).toEqual({ indices: null });
         expect(parseWireQuickPickResult({})).toEqual({ indices: null });
         expect(parseWireQuickPickResult(null)).toEqual({ indices: null });
+    });
+});
+
+describe("parseWireQuickPickEvent", () => {
+    it("каждый вид события — своей формой", () => {
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "changeValue", value: "go" })).toEqual({
+            handle: 1,
+            kind: "changeValue",
+            value: "go",
+        });
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "accept", value: "лишнее" })).toEqual({
+            handle: 1,
+            kind: "accept",
+        });
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "hide" })).toEqual({ handle: 1, kind: "hide" });
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "changeActive", items: [2, 1.5, "x"] })).toEqual({
+            handle: 1,
+            kind: "changeActive",
+            items: [2],
+        });
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "changeSelection", items: [] })).toEqual({
+            handle: 1,
+            kind: "changeSelection",
+            items: [],
+        });
+    });
+
+    it("чужая форма — null", () => {
+        expect(parseWireQuickPickEvent(null)).toBeNull();
+        expect(parseWireQuickPickEvent({ kind: "accept" })).toBeNull();
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "explode" })).toBeNull();
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "changeValue" })).toBeNull();
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "changeActive" })).toBeNull();
     });
 });

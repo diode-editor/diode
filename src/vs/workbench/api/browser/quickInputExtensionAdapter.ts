@@ -1,8 +1,30 @@
 import { renderCodicons } from "../../../base/common/codicons.ts";
 import type { InputValidation, QuickInputService } from "../../browser/parts/quickinput/quickInputService.ts";
+import type {
+    QuickPickSession,
+    QuickPickSessionItem,
+    QuickPickSessionState,
+} from "../../browser/parts/quickinput/quickPickSession.ts";
 import type { QuickPickItem } from "../../common/quickPickItem.ts";
 import type { IQuickInputBoxRequest, IQuickInputSink } from "../common/iExtensionWindowSinks.ts";
-import type { IWireQuickPickRequest, IWireValidationMessage } from "../common/wireTypes.ts";
+import type {
+    IWireQuickPickEvent,
+    IWireQuickPickRequest,
+    IWireQuickPickSessionItem,
+    IWireQuickPickUpdate,
+    IWireValidationMessage,
+} from "../common/wireTypes.ts";
+
+/** Строка объектного пикера расширения: handle едет обратно в событиях. */
+interface IExtensionQuickPickItem extends QuickPickSessionItem {
+    readonly handle: number;
+}
+
+/** Объектный пикер расширения на нашей стороне: сессия плюс handle → строка. */
+interface IExtensionQuickPick {
+    readonly session: QuickPickSession<IExtensionQuickPickItem>;
+    byHandle: ReadonlyMap<number, IExtensionQuickPickItem>;
+}
 
 /**
  * Мост `window.showInputBox` / `window.showQuickPick` расширений к
@@ -26,6 +48,8 @@ import type { IWireQuickPickRequest, IWireValidationMessage } from "../common/wi
 export class QuickInputExtensionAdapter implements IQuickInputSink {
     /** Handle показа, который сейчас держит оверлей; null — ничего нашего не открыто. */
     private currentHandle: number | null = null;
+    /** Живые объектные пикеры расширений по handle. */
+    private readonly quickPicks = new Map<number, IExtensionQuickPick>();
 
     public constructor(private readonly quickInput: QuickInputService) {}
 
@@ -88,6 +112,49 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         }
     }
 
+    public updateQuickPick(update: IWireQuickPickUpdate, emit: (event: IWireQuickPickEvent) => void): void {
+        let pick = this.quickPicks.get(update.handle);
+        if (pick === undefined) {
+            pick = this.createQuickPick(update.handle, emit);
+            this.quickPicks.set(update.handle, pick);
+        }
+        const changes = toSessionChanges(update, pick);
+        // Скрытие — до применения диффа, показ — после: открываться пикер
+        // должен уже в новом состоянии, а закрываться — не мигнув им.
+        if (update.visible === false) pick.session.hide();
+        pick.session.update(changes);
+        if (update.visible === true) pick.session.show();
+    }
+
+    public disposeQuickPick(handle: number): void {
+        const pick = this.quickPicks.get(handle);
+        if (pick === undefined) return;
+        this.quickPicks.delete(handle);
+        pick.session.dispose();
+    }
+
+    private createQuickPick(handle: number, emit: (event: IWireQuickPickEvent) => void): IExtensionQuickPick {
+        const handles = (items: readonly IExtensionQuickPickItem[]): number[] => items.map((item) => item.handle);
+        const session = this.quickInput.createQuickPick<IExtensionQuickPickItem>({
+            onDidChangeValue: (value) => {
+                emit({ handle, kind: "changeValue", value });
+            },
+            onDidAccept: () => {
+                emit({ handle, kind: "accept" });
+            },
+            onDidChangeActive: (items) => {
+                emit({ handle, kind: "changeActive", items: handles(items) });
+            },
+            onDidChangeSelection: (items) => {
+                emit({ handle, kind: "changeSelection", items: handles(items) });
+            },
+            onDidHide: () => {
+                emit({ handle, kind: "hide" });
+            },
+        });
+        return { session, byHandle: new Map() };
+    }
+
     public cancel(handle: number): void {
         if (this.currentHandle !== handle) return;
         this.currentHandle = null;
@@ -119,4 +186,65 @@ function toValidation(message: IWireValidationMessage | null | undefined): Input
  */
 function renderLabel(text: string | undefined): string | undefined {
     return text === undefined ? undefined : renderCodicons(text);
+}
+
+/**
+ * Дифф провода → изменения сессии. Ярлыки (лейбл, описание, заголовок,
+ * placeholder, prompt) проходят {@link renderCodicons}; `value` — нет: это
+ * текст, который человек правит и который уезжает обратно расширению.
+ *
+ * Предметы пересобираются целиком (новый набор handle'ов), и уже по НОВОМУ
+ * набору разрешаются `activeItems`/`selectedItems` того же диффа.
+ */
+function toSessionChanges(
+    update: IWireQuickPickUpdate,
+    pick: IExtensionQuickPick,
+): Partial<QuickPickSessionState<IExtensionQuickPickItem>> {
+    const changes: { -readonly [K in keyof QuickPickSessionState<IExtensionQuickPickItem>]?: unknown } = {};
+    if ("title" in update) changes.title = renderLabel(update.title ?? undefined);
+    if ("step" in update) changes.step = update.step ?? undefined;
+    if ("totalSteps" in update) changes.totalSteps = update.totalSteps ?? undefined;
+    if ("placeholder" in update) changes.placeholder = renderLabel(update.placeholder ?? undefined);
+    if ("prompt" in update) changes.prompt = renderLabel(update.prompt ?? undefined);
+    if (update.value !== undefined) changes.value = update.value;
+    if (update.busy !== undefined) changes.busy = update.busy;
+    if (update.enabled !== undefined) changes.enabled = update.enabled;
+    if (update.canSelectMany !== undefined) changes.canSelectMany = update.canSelectMany;
+    if (update.matchOnDescription !== undefined) changes.matchOnDescription = update.matchOnDescription;
+    if (update.matchOnDetail !== undefined) changes.matchOnDetail = update.matchOnDetail;
+    if (update.keepScrollPosition !== undefined) changes.keepScrollPosition = update.keepScrollPosition;
+    if (update.items !== undefined) {
+        const items = update.items.map(toSessionItem);
+        pick.byHandle = new Map(items.map((item) => [item.handle, item]));
+        changes.items = items;
+    }
+    const resolve = (handles: readonly number[]): IExtensionQuickPickItem[] =>
+        handles.flatMap((handle) => {
+            const item = pick.byHandle.get(handle);
+            return item === undefined ? [] : [item];
+        });
+    if (update.activeItems !== undefined) changes.activeItems = resolve(update.activeItems);
+    if (update.selectedItems !== undefined) changes.selectedItems = resolve(update.selectedItems);
+    return changes as Partial<QuickPickSessionState<IExtensionQuickPickItem>>;
+}
+
+/**
+ * Строка провода → строка сессии. `detail` отдельной строкой наш однострочный
+ * ряд не умеет — он встаёт НА МЕСТО описания, когда описания нет (та же
+ * политика, что у `showQuickPick`), а для поиска остаётся собой.
+ */
+function toSessionItem(item: IWireQuickPickSessionItem): IExtensionQuickPickItem {
+    const shown = nonEmpty(item.description) ?? nonEmpty(item.detail);
+    return {
+        handle: item.handle,
+        label: renderCodicons(item.label),
+        description: renderLabel(shown),
+        detail: item.detail,
+        alwaysShow: item.alwaysShow,
+    };
+}
+
+/** Текст, если в нём что-то есть; пустая строка и отсутствие — одно и то же. */
+function nonEmpty(text: string | undefined): string | undefined {
+    return text === undefined || text === "" ? undefined : text;
 }

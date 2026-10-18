@@ -28,6 +28,8 @@ import type {
     IWireProgressStart,
     IWireQuickPickItem,
     IWireQuickPickRequest,
+    IWireQuickPickSessionItem,
+    IWireQuickPickUpdate,
     IWireShowMessageRequest,
     IWireStatusBarItem,
     IWireValidationMessage,
@@ -76,8 +78,8 @@ import { QuickInputExtensionAdapter } from "./quickInputExtensionAdapter.ts";
 //    (ParityBacklog, пункт 6);
 //  - SCM: placeholder инпута и заголовки групп — НАШ текст, у расширений
 //    SCM-API нет вовсе (в `vscode`-пространстве нет `scm`);
-//  - `QuickPickItem.detail` — поля нет на проводе: наш ряд списка однострочный.
-//    Отдельный пробел API, не раковина значков;
+//  - `QuickPickItem.detail` у `showQuickPick` — поля нет на проводе: наш ряд
+//    списка однострочный. Отдельный пробел API, не раковина значков;
 //  - `MarkdownString.supportThemeIcons` (ховеры) — флаг не ездит по проводу.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -122,6 +124,25 @@ const QUICK_PICK_ITEM: Readonly<Record<TextFields<IWireQuickPickItem>, IFieldPol
         why: "`QuickPickItem.label` — поддержка значков обещана в `vscode.d.ts` дословно; так пишут метки почти все расширения",
     },
     description: { policy: "icons", why: "`QuickPickItem.description` — та же строка d.ts" },
+};
+
+const QUICK_PICK_UPDATE: Readonly<Record<TextFields<IWireQuickPickUpdate>, IFieldPolicy>> = {
+    title: { policy: "icons", why: "см. `window.showQuickPick.title` — объектный пикер на том же виджете" },
+    placeholder: { policy: "icons", why: "см. `window.showQuickPick.placeHolder`" },
+    prompt: { policy: "icons", why: "см. `window.showInputBox.prompt` — та же строка под полем" },
+    value: {
+        policy: "verbatim",
+        why: "НЕ ярлык: текст запроса, который человек правит и который уезжает обратно расширению (`onDidChangeValue`)",
+    },
+};
+
+const QUICK_PICK_SESSION_ITEM: Readonly<Record<TextFields<IWireQuickPickSessionItem>, IFieldPolicy>> = {
+    label: { policy: "icons", why: "см. `window.showQuickPick.item.label`" },
+    description: { policy: "icons", why: "см. `window.showQuickPick.item.description`" },
+    detail: {
+        policy: "icons",
+        why: "`QuickPickItem.detail` — значки обещаны в d.ts; наш однострочный ряд показывает его на месте описания, когда описания нет",
+    },
 };
 
 const INPUT_BOX_REQUEST: Readonly<Record<TextFields<IWireInputBoxRequest>, IFieldPolicy>> = {
@@ -212,6 +233,8 @@ const SINKS: Readonly<Record<string, IFieldPolicy>> = Object.fromEntries(
         [
             ["window.showQuickPick", QUICK_PICK_REQUEST],
             ["window.showQuickPick.item", QUICK_PICK_ITEM],
+            ["window.quickPick.update", QUICK_PICK_UPDATE],
+            ["window.quickPick.update.item", QUICK_PICK_SESSION_ITEM],
             ["window.showInputBox", INPUT_BOX_REQUEST],
             ["window.inputBox.validate", VALIDATION_MESSAGE],
             ["window.statusBarItem.update", STATUS_BAR_ITEM],
@@ -285,6 +308,13 @@ function quickInputSetup(): {
     const testApp = TestApp.create(body, new Size(80, 24));
     component.attachHost(body);
     return { adapter: new QuickInputExtensionAdapter(service), component, testApp };
+}
+
+/** Объектный пикер расширения, показанный одним диффом; отдаёт виджет. */
+function showObjectPick(patch: Partial<IWireQuickPickUpdate>): QuickInputComponent {
+    const { adapter, component } = quickInputSetup();
+    adapter.updateQuickPick({ handle: 1, visible: true, ...patch }, () => undefined);
+    return component;
 }
 
 function pickRequest(patch: Partial<IWireQuickPickRequest> = {}): IWireQuickPickRequest {
@@ -460,6 +490,43 @@ const CASES: readonly ISinkCase[] = [
             await pending;
             return shown;
         },
+    },
+    {
+        sink: "window.quickPick.update.title",
+        feed: FEED,
+        shown: () => showObjectPick({ title: FEED }).view.title ?? "",
+    },
+    {
+        sink: "window.quickPick.update.placeholder",
+        feed: FEED,
+        shown: () => showObjectPick({ placeholder: FEED }).view.placeholder,
+    },
+    {
+        sink: "window.quickPick.update.prompt",
+        feed: FEED,
+        shown: () => showObjectPick({ prompt: FEED }).view.prompt ?? "",
+    },
+    {
+        sink: "window.quickPick.update.value",
+        feed: FEED,
+        shown: () => showObjectPick({ value: FEED }).view.getQuery(),
+    },
+    {
+        sink: "window.quickPick.update.item.label",
+        feed: FEED,
+        shown: () => showObjectPick({ items: [{ handle: 0, label: FEED }] }).view.items[0].label,
+    },
+    {
+        sink: "window.quickPick.update.item.description",
+        feed: FEED,
+        shown: () =>
+            showObjectPick({ items: [{ handle: 0, label: "a", description: FEED }] }).view.items[0].description ?? "",
+    },
+    {
+        sink: "window.quickPick.update.item.detail",
+        feed: FEED,
+        shown: () =>
+            showObjectPick({ items: [{ handle: 0, label: "a", detail: FEED }] }).view.items[0].description ?? "",
     },
     {
         sink: "window.showInputBox.title",

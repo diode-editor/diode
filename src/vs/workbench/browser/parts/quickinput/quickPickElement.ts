@@ -95,6 +95,15 @@ export class QuickPickElement extends TUIElement {
      * пустом наборе, и на пустом списке.
      */
     public onAcceptMany: (() => void) | null = null;
+    /**
+     * Enter на ПУСТОМ списке в режиме "item" (одиночный выбор): принять нечего,
+     * но объектный пикер расширения всё равно обязан узнать о нажатии
+     * (`QuickPick.onDidAccept` эталона файрится и без выбора — так принимают
+     * набранный текст). Палитре и Quick Open колбэк не нужен.
+     */
+    public onAcceptEmpty: (() => void) | null = null;
+    /** Отметка множественного выбора переключена человеком (`Space`, клик). */
+    public onCheckedChange: (() => void) | null = null;
     public onCancel: (() => void) | null = null;
     /**
      * Выделенная строка сменилась ПО ВОЛЕ ПОЛЬЗОВАТЕЛЯ (стрелки, PageUp/Down) —
@@ -251,6 +260,8 @@ export class QuickPickElement extends TUIElement {
         this.canPickMany = false;
         this.checkedValue.clear();
         this.onAcceptMany = null;
+        this.onAcceptEmpty = null;
+        this.onCheckedChange = null;
         this.password = false;
     }
 
@@ -492,6 +503,7 @@ export class QuickPickElement extends TUIElement {
         if (item === undefined) return;
         if (!this.checkedValue.delete(item)) this.checkedValue.add(item);
         this.rebuildKeepingView();
+        this.onCheckedChange?.();
     }
 
     private accept(): void {
@@ -510,7 +522,9 @@ export class QuickPickElement extends TUIElement {
         }
         if (this.itemsValue.length > 0) {
             this.onAccept?.(this.itemsValue[this.selectedIndexValue], this.selectedIndexValue);
+            return;
         }
+        this.onAcceptEmpty?.();
     }
 
     /** Наведение мышью ведёт выделение за собой (поведение VS Code). */

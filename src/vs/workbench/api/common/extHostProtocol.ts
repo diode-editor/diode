@@ -76,8 +76,11 @@ import type {
     IWireProgressStart,
     IWireProviderHandle,
     IWireQuickInputCancel,
+    IWireQuickPickDispose,
+    IWireQuickPickEvent,
     IWireQuickPickRequest,
     IWireQuickPickResult,
+    IWireQuickPickUpdate,
     IWireRangeSemanticTokensParams,
     IWireReadFileResult,
     IWireReferenceParams,
@@ -217,6 +220,7 @@ export interface IHostToSubprocess {
         readonly "editor.layoutChanged": IWireEditorLayout;
 
         readonly "window.themeChanged": IWireColorTheme;
+        readonly "window.quickPick.event": IWireQuickPickEvent;
 
         readonly "secrets.changed": IWireSecretRef;
 
@@ -327,6 +331,8 @@ export interface ISubprocessToHost {
         readonly "window.disposeTextEditorDecorationType": IWireDisposeDecorationType;
         readonly "window.fileDecorationsChanged": IWireFileDecorationsChanged;
         readonly "window.quickInput.cancel": IWireQuickInputCancel;
+        readonly "window.quickPick.update": IWireQuickPickUpdate;
+        readonly "window.quickPick.dispose": IWireQuickPickDispose;
         readonly "window.registerUriHandler": IWireUriHandlerRegistration;
         readonly "window.unregisterUriHandler": IWireUriHandlerRegistration;
 

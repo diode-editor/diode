@@ -6,7 +6,12 @@ import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsSe
 import type { IQuickInputBoxRequest, IQuickInputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
-import type { IWireQuickPickRequest, IWireValidationMessage } from "../../../api/common/wireTypes.ts";
+import type {
+    IWireQuickPickEvent,
+    IWireQuickPickRequest,
+    IWireQuickPickUpdate,
+    IWireValidationMessage,
+} from "../../../api/common/wireTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
@@ -34,6 +39,10 @@ interface IStubSink extends IQuickInputSink {
     readonly inputRequests: IQuickInputBoxRequest[];
     readonly pickRequests: IWireQuickPickRequest[];
     readonly cancelled: number[];
+    readonly quickPickUpdates: IWireQuickPickUpdate[];
+    readonly disposedQuickPicks: number[];
+    /** Последний `emit`, отданный стоку вместе с апдейтом пикера. */
+    readonly emit: { current: ((event: IWireQuickPickEvent) => void) | null };
     /** Резолв висящего showInputBox (по умолчанию показ висит). */
     settleInput(value: string | undefined): void;
     settlePick(indices: readonly number[] | undefined): void;
@@ -43,12 +52,25 @@ function makeSink(): IStubSink {
     const inputRequests: IQuickInputBoxRequest[] = [];
     const pickRequests: IWireQuickPickRequest[] = [];
     const cancelled: number[] = [];
+    const quickPickUpdates: IWireQuickPickUpdate[] = [];
+    const disposedQuickPicks: number[] = [];
+    const emit: { current: ((event: IWireQuickPickEvent) => void) | null } = { current: null };
     let resolveInput: ((value: string | undefined) => void) | null = null;
     let resolvePick: ((value: readonly number[] | undefined) => void) | null = null;
     return {
         inputRequests,
         pickRequests,
         cancelled,
+        quickPickUpdates,
+        disposedQuickPicks,
+        emit,
+        updateQuickPick: (update, emitEvent) => {
+            quickPickUpdates.push(update);
+            emit.current = emitEvent;
+        },
+        disposeQuickPick: (handle) => {
+            disposedQuickPicks.push(handle);
+        },
         showInputBox: (request) => {
             inputRequests.push(request);
             return new Promise((resolve) => {
@@ -346,5 +368,100 @@ describe("ExtensionHost — смерть субпроцесса с открыт�
 
         host.dispose();
         expect(sink.cancelled).toEqual([]);
+    });
+});
+
+describe("ExtensionHost — window.createQuickPick", () => {
+    it("апдейт доезжает до стока диффом: отсутствующее поле — «не трогали», null — «сброшено»", async () => {
+        const sink = makeSink();
+        const { peer } = makeHost(sink);
+        peer.notify("window.quickPick.update", {
+            handle: 7,
+            visible: true,
+            title: null,
+            placeholder: "Type to search",
+            matchOnDescription: true,
+            items: [
+                { handle: 0, label: "Alpha", detail: "example.com/alpha" },
+                { handle: 2, label: "Gamma", alwaysShow: true },
+            ],
+            activeItems: [2],
+        });
+        await flushMicrotasks();
+        expect(sink.quickPickUpdates).toEqual([
+            {
+                handle: 7,
+                visible: true,
+                title: null,
+                placeholder: "Type to search",
+                matchOnDescription: true,
+                items: [
+                    {
+                        handle: 0,
+                        label: "Alpha",
+                        description: undefined,
+                        detail: "example.com/alpha",
+                        alwaysShow: false,
+                    },
+                    { handle: 2, label: "Gamma", description: undefined, detail: undefined, alwaysShow: true },
+                ],
+                activeItems: [2],
+            },
+        ]);
+    });
+
+    it("действия человека уходят в тот же субпроцесс событием", async () => {
+        const sink = makeSink();
+        const { peer } = makeHost(sink);
+        const received: unknown[] = [];
+        peer.handleNotification("window.quickPick.event", (params) => {
+            received.push(params);
+        });
+        peer.notify("window.quickPick.update", { handle: 7, visible: true });
+        await flushMicrotasks();
+
+        sink.emit.current?.({ handle: 7, kind: "changeValue", value: "al" });
+        sink.emit.current?.({ handle: 7, kind: "changeSelection", items: [0] });
+        sink.emit.current?.({ handle: 7, kind: "accept" });
+        await flushMicrotasks();
+
+        expect(received).toEqual([
+            { handle: 7, kind: "changeValue", value: "al" },
+            { handle: 7, kind: "changeSelection", items: [0] },
+            { handle: 7, kind: "accept" },
+        ]);
+    });
+
+    it("dispose расширения снимает пикер; чужой и мусорный handle до стока не доходят", async () => {
+        const sink = makeSink();
+        const { peer } = makeHost(sink);
+        peer.notify("window.quickPick.update", { handle: 7, visible: true });
+        peer.notify("window.quickPick.dispose", { handle: 8 });
+        peer.notify("window.quickPick.dispose", { handle: "нет" });
+        peer.notify("window.quickPick.update", { handle: "нет" });
+        peer.notify("window.quickPick.dispose", { handle: 7 });
+        await flushMicrotasks();
+        expect(sink.quickPickUpdates.map((u) => u.handle)).toEqual([7]);
+        expect(sink.disposedQuickPicks).toEqual([7]);
+    });
+
+    it("смерть субпроцесса снимает живые пикеры, и событий в мёртвый канал они не шлют", async () => {
+        const sink = makeSink();
+        const { host, peer } = makeHost(sink);
+        const received: unknown[] = [];
+        peer.handleNotification("window.quickPick.event", (params) => {
+            received.push(params);
+        });
+        peer.notify("window.quickPick.update", { handle: 7, visible: true });
+        peer.notify("window.quickPick.update", { handle: 9, visible: false });
+        peer.notify("window.quickPick.dispose", { handle: 9 });
+        await flushMicrotasks();
+
+        host.dispose();
+        expect(sink.disposedQuickPicks).toEqual([9, 7]);
+        // Пикер, снятый смертью, сообщает о скрытии — в никуда.
+        sink.emit.current?.({ handle: 7, kind: "hide" });
+        await flushMicrotasks();
+        expect(received).toEqual([]);
     });
 });

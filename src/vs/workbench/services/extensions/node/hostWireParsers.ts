@@ -53,6 +53,8 @@ import {
     type IWireProviderHandle,
     type IWireQuickPickItem,
     type IWireQuickPickRequest,
+    type IWireQuickPickSessionItem,
+    type IWireQuickPickUpdate,
     type IWireSecretWrite,
     type IWireSemanticTokensLegend,
     type IWireShowMessageRequest,
@@ -791,6 +793,85 @@ export function parseWireQuickInputCancel(raw: unknown): number | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { handle } = raw as { handle?: unknown };
     return isFiniteNumber(handle) ? handle : null;
+}
+
+/** Строка, `null` («сброшено») либо отсутствие поля («не трогали»). */
+function nullableWireString(value: unknown): string | null | undefined {
+    if (value === null) return null;
+    return typeof value === "string" ? value : undefined;
+}
+
+/** Число, `null` («сброшено») либо отсутствие поля («не трогали»). */
+function nullableWireNumber(value: unknown): number | null | undefined {
+    if (value === null) return null;
+    return isFiniteNumber(value) ? value : undefined;
+}
+
+function optionalWireBoolean(value: unknown): boolean | undefined {
+    return typeof value === "boolean" ? value : undefined;
+}
+
+function optionalWireHandles(value: unknown): number[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    return value.filter((i): i is number => Number.isInteger(i) && i >= 0);
+}
+
+/**
+ * Разбирает `window.quickPick.update`; `null` — параметры структурно чужие.
+ * Поле чужого типа читается как «не трогали»: дифф одного свойства не должен
+ * ронять весь апдейт.
+ */
+export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | null {
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (!isFiniteNumber(p.handle)) return null;
+    const fields: Record<string, unknown> = {
+        handle: p.handle,
+        visible: optionalWireBoolean(p.visible),
+        title: nullableWireString(p.title),
+        step: nullableWireNumber(p.step),
+        totalSteps: nullableWireNumber(p.totalSteps),
+        placeholder: nullableWireString(p.placeholder),
+        prompt: nullableWireString(p.prompt),
+        value: optionalWireString(p.value),
+        busy: optionalWireBoolean(p.busy),
+        enabled: optionalWireBoolean(p.enabled),
+        canSelectMany: optionalWireBoolean(p.canSelectMany),
+        matchOnDescription: optionalWireBoolean(p.matchOnDescription),
+        matchOnDetail: optionalWireBoolean(p.matchOnDetail),
+        keepScrollPosition: optionalWireBoolean(p.keepScrollPosition),
+        items: Array.isArray(p.items) ? parseWireQuickPickSessionItems(p.items) : undefined,
+        activeItems: optionalWireHandles(p.activeItems),
+        selectedItems: optionalWireHandles(p.selectedItems),
+    };
+    // «Не трогали» — это ОТСУТСТВИЕ ключа: потребитель применяет дифф по `in`.
+    const present = Object.entries(fields).filter(([, value]) => value !== undefined);
+    return Object.fromEntries(present) as unknown as IWireQuickPickUpdate;
+}
+
+function parseWireQuickPickSessionItems(raw: readonly unknown[]): IWireQuickPickSessionItem[] {
+    const items: IWireQuickPickSessionItem[] = [];
+    for (const entry of raw) {
+        if (typeof entry !== "object" || entry === null) continue;
+        const it = entry as Record<string, unknown>;
+        // Пункт адресуется своим handle, а не позицией — без него ответить про
+        // него расширению нечем, и выбросить его безопасно.
+        if (!Number.isInteger(it.handle)) continue;
+        items.push({
+            handle: it.handle as number,
+            label: typeof it.label === "string" ? it.label : "",
+            description: optionalWireString(it.description),
+            detail: optionalWireString(it.detail),
+            alwaysShow: it.alwaysShow === true,
+        });
+    }
+    return items;
+}
+
+/** Разбирает `window.quickPick.dispose`; `null` — параметры структурно чужие. */
+export function parseWireQuickPickDispose(raw: unknown): number | null {
+    return parseWireQuickInputCancel(raw);
 }
 
 /**
