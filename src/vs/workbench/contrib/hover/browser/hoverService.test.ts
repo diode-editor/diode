@@ -95,6 +95,11 @@ describe("splitMarkdownSections — секции по thematic break", () => {
     it("`---` под строкой абзаца — setext-заголовок: линия выпадает, `***` под абзацем — разделитель", () => {
         expect(splitMarkdownSections("Заголовок\n---\nтекст")).toEqual(["Заголовок\nтекст"]);
         expect(splitMarkdownSections("абзац\n***\nтекст")).toEqual(["абзац", "текст"]);
+        // Под разделителем и под строкой из пробелов абзаца нет — `---` снова разделитель.
+        expect(splitMarkdownSections("абзац\n***\n---\nтекст")).toEqual(["абзац", "", "текст"]);
+        expect(splitMarkdownSections("абзац\n   \n---\nтекст")).toEqual(["абзац", "текст"]);
+        // Отступ перед подчёркиванием setext не мешает.
+        expect(splitMarkdownSections("Заголовок\n  ---\nтекст")).toEqual(["Заголовок\nтекст"]);
     });
 
     it("секции стрипаются по отдельности", () => {

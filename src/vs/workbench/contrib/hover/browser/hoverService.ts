@@ -74,16 +74,18 @@ export function splitMarkdownSections(value: string): string[] {
     for (const line of value.split("\n")) {
         const current = sections[sections.length - 1];
         const opener = FENCE.exec(line)?.[1];
+        const ruler = THEMATIC_BREAK.exec(line)?.[1];
         if (fence !== null) {
+            // Stryker disable next-line MethodExpression: ограждение — повтор одного символа, startsWith ≡ endsWith
             if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
             current.push(line);
             paragraph = false;
         } else if (opener !== undefined) {
+            // `paragraph` сбросит первая же строка внутри блока (ветка выше).
             fence = opener;
             current.push(line);
-            paragraph = false;
-        } else if (THEMATIC_BREAK.test(line)) {
-            if (!(paragraph && line.trim().startsWith("-"))) sections.push([]);
+        } else if (ruler !== undefined) {
+            if (!(paragraph && ruler === "-")) sections.push([]);
             paragraph = false;
         } else {
             current.push(line);
