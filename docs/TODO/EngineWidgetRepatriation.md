@@ -14,7 +14,11 @@ Quick pick по этому критерию переехал (2026-08-23): со�
 - [ ] `completionlist/` — `CompletionListElement` + `completionDetailsElement` + `completionWidgetElement` + `completionItemKindIcon`. Модель `CompletionListItem` с `sortText`/`filterText` — прямо LSP; док класса ссылается на диодовский `completionService`, то есть движок документирован через потребителя.
 - [ ] `editorgroup/` — `EditorTabStripElement` + `EditorTabItemElement` (`TabInfo`).
 - [ ] `editorpart/` — `EditorPartElement`, сетка групп редактора (`MIN_GROUP_MAIN_COLS/ROWS`).
-- [ ] `workbenchlayout/` — `WorkbenchLayoutElement`: activity bar / side bar / panel / status bar.
+- [x] `workbenchlayout/` — `WorkbenchLayoutElement`: side bar / editor / panel.
+  Переехал в `src/vs/workbench/browser/workbenchLayoutElement.ts` (2026-10-18,
+  рядом с корнем — как `browser/layout.ts` эталона) перед вторичной боковой
+  панелью: третья колонка — ещё одно понятие VS Code в API, его место у нас.
+  Тесты перенесены вместе с файлом; снос из движка — отдельным PR в tuidom.
 - [x] `panel/` — `PanelContainerElement` + `PanelView`. Переехал в
   `src/vs/workbench/browser/parts/panel/` (2026-10-03, узел «кнопка закрытия
   нижней панели» из [ParityBacklog.md](ParityBacklog.md)): кнопка `×` в

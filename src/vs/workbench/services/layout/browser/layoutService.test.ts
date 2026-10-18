@@ -1,5 +1,4 @@
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
-import { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -7,6 +6,7 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
 import { loadState, StateService } from "../../../../platform/state/node/stateService.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
+import { WorkbenchLayoutElement } from "../../../browser/workbenchLayoutElement.ts";
 import {
     PANEL_ACTIVE_VIEW_STATE,
     PANEL_HEIGHT_STATE,

@@ -1,6 +1,5 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
-import type { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -10,6 +9,7 @@ import type { IStateService } from "../../../../platform/state/common/iStateServ
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
+import type { WorkbenchLayoutElement } from "../../../browser/workbenchLayoutElement.ts";
 import {
     PANEL_ACTIVE_VIEW_STATE,
     PANEL_HEIGHT_STATE,
