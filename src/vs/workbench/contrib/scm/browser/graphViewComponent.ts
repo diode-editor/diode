@@ -91,6 +91,7 @@ export class GraphViewComponent extends Component {
         this.list.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
         viewsService.registerView({
+            canMoveView: true,
             id: SCM_GRAPH_VIEW_ID,
             containerId: SCM_VIEWLET_ID,
             title: "GRAPH",

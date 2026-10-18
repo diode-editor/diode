@@ -111,10 +111,12 @@ export class ExtensionsComponent extends Component {
         viewsService.registerContainer({
             id: EXTENSIONS_VIEWLET_ID,
             title: "EXTENSIONS",
-            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            // Stryker disable next-line StringLiteral: вкладками ViewsService ставит только "panel" и "auxiliarybar"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
             location: "sidebar",
             order: 3,
             visibleContextKey: "extensionsViewletVisible",
+            // Как у эталона: чужие виды в магазин не переносятся.
+            rejectAddedViews: true,
         });
         viewsService.registerView({
             id: EXTENSIONS_VIEW_ID,

@@ -199,6 +199,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         // активации, поэтому по умолчанию у view нет тела и она рисует подсказку.
         viewsService.registerContainer({ id: TERMINAL_VIEW_ID, title: "TERMINAL", location: "panel", order: 2 });
         viewsService.registerView({
+            canMoveView: true,
             id: TERMINAL_VIEW_ID,
             containerId: TERMINAL_VIEW_ID,
             title: "TERMINAL",

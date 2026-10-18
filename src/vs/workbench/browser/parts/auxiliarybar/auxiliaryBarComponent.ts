@@ -12,6 +12,9 @@ import { AuxiliaryBarServiceDIToken } from "./auxiliaryBarService.ts";
 
 export const AuxiliaryBarComponentDIToken = token<AuxiliaryBarComponent>("AuxiliaryBarComponent");
 
+/** Подсказка пустой вторичной панели. */
+export const EMPTY_AUXILIARY_BAR_MESSAGE = "Use 'View: Move View' to display a view here.";
+
 /** Команда кнопки `×` в таб-строке вторичной панели (у эталона — `closeAuxiliaryBar`). */
 export const CLOSE_AUXILIARY_BAR_COMMAND_ID = "workbench.action.closeAuxiliaryBar";
 
@@ -38,6 +41,9 @@ export class AuxiliaryBarComponent extends PaneCompositePartComponent implements
             foreground: "sideBar.foreground",
             topBorder: false,
             contentLeft: 1,
+            // Отступление: у эталона «Drag a view here to display.», но
+            // перетаскивания видов у нас нет — подсказка называет команду.
+            emptyMessage: EMPTY_AUXILIARY_BAR_MESSAGE,
         });
     }
 

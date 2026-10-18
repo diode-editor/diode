@@ -27,6 +27,14 @@ export interface IPaneCompositeView {
     readonly placeholder?: string;
 }
 
+/** Запрос контекстного меню вкладки: чья вкладка, где открыть, чей это попап. */
+export interface IPaneCompositeTabContextMenuRequest {
+    readonly id: string;
+    readonly anchor: { readonly screenX: number; readonly screenY: number };
+    /** Владелец попапа — по нему ищется overlay-слой показа. */
+    readonly owner: TUIElement;
+}
+
 interface PaneCompositeViewRecord {
     readonly id: string;
     readonly title: string;
@@ -71,6 +79,18 @@ export class PaneCompositePartService {
     private readonly onDidChangeVisibilityEmitter = new Emitter<boolean>();
     public readonly onDidChangeVisibility = this.onDidChangeVisibilityEmitter.event;
 
+    private readonly onDidRequestTabContextMenuEmitter = new Emitter<IPaneCompositeTabContextMenuRequest>();
+    /**
+     * Пользователь открыл контекстное меню вкладки. Пункты («Move To»,
+     * «Reset Location») собирает `ViewsService` — он знает места контейнеров.
+     */
+    public readonly onDidRequestTabContextMenu = this.onDidRequestTabContextMenuEmitter.event;
+
+    /** Сообщить о запросе контекстного меню вкладки (зовёт компонент части). */
+    public requestTabContextMenu(request: IPaneCompositeTabContextMenuRequest): void {
+        this.onDidRequestTabContextMenuEmitter.fire(request);
+    }
+
     /** Регистрирует вкладку. Первая зарегистрированная становится активной. */
     public addView(view: IPaneCompositeViewDescriptor): void {
         this.viewList.splice(view.index ?? this.viewList.length, 0, {
@@ -82,6 +102,20 @@ export class PaneCompositePartService {
         });
         this.activeId ??= view.id;
         this.onDidChangeViewsEmitter.fire();
+    }
+
+    /**
+     * Снимает вкладку (контейнер уехал в другую часть или опустел). Снятая
+     * активная передаёт активность первой оставшейся. Неизвестный id — no-op.
+     */
+    public removeView(id: string): void {
+        const index = this.viewList.findIndex((v) => v.id === id);
+        if (index < 0) return;
+        this.viewList.splice(index, 1);
+        const wasActive = this.activeId === id;
+        if (wasActive) this.activeId = this.viewList.at(0)?.id ?? null;
+        this.onDidChangeViewsEmitter.fire();
+        if (wasActive && this.activeId !== null) this.onDidChangeActiveViewEmitter.fire(this.activeId);
     }
 
     /** Подменяет контент зарегистрированной вкладки (null → placeholder). Неизвестный id — no-op. */

@@ -1332,7 +1332,8 @@ hide-toggle (`isHiddenByDefault`). См.
     Terminal в нижней панели.
 
     **Дескрипторы (`viewsService.ts`).** Контейнер — «активити»:
-    `{id, title, location: "sidebar" | "panel", order?, isDefault?}`. Контейнер
+    `{id, title, location: "sidebar" | "panel" | "auxiliarybar", order?,
+    isDefault?, rejectAddedViews?}`. Контейнер
     регистрирует фича-владелец в своём конструкторе (как `registerViewContainer`
     VS Code), строит их все `attachRegisteredContainers()` из `mount()` — по
     `order`, а не по порядку резолва компонентов: Explorer 0 (`isDefault`),
@@ -1342,15 +1343,59 @@ hide-toggle (`isHiddenByDefault`). См.
     `order`; контейнер без `order` встаёт после упорядоченных. View — секция внутри
     него: `{id, containerId, title, order, body, placeholder?, focus,
     minBodyHeight?, canToggleVisibility?, collapsed?,
-    requiresWorkspaceFolder?}`. `containerId` —
-    реестровая связь, а не свойство контрола: перенос view между контейнерами
-    ляжет сменой поля. `collapsed` (как у `IViewDescriptor` VS Code) — ТОЛЬКО
+    requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
+    реестровая связь, а не свойство контрола: перенос view между контейнерами —
+    смена поля записи (см. «Расположение видов» ниже). `collapsed` (как у `IViewDescriptor` VS Code) — ТОЛЬКО
     начальное состояние секции; сохранённый выбор пользователя его перебивает
     (см. персист ниже). С `canToggleVisibility` не путать: тот про «можно ли
     секцию скрыть».
     `body === null` рисует `placeholder` (аналог `viewsWelcome`); тело и виджет
     заголовка меняются на месте (`setViewBody`/`setViewTitleWidget`), поэтому
     место держит одну и ту же ссылку на корень контейнера всю жизнь.
+
+    **Расположение видов** (аналог `IViewDescriptorService` эталона — у нас
+    в том же `ViewsService`, где реестр). Место контейнера — поле записи
+    (`location`), дескриптор хранит место по умолчанию; контейнер вида —
+    `record.containerId` при `defaultContainerId` из дескриптора. API с именами
+    эталона: `moveViewToLocation` (новый контейнер
+    `workbench.views.service.<место>.<uuid>` — «New … Entry»),
+    `moveViewsToContainer`, `moveViewContainerToLocation`,
+    `getViewContainerLocation`/`getDefaultViewContainerLocation`,
+    `getViewContainerByViewId`/`getDefaultContainerById`, `resetViewLocation`,
+    `resetViewContainerLocation`, `resetViewLocations`, событие
+    `onDidChangeLocations`; показ на текущем месте — `openView`/
+    `openViewContainer` (вкладку части активирует как пользователь — ленивые
+    фичи просыпаются).
+    - Переносятся только виды с `canMoveView: true` (Explorer, Search, SCM,
+      Problems, Output, Terminal); контейнер с `rejectAddedViews` (Extensions)
+      чужие виды не принимает.
+    - Перенос не пересоздаёт тела: контейнер снимается с прежнего места
+      (`removeView` части / `unregisterViewlet` сайдбара, секции разбираются)
+      и собирается на новом, тела переезжают теми же объектами — живой
+      терминал остаётся живым. Контейнер без видов места не занимает,
+      сгенерированный без видов исчезает вместе со своей записью
+      `workbench.views.state`; уехал активный вьюлет — сайдбар показывает
+      дефолтный (или первый).
+    - Сгенерированный контейнер носит название первого своего вида (у эталона
+      заглушка «User View Container» не видна: контейнер сливается с видом).
+      Контейнер на чужом месте встаёт в конец таб-строки, как у эталона.
+    - Персист — `views.customizations` (только отличия от дефолта),
+      применяется в `attachRegisteredContainers` до сборки, поздний вид встаёт
+      по нему сам; Open Folder переприменяет переносы из стора проекта.
+      См. [State.md](State.md).
+    - Меню: «Move To ▸ Primary Side Bar / Secondary Side Bar / Panel» и «Reset
+      Location» — контекстное меню вкладки части (правый клик, Shift+F10;
+      `PanelContainerElement.onTabContextMenu` → `requestTabContextMenu`
+      реестра части), у вьюлета сайдбара — в «⋯» заголовка (отступление:
+      activity bar, где эталон держит это меню, у нас нет).
+    - `focusedView` — `ViewsService` как контрибьютор ключей; фокус в оверлее
+      (палитра, попап) и промежуточный `null` ключ не сбрасывают — иначе
+      «Move Focused View» из палитры гас бы. Команды —
+      `browser/actions/viewLocationActions.ts`: `moveView`, `moveFocusedView`,
+      `resetViewLocations`, `resetFocusedViewLocation`,
+      `movePanelToSecondarySideBar`/`moveSecondarySideBarToPanel`; подписи
+      разделителей выбора эталона («Side Bar / …») стоят справа у пункта —
+      разделителей в нашем выборе нет.
 
     **Пустое состояние — строка или блоки.** `placeholder: string` рисуется
     плоской подсказкой (`No problems have been detected.`, `No output yet.`);

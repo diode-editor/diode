@@ -61,6 +61,17 @@ export class SidebarService implements IContextKeyContributor {
         this.viewlets.set(id, { view, focus, visibleContextKey });
     }
 
+    /**
+     * Снимает вьюлет (контейнер уехал в другую часть или опустел). Снятый
+     * активный вьюлет освобождает сайдбар: какой показать вместо него, решает
+     * `ViewsService` (у него дефолтный контейнер).
+     */
+    public unregisterViewlet(id: string): void {
+        if (!this.viewlets.delete(id) || this.activeId !== id) return;
+        this.activeId = null;
+        this.layout.setSidebarContent(null);
+    }
+
     public updateContextKeys(contextKeys: ContextKeyService): void {
         const sidebarVisible = this.layout.isSidebarVisible();
         for (const [id, viewlet] of this.viewlets) {

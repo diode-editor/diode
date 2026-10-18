@@ -104,15 +104,16 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         const buttons = rest
             .map((label) => (label as TextLabelElement).getText().trim())
             .filter((text) => text !== "\u2502");
-        // New File / New Folder / Refresh Explorer; «⋯» скрыта — меню пустое.
-        expect(buttons).toEqual(["", "", ""]);
+        // New File / New Folder / Refresh Explorer и «⋯» — в нём «Move To» вьюлета.
+        expect(buttons).toEqual(["\uEA7F", "\uEA80", "\uEB37", "⋯"]);
     });
 
     it("«⋯» merged-секции держит подменю контейнера, а не пункты заголовка", () => {
         service.setRootPath(ws.dir);
         attach();
         h.paneView(EXPLORER_VIEWLET_ID).onDidRequestPaneMenu?.(EXPLORER_VIEW_ID, { screenX: 0, screenY: 0 });
-        // Своих overflow-пунктов у Explorer'а нет, у контейнера — тоже: меню пустое.
-        expect(h.shown.at(-1)!.getEntries!()).toEqual([]);
+        // Своих overflow-пунктов у Explorer'а нет — в «⋯» только подменю контейнера с «Move To».
+        const entries = h.shown.at(-1)!.getEntries!();
+        expect(entries.map((entry) => (entry.type === "separator" ? "---" : entry.label))).toEqual(["EXPLORER"]);
     });
 });

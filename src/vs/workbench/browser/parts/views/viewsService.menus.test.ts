@@ -244,7 +244,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         expect(h.shown.at(-1)!.getAnchor()).toEqual({ screenX: 1, screenY: 0 });
         expect(h.shown.at(-1)!.getOwner()).toBe(h.header("scm"));
         const entries = lastEntries(h);
-        expect(labels(entries)).toEqual(["Checkout to…", "---", "Views"]);
+        expect(labels(entries)).toEqual(["Checkout to…", "---", "Views", "---", "Move To"]);
         expect(labels(entriesOf(submenu(entries, "Views")))).toEqual(["SCM.CHANGES", "SCM.GRAPH"]);
     });
 
@@ -256,7 +256,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         h.service.attachContainer("scm");
 
         h.header("scm")!.onMenu?.({ screenX: 1, screenY: 0 });
-        expect(labels(lastEntries(h))).toEqual(["Views"]);
+        expect(labels(lastEntries(h))).toEqual(["Views", "---", "Move To"]);
     });
 
     it("видимые секции помечены галочкой, скрытые — нет", () => {
@@ -293,7 +293,13 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         h.service.setViewVisible(GRAPH, false);
         // Секция скрыта, но зарегистрирована — переключатель нужен, чтобы её вернуть.
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
-        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual(["Checkout to…", "---", "Views"]);
+        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual([
+            "Checkout to…",
+            "---",
+            "Views",
+            "---",
+            "Move To",
+        ]);
     });
 
     it("merged без команд контейнера: в подменю только переключатель секций", () => {
@@ -305,14 +311,14 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         h.service.setViewVisible(GRAPH, false);
 
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
-        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual(["Views"]);
+        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual(["Views", "---", "Move To"]);
     });
 
     it("контейнер с одной зарегистрированной секцией переключателя не показывает", () => {
         const h = scmHarness([CHANGES]);
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
         const container = submenu(lastEntries(h), "SOURCE CONTROL");
-        expect(labels(entriesOf(container))).toEqual(["Checkout to…"]);
+        expect(labels(entriesOf(container))).toEqual(["Checkout to…", "---", "Move To"]);
     });
 });
 
@@ -339,17 +345,22 @@ describe("ViewsService — merged: меню контейнера уезжает 
         h.service.attachContainer("scm");
 
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
-        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual(["New Repository"]);
+        expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual([
+            "New Repository",
+            "---",
+            "Move To",
+        ]);
     });
 
-    it("контейнер без своих команд и без второй секции подменю не добавляет", () => {
+    it("контейнер без своих команд и без второй секции: в подменю только «Move To»", () => {
         const h = makeViewsHarness(CONTRIBUTIONS);
         h.service.registerContainer({ id: "search", title: "SEARCH", location: "sidebar" });
         h.service.registerView(testView("search.results", "search", 10));
         h.service.attachContainer("search");
 
         h.paneView("search").onDidRequestPaneMenu?.("search.results", { screenX: 0, screenY: 0 });
-        expect(lastEntries(h)).toEqual([]);
+        expect(labels(lastEntries(h))).toEqual(["SEARCH"]);
+        expect(labels(entriesOf(submenu(lastEntries(h), "SEARCH")))).toEqual(["Move To"]);
     });
 });
 

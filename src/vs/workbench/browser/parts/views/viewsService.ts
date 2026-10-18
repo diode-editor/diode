@@ -1,10 +1,12 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { generateUuid } from "../../../../base/common/uuid.ts";
 import { isSubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type {
@@ -17,6 +19,8 @@ import type { MenuService } from "../../../../platform/actions/common/menuServic
 import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -24,11 +28,15 @@ import type { IStateService } from "../../../../platform/state/common/iStateServ
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
-import { type IViewContainerViewsState, SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
+import {
+    type IViewContainerViewsState,
+    SIDEBAR_VIEWS_STATE,
+    VIEWS_CUSTOMIZATIONS_STATE,
+} from "../../../common/stateKeys.ts";
 import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
 import type { AuxiliaryBarService } from "../auxiliarybar/auxiliaryBarService.ts";
 import { AuxiliaryBarServiceDIToken } from "../auxiliarybar/auxiliaryBarService.ts";
-import type { PaneCompositePartService } from "../paneCompositePartService.ts";
+import type { IPaneCompositeTabContextMenuRequest, PaneCompositePartService } from "../paneCompositePartService.ts";
 import type { PanelService } from "../panel/panelService.ts";
 import { PanelServiceDIToken } from "../panel/panelService.ts";
 import type { BooleanContextKey, SidebarService } from "../sidebar/sidebarService.ts";
@@ -80,6 +88,11 @@ export interface IViewContainerDescriptor {
      * `location: "sidebar"`; выставляет {@link SidebarService}.
      */
     readonly visibleContextKey?: BooleanContextKey;
+    /**
+     * `true` — чужие виды в контейнер не переносятся (у эталона так помечен
+     * Extensions): в выборе места он не предлагается.
+     */
+    readonly rejectAddedViews?: boolean;
 }
 
 /**
@@ -136,6 +149,57 @@ export interface IViewDescriptor {
      * СКРЫТЬ», этот — про «развёрнута ли она при появлении».
      */
     readonly collapsed?: boolean;
+    /**
+     * `true` — вид можно перенести в другой контейнер или место (по умолчанию
+     * `false`, как `canMoveView` у `IViewDescriptor` эталона).
+     */
+    readonly canMoveView?: boolean;
+}
+
+/** Снимок контейнера для выбора места переноса (см. {@link ViewsService.getViewContainers}). */
+export interface IViewContainerSnapshot {
+    readonly id: string;
+    readonly title: string;
+    readonly location: ViewContainerLocation;
+    /** Видимые секции в порядке показа. */
+    readonly views: readonly IViewSnapshot[];
+    readonly rejectAddedViews: boolean;
+}
+
+/** Префикс id контейнеров, созданных переносом (как у эталона, `viewDescriptorService.ts`). */
+const GENERATED_CONTAINER_PREFIX = "workbench.views.service.";
+
+/** Подменю переноса контейнера и пункт возврата — подписи эталона (`paneCompositeBar.ts`). */
+const MOVE_TO_LABEL = "Move To";
+const RESET_LOCATION_LABEL = "Reset Location";
+/** Порядок пунктов «Move To» у эталона: Sidebar, AuxiliaryBar, Panel. */
+const MOVE_TARGET_ORDER: readonly ViewContainerLocation[] = ["sidebar", "auxiliarybar", "panel"];
+const LOCATION_MOVE_LABELS: Readonly<Record<ViewContainerLocation, string>> = {
+    sidebar: "Primary Side Bar",
+    auxiliarybar: "Secondary Side Bar",
+    panel: "Panel",
+};
+
+/** Строки мест — те же, что у `ViewContainerLocationToString` эталона. */
+const LOCATIONS: readonly ViewContainerLocation[] = ["sidebar", "panel", "auxiliarybar"];
+
+function isViewContainerLocation(value: unknown): value is ViewContainerLocation {
+    return LOCATIONS.includes(value as ViewContainerLocation);
+}
+
+/** Элемент живёт в overlay-слое окна (палитра, попапы, диалоги), а не в частях workbench'а. */
+function isInOverlay(element: TUIElement): boolean {
+    // Корень ищем по пути, а не через getRoot(): у overlay-слоя свой корень.
+    const path = element.getAncestorPath();
+    const body = path.find((node) => node instanceof BodyElement);
+    return body !== undefined && path.includes(body.getOverlayLayer());
+}
+
+/** Место сгенерированного контейнера — зашито в его id; не сгенерированный — `null`. */
+function generatedContainerLocation(containerId: string): ViewContainerLocation | null {
+    if (!containerId.startsWith(GENERATED_CONTAINER_PREFIX)) return null;
+    const location = containerId.slice(GENERATED_CONTAINER_PREFIX.length).split(".")[0];
+    return isViewContainerLocation(location) ? location : null;
 }
 
 /** Снимок view для потребителей меню/переключателей (см. {@link ViewsService.getContainerViews}). */
@@ -149,7 +213,12 @@ export interface IViewSnapshot {
 /** Изменяемая запись реестра: тело и виджет заголовка живут дольше дескриптора. */
 interface ViewRecord {
     readonly id: string;
-    readonly containerId: string;
+    /** Контейнер, где вид стоит сейчас (меняют переносы). */
+    containerId: string;
+    /** Контейнер из дескриптора — куда вид возвращает Reset Location. */
+    readonly defaultContainerId: string;
+    /** Можно ли переносить вид (см. {@link IViewDescriptor.canMoveView}). */
+    readonly canMoveView: boolean;
     readonly title: string;
     readonly order: number;
     readonly focus: () => void;
@@ -171,6 +240,19 @@ interface ViewRecord {
 interface ContainerEntry {
     /** null — контейнер ещё не зарегистрирован (в него только записались view). */
     descriptor: IViewContainerDescriptor | null;
+    /**
+     * Место, где контейнер стоит сейчас; дефолт — `descriptor.location`, его
+     * меняет {@link ViewsService.moveViewContainerToLocation}.
+     */
+    location: ViewContainerLocation;
+    /**
+     * Контейнер просили показать ({@link ViewsService.attachContainer}): он
+     * стоит в своей части, пока в нём есть хоть один вид, и возвращается туда,
+     * когда вид в него вернётся.
+     */
+    wanted: boolean;
+    /** Контейнер создан переносом вида (`workbench.views.service.<место>.<uuid>`). */
+    generated: boolean;
     readonly views: ViewRecord[];
     /** Id скрытых пользователем секций (персистятся вместе со свёрнутостью). */
     readonly hidden: Set<string>;
@@ -206,6 +288,9 @@ type AttachedEntry = ContainerEntry & {
     header: ViewContainerHeaderElement;
 };
 
+/** Зарегистрированный контейнер — с дескриптором, но, может быть, ещё не построенный. */
+type AttachedEntryDescriptor = ContainerEntry & { descriptor: IViewContainerDescriptor };
+
 /** Читает контейнер как приаттаченный (см. {@link AttachedEntry}). */
 function attached(entry: ContainerEntry): AttachedEntry {
     return entry as AttachedEntry;
@@ -214,6 +299,15 @@ function attached(entry: ContainerEntry): AttachedEntry {
 /** Ключ сортировки контейнеров: без `order` — после всех упорядоченных. */
 function orderOf(descriptor: IViewContainerDescriptor): number {
     return descriptor.order ?? Number.POSITIVE_INFINITY;
+}
+
+/**
+ * Ключ места вкладки: контейнер не на своём месте встаёт в конец (у эталона
+ * перенос на чужое место — `index = getViewContainersByLocation(…).length`),
+ * на своём — по `order`.
+ */
+function placementOrder(entry: AttachedEntryDescriptor): number {
+    return entry.location === entry.descriptor.location ? orderOf(entry.descriptor) : Number.POSITIVE_INFINITY;
 }
 
 /**
@@ -239,7 +333,7 @@ export interface IViewExpandedChangeEvent {
     readonly expanded: boolean;
 }
 
-export class ViewsService {
+export class ViewsService implements IContextKeyContributor {
     public static dependencies = [
         SidebarServiceDIToken,
         PanelServiceDIToken,
@@ -258,6 +352,11 @@ export class ViewsService {
      */
     private readonly expandedState = new Map<string, boolean>();
     private readonly onDidChangeViewExpandedEmitter = new Emitter<IViewExpandedChangeEvent>();
+    private readonly onDidChangeLocationsEmitter = new Emitter<void>();
+    /** Переносы из стора уже применены (после этого поздние виды встают по ним сами). */
+    private customizationsApplied = false;
+    /** Идёт рестор или сброс переносов: стор не пишется, это не действие пользователя. */
+    private applyingCustomizations = false;
 
     public constructor(
         private readonly sidebarService: SidebarService,
@@ -278,6 +377,8 @@ export class ViewsService {
         // На бутстрапе контейнеров ещё нет (их строит mount(), он и применяет
         // состояние сам); здесь — Open Folder на уже собранном сайдбаре.
         stateService.onDidOpenWorkspace(() => {
+            // Переносы — тоже по-проектно: сначала места, потом состояние секций.
+            this.reapplyStoredCustomizations();
             this.restoreViewsState();
         });
         // Показанный контейнер досчитывает кнопки заголовков, пропущенные, пока
@@ -291,11 +392,19 @@ export class ViewsService {
         auxiliaryBarService.onDidChangeActiveView((id) => {
             this.refreshStaleTitleActions(id);
         });
+        panelService.onDidRequestTabContextMenu((request) => {
+            this.showTabContextMenu(request);
+        });
+        auxiliaryBarService.onDidRequestTabContextMenu((request) => {
+            this.showTabContextMenu(request);
+        });
     }
 
     /** Регистрирует контейнер (повторная регистрация заменяет описание). */
     public registerContainer(descriptor: IViewContainerDescriptor): void {
-        this.ensureEntry(descriptor.id).descriptor = descriptor;
+        const entry = this.ensureEntry(descriptor.id);
+        entry.descriptor = descriptor;
+        entry.location = descriptor.location;
     }
 
     /**
@@ -306,14 +415,19 @@ export class ViewsService {
      * пересобирает секции уже построенного контейнера.
      */
     public registerView(descriptor: IViewDescriptor): void {
-        const entry = this.ensureEntry(descriptor.containerId);
+        // Повторная регистрация заменяет запись там, где вид стоит сейчас: перенос
+        // пользователя её переживает.
+        const previous = this.findRecord(descriptor.id);
+        const entry = previous?.entry ?? this.ensureEntry(descriptor.containerId);
         const existing = entry.views.findIndex((v) => v.id === descriptor.id);
         if (existing >= 0) {
             entry.views.splice(existing, 1);
         }
         entry.views.push({
             id: descriptor.id,
-            containerId: descriptor.containerId,
+            containerId: previous?.record.containerId ?? descriptor.containerId,
+            defaultContainerId: descriptor.containerId,
+            canMoveView: descriptor.canMoveView ?? false,
             title: descriptor.title,
             order: descriptor.order,
             focus: descriptor.focus,
@@ -328,9 +442,13 @@ export class ViewsService {
             placeholderView: null,
         });
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-        if (entry.paneView !== null) {
-            this.rebuildPanes(entry);
+        // Вид, пришедший после рестора переносов, встаёт туда, куда его
+        // перенесли в прошлый раз.
+        if (previous === undefined && this.customizationsApplied) {
+            const target = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE).viewLocations[descriptor.id];
+            if (target !== undefined && this.placeStoredView(descriptor.id, target)) return;
         }
+        this.syncPresence(entry);
     }
 
     /**
@@ -468,6 +586,9 @@ export class ViewsService {
      * своих конструкторах, корень зовёт это из `mount()`.
      */
     public attachRegisteredContainers(): void {
+        // Переносы прошлых запусков — до сборки: контейнер сразу строится на
+        // своём месте, а не переезжает после первого кадра.
+        this.applyStoredCustomizations();
         const registered = [...this.containers.values()]
             .filter((entry) => entry.descriptor !== null)
             .map((entry) => attached(entry).descriptor)
@@ -475,23 +596,46 @@ export class ViewsService {
         for (const descriptor of registered) {
             this.attachContainer(descriptor.id);
         }
-        const fallback = registered.find((descriptor) => descriptor.isDefault === true);
+        this.showDefaultViewlet();
+    }
+
+    /**
+     * Показывает в сайдбаре дефолтный контейнер (`isDefault`). `orFirst` — когда
+     * его там нет (перенесён или пуст), показать первый контейнер сайдбара:
+     * так ведёт себя сайдбар, у которого перенесли активный вьюлет. Видимость
+     * самого сайдбара не трогает.
+     */
+    private showDefaultViewlet(orFirst = false): void {
+        const sidebar = [...this.containers.values()]
+            .filter((entry) => entry.view !== null && entry.location === "sidebar")
+            .map((entry) => attached(entry).descriptor)
+            .sort((a, b) => orderOf(a) - orderOf(b));
+        const fallback =
+            sidebar.find((descriptor) => descriptor.isDefault === true) ?? (orFirst ? sidebar.at(0) : undefined);
         if (fallback !== undefined) {
             this.sidebarService.showViewlet(fallback.id, false);
         }
     }
 
     /**
-     * Строит контрол контейнера и регистрирует его в его месте; вкладка панели
-     * встаёт в позицию по {@link IViewContainerDescriptor.order}. Обычно зовётся
-     * из {@link attachRegisteredContainers}.
+     * Ставит контейнер в его место: вьюлет сайдбара или вкладка части по
+     * {@link IViewContainerDescriptor.order}. Контейнер без единого вида места не
+     * занимает (как у эталона: пустой контейнер в композит-баре не виден) и
+     * встаёт туда сам, когда в него придёт вид. Обычно зовётся из
+     * {@link attachRegisteredContainers}.
      */
     public attachContainer(containerId: string): void {
         const entry = this.containerOrThrow(containerId);
         if (entry.descriptor === null) {
             throw new Error(`ViewsService: container "${containerId}" is not registered`);
         }
-        if (entry.view !== null) return;
+        entry.wanted = true;
+        this.syncPresence(entry);
+    }
+
+    /** Строит контрол контейнера и отдаёт его месту (см. {@link attachContainer}). */
+    private buildContainer(entry: AttachedEntryDescriptor): void {
+        const containerId = entry.descriptor.id;
         const paneView = new PaneViewElement();
         // Точки в id контейнера меняем на дефисы: селекторы инспектора/e2e их не
         // поддерживают (`workbench.panel.output` → `#viewContainer-workbench-panel-output`).
@@ -517,7 +661,7 @@ export class ViewsService {
         // В панели (и во вторичной панели) заголовка-строки нет — та же строка
         // заголовка работает полосой контролов в таб-строке, поэтому названия не несёт.
         const tabbed = this.isTabbed(entry);
-        const header = new ViewContainerHeaderElement(tabbed ? "" : entry.descriptor.title);
+        const header = new ViewContainerHeaderElement(tabbed ? "" : containerTitle(entry));
         header.id = `viewContainerHeader-${domId}`;
         header.onMenu = (anchor) => {
             this.contextMenuService.showContextMenu({
@@ -533,11 +677,11 @@ export class ViewsService {
         if (tabbed) {
             // Позиция считается ДО того, как контейнер станет приаттаченным:
             // сам себя он не считает.
-            const index = this.tabIndexOf(entry.descriptor);
+            const index = this.tabIndexOf(entry);
             entry.view = paneView;
             // Вкладку заводим ДО сборки секций: полоса контролов таб-строки
             // ставится через реестр части, а он игнорирует незнакомый id.
-            this.partOf(entry).addView({ id: containerId, title: entry.descriptor.title, content: paneView, index });
+            this.partOf(entry).addView({ id: containerId, title: containerTitle(entry), content: paneView, index });
             this.rebuildPanes(entry);
             return;
         }
@@ -563,11 +707,11 @@ export class ViewsService {
      * Позиция новой вкладки панели: после всех уже построенных панельных
      * контейнеров с тем же или меньшим `order`.
      */
-    private tabIndexOf(descriptor: IViewContainerDescriptor): number {
+    private tabIndexOf(target: AttachedEntryDescriptor): number {
         let index = 0;
         for (const entry of this.containers.values()) {
-            if (entry.view === null || attached(entry).descriptor.location !== descriptor.location) continue;
-            if (orderOf(attached(entry).descriptor) <= orderOf(descriptor)) index++;
+            if (entry.view === null || entry.location !== target.location) continue;
+            if (placementOrder(entry as AttachedEntryDescriptor) <= placementOrder(target)) index++;
         }
         return index;
     }
@@ -578,35 +722,452 @@ export class ViewsService {
      * `restoreViewMode`), иначе прочитается стор пустого окна. Без write-through.
      */
     public restoreViewsState(): void {
-        const stored = this.stateService.get(SIDEBAR_VIEWS_STATE);
-        for (const [containerId, entry] of this.containers) {
-            const paneView = entry.paneView;
-            const state = stored[containerId];
-            if (paneView === null || state === undefined) continue;
-            // Скрытость применяем до весов: она пересобирает секции, а
-            // единственная оставшаяся видимой секция становится merged.
-            const hidden = state.hidden ?? [];
-            entry.hidden.clear();
-            for (const viewId of hidden) {
-                const record = entry.views.find((v) => v.id === viewId);
-                if (record?.canToggleVisibility === true) entry.hidden.add(viewId);
-            }
-            // Все секции скрытыми быть не могут — протухший стор чиним молча.
-            if (entry.views.length > 0 && entry.hidden.size === entry.views.length) {
-                entry.hidden.delete(entry.views[0].id);
-            }
-            this.rebuildPanes(entry);
-            paneView.setWeights(state.weights);
-            for (const paneId of paneView.getPaneIds()) {
-                const collapsed = storedCollapsed(state.collapsed, paneId);
-                // Стор про секцию ничего не знает — остаётся дефолт дескриптора,
-                // уже поставленный пересборкой выше.
-                if (collapsed !== undefined) paneView.setCollapsed(paneId, collapsed);
-            }
-            // Программный путь `setCollapsed` не зовёт `onDidChangeState` —
-            // о восстановленной свёрнутости подписчиков извещаем сами.
-            this.syncExpanded(entry);
+        for (const entry of this.containers.values()) {
+            this.restoreContainerState(entry);
         }
+    }
+
+    /** {@link restoreViewsState} одного контейнера — и после его сборки на новом месте. */
+    private restoreContainerState(entry: ContainerEntry): void {
+        const paneView = entry.paneView;
+        const state =
+            entry.descriptor === null ? undefined : this.stateService.get(SIDEBAR_VIEWS_STATE)[entry.descriptor.id];
+        if (paneView === null || state === undefined) return;
+        // Скрытость применяем до весов: она пересобирает секции, а
+        // единственная оставшаяся видимой секция становится merged.
+        const hidden = state.hidden ?? [];
+        entry.hidden.clear();
+        for (const viewId of hidden) {
+            const record = entry.views.find((v) => v.id === viewId);
+            if (record?.canToggleVisibility === true) entry.hidden.add(viewId);
+        }
+        // Все секции скрытыми быть не могут — протухший стор чиним молча.
+        if (entry.views.length > 0 && entry.hidden.size === entry.views.length) {
+            entry.hidden.delete(entry.views[0].id);
+        }
+        this.rebuildPanes(entry);
+        paneView.setWeights(state.weights);
+        for (const paneId of paneView.getPaneIds()) {
+            const collapsed = storedCollapsed(state.collapsed, paneId);
+            // Стор про секцию ничего не знает — остаётся дефолт дескриптора,
+            // уже поставленный пересборкой выше.
+            if (collapsed !== undefined) paneView.setCollapsed(paneId, collapsed);
+        }
+        // Программный путь `setCollapsed` не зовёт `onDidChangeState` —
+        // о восстановленной свёрнутости подписчиков извещаем сами.
+        this.syncExpanded(entry);
+    }
+
+    // ─── Расположение видов (аналог IViewDescriptorService эталона) ─────────
+
+    /** Где контейнер стоит сейчас; `null` — не зарегистрирован. */
+    public getViewContainerLocation(containerId: string): ViewContainerLocation | null {
+        const entry = this.containers.get(containerId);
+        return entry?.descriptor == null ? null : entry.location;
+    }
+
+    /** Место контейнера по умолчанию (из дескриптора); `null` — не зарегистрирован. */
+    public getDefaultViewContainerLocation(containerId: string): ViewContainerLocation | null {
+        return this.containers.get(containerId)?.descriptor?.location ?? null;
+    }
+
+    /** Контейнер, где вид стоит сейчас; `null` — вида нет. */
+    public getViewContainerByViewId(viewId: string): string | null {
+        return this.findRecord(viewId)?.record.containerId ?? null;
+    }
+
+    /** Контейнер вида по умолчанию (из дескриптора); `null` — вида нет. */
+    public getDefaultContainerById(viewId: string): string | null {
+        return this.findRecord(viewId)?.record.defaultContainerId ?? null;
+    }
+
+    /** Можно ли переносить вид ({@link IViewDescriptor.canMoveView}). */
+    public canMoveView(viewId: string): boolean {
+        return this.findRecord(viewId)?.record.canMoveView ?? false;
+    }
+
+    /**
+     * Контейнеры, стоящие на своих местах (зарегистрированы и не пусты), — по
+     * местам и `order`: из них выбирают, куда перенести вид.
+     */
+    public getViewContainers(): readonly IViewContainerSnapshot[] {
+        return [...this.containers.values()]
+            .filter((entry): entry is AttachedEntry => entry.view !== null)
+            .sort(
+                (a, b) =>
+                    LOCATIONS.indexOf(a.location) - LOCATIONS.indexOf(b.location) ||
+                    orderOf(a.descriptor) - orderOf(b.descriptor),
+            )
+            .map((entry) => ({
+                id: entry.descriptor.id,
+                title: containerTitle(entry),
+                location: entry.location,
+                views: this.getContainerViews(entry.descriptor.id).filter((view) => view.visible),
+                rejectAddedViews: entry.descriptor.rejectAddedViews === true,
+            }));
+    }
+
+    /**
+     * Переносит вид в НОВЫЙ контейнер на месте `location` (у эталона —
+     * `moveViewToLocation`: «New Panel Entry» и т.п.). Непереносимый вид —
+     * no-op.
+     */
+    public moveViewToLocation(viewId: string, location: ViewContainerLocation): void {
+        if (!this.canMoveView(viewId)) return;
+        const target = this.createGeneratedContainer(location);
+        this.moveViewsToContainer([viewId], target.descriptor.id);
+    }
+
+    /**
+     * Переносит виды в контейнер `containerId`. Опустевший контейнер уходит со
+     * своего места, а сгенерированный — исчезает вовсе (как у эталона).
+     * Непереносимые виды и контейнер, отвергающий чужие виды, пропускаются.
+     */
+    public moveViewsToContainer(viewIds: readonly string[], containerId: string): void {
+        const target = this.containers.get(containerId);
+        if (target?.descriptor == null) return;
+        const sources = new Set<ContainerEntry>();
+        for (const viewId of viewIds) {
+            const found = this.findRecord(viewId);
+            if (found === undefined || !found.record.canMoveView || found.entry === target) continue;
+            const ownDefault = found.record.defaultContainerId === containerId;
+            if (target.descriptor.rejectAddedViews === true && !ownDefault) continue;
+            this.moveRecord(found, target);
+            sources.add(found.entry);
+        }
+        if (sources.size === 0) {
+            if (target.generated && target.views.length === 0) this.containers.delete(containerId);
+            return;
+        }
+        // Сначала цель (вкладка появляется), потом источники (опустевшие уходят).
+        this.syncPresence(target);
+        for (const source of sources) this.syncPresence(source);
+        this.didChangeLocations();
+    }
+
+    /** Переносит контейнер целиком на место `location` (у эталона — «Move To»). */
+    public moveViewContainerToLocation(containerId: string, location: ViewContainerLocation): void {
+        const entry = this.containers.get(containerId);
+        if (entry?.descriptor == null || entry.location === location) return;
+        this.setContainerLocation(entry, location);
+        this.didChangeLocations();
+    }
+
+    /** Возвращает вид в его контейнер по умолчанию (`resetViewLocation` эталона). */
+    public resetViewLocation(viewId: string): void {
+        const found = this.findRecord(viewId);
+        if (found === undefined || found.record.containerId === found.record.defaultContainerId) return;
+        this.moveViewsToContainer([viewId], found.record.defaultContainerId);
+    }
+
+    /** Возвращает контейнер на его место по умолчанию. */
+    public resetViewContainerLocation(containerId: string): void {
+        const location = this.getDefaultViewContainerLocation(containerId);
+        if (location !== null) this.moveViewContainerToLocation(containerId, location);
+    }
+
+    /**
+     * Все виды — в их контейнеры, все контейнеры — на их места,
+     * сгенерированные исчезают (`workbench.action.resetViewLocations`).
+     */
+    public resetViewLocations(): void {
+        this.resetLocations();
+        this.didChangeLocations();
+    }
+
+    /** Вид или контейнер сменил место (перенос, reset, рестор переносов проекта). */
+    public readonly onDidChangeLocations = this.onDidChangeLocationsEmitter.event;
+
+    /**
+     * Показывает контейнер там, где он стоит (`openViewContainer` эталона):
+     * вкладку части активирует как пользователь (ленивые фичи просыпаются) и
+     * показывает часть, вьюлет — показывает в сайдбаре. `focus` — отдать фокус.
+     */
+    public openViewContainer(containerId: string, focus = false): void {
+        const entry = this.containers.get(containerId);
+        if (entry?.view == null) return;
+        if (this.isTabbed(entry)) {
+            const part = this.partOf(entry);
+            part.activateView(containerId);
+            part.setVisible(true);
+            if (focus) this.focusContainer(containerId);
+            return;
+        }
+        // У сайдбара показ и фокус — один шаг (`showViewlet` с reveal).
+        this.sidebarService.showViewlet(containerId, true);
+    }
+
+    /** Показывает вид там, где он стоит сейчас (`openView` эталона), скрытую секцию — раскрывает. */
+    public openView(viewId: string, focus = false): void {
+        const found = this.findRecord(viewId);
+        if (found?.entry.view == null) return;
+        if (found.entry.hidden.has(viewId)) this.setViewVisible(viewId, true);
+        this.openViewContainer(found.record.containerId, false);
+        if (!focus) return;
+        const body = this.bodyOf(found.record);
+        if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;
+        found.record.focus();
+    }
+
+    /**
+     * Вид, в поддереве тела которого стоит фокус (`focusedView` эталона);
+     * `null` — фокус не в виде.
+     */
+    public getFocusedViewId(active: TUIElement | null): string | null {
+        if (active === null) return null;
+        const path = active.getAncestorPath();
+        for (const entry of this.containers.values()) {
+            if (entry.paneView === null || !path.includes(entry.paneView)) continue;
+            for (const record of entry.views) {
+                const body = record.body ?? record.placeholderView;
+                if (body !== null && path.includes(body)) return record.id;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * `focusedView`. Фокус в оверлее (палитра, контекст-меню) вид не отменяет:
+     * оверлей возвращает фокус на место, и «Move Focused View» из палитры
+     * должен видеть вид, из которого палитру открыли, — и в фильтре палитры, и
+     * при исполнении (у эталона палитра так и работает: команда исполняется
+     * с фокусом, вернувшимся на вид).
+     */
+    public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        // `null` — тоже не уход из вида: так выглядит промежуток между blur
+        // вида и focus поля палитры.
+        if (active === null || isInOverlay(active)) return;
+        contextKeys.set("focusedView", this.getFocusedViewId(active) ?? "");
+    }
+
+    /**
+     * «Move To» и «Reset Location» контейнера — как контекстное меню композит-бара
+     * эталона (`getContextMenuActionsForComposite`): места в порядке Primary Side
+     * Bar, Secondary Side Bar, Panel без текущего.
+     */
+    private locationMenuEntries(entry: ContainerEntry): MenuEntry[] {
+        const descriptor = attached(entry).descriptor;
+        const moves = MOVE_TARGET_ORDER.filter((location) => location !== entry.location).map(
+            (location): MenuEntry => ({
+                label: LOCATION_MOVE_LABELS[location],
+                id: `${descriptor.id}.moveViewContainerTo.${location}`,
+                onSelect: () => {
+                    this.moveViewContainerToLocation(descriptor.id, location);
+                    this.openViewContainer(descriptor.id, true);
+                },
+            }),
+        );
+        const entries: MenuEntry[] = [{ type: "submenu", label: MOVE_TO_LABEL, entries: moves }];
+        const reset = this.resetLocationEntry(entry);
+        if (reset !== null) entries.push(reset);
+        return entries;
+    }
+
+    /** «Reset Location»: контейнер не на своём месте — вернуть его; сгенерированный с одним видом — вернуть вид. */
+    private resetLocationEntry(entry: ContainerEntry): MenuEntry | null {
+        const descriptor = attached(entry).descriptor;
+        if (!entry.generated && entry.location !== descriptor.location) {
+            return {
+                label: RESET_LOCATION_LABEL,
+                id: `${descriptor.id}.resetViewContainerLocation`,
+                onSelect: () => {
+                    this.resetViewContainerLocation(descriptor.id);
+                    this.openViewContainer(descriptor.id, true);
+                },
+            };
+        }
+        const only = entry.views.length === 1 ? entry.views[0] : undefined;
+        if (only === undefined || only.defaultContainerId === descriptor.id) return null;
+        return {
+            label: RESET_LOCATION_LABEL,
+            id: `${only.id}.resetViewLocation`,
+            onSelect: () => {
+                this.resetViewLocation(only.id);
+                this.openView(only.id, true);
+            },
+        };
+    }
+
+    /** Контекстное меню вкладки части (правый клик по табу, Shift+F10). */
+    private showTabContextMenu(request: IPaneCompositeTabContextMenuRequest): void {
+        const entry = this.containers.get(request.id);
+        if (entry?.view == null) return;
+        this.contextMenuService.showContextMenu({
+            getOwner: () => request.owner,
+            getAnchor: () => request.anchor,
+            getEntries: () => this.locationMenuEntries(entry),
+        });
+    }
+
+    private resetLocations(): void {
+        const touched = new Set<ContainerEntry>();
+        for (const entry of [...this.containers.values()]) {
+            for (const record of [...entry.views]) {
+                if (record.containerId === record.defaultContainerId) continue;
+                const target = this.ensureEntry(record.defaultContainerId);
+                this.moveRecord({ entry, record }, target);
+                touched.add(entry).add(target);
+            }
+        }
+        for (const entry of touched) this.syncPresence(entry);
+        for (const entry of [...this.containers.values()]) {
+            if (entry.descriptor === null || entry.generated || entry.location === entry.descriptor.location) continue;
+            this.setContainerLocation(entry, entry.descriptor.location);
+        }
+    }
+
+    /** Перенесли — записать и известить. */
+    private didChangeLocations(): void {
+        this.saveCustomizations();
+        this.onDidChangeLocationsEmitter.fire();
+    }
+
+    /** Переставить запись вида в другой контейнер (сборку мест делает {@link syncPresence}). */
+    private moveRecord(found: { entry: ContainerEntry; record: ViewRecord }, target: ContainerEntry): void {
+        const { entry: source, record } = found;
+        source.views.splice(source.views.indexOf(record), 1);
+        source.hidden.delete(record.id);
+        // Скрытыми все оставшиеся секции быть не могут (см. setViewVisible).
+        if (source.views.length > 0 && source.hidden.size === source.views.length) {
+            source.hidden.delete(source.views[0].id);
+        }
+        record.containerId = attached(target).descriptor.id;
+        target.views.push(record);
+        target.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+    }
+
+    private setContainerLocation(entry: ContainerEntry, location: ViewContainerLocation): void {
+        // Снять с прежнего места — пока `location` ещё прежнее.
+        if (entry.view !== null) this.detachContainer(entry);
+        entry.location = location;
+        this.syncPresence(entry);
+    }
+
+    private createGeneratedContainer(
+        location: ViewContainerLocation,
+        id = `${GENERATED_CONTAINER_PREFIX}${location}.${generateUuid()}`,
+    ): AttachedEntryDescriptor {
+        this.registerContainer({ id, title: "", location });
+        const entry = this.containerOrThrow(id) as AttachedEntryDescriptor;
+        entry.generated = true;
+        entry.wanted = true;
+        return entry;
+    }
+
+    /**
+     * Держит контейнер на своём месте по составу: с видами — построен (или
+     * пересобран), без видов — снят, сгенерированный без видов — удалён.
+     */
+    private syncPresence(entry: ContainerEntry): void {
+        if (entry.paneView !== null && entry.views.length > 0) {
+            this.rebuildPanes(entry);
+            return;
+        }
+        if (entry.descriptor === null || !entry.wanted) return;
+        if (entry.views.length === 0) {
+            if (entry.view !== null) this.detachContainer(entry);
+            if (entry.generated) this.disposeGeneratedContainer(entry.descriptor.id);
+            return;
+        }
+        this.buildContainer(entry as AttachedEntryDescriptor);
+        this.restoreContainerState(entry);
+    }
+
+    /** Снимает построенный контейнер с места; тела видов отцепляются и ждут новой сборки. */
+    private detachContainer(entry: ContainerEntry): void {
+        const id = attached(entry).descriptor.id;
+        const wasActiveViewlet = !this.isTabbed(entry) && this.sidebarService.getActiveViewletId() === id;
+        if (this.isTabbed(entry)) this.partOf(entry).removeView(id);
+        else this.sidebarService.unregisterViewlet(id);
+        const paneView = attached(entry).paneView;
+        for (const paneId of [...paneView.getPaneIds()]) paneView.removePane(paneId);
+        entry.paneView = null;
+        entry.header = null;
+        entry.stack = null;
+        entry.view = null;
+        this.syncExpanded(entry);
+        if (wasActiveViewlet) this.showDefaultViewlet(true);
+    }
+
+    /** Удаляет сгенерированный контейнер вместе с его состоянием секций. */
+    private disposeGeneratedContainer(id: string): void {
+        this.containers.delete(id);
+        const stored = this.stateService.get(SIDEBAR_VIEWS_STATE);
+        if (stored[id] === undefined || this.applyingCustomizations) return;
+        this.stateService.store(
+            SIDEBAR_VIEWS_STATE,
+            Object.fromEntries(Object.entries(stored).filter(([key]) => key !== id)),
+        );
+    }
+
+    /** Только отличия от дефолта — как `saveViewCustomizations` эталона. */
+    private saveCustomizations(): void {
+        if (this.applyingCustomizations) return;
+        const viewContainerLocations: Record<string, string> = {};
+        const viewLocations: Record<string, string> = {};
+        for (const [id, entry] of this.containers) {
+            if (entry.descriptor !== null && (entry.generated || entry.location !== entry.descriptor.location)) {
+                viewContainerLocations[id] = entry.location;
+            }
+            for (const record of entry.views) {
+                if (record.containerId !== record.defaultContainerId) viewLocations[record.id] = record.containerId;
+            }
+        }
+        this.stateService.store(VIEWS_CUSTOMIZATIONS_STATE, { viewContainerLocations, viewLocations });
+    }
+
+    /** Применяет переносы из стора к зарегистрированным видам и контейнерам. */
+    private applyStoredCustomizations(): void {
+        const stored = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE);
+        this.applyingCustomizations = true;
+        try {
+            for (const [id, location] of Object.entries(stored.viewContainerLocations)) {
+                const entry = this.containers.get(id);
+                if (entry?.descriptor == null || entry.generated || !isViewContainerLocation(location)) continue;
+                if (entry.location !== location) this.setContainerLocation(entry, location);
+            }
+            for (const [viewId, containerId] of Object.entries(stored.viewLocations)) {
+                if (containerId !== undefined) this.placeStoredView(viewId, containerId);
+            }
+        } finally {
+            this.applyingCustomizations = false;
+        }
+        this.customizationsApplied = true;
+    }
+
+    /**
+     * Ставит вид в контейнер из стора (сгенерированный — создаёт). `false` —
+     * поставить некуда: вид остаётся в контейнере по умолчанию.
+     */
+    private placeStoredView(viewId: string, containerId: string): boolean {
+        const found = this.findRecord(viewId);
+        if (!found?.record.canMoveView) return false;
+        let target = this.containers.get(containerId);
+        if (target?.descriptor == null) {
+            const stored = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE).viewContainerLocations[containerId];
+            const location = isViewContainerLocation(stored) ? stored : generatedContainerLocation(containerId);
+            if (location === null) return false;
+            target = this.createGeneratedContainer(location, containerId);
+        }
+        if (found.entry !== target) {
+            this.moveRecord(found, target);
+            this.syncPresence(found.entry);
+        }
+        this.syncPresence(target);
+        return true;
+    }
+
+    /** Проект сменился (Open Folder) — переносы читаются из его стора. */
+    private reapplyStoredCustomizations(): void {
+        if (!this.customizationsApplied) return;
+        this.applyingCustomizations = true;
+        try {
+            this.resetLocations();
+        } finally {
+            this.applyingCustomizations = false;
+        }
+        this.applyStoredCustomizations();
+        this.onDidChangeLocationsEmitter.fire();
     }
 
     /** Фокус первой развёрнутой видимой view контейнера (reveal, команды показа). */
@@ -654,7 +1215,18 @@ export class ViewsService {
     private containerMenuEntries(entry: ContainerEntry): MenuEntry[] {
         const entries = overflowEntries(this.containerTitleGroups(attached(entry).descriptor.id));
         const views = this.buildViewsSubmenu(entry);
-        return entries.length > 0 ? [...entries, { type: "separator" }, views] : [views];
+        const own: MenuEntry[] = entries.length > 0 ? [...entries, { type: "separator" }, views] : [views];
+        return [...own, ...this.sidebarLocationEntries(entry)];
+    }
+
+    /**
+     * «Move To» в «⋯» вьюлета сайдбара — отступление: у эталона это контекстное
+     * меню иконки в activity bar, а activity bar у нас нет. Вкладки частей
+     * несут его в своём контекстном меню ({@link showTabContextMenu}).
+     */
+    private sidebarLocationEntries(entry: ContainerEntry): MenuEntry[] {
+        if (this.isTabbed(entry)) return [];
+        return [{ type: "separator" }, ...this.locationMenuEntries(entry)];
     }
 
     /**
@@ -665,8 +1237,10 @@ export class ViewsService {
     private containerSubmenu(entry: ContainerEntry): MenuSubmenuEntry | null {
         const own = joinMenuGroups(this.containerTitleGroups(attached(entry).descriptor.id));
         const views = this.viewsSubmenu(entry);
-        const entries =
+        const commands: MenuEntry[] =
             views === null ? own : own.length > 0 ? [...own, { type: "separator" as const }, views] : [views];
+        const location = this.sidebarLocationEntries(entry);
+        const entries = commands.length > 0 ? [...commands, ...location] : location.slice(1);
         if (entries.length === 0) return null;
         return { type: "submenu", label: attached(entry).descriptor.title, entries };
     }
@@ -741,16 +1315,18 @@ export class ViewsService {
         if (!this.isMerged(entry)) return false;
         // Merged: в «⋯» секции уезжает подменю контейнера — его команды целиком
         // (включая inline-группу, рисовать её негде) и переключатель секций.
+        // У вьюлета сайдбара в подменю всегда есть «Move To».
+        if (!this.isTabbed(entry)) return true;
         const containerContext: ViewContainerMenuContext = { container: attached(entry).descriptor.id };
         return this.menuService.hasItems(MenuId.ViewContainerTitle, containerContext) || entry.views.length >= 2;
     }
 
-    /** То же для заголовка контейнера: его команды плюс переключатель секций. */
+    /** То же для заголовка контейнера: его команды, переключатель секций и «Move To» сайдбара. */
     private titleMenuPossible(entry: ContainerEntry): boolean {
         const viewId = this.headerTargetView(entry);
         if (viewId !== null) return this.paneMenuPossible(entry, viewId);
         const context: ViewContainerMenuContext = { container: attached(entry).descriptor.id };
-        return this.hasOverflow(MenuId.ViewContainerTitle, context) || entry.views.length >= 2;
+        return this.hasOverflow(MenuId.ViewContainerTitle, context) || entry.views.length >= 2 || !this.isTabbed(entry);
     }
 
     private titleMenuEntries(entry: ContainerEntry): MenuEntry[] {
@@ -893,6 +1469,10 @@ export class ViewsService {
         if (entry === undefined) {
             entry = {
                 descriptor: null,
+                // Stryker disable next-line StringLiteral: место незарегистрированного контейнера не читается — registerContainer переписывает его дескриптором
+                location: "sidebar",
+                wanted: false,
+                generated: false,
                 views: [],
                 hidden: new Set(),
                 paneView: null,
@@ -922,14 +1502,12 @@ export class ViewsService {
      * уезжает в таб-строку.
      */
     private isTabbed(entry: ContainerEntry): boolean {
-        // Спрашивают только о собранных контейнерах — дескриптор у них есть.
-        const location = attached(entry).descriptor.location;
-        return location === "panel" || location === "auxiliarybar";
+        return entry.location === "panel" || entry.location === "auxiliarybar";
     }
 
     /** Реестр части, где вкладкой живёт контейнер (см. {@link isTabbed}). */
     private partOf(entry: ContainerEntry): PaneCompositePartService {
-        return attached(entry).descriptor.location === "auxiliarybar" ? this.auxiliaryBarService : this.panelService;
+        return entry.location === "auxiliarybar" ? this.auxiliaryBarService : this.panelService;
     }
 
     /**
@@ -1057,7 +1635,17 @@ function isLegacyCollapsedList(stored: StoredCollapsed): stored is readonly stri
  * они остались от старого формата, срезаем — отступ рисует сам заголовок.
  */
 function containerPaneTitle(entry: ContainerEntry): string {
-    return attached(entry).descriptor.title.trimStart();
+    return containerTitle(entry).trimStart();
+}
+
+/**
+ * Название контейнера. У сгенерированного своего нет (у эталона —
+ * заглушка «User View Container», которую никто не видит: он сливается с
+ * единственным видом), поэтому он носит название первого своего вида.
+ */
+function containerTitle(entry: ContainerEntry): string {
+    if (entry.generated) return entry.views.at(0)?.title ?? "";
+    return attached(entry).descriptor.title;
 }
 
 /**

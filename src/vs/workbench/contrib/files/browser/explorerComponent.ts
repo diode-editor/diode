@@ -98,6 +98,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
             isDefault: true,
         });
         viewsService.registerView({
+            canMoveView: true,
             id: EXPLORER_VIEW_ID,
             containerId: EXPLORER_VIEWLET_ID,
             title: "EXPLORER",

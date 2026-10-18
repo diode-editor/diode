@@ -47,6 +47,9 @@ export class PaneCompositePartComponent extends Component {
         this.view.onClose = () => {
             void commands.execute(closeCommandId);
         };
+        this.view.onTabContextMenu = (id, anchor) => {
+            this.partService.requestTabContextMenu({ id, anchor, owner: this.view });
+        };
         this.register(
             this.partService.onDidChangeViews(() => {
                 this.syncViews();
@@ -60,17 +63,29 @@ export class PaneCompositePartComponent extends Component {
         this.syncViews();
     }
 
-    /** Приводит контрол к реестру сервиса: новые вкладки + изменившийся контент. */
+    /** Приводит контрол к реестру сервиса: снятые и новые вкладки + изменившийся контент. */
     private syncViews(): void {
-        for (const view of this.partService.getViews()) {
+        const views = this.partService.getViews();
+        for (const id of [...this.contents.keys()]) {
+            if (views.some((view) => view.id === id)) continue;
+            this.contents.delete(id);
+            this.actions.delete(id);
+            this.view.removeView(id);
+        }
+        for (const view of views) {
             if (!this.contents.has(view.id)) {
-                this.view.addView({
-                    id: view.id,
-                    title: view.title,
-                    content: view.content,
-                    actions: view.actions,
-                    placeholder: view.placeholder,
-                });
+                // Позиция — та же, что в реестре: вернувшийся контейнер встаёт на
+                // своё место по order, а не в хвост таб-строки.
+                this.view.addView(
+                    {
+                        id: view.id,
+                        title: view.title,
+                        content: view.content,
+                        actions: view.actions,
+                        placeholder: view.placeholder,
+                    },
+                    views.indexOf(view),
+                );
             } else {
                 if (this.contents.get(view.id) !== view.content) this.view.setViewContent(view.id, view.content);
                 if (this.actions.get(view.id) !== view.actions) this.view.setViewActions(view.id, view.actions);
