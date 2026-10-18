@@ -1179,6 +1179,71 @@ describe("CompletionService", () => {
             expect(edits[0].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 5 } });
         });
 
+        // Форма ответа gopls через middleware vscode-go: список неполный, у всех
+        // пунктов `filterText` первого, `range` пустой сразу после точки —
+        // фильтрует сервер, клиент обязан перезапрашивать.
+        const goMember = (label: string): ICoreCompletionItem => ({
+            label,
+            insertText: label,
+            filterText: "Builder",
+            range: { start: { line: 0, character: 8 }, end: { line: 0, character: 8 } },
+        });
+
+        it("неполный ответ под устаревший префикс сразу перезапрашивается под набранное", async () => {
+            const h = pendingSetup("strings", 7);
+            (h.group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
+            h.fake.type("strings.", 8);
+            await flushTimers();
+            expect(h.source).toHaveBeenCalledTimes(1);
+            // Пока сервер думает над `strings.`, человек добирает `ToL`.
+            h.fake.type("strings.T", 9);
+            h.fake.type("strings.To", 10);
+            h.fake.type("strings.ToL", 11);
+
+            h.answers[0](completionResult(["Builder", "Clone", "Compare", "ToLower"].map(goMember), true));
+            await flushTimers();
+            // Весь пакет под `ToL` не показан — ушёл перезапрос от текущей каретки.
+            expect(h.service.isOpen()).toBe(false);
+            expect(h.source).toHaveBeenCalledTimes(2);
+            expect(h.source.mock.calls[1][0]).toMatchObject({
+                character: 11,
+                triggerKind: CompletionTriggerKind.Invoke,
+            });
+
+            h.answers[1](
+                completionResult(
+                    ["ToLower", "ToLowerSpecial"].map((label) => ({
+                        ...goMember(label),
+                        filterText: "ToLower",
+                    })),
+                    true,
+                ),
+            );
+            await flushTimers();
+            expect(h.component.view.items.map((i) => i.label)).toEqual(["ToLower", "ToLowerSpecial"]);
+            // Ответ под текущий префикс — больше не перезапрашиваем.
+            expect(h.source).toHaveBeenCalledTimes(2);
+        });
+
+        it("неполный ответ без добора и полный с добором не перезапрашиваются", async () => {
+            const unmoved = pendingSetup("ind", 3);
+            const pending = unmoved.service.trigger();
+            unmoved.answers[0](completionResult(ITEMS, true));
+            await pending;
+            await flushTimers();
+            expect(unmoved.source).toHaveBeenCalledTimes(1);
+            expect(unmoved.service.isOpen()).toBe(true);
+
+            const complete = pendingSetup("ind", 3);
+            const done = complete.service.trigger();
+            complete.fake.type("inde", 4);
+            complete.answers[0](completionResult(ITEMS));
+            await done;
+            await flushTimers();
+            expect(complete.source).toHaveBeenCalledTimes(1);
+            expect(complete.component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
+        });
+
         it("добор при провайдерском range: конец range догоняет каретку от точки ЗАПРОСА", async () => {
             const h = pendingSetup('{ "e', 4);
             const pending = h.service.trigger();
