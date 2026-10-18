@@ -44,13 +44,17 @@ export const GO_TOOLS_BIN = path.join(GO_TOOLS_DIR, "bin");
 
 const EXE = process.platform === "win32" ? ".exe" : "";
 
+/** Module cache Go-сессий редактора — вне временного корня прогона (см. {@link GO_SESSION_ENV}). */
+export const GO_MODCACHE = path.join(REPO_ROOT, "node_modules", ".cache", "diode-go-modcache");
+
 /**
  * Окружение Go для сессий редактора в изолированном корне (e2e, сценарий).
- * Module cache Go по умолчанию read-only, и кэш, скачанный в изолированный HOME,
- * ронял уборку временного корня прогона (`EACCES` на `rmSync`) — `-modcacherw`
- * делает его удаляемым.
+ * На активации расширение само ставит хелпер `vscgo` (`go install`), а module
+ * cache Go read-only: скачанный в изолированный HOME, он ронял уборку
+ * временного корня (`EACCES` на `rmSync`). `GOFLAGS=-modcacherw` расширение
+ * для своих установок не пробрасывает, поэтому кэш просто живёт вне корня.
  */
-export const GO_SESSION_ENV: Readonly<Record<string, string>> = { GOFLAGS: "-modcacherw", GOTOOLCHAIN: "local" };
+export const GO_SESSION_ENV: Readonly<Record<string, string>> = { GOMODCACHE: GO_MODCACHE, GOTOOLCHAIN: "local" };
 
 /** Мини-сервис языков: `.go` → go, иначе — undefined. */
 export const GO_LANGUAGE_SERVICE: ILanguageService = {
