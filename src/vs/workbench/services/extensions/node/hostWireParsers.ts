@@ -34,6 +34,7 @@ import {
     type IWireCloseGroupsParams,
     type IWireCloseTabsParams,
     type IWireConfigurationUpdate,
+    type IWireCreateUntitledParams,
     type IWireDiagnosticsPublish,
     type IWireEditorEdit,
     type IWireFileDecoration,
@@ -102,6 +103,16 @@ export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocu
         ...(typeof selections === "object" && selections !== null
             ? { selection: parseWireSelections([selections])[0] }
             : {}),
+    };
+}
+
+/** Валидирует параметры `workspace.createUntitledDocument`: поле не той формы отбрасывается. */
+export function parseWireCreateUntitledParams(raw: unknown): IWireCreateUntitledParams {
+    const obj = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+    return {
+        ...(typeof obj.content === "string" ? { content: obj.content } : {}),
+        ...(typeof obj.language === "string" ? { language: obj.language } : {}),
+        ...(typeof obj.encoding === "string" ? { encoding: obj.encoding } : {}),
     };
 }
 

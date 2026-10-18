@@ -3,9 +3,11 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type {
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
+    IWireCreateUntitledParams,
     IWireEditorLayout,
     IWireShowTextDocumentParams,
     IWireShowTextDocumentResult,
+    IWireUriParams,
 } from "./wireTypes.ts";
 
 /**
@@ -36,6 +38,12 @@ export interface IEditorLayoutService {
     /** `window.showTextDocument`: открыть/активировать ресурс в колонке. */
     showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult>;
 
+    /**
+     * `workspace.openTextDocument({ content, language })`: безымянный документ
+     * без вкладки; показывает его потом {@link showTextDocument} по ресурсу.
+     */
+    createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams;
+
     /** `tabGroups.close(tab)`: false — пользователь отменил confirm-диалог. */
     closeTabs(params: IWireCloseTabsParams): Promise<boolean>;
 
@@ -49,6 +57,9 @@ export const NULL_EDITOR_LAYOUT_SERVICE: IEditorLayoutService = {
     onDidChangeLayout: () => ({ dispose: () => undefined }),
     flushPendingLayout: () => undefined,
     showTextDocument: () => Promise.reject(new Error("editor layout unavailable")),
+    createUntitledDocument: () => {
+        throw new Error("editor layout unavailable");
+    },
     closeTabs: () => Promise.resolve(false),
     closeGroups: () => Promise.resolve(false),
 };

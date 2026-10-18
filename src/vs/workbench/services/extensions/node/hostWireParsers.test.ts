@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
+    parseWireCreateUntitledParams,
     parseWireEditorEdits,
     parseWireProviderHandle,
     parseWireReadFileResult,
@@ -51,6 +52,33 @@ describe("hostWireParsers — parseWireEditorEdits", () => {
 
     it("не-массив → []", () => {
         expect(parseWireEditorEdits(null)).toEqual([]);
+    });
+});
+
+describe("hostWireParsers — parseWireCreateUntitledParams", () => {
+    it("строковые поля берёт, остальные отбрасывает по одному", () => {
+        expect(parseWireCreateUntitledParams({ content: "c", language: "go", encoding: "utf8" })).toEqual({
+            content: "c",
+            language: "go",
+            encoding: "utf8",
+        });
+        expect(parseWireCreateUntitledParams({ content: 1, language: "go", encoding: "utf8" })).toEqual({
+            language: "go",
+            encoding: "utf8",
+        });
+        expect(parseWireCreateUntitledParams({ content: "c", language: null, encoding: "utf8" })).toEqual({
+            content: "c",
+            encoding: "utf8",
+        });
+        expect(parseWireCreateUntitledParams({ content: "c", language: "go", encoding: true })).toEqual({
+            content: "c",
+            language: "go",
+        });
+    });
+
+    it("не объект — пустые опции", () => {
+        expect(parseWireCreateUntitledParams(null)).toEqual({});
+        expect(parseWireCreateUntitledParams("x")).toEqual({});
     });
 });
 

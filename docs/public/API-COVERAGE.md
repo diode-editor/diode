@@ -83,7 +83,7 @@ notebook-поверхность — нет.
 | член | статус | комментарий |
 | --- | :-: | --- |
 | `workspaceFolders`, `name` | ✅ | |
-| `textDocuments`, `openTextDocument` | ✅ | включая `{ encoding }` — реальное декодирование не-utf8 |
+| `textDocuments`, `openTextDocument` | ✅ | включая `{ encoding }` — реальное декодирование не-utf8; `openTextDocument({ content, language })` — безымянный буфер `untitled:Untitled-N`, как в эталоне (`openTextDocument(untitled:-uri)` — пока нет) |
 | `onDidOpen/onDidClose/onDidChangeTextDocument` | ✅ | |
 | `onWillSaveTextDocument`, `onDidSaveTextDocument` | ✅ | композиция save-участников с `codeActionsOnSave`/`formatOnSave` |
 | `getConfiguration`, `onDidChangeConfiguration` | ✅ | слои default → user → workspace → workspaceFolder: настройки проекта — в `.diode/settings.json` открытой папки (у VS Code — `.vscode/settings.json`); у окна из файла `.code-workspace` воркспейс — блок `settings` файла, а `.diode/settings.json` — слой папки поверх него; `inspect().workspaceValue`/`workspaceFolderValue` честные. `update()` — как у VS Code: `Workspace`/`false` — в настройки воркспейса, `Global`/`true` — в пользовательский `settings.json`, `WorkspaceFolder` — в `.diode/settings.json` папки; без цели — воркспейс, а у окна из `.code-workspace` ключ `resource`/`language-overridable` с ресурсом — папка (`deriveConfigurationTarget`); `undefined` снимает ключ; к резолву `get()` уже видит значение; отказы (незарегистрированный ключ, пустое окно, `application`/`machine` в воркспейс) — rejected promise с текстами VS Code, без тоста. Запись в секцию языка (`overrideInLanguage`) пока отклоняется |

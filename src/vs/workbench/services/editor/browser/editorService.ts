@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
@@ -48,7 +48,7 @@ import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
 import type { IEditorGroupsService } from "../common/editorGroupsService.ts";
 import { EditorGroupsServiceDIToken } from "../common/editorGroupsService.ts";
-import type { IEditorSavedMeta, IEditorService, IOpenUriOptions } from "../common/editorService.ts";
+import type { IEditorSavedMeta, IEditorService, IOpenUriOptions, IUntitledOptions } from "../common/editorService.ts";
 import type { IVirtualDocumentSource } from "../common/iVirtualDocumentSource.ts";
 import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.ts";
 
@@ -214,6 +214,12 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public readonly onDidFailOpen = this.onDidFailOpenEmitter.event;
 
     /**
+     * Безымянные буферы без вкладки, по ресурсу ({@link createUntitled}). Сервис
+     * владеет ими, пока первое {@link openUri} не заберёт модель во вкладку.
+     */
+    private readonly untitledWithoutEditor = new Map<string, TextFileModel>();
+
+    /**
      * Save-участник расширений (host/харнесс подключает сюда
      * `onWillSaveTextDocument`). Модели читают его через провайдер пайплайна
      * (`TextFileModelService.addSaveParticipant`) в момент сохранения — присваивание в
@@ -287,6 +293,12 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         editorGroups?: IEditorGroupsService,
     ) {
         super();
+        this.register(
+            toDisposable(() => {
+                for (const model of this.untitledWithoutEditor.values()) model.dispose();
+                this.untitledWithoutEditor.clear();
+            }),
+        );
         this.editorGroups = editorGroups ?? this.register(new EditorGroupsService(logService));
         const fileService = files ?? this.register(new FileService());
         this.textFileModels =
@@ -759,6 +771,10 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return [...this.textPanes(), ...this.diffSidePanes()];
     }
 
+    public getUntitledModelsWithoutEditor(): readonly TextFileModel[] {
+        return [...this.untitledWithoutEditor.values()];
+    }
+
     /** Текстовые вкладки всех групп в порядке полосы (декорации, конфиг, персист). */
     private textPanes(): TextEditorPane[] {
         return this.allPanes().filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane);
@@ -821,6 +837,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         // watcher'а, ни записи — только текст от провайдера схемы.
         if (uri.scheme === "file" || this.isOpenInTargetGroup(uri, options.group)) {
             this.openResolvedUri(uri, null, options);
+            return Promise.resolve();
+        }
+        const untitled = this.untitledWithoutEditor.get(uri.toString());
+        if (untitled !== undefined) {
+            this.openUntitledWithoutEditor(untitled, options);
             return Promise.resolve();
         }
         return this.openVirtualUri(uri, options);
@@ -1081,6 +1102,36 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         const group = this.editorGroups.activeGroup;
         group.insertPane(editor);
         group.activateTab(group.editorCount - 1, { focus });
+    }
+
+    /**
+     * Безымянный буфер без вкладки — `workspace.openTextDocument({ content, language })`
+     * (`$tryCreateDocument` эталона): модель та же, что у File → New Untitled
+     * File, но вкладку не заводим — документ сразу открыт расширениям (document
+     * sync берёт его из {@link getUntitledModelsWithoutEditor}), а показывает
+     * его `showTextDocument` через {@link openUri}. Непустой начальный текст —
+     * несохранённая правка: буфер грязный, закрытие спросит про сохранение.
+     */
+    public createUntitled({ content, languageId, encoding }: IUntitledOptions = {}): Uri {
+        const model = this.textFileModels.createUntitledModel();
+        if (languageId !== undefined) model.setLanguage(languageId);
+        if (encoding !== undefined) model.setEncoding(encoding);
+        if (content !== undefined && content !== "") model.restoreUnsavedContents(content);
+        this.untitledWithoutEditor.set(model.uri.toString(), model);
+        this.fireEditorsChanged();
+        return model.uri;
+    }
+
+    /** Отдаёт безымянный буфер без вкладки во вкладку: владение моделью переходит к ней. */
+    private openUntitledWithoutEditor(model: TextFileModel, { focus = true, group: where }: IOpenUriOptions): void {
+        this.untitledWithoutEditor.delete(model.uri.toString());
+        const editor = this.paneBuilder.build(model);
+        this.editorConfiguration.apply(editor);
+        const group = where === "beside" ? this.editorGroups.sideGroup() : (where ?? this.editorGroups.activeGroup);
+        this.editorGroups.openInGroup(group, () => {
+            group.insertPane(editor);
+            group.activateTab(group.editorCount - 1, { focus });
+        });
     }
 
     /**

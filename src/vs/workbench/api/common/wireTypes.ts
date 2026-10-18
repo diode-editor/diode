@@ -288,6 +288,17 @@ export interface IWireShowTextDocumentParams {
     readonly selection?: IWireSelection;
 }
 
+/**
+ * Параметры `workspace.createUntitledDocument` (subprocess → host, request;
+ * `$tryCreateDocument` эталона): безымянный документ без вкладки. Ответ —
+ * {@link IWireUriParams} созданного `untitled:Untitled-N`.
+ */
+export interface IWireCreateUntitledParams {
+    readonly content?: string;
+    readonly language?: string;
+    readonly encoding?: string;
+}
+
 /** Результат `editor.showTextDocument`: где фактически открыто. */
 export interface IWireShowTextDocumentResult {
     readonly uri: string;

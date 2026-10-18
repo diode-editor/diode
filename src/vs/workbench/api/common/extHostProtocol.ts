@@ -40,6 +40,7 @@ import type {
     IWireConfigurationChanged,
     IWireConfigurationUpdate,
     IWireCreateDecorationType,
+    IWireCreateUntitledParams,
     IWireDefinitionParams,
     IWireDiagnosticsPublish,
     IWireDidSaveParams,
@@ -239,6 +240,11 @@ export interface IHostToSubprocess {
 export interface ISubprocessToHost {
     readonly requests: {
         readonly "workspace.applyEdit": readonly [IWireApplyWorkspaceEditParams, boolean];
+        /**
+         * `workspace.openTextDocument({ content, language })`: ответ уезжает ПОСЛЕ
+         * `editor.didOpen` нового документа — после `await` он уже в реестре.
+         */
+        readonly "workspace.createUntitledDocument": readonly [IWireCreateUntitledParams, IWireUriParams];
 
         readonly "editor.setOptions": readonly [IWireSetEditorOptionsParams, null];
         /** Обработчик есть, отправителя пока нет: субпроцесс читает опции из своего прокси. */

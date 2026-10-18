@@ -14,12 +14,14 @@ import type { IEditorLayoutService } from "../common/iEditorLayoutService.ts";
 import type {
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
+    IWireCreateUntitledParams,
     IWireEditorLayout,
     IWireSelection,
     IWireShowTextDocumentParams,
     IWireShowTextDocumentResult,
     IWireTabGroupSnapshot,
     IWireTabSnapshot,
+    IWireUriParams,
 } from "../common/wireTypes.ts";
 
 /** `vscode.ViewColumn.Active` — символическая «текущая колонка». */
@@ -120,6 +122,15 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             groupId: opened.id,
             viewColumn: this.groups.viewColumnOf(opened),
         });
+    }
+
+    public createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams {
+        const uri = this.editors.createUntitled({
+            ...(params.content !== undefined ? { content: params.content } : {}),
+            ...(params.language !== undefined ? { languageId: params.language } : {}),
+            ...(params.encoding !== undefined ? { encoding: params.encoding } : {}),
+        });
+        return { uri: uri.toString() };
     }
 
     /**

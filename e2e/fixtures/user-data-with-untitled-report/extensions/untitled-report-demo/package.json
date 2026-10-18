@@ -1,0 +1,20 @@
+{
+    "name": "untitled-report-demo",
+    "displayName": "Untitled Report Demo",
+    "description": "Демо workspace.openTextDocument({ content, language }): отчёт в безымянный документ и showTextDocument — как «Go: Locate Configured Go Tools» у golang.go.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onCommand:untitledReportDemo.locateTools"],
+    "contributes": {
+        "commands": [
+            {
+                "command": "untitledReportDemo.locateTools",
+                "title": "Untitled Report Demo: Locate Configured Tools"
+            }
+        ]
+    }
+}

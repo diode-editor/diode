@@ -129,6 +129,13 @@ interface IWireWillSaveParams {
 }
 
 /** Папка воркспейса, полученная из `workspace.initialize`. */
+/** Опции `openTextDocument(options?)` — безымянного документа. */
+interface IUntitledDocumentOptions {
+    readonly content?: string;
+    readonly language?: string;
+    readonly encoding?: string;
+}
+
 interface IWorkspaceFolder {
     readonly uri: Uri;
     readonly name: string;
@@ -516,9 +523,16 @@ export function createWorkspaceNamespace(
     }
 
     async function openTextDocument(
-        uriOrPath: vscode.Uri | string,
+        uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
     ): Promise<vscode.TextDocument> {
+        // Не путь и не uri — перегрузка `openTextDocument(options?)`: безымянный
+        // документ (как `createDocumentData` эталона, любой не-URI объект — опции).
+        // Каст: `vscode.Uri` у расширения — всегда наш `Uri`, его отсекла проверка.
+        if (typeof uriOrPathOrOptions !== "string" && !(uriOrPathOrOptions instanceof Uri)) {
+            return createUntitledDocument((uriOrPathOrOptions ?? {}) as IUntitledDocumentOptions);
+        }
+        const uriOrPath = uriOrPathOrOptions;
         // Строка здесь — путь на диске (перегрузка `openTextDocument(path)`), а не uri.
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         // Открытый документ — отдаём стабильный объект из реестра.
@@ -548,6 +562,30 @@ export function createWorkspaceNamespace(
         const buffer = await ctx.disk.readFile(uri.fsPath);
         const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
         return makeEphemeralDocument(uri, text, encoding);
+    }
+
+    /**
+     * `openTextDocument({ content, language })` — `untitled:Untitled-N` в ядре
+     * (`$tryCreateDocument` эталона): буфер без вкладки, с непустым текстом —
+     * грязный, Save As работает штатно; показывает его `showTextDocument`.
+     * `editor.didOpen` приезжает раньше ответа, так что документ уже в реестре
+     * (и `onDidOpenTextDocument` уже выстрелил). Нет его там только у
+     * документа сверх порога синхронизации — такой отдаём эфемерным.
+     */
+    async function createUntitledDocument({
+        content,
+        language,
+        encoding,
+    }: IUntitledDocumentOptions): Promise<vscode.TextDocument> {
+        // Опции приходят из JS расширения: поле не той формы не уезжает вовсе.
+        const text = typeof content === "string" ? content : undefined;
+        const { uri: created } = await rpc.request("workspace.createUntitledDocument", {
+            ...(text !== undefined ? { content: text } : {}),
+            ...(typeof language === "string" ? { language } : {}),
+            ...(typeof encoding === "string" ? { encoding } : {}),
+        });
+        const uri = Uri.parse(created);
+        return registry.get(uri) ?? makeEphemeralDocument(uri, text ?? "", "utf8");
     }
 
     /** Документ вне реестра открытых буферов: EOL детектим из текста, как ядро. */
@@ -595,9 +633,8 @@ export function createWorkspaceNamespace(
 
         getConfiguration,
         asRelativePath,
-        // Точечный каст: перегрузки `openTextDocument(options?: { language,
-        // content })` — безымянного документа — у нас нет (новый функционал);
-        // такой вызов падает в ветку «не-file схема» и отклоняется.
+        // Каст — к трём перегрузкам d.ts (uri / путь / опции безымянного):
+        // форму реализация различает в рантайме.
         openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
