@@ -58,6 +58,15 @@ describe("formatOutputLine", () => {
         expect(line).toContain('activate failed {"id":"git"}');
     });
 
+    it("ошибку в args печатает её сообщением, а не JSON-ом", () => {
+        // У `Error` поля не перечислимы — JSON дал бы `{}`; у пришедшей по RPC
+        // они свои, и JSON дал бы служебный `{"name":…,"message":…}`.
+        const native = new Error("boom");
+        const wired = Object.assign(new Error(), { name: "Error", message: "from rpc" });
+        const line = formatOutputLine(entry({ message: "failed", args: [native, wired] }));
+        expect(line).toMatch(/failed boom from rpc$/);
+    });
+
     it("несериализуемый аргумент не роняет форматирование", () => {
         const cyclic: Record<string, unknown> = {};
         cyclic.self = cyclic;

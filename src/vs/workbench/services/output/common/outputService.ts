@@ -24,6 +24,10 @@ function formatTimestamp(timestamp: number): string {
 function formatArgs(args: readonly unknown[]): string {
     if (args.length === 0) return "";
     const parts = args.map((arg) => {
+        // Ошибка — текстом сообщения, как `format` у логгеров эталона
+        // (`toErrorMessage`): JSON у `Error` — `{}` (поля не перечислимы), а у
+        // пришедшей по RPC — служебный `{"name":…,"message":…}` вместо текста.
+        if (arg instanceof Error) return arg.message;
         try {
             // JSON.stringify(undefined) отдаёт undefined, хотя тип обещает string, —
             // тогда печатаем сырой вид.
