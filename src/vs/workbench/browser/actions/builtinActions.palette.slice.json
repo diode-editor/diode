@@ -23,6 +23,7 @@
     "firstCompressedFolder",
     "lastCompressedFolder",
     "workbench.action.openSettings",
+    "workbench.action.openSettingsJson",
     "workbench.action.openWorkspaceSettings",
     "workbench.action.openWorkspaceSettingsFile",
     "workbench.action.openFolderSettings",

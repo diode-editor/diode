@@ -22,11 +22,14 @@ type CommandHandler = (...args: unknown[]) => unknown;
  *
  * `owner` — окружающий владелец (см. {@link ExtensionOwner}): id расширения,
  * зарегистрировавшего команду, попадает в её предупреждения в stderr.
+ * `apiCommands` — встроенные API-команды (`vscode.open`, см. apiCommands.ts):
+ * исполняются здесь же, хосту не объявляются.
  */
 export function buildCommandsNamespace(
     rpc: SubprocessRpc,
     getActiveTextEditor?: () => vscode.TextEditor | undefined,
     owner?: ExtensionOwner,
+    apiCommands: ReadonlyMap<string, CommandHandler> = new Map(),
 ): typeof vscode.commands {
     const localCommands = new Map<string, CommandHandler>();
 
@@ -85,9 +88,13 @@ export function buildCommandsNamespace(
 
     // Возвращаем Promise — он совместим с `Thenable<T>` из типов vscode.
     const executeCommand = <T = unknown>(id: string, ...args: unknown[]): Promise<T> => {
-        const handler = localCommands.get(id);
+        const handler = localCommands.get(id) ?? apiCommands.get(id);
         if (handler !== undefined) {
-            return Promise.resolve(handler(...args)) as Promise<T>;
+            // Исполнение внутри executor'а: синхронный отказ (невалидный аргумент
+            // API-команды) уходит отказом промиса, как у эталона, а не исключением.
+            return new Promise<T>((resolve) => {
+                resolve(handler(...args) as T);
+            });
         }
         return rpc.request("commands.executeCommand", { id, args }) as Promise<T>;
     };

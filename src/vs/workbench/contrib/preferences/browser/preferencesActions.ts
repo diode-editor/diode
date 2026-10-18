@@ -39,6 +39,11 @@ async function openUserConfigFile(accessor: ServiceAccessor, resource: string, s
     commands.execute("workbench.openFile", resource);
 }
 
+/** The user settings.json, seeded with an empty object on a fresh install. */
+function openUserSettingsFile(accessor: ServiceAccessor): Promise<void> {
+    return openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "{}\n");
+}
+
 /**
  * Open the user settings.json (VS Code `workbench.action.openSettings`). Diode has
  * no settings UI, so the command opens the JSON file directly. Default binding
@@ -50,9 +55,19 @@ export const openSettingsAction: CommandAction = {
     shortTitle: "Settings",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "4_preferences", order: 10 }],
     keybinding: parseKeybinding("mod+,"),
-    run(accessor) {
-        return openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "{}\n");
-    },
+    run: openUserSettingsFile,
+};
+
+/**
+ * Open the user settings.json (VS Code `workbench.action.openSettingsJson`) — the
+ * JSON flavour of {@link openSettingsAction}; upstream extensions offer it from
+ * validation toasts (golang.go: "Open Settings"). Upstream options
+ * (`revealSetting`, `query`, `openToSide`) are accepted and not applied yet.
+ */
+export const openSettingsJsonAction: CommandAction = {
+    id: "workbench.action.openSettingsJson",
+    title: "Preferences: Open User Settings (JSON)",
+    run: openUserSettingsFile,
 };
 
 /**
@@ -177,6 +192,7 @@ export const openKeybindingsFileAction: CommandAction = {
 /** Экшены настроек и вкладки Keyboard Shortcuts. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const PREFERENCES_ACTIONS: readonly CommandAction[] = [
     openSettingsAction,
+    openSettingsJsonAction,
     openWorkspaceSettingsAction,
     openWorkspaceSettingsFileAction,
     openFolderSettingsAction,

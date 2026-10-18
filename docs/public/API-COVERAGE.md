@@ -146,7 +146,7 @@ webview — потолок.
 | член | статус | комментарий |
 | --- | :-: | --- |
 | `registerCommand` | ✅ | |
-| `executeCommand` | ✅ | из встроенных команд VS Code зарегистрирована `setContext` — расширение публикует ею свои when-ключи |
+| `executeCommand` | ✅ | из встроенных команд VS Code зарегистрирована `setContext` — расширение публикует ею свои when-ключи; из API-команд эталона (`extHostApiCommands`) — `vscode.open` (Uri — во вкладку, колонкой/опциями как `showTextDocument`; http(s) — наружу, как `env.openExternal`) |
 | `registerTextEditorCommand` | 🟡 | без активного редактора — warn + no-op (семантика VS Code); edit-builder инертен, батч-правки — через `workspace.applyEdit` |
 | `getCommands` | 🕐 | |
 

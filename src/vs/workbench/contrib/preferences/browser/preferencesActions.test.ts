@@ -30,6 +30,7 @@ import {
     openKeybindingsAction,
     openKeybindingsFileAction,
     openSettingsAction,
+    openSettingsJsonAction,
     openWorkspaceSettingsAction,
     openWorkspaceSettingsFileAction,
 } from "./preferencesActions.ts";
@@ -38,6 +39,8 @@ describe("PreferencesActions", () => {
     it("declares VS Code-compatible ids, titles and default bindings", () => {
         expect(openSettingsAction.id).toBe("workbench.action.openSettings");
         expect(openSettingsAction.title).toBe("Preferences: Open User Settings");
+        expect(openSettingsJsonAction.id).toBe("workbench.action.openSettingsJson");
+        expect(openSettingsJsonAction.title).toBe("Preferences: Open User Settings (JSON)");
         expect(openKeybindingsAction.id).toBe("workbench.action.openGlobalKeybindings");
         expect(openKeybindingsAction.title).toBe("Preferences: Open Keyboard Shortcuts");
         expect(openKeybindingsFileAction.id).toBe("workbench.action.openGlobalKeybindingsFile");

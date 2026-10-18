@@ -18,6 +18,7 @@ const microtasks = async (turns = 4): Promise<void> => {
 function createBridge(
     getActiveTextEditor?: () => vscode.TextEditor | undefined,
     owner?: ExtensionOwner,
+    apiCommands?: ReadonlyMap<string, (...args: unknown[]) => unknown>,
 ): {
     commands: ReturnType<typeof buildCommandsNamespace>;
     host: HostRpc;
@@ -26,7 +27,7 @@ function createBridge(
     const [chSub, chHost] = createInProcessChannelPair();
     const sub: SubprocessRpc = new RpcEndpoint(chSub);
     const host: HostRpc = new RpcEndpoint(chHost);
-    const commands = buildCommandsNamespace(sub, getActiveTextEditor, owner);
+    const commands = buildCommandsNamespace(sub, getActiveTextEditor, owner, apiCommands);
     return {
         commands,
         host,
@@ -69,6 +70,30 @@ describe("CommandsNamespace (subprocess)", () => {
 
         expect(result).toBe("host-result");
         expect(received).toEqual([{ id: "core.doThing", args: [42, "x"] }]);
+        dispose();
+    });
+
+    it("API-команда исполняется в subprocess без RPC на хост; синхронный отказ — отказ промиса", async () => {
+        const api = new Map<string, (...args: unknown[]) => unknown>([
+            ["vscode.echo", (value) => value],
+            [
+                "vscode.fail",
+                () => {
+                    throw new Error("bad arg");
+                },
+            ],
+        ]);
+        const { commands, host, dispose } = createBridge(undefined, undefined, api);
+        let hostSawExecute = false;
+        host.handleRequest("commands.executeCommand", () => {
+            hostSawExecute = true;
+            return null;
+        });
+
+        await expect(commands.executeCommand("vscode.echo", 7)).resolves.toBe(7);
+        const failed = commands.executeCommand("vscode.fail");
+        await expect(failed).rejects.toThrow("bad arg");
+        expect(hostSawExecute).toBe(false);
         dispose();
     });
 
