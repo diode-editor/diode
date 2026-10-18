@@ -1,0 +1,61 @@
+import { describe, expect, it } from "vitest";
+
+import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import type { ILogSink } from "../../../../platform/log/common/iLogService.ts";
+import { LogService } from "../../../../platform/log/common/logService.ts";
+import { RingBufferSink } from "../../../../platform/log/common/ringBufferSink.ts";
+import { formatOutputLine } from "../../../services/output/common/outputService.ts";
+
+/**
+ * Отказ активации — так, как его видит человек в OUTPUT `extensions.host`:
+ * настоящий субпроцесс, настоящий LogService и форматтер канала. Урок
+ * golang.go: без `go` в PATH он отклоняет `activate()` голым `undefined`, и в
+ * логе оставалось `{"name":"Error","message":"undefined"}`.
+ */
+async function activationFailureLine(activateBody: string): Promise<string> {
+    const logService = new LogService();
+    const history = new RingBufferSink();
+    logService.addSink(history as ILogSink);
+    const harness = await createExtensionTestHarness({
+        logger: logService.createLogger("extensions.host"),
+        extensions: [
+            {
+                id: "test.failing",
+                manifest: { name: "failing", publisher: "test", version: "0.0.1" },
+                source: `exports.activate = async function activate() { ${activateBody} };`,
+                filename: "/diode/builtin/test.failing/out/extension.cjs",
+            },
+        ],
+    });
+    try {
+        const line = history
+            .getEntries("extensions.host")
+            .map(formatOutputLine)
+            .find((text) => text.includes("failed to activate extension"));
+        expect(line).toBeDefined();
+        return line ?? "";
+    } finally {
+        await harness.dispose();
+    }
+}
+
+describe("ExtensionHost — лог отказа активации", () => {
+    it("отказ не-Error значением печатает само значение", async () => {
+        const line = await activationFailureLine("return Promise.reject(undefined);");
+        expect(line).toContain(
+            'failed to activate extension "test.failing" activate() rejected with a non-Error value: undefined',
+        );
+        expect(line).not.toContain("$isError");
+        expect(line).not.toContain('"name"');
+    });
+
+    it("строковый отказ — тоже текстом", async () => {
+        const line = await activationFailureLine('throw "no go binary";');
+        expect(line).toContain("activate() rejected with a non-Error value: no go binary");
+    });
+
+    it("отказ настоящим Error — его сообщение, а не JSON", async () => {
+        const line = await activationFailureLine('throw new Error("boom");');
+        expect(line).toMatch(/failed to activate extension "test\.failing" boom$/);
+    });
+});

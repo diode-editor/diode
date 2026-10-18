@@ -239,7 +239,12 @@ export function runExtensionHostSubprocess(): void {
         } catch (err) {
             extensions.delete(id);
             extensionExports.delete(id);
-            throw err;
+            // Отказ не-`Error` значением (golang.go без `go` в PATH отклоняет
+            // `activate()` голым `undefined`) — оборачиваем, как
+            // `ActivatedExtension._activate` эталона: само значение — в тексте
+            // сообщения, иначе в логе хоста от отказа осталась бы пустая ошибка.
+            if (err instanceof Error) throw err;
+            throw new Error(`activate() rejected with a non-Error value: ${String(err)}`, { cause: err });
         }
         return null;
     });
