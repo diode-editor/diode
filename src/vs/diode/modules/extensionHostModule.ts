@@ -1,3 +1,4 @@
+import { LanguageConfigurationServiceDIToken } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
@@ -293,6 +294,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             secrets,
             extensionState,
             diagnosticsSink,
+            // languages.setLanguageConfiguration → слой поверх language-configuration.json.
+            languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
             // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
             // createStatusBarItem расширений → собственные записи в полосе;

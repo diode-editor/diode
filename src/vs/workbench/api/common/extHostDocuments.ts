@@ -60,6 +60,16 @@ export interface TextLine {
  * `implements` — страж против «объявили в d.ts, не реализовали»: расширениям
  * объект уходит как `vscode.TextDocument` без каста.
  */
+/**
+ * Определение слова языка (`wordPattern` из `languages.setLanguageConfiguration`)
+ * или `undefined` — у языка своего нет. Как `getWordDefinitionFor` upstream
+ * `extHostDocumentData.ts`, только таблица живёт в {@link DocumentRegistry}, а
+ * не на уровне модуля.
+ */
+export type WordDefinitionLookup = (languageId: string) => RegExp | undefined;
+
+const NO_WORD_DEFINITIONS: WordDefinitionLookup = () => undefined;
+
 export class ExtHostTextDocument implements vscode.TextDocument {
     /** Идентичность ресурса — источник правды, как в `vscode.TextDocument.uri`. */
     public readonly uri: Uri;
@@ -99,7 +109,10 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     /** Текст целиком — кэш, собирается из строк лениво до следующей мутации. */
     private textCache: string | null = "";
 
-    public constructor(uri: Uri) {
+    public constructor(
+        uri: Uri,
+        private readonly wordDefinitionFor: WordDefinitionLookup = NO_WORD_DEFINITIONS,
+    ) {
         this.uri = uri;
     }
 
@@ -221,9 +234,10 @@ export class ExtHostTextDocument implements vscode.TextDocument {
 
     /**
      * Слово под позицией (позиция прижимается к документу) — как upstream
-     * `ExtHostDocumentData._getWordRangeAtPosition`. Без `regex` — дефолтное
-     * определение слова: языковых word-definition у нас нет. Регекс, матчащий
-     * пустую строку, отвергается исключением с текстом upstream.
+     * `ExtHostDocumentData._getWordRangeAtPosition`. Без `regex` — определение
+     * слова языка (`wordPattern` из `languages.setLanguageConfiguration`), а без
+     * него — дефолтное. Регекс, матчащий пустую строку, отвергается исключением
+     * с текстом upstream.
      */
     public getWordRangeAtPosition(position: Position, regex?: RegExp): Range | undefined {
         const valid = this.validatePosition(position);
@@ -232,7 +246,8 @@ export class ExtHostTextDocument implements vscode.TextDocument {
                 `[getWordRangeAtPosition]: ignoring custom regexp '${regex.source}' because it matches the empty string.`,
             );
         }
-        const word = getWordAtText(valid.character, regex ?? DEFAULT_WORD_REGEXP, this.lines()[valid.line]);
+        const definition = regex ?? this.wordDefinitionFor(this.languageId) ?? DEFAULT_WORD_REGEXP;
+        const word = getWordAtText(valid.character, definition, this.lines()[valid.line]);
         return word === null ? undefined : new Range(valid.line, word.start, valid.line, word.end);
     }
 
@@ -291,6 +306,16 @@ function firstNonWhitespace(text: string): number {
  */
 export class DocumentRegistry {
     private readonly documents = new Map<string, ExtHostTextDocument>();
+    private readonly wordDefinitions = new Map<string, RegExp>();
+
+    /** Определение слова языка для `getWordRangeAtPosition` всех документов (и эфемерных). */
+    public readonly wordDefinitionFor: WordDefinitionLookup = (languageId) => this.wordDefinitions.get(languageId);
+
+    /** `undefined` снимает определение — язык возвращается к дефолтному слову. */
+    public setWordDefinitionFor(languageId: string, wordDefinition: RegExp | undefined): void {
+        if (wordDefinition === undefined) this.wordDefinitions.delete(languageId);
+        else this.wordDefinitions.set(languageId, wordDefinition);
+    }
 
     public get(uri: Uri): ExtHostTextDocument | undefined {
         return this.documents.get(uri.toString());
@@ -301,7 +326,7 @@ export class DocumentRegistry {
         const key = uri.toString();
         let doc = this.documents.get(key);
         if (doc === undefined) {
-            doc = new ExtHostTextDocument(uri);
+            doc = new ExtHostTextDocument(uri, this.wordDefinitionFor);
             this.documents.set(key, doc);
         }
         return doc;

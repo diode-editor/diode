@@ -7,7 +7,10 @@ import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory
 import { Uri } from "../../../../base/common/uri.ts";
 import { createCursorSelection, createSelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
-import { LanguageConfigurationServiceDIToken } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import {
+    LanguageConfigurationServiceDIToken,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import {
@@ -52,6 +55,7 @@ let ws: ITempWorkspace;
 
 function fixedConfiguration(configuration: IResolvedLanguageConfiguration): ILanguageConfigurationService {
     return {
+        ...NULL_LANGUAGE_CONFIGURATION_SERVICE,
         get: () => configuration,
         ensureLoaded: () => Promise.resolve(configuration),
     };
@@ -171,6 +175,7 @@ describe("commentActions — исполнение над активным ред
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ({ getActiveEditor: () => stub }) as unknown as EditorService);
         accessor.bind(LanguageConfigurationServiceDIToken, () => ({
+            ...NULL_LANGUAGE_CONFIGURATION_SERVICE,
             get: () => undefined,
             ensureLoaded: () => gate,
         }));
@@ -192,6 +197,7 @@ describe("commentActions — исполнение над активным ред
             release = resolve;
         });
         const slow: ILanguageConfigurationService = {
+            ...NULL_LANGUAGE_CONFIGURATION_SERVICE,
             get: () => undefined,
             ensureLoaded: () => gate,
         };

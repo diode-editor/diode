@@ -109,31 +109,40 @@ gopls жив, даже когда активация падает (дыра №1
 
 ### Волна A — `golang.go` активируется целиком и закрыт гейтами (один PR)
 
-- [ ] **A1. Null-объект `vscode.debug`** (№1): `register*` → Disposable, события — no-op
+- [x] **A1. Null-объект `vscode.debug`** (№1): `register*` → Disposable, события — no-op
       подписка, `activeDebugSession`/`activeDebugConsole` — `undefined`/инертная консоль,
       `startDebugging` → `false`; одна warn-строка в Output на расширение (как у webview
       и comments). Классы `DebugAdapterServer`, `DebugAdapterInlineImplementation`,
       `DebugAdapterExecutable`. `onDebug*` события активации так и остаются 🕐.
-- [ ] **A2. Null-объект `vscode.tests`** (№2): инертный `TestController`
+- [x] **A2. Null-объект `vscode.tests`** (№2): инертный `TestController`
       (`items` — рабочая коллекция, `createTestItem`, `createRunProfile`,
       `createTestRun`, `resolveHandler`/`refreshHandler` — поля) по образцу
       `commentsNoop.ts`; значения `TestRunProfileKind`, `TestMessage`, `TestRunRequest`,
       `TestRunResult`-подобные — по `vscode.d.ts`. Курируемый `go.testExplorer.enable: false`
       при этом **не нужен**.
-- [ ] **A3. `languages.setLanguageConfiguration`** (№3): принять конфигурацию и применить
+- [x] **A3. `languages.setLanguageConfiguration`** (№3): принять конфигурацию и применить
       то, что ядро уже умеет из `language-configuration.json` (минимум `wordPattern`,
       скобки, комментарии); остальное — назвать в API-COVERAGE.
-- [ ] **A4. Типы** (№4): `DocumentSymbol` (класс с `children`), `QuickPickItemKind`,
+- [x] **A4. Типы** (№4): `DocumentSymbol` (класс с `children`), `QuickPickItemKind`,
       `NotebookCellKind`.
-- [ ] **A5. Тесты по DoD:** герметичный тест на синтетическом расширении (активация
+- [x] **A5. Тесты по DoD:** герметичный тест на синтетическом расширении (активация
       с `debug`/`tests`/`setLanguageConfiguration` проходит), сьюта
       `extensionHost.goLsp*` на стоковом vsix (`goFixture.ts`, близнец `javaFixture.ts`),
       e2e `goLsp.test.ts`, сценарий-демо `e2e/scenarios/go-lsp.scenario.ts`
       (`installVsix`), обновить [API-COVERAGE.md](../public/API-COVERAGE.md).
-- [ ] **A6. CI:** Go toolchain (`actions/setup-go`) в джобах, где идут стоковые сьюты,
+- [x] **A6. CI:** Go toolchain (`actions/setup-go`) в джобах, где идут стоковые сьюты,
       и кэш `GOBIN`/`GOMODCACHE` с gopls — иначе каждый прогон ставит gopls по сети.
 - [ ] **A7. Запись в магазине** — `proxy-openvsx`, universal, без платформенной оси
-      (реестр + смоук в `e2e/marketplace/checks.ts`).
+      (реестр + смоук в `e2e/marketplace/checks.ts`). Пока записи нет, сьюты и сценарий
+      берут vsix мостом `fetchStockVsixOrOpenVsx` (`src/TestUtils/stockVsix.ts`, latest
+      universal с Open VSX); с записью резолв уйдёт в реестр сам — мост для `golang.go`
+      можно удалить, а e2e/сценарий перевести на установку по id.
+
+Итог волны A: активация доходит до `activated extension "golang.go"`, все команды `go.*`
+регистрируются. Попутно: `QuickPickItemKind` стал значением — разделители в
+`showQuickPick` (`Go: Choose Go Environment`) теперь не показываются и не выбираются
+(заголовков групп у оверлея нет — это часть B8, `createQuickPick`). Сценарий-раннер
+получил поле `requires` — честный пропуск без внешнего toolchain.
 
 ### Волна B — дыры ядра, найденные на Go (общие, по PR на пункт)
 
@@ -164,9 +173,9 @@ Type Definition, document highlight, call hierarchy, `createLanguageStatusItem` 
 
 ## Открытые вопросы
 
-- **gopls в тестах:** ставить в фикстуре заранее (`go install` в кэш, как `npm install
-  eslint` у `eslintFixture.ts`) или проверять и путь авто-установки расширением?
-  Дефолт — фикстура ставит заранее, авто-установку закрывает один e2e.
+- ~~**gopls в тестах:** ставить в фикстуре заранее или проверять авто-установку?~~ Решено
+  дефолтом в волне A: фикстура ставит gopls заранее (`go install` в кэшируемый GOBIN),
+  авто-установку расширением закрывает один e2e (`e2e/goLsp.test.ts`).
 - **Сообщение пользователю без Go:** тост расширения уже честный; нужна ли строка на
   странице расширения в магазине («требует Go toolchain»)?
 

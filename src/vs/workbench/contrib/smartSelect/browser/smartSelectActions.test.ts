@@ -4,7 +4,10 @@ import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { createCursorSelection, selectionToRange } from "../../../../editor/common/core/iSelection.ts";
-import { LanguageConfigurationServiceDIToken } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import {
+    LanguageConfigurationServiceDIToken,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
     EMPTY_LANGUAGE_CONFIGURATION,
     type IResolvedLanguageConfiguration,
@@ -37,6 +40,7 @@ describe("Expand / Shrink Selection — команды и бинды", () => {
             configurationService: new InMemoryConfigurationService(undefined, settings),
             containerOverrides: (container) => {
                 container.bind(LanguageConfigurationServiceDIToken, () => ({
+                    ...NULL_LANGUAGE_CONFIGURATION_SERVICE,
                     get: () => CONFIGURATION,
                     ensureLoaded: () => Promise.resolve(CONFIGURATION),
                 }));

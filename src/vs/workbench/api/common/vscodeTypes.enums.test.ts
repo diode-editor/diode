@@ -9,7 +9,11 @@ import {
     FileType,
     FoldingRange,
     FoldingRangeKind,
+    IndentAction,
+    NotebookCellKind,
     OverviewRulerLane,
+    QuickPickItemKind,
+    SyntaxTokenType,
     TextDocumentSaveReason,
     ThemeColor,
 } from "./vscodeTypes.ts";
@@ -93,5 +97,16 @@ describe("VscodeTypes — decoration value-types (Chunk 4)", () => {
         const bare = new FileDecoration();
         expect(bare.badge).toBeUndefined();
         expect(bare.color).toBeUndefined();
+    });
+
+    it("IndentAction, SyntaxTokenType, QuickPickItemKind, NotebookCellKind — значения эталона", () => {
+        expect([IndentAction.None, IndentAction.Indent, IndentAction.IndentOutdent, IndentAction.Outdent]).toEqual([
+            0, 1, 2, 3,
+        ]);
+        expect([SyntaxTokenType.Other, SyntaxTokenType.Comment, SyntaxTokenType.String, SyntaxTokenType.RegEx]).toEqual(
+            [0, 1, 2, 3],
+        );
+        expect([QuickPickItemKind.Separator, QuickPickItemKind.Default]).toEqual([-1, 0]);
+        expect([NotebookCellKind.Markup, NotebookCellKind.Code]).toEqual([1, 2]);
     });
 });

@@ -29,6 +29,10 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
+import {
+    type ILanguageConfigurationService,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -122,6 +126,7 @@ import {
     EnvironmentVariableCollectionsCustomer,
 } from "./customers/environmentVariableCollectionsCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
+import { LanguageConfigurationCustomer } from "./customers/languageConfigurationCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { TasksCustomer } from "./customers/tasksCustomer.ts";
@@ -255,6 +260,12 @@ export interface IExtensionHostOptions {
      * → notify `diagnostics.publish`). Если не передан — диагностики отбрасываются.
      */
     readonly diagnosticsSink?: DiagnosticsSink;
+    /**
+     * Сервис конфигураций языков ядра: сюда ложатся слои
+     * `languages.setLanguageConfiguration`. Если не передан — слои отбрасываются
+     * (определение слова в субпроцессе работает и так).
+     */
+    readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
     /**
      * Сток прогресса из расширений (`window.withProgress` → notify
      * `window.progress.*`). Если не передан — прогресс отбрасывается. При смерти
@@ -587,6 +598,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.terminals,
             this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
+            new LanguageConfigurationCustomer(options.languageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE),
             this.uriHandlersCustomer,
         ];
     }

@@ -17,6 +17,7 @@ import {
     DiagnosticTag,
     DocumentHighlightKind,
     DocumentLink,
+    DocumentSymbol,
     Hover,
     InlayHint,
     Location,
@@ -356,5 +357,44 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(SymbolKind.TypeParameter).toBe(25);
         expect(LogLevel.Error).toBe(5);
         expect(ProgressLocation.Notification).toBe(15);
+    });
+
+    describe("DocumentSymbol — по эталону", () => {
+        const full = new Range(0, 0, 4, 1);
+        const name = new Range(0, 5, 0, 10);
+
+        it("несёт переданное, детей нет", () => {
+            const symbol = new DocumentSymbol("TestA", "func()", SymbolKind.Function, full, name);
+            expect(symbol).toMatchObject({
+                name: "TestA",
+                detail: "func()",
+                kind: 11,
+                range: full,
+                selectionRange: name,
+            });
+            expect(symbol.children).toEqual([]);
+            expect(symbol.tags).toBeUndefined();
+        });
+
+        it("пустое имя и selectionRange вне range — эталонные ошибки", () => {
+            expect(() => new DocumentSymbol("", "", SymbolKind.Function, full, name)).toThrow("name must not be falsy");
+            expect(() => new DocumentSymbol("f", "", SymbolKind.Function, name, full)).toThrow(
+                "selectionRange must be contained in fullRange",
+            );
+        });
+
+        it("validate проходит по детям; затёртые children не мешают", () => {
+            const parent = new DocumentSymbol("p", "", SymbolKind.Module, full, name);
+            const child = new DocumentSymbol("c", "", SymbolKind.Function, full, name);
+            parent.children.push(child);
+            child.name = "";
+            expect(() => {
+                DocumentSymbol.validate(parent);
+            }).toThrow("name must not be falsy");
+            (parent as { children: unknown }).children = undefined;
+            expect(() => {
+                DocumentSymbol.validate(parent);
+            }).not.toThrow();
+        });
     });
 });

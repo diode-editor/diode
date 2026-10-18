@@ -17,6 +17,11 @@ async function main(): Promise<void> {
 
     const captured: CapturedShot[] = [];
     for (const spec of scenarios) {
+        const missing = spec.requires?.();
+        if (missing !== undefined) {
+            process.stdout.write(`↷ ${spec.name}: ${missing}\n`);
+            continue;
+        }
         process.stdout.write(`▶ ${spec.name}\n`);
         const shots = await runScenario(spec);
         captured.push(...shots);

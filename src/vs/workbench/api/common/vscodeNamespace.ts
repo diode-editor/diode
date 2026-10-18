@@ -8,6 +8,20 @@ import { implementsApi } from "./apiSurface.ts";
 import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createCommentsNoop } from "./commentsNoop.ts";
+import { createDebugNoop } from "./debugNoop.ts";
+import {
+    Breakpoint,
+    DebugAdapterExecutable,
+    DebugAdapterInlineImplementation,
+    DebugAdapterNamedPipeServer,
+    DebugAdapterServer,
+    DebugConfigurationProviderTriggerKind,
+    DebugConsoleMode,
+    DebugStackFrame,
+    DebugThread,
+    FunctionBreakpoint,
+    SourceBreakpoint,
+} from "./debugTypes.ts";
 import { ExtHostEnvironmentVariableCollections } from "./environmentVariableCollection.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
@@ -19,6 +33,19 @@ import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { createTasksNamespace } from "./tasksNamespace.ts";
 import { createTelemetryLogger } from "./telemetryLogger.ts";
 import { createTerminalNamespace } from "./terminalNamespace.ts";
+import {
+    BranchCoverage,
+    DeclarationCoverage,
+    FileCoverage,
+    StatementCoverage,
+    TestCoverageCount,
+    TestMessage,
+    TestMessageStackFrame,
+    TestRunProfileKind,
+    TestRunRequest,
+    TestTag,
+} from "./testingTypes.ts";
+import { createTestsNoop } from "./testsNoop.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -48,6 +75,7 @@ import {
     DisposableImpl,
     DocumentHighlightKind,
     DocumentLink,
+    DocumentSymbol,
     EndOfLine,
     EnvironmentVariableMutatorType,
     EventEmitter,
@@ -60,6 +88,7 @@ import {
     FoldingRange,
     FoldingRangeKind,
     Hover,
+    IndentAction,
     InlayHint,
     InlineCompletionItem,
     InlineCompletionList,
@@ -69,12 +98,14 @@ import {
     Location,
     LogLevel,
     MarkdownString,
+    NotebookCellKind,
     NotebookCellOutputItem,
     OverviewRulerLane,
     ParameterInformation,
     Position,
     ProcessExecution,
     ProgressLocation,
+    QuickPickItemKind,
     Range,
     RelativePattern,
     Selection,
@@ -95,6 +126,7 @@ import {
     SymbolInformation,
     SymbolKind,
     SymbolTag,
+    SyntaxTokenType,
     TabInputCustom,
     TabInputNotebook,
     TabInputNotebookDiff,
@@ -487,6 +519,41 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CommentThreadCollapsibleState,
         CommentMode,
         CommentThreadState,
+        // Дебаггера нет (решение человека): сессий не бывает, register* — Disposable
+        // (debugNoop.ts). Без namespace'а `golang.go` обрывал `activate()` посередине.
+        // Классы — значения: расширение само строит дескрипторы адаптера и точки.
+        debug: createDebugNoop(rpc),
+        DebugAdapterExecutable,
+        DebugAdapterServer,
+        DebugAdapterNamedPipeServer,
+        DebugAdapterInlineImplementation,
+        DebugConsoleMode,
+        DebugConfigurationProviderTriggerKind,
+        DebugThread,
+        DebugStackFrame,
+        Breakpoint,
+        SourceBreakpoint,
+        FunctionBreakpoint,
+        // View Testing нет: контроллер инертный, коллекции рабочие (testsNoop.ts).
+        // `TestRunProfileKind.Run` читается в `activate()` у `golang.go`.
+        tests: createTestsNoop(rpc),
+        TestRunProfileKind,
+        TestTag,
+        TestRunRequest,
+        TestMessage,
+        TestMessageStackFrame,
+        TestCoverageCount,
+        FileCoverage,
+        StatementCoverage,
+        BranchCoverage,
+        DeclarationCoverage,
+        // Символы строят и без outline в ядре (`golang.go` — поиск тестов в файле).
+        DocumentSymbol,
+        QuickPickItemKind,
+        NotebookCellKind,
+        // Значения из `languages.setLanguageConfiguration` (onEnterRules, notIn).
+        IndentAction,
+        SyntaxTokenType,
     };
 
     return {

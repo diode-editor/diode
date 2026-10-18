@@ -17,6 +17,7 @@ import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSigna
 import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { createSetLanguageConfiguration } from "./extHostLanguageConfiguration.ts";
 import { DocumentRangeSemanticTokensAdapter, DocumentSemanticTokensAdapter } from "./extHostSemanticTokens.ts";
 import {
     rangeFrom,
@@ -1370,6 +1371,7 @@ export function createLanguagesNamespace(
         registerLinkedEditingRangeProvider: registerNoopProvider,
         registerCallHierarchyProvider: registerNoopProvider,
         registerTypeHierarchyProvider: registerNoopProvider,
+        setLanguageConfiguration: createSetLanguageConfiguration(ctx),
     };
 
     return {

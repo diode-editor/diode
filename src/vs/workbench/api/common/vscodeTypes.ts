@@ -979,6 +979,34 @@ export enum CompletionItemTag {
     Deprecated = 1,
 }
 
+/** `LanguageConfiguration.onEnterRules[].action.indentAction` (`languages.setLanguageConfiguration`). */
+export enum IndentAction {
+    None = 0,
+    Indent = 1,
+    IndentOutdent = 2,
+    Outdent = 3,
+}
+
+/** `AutoClosingPair.notIn` (`languages.setLanguageConfiguration`). */
+export enum SyntaxTokenType {
+    Other = 0,
+    Comment = 1,
+    String = 2,
+    RegEx = 3,
+}
+
+/** Разделитель в `showQuickPick` (`kind: QuickPickItemKind.Separator`). */
+export enum QuickPickItemKind {
+    Separator = -1,
+    Default = 0,
+}
+
+/** Notebook-редакторов нет, но enum — значение: расширения сравнивают с ним `cell.kind`. */
+export enum NotebookCellKind {
+    Markup = 1,
+    Code = 2,
+}
+
 export enum DocumentHighlightKind {
     Text = 0,
     Read = 1,
@@ -1160,6 +1188,37 @@ export class SymbolInformation {
         this.kind = kind;
         this.containerName = containerName;
         this.location = location;
+    }
+}
+
+/**
+ * Иерархический символ (эталон `extHostTypes.DocumentSymbol`). Outline в ядре
+ * пока нет, но расширение строит символы само: `golang.go` — для поиска
+ * тестов в файле и package outline; без класса падал бы `new`.
+ */
+export class DocumentSymbol {
+    public static validate(candidate: DocumentSymbol): void {
+        if (!candidate.name) throw new Error("name must not be falsy");
+        if (!candidate.range.contains(candidate.selectionRange)) {
+            throw new Error("selectionRange must be contained in fullRange");
+        }
+        // Типы обещают массив, но JS-расширение могло затереть его.
+        (candidate.children as DocumentSymbol[] | undefined)?.forEach((child) => {
+            DocumentSymbol.validate(child);
+        });
+    }
+
+    public tags?: SymbolTag[];
+    public children: DocumentSymbol[] = [];
+
+    public constructor(
+        public name: string,
+        public detail: string,
+        public kind: SymbolKind,
+        public range: Range,
+        public selectionRange: Range,
+    ) {
+        DocumentSymbol.validate(this);
     }
 }
 

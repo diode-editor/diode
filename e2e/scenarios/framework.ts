@@ -106,6 +106,13 @@ export interface ScenarioSpec {
      */
     network?: boolean;
     /**
+     * Внешний инструмент, без которого сценарий не прогнать (Go toolchain у
+     * `go-lsp`): причина пропуска либо `undefined`, если всё есть. Пропуск —
+     * и в CI-safety-net, и в `npm run screenshots` (с причиной в выводе);
+     * в CI инструмент ставится в джобу, и сценарий там идёт.
+     */
+    requires?(): string | undefined;
+    /**
      * settings.json активного профиля в hermetic user-data-dir сценария. Нужно
      * фичам, которым требуется конфигурация (напр. путь к language-серверу для
      * LSP-сценария — сервер живёт в devDeps репозитория, не в PATH).

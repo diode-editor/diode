@@ -1,7 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
-import { InputBoxValidationSeverity } from "./vscodeTypes.ts";
+import { InputBoxValidationSeverity, QuickPickItemKind } from "./vscodeTypes.ts";
 import {
     type IWireQuickPickItem,
     type IWireValidationMessage,
@@ -152,7 +152,15 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
             // Список, приходящий промисом, ЖДЁМ и показываем уже заполненным:
             // пустой оверлей с индикатором загрузки — состояние объектной формы
             // пикера, которой у нас нет.
-            const resolved = (await Promise.resolve(items)) as readonly (string | vscode.QuickPickItem)[];
+            const awaited = (await Promise.resolve(items)) as readonly (string | vscode.QuickPickItem)[];
+            // Разделители (`kind: QuickPickItemKind.Separator`) у эталона — заголовки
+            // групп, выбрать их нельзя; заголовков у нашего оверлея нет, поэтому
+            // разделитель просто не показываем — иначе он стал бы выбираемым пунктом.
+            const resolved = awaited.filter(
+                (item) =>
+                    typeof item === "string" ||
+                    (item.kind as number | undefined) !== (QuickPickItemKind.Separator as number),
+            );
             if (token?.isCancellationRequested === true) return undefined;
             const handle = nextHandle++;
             const unbind = bindCancellation(handle, token);
