@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
     GO_SAMPLE_DIR,
     GO_SCENARIO_VSIX,
+    GO_SESSION_ENV,
     GO_TOOLS_BIN,
     goToolchainMissing,
     prepareGoScenario,
@@ -32,7 +33,7 @@ export default defineScenario({
     network: true,
     requires: goToolchainMissing,
     prepare: prepareGoScenario,
-    env: { GOBIN: GO_TOOLS_BIN },
+    env: { ...GO_SESSION_ENV, GOBIN: GO_TOOLS_BIN },
     cols: 110,
     rows: 28,
     // Extension-host сценарии гоняют subprocess + сервер — Linux only.

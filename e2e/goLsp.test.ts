@@ -9,6 +9,7 @@ import {
     ensureGopls,
     fetchGoVsix,
     findGoBinary,
+    GO_SESSION_ENV,
     GO_TOOLS_BIN,
     goSampleFiles,
     goToolchainMissing,
@@ -39,11 +40,11 @@ if (skipReason !== undefined) console.warn(skipReason);
 /** Кэши Go хоста: в изолированном HOME они пустые, и сборка gopls шла бы с нуля по сети. */
 function hostGoCaches(): Record<string, string> {
     const go = findGoBinary();
-    if (go === undefined) return {};
+    if (go === undefined) return { ...GO_SESSION_ENV };
     const [modCache = "", buildCache = ""] = execFileSync(go, ["env", "GOMODCACHE", "GOCACHE"], { encoding: "utf-8" })
         .trim()
         .split("\n");
-    return { GOMODCACHE: modCache, GOCACHE: buildCache, GOTOOLCHAIN: "local" };
+    return { ...GO_SESSION_ENV, GOMODCACHE: modCache, GOCACHE: buildCache };
 }
 
 async function waitForGopls(session: { captureFrame: () => Promise<{ cells: { style: number }[] }> }, timeoutMs: number) {

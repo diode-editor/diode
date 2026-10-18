@@ -44,6 +44,14 @@ export const GO_TOOLS_BIN = path.join(GO_TOOLS_DIR, "bin");
 
 const EXE = process.platform === "win32" ? ".exe" : "";
 
+/**
+ * Окружение Go для сессий редактора в изолированном корне (e2e, сценарий).
+ * Module cache Go по умолчанию read-only, и кэш, скачанный в изолированный HOME,
+ * ронял уборку временного корня прогона (`EACCES` на `rmSync`) — `-modcacherw`
+ * делает его удаляемым.
+ */
+export const GO_SESSION_ENV: Readonly<Record<string, string>> = { GOFLAGS: "-modcacherw", GOTOOLCHAIN: "local" };
+
 /** Мини-сервис языков: `.go` → go, иначе — undefined. */
 export const GO_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
