@@ -1115,7 +1115,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public createUntitled({ content, languageId, encoding }: IUntitledOptions = {}): Uri {
         const model = this.textFileModels.createUntitledModel();
         if (languageId !== undefined) model.setLanguage(languageId);
+        // Stryker disable next-line ConditionalExpression: эквивалентен — неизвестную (и отсутствующую) кодировку setEncoding и так пропускает
         if (encoding !== undefined) model.setEncoding(encoding);
+        // Пустой текст — не правка: буфер остаётся чистым (`!!initialValue` эталона).
         if (content !== undefined && content !== "") model.restoreUnsavedContents(content);
         this.untitledWithoutEditor.set(model.uri.toString(), model);
         this.fireEditorsChanged();

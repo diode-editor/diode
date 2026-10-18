@@ -46,7 +46,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
         const doc = await workspace.openTextDocument({ content: "# r", language: "markdown", encoding: "utf8" });
 
         expect(doc).toBe(open);
-        expect(createRequests(stub)).toEqual([{ content: "# r", language: "markdown", encoding: "utf8" }]);
+        expect(createRequests(stub)).toStrictEqual([{ content: "# r", language: "markdown", encoding: "utf8" }]);
     });
 
     it("без аргумента — запрос без опций; поле не той формы не уезжает", async () => {
@@ -55,7 +55,10 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
         await workspace.openTextDocument();
         await workspace.openTextDocument({ content: 1, language: "go" } as unknown as { content: string });
 
-        expect(createRequests(stub)).toEqual([{}, { language: "go" }]);
+        await workspace.openTextDocument({ encoding: 8 } as unknown as { encoding: string });
+
+        // Строго: поле `undefined` в запросе — тоже «уехало».
+        expect(createRequests(stub)).toStrictEqual([{}, { language: "go" }, {}]);
     });
 
     it("документа нет в реестре (сверх порога синхронизации) — эфемерный с тем же текстом", async () => {
@@ -66,6 +69,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
         expect(doc.uri.toString()).toBe(UNTITLED);
         expect(doc.isUntitled).toBe(true);
         expect(doc.getText()).toBe("a\r\nb");
+        expect((doc as unknown as { encoding: string }).encoding).toBe("utf8");
         expect(registry.all()).toEqual([]);
     });
 

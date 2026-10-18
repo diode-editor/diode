@@ -66,6 +66,12 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         const { uri } = adapter.createUntitledDocument({});
 
         expect(uri).toBe("untitled:Untitled-2");
+        expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", text: "", isDirty: false });
+    });
+
+    it("пустой content — тоже чистый буфер (как `!!initialValue` эталона)", () => {
+        const { uri } = adapter.createUntitledDocument({ content: "" });
+
         expect(opened.at(-1)).toMatchObject({ uri, text: "", isDirty: false });
     });
 
@@ -114,6 +120,38 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
 
         expect(shown.viewColumn).toBe(2);
         expect(service.editorGroups.groups[1].activePane?.uri.toString()).toBe(uri);
+    });
+
+    it("openUri без опций забирает буфер во вкладку активной группы и фокусирует её", async () => {
+        const uri = service.createUntitled({ content: "x" });
+
+        await service.openUri(uri);
+
+        const pane = service.editorGroups.activeGroup.activePane;
+        expect(pane?.uri.toString()).toBe(uri.toString());
+        const focused = h.testApp.focusedElement;
+        expect(pane !== null && focused?.getAncestorPath().includes(pane.view)).toBe(true);
+    });
+
+    it("openUri с focus: false — вкладка открыта, фокус остаётся на месте", async () => {
+        const uri = service.createUntitled({ content: "x" });
+        const focusedBefore = h.testApp.focusedElement;
+
+        await service.openUri(uri, { focus: false });
+
+        expect(service.editorGroups.activeGroup.activePane?.uri.toString()).toBe(uri.toString());
+        expect(h.testApp.focusedElement).toBe(focusedBefore);
+    });
+
+    it('openUri с group: "beside" — во вкладку соседней группы', async () => {
+        service.openFile(ws.path("a.txt"));
+        const uri = service.createUntitled({ content: "x" });
+
+        await service.openUri(uri, { group: "beside" });
+
+        expect(service.editorGroups.groups).toHaveLength(2);
+        expect(service.editorGroups.groups[1].activePane?.uri.toString()).toBe(uri.toString());
+        expect(service.editorGroups.groups[0].editorCount).toBe(1);
     });
 
     it("кодировка из опций — кодировка будущего Save As", async () => {

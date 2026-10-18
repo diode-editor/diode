@@ -126,9 +126,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
     public createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams {
         const uri = this.editors.createUntitled({
-            ...(params.content !== undefined ? { content: params.content } : {}),
-            ...(params.language !== undefined ? { languageId: params.language } : {}),
-            ...(params.encoding !== undefined ? { encoding: params.encoding } : {}),
+            content: params.content,
+            languageId: params.language,
+            encoding: params.encoding,
         });
         return { uri: uri.toString() };
     }

@@ -24,9 +24,9 @@ import type { IVirtualDocumentSource } from "./iVirtualDocumentSource.ts";
 /** Начальное состояние безымянного буфера (`$tryCreateDocument` эталона). */
 export interface IUntitledOptions {
     /** Начальный текст; непустой делает буфер изменённым, как в эталоне. */
-    readonly content?: string;
-    readonly languageId?: string;
-    readonly encoding?: string;
+    readonly content?: string | undefined;
+    readonly languageId?: string | undefined;
+    readonly encoding?: string | undefined;
 }
 
 export interface IOpenUriOptions {
