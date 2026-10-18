@@ -283,6 +283,19 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // сдвиг каретки (остальные его отменяют — cancelRequestIfCaretLeft), и
         // список сужается под набранное сразу, а не под снимок момента запроса.
         const caret = editor.viewState.selections[0].active;
+
+        // Неполный список сервер отфильтровал под префикс МОМЕНТА ЗАПРОСА, а
+        // слово с тех пор добрали — сужать его локально нельзя (gopls ставит всем
+        // пунктам один `filterText` и фильтрует сам: попап показал бы весь пакет
+        // под `strings.ToL`). Сразу перезапрашиваем под текущий, прежний попап
+        // (если он был) остаётся как есть до свежего ответа — upstream
+        // `_onNewContext`: «moved cursor RIGHT & incomplete model → retrigger».
+        // Каретка здесь может быть только правее на той же строке: иначе запрос
+        // отменён (cancelRequestIfCaretLeft / refilterOpen → close).
+        if (result.isIncomplete && caret.character > active.character) {
+            void this.trigger(undefined, auto);
+            return;
+        }
         const caretLine = editor.viewState.document.getLineContent(caret.line);
 
         const extensionItems = result.items;
