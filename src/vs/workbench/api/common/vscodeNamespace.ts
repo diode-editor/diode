@@ -4,6 +4,7 @@ import type * as vscode from "vscode";
 
 import { UI_LOCALE } from "../../../platform/environment/common/uiLocale.ts";
 
+import { createApiCommands } from "./apiCommands.ts";
 import { implementsApi } from "./apiSurface.ts";
 import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
@@ -196,7 +197,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     // прокси в host CommandRegistry). Геттер активного редактора нужен
     // registerTextEditorCommand — команда исполняется только при активном редакторе.
     // Собирается ДО languages: applyCodeAction исполняет команды действий.
-    const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor, ctx.owner);
+    // API-команды открывают ресурс теми же мостами, что `showTextDocument` и
+    // `env.openExternal` (env собирается ниже — отсюда отложенный вызов).
+    const apiCommands = createApiCommands({
+        showTextDocument: (uri, options) => window.showTextDocument(uri, options),
+        openExternal: (target) => env.openExternal(target),
+    });
+    const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor, ctx.owner, apiCommands);
     const { languages } = createLanguagesNamespace(ctx, {
         // Правки code action ложатся тем же путём, что workspace.applyEdit;
         // команды действия — локальный реестр с прокси-мостом до хоста.

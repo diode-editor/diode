@@ -143,9 +143,14 @@ gopls жив, даже когда активация падает (дыра №1
       пункте списка (`ICoreCompletionItem.additionalEdits`), accept применяет их без
       resolve, как эталон; живьём `strings.ToLo` → Enter добавляет `"strings"`.
 - [ ] **B3. Hover: thematic break** (№8) — линия-разделитель, как между блоками провайдеров.
-- [ ] **B4. Встроенная команда `vscode.open`** (№9) — `(uri, columnOrOptions?)`, как
-      API-команда эталона.
-- [ ] **B5. `workbench.action.openSettingsJson`** (№10).
+- [x] **B4. Встроенная команда `vscode.open`** (№9) — `(uri, columnOrOptions?)`, как
+      API-команда эталона: `apiCommands.ts` в subprocess'е, Uri — мостом `showTextDocument`,
+      http(s) — `env.openExternal`. Закрыта герметично (`extensionHost.vscodeOpen.test.ts`);
+      живьём `Go: Toggle Test File` → `greet_test.go` проверить после волны A (до неё
+      расширение не активируется) — шаг в сьюту/сценарий A5. `label` не применяется.
+- [x] **B5. `workbench.action.openSettingsJson`** (№10) — открывает user settings.json, как
+      `openSettings`; опции эталона (`revealSetting`, `query`, `openToSide`) пока не
+      применяются (golang.go зовёт без аргументов).
 - [ ] **B6. `workspace.saveAll`** (№12) — сервис сохранения уже есть, нужен мост.
 - [ ] **B7. Untitled-документы `openTextDocument({ content, language })`** (№11) —
       read-only вкладка на тех же рельсах, что виртуальные документы `jdt:`.

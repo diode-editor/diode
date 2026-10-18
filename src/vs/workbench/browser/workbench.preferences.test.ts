@@ -48,6 +48,15 @@ describe("Workbench — Preferences commands", () => {
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
         });
 
+        it("openSettingsJson (golang.go: «Open Settings» в тосте) seeds a missing settings.json and opens it", async () => {
+            await h.commands.execute("workbench.action.openSettingsJson");
+
+            expect(fs.readFileSync(settingsFile, "utf-8")).toBe("{}\n");
+            expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+            h.testApp.render();
+            expect(h.testApp.backend.screenToString()).toContain("settings.json");
+        });
+
         it("openGlobalKeybindingsFile seeds a missing keybindings.json and opens it", async () => {
             await h.commands.execute("workbench.action.openGlobalKeybindingsFile");
 
