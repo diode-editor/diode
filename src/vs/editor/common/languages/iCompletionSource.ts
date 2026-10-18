@@ -73,6 +73,12 @@ export interface ICoreCompletionItem {
     readonly range?: IRange;
     readonly sortText?: string;
     readonly filterText?: string;
+    /**
+     * Правки-спутники (`additionalTextEdits`: `import` сверху файла), если
+     * провайдер прислал их сразу в списке (gopls). Есть — принятие применяет
+     * их без resolve, как `suggestController` эталона.
+     */
+    readonly additionalEdits?: readonly ITextEdit[];
 }
 
 /**

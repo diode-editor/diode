@@ -77,7 +77,10 @@ bundled → PATH), видимость запуска (`window.withProgress` + `c
   Кэш ответов живёт в субпроцессе (последние 2 ведра, id = `"<cacheId>.<index>"`) —
   резолвить нужно ТОТ ЖЕ объект, который вернул провайдер (у клиента это
   `ProtocolCompletionItem` с приватным `data`). Accept ждёт resolve до 300 мс, потом
-  вставляет без импорта — молчащий сервер не морозит правку.
+  вставляет без импорта — молчащий сервер не морозит правку. Сервер без
+  `resolveProvider` (gopls) шлёт `additionalTextEdits` сразу в списке: они едут в
+  пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без resolve —
+  как «sync additional edits» в `suggestController` эталона.
 - **Сниппеты не поддержаны** (осознанно): `SnippetString` нужен только как транспорт,
   плейсхолдеры вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в
   буфер. Настоящие табстопы — отдельная задача.

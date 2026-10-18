@@ -323,7 +323,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `FileStat` | 4/5 | `permissions` |
 | `FileSystemProvider` | 4/10 | `readDirectory`, `createDirectory`, `writeFile`, `delete`, `rename`, `copy` |
 | `DocumentFilter` | 3/4 | `notebookType` |
-| `CompletionItem` | 8/16 | `tags`, `sortText`, `filterText`, `preselect`, `commitCharacters`, `keepWhitespace`, `textEdit`, `additionalTextEdits` |
+| `CompletionItem` | 9/16 | `tags`, `sortText`, `filterText`, `preselect`, `commitCharacters`, `keepWhitespace`, `textEdit`. `additionalTextEdits` — и в самом списке (gopls), и догруженные resolve'ом (tsserver) |
 | `DocumentRangeFormattingEditProvider` | 1/2 | `provideDocumentRangesFormattingEdits` |
 | `LanguageStatusItem` | 9/10 | `accessibilityInformation` |
 | `DataTransferFile` | 3/3 | — (тип объявлен ради `createFile({ contents })`; экземпляры создаёт только редактор, а drag-and-drop у нас нет — такой `contents` игнорируется) |

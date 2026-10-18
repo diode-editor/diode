@@ -20,6 +20,7 @@ import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { DocumentRangeSemanticTokensAdapter, DocumentSemanticTokensAdapter } from "./extHostSemanticTokens.ts";
 import {
     rangeFrom,
+    readAdditionalTextEdits,
     readDocumentation,
     serializeCompletionItem,
     serializeDefinitionLocation,
@@ -930,14 +931,7 @@ export function createLanguagesNamespace(
             const item = (resolved ?? entry.item) as vscode.CompletionItem;
             const detail = (item as { detail?: unknown }).detail;
             const documentation = readDocumentation(item);
-            const rawEdits = (item as { additionalTextEdits?: unknown }).additionalTextEdits;
-            const additionalEdits: IWireEditorEdit[] = [];
-            if (Array.isArray(rawEdits)) {
-                for (const edit of rawEdits) {
-                    const wire = serializeTextEdit(edit);
-                    if (wire !== null) additionalEdits.push(wire);
-                }
-            }
+            const additionalEdits = readAdditionalTextEdits(item);
             return {
                 ...(typeof detail === "string" ? { detail } : {}),
                 ...(documentation !== undefined ? { documentation } : {}),

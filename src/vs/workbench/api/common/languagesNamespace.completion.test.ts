@@ -71,6 +71,34 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(result.items[0].id).toBeDefined();
     });
 
+    it("additionalTextEdits из самого списка доезжают в пункте; пустые и битые — без поля", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        // gopls шлёт импорт сразу в списке — resolve у сервера нет.
+        const eager = new CompletionItem("ToLower");
+        // Битая правка — от расширения с чужой формой TextEdit.
+        (eager as { additionalTextEdits?: unknown }).additionalTextEdits = [
+            new TextEdit(new Range(0, 0, 0, 0), 'import "strings"\n'),
+            { bogus: true },
+        ];
+        const empty = new CompletionItem("empty");
+        (empty as { additionalTextEdits?: unknown }).additionalTextEdits = [];
+        const broken = new CompletionItem("broken");
+        (broken as { additionalTextEdits?: unknown }).additionalTextEdits = "not an array";
+
+        languages.registerCompletionItemProvider({ language: "typescript" }, {
+            provideCompletionItems: () => [eager, empty, broken, new CompletionItem("plain")],
+        } as never);
+
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
+
+        expect(result.items[0].additionalEdits).toEqual([
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: 'import "strings"\n' },
+        ]);
+        // Нет правок — нет и поля: accept такого пункта по-прежнему ждёт resolve.
+        for (const item of result.items.slice(1)) expect(item).not.toHaveProperty("additionalEdits");
+    });
+
     it("Range чужого бандла (утиный, не instanceof Range) доезжает диапазоном замены", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);

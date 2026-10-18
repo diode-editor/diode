@@ -52,6 +52,27 @@ describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
         }
     });
 
+    it("правки из самого списка доезжают до ядра и без resolve-провайдера (gopls)", async () => {
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: ".editorconfig", content: "ind" },
+            extensions: [extensionFixture("test.eagerEditsCompletion", "eagerEditsCompletion.cjs")],
+        });
+        try {
+            await settle();
+
+            const { items } = await provideCompletions(harness, requestIn(harness));
+            expect(items).toHaveLength(1);
+            // Битая правка отсеяна, целая — в пункте списка.
+            expect(items[0].additionalEdits).toEqual([
+                { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "# header\n" },
+            ]);
+            // Резолвить у провайдера нечего — правки обязаны жить в самом пункте.
+            expect(await harness.host.resolveCompletionItem(items[0].id!)).toBeNull();
+        } finally {
+            await harness.dispose();
+        }
+    });
+
     it("без провайдеров резолвить нечего → null без RPC", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },

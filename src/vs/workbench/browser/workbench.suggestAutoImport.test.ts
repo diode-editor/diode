@@ -141,3 +141,76 @@ describe("Workbench — accept пункта с диапазоном замены
         expect(editor().viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[0, 5]]);
     });
 });
+
+/**
+ * Правки-спутники могут прийти сразу в списке (gopls: `resolveProvider` у
+ * сервера нет). Как в эталоне (`suggestController`, «sync additional edits»),
+ * accept применяет их без resolve — и когда резолвить нечем, и когда resolve
+ * есть, но молчит.
+ */
+describe("Workbench — accept пункта с правками-спутниками из самого списка", () => {
+    let ws: ITempWorkspace;
+    let h: IAppHarness;
+    let resolveCalls: number;
+
+    const IMPORT = 'import "strings"\n';
+    const ITEMS: ICoreCompletionItem[] = [
+        {
+            label: "ToLower",
+            insertText: "ToLower",
+            id: "6.0",
+            kind: 2,
+            additionalEdits: [
+                { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: IMPORT },
+            ],
+        },
+    ];
+
+    function editor(): EditorElement {
+        return h.testApp.querySelector("EditorElement") as EditorElement;
+    }
+
+    function settle(): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    function open(withResolve: boolean): void {
+        ws = createTempWorkspace({ prefix: "diode-suggest-eager-", files: { "a.go": "\n" } });
+        h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: ws.path("a.go") });
+        resolveCalls = 0;
+        h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
+            triggerCharacters: [],
+            provideCompletionItems: () => Promise.resolve({ items: ITEMS, isIncomplete: false }),
+            // Молчащий resolve: ожидание его на accept упёрлось бы в таймаут без правок.
+            ...(withResolve
+                ? {
+                      resolveCompletionItem: () => {
+                          resolveCalls++;
+                          return new Promise<null>(() => undefined);
+                      },
+                  }
+                : {}),
+        });
+        h.workbench.focusEditor();
+    }
+
+    afterEach(() => {
+        h.dispose();
+        ws.dispose();
+    });
+
+    it.each([
+        ["без resolve у провайдера", false],
+        ["resolve есть, но молчит", true],
+    ])("импорт попадает в буфер вместе со вставкой — %s", async (_name, withResolve) => {
+        open(withResolve);
+        for (const char of "ToLo") h.testApp.sendKey(char);
+        await settle();
+        h.testApp.sendKey("Enter");
+
+        // Синхронно, без ожидания resolve: правки уже в пункте.
+        expect(editor().viewState.document.getText()).toBe(`${IMPORT}ToLower\n`);
+        expect(editor().viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[1, 7]]);
+        expect(resolveCalls).toBe(0);
+    });
+});

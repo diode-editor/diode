@@ -839,8 +839,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
 
         const id = core.id;
         const resolve = this.resolverOf(core);
-        if (id === undefined || resolve === undefined) {
-            this.applyAccept(editor, range, core, []);
+        // Правки, пришедшие в самом списке (gopls), применяются сразу — эталон
+        // в этом случае resolve не ждёт (`suggestController`, «sync additional edits»).
+        if (core.additionalEdits !== undefined || id === undefined || resolve === undefined) {
+            this.applyAccept(editor, range, core, core.additionalEdits ?? []);
             return;
         }
         // Правки-спутники (авто-импорт) сервер отдаёт ТОЛЬКО на resolve, а он
