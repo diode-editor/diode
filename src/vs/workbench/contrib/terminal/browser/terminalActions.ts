@@ -5,10 +5,9 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
-import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
-import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
 import type { TerminalTabMenuContext } from "./terminalPanelComponent.ts";
 import { SWITCH_TERMINAL_COMMAND_ID, TerminalPanelComponentDIToken } from "./terminalPanelComponent.ts";
@@ -23,14 +22,23 @@ const PLUS_ICON = "";
 const TRASH_ICON = "";
 
 /**
- * Показать вкладку TERMINAL с фокусом в активном терминале (эталон
+ * Показать вид TERMINAL там, где он стоит (нижняя панель, вторичная боковая
+ * панель, сайдбар), — без пробуждения ленивого спавна: что создать, решает
+ * команда. Аналог `terminalGroupService.showPanel` эталона, который тоже
+ * открывает вид через `viewsService`, а не прибит к панели.
+ */
+function showTerminalView(accessor: ServiceAccessor): void {
+    accessor.get(ViewsServiceDIToken).openView(TERMINAL_VIEW_ID, false, false);
+}
+
+/**
+ * Показать вид TERMINAL с фокусом в активном терминале (эталон
  * `terminalGroupService.showPanel(true)`; кому фокус нужен в другом месте —
  * список вкладок, — переставляет его следом). Контекст-ключи освежает сама
  * смена фокуса (`WorkbenchContextKeys`).
  */
 function showPanel(accessor: ServiceAccessor): void {
-    accessor.get(PanelServiceDIToken).setActiveView(TERMINAL_VIEW_ID);
-    accessor.get(LayoutServiceDIToken).setPanelVisible(true);
+    showTerminalView(accessor);
     accessor.get(TerminalServiceDIToken).focusActive();
 }
 
@@ -61,20 +69,17 @@ export const toggleTerminalAction: CommandAction = {
     keybinding: parseChord("ctrl+k t"),
     keybindings: [{ keys: parseKeybinding("ctrl+`"), when: MODERN_TIER }],
     run(accessor) {
-        // Toggle like VS Code: hide the panel if Terminal is already the
-        // visible view, otherwise show + spawn/focus a terminal.
-        const layout = accessor.get(LayoutServiceDIToken);
-        const panel = accessor.get(PanelServiceDIToken);
+        // Toggle like VS Code: hide the part if Terminal is already the
+        // visible view there, otherwise show + spawn/focus a terminal.
+        const views = accessor.get(ViewsServiceDIToken);
         const terminal = accessor.get(TerminalServiceDIToken);
         // Пустая вкладка (шелл вышел, остался placeholder) — это не «терминал показан»:
         // прятать нечего, команда должна поднять новый шелл.
-        const showing =
-            layout.isPanelVisible() && panel.getActiveViewId() === TERMINAL_VIEW_ID && terminal.hasOpenTerminals;
+        const showing = views.isViewShown(TERMINAL_VIEW_ID) && terminal.hasOpenTerminals;
         if (showing) {
-            layout.setPanelVisible(false);
+            views.closeView(TERMINAL_VIEW_ID);
         } else {
-            panel.setActiveView(TERMINAL_VIEW_ID);
-            layout.setPanelVisible(true);
+            showTerminalView(accessor);
             terminal.openTerminal();
             accessor.get(WorkbenchContextKeysDIToken).update();
         }
@@ -105,8 +110,7 @@ export const newTerminalAction: CommandAction = {
         { menuId: MenuId.MenubarTerminalMenu, group: "1_create", order: 1 },
     ],
     run(accessor) {
-        accessor.get(PanelServiceDIToken).setActiveView(TERMINAL_VIEW_ID);
-        accessor.get(LayoutServiceDIToken).setPanelVisible(true);
+        showTerminalView(accessor);
         accessor.get(TerminalServiceDIToken).newTerminal();
         accessor.get(WorkbenchContextKeysDIToken).update();
     },

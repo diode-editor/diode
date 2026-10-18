@@ -13,6 +13,7 @@ import {
 import { ExtensionPtySessionFactoryDIToken } from "../contrib/terminal/common/terminalSessionFactory.ts";
 
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
+import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 
 // Терминал расширения в кадре: сток `window.createTerminal` (тот же адаптер, что
 // в extensionHostModule) поверх настоящего workbench. Провод и субпроцесс —
@@ -30,7 +31,7 @@ describe("Workbench — терминал расширения", () => {
         terminal = h.container.get(TerminalServiceDIToken);
         adapter = new ExtensionTerminalAdapter(
             terminal,
-            h.container.get(PanelServiceDIToken),
+            h.container.get(ViewsServiceDIToken),
             h.container.get(ExtensionPtySessionFactoryDIToken),
         );
     }

@@ -897,8 +897,10 @@ hide-toggle (`isHiddenByDefault`). См.
     структурно, биндинг `MarkerRevealTargetDIToken` — в `Modules/WorkbenchModule.ts`.
   - `Services/Terminal/TerminalService.ts` — headless-оркестратор терминала:
     инстансы (id/title/session), lazy spawn через `TerminalSessionFactory`,
-    регистрация контейнера/view TERMINAL (`TERMINAL_VIEW_ID`, `location: "panel"`)
-    + подписка на её активацию, чистка PTY при выходе шелла/dispose. События:
+    регистрация контейнера/view TERMINAL (`TERMINAL_VIEW_ID`, `location: "panel"`
+    по умолчанию; вид переносимый) + подписка на его активацию
+    (`ViewsService.onDidActivateView` — в любой части, куда вид перенесли),
+    чистка PTY при выходе шелла/dispose. События:
     `onDidOpenInstance`/`onDidCloseInstance`/`onDidChangeActiveInstance`/
     `onDidRequestFocus`.
   - `Components/Panel/TerminalPanelComponent.ts` — view-владелец терминала:
@@ -1388,6 +1390,16 @@ hide-toggle (`isHiddenByDefault`). См.
       `PanelContainerElement.onTabContextMenu` → `requestTabContextMenu`
       реестра части), у вьюлета сайдбара — в «⋯» заголовка (отступление:
       activity bar, где эталон держит это меню, у нас нет).
+    - **Фичи не знают, где стоит их вид.** Показ, скрытие и «на экране ли»
+      — словарь `ViewsService`, а не `PanelService`/`LayoutService`:
+      `openView(id, focus, activate)` (`activate: false` — показ без
+      пробуждения ленивых фич, как прежний `setActiveView`), `closeView` (прячет
+      часть, если вид в ней активен), `isViewShown`; события
+      `onDidActivateView` (пользовательская активация — спавн шелла) и
+      `onDidShowView` (вид стал активным, в том числе на ресторе — ленивый
+      редактор Output). Так устроены Terminal (команды, задачи, терминалы
+      расширений, `hideOnLastClosed`), Output и Problems — их переключатели
+      прячут ту часть, где стоит вид.
     - `focusedView` — `ViewsService` как контрибьютор ключей; фокус в оверлее
       (палитра, попап) и промежуточный `null` ключ не сбрасывают — иначе
       «Move Focused View» из палитры гас бы. Команды —

@@ -6,7 +6,7 @@ import type {
     IWireTerminalOpened,
     IWireTerminalRef,
 } from "../../../api/common/wireTypes.ts";
-import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import type { IExtensionPtyTerminalOptions, IExtensionPtyTerminals } from "../common/extensionPtyTerminals.ts";
 import type { ExtensionPtySessionFactory, IExtensionPtySession } from "../common/terminalSessionFactory.ts";
 
@@ -54,7 +54,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
 
     public constructor(
         private readonly terminals: TerminalService,
-        private readonly panel: PanelService,
+        private readonly views: ViewsService,
         private readonly createPtySession: ExtensionPtySessionFactory,
     ) {}
 
@@ -125,27 +125,25 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
 
     /**
      * `Terminal.show` (`$show` эталона): инстанс — активный (фоновый переезжает
-     * в список вкладок), панель открыта на вкладке TERMINAL, фокус — в
+     * в список вкладок), вид TERMINAL показан там, где стоит, фокус — в
      * терминал, если не `preserveFocus`.
      */
     public show(terminal: IWireTerminalRef, preserveFocus: boolean): void {
         const id = this.resolve(terminal);
         if (id === undefined) return;
         this.terminals.showInstance(id);
-        this.panel.setActiveView(TERMINAL_VIEW_ID);
-        this.panel.setVisible(true);
+        this.views.openView(TERMINAL_VIEW_ID, false, false);
         if (!preserveFocus) this.terminals.focusActive();
     }
 
     /**
-     * `Terminal.hide` (`$hide` эталона): прячет панель, только если показан
+     * `Terminal.hide` (`$hide` эталона): прячет часть с видом TERMINAL, только если показан
      * именно этот терминал (неразрешённый адрес не совпадёт ни с одним id).
      */
     public hide(terminal: IWireTerminalRef): void {
         const active = this.terminals.getActiveInstance();
         if (active === null || active.id !== this.resolve(terminal)) return;
-        if (this.panel.getActiveViewId() !== TERMINAL_VIEW_ID) return;
-        this.panel.setVisible(false);
+        this.views.closeView(TERMINAL_VIEW_ID);
     }
 
     /** Неразрешённый адрес сервис пропускает молча. */

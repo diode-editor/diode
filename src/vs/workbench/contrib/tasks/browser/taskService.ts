@@ -32,15 +32,14 @@ import {
     type ITaskDefinitionSchema,
     type ITaskIdentifier,
 } from "../../../api/common/taskIdentity.ts";
-import { type PanelService, PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
 import {
     type QuickInputService,
     QuickInputServiceDIToken,
 } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { type DialogService, DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
-import { type LayoutService, LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 import {
     type NotificationService,
     NotificationServiceDIToken,
@@ -131,7 +130,7 @@ async function raceTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => 
 export class TaskService extends Disposable {
     public static dependencies = [
         TerminalServiceDIToken,
-        PanelServiceDIToken,
+        ViewsServiceDIToken,
         DefaultShellResolverDIToken,
         IConfigurationServiceDIToken,
         IWorkspaceContextServiceDIToken,
@@ -143,7 +142,6 @@ export class TaskService extends Disposable {
         ContextKeyServiceDIToken,
         ILogServiceDIToken,
         OutputServiceDIToken,
-        LayoutServiceDIToken,
     ] as const;
 
     private readonly system: TerminalTaskSystem;
@@ -165,7 +163,7 @@ export class TaskService extends Disposable {
 
     public constructor(
         terminalService: TerminalService,
-        private readonly panel: PanelService,
+        private readonly views: ViewsService,
         defaultShell: DefaultShellResolver,
         private readonly configuration: IConfigurationService,
         private readonly workspace: IWorkspaceContextService,
@@ -177,12 +175,11 @@ export class TaskService extends Disposable {
         private readonly contextKeys: ContextKeyService,
         logService: ILogService,
         private readonly output: OutputService,
-        private readonly layout: LayoutService,
     ) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: имя и подпись канала лога — проводка; канал «Tasks» виден в e2e-сценарии tasks
         this.logger = logService.createLogger(TASKS_LOG_CHANNEL, { label: "Tasks" });
-        this.system = this.register(new TerminalTaskSystem(terminalService, panel, defaultShell));
+        this.system = this.register(new TerminalTaskSystem(terminalService, views, defaultShell));
         this.onDidStateChange = this.system.onDidStateChange;
         // `task.verboseLogging` — каждое событие задачи в лог `Tasks` (`_log(…, true)` эталона).
         this.register(
@@ -673,8 +670,7 @@ export class TaskService extends Disposable {
             })
             .answered.then((index) => {
                 if (index !== 0) return;
-                this.panel.setActiveView(OUTPUT_VIEW_ID);
-                this.layout.setPanelVisible(true);
+                this.views.openView(OUTPUT_VIEW_ID, false, false);
                 this.output.showChannel(TASKS_LOG_CHANNEL);
             });
     }

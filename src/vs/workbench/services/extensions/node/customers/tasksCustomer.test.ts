@@ -46,7 +46,7 @@ async function flush(): Promise<void> {
 function setup() {
     const h = buildTaskServiceHarness();
     const ptySessions: FakeExtensionPtySession[] = [];
-    const terminalAdapter = new ExtensionTerminalAdapter(h.terminals, h.views.panelService, (o) => {
+    const terminalAdapter = new ExtensionTerminalAdapter(h.terminals, h.views.service, (o) => {
         const session = new FakeExtensionPtySession(o);
         ptySessions.push(session);
         return session;

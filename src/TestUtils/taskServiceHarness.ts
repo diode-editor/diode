@@ -18,7 +18,6 @@ import { TaskService } from "../vs/workbench/contrib/tasks/browser/taskService.t
 import { TerminalService } from "../vs/workbench/contrib/terminal/browser/terminalService.ts";
 import type { DialogService } from "../vs/workbench/services/dialogs/browser/dialogService.ts";
 import type { IEditorService } from "../vs/workbench/services/editor/common/editorService.ts";
-import type { LayoutService } from "../vs/workbench/services/layout/browser/layoutService.ts";
 import { NotificationService } from "../vs/workbench/services/notification/browser/notificationService.ts";
 import type { OutputService } from "../vs/workbench/services/output/common/outputService.ts";
 
@@ -52,16 +51,11 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
     let nextPid = 100;
-    const terminals = new TerminalService(
-        views.panelService,
-        views.service,
-        createTestConfigurationService({}),
-        (o) => {
-            const session = new FakeTerminalSurface(o.shell ?? "/bin/sh", nextPid++);
-            sessions.push(session);
-            return session;
-        },
-    );
+    const terminals = new TerminalService(views.service, createTestConfigurationService({}), (o) => {
+        const session = new FakeTerminalSurface(o.shell ?? "/bin/sh", nextPid++);
+        sessions.push(session);
+        return session;
+    });
     views.service.attachRegisteredContainers();
     const configuration = createTestConfigurationService(options.settings ?? {});
     let tasksJson = options.tasksJson;
@@ -119,10 +113,9 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     const logger = createLoggerSpy();
     const logService = { createLogger: () => logger } as unknown as ILogService;
     const output = { showChannel: vi.fn<(id: string) => void>() };
-    const layout = { setPanelVisible: vi.fn<(visible: boolean) => void>() };
     const service = new TaskService(
         terminals,
-        views.panelService,
+        views.service,
         () => "/bin/bash",
         configuration,
         workspace,
@@ -134,11 +127,9 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         contextKeys,
         logService,
         output as unknown as OutputService,
-        layout as unknown as LayoutService,
     );
     return {
         output,
-        layout,
         views,
         terminals,
         sessions,

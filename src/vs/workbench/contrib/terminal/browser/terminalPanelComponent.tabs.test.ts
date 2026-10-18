@@ -37,7 +37,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
     const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
     const configuration = createTestConfigurationService(settings);
     const sessions: FakeTerminalSurface[] = [];
-    const service = new TerminalService(views.panelService, views.service, configuration, () => {
+    const service = new TerminalService(views.service, configuration, () => {
         const surface = new FakeTerminalSurface(shells[sessions.length] ?? "/bin/bash");
         sessions.push(surface);
         return surface;

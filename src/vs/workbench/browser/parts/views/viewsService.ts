@@ -353,6 +353,8 @@ export class ViewsService implements IContextKeyContributor {
     private readonly expandedState = new Map<string, boolean>();
     private readonly onDidChangeViewExpandedEmitter = new Emitter<IViewExpandedChangeEvent>();
     private readonly onDidChangeLocationsEmitter = new Emitter<void>();
+    private readonly onDidActivateViewEmitter = new Emitter<string>();
+    private readonly onDidShowViewEmitter = new Emitter<string>();
     /** Переносы из стора уже применены (после этого поздние виды встают по ним сами). */
     private customizationsApplied = false;
     /** Идёт рестор или сброс переносов: стор не пишется, это не действие пользователя. */
@@ -385,13 +387,17 @@ export class ViewsService implements IContextKeyContributor {
         // его не было видно.
         sidebarService.onDidChangeActiveViewlet((id) => {
             this.refreshStaleTitleActions(id);
+            this.fireContainerEvent(id, "show");
         });
-        panelService.onDidChangeActiveView((id) => {
-            this.refreshStaleTitleActions(id);
-        });
-        auxiliaryBarService.onDidChangeActiveView((id) => {
-            this.refreshStaleTitleActions(id);
-        });
+        for (const part of [panelService, auxiliaryBarService]) {
+            part.onDidChangeActiveView((id) => {
+                this.refreshStaleTitleActions(id);
+                this.fireContainerEvent(id, "show");
+            });
+            part.onDidActivateView((id) => {
+                this.fireContainerEvent(id, "activate");
+            });
+        }
         panelService.onDidRequestTabContextMenu((request) => {
             this.showTabContextMenu(request);
         });
@@ -685,6 +691,9 @@ export class ViewsService implements IContextKeyContributor {
             // ставится через реестр части, а он игнорирует незнакомый id.
             this.partOf(entry).addView({ id: containerId, title: containerTitle(entry), content: paneView, index });
             this.rebuildPanes(entry);
+            // Первая вкладка части становится активной молча (без события смены) —
+            // о показе её видов сообщаем сами.
+            if (this.partOf(entry).getActiveViewId() === containerId) this.fireContainerEvent(containerId, "show");
             return;
         }
         const stack = new VFlexElement();
@@ -902,17 +911,84 @@ export class ViewsService implements IContextKeyContributor {
         this.sidebarService.showViewlet(containerId, true);
     }
 
-    /** Показывает вид там, где он стоит сейчас (`openView` эталона), скрытую секцию — раскрывает. */
-    public openView(viewId: string, focus = false): void {
+    /**
+     * Показывает вид там, где он стоит сейчас (`openView` эталона), скрытую
+     * секцию — раскрывает. `activate: false` — показ программный, как
+     * `setActiveView` части: ленивые фичи (спавн шелла) не будятся — так
+     * показывают вид команды, которые сами решают, что в нём создать.
+     */
+    public openView(viewId: string, focus = false, activate = true): void {
         const found = this.findRecord(viewId);
         if (found?.entry.view == null) return;
         // Видимую секцию setViewVisible не трогает.
         this.setViewVisible(viewId, true);
-        this.openViewContainer(found.record.containerId, false);
+        if (activate || !this.isTabbed(found.entry)) {
+            this.openViewContainer(found.record.containerId, false);
+        } else {
+            const part = this.partOf(found.entry);
+            part.setActiveView(found.record.containerId);
+            part.setVisible(true);
+        }
         if (!focus) return;
         const body = this.bodyOf(found.record);
         if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;
         found.record.focus();
+    }
+
+    /**
+     * Вид на экране: его контейнер активен в своей части, часть видна, секция
+     * не скрыта (`isViewVisible` эталона; наш `isViewVisible` — про скрытость
+     * секции, отсюда своё имя).
+     */
+    public isViewShown(viewId: string): boolean {
+        const found = this.findRecord(viewId);
+        if (found?.entry.view == null || found.entry.hidden.has(viewId)) return false;
+        const containerId = found.record.containerId;
+        if (!this.isTabbed(found.entry)) return this.sidebarService.isViewletVisible(containerId);
+        const part = this.partOf(found.entry);
+        return part.visible && part.getActiveViewId() === containerId;
+    }
+
+    /**
+     * Убирает вид со сцены (`closeView` эталона): прячет его часть, если его
+     * контейнер в ней активен. Вид в фоне части часть не трогает.
+     */
+    public closeView(viewId: string): void {
+        const found = this.findRecord(viewId);
+        if (found?.entry.view == null) return;
+        const containerId = found.record.containerId;
+        if (!this.isTabbed(found.entry)) {
+            this.sidebarService.hideViewlet(containerId);
+            return;
+        }
+        const part = this.partOf(found.entry);
+        if (part.getActiveViewId() === containerId) part.setVisible(false);
+    }
+
+    /**
+     * Пользователь активировал вид — его вкладку в любой части (клик, команда
+     * показа). На этом событии просыпаются ленивые фичи: терминал спавнит шелл.
+     */
+    public readonly onDidActivateView = this.onDidActivateViewEmitter.event;
+
+    /**
+     * Вид стал активным в своей части — и пользователем, и программно
+     * (рестор раскладки, перенос). На нём поднимают тяжёлое содержимое лениво:
+     * Output — редактор канала.
+     */
+    public readonly onDidShowView = this.onDidShowViewEmitter.event;
+
+    /**
+     * Разослать по видимым секциям контейнера: «показан» (стал активным в своей
+     * части) или «активирован» (пользователем).
+     */
+    private fireContainerEvent(containerId: string, event: "show" | "activate"): void {
+        const entry = this.containers.get(containerId);
+        if (entry?.view == null) return;
+        const emitter = event === "show" ? this.onDidShowViewEmitter : this.onDidActivateViewEmitter;
+        for (const record of entry.views) {
+            if (!entry.hidden.has(record.id)) emitter.fire(record.id);
+        }
     }
 
     /**

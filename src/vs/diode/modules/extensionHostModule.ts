@@ -38,8 +38,8 @@ import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInp
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { WATCHER_INCLUDE_SETTING, watcherIncludesUnder } from "../../workbench/api/node/watcherIncludes.ts";
-import { PanelServiceDIToken } from "../../workbench/browser/parts/panel/panelService.ts";
 import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
+import { ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
@@ -78,7 +78,6 @@ import {
 } from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
 import { resolveMachineId } from "../../workbench/services/extensions/node/machineIdState.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
-import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
@@ -179,7 +178,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
     const terminals = (): ExtensionTerminalAdapter =>
         (terminalAdapter ??= new ExtensionTerminalAdapter(
             container.get(TerminalServiceDIToken),
-            container.get(PanelServiceDIToken),
+            container.get(ViewsServiceDIToken),
             container.get(ExtensionPtySessionFactoryDIToken),
         ));
     // Stryker restore ArrowFunction,AssignmentOperator
@@ -326,14 +325,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             },
             // Stryker restore ObjectLiteral,ArrowFunction
             // createOutputChannel расширений → канал в панели Output;
-            // show() открывает панель (как toggleOutputAction) и переключает канал.
+            // show() показывает вид Output там, где он стоит (как toggleOutputAction), и переключает канал.
             outputSink: new ExtensionOutputAdapter(
                 container.get(OutputChannelRegistryDIToken),
                 logService,
                 container.get(OutputServiceDIToken),
                 () => {
-                    container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
-                    container.get(LayoutServiceDIToken).setPanelVisible(true);
+                    container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID, false, false);
                 },
             ),
             // createTerminal расширений → инстансы встроенного терминала; жизнь

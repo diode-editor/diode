@@ -15,17 +15,12 @@ function buildHarness() {
     const sessions: FakeTerminalSurface[] = [];
     const factoryCalls: ITerminalSessionOptions[] = [];
     let nextPid = 100;
-    const service = new TerminalService(
-        views.panelService,
-        views.service,
-        createTestConfigurationService({}),
-        (options) => {
-            factoryCalls.push(options);
-            const surface = new FakeTerminalSurface(options.shell ?? "/bin/bash", nextPid++);
-            sessions.push(surface);
-            return surface;
-        },
-    );
+    const service = new TerminalService(views.service, createTestConfigurationService({}), (options) => {
+        factoryCalls.push(options);
+        const surface = new FakeTerminalSurface(options.shell ?? "/bin/bash", nextPid++);
+        sessions.push(surface);
+        return surface;
+    });
     views.service.attachRegisteredContainers();
     views.panelService.setActiveView(TERMINAL_VIEW_ID);
     views.panelService.setVisible(true);
