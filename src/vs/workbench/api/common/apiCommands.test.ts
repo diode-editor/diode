@@ -87,4 +87,15 @@ describe("apiCommands — vscode.open", () => {
         );
         expect(deps.showTextDocument).not.toHaveBeenCalled();
     });
+
+    it("строкой — только http(s) с начала: http:// принят, https: в середине и не-строка с http-toString — нет", async () => {
+        const { open, deps } = setup();
+
+        await open("http://example.com/x");
+        await expect(open("file:///ws/https:x")).rejects.toThrow("Invalid argument 'uriOrString'");
+        await expect(open({ toString: () => "https://example.com" })).rejects.toThrow("Invalid argument 'uriOrString'");
+
+        expect(deps.openExternal).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(deps.openExternal).mock.calls[0][0].scheme).toBe("http");
+    });
 });
