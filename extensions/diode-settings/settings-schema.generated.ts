@@ -501,6 +501,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Controls whether preview mode is used when editors open. There is a maximum of one preview mode editor per editor group. Its contents will be replaced by the next editor opened in preview mode. Making a change in a preview mode editor will persist it, as will the 'Keep Open' option in its tab context menu.",
     },
     {
+        key: "workbench.secondarySideBar.defaultVisibility",
+        type: "string",
+        default: "visibleInWorkspace",
+        description:
+            "Controls the default visibility of the secondary side bar in workspaces or empty windows that are opened for the first time. Can be overridden by the agent sessions startup editor setting.",
+        enum: ["hidden", "visibleInWorkspace", "visible", "maximizedInWorkspace", "maximized"],
+    },
+    {
         key: "workbench.tree.expandMode",
         type: "string",
         default: "singleClick",

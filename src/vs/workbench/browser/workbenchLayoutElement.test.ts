@@ -190,7 +190,7 @@ describe("WorkbenchLayoutElement", () => {
             const layout = new WorkbenchLayoutElement();
 
             const children = layout.getChildren();
-            expect(children).toHaveLength(2);
+            expect(children).toHaveLength(3);
             expect(children.every((c) => c instanceof SashElement && c.hidden)).toBe(true);
         });
 
@@ -559,9 +559,9 @@ describe("WorkbenchLayoutElement", () => {
         it("панель и горизонтальный саш в детях, саш последним (hit-test поверх)", () => {
             const { layout } = laidOut({ height: 8 });
             const children = layout.getChildren();
-            // center, bottom panel, вертикальный саш (скрыт), горизонтальный саш.
+            // center, bottom panel, вертикальные саши (скрыты), горизонтальный саш.
             const sashes = children.filter((c) => c instanceof SashElement);
-            expect(sashes).toHaveLength(2);
+            expect(sashes).toHaveLength(3);
             expect(children.at(-1)).toBe(sashes.at(-1));
             expect(sashes.at(-1)!.hidden).toBe(false);
         });

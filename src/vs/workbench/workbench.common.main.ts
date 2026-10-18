@@ -77,7 +77,9 @@ import {
 import {
     closePanelAction,
     decreaseSidebarWidthAction,
+    decreaseViewSizeAction,
     increaseSidebarWidthAction,
+    increaseViewSizeAction,
     resetSidebarWidthAction,
     revealActiveFileInExplorerAction,
     showExplorerAction,
@@ -106,6 +108,9 @@ import {
 import { TAB_CLOSE_ACTIONS } from "./browser/actions/tabCloseActions.ts";
 import { LanguageFeatureContextKeysDIToken } from "./browser/languageFeatureContextKeys.ts";
 import { OpenFailureNotificationContributionDIToken } from "./browser/openFailureNotificationContribution.ts";
+import { AUXILIARY_BAR_ACTIONS } from "./browser/parts/auxiliarybar/auxiliaryBarActions.ts";
+import { AuxiliaryBarComponentDIToken } from "./browser/parts/auxiliarybar/auxiliaryBarComponent.ts";
+import { AuxiliaryBarFocusContributionDIToken } from "./browser/parts/auxiliarybar/auxiliaryBarFocusContribution.ts";
 import { EditorStatusContributionDIToken } from "./browser/parts/editor/editorStatusContribution.ts";
 import { changeEncodingAction } from "./browser/parts/editor/encodingActions.ts";
 import {
@@ -285,6 +290,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё команды нет, и это ловит e2e-сценарий extension-storage (клавиша расширения не оживает после Arm)
     { token: SetContextCommandContributionDIToken, phase: "ready" },
     { token: PanelFocusContributionDIToken, phase: "ready" },
+    { token: AuxiliaryBarFocusContributionDIToken, phase: "ready" },
     // Сообщение «ресурс открыть нечем»: подписка должна стоять до первого
     // открытия, иначе первая же неудача пройдёт молча.
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тост не появляется, и это ловит e2e-сценарий virtualDocument
@@ -449,9 +455,12 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     increaseSidebarWidthAction,
     decreaseSidebarWidthAction,
     resetSidebarWidthAction,
+    increaseViewSizeAction,
+    decreaseViewSizeAction,
     togglePanelAction,
     closePanelAction,
     toggleProblemsAction,
+    ...AUXILIARY_BAR_ACTIONS,
     ...OUTPUT_ACTIONS,
     ...TERMINAL_ACTIONS,
     ...TASKS_ACTIONS,
@@ -493,6 +502,8 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     InlineCompletionsServiceDIToken,
     // Видимость вьюлетов: ключ объявляет дескриптор контейнера (visibleContextKey).
     SidebarServiceDIToken,
+    // Фокус во вторичной панели и её активный контейнер.
+    AuxiliaryBarComponentDIToken,
     ExplorerComponentDIToken,
     ScmInputComponentDIToken,
     TerminalServiceDIToken,

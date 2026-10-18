@@ -921,6 +921,13 @@
             "mac-legacy (tmux) #2": "ctrl+k t",
             "mac-legacy (tmux) #3": "ctrl+k t"
         },
+        "workbench.action.toggleAuxiliaryBar": {
+            "*": "ctrl+alt+b",
+            "mac-cmd (kitty) #0": "alt+meta+b",
+            "mac-cmd (kitty) #1": "alt+meta+b",
+            "mac-cmd (kitty) #2": "alt+meta+b",
+            "mac-cmd (kitty) #3": "alt+meta+b"
+        },
         "workbench.action.toggleEditorGroupLayout": {
             "*": "ctrl+k alt+0",
             "pc csi-u #0": "shift+alt+0",

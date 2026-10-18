@@ -71,6 +71,10 @@ export interface ContextKeyTypes {
     // -- Workbench UI contexts --
     /** True while the bottom Panel (Problems/Output/…) is visible. */
     panelVisible: boolean;
+    /** «Whether the auxiliary bar is visible» — вторичная боковая панель видна (пушит `LayoutService`). */
+    auxiliaryBarVisible: boolean;
+    /** «Whether the auxiliary bar has keyboard focus» — фокус внутри вторичной боковой панели. */
+    auxiliaryBarFocus: boolean;
     /**
      * Виден список серии Ctrl+Tab. Пока он виден, стрелки Вверх/Вниз шагают по
      * списку, а не по редактору — на этом ключе висят их бинды.
@@ -229,7 +233,6 @@ export interface ContextKeyTypes {
     // sideBarVisible: boolean;
     // sideBarFocus: boolean;
     // panelFocus: boolean;
-    // auxiliaryBarFocus: boolean;
     // inZenMode: boolean;
     // isCenteredLayout: boolean;
     // isFullscreen: boolean;
@@ -279,7 +282,11 @@ export interface ContextKeyTypes {
     // viewItem: string;
     // activeViewlet: string;
     // activePanel: string;
-    // activeAuxiliary: string;
+    /**
+     * «The identifier of the active auxiliary panel» — id активного контейнера
+     * вторичной боковой панели, пока она видна; иначе пусто.
+     */
+    activeAuxiliary: string;
 }
 
 export type ContextKey = keyof ContextKeyTypes;

@@ -50,6 +50,39 @@ export const PANEL_HEIGHT_STATE: IStateDescriptor<number> = {
 };
 
 /**
+ * Скрыта ли вторичная боковая панель — ключ и смысл эталона
+ * (`LayoutStateKeys.AUXILIARYBAR_HIDDEN`). `null` — в этом воркспейсе ещё не
+ * сохраняли: видимость выводит `workbench.secondarySideBar.defaultVisibility`.
+ */
+export const AUXILIARYBAR_HIDDEN_STATE: IStateDescriptor<boolean | null> = {
+    key: "workbench.auxiliaryBar.hidden",
+    scope: "workspace",
+    default: null,
+};
+
+/**
+ * Ширина вторичной боковой панели в колонках (у эталона `auxiliaryBar.size`).
+ * `null` — пользователь её не задавал: действует динамический дефолт
+ * раскладки (как у сайдбара, но не шире четверти окна).
+ */
+export const AUXILIARYBAR_SIZE_STATE: IStateDescriptor<number | null> = {
+    key: "workbench.auxiliaryBar.size",
+    scope: "workspace",
+    default: null,
+};
+
+/**
+ * Активный контейнер вторичной боковой панели — ключ эталона
+ * (`AuxiliaryBarPart.activeViewSettingsKey`). Пустая строка — «не сохранено»,
+ * тогда активен первый контейнер части.
+ */
+export const AUXILIARYBAR_ACTIVE_VIEW_STATE: IStateDescriptor<string> = {
+    key: "workbench.auxiliarybar.activepanelid",
+    scope: "workspace",
+    default: "",
+};
+
+/**
  * Активная вкладка нижней панели (id view'а). Пустая строка — «не сохранено»,
  * тогда активной остаётся первая зарегистрированная вкладка.
  */
