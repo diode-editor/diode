@@ -618,6 +618,26 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         expect(lines()).toContain("Здоровается с человеком.");
     });
 
+    it("thematic break в описании режет его на блоки попапа, разделитель с краю пустого блока не даёт", async () => {
+        useSource(() =>
+            Promise.resolve(
+                help({
+                    signatures: [
+                        {
+                            label: "greet(name: string): void",
+                            documentation: "Здоровается.\n\n---\n\nСм. доку.\n\n---",
+                            parameters: [{ label: "name: string", documentation: "кого" }],
+                        },
+                    ],
+                }),
+            ),
+        );
+
+        await service().trigger();
+
+        expect(component().view.hint?.documentation).toEqual(["кого", "Здоровается.", "См. доку."]);
+    });
+
     it("активный параметр самой сигнатуры важнее общего", async () => {
         useSource(() =>
             Promise.resolve(

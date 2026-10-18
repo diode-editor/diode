@@ -19,7 +19,7 @@ import type { IEditorService } from "../../../services/editor/common/editorServi
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { FocusTracker } from "../../../services/focus/browser/focusTracker.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
-import { stripMarkdown } from "../../hover/browser/hoverService.ts";
+import { splitMarkdownSections } from "../../hover/browser/hoverService.ts";
 
 import type { ParameterHintsComponent } from "./parameterHintsComponent.ts";
 import { ParameterHintsComponentDIToken } from "./parameterHintsComponent.ts";
@@ -212,7 +212,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         // Сигнатура вправе задать свой активный параметр — он важнее общего.
         const activeParameter = signature.activeParameter ?? help.activeParameter;
         const documentation = [signature.parameters[activeParameter]?.documentation, signature.documentation]
-            .map((doc) => (doc === undefined ? "" : stripMarkdown(doc)))
+            .flatMap((doc) => (doc === undefined ? [] : splitMarkdownSections(doc)))
             .filter((doc) => doc !== "");
         this.component.setHint({
             label: signature.label,

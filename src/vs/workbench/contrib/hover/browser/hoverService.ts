@@ -53,6 +53,63 @@ export function stripMarkdown(value: string): string {
     );
 }
 
+/** Thematic break CommonMark: 3+ одинаковых `-`/`*`/`_` (пробелы между ними можно), отступ до 3 пробелов. */
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+/** Ограждение fenced-блока: внутри него `---` — содержимое (YAML), а не разделитель. */
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
+/**
+ * Режет markdown по thematic break (`---`, `***`, `___`) на секции и стрипает
+ * каждую ({@link stripMarkdown}); пустые секции остаются — по ним видно, что
+ * разделитель стоял с краю (склейка контентов hover'а). Попапы рисуют секции
+ * той же линией, что и границу блоков, — gopls так делит сигнатуру, доку и ссылку.
+ * `---` сразу под строкой абзаца по CommonMark — подчёркивание setext-заголовка,
+ * а не разделитель: линия выпадает, текст заголовка остаётся.
+ */
+export function splitMarkdownSections(value: string): string[] {
+    const sections: string[][] = [[]];
+    let fence: string | null = null;
+    /** Предыдущая строка — текст абзаца (не пустая, не ограждение): под ней `---` — setext. */
+    let paragraph = false;
+    for (const line of value.split("\n")) {
+        const current = sections[sections.length - 1];
+        const opener = FENCE.exec(line)?.[1];
+        const ruler = THEMATIC_BREAK.exec(line)?.[1];
+        if (fence !== null) {
+            // Stryker disable next-line MethodExpression: ограждение — повтор одного символа, startsWith ≡ endsWith
+            if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
+            current.push(line);
+            paragraph = false;
+        } else if (opener !== undefined) {
+            // `paragraph` сбросит первая же строка внутри блока (ветка выше).
+            fence = opener;
+            current.push(line);
+        } else if (ruler !== undefined) {
+            if (!(paragraph && ruler === "-")) sections.push([]);
+            paragraph = false;
+        } else {
+            current.push(line);
+            paragraph = line.trim() !== "";
+        }
+    }
+    return sections.map((lines) => stripMarkdown(lines.join("\n")));
+}
+
+/**
+ * Контенты одного hover'а → секции попапа: соседние контенты склеиваются пустой
+ * строкой, а thematic break внутри контента начинает новую секцию. Пустые секции
+ * отбрасывает вызывающий.
+ */
+function hoverBlocks(contents: readonly string[]): string[] {
+    const blocks: string[] = [];
+    for (const content of contents) {
+        const [first, ...rest] = splitMarkdownSections(content);
+        const tail = blocks.pop() ?? "";
+        blocks.push([tail, first].filter((text) => text !== "").join("\n\n"), ...rest);
+    }
+    return blocks;
+}
+
 /**
  * Логика hover'а. По команде (`editor.action.showHover` / Ctrl+K Ctrl+I)
  * запрашивает hover'ы у подошедших документу провайдеров реестра
@@ -137,15 +194,8 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         if (ticket.isStale()) return;
 
         // Блок на провайдера: контент одного hover'а склеивается пустой строкой,
-        // блоки разных провайдеров разделит линией сам элемент.
-        const blocks = hovers
-            .map((hover) =>
-                hover.contents
-                    .map(stripMarkdown)
-                    .filter((text) => text !== "")
-                    .join("\n\n"),
-            )
-            .filter((block) => block !== "");
+        // блоки разных провайдеров и секции по thematic break разделит линией сам элемент.
+        const blocks = hovers.flatMap((hover) => hoverBlocks(hover.contents)).filter((block) => block !== "");
         if (blocks.length === 0) return;
 
         // Каретка могла уйти за время await — берём актуальный якорь.
