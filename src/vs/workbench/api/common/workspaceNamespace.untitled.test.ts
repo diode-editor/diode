@@ -70,6 +70,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
         expect(doc.isUntitled).toBe(true);
         expect(doc.getText()).toBe("a\r\nb");
         expect((doc as unknown as { encoding: string }).encoding).toBe("utf8");
+        expect((await workspace.openTextDocument()).getText()).toBe("");
         expect(registry.all()).toEqual([]);
     });
 

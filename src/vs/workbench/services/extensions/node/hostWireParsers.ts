@@ -108,7 +108,9 @@ export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocu
 
 /** Валидирует параметры `workspace.createUntitledDocument`: поле не той формы отбрасывается. */
 export function parseWireCreateUntitledParams(raw: unknown): IWireCreateUntitledParams {
-    const obj = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+    // Поле примитива — `undefined`, отбросить его проверки ниже хватает; не
+    // читаемы только null/undefined.
+    const obj = (raw ?? {}) as Record<string, unknown>;
     return {
         ...(typeof obj.content === "string" ? { content: obj.content } : {}),
         ...(typeof obj.language === "string" ? { language: obj.language } : {}),

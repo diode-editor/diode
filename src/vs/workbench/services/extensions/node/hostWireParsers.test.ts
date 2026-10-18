@@ -79,6 +79,7 @@ describe("hostWireParsers — parseWireCreateUntitledParams", () => {
     it("не объект — пустые опции", () => {
         expect(parseWireCreateUntitledParams(null)).toEqual({});
         expect(parseWireCreateUntitledParams("x")).toEqual({});
+        expect(parseWireCreateUntitledParams(undefined)).toEqual({});
     });
 });
 
