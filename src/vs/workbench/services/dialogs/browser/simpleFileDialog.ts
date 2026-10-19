@@ -115,6 +115,8 @@ export class SimpleFileDialog {
     /** Текущая подгрузка каталога; более новая отменяет прежнюю номером. */
     private updating: Promise<void> | undefined;
     private updateGeneration = 0;
+    /** Набор человека ещё обрабатывается (stat, подгрузка) — все начатые смены строки. */
+    private valueChanges: Promise<unknown> = Promise.resolve();
     /** Пикер диалога; заводится в pickResource, до него никто не зовёт. */
     private session!: QuickPickSession<IFileItem>;
 
@@ -183,7 +185,8 @@ export class SimpleFileDialog {
             let isAcceptHandled = false;
             const session = this.quickInput.createQuickPick<IFileItem>({
                 onDidChangeValue: (value) => {
-                    if (!this.settingValue) void this.handleValueChange(value);
+                    if (this.settingValue) return;
+                    this.valueChanges = Promise.all([this.valueChanges, this.handleValueChange(value)]);
                 },
                 onDidAccept: () => {
                     handleAccept();
@@ -281,8 +284,10 @@ export class SimpleFileDialog {
     }
 
     private async onDidAccept(): Promise<string | undefined> {
-        // Enter во время подгрузки каталога — после неё: строки и подсветка тогда
-        // про тот каталог, что в строке запроса.
+        // Enter во время обработки набора или подгрузки каталога — после них:
+        // строки и подсветка тогда про тот каталог, что в строке запроса, а не
+        // набранный следом путь съедает Enter переходом в свой каталог.
+        await this.valueChanges;
         await this.updating;
         const item = this.state().activeItems.at(0);
         if (item?.isFolder === true) {
@@ -300,6 +305,7 @@ export class SimpleFileDialog {
         }
 
         let picked = item === undefined ? this.filePickBoxValue() : item.path;
+        // Stryker disable next-line ConditionalExpression: в открытии исход тот же — файл с расширением фильтра подсветился бы по началу набранного имени и принялся бы строкой
         if (this.requiresTrailing) picked = withFilterExtension(picked, this.filters);
         return (await this.validate(picked)) ? picked : undefined;
     }
