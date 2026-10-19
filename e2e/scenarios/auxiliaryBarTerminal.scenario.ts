@@ -9,6 +9,18 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // палитра ранжирует «View: Move Focused View» ниже «View: Move Editor…».
 // Маркер вывода разорван пустой подстановкой (aux-term""-ok): целиком он
 // появляется только в выводе шелла (см. terminal.scenario.ts).
+//
+// Приглашение: rc-файлы раннера переставляют PS1 (`user@host:dir$`), а кадр
+// обрезает хвостовые пробелы строки — поэтому ждём строку, кончающуюся на
+// `$`, или `❯` starship'а, а не `"$ "`.
+
+/** Строка кадра (её часть правее `fromX`) несёт приглашение шелла. */
+function hasPrompt(text: string, fromX = 0): boolean {
+    return text.split("\n").some((row) => {
+        const tail = row.slice(fromX).trimEnd();
+        return tail.endsWith("$") || tail.includes("❯");
+    });
+}
 
 export default defineScenario({
     name: "auxiliary-bar-terminal",
@@ -33,7 +45,7 @@ export default defineScenario({
 
         // Терминал в нижней панели, фокус в нём.
         await editor.sendKey("Ctrl+Alt+T");
-        await editor.waitForText((t) => t.includes("TERMINAL") && (t.includes("$ ") || t.includes("❯")));
+        await editor.waitForText((t) => t.includes("TERMINAL") && hasPrompt(t));
 
         // Move Focused View → New Secondary Side Bar Entry.
         await editor.sendKey("Ctrl+Alt+M");
@@ -68,7 +80,7 @@ export default defineScenario({
         if (part.box.width !== 50) throw new Error(`после перезагрузки ширина ${part.box.width}, ждали 50`);
         // Шелл поднимается по активации, как и в нижней панели.
         await editor.sendKey("Ctrl+Alt+T");
-        await editor.waitForText((t) => t.split("\n").some((row) => row.slice(part.box.x).includes("$ ")));
+        await editor.waitForText((t) => hasPrompt(t, part.box.x));
         await editor.capture("after-reload");
     },
 });
