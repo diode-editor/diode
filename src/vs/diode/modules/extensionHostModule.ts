@@ -295,6 +295,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             secrets,
             extensionState,
             diagnosticsSink,
+            // Обратный путь: чужие маркеры → languages.getDiagnostics/onDidChangeDiagnostics.
+            markers: markerService,
             // languages.setLanguageConfiguration → слой поверх language-configuration.json.
             languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
             // withProgress расширений → запись статус-бара со спиннером.

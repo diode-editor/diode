@@ -983,6 +983,22 @@ export interface IWireDiagnosticsPublish {
     readonly markers: readonly WireMarker[];
 }
 
+/**
+ * Чужие маркеры одного ресурса — те, что ведут не коллекции субпроцесса
+ * (настройки, задачи): полный набор, замена, а не мерж; пустой — их не осталось.
+ */
+export interface IWireForeignMarkers {
+    /** Ресурс как `uri.toString()` — ключ MarkerService. */
+    readonly resource: string;
+    /** Серьёзность — числа `vscode.DiagnosticSeverity` (0=Error…3=Hint). */
+    readonly markers: readonly WireMarker[];
+}
+
+/** Параметры `diagnostics.markersChanged` (host → subprocess, `$acceptMarkersChange` эталона). */
+export interface IWireMarkersChanged {
+    readonly entries: readonly IWireForeignMarkers[];
+}
+
 // ─── Editor write (selection + edit, #194) ───────────────────────────────────
 
 /** Wire-форма выделения (0-based; anchor — якорь, active — курсор). */

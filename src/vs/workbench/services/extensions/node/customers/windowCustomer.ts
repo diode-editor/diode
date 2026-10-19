@@ -1,7 +1,6 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type {
-    DiagnosticsSink,
     INotificationSink,
     IOutputSink,
     IProgressSink,
@@ -18,7 +17,6 @@ import type {
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
-    parseWireDiagnosticsPublish,
     parseWireInputBoxRequest,
     parseWireOutputAppend,
     parseWireOutputShow,
@@ -37,7 +35,6 @@ import {
 
 /** Стоки поверхностей окна; без стока поверхность молча отбрасывает своё. */
 export interface IWindowSinks {
-    readonly diagnosticsSink: DiagnosticsSink | undefined;
     readonly progressSink: IProgressSink | undefined;
     readonly outputSink: IOutputSink | undefined;
     readonly statusBarItemSink: IStatusBarItemSink | undefined;
@@ -47,8 +44,8 @@ export interface IWindowSinks {
 
 /**
  * Поверхности окна, которые расширение держит на экране: прогресс
- * (`window.withProgress`), пункты статус-бара, output-каналы, диагностики,
- * quick input и сообщения человеку. Всё, что субпроцесс показал, принадлежит
+ * (`window.withProgress`), пункты статус-бара, output-каналы, quick input и
+ * сообщения человеку. Всё, что субпроцесс показал, принадлежит
  * ему: на его смерти или выключении спиннеры гаснут, пункты полосы снимаются,
  * а оверлеи ввода и сообщения закрываются — ответить на них стало некому.
  */
@@ -59,8 +56,7 @@ export class WindowCustomer implements IExtensionHostCustomer {
     public constructor(private readonly sinks: IWindowSinks) {}
 
     public attach({ rpc, logger }: IExtensionHostContext): IDisposable {
-        const { diagnosticsSink, progressSink, outputSink, statusBarItemSink, quickInputSink, notificationSink } =
-            this.sinks;
+        const { progressSink, outputSink, statusBarItemSink, quickInputSink, notificationSink } = this.sinks;
         const store = new DisposableStore();
         /** Живые handle'ы withProgress — на смерти всем шлётся end (спиннеры не зависают). */
         const progressHandles = new Set<number>();
@@ -135,15 +131,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 const show = parseWireOutputShow(params);
                 if (show === null) return;
                 outputSink?.show(show.channel, show.label);
-            }),
-        );
-        // Расширение опубликовало диагностики (createDiagnosticCollection().set)
-        // — отдаём их стоку (module ведёт в MarkerService → squiggle + Problems).
-        store.add(
-            rpc.handleNotification("diagnostics.publish", (params) => {
-                const publish = parseWireDiagnosticsPublish(params);
-                if (publish === null) return;
-                diagnosticsSink?.(publish.owner, publish.resource, publish.markers);
             }),
         );
         // ─── Quick input (ввод и выбор по просьбе расширения) ────────────────

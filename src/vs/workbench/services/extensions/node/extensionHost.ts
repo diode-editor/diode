@@ -115,6 +115,7 @@ import type { IExtensionUriHandlers } from "../common/extensionUrlHandler.ts";
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
+import { DiagnosticsCustomer, type IMarkerReader } from "./customers/diagnosticsCustomer.ts";
 import { DocumentsCustomer, MAX_SYNCED_DOCUMENT_CHARS } from "./customers/documentsCustomer.ts";
 import { EditorCustomer } from "./customers/editorCustomer.ts";
 import {
@@ -262,6 +263,12 @@ export interface IExtensionHostOptions {
      * → notify `diagnostics.publish`). Если не передан — диагностики отбрасываются.
      */
     readonly diagnosticsSink?: DiagnosticsSink;
+    /**
+     * Чтение MarkerService для обратного пути: маркеры чужих владельцев уходят
+     * субпроцессу (`languages.getDiagnostics`/`onDidChangeDiagnostics`). Если не
+     * передано — расширения видят только диагностики своих коллекций.
+     */
+    readonly markers?: IMarkerReader;
     /**
      * Сервис конфигураций языков ядра: сюда ложатся слои
      * `languages.setLanguageConfiguration`. Если не передан — слои отбрасываются
@@ -513,6 +520,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     /** Коллекции окружения расширений: в хранилище ядра и семенем обратно. */
     private readonly environmentVariableCollections: EnvironmentVariableCollectionsCustomer;
     private readonly env: EnvCustomer;
+    /** Диагностики в обе стороны: публикация коллекций и чужие маркеры семенем и потоком. */
+    private readonly diagnostics: DiagnosticsCustomer;
     /** ФС-провайдеры, текстовое содержимое и watcher'ы расширений. */
     private readonly fileSystem: FileSystemCustomer;
     /** Обработчики URI расширений (`window.registerUriHandler`). */
@@ -584,6 +593,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             options.externalOpener,
             options.environment ?? fallbackExtensionHostEnvironment(),
         );
+        this.diagnostics = new DiagnosticsCustomer(options.diagnosticsSink, options.markers);
         this.customers = [
             new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
             this.commands,
@@ -594,8 +604,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.documents,
             this.languageFeatures,
             ...(this.configurationCustomer === undefined ? [] : [this.configurationCustomer]),
+            this.diagnostics,
             new WindowCustomer({
-                diagnosticsSink: options.diagnosticsSink,
                 progressSink: options.progressSink,
                 outputSink: options.outputSink,
                 statusBarItemSink: options.statusBarItemSink,
@@ -1403,6 +1413,9 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             // Открытые документы — ДО первой активации: стоковый
             // vscode-languageclient читает `workspace.textDocuments` на start().
             this.documents.pushInitialState();
+            // Чужие маркеры (настройки, задачи) — до первой активации:
+            // `languages.getDiagnostics` в `activate()` видит то же, что Problems.
+            this.diagnostics.pushInitialState();
             // Терминалы — тоже ДО первой активации: bazel-java в `activate()`
             // ищет свой лог в `window.terminals`, прежде чем завести новый.
             this.terminals.pushInitialState();

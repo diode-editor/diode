@@ -32,6 +32,7 @@ import {
     serializeSelectionRanges,
     serializeSignatureHelp,
     serializeTextEdit,
+    toVscodeDiagnostic,
     toVscodeRange,
     toVscodeSignatureHelp,
     toWireMarker,
@@ -44,6 +45,7 @@ import {
     CodeActionTriggerKind,
     CompletionTriggerKind,
     DisposableImpl,
+    EventEmitter,
     InlineCompletionTriggerKind,
     Position,
     Range,
@@ -58,6 +60,7 @@ import type {
     IWireDocumentSemanticTokensParams,
     IWireEditorEdit,
     IWireFoldingParams,
+    IWireForeignMarkers,
     IWireFormattingParams,
     IWireHoverParams,
     IWireInlineCompletionParams,
@@ -73,10 +76,12 @@ import type {
     WireCodeAction,
     WireFoldingRange,
     WireLanguageFeatureKind,
+    WireMarker,
     WireRenamePrepare,
     WireRenameResult,
     WireSemanticTokensResult,
 } from "./wireTypes.ts";
+import { isFiniteNumber, parseRange } from "./wireTypes.ts";
 
 /** Зарегистрированный провайдер автодополнения. */
 export interface ICompletionRegistration {
@@ -199,6 +204,38 @@ interface ICachedCompletion extends IRegistrationOwner {
 
 /** Сколько последних ответов completion держим ради resolve. */
 const COMPLETION_CACHE_DEPTH = 2;
+
+/**
+ * Разбирает `diagnostics.markersChanged`: запись без строки-ресурса или без
+ * массива маркеров выпадает, маркер чужой формы — тоже (drop+skip).
+ */
+function parseWireMarkersChanged(raw: unknown): IWireForeignMarkers[] {
+    const entries = (raw as { entries?: unknown } | null)?.entries;
+    if (!Array.isArray(entries)) return [];
+    const result: IWireForeignMarkers[] = [];
+    for (const item of entries as unknown[]) {
+        const entry = item as { resource?: unknown; markers?: unknown } | null;
+        if (typeof entry?.resource !== "string" || !Array.isArray(entry.markers)) continue;
+        const markers: WireMarker[] = [];
+        for (const rawMarker of entry.markers as unknown[]) {
+            const m = (rawMarker ?? {}) as Record<string, unknown>;
+            const range = parseRange(m.range);
+            if (range === null || !isFiniteNumber(m.severity) || typeof m.message !== "string") continue;
+            markers.push({
+                severity: m.severity,
+                range,
+                message: m.message,
+                ...(typeof m.code === "string" ? { code: m.code } : {}),
+                ...(typeof m.source === "string" ? { source: m.source } : {}),
+            });
+        }
+        result.push({ resource: entry.resource, markers });
+    }
+    return result;
+}
+
+/** Окно `onDidChangeDiagnostics`, мс (`delay` DebounceEmitter'а ExtHostDiagnostics эталона). */
+const DIAGNOSTICS_CHANGE_DELAY_MS = 50;
 
 /**
  * Кэшированный элемент ответа code actions: действие (тот же объект, что
@@ -435,6 +472,52 @@ export function createLanguagesNamespace(
     // Сколько коллекций уже заведено под каждой базой ключа MarkerService
     // (см. createDiagnosticCollection): ключи не переиспользуются.
     const diagnosticOwnerCounts = new Map<string, number>();
+    // Зеркало чужих маркеров MarkerService (`diagnostics.markersChanged`) —
+    // `_mirrorCollection` эталона: такое же хранилище в общем наборе, поэтому
+    // `getDiagnostics` и контекст code actions видят и его.
+    const mirrorStore = new Map<string, readonly vscode.Diagnostic[]>();
+
+    // `onDidChangeDiagnostics` — как DebounceEmitter эталона: первое изменение
+    // открывает окно, всё накопленное за него уходит одним событием с
+    // уникальными ресурсами в порядке первого появления.
+    const diagnosticsChanged = new EventEmitter<vscode.DiagnosticChangeEvent>();
+    let changedResources: string[] = [];
+    let changedTimer: ReturnType<typeof setTimeout> | undefined;
+    function diagnosticsChangedFor(resources: readonly string[]): void {
+        changedResources.push(...resources);
+        if (changedTimer !== undefined) return;
+        changedTimer = setTimeout(() => {
+            changedTimer = undefined;
+            const uris = [...new Set(changedResources)].map((resource) => Uri.parse(resource));
+            changedResources = [];
+            diagnosticsChanged.fire({ uris: Object.freeze(uris) });
+        }, DIAGNOSTICS_CHANGE_DELAY_MS);
+    }
+
+    rpc.handleNotification("diagnostics.markersChanged", (params) => {
+        const entries = parseWireMarkersChanged(params);
+        // Как эталон, зеркало встаёт в набор на первом сообщении — после уже
+        // заведённых коллекций.
+        diagnosticStores.add(mirrorStore);
+        for (const { resource, markers } of entries) mirrorStore.set(resource, markers.map(toVscodeDiagnostic));
+        diagnosticsChangedFor(entries.map((entry) => entry.resource));
+    });
+
+    function getDiagnostics(resource: vscode.Uri): vscode.Diagnostic[];
+    function getDiagnostics(): [vscode.Uri, vscode.Diagnostic[]][];
+    // `null` от JS-расширения — как «без ресурса» (у эталона проверка на truthy).
+    function getDiagnostics(resource?: vscode.Uri | null): vscode.Diagnostic[] | [vscode.Uri, vscode.Diagnostic[]][] {
+        if (resource != null) {
+            const key = resource.toString();
+            return [...diagnosticStores].flatMap((store) => store.get(key) ?? []);
+        }
+        // Ресурс — одна строка результата, диагностики всех коллекций подряд.
+        const byResource = new Map<string, vscode.Diagnostic[]>();
+        for (const store of diagnosticStores) {
+            for (const [key, diags] of store) byResource.set(key, [...(byResource.get(key) ?? []), ...diags]);
+        }
+        return [...byResource].map(([key, diags]): [vscode.Uri, vscode.Diagnostic[]] => [Uri.parse(key), diags]);
+    }
 
     /** Диагностики ресурса, пересекающиеся с диапазоном (по всем коллекциям). */
     function diagnosticsIntersecting(resource: string, range: Range): vscode.Diagnostic[] {
@@ -1167,6 +1250,7 @@ export function createLanguagesNamespace(
             const resource = resourceOf(uri);
             store.set(resource, diags ?? []);
             publish(resource, diags ?? []);
+            diagnosticsChangedFor([resource]);
         };
 
         // Параметры-ресурсы — `unknown`, а не `Uri`: JS-расширение вправе
@@ -1187,9 +1271,11 @@ export function createLanguagesNamespace(
                 const resource = resourceOf(uri);
                 store.delete(resource);
                 publish(resource, []);
+                diagnosticsChangedFor([resource]);
             },
             clear: (): void => {
                 for (const resource of store.keys()) publish(resource, []);
+                diagnosticsChangedFor([...store.keys()]);
                 store.clear();
             },
             forEach: (
@@ -1216,6 +1302,8 @@ export function createLanguagesNamespace(
     };
 
     const languagesNs = {
+        onDidChangeDiagnostics: diagnosticsChanged.event,
+        getDiagnostics,
         createDiagnosticCollection,
         // Наивный language status item: держатель полей с честным dispose, в UI
         // ничего не проецируется (в статус-баре места под язык-статус нет).
