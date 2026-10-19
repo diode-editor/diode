@@ -240,7 +240,7 @@ export class SimpleFileDialog {
                 const name = trailing ?? "";
                 // Имя без расширения выделено: «[report].txt». Без имени курсор и так
                 // в конце — строку ставит подгрузка.
-                // Stryker disable next-line ConditionalExpression: без имени выделение пустое и стоит в конце строки — ровно там, где курсор оставила подгрузка
+                // Stryker disable next-line ConditionalExpression,StringLiteral: без имени выделение пустое и стоит в конце строки — ровно там, где курсор оставила подгрузка
                 if (this.requiresTrailing && name !== "") {
                     const ext = path.extname(name);
                     this.update({ valueSelection: [value.length - name.length, value.length - ext.length] });
@@ -286,17 +286,11 @@ export class SimpleFileDialog {
         await this.updating;
         const item = this.state().activeItems.at(0);
         if (item?.isFolder === true) {
-            const name = this.trailing;
-            if (name === undefined) {
-                // Вход в каталог — через строку запроса, тем же путём, что набор.
-                this.setValue(item.path);
-                await this.tryUpdateItems(item.path, item.path);
-            } else {
-                // Сохранение: в каталог переходит и набранное имя, курсор — перед ним.
-                await this.updateItems(item.path, { force: true, trailing: name });
-                const at = this.value.length - name.length;
-                this.update({ valueSelection: [at, at] });
-            }
+            // Вход в каталог. При сохранении туда же переезжает набранное имя, и
+            // курсор встаёт перед ним; без имени — в конец.
+            await this.updateItems(item.path, { force: true, trailing: this.trailing });
+            const at = this.value.length - (this.trailing ?? "").length;
+            this.update({ valueSelection: [at, at] });
             return undefined;
         }
         // Набранное сменило каталог — принимать рано (подсвеченный файл каталог не
