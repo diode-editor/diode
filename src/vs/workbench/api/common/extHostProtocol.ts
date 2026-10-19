@@ -119,6 +119,7 @@ import type {
     IWireTerminalShow,
     IWireTerminalTarget,
     IWireTextContentResult,
+    IWireUpdateWorkspaceFolders,
     IWireUriHandlerRegistration,
     IWireUriParams,
     IWireValidationMessage,
@@ -313,6 +314,7 @@ export interface ISubprocessToHost {
         readonly "workspace.watcher.create": IWireWatcherCreate;
         readonly "workspace.watcher.dispose": IWireWatcherDispose;
         readonly "workspace.updateSubscriptions": IWireSubscriptions;
+        readonly "workspace.updateWorkspaceFolders": IWireUpdateWorkspaceFolders;
 
         readonly "editor.setSelection": IWireSetSelectionParams;
         readonly "editor.setDecorations": IWireSetDecorations;

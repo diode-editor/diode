@@ -36,6 +36,7 @@ import { NotificationExtensionAdapter } from "../../workbench/api/browser/notifi
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
+import { WorkspaceFoldersExtensionAdapter } from "../../workbench/api/browser/workspaceFoldersExtensionAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { WATCHER_INCLUDE_SETTING, watcherIncludesUnder } from "../../workbench/api/node/watcherIncludes.ts";
 import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
@@ -43,6 +44,7 @@ import { ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsSe
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
 import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
+import { WorkspaceFolderOpenerDIToken } from "../../workbench/contrib/files/browser/fileActions.ts";
 import {
     bindExtensionTasks,
     ExtensionTaskAdapter,
@@ -311,6 +313,17 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // show*Message расширений → стек тостов над статус-баром (у модального
             // сообщения — окно по центру); нажатая кнопка уезжает обратно расширению.
             notificationSink: new NotificationExtensionAdapter(container.get(NotificationServiceDIToken)),
+            // workspace.updateWorkspaceFolders → Open Folder, если итог — ровно одна
+            // папка; иначе тост (multi-root нет). Опенер берётся в момент просьбы:
+            // его регистрирует модуль workbench.
+            // Stryker disable next-line ArrowFunction: production-проводка модуля — решение живёт в WorkspaceFoldersExtensionAdapter и закрыто юнитами
+            workspaceFoldersSink: new WorkspaceFoldersExtensionAdapter(
+                (folder) => {
+                    container.get(WorkspaceFolderOpenerDIToken).setWorkspaceFolder(folder);
+                },
+                container.get(NotificationServiceDIToken),
+                (id) => installedExtensionDisplayName(ctx.extensions, id),
+            ),
             // env.clipboard — тот же буфер, которым пользуются copy/paste ядра.
             clipboard: container.get(ClipboardDIToken),
             // env.openExternal — системный обработчик, а без графического сеанса

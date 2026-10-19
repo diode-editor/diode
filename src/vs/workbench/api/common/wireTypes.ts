@@ -1517,6 +1517,19 @@ export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | nul
     }
 }
 
+// ─── Смена папок воркспейса (workspace.updateWorkspaceFolders) ──────────────
+
+/**
+ * Расширение меняет набор папок (`workspace.updateWorkspaceFolders`, subprocess →
+ * host): проверки эталона прошли, `folders` — итоговый набор (`fsPath`). Хост
+ * открывает его, если папка ровно одна, иначе говорит человеку, что
+ * multi-root не поддержан. `extensionId` — кто просил (для текста отказа).
+ */
+export interface IWireUpdateWorkspaceFolders {
+    readonly extensionId: string | null;
+    readonly folders: readonly string[];
+}
+
 // ─── Сообщения расширения (window.show{Information,Warning,Error}Message) ────
 // Сообщение — ЗАПРОС, а не уведомление: перегрузка с кнопками обязана вернуть
 // расширению выбранное, поэтому ответа ждут все показы с кнопками. Адреса показа

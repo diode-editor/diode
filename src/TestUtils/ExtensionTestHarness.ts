@@ -62,6 +62,7 @@ import type {
 } from "../vs/workbench/api/common/iExtensionWindowSinks.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColorResolver.ts";
+import type { IWorkspaceFoldersSink } from "../vs/workbench/api/common/iWorkspaceFoldersSink.ts";
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
@@ -267,6 +268,8 @@ export interface IExtensionHarnessOptions {
      * умолчанию не подключён — сообщения уходят только в лог.
      */
     readonly notificationSink?: INotificationSink;
+    /** Сток смены папок воркспейса (`workspace.updateWorkspaceFolders`). По умолчанию не подключён. */
+    readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
     /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
     /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
@@ -456,6 +459,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.statusBarItemSink !== undefined ? { statusBarItemSink: options.statusBarItemSink } : {}),
         ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
         ...(options.notificationSink !== undefined ? { notificationSink: options.notificationSink } : {}),
+        ...(options.workspaceFoldersSink !== undefined ? { workspaceFoldersSink: options.workspaceFoldersSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         // Дефолт — настоящий адаптер поверх `themeService` харнесса (зеркально

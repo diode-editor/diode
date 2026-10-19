@@ -55,7 +55,7 @@ export const OWNED_MEMBERS = {
     // Источник задачи (`extensionId` в описании) и id задачи провайдера —
     // по расширению, которое зовёт.
     tasks: ["registerTaskProvider", "executeTask"],
-    workspace: ["registerTaskProvider"],
+    workspace: ["registerTaskProvider", "updateWorkspaceFolders"],
 } as const satisfies {
     readonly window: readonly (keyof typeof vscode.window)[];
     readonly languages: readonly (keyof typeof vscode.languages)[];
