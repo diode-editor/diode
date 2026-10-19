@@ -53,8 +53,18 @@ export class QuickPickElement extends TUIElement {
     /** Сколько строк списка показывать одновременно (дальше — скролл). */
     public maxVisibleItems = 10;
 
-    /** Заголовок, врезанный в верхнюю рамку (например, "Save As"). */
-    public title: string | undefined = undefined;
+    /**
+     * Заголовок, врезанный в верхнюю рамку (например, "Save As"). Уходит рамке
+     * СРАЗУ, а не из layout: пометка перерисовки, сделанная посреди раскладки,
+     * достаётся только следующему кадру, и заголовок открытого пикера
+     * (`createQuickPick` расширения меняет его на ходу) отставал бы на кадр.
+     */
+    public get title(): string | undefined {
+        return this.frame.title;
+    }
+    public set title(value: string | undefined) {
+        this.frame.setTitle(value);
+    }
     /**
      * Подсказка под строкой запроса (dim) — флейвор InputBox. Перебивается
      * {@link validationMessage}, когда та выставлена.
@@ -400,7 +410,6 @@ export class QuickPickElement extends TUIElement {
             this.markDirty();
         }
 
-        this.frame.setTitle(this.title);
         this.frame.setSeparatorRow(hasItems ? BORDER_THICKNESS + this.headerRows : null);
     }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import type { IQuickInputBoxRequest, IQuickInputSink } from "../../../api/common/iExtensionWindowSinks.ts";
@@ -100,10 +101,19 @@ function makeHost(sink?: IQuickInputSink) {
         sink !== undefined ? { quickInputSink: sink } : {},
     );
     const [a, b] = createInProcessChannelPair();
-    const hostRpc = new RpcEndpoint(a);
+    /** Предупреждения хостового RPC — так видно, что обработчик нотификации бросил. */
+    const warnings: string[] = [];
+    const rpcLogger = {
+        trace: () => undefined,
+        debug: () => undefined,
+        info: () => undefined,
+        warn: (message: string) => warnings.push(message),
+        error: () => undefined,
+    } as unknown as ILogger;
+    const hostRpc = new RpcEndpoint(a, rpcLogger);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
-    return { host, peer };
+    return { host, peer, warnings };
 }
 
 describe("ExtensionHost — window.showInputBox", () => {
@@ -443,6 +453,26 @@ describe("ExtensionHost — window.createQuickPick", () => {
         await flushMicrotasks();
         expect(sink.quickPickUpdates.map((u) => u.handle)).toEqual([7]);
         expect(sink.disposedQuickPicks).toEqual([7]);
+    });
+
+    it("мусорный апдейт и пикеры без стока никого не роняют", async () => {
+        const sink = makeSink();
+        const withSink = makeHost(sink);
+        withSink.peer.notify("window.quickPick.update", null);
+        withSink.peer.notify("window.quickPick.dispose", null);
+        await flushMicrotasks();
+        expect(withSink.warnings).toEqual([]);
+        expect(sink.quickPickUpdates).toEqual([]);
+
+        const bare = makeHost();
+        bare.peer.notify("window.quickPick.update", { handle: 7, visible: true });
+        bare.peer.notify("window.quickPick.update", { handle: 8, visible: true });
+        bare.peer.notify("window.quickPick.dispose", { handle: 7 });
+        await flushMicrotasks();
+        expect(bare.warnings).toEqual([]);
+        expect(() => {
+            bare.host.dispose();
+        }).not.toThrow();
     });
 
     it("смерть субпроцесса снимает живые пикеры, и событий в мёртвый канал они не шлют", async () => {

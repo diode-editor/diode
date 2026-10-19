@@ -835,8 +835,6 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
         placeholder: nullableWireString(p.placeholder),
         prompt: nullableWireString(p.prompt),
         value: optionalWireString(p.value),
-        busy: optionalWireBoolean(p.busy),
-        enabled: optionalWireBoolean(p.enabled),
         canSelectMany: optionalWireBoolean(p.canSelectMany),
         matchOnDescription: optionalWireBoolean(p.matchOnDescription),
         matchOnDetail: optionalWireBoolean(p.matchOnDetail),
@@ -853,17 +851,18 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
 function parseWireQuickPickSessionItems(raw: readonly unknown[]): IWireQuickPickSessionItem[] {
     const items: IWireQuickPickSessionItem[] = [];
     for (const entry of raw) {
-        if (typeof entry !== "object" || entry === null) continue;
-        const it = entry as Record<string, unknown>;
+        // Не объект — у него нет и handle'а: отсеет проверка ниже.
+        const it = entry as Record<string, unknown> | null | undefined;
         // Пункт адресуется своим handle, а не позицией — без него ответить про
         // него расширению нечем, и выбросить его безопасно.
-        if (!Number.isInteger(it.handle)) continue;
+        if (!Number.isInteger(it?.handle)) continue;
+        const item = entry as Record<string, unknown>;
         items.push({
-            handle: it.handle as number,
-            label: typeof it.label === "string" ? it.label : "",
-            description: optionalWireString(it.description),
-            detail: optionalWireString(it.detail),
-            alwaysShow: it.alwaysShow === true,
+            handle: item.handle as number,
+            label: typeof item.label === "string" ? item.label : "",
+            description: optionalWireString(item.description),
+            detail: optionalWireString(item.detail),
+            alwaysShow: item.alwaysShow === true,
         });
     }
     return items;

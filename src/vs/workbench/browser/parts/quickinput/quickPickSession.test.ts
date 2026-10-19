@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
@@ -280,5 +280,234 @@ describe("QuickPickSession — скрытие", () => {
         pick.show();
         pick.show();
         expect(log.filter((entry) => entry[0] === "hide")).toEqual([]);
+    });
+});
+
+describe("QuickPickSession — точечные правки открытого пикера", () => {
+    /** Верхняя рамка оверлея (в ней заголовок) на ОТРИСОВАННОМ кадре. */
+    function titleRow(testApp: ReturnType<typeof setup>["testApp"]): string {
+        testApp.render();
+        // Оверлей встаёт на 10% высоты (24 строки → строка 2).
+        return testApp.backend.getTextAt(new Point(0, 2), 80);
+    }
+
+    it("смена одного заголовка доходит до кадра", () => {
+        const { pick, testApp } = setup();
+        pick.update({ title: "Old", items: FRUITS });
+        pick.show();
+        expect(titleRow(testApp)).toContain("Old");
+
+        pick.update({ title: "New" });
+        expect(titleRow(testApp)).toContain("New");
+    });
+
+    it("смена одной подсказки доходит до кадра", () => {
+        const { pick, testApp } = setup();
+        pick.update({ prompt: "first", items: FRUITS });
+        pick.show();
+        pick.update({ prompt: "second" });
+        // Текст подсказки переносит раскладка — два кадра: раскладка и отрисовка.
+        testApp.render();
+        testApp.render();
+        // Рамка — строка 2, запрос — 3, подсказка — 4.
+        expect(testApp.backend.getTextAt(new Point(0, 4), 80)).toContain("second");
+    });
+
+    it("правка одного поля не трогает остальные, подсветку и запрос", () => {
+        const { pick, view, testApp, log } = setup();
+        pick.update({
+            title: "T",
+            step: 1,
+            totalSteps: 2,
+            prompt: "p",
+            placeholder: "ph",
+            items: FRUITS,
+            canSelectMany: true,
+            selectedItems: [FRUITS[0]],
+        });
+        pick.show();
+        testApp.sendKey("ArrowDown");
+        log.length = 0;
+
+        pick.update({ prompt: "p2" });
+
+        expect(view()).toMatchObject({ title: "T (1/2)", activeIndex: 1, checked: ["apple"], query: "" });
+        expect(log).toEqual([]);
+    });
+
+    it("тот же value повторно — без onDidChangeValue", () => {
+        const { pick, log, type } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        type("a");
+        log.length = 0;
+        pick.update({ value: "a" });
+        expect(log).toEqual([]);
+    });
+
+    it("matchOnDescription сам по себе перефильтровывает открытый список", () => {
+        const { pick, view, type } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        type("red");
+        expect(view()).toMatchObject({ items: [] });
+        pick.update({ matchOnDescription: true });
+        expect(view()).toMatchObject({ items: ["apple"] });
+    });
+
+    it("canSelectMany сам по себе включает чекбоксы у открытого списка — на кадре", () => {
+        const { pick, view, testApp } = setup();
+        pick.update({ items: FRUITS, selectedItems: [FRUITS[2]] });
+        pick.show();
+        expect(view()).not.toHaveProperty("checked");
+        pick.update({ canSelectMany: true });
+        expect(view()).toMatchObject({ checked: ["cherry"] });
+        // Строки — рамка 2, запрос 3, сепаратор 4, apple 5, banana 6, cherry 7.
+        testApp.render();
+        testApp.render();
+        expect(testApp.backend.getTextAt(new Point(0, 7), 80)).toContain("[✓] cherry");
+        expect(testApp.backend.getTextAt(new Point(0, 5), 80)).toContain("[ ] apple");
+    });
+
+    it("набор возвращает подсветку на первую совпавшую строку", () => {
+        const { pick, view, testApp, type } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        testApp.sendKey("ArrowDown");
+        // «a» есть и в apple, и в banana: подсветка — на apple, а не на banana.
+        type("a");
+        expect(view()).toMatchObject({ items: ["apple", "banana"], activeIndex: 0 });
+    });
+
+    it("список, отфильтрованный в пустоту, — onDidChangeActive([])", () => {
+        const { pick, log, type } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        log.length = 0;
+        type("zz");
+        expect(log).toContainEqual(["active", []]);
+    });
+
+    it("запрос с пробелами по краям ищет по сути", () => {
+        const { pick, view } = setup();
+        pick.update({ items: FRUITS, value: "  ch " });
+        pick.show();
+        expect(view()).toMatchObject({ items: ["cherry"] });
+    });
+
+    it("activeItems: первая строка и незнакомый предмет — по правилам", () => {
+        const { pick, view, testApp } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("ArrowDown");
+
+        pick.update({ activeItems: [FRUITS[0]] });
+        expect(view()).toMatchObject({ activeIndex: 0 });
+
+        testApp.sendKey("ArrowDown");
+        pick.update({ activeItems: [{ label: "чужой" }] });
+        expect(view()).toMatchObject({ activeIndex: 1 });
+    });
+
+    it("activeItems, заданные до показа, подсвечены сразу — без эха владельцу", () => {
+        const { pick, view, log } = setup();
+        pick.update({ items: FRUITS, activeItems: [FRUITS[1]] });
+        pick.show();
+        expect(view()).toMatchObject({ activeIndex: 1 });
+        expect(log).toEqual([]);
+    });
+
+    it("показ сам сообщает начальную подсветку", () => {
+        const { pick, log } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        expect(log).toEqual([["active", ["apple"]]]);
+    });
+
+    it("keepScrollPosition меняет предметы на месте", () => {
+        const { pick, view } = setup();
+        pick.update({ items: FRUITS, keepScrollPosition: true });
+        pick.show();
+        pick.update({ items: [...FRUITS, { label: "date" }] });
+        expect(view()).toMatchObject({ items: ["apple", "banana", "cherry", "date"] });
+    });
+
+    it("без placeholder строка запроса пуста, а не дефолтный «Type to search…»", () => {
+        const { pick, component } = setup();
+        pick.show();
+        expect(component.view.placeholder).toBe("");
+    });
+
+    it("пустой заголовок с шагами — только шаги", () => {
+        const { pick, view } = setup();
+        pick.update({ title: "", step: 1, totalSteps: 2 });
+        pick.show();
+        expect(view()).toMatchObject({ title: "1/2" });
+        pick.update({ step: undefined });
+        expect(view()).toMatchObject({ title: undefined });
+    });
+});
+
+describe("QuickPickSession — общий виджет после чужого флейвора", () => {
+    it("перехват закрывает показ чужого хозяина (Quick Open) — тот узнаёт о закрытии", () => {
+        const { pick, component } = setup();
+        let foreignClosed = false;
+        component.onDidClose = () => {
+            foreignClosed = true;
+        };
+        component.show();
+        pick.show();
+        expect(foreignClosed).toBe(true);
+        expect(component.isOpen()).toBe(true);
+    });
+
+    it("промисный показ, открытый до нас, доводится до undefined", async () => {
+        const { pick, service } = setup();
+        const pending = service.quickPick({ items: [{ label: "x" }] });
+        pick.show();
+        await expect(pending).resolves.toBeUndefined();
+    });
+
+    it("маска пароля, ошибка валидации и подсветка прошлого показа не переезжают к нам", async () => {
+        const { pick, service, component, testApp, view, log } = setup();
+        const input = service.input({ password: true, validateInput: () => "плохо" });
+        expect(component.view.validationMessage).toBe("плохо");
+        pick.update({ items: FRUITS });
+        pick.show();
+        await expect(input).resolves.toBeUndefined();
+
+        expect(component.view.password).toBe(false);
+        log.length = 0;
+        testApp.sendKey("Enter");
+        expect(log).toEqual([["selection", ["apple"]], ["accept"]]);
+
+        pick.hide();
+        const many = service.quickPickMany({ items: FRUITS });
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("ArrowDown");
+        expect(view()).toMatchObject({ activeIndex: 2 });
+        pick.show();
+        await many;
+        expect(view()).toMatchObject({ activeIndex: 0 });
+        expect(view()).not.toHaveProperty("checked");
+    });
+
+    it("свежий пикер после чужого списка с подсветкой внизу открывается с первой строки", async () => {
+        const { pick, service, testApp, view } = setup();
+        const many = service.quickPickMany({ items: FRUITS });
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("ArrowDown");
+        pick.update({ items: FRUITS });
+        pick.show();
+        await many;
+        expect(view()).toMatchObject({ activeIndex: 0 });
+    });
+
+    it("hide() скрытого пикера не закрывает чужой показ", () => {
+        const { pick, service, component } = setup();
+        void service.input({ prompt: "чужой" });
+        pick.hide();
+        expect(component.isOpen()).toBe(true);
     });
 });

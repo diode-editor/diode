@@ -200,19 +200,13 @@ function toSessionChanges(
     update: IWireQuickPickUpdate,
     pick: IExtensionQuickPick,
 ): Partial<QuickPickSessionState<IExtensionQuickPickItem>> {
-    const changes: { -readonly [K in keyof QuickPickSessionState<IExtensionQuickPickItem>]?: unknown } = {};
-    if ("title" in update) changes.title = renderLabel(update.title ?? undefined);
-    if ("step" in update) changes.step = update.step ?? undefined;
-    if ("totalSteps" in update) changes.totalSteps = update.totalSteps ?? undefined;
-    if ("placeholder" in update) changes.placeholder = renderLabel(update.placeholder ?? undefined);
-    if ("prompt" in update) changes.prompt = renderLabel(update.prompt ?? undefined);
-    if (update.value !== undefined) changes.value = update.value;
-    if (update.busy !== undefined) changes.busy = update.busy;
-    if (update.enabled !== undefined) changes.enabled = update.enabled;
-    if (update.canSelectMany !== undefined) changes.canSelectMany = update.canSelectMany;
-    if (update.matchOnDescription !== undefined) changes.matchOnDescription = update.matchOnDescription;
-    if (update.matchOnDetail !== undefined) changes.matchOnDetail = update.matchOnDetail;
-    if (update.keepScrollPosition !== undefined) changes.keepScrollPosition = update.keepScrollPosition;
+    const changes: Record<string, unknown> = {};
+    for (const key of LABEL_FIELDS) {
+        if (key in update) changes[key] = renderLabel(update[key] ?? undefined);
+    }
+    for (const key of PLAIN_FIELDS) {
+        if (key in update) changes[key] = update[key] ?? undefined;
+    }
     if (update.items !== undefined) {
         const items = update.items.map(toSessionItem);
         pick.byHandle = new Map(items.map((item) => [item.handle, item]));
@@ -227,6 +221,23 @@ function toSessionChanges(
     if (update.selectedItems !== undefined) changes.selectedItems = resolve(update.selectedItems);
     return changes as Partial<QuickPickSessionState<IExtensionQuickPickItem>>;
 }
+
+/** Поля диффа — ярлыки: значки `$(name)` в них подменяются. */
+const LABEL_FIELDS = ["title", "placeholder", "prompt"] as const;
+
+/**
+ * Поля диффа, которые едут как есть (`null` — «сброшено»). `value` среди них:
+ * это не ярлык, а текст, который человек правит и который уезжает обратно.
+ */
+const PLAIN_FIELDS = [
+    "step",
+    "totalSteps",
+    "value",
+    "canSelectMany",
+    "matchOnDescription",
+    "matchOnDetail",
+    "keepScrollPosition",
+] as const;
 
 /**
  * Строка провода → строка сессии. `detail` отдельной строкой наш однострочный
@@ -246,5 +257,5 @@ function toSessionItem(item: IWireQuickPickSessionItem): IExtensionQuickPickItem
 
 /** Текст, если в нём что-то есть; пустая строка и отсутствие — одно и то же. */
 function nonEmpty(text: string | undefined): string | undefined {
-    return text === undefined || text === "" ? undefined : text;
+    return text === "" ? undefined : text;
 }

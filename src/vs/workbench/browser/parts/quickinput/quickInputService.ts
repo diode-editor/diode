@@ -330,22 +330,19 @@ export class QuickInputService {
      */
     private readonly slot: IQuickInputSlot = {
         claim: (onLost) => {
+            // Stryker disable next-line CallExpression: дублируется строкой ниже — `hide()` и так дёргает onDidClose прошлого владельца, а тот доводит его показ до конца сам; явный settle только называет намерение (как в quickPickMany)
             this.settle(undefined);
             this.component.hide();
-            const owner = (): void => {
-                onLost();
-            };
-            this.pendingResolve = owner;
+            this.pendingResolve = onLost;
             this.takeOwnership();
-            return { view: this.component.view, ticket: owner };
+            return this.component.view;
         },
         open: () => {
             this.component.show();
         },
-        release: (ticket) => {
-            if (this.pendingResolve === ticket) this.settle(undefined);
+        release: () => {
+            this.settle(undefined);
         },
-        owns: (ticket) => this.pendingResolve === ticket,
     };
 
     /**

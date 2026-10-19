@@ -211,14 +211,15 @@ export class WindowCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("window.quickPick.update", (params) => {
                 const update = parseWireQuickPickUpdate(params);
-                if (update === null || quickInputSink === undefined) return;
+                if (update === null) return;
                 quickPickHandles.add(update.handle);
-                quickInputSink.updateQuickPick(update, emitQuickPickEvent);
+                quickInputSink?.updateQuickPick(update, emitQuickPickEvent);
             }),
         );
         store.add(
             rpc.handleNotification("window.quickPick.dispose", (params) => {
                 const handle = parseWireQuickPickDispose(params);
+                // Stryker disable next-line ConditionalExpression: проверка null — для типов; `Set.delete(null)` и так false, и мусор отсеивается второй половиной
                 if (handle === null || !quickPickHandles.delete(handle)) return;
                 quickInputSink?.disposeQuickPick(handle);
             }),
@@ -264,7 +265,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 for (const handle of quickInputHandles) quickInputSink?.cancel(handle);
                 // Stryker disable next-line OptionalChaining: см. выше
                 for (const handle of messageHandles) notificationSink?.cancel(handle);
-                // Stryker disable next-line OptionalChaining: см. выше
                 for (const handle of quickPickHandles) quickInputSink?.disposeQuickPick(handle);
             },
         });

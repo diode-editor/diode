@@ -4,10 +4,10 @@ import { parseWireQuickPickDispose, parseWireQuickPickUpdate } from "./hostWireP
 
 describe("parseWireQuickPickUpdate", () => {
     it("дифф — только присланные поля; null — «сброшено»", () => {
-        expect(parseWireQuickPickUpdate({ handle: 3, title: null, busy: true, value: "" })).toEqual({
+        expect(parseWireQuickPickUpdate({ handle: 3, title: null, canSelectMany: true, value: "" })).toEqual({
             handle: 3,
             title: null,
-            busy: true,
+            canSelectMany: true,
             value: "",
         });
     });
@@ -22,14 +22,12 @@ describe("parseWireQuickPickUpdate", () => {
             placeholder: "p",
             prompt: "pr",
             value: "v",
-            busy: false,
-            enabled: false,
             canSelectMany: true,
             matchOnDescription: false,
             matchOnDetail: true,
             keepScrollPosition: true,
             items: [{ handle: 4, label: "L", description: "D", detail: "De", alwaysShow: true }],
-            activeItems: [4],
+            activeItems: [0, 4],
             selectedItems: [],
         };
         expect(parseWireQuickPickUpdate(full)).toEqual(full);
@@ -58,7 +56,7 @@ describe("parseWireQuickPickUpdate", () => {
         expect(
             parseWireQuickPickUpdate({
                 handle: 3,
-                items: [null, { label: "без handle" }, { handle: 1.5, label: "дробный" }, { handle: 2, label: 7 }],
+                items: [null, 5, { label: "без handle" }, { handle: 1.5, label: "дробный" }, { handle: 2, label: 7 }],
             }),
         ).toEqual({
             handle: 3,

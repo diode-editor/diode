@@ -395,8 +395,6 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
             {
                 handle: 5,
                 visible: true,
-                busy: true,
-                enabled: false,
                 matchOnDescription: true,
                 matchOnDetail: true,
                 keepScrollPosition: true,
@@ -430,5 +428,100 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         // Тот же handle после снятия — новый пикер, а не воскрешённый старый.
         adapter.updateQuickPick({ handle: 5, visible: true }, emit);
         expect(component.view.title).toBeUndefined();
+    });
+
+    it("после dispose тот же handle заводит живой пикер заново", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick({ handle: 5, visible: true, title: "old" }, emit);
+        adapter.disposeQuickPick(5);
+        adapter.updateQuickPick({ handle: 5, visible: true }, emit);
+        expect(component.isOpen()).toBe(true);
+        expect(component.view.title).toBeUndefined();
+    });
+
+    it("незнакомый handle в activeItems выпадает, подсветка — по первому знакомому", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                items: [
+                    { handle: 0, label: "one" },
+                    { handle: 1, label: "two" },
+                ],
+                activeItems: [9, 1],
+            },
+            emit,
+        );
+        expect(component.view.inspectState()).toMatchObject({ activeIndex: 1 });
+    });
+
+    it("дифф без поля его не трогает: ярлыки, шаги, флаги и запрос остаются", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                title: "T",
+                step: 1,
+                totalSteps: 2,
+                prompt: "p",
+                placeholder: "ph",
+                value: "o",
+                canSelectMany: true,
+                matchOnDescription: true,
+                items: [{ handle: 0, label: "one", description: "x" }],
+                selectedItems: [0],
+            },
+            emit,
+        );
+        adapter.updateQuickPick({ handle: 5, items: [{ handle: 0, label: "one", description: "x" }] }, emit);
+        expect(component.view.inspectState()).toMatchObject({
+            title: "T (1/2)",
+            query: "o",
+            items: ["one"],
+            checked: [],
+        });
+        expect(component.view.prompt).toBe("p");
+        expect(component.view.placeholder).toBe("ph");
+    });
+
+    it("keepScrollPosition из диффа держит подсветку на месте при новых предметах", () => {
+        const { adapter, component, testApp, emit } = objectPick();
+        const items = [
+            { handle: 0, label: "one" },
+            { handle: 1, label: "two" },
+        ];
+        adapter.updateQuickPick({ handle: 5, visible: true, keepScrollPosition: true, items }, emit);
+        testApp.sendKey("ArrowDown");
+        adapter.updateQuickPick({ handle: 5, items: [...items, { handle: 2, label: "three" }] }, emit);
+        expect(component.view.inspectState()).toMatchObject({ activeIndex: 1 });
+    });
+
+    it("matchOnDetail из диффа ищет по detail, даже когда на экране его заслонило описание", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                matchOnDetail: true,
+                value: "hidden",
+                items: [
+                    { handle: 0, label: "a", description: "shown", detail: "hidden" },
+                    { handle: 1, label: "b" },
+                ],
+            },
+            emit,
+        );
+        expect(component.view.inspectState()).toMatchObject({ items: ["a"] });
+    });
+
+    it("пустое описание уступает место detail", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            { handle: 5, visible: true, items: [{ handle: 0, label: "a", description: "", detail: "det" }] },
+            emit,
+        );
+        expect(component.view.items[0]).toMatchObject({ description: "det" });
     });
 });

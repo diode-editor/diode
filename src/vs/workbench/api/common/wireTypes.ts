@@ -1467,8 +1467,6 @@ export interface IWireQuickPickUpdate {
     readonly placeholder?: string | null;
     readonly prompt?: string | null;
     readonly value?: string;
-    readonly busy?: boolean;
-    readonly enabled?: boolean;
     readonly canSelectMany?: boolean;
     readonly matchOnDescription?: boolean;
     readonly matchOnDetail?: boolean;

@@ -170,6 +170,15 @@ describe("WindowNamespace", () => {
         expect(stub.requests.map((r) => r.method)).toEqual(["window.showQuickPick"]);
     });
 
+    it("createQuickPick отдаёт живой пикер: show() шлёт его состояние хосту", () => {
+        const { stub, window } = makeCtx();
+        const pick = window.createQuickPick();
+        pick.title = "Pick";
+        pick.show();
+        expect(stub.notifies.map((n) => n.method)).toEqual(["window.quickPick.update"]);
+        expect(stub.notifies[0]?.params).toMatchObject({ title: "Pick", visible: true });
+    });
+
     it("showInputBox уходит хосту запросом и резолвится введённым", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ value: "Ада" });
