@@ -670,5 +670,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-19-b2b9736f1cc3.json",
+    "generatedAt": "2026-10-19T22:34:03.633Z",
+    "commit": "b2b9736f1cc3",
+    "binaryVersion": "nightly-b2b9736",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
