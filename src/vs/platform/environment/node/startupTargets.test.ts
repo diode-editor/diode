@@ -1,9 +1,13 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { loadWorkspaceFile } from "../../workspace/common/workspaceFile.ts";
 
 import { CliArgsError, parseCliArgs } from "./cliArgs.ts";
-import { resolveStartupTargets } from "./startupTargets.ts";
+import { logicalWorkingDirectory, resolveStartupTargets } from "./startupTargets.ts";
 
 /** Порт к FS: перечисленные пути — папки, всё остальное — файлы. */
 function dirsAre(...dirs: string[]): (p: string) => boolean {
@@ -71,6 +75,19 @@ describe("resolveStartupTargets — файл воркспейса", () => {
         expect(targets.workspaceFile).toBeUndefined();
     });
 
+    // Через симлинк каталога: файл воркспейса — от логического cwd, остальное — от физического.
+    it("путь файла воркспейса — от логического cwd", () => {
+        const targets = resolveStartupTargets(parseCliArgs(["web.code-workspace", "a.ts"]), noDirs, "/home/me/link");
+        expect(targets.workspaceFile).toBe("/home/me/link/web.code-workspace");
+        expect(targets.files).toEqual([{ path: abs("a.ts") }]);
+    });
+
+    it("с --goto путь файла воркспейса — тоже от логического cwd", () => {
+        const targets = resolveStartupTargets(parseCliArgs(["-g", "web.code-workspace"]), noDirs, "/home/me/link");
+        expect(targets.workspaceFile).toBe("/home/me/link/web.code-workspace");
+        expect(targets.files).toEqual([]);
+    });
+
     it("при --diff файла воркспейса нет", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-d", "a.code-workspace", "b.code-workspace"]), noDirs);
         expect(targets.workspaceFile).toBeUndefined();
@@ -123,5 +140,72 @@ describe("resolveStartupTargets — --diff", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-d", "src", "b.ts"]), dirsAre("src"));
         expect(targets.folder).toBeUndefined();
         expect(targets.diff).toEqual({ original: abs("src"), modified: abs("b.ts") });
+    });
+});
+
+describe("logicalWorkingDirectory", () => {
+    const same = (): boolean => true;
+    const differ = (): boolean => false;
+
+    it("берёт $PWD, когда он ведёт в cwd", () => {
+        expect(logicalWorkingDirectory("/home/me/link/", "/real/dir", same)).toBe("/home/me/link");
+    });
+
+    it("устаревший $PWD — физический cwd", () => {
+        expect(logicalWorkingDirectory("/elsewhere", "/real/dir", differ)).toBe("/real/dir");
+    });
+
+    it("нет $PWD или он относительный — физический cwd", () => {
+        expect(logicalWorkingDirectory(undefined, "/real/dir", same)).toBe("/real/dir");
+        expect(logicalWorkingDirectory("link", "/real/dir", same)).toBe("/real/dir");
+    });
+});
+
+describe("файл воркспейса через симлинки — на настоящем диске", () => {
+    let root: string | undefined;
+    afterEach(() => {
+        if (root !== undefined) fs.rmSync(root, { recursive: true, force: true });
+        root = undefined;
+    });
+
+    const reader = {
+        readText: (filePath: string) => fs.promises.readFile(filePath, "utf-8"),
+        isDirectory: (filePath: string) =>
+            Promise.resolve(fs.statSync(filePath, { throwIfNoEntry: false })?.isDirectory() === true),
+    };
+    const sameDirectory = (a: string, b: string): boolean => {
+        const sa = fs.statSync(a);
+        const sb = fs.statSync(b);
+        return sa.dev === sb.dev && sa.ino === sb.ino;
+    };
+
+    it("cwd через симлинк каталога: папки — от названного пути, симлинк не разворачивается", async () => {
+        root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-ws-")));
+        fs.mkdirSync(path.join(root, "real", "proj"), { recursive: true });
+        fs.writeFileSync(path.join(root, "real", "w.code-workspace"), JSON.stringify({ folders: [{ path: "proj" }] }));
+        fs.symlinkSync(path.join(root, "real"), path.join(root, "link"));
+        const link = path.join(root, "link");
+
+        // Так стартует бинарь, запущенный из `cd link`: Node видит физический cwd.
+        const cwd = logicalWorkingDirectory(link, path.join(root, "real"), sameDirectory);
+        const targets = resolveStartupTargets(parseCliArgs(["w.code-workspace"]), () => false, cwd);
+        expect(targets.workspaceFile).toBe(path.join(link, "w.code-workspace"));
+        const contents = await loadWorkspaceFile(targets.workspaceFile ?? "", reader);
+        expect(contents.folder).toBe(path.join(link, "proj"));
+    });
+
+    it("сам файл — симлинк: папки — от каталога ссылки, а не цели", async () => {
+        root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-ws-")));
+        fs.mkdirSync(path.join(root, "configs"));
+        fs.mkdirSync(path.join(root, "repo", "proj"), { recursive: true });
+        fs.writeFileSync(
+            path.join(root, "configs", "w.code-workspace"),
+            JSON.stringify({ folders: [{ path: "proj" }] }),
+        );
+        const file = path.join(root, "repo", "w.code-workspace");
+        fs.symlinkSync(path.join(root, "configs", "w.code-workspace"), file);
+
+        const contents = await loadWorkspaceFile(file, reader);
+        expect(contents.folder).toBe(path.join(root, "repo", "proj"));
     });
 });

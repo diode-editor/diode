@@ -41,7 +41,7 @@ import {
 } from "../platform/environment/node/cliArgs.ts";
 import { createEnvironmentService } from "../platform/environment/node/environmentService.ts";
 import type { IStartupTargets, IStartupWorkspace } from "../platform/environment/node/startupTargets.ts";
-import { resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
+import { logicalWorkingDirectory, resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import type { IUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import type { IExtensionRegistrySource } from "../platform/extensionManagement/common/iExtensionRegistrySource.ts";
@@ -232,7 +232,8 @@ async function runEditor(): Promise<void> {
     // пустое окно (см. docs/TODO/Startup.md), cwd при этом НЕ трогается.
     let targets: IStartupTargets;
     try {
-        targets = resolveStartupTargets(cli, isExistingDirectory);
+        const cwd = logicalWorkingDirectory(process.env.PWD, process.cwd(), isSameDirectory);
+        targets = resolveStartupTargets(cli, isExistingDirectory, cwd);
     } catch (err) {
         if (err instanceof CliArgsError) {
             console.error(err.message);
@@ -904,6 +905,14 @@ function allProfileExtensionsFiles(profiles: UserDataProfilesService): string[] 
 /** Порт к FS для {@link resolveStartupTargets}: путь существует и это папка. */
 function isExistingDirectory(absolutePath: string): boolean {
     return fs.statSync(absolutePath, { throwIfNoEntry: false })?.isDirectory() === true;
+}
+
+/** Порт к FS для {@link logicalWorkingDirectory}: оба пути — один и тот же каталог. */
+function isSameDirectory(a: string, b: string): boolean {
+    const statA = fs.statSync(a, { throwIfNoEntry: false });
+    const statB = fs.statSync(b, { throwIfNoEntry: false });
+    if (statA === undefined || statB === undefined) return false;
+    return statA.dev === statB.dev && statA.ino === statB.ino;
 }
 
 /**
