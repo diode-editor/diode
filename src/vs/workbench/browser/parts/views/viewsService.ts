@@ -923,7 +923,7 @@ export class ViewsService implements IContextKeyContributor {
         if (active === null) return null;
         const path = active.getAncestorPath();
         for (const entry of this.containers.values()) {
-            // Stryker disable next-line ConditionalExpression: отсев контейнера целиком — только ускорение: тело вида вне его PaneView на пути фокуса не стоит
+            // Stryker disable next-line ConditionalExpression,LogicalOperator: отсев контейнера целиком — только ускорение: тело вида вне его PaneView на пути фокуса не стоит
             if (entry.paneView === null || !path.includes(entry.paneView)) continue;
             for (const record of entry.views) {
                 const body = record.body ?? record.placeholderView;
