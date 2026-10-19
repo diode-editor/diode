@@ -121,16 +121,19 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         const listChanged =
             valueChanged ||
             "items" in changes ||
-            // Stryker disable next-line ConditionalExpression: строки с чекбоксами пересоберёт и раскладка (ширина ряда сверяется на каждом layout), перефильтровка тут — явное намерение, кадр без неё тот же
+            // Stryker disable next-line ConditionalExpression,StringLiteral: строки с чекбоксами пересоберёт и раскладка (ширина ряда сверяется на каждом layout), перефильтровка тут — явное намерение, кадр без неё тот же
             "canSelectMany" in changes ||
             "matchOnDescription" in changes ||
             "matchOnDetail" in changes;
+        // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral,StringLiteral: проверка — чтобы не пересобирать строки вхолостую; без новых отметок набор тот же (отметки человека кладутся в состояние сразу, `onCheckedChange`), а перефильтровка ставит его сама
+        const checksChanged = !listChanged && "selectedItems" in changes;
+        const ownerMovedActive = "activeItems" in changes;
+        // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral: без перефильтрации подсветка не сдвигалась, и notifyActive всё равно промолчит (дедупликация по первой строке)
+        const activeMayHaveMoved = !ownerMovedActive && listChanged;
         if (listChanged) this.fillList(view, this.state.keepScrollPosition && !valueChanged);
-        // Stryker disable next-line ConditionalExpression: проверка — чтобы не пересобирать строки вхолостую; без новых отметок набор тот же (отметки человека кладутся в состояние сразу, `onCheckedChange`)
-        else if ("selectedItems" in changes) view.setCheckedItems(this.state.selectedItems);
-        if ("activeItems" in changes) this.applyActive(view);
-        // Stryker disable next-line ConditionalExpression: без перефильтрации подсветка не сдвигалась, и notifyActive всё равно промолчит (дедупликация по первой строке)
-        else if (listChanged) this.notifyActive(view);
+        if (checksChanged) view.setCheckedItems(this.state.selectedItems);
+        if (ownerMovedActive) this.applyActive(view);
+        if (activeMayHaveMoved) this.notifyActive(view);
         // Stryker disable next-line CallExpression: без пометки не перезапустится раскладка, а подсказку и сообщение переносит именно она — наблюдаемо только в живом приложении (TestApp раскладывает кадр безусловно); гейт — e2e-сценарий quick-input (кадр create-quick-pick-filtered)
         view.markDirty();
     }

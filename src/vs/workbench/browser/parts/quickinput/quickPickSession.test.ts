@@ -46,9 +46,11 @@ describe("QuickPickSession — показ и живое состояние", () 
         pick.update({ title: "Fruit", placeholder: "pick one", items: FRUITS });
         expect(component.isOpen()).toBe(false);
 
+        expect(pick.visible).toBe(false);
         pick.show();
 
         expect(component.isOpen()).toBe(true);
+        expect(pick.visible).toBe(true);
         expect(view()).toMatchObject({ title: "Fruit", items: ["apple", "banana", "cherry"], activeIndex: 0 });
         expect(component.view.placeholder).toBe("pick one");
     });
