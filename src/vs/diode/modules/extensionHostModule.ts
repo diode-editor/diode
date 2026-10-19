@@ -331,6 +331,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 logService,
                 container.get(OutputServiceDIToken),
                 () => {
+                    // Stryker disable next-line CallExpression: production-проводка модуля (как `environment` выше) — вызов колбэка на show закрыт юнитом ExtensionOutputAdapter, показ вида там, где он стоит, — юнитами ViewsService.openView
                     container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID);
                 },
             ),
