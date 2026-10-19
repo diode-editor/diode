@@ -66,6 +66,8 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
             title: "EXPLORER",
             collapsible: false,
         });
+        // Вид переносится — например, во вторичную боковую панель.
+        expect(h.service.canMoveView(EXPLORER_VIEW_ID)).toBe(true);
     });
 
     it("до открытия папки секция рисует welcome с кнопкой Open Folder, после — дерево", () => {
