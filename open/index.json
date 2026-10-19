@@ -656,5 +656,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-19-bac589be4c4f.json",
+    "generatedAt": "2026-10-19T18:50:45.262Z",
+    "commit": "bac589be4c4f",
+    "binaryVersion": "nightly-bac589b",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
