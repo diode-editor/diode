@@ -181,6 +181,14 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         });
     }
 
+    public saveAll(includeUntitled: boolean): Promise<boolean> {
+        return this.group.saveAll({ includeUntitled });
+    }
+
+    public async save(uri: string): Promise<string | null> {
+        return (await this.group.save(Uri.parse(uri)))?.toString() ?? null;
+    }
+
     /**
      * Wire-правки в правки документа: позиции клампятся к содержимому (их автор
      * — расширение, про наш текст оно ничего не знает). `null` — батч с

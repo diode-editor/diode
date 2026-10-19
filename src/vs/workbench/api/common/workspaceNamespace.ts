@@ -679,6 +679,15 @@ export function createWorkspaceNamespace(
             };
             return rpc.request("workspace.applyEdit", params);
         },
+        // Сохранение — на хосте (`$save`/`$saveAll` эталона): буферы и диалоги
+        // живут там. golang.go зовёт `saveAll(false)` перед `gopls.tidy` и
+        // vulncheck. `saveAs` не поднят: ему нужен диалог Save As на чужой буфер.
+        save: async (uri: vscode.Uri): Promise<vscode.Uri | undefined> => {
+            const saved = await rpc.request("workspace.save", { uri: uri.toString() });
+            return saved === null ? undefined : Uri.parse(saved.uri);
+        },
+        saveAll: (includeUntitled?: boolean): Thenable<boolean> =>
+            rpc.request("workspace.saveAll", includeUntitled === true ? { includeUntitled: true } : {}),
         // Файл ВНЕ папок воркспейса — `undefined`, как в эталоне («Returns
         // `undefined` when the given uri doesn't match any workspace folder»).
         // Раньше здесь стоял fallback на `workspaceFolders[0]`: в однопапочном

@@ -128,6 +128,12 @@ class FakeEditorOptions implements IEditorOptionsService {
     public applyWorkspaceEdit(): Promise<boolean> {
         return Promise.resolve(false);
     }
+    public saveAll(): Promise<boolean> {
+        return Promise.resolve(false);
+    }
+    public save(): Promise<string | null> {
+        return Promise.resolve(null);
+    }
     public fireSelectionChanged(selections: IActiveEditorSelections): void {
         for (const listener of [...this.selectionListeners]) listener(selections);
     }

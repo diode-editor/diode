@@ -160,7 +160,8 @@ gopls жив, даже когда активация падает (дыра №1
 - [x] **B5. `workbench.action.openSettingsJson`** (№10) — открывает user settings.json, как
       `openSettings`; опции эталона (`revealSetting`, `query`, `openToSide`) пока не
       применяются (golang.go зовёт без аргументов).
-- [ ] **B6. `workspace.saveAll`** (№12) — сервис сохранения уже есть, нужен мост.
+- [x] **B6. `workspace.saveAll`** (№12) — мост `workspace.saveAll`/`workspace.save` к
+      `IEditorService`; `saveAs` не поднят (нужен Save As на произвольный буфер).
 - [x] **B7. Untitled-документы `openTextDocument({ content, language })`** (№11) —
       как в эталоне: безымянный буфер ядра `untitled:Untitled-N` (грязный, правимый,
       Save As), а не read-only вкладка — untitled-модели в ядре уже были (File → New

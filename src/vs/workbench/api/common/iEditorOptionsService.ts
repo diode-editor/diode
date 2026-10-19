@@ -106,4 +106,17 @@ export interface IEditorOptionsService {
      * сохраняются по `files.refactoring.autoSave`.
      */
     applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[], options?: { isRefactoring?: boolean }): Promise<boolean>;
+
+    /**
+     * `workspace.saveAll`: сохраняет все несохранённые документы. `true` —
+     * сохранено всё (с `includeUntitled` — и безымянные буферы).
+     */
+    saveAll(includeUntitled: boolean): Promise<boolean>;
+
+    /**
+     * `workspace.save`: сохраняет открытый документ ресурса (`uri.toString()`).
+     * Результат — ресурс сохранённого документа, `null` — не открыт или не
+     * сохранился.
+     */
+    save(uri: string): Promise<string | null>;
 }

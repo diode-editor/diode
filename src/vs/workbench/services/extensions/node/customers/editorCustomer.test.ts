@@ -41,6 +41,8 @@ function setup() {
         setActiveEditorSelections: vi.fn(),
         applyActiveEditorEdits: vi.fn(() => true),
         applyWorkspaceEdit: vi.fn(() => Promise.resolve(true)),
+        saveAll: vi.fn(() => Promise.resolve(true)),
+        save: vi.fn((uri: string) => Promise.resolve(uri === "file:///open.go" ? uri : null)),
     } as unknown as IEditorOptionsService;
     const editorLayout: IEditorLayoutService = {
         getLayoutSnapshot: () => LAYOUT,
@@ -198,6 +200,29 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenLastCalledWith(ops, { isRefactoring: true });
         await h.peer.request("workspace.applyEdit", { ops, isRefactoring: "yes" } as never);
         expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenLastCalledWith(ops, { isRefactoring: false });
+    });
+
+    it("workspace.saveAll: includeUntitled доезжает до порта только как true, ответ — вердикт порта", async () => {
+        const h = setup();
+        h.attachTo();
+        await expect(h.peer.request("workspace.saveAll", {})).resolves.toBe(true);
+        expect(h.editorOptions.saveAll).toHaveBeenLastCalledWith(false);
+        await h.peer.request("workspace.saveAll", { includeUntitled: true });
+        expect(h.editorOptions.saveAll).toHaveBeenLastCalledWith(true);
+        await h.peer.request("workspace.saveAll", { includeUntitled: "yes" } as never);
+        expect(h.editorOptions.saveAll).toHaveBeenLastCalledWith(false);
+    });
+
+    it("workspace.save: ресурс сохранённого документа или null; мусор — null без порта", async () => {
+        const h = setup();
+        h.attachTo();
+        await expect(h.peer.request("workspace.save", { uri: "file:///open.go" })).resolves.toStrictEqual({
+            uri: "file:///open.go",
+        });
+        await expect(h.peer.request("workspace.save", { uri: "file:///closed.go" })).resolves.toBeNull();
+        expect(h.editorOptions.save).toHaveBeenCalledTimes(2);
+        await expect(h.peer.request("workspace.save", { uri: 1 } as never)).resolves.toBeNull();
+        expect(h.editorOptions.save).toHaveBeenCalledTimes(2);
     });
 
     async function expectFlushedReply(method: string, params: object, call: string, result: unknown): Promise<void> {

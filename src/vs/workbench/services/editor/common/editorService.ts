@@ -105,8 +105,13 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     getUntitledModelsWithoutEditor(): readonly TextFileModel[];
     /** Пути открытых файлов всех групп в порядке вкладок (без безымянных и недисковых). */
     getOpenFilePaths(): string[];
-    /** Сохранить все несохранённые документы с путём; изменённые на диске — не перезаписывать. */
-    saveAll(): Promise<void>;
+    /**
+     * Сохранить все несохранённые документы с путём; изменённые на диске — не
+     * перезаписывать. `true` — сохранено всё (с `includeUntitled` — и безымянные).
+     */
+    saveAll(options?: { includeUntitled?: boolean }): Promise<boolean>;
+    /** Сохранить открытый документ ресурса; `undefined` — не открыт или не сохранился. */
+    save(resource: Uri): Promise<Uri | undefined>;
     /** Вкладки, метки или активная вкладка поменялись. */
     readonly onDidChangeEditors: Event<void>;
     /** Сохранение любого редактора. */
