@@ -50,6 +50,7 @@ export class WorkbenchLayoutElement extends TUIElement {
     // Draggable dividers: vertical between sidebar and editor, horizontal between
     // editor and bottom panel.
     private sash = new SashElement("vertical");
+    // Stryker disable next-line StringLiteral: SashElement сверяет ориентацию только с "vertical" — любая другая строка и есть горизонталь, мутант эквивалентен
     private bottomSash = new SashElement("horizontal");
 
     public constructor() {
