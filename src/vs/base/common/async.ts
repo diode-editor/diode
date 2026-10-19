@@ -1,4 +1,5 @@
 import type { IDisposable } from "./lifecycle.ts";
+import { setTimeout0 } from "./platform.ts";
 
 /**
  * Отложенный запуск «один раз»: `schedule()` перезаводит таймер, и функция
@@ -42,4 +43,35 @@ export class RunOnceScheduler implements IDisposable {
         this.cancel();
         this.runner = null;
     }
+}
+
+/** Бюджет idle-колбэка — upstream `IdleDeadline` (форма `requestIdleCallback`). */
+export interface IdleDeadline {
+    readonly didTimeout: boolean;
+    timeRemaining(): number;
+}
+
+/**
+ * Запуск «когда процесс свободен» — upstream `runWhenGlobalIdle` в его ветке для
+ * окружения без `requestIdleCallback` (Node, где мы и живём): колбэк уходит на
+ * {@link setTimeout0}, бюджет — один кадр, 15 мс. Ветки с `requestIdleCallback`
+ * у нас нет: терминальный процесс простоя не публикует.
+ */
+export function runWhenGlobalIdle(callback: (idle: IdleDeadline) => void): IDisposable {
+    let disposed = false;
+    setTimeout0(() => {
+        if (disposed) return;
+        const end = Date.now() + 15; // one frame at 64fps
+        callback(
+            Object.freeze({
+                didTimeout: true,
+                timeRemaining: () => Math.max(0, end - Date.now()),
+            }),
+        );
+    });
+    return {
+        dispose: () => {
+            disposed = true;
+        },
+    };
 }

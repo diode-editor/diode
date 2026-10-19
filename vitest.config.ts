@@ -46,7 +46,7 @@ export default defineConfig({
         "src/vs/workbench/services/extensions/node/__fixtures__/**",
 
         // --- Дословный перенос upstream vscode: не наш код ---
-        // Переносится машинно (scripts/import-vscode-diff.mjs), правится только
+        // Переносится машинно (scripts/import-vscode-editor.mjs), правится только
         // сменой пина, ручные правки запрещены — покрывать нечего и незачем.
         // Настоящий гейт этого кода — фикстурный корпус upstream на 58 кейсов
         // (src/vs/editor/common/diff/diffFixtures.test.ts): он ловит поехавший
@@ -60,6 +60,11 @@ export default defineConfig({
         "src/vs/editor/common/core/{position,range,editOperation}.ts",
         "src/vs/editor/common/core/{ranges,text,edits}/**",
         "src/vs/base/common/charCode.ts",
+        // Токенизация модели: её гейт — наши тесты адаптера
+        // (editor/common/tokens/documentTokenStore.*.test.ts) через публичный шов.
+        "src/vs/base/common/stopwatch.ts",
+        "src/vs/editor/common/model/{textModelTokens,fixedArray}.ts",
+        "src/vs/editor/common/core/misc/eolCounter.ts",
         "**/__fixtures__/**", // тестовые ДАННЫЕ (чужие исходники), не исполняемый код
 
         // --- Чистые типы: нечего исполнять ---

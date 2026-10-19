@@ -14,7 +14,7 @@ describe("DocumentTokenStore.getEndState", () => {
         // Before tokenization there is no cached end state.
         expect(store.getEndState(0)).toBeUndefined();
 
-        store.tokenizeUpTo(2);
+        store.forceTokenization(2);
 
         // PlainTextTokenizer is stateless, so every line ends in the NULL_STATE singleton.
         const s0 = store.getEndState(0);
@@ -24,33 +24,34 @@ describe("DocumentTokenStore.getEndState", () => {
     });
 });
 
-describe("DocumentTokenStore.handleContentChange — invalidLineIndex clamp", () => {
-    it("clamps invalidLineIndex down to the new lineCount after a multi-line delete", () => {
+describe("DocumentTokenStore.handleContentChange — точность после удаления", () => {
+    it("многострочное удаление: строки выше точны, сама правка и ниже — нет", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
+        store.forceTokenization(4);
+        expect(store.hasAccurateTokensForLine(4)).toBe(true);
 
-        // Drive invalidLineIndex up to lineCount (5) via the end-state convergence
-        // optimisation: a stateless tokenizer converges on line 0 and jumps to EOF.
-        store.tokenizeUpTo(4);
-        expect(store.invalidLineIndex).toBe(5);
-
-        // Delete lines 2..4 (range (2,0)-(4,0)). startLine (2) is below the current
-        // invalidLineIndex, so it drops to 2 — but afterwards the final clamp keeps it
-        // within [0, lineCount]. Verify it never exceeds the shrunken document.
+        // Delete lines 2..4 (range (2,0)-(4,0)): a, b, e.
         doc.applyEdits([createDeleteEdit(2, 0, 4, 0)]);
-        expect(store.invalidLineIndex).toBeLessThanOrEqual(doc.lineCount);
-        expect(store.invalidLineIndex).toBe(2);
+        expect(store.hasAccurateTokensForLine(1)).toBe(true);
+        expect(store.hasAccurateTokensForLine(2)).toBe(false);
+
+        store.forceTokenization(doc.lineCount - 1);
+        expect(store.hasAccurateTokensForLine(doc.lineCount - 1)).toBe(true);
+        expect(store.getLineTokens(2)).toBeDefined();
     });
 
-    it("never reports invalidLineIndex past EOF when an edit touches the last line", () => {
+    it("правка, схлопнувшая хвост на строку 0, оставляет её неточной до пересчёта", () => {
         const doc = new TextDocument("a\nb\nc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(2);
-        expect(store.invalidLineIndex).toBe(3);
+        store.forceTokenization(2);
 
         // Delete the final two lines, collapsing onto line 0.
         doc.applyEdits([createDeleteEdit(0, 1, 2, 1)]);
-        expect(store.invalidLineIndex).toBeLessThanOrEqual(doc.lineCount);
+        expect(doc.lineCount).toBe(1);
+        expect(store.hasAccurateTokensForLine(0)).toBe(false);
+        store.forceTokenization(0);
+        expect(store.hasAccurateTokensForLine(0)).toBe(true);
     });
 });
 
@@ -69,23 +70,23 @@ describe("DocumentTokenStore.setLineTokens — out-of-range guard", () => {
     });
 });
 
-describe("DocumentTokenStore.tokenizeUpTo — resume from a middle line", () => {
+describe("DocumentTokenStore.forceTokenization — resume from a middle line", () => {
     it("seeds the state from the preceding line's end state when resuming below line 0", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
 
-        // Tokenize only [0..1]; the stateless tokenizer never converges here
-        // (cached end states were undefined), so invalidLineIndex lands at 2.
-        store.tokenizeUpTo(1);
-        expect(store.invalidLineIndex).toBe(2);
+        // Tokenize only [0..1]: the untouched tail stays inaccurate.
+        store.forceTokenization(1);
+        expect(store.hasAccurateTokensForLine(1)).toBe(true);
+        expect(store.hasAccurateTokensForLine(2)).toBe(false);
         expect(store.getLineTokens(3)).toBeUndefined();
 
-        // Resuming starts the loop at line 2 (> 0), so the initial `state` is taken
-        // from endStates[1] — the `line !== 0` branch of the state selection.
-        store.tokenizeUpTo(3);
+        // Resuming starts at line 2, seeded from line 1's end state.
+        store.forceTokenization(3);
         expect(store.getLineTokens(2)).toBeDefined();
         expect(store.getLineTokens(3)).toBeDefined();
-        expect(store.invalidLineIndex).toBe(4);
+        expect(store.hasAccurateTokensForLine(3)).toBe(true);
+        expect(store.hasAccurateTokensForLine(4)).toBe(false);
     });
 });
 

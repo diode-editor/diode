@@ -10,7 +10,7 @@ describe("DocumentTokenStore invalidation", () => {
     it("invalidates the edited line on a single-line edit", () => {
         const doc = new TextDocument("aaa\nbbb\nccc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(2);
+        store.forceTokenization(2);
         expect(store.getLineTokens(1)).toBeDefined();
 
         doc.applyEdits([createInsertEdit(1, 1, "X")]);
@@ -21,20 +21,22 @@ describe("DocumentTokenStore invalidation", () => {
         expect(store.getLineTokens(2)).toBeDefined();
     });
 
-    it("lowers invalidLineIndex to the change's startLine", () => {
+    it("the edited line and everything below lose accuracy, lines above keep it", () => {
         const doc = new TextDocument("aaa\nbbb\nccc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(2);
-        expect(store.invalidLineIndex).toBe(doc.lineCount);
+        store.forceTokenization(2);
+        expect(store.hasAccurateTokensForLine(2)).toBe(true);
 
         doc.applyEdits([createInsertEdit(1, 0, "Z")]);
-        expect(store.invalidLineIndex).toBe(1);
+        expect(store.hasAccurateTokensForLine(0)).toBe(true);
+        expect(store.hasAccurateTokensForLine(1)).toBe(false);
+        expect(store.hasAccurateTokensForLine(2)).toBe(false);
     });
 
     it("invalidates every line in the changed range on a multi-line insert", () => {
         const doc = new TextDocument("a\nb\nc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(2);
+        store.forceTokenization(2);
 
         doc.applyEdits([createInsertEdit(1, 0, "X\nY\n")]);
         // After insert: a, X, Y, b, c
@@ -49,12 +51,12 @@ describe("DocumentTokenStore invalidation", () => {
     it("setTokenizationSupport invalidates the entire cache", () => {
         const doc = new TextDocument("a\nb\nc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(2);
-        expect(store.invalidLineIndex).toBe(doc.lineCount);
+        store.forceTokenization(2);
+        expect(store.hasAccurateTokensForLine(0)).toBe(true);
 
         store.setTokenizationSupport(new PlainTextTokenizer());
 
-        expect(store.invalidLineIndex).toBe(0);
+        expect(store.hasAccurateTokensForLine(0)).toBe(false);
         expect(store.getLineTokens(0)).toBeUndefined();
     });
 });

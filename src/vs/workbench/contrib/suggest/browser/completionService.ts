@@ -692,12 +692,14 @@ export class CompletionService extends Disposable implements IContextKeyContribu
 
     /**
      * Вид токена перед кареткой (upstream берёт символ слева: `column - 2`).
-     * Токенизация до строки каретки — как у рендера (`tokenizeUpTo`): каретка
-     * почти всегда во вьюпорте, и строки до неё уже размечены.
+     * Доводка до строки каретки — только если она дешёвая (upstream
+     * `tokenizeIfCheap`): за фронтиром фоновой токенизации у каретки во
+     * вьюпорте уже лежат эвристические токены, а честный проход до неё на
+     * большом файле — секунды на нажатие.
      */
     private tokenTypeBefore(editor: TextEditorPane, caret: IPosition): StandardTokenType {
         const store = editor.viewState.tokenStore;
-        store?.tokenizeUpTo(caret.line);
+        store?.tokenizeIfCheap(caret.line);
         return standardTokenTypeAt(store?.getLineTokens(caret.line), Math.max(caret.character - 1, 0));
     }
 

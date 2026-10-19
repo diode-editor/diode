@@ -13,7 +13,7 @@ export default tseslint.config(
             "src/vscode-dts/vscode.d.ts",
             "src/vs/workbench/services/extensions/node/__fixtures__/*.cjs",
             "extensions/*/out/",
-            // Дословный перенос upstream vscode (scripts/import-vscode-diff.mjs):
+            // Дословный перенос upstream vscode (scripts/import-vscode-editor.mjs):
             // правится только сменой пина, поэтому замечания strictTypeChecked
             // по нему нечем закрыть — их нельзя исправлять по определению.
             // Пути перечислены точечно: наши тесты лежат в тех же каталогах и
@@ -24,6 +24,9 @@ export default tseslint.config(
             "src/vs/editor/common/core/{position,range,editOperation}.ts",
             "src/vs/editor/common/core/{ranges,text,edits}/**",
             "src/vs/base/common/charCode.ts",
+            "src/vs/base/common/stopwatch.ts",
+            "src/vs/editor/common/model/{textModelTokens,fixedArray}.ts",
+            "src/vs/editor/common/core/misc/eolCounter.ts",
             // Тестовые ДАННЫЕ корпуса: чужие исходники, а не наш код.
             "**/__fixtures__/**",
         ],

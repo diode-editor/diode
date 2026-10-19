@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:vendored microsoft/vscode@1.127.0 src/vs/editor/common/diff/defaultLinesDiffComputer/utils.ts
-// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-diff.mjs (см. AGENTS.md).
+// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).
 
 import { CharCode } from '../../../../base/common/charCode.ts';
 import { LineRange } from '../../core/ranges/lineRange.ts';

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:vendored microsoft/vscode@1.127.0 src/vs/editor/common/core/text/abstractText.ts
-// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-diff.mjs (см. AGENTS.md).
+// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).
 
 import { assert } from '../../../../base/common/assert.ts';
 import { splitLines } from '../../../../base/common/strings.ts';

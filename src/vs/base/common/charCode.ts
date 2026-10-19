@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:vendored microsoft/vscode@1.127.0 src/vs/base/common/charCode.ts
-// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-diff.mjs (см. AGENTS.md).
+// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).
 
 // Names from https://blog.codinghorror.com/ascii-pronunciation-rules-for-programmers/
 

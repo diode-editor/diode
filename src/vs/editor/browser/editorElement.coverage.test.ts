@@ -109,11 +109,11 @@ describe("EditorElement — token rendering edge cases", () => {
     });
 
     it("skips tokenization when no visual line is in range (zero-height viewport)", () => {
-        // With height 0, lastVisibleLogical resolves to -1, so tokenizeUpTo is never called.
+        // With height 0, lastVisibleLogical resolves to -1, so tokenizeViewport is never called.
         const doc = new TextDocument("abc\ndef");
         const viewState = new EditorViewState(doc);
         const store = new DocumentTokenStore(doc, new WholeLineTokenizer());
-        const spy = vi.spyOn(store, "tokenizeUpTo");
+        const spy = vi.spyOn(store, "tokenizeViewport");
         viewState.tokenStore = store;
         const editor = new EditorElement(viewState);
         const app = TestApp.createWithContent(editor, new Size(30, 0));

@@ -81,7 +81,7 @@ describe("EditorElement syntax highlighting", () => {
 });
 
 describe("EditorElement tokenization — вырожденный вьюпорт", () => {
-    it("нулевая высота: рендер не дёргает tokenizeUpTo (нет видимых строк)", () => {
+    it("нулевая высота: рендер не дёргает tokenizeViewport (нет видимых строк)", () => {
         const doc = new TextDocument("if x");
         const viewState = new EditorViewState(doc);
         const store = new DocumentTokenStore(doc, new WordTokenizer());
@@ -98,7 +98,7 @@ describe("EditorElement tokenization — вырожденный вьюпорт",
             ...ROOT_STYLE_CONTEXT,
             vars: extendVarScope(ROOT_STYLE_CONTEXT.vars, { "editor.selectionBackground": packRgb(38, 79, 120) }),
         });
-        const spy = vi.spyOn(store, "tokenizeUpTo");
+        const spy = vi.spyOn(store, "tokenizeViewport");
         editor.render(new RenderContext(backendScreen, new Offset(0, 0), new Rect(new Point(0, 0), new Size(20, 1))));
 
         expect(spy).not.toHaveBeenCalled();

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:vendored microsoft/vscode@1.127.0 src/vs/editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts
-// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-diff.mjs (см. AGENTS.md).
+// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).
 
 import { equals } from '../../../../base/common/arrays.ts';
 import { assertFn } from '../../../../base/common/assert.ts';

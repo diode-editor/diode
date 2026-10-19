@@ -202,7 +202,7 @@ export class EditorViewState {
     private viewZonesValue: readonly IViewZone[] = [];
     /**
      * Optional per-document token cache. The renderer is responsible for
-     * calling `tokenStore.tokenizeUpTo(visibleBottom)` before reading tokens.
+     * calling `tokenStore.tokenizeViewport(top, bottom)` before reading tokens.
      */
     public tokenStore: DocumentTokenStore | undefined;
     /**
@@ -827,7 +827,7 @@ export class EditorViewState {
     /**
      * Returns tokens for a visual line (from the attached token store, if any).
      * Does NOT trigger lazy tokenization — the renderer must call
-     * `tokenStore.tokenizeUpTo(...)` first.
+     * `tokenStore.tokenizeViewport(...)` first.
      */
     public getViewLineTokens(visualLineNumber: number): ILineTokens | undefined {
         if (!this.tokenStore) return undefined;

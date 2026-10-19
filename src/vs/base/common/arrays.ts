@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/arrays.ts
 // Узкое извлечение: только символы, нужные перенесённому коду в
-// src/vs/editor/common/{diff,core}. Полный upstream-файл тянет
+// src/vs/editor/common/{diff,core,model}. Полный upstream-файл тянет
 // cancellation → event → lifecycle → observableInternal (~30 файлов, диффу не
 // нужных ни строкой). Логика и имена — дословно upstream (так извлечение можно
 // сверить с оригиналом глазами), форматирование наше. Расширять по мере того,
@@ -134,4 +134,10 @@ export function pushMany<T>(arr: T[], items: readonly T[]): void {
 
 export function sumBy<T>(array: readonly T[], selector: (value: T) => number): number {
     return array.reduce((acc, value) => acc + selector(value), 0);
+}
+
+export function arrayInsert<T>(target: T[], insertIndex: number, insertArr: T[]): T[] {
+    const before = target.slice(0, insertIndex);
+    const after = target.slice(insertIndex);
+    return before.concat(insertArr, after);
 }

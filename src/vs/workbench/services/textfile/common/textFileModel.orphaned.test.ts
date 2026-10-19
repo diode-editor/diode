@@ -32,7 +32,10 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
     let diskStateEvents: number;
 
     beforeEach(() => {
-        vi.useFakeTimers();
+        // Фейкаем только таймеры, которые проверяем: setImmediate остаётся настоящим —
+        // на нём фоновая токенизация открытого буфера (DocumentTokenStore), и её
+        // кусок, ждущий очереди, — не утечка этого сценария.
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
         ws = createTempWorkspace({ prefix: "diode-orphaned-" });
         watcher = new FakeFileWatcher();
         pane = createEditorPane();

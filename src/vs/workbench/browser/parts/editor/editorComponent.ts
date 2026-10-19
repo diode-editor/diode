@@ -205,6 +205,12 @@ export class EditorComponent extends Component {
         );
         this.editorViewState.tokenStore = this.tokenStore;
         this.editor = new EditorElement(this.editorViewState);
+        // Фоновая токенизация докладывает строки — кадр, если они на экране.
+        this.register(
+            this.tokenStore.onDidChangeTokens(({ fromLine, toLine }) => {
+                this.editor.handleTokensChanged(fromLine, toLine);
+            }),
+        );
         this.editor.tokenStyleResolver = tokenStyleResolver;
         this.attachLanguageConfiguration();
         this.editor.focusable = true;

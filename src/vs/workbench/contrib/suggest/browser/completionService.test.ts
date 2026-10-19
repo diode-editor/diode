@@ -91,7 +91,7 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
                 tokenStore:
                     state.tokens === undefined
                         ? undefined
-                        : { tokenizeUpTo: () => undefined, getLineTokens: () => state.tokens },
+                        : { tokenizeIfCheap: () => undefined, getLineTokens: () => state.tokens },
             };
         },
         getText: () => docText,
