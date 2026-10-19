@@ -136,7 +136,11 @@ PR влит `--admin`.
   - [ ] `explorerComponent.decorations.test.ts` › «свёрнутая папка с изменённым
     файлом глубоко внутри — цвет файла и «●»»: `expected '  old\n  pkg/a/b\n
     C.java\n …' to contain 'util.ts'`. Локально на main — 4 из 10. Валит и job
-    `test`, и dry run мутаций (`There were failed tests in the initial test run`).
+    `test`, и dry run мутаций (`There were failed tests in the initial test run`):
+    повторился на #648, #656, #657, а на #663 съел вердикт гейта.
+  - [ ] `workbench.fileCreate.test.ts` › «create via context menu › New File... entry
+    prompts and creates a file»: `expected false to be true`. Уронил dry run мутаций
+    на #662 (ран 39231486646) — вердикта нет, PR-диффом не задет.
   - [ ] `treeWatcherMain.integration.test.ts` › «правка файла на диске доезжает до
     колбэка в процессе редактора»: `expected 'changed' to be 'created'` —
     похоже, первым долетает событие создания файла, а не правки.
