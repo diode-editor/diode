@@ -69,8 +69,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Views"));
         await editor.capture("container-menu");
 
-        // Подменю Views — чекбоксы видимости секций.
-        await editor.sendKey("ArrowDown");
+        // Подменю Views — чекбоксы видимости секций. Views — первый пункт и
+        // выделен при открытии; ниже — «Move To» (перенос контейнера).
         await editor.sendKey("ArrowRight");
         await editor.waitForText((t) => t.includes("CHANGES") && t.includes("GRAPH"));
         await editor.capture("views-submenu");
