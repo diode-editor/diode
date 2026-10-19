@@ -228,8 +228,8 @@ export function toWireMarker(diag: unknown): WireMarker | null {
 /** Маркер провода → `vscode.Diagnostic` (обратный к {@link toWireMarker}, `Diagnostic.to` эталона). */
 export function toVscodeDiagnostic(marker: WireMarker): vscode.Diagnostic {
     const diag = new Diagnostic(toVscodeRange(marker.range), marker.message, marker.severity);
-    if (marker.code !== undefined) diag.code = marker.code;
-    if (marker.source !== undefined) diag.source = marker.source;
+    diag.code = marker.code;
+    diag.source = marker.source;
     return diag;
 }
 

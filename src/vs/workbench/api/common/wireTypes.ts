@@ -1012,9 +1012,9 @@ export function parseWireMarkersChanged(raw: unknown): IWireForeignMarkers[] {
         if (typeof entry?.resource !== "string" || !Array.isArray(entry.markers)) continue;
         const markers: WireMarker[] = [];
         for (const rawMarker of entry.markers as unknown[]) {
-            const m = rawMarker as Record<string, unknown> | null;
-            const range = parseRange(m?.range);
-            if (m == null || range === null || !isFiniteNumber(m.severity) || typeof m.message !== "string") continue;
+            const m = (rawMarker ?? {}) as Record<string, unknown>;
+            const range = parseRange(m.range);
+            if (range === null || !isFiniteNumber(m.severity) || typeof m.message !== "string") continue;
             markers.push({
                 severity: m.severity,
                 range,

@@ -171,6 +171,18 @@ describe("languages.onDidChangeDiagnostics", () => {
         expect(events.map((uris) => uris.map(String))).toEqual([[B.toString(), A.toString()], [A.toString()]]);
     });
 
+    it("delete — изменение своего ресурса, даже если его не было", () => {
+        const { languages } = makeLanguages();
+        const events: string[][] = [];
+        languages.onDidChangeDiagnostics((e) => events.push(e.uris.map(String)));
+        const ts = languages.createDiagnosticCollection("ts");
+
+        ts.delete(A);
+        vi.advanceTimersByTime(50);
+
+        expect(events).toEqual([[A.toString()]]);
+    });
+
     it("dispose коллекции — тоже изменение её ресурсов", () => {
         const { languages } = makeLanguages();
         const events: string[][] = [];
