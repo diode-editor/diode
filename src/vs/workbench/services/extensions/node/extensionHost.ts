@@ -211,7 +211,11 @@ export interface IExtensionHostOptions {
      */
     readonly spawnArgs?: () => { command: string; args: string[]; env?: NodeJS.ProcessEnv };
     /**
-     * Тайм-аут на ожидание `host.ready` от subprocess'а, мс. Default: 5000.
+     * Тайм-аут на ожидание `host.ready` от subprocess'а, мс. Default: 60000 —
+     * как у эталона (`LocalProcessExtensionHost._performHandshake`: «took longer
+     * than 60s to send its ready message»). Опоздание списывает хост до
+     * перезапуска, поэтому запас — на холодный старт под нагрузкой, а не на
+     * типичные доли секунды.
      */
     readonly readyTimeoutMs?: number;
     /**
@@ -551,7 +555,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         super();
         this.options = {
             spawnArgs: options.spawnArgs ?? defaultSpawnArgs,
-            readyTimeoutMs: options.readyTimeoutMs ?? 5000,
+            readyTimeoutMs: options.readyTimeoutMs ?? 60_000,
             shutdownTimeoutMs: options.shutdownTimeoutMs ?? 1500,
             workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs ?? 7000,
         };
