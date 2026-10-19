@@ -350,6 +350,7 @@ export class PanelContainerElement extends TUIElement {
         const active = this.activeView();
         if (active?.content == null && active?.placeholder !== undefined && height > this.contentTop) {
             const message = active.placeholder;
+            // Stryker disable next-line UpdateOperator: «i--» зацикливает отрисовку — тест виснет (таймаут верификатора), а не проходит; текст плейсхолдера закрыт тестами отрисовки
             for (let i = 0; i < message.length && i + this.contentLeft < width; i++) {
                 context.setCell(i + this.contentLeft, this.contentTop, {
                     char: message[i],

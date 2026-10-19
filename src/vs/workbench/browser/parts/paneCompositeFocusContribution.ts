@@ -40,8 +40,9 @@ export class PaneCompositeFocusContribution extends Disposable implements IWorkb
     /** Если фокус внутри поддерева части — отдать его редактору (иначе снять). */
     private releaseFocusFromPart(): void {
         const focusManager = this.partComponent.view.getRoot()?.focusManager ?? null;
-        const active = focusManager?.activeElement ?? null;
-        if (focusManager === null || active === null) return;
+        if (focusManager === null) return;
+        const active = focusManager.activeElement;
+        if (active === null) return;
         if (!active.getAncestorPath().includes(this.partComponent.view)) return;
         this.editorService.focusEditor();
         // Открытых редакторов нет — фокусу некуда идти, но и на скрытом виджете
