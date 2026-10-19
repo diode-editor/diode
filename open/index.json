@@ -446,5 +446,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-19-80fada179234.json",
+    "generatedAt": "2026-10-19T08:58:58.311Z",
+    "commit": "80fada179234",
+    "binaryVersion": "nightly-80fada1",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
