@@ -36,6 +36,7 @@ import {
     type IWireConfigurationUpdate,
     type IWireCreateUntitledParams,
     type IWireDiagnosticsPublish,
+    type IWireDialogFilter,
     type IWireEditorEdit,
     type IWireFileDecoration,
     type IWireInputBoxRequest,
@@ -45,6 +46,7 @@ import {
     type IWireLanguageProviderUnregistration,
     type IWireMementoUpdate,
     type IWireMessageItem,
+    type IWireOpenDialogRequest,
     type IWireOutputAppend,
     type IWireOutputShow,
     type IWireProgressEnd,
@@ -55,6 +57,7 @@ import {
     type IWireQuickPickRequest,
     type IWireQuickPickSessionItem,
     type IWireQuickPickUpdate,
+    type IWireSaveDialogRequest,
     type IWireSecretWrite,
     type IWireSemanticTokensLegend,
     type IWireShowMessageRequest,
@@ -1164,5 +1167,44 @@ export function parseWireUpdateWorkspaceFolders(raw: unknown): IWireUpdateWorksp
     return {
         extensionId: typeof p.extensionId === "string" ? p.extensionId : null,
         folders: p.folders,
+    };
+}
+
+function parseWireDialogFilters(raw: unknown): IWireDialogFilter[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const filters: IWireDialogFilter[] = [];
+    for (const entry of raw) {
+        const filter = entry as { name?: unknown; extensions?: unknown } | null | undefined;
+        if (typeof filter?.name !== "string" || !Array.isArray(filter.extensions)) continue;
+        filters.push({
+            name: filter.name,
+            extensions: filter.extensions.filter((ext): ext is string => typeof ext === "string"),
+        });
+    }
+    return filters;
+}
+
+/** Разбирает `window.showOpenDialog`; поля чужого типа — «не заданы». */
+export function parseWireOpenDialogRequest(raw: unknown): IWireOpenDialogRequest {
+    const p = (raw ?? {}) as Record<string, unknown>;
+    return {
+        defaultUri: optionalWireString(p.defaultUri),
+        openLabel: optionalWireString(p.openLabel),
+        canSelectFiles: optionalWireBoolean(p.canSelectFiles),
+        canSelectFolders: optionalWireBoolean(p.canSelectFolders),
+        canSelectMany: optionalWireBoolean(p.canSelectMany),
+        filters: parseWireDialogFilters(p.filters),
+        title: optionalWireString(p.title),
+    };
+}
+
+/** Разбирает `window.showSaveDialog`; поля чужого типа — «не заданы». */
+export function parseWireSaveDialogRequest(raw: unknown): IWireSaveDialogRequest {
+    const p = (raw ?? {}) as Record<string, unknown>;
+    return {
+        defaultUri: optionalWireString(p.defaultUri),
+        saveLabel: optionalWireString(p.saveLabel),
+        filters: parseWireDialogFilters(p.filters),
+        title: optionalWireString(p.title),
     };
 }

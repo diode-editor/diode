@@ -113,6 +113,18 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Lazy: example.com/beta"), { timeoutMs: 20000 });
 
+        // ─── Диалог файлов (window.showOpenDialog) ──────────────────────────
+        // Порт SimpleFileDialog эталона: путь — в строке, каталог — под ней.
+        await runProbeCommand(editor, "Open File Dialog");
+        await editor.waitForText((t) => t.includes("Pick a file") && t.includes("README"), { timeoutMs: 20000 });
+        await editor.capture("file-dialog");
+        // Начало имени подсвечивает строку, Enter принимает файл.
+        await editor.sendText("READ");
+        await editor.waitForText((t) => t.includes("READ") && t.includes("Pick a file"));
+        await editor.capture("file-dialog-typed");
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("Opened: ") && t.includes("README"), { timeoutMs: 20000 });
+
         // ─── Свой потребитель оверлея не сломался ───────────────────────────
         // Палитра после множественного выбора: чекбоксов в ней нет.
         await editor.sendKey("F1");

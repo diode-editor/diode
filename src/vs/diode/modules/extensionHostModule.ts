@@ -29,6 +29,7 @@ import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorO
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
 import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
+import { FileDialogExtensionAdapter } from "../../workbench/api/browser/fileDialogExtensionAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { FileWatcherAdapter } from "../../workbench/api/browser/fileWatcherAdapter.ts";
 import { LanguageFeaturesAdapter } from "../../workbench/api/browser/languageFeaturesAdapter.ts";
@@ -56,6 +57,7 @@ import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/co
 import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/terminal/common/environmentVariableService.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
+import { FileDialogServiceDIToken } from "../../workbench/services/dialogs/browser/fileDialogService.ts";
 import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
@@ -315,6 +317,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // show*Message расширений → стек тостов над статус-баром (у модального
             // сообщения — окно по центру); нажатая кнопка уезжает обратно расширению.
             notificationSink: new NotificationExtensionAdapter(container.get(NotificationServiceDIToken)),
+            // showOpenDialog/showSaveDialog расширений → SimpleFileDialog на общем оверлее.
+            fileDialogSink: new FileDialogExtensionAdapter(container.get(FileDialogServiceDIToken)),
             // workspace.updateWorkspaceFolders → Open Folder, если итог — ровно одна
             // папка; иначе тост (multi-root нет). Опенер берётся в момент просьбы:
             // его регистрирует модуль workbench.

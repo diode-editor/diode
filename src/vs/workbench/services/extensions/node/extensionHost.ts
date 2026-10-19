@@ -81,6 +81,7 @@ import type { IExtensionTaskSink } from "../../../api/common/iExtensionTaskSink.
 import type {
     DiagnosticsSink,
     IExtensionTerminalSink,
+    IFileDialogSink,
     INotificationSink,
     IOutputSink,
     IProgressSink,
@@ -308,6 +309,8 @@ export interface IExtensionHostOptions {
      * зависимости (`extensionDependencies`), — как тост `unknownDep` эталона.
      */
     readonly notificationSink?: INotificationSink;
+    /** Сток диалогов файлов (`window.showOpenDialog` / `showSaveDialog`). Без него — «отменено». */
+    readonly fileDialogSink?: IFileDialogSink;
     /**
      * Сток смены папок воркспейса (`workspace.updateWorkspaceFolders`). Без
      * него просьба расширения тихо пропадает.
@@ -611,6 +614,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 statusBarItemSink: options.statusBarItemSink,
                 quickInputSink: options.quickInputSink,
                 notificationSink: options.notificationSink,
+                fileDialogSink: options.fileDialogSink,
             }),
             this.terminals,
             this.environmentVariableCollections,

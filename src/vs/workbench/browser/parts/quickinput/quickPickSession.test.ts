@@ -451,6 +451,67 @@ describe("QuickPickSession — точечные правки открытого 
     });
 });
 
+describe("QuickPickSession — режим диалога файлов", () => {
+    it("matchOnLabel: false без других полей — запрос список не фильтрует и подсветку не трогает", () => {
+        const { pick, view, type, testApp } = setup();
+        pick.update({ items: FRUITS, matchOnLabel: false });
+        pick.show();
+        testApp.sendKey("ArrowDown");
+        type("zz");
+        expect(view()).toMatchObject({ query: "zz", items: ["apple", "banana", "cherry"], activeIndex: 1 });
+    });
+
+    it("itemActivation: none — новые предметы без подсветки; Enter принимает набранное", () => {
+        const { pick, view, testApp, log } = setup();
+        pick.update({ items: FRUITS, itemActivation: "none" });
+        pick.show();
+        expect(view()).toMatchObject({ activeIndex: -1 });
+        log.length = 0;
+        testApp.sendKey("Enter");
+        expect(log).toEqual([["accept"]]);
+
+        testApp.sendKey("ArrowDown");
+        expect(view()).toMatchObject({ activeIndex: 0 });
+        pick.update({ items: [...FRUITS] });
+        expect(view()).toMatchObject({ activeIndex: -1 });
+    });
+
+    it("activeItems = [] снимает подсветку; ↑ из снятой — на последнюю строку", () => {
+        const { pick, view, testApp, log } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        log.length = 0;
+        pick.update({ activeItems: [] });
+        expect(view()).toMatchObject({ activeIndex: -1 });
+        expect(log).toEqual([]);
+        testApp.sendKey("ArrowUp");
+        expect(view()).toMatchObject({ activeIndex: 2 });
+        expect(log).toEqual([["active", ["cherry"]]]);
+    });
+
+    it("validationMessage — сообщение под строкой запроса; undefined — убирает", () => {
+        const { pick, component } = setup();
+        pick.update({ validationMessage: "Please enter a path that exists." });
+        pick.show();
+        expect(component.view.validationMessage).toBe("Please enter a path that exists.");
+        expect(component.view.validationSeverity).toBe("error");
+        pick.update({ validationMessage: undefined });
+        expect(component.view.validationMessage).toBeNull();
+    });
+
+    it("valueSelection — выделение в строке запроса вместе со значением и само по себе", () => {
+        const { pick, component } = setup();
+        pick.show();
+        pick.update({ value: "/ws/docs", valueSelection: [4, 8] });
+        const state = component.view.inputElement.inputState;
+        expect(state.selectedText).toBe("docs");
+        expect(state.cursorOffset).toBe(8);
+        pick.update({ valueSelection: [3, 3] });
+        expect(state.hasSelection).toBe(false);
+        expect(state.cursorOffset).toBe(3);
+    });
+});
+
 describe("QuickPickSession — общий виджет после чужого флейвора", () => {
     it("перехват закрывает показ чужого хозяина (Quick Open) — тот узнаёт о закрытии", () => {
         const { pick, component } = setup();
