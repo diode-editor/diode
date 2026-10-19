@@ -10,11 +10,22 @@ import type {
     QuickPickSessionState,
 } from "../../../browser/parts/quickinput/quickPickSession.ts";
 
-/** Фильтр по расширениям (`{ name: "Images", extensions: ["png"] }`); `*` — любое. */
-export interface IFileDialogFilter {
-    readonly name: string;
-    readonly extensions: readonly string[];
-}
+import {
+    endsWithSeparator,
+    equalsIgnoreCase,
+    expandTilde,
+    type IFileDialogFilter,
+    isValidBasename,
+    matchesFilters,
+    pathAppend,
+    pathsEqual,
+    startsWithIgnoreCase,
+    stripTrailingSeparator,
+    withFilterExtension,
+    withSeparator,
+} from "./fileDialogPaths.ts";
+
+export type { IFileDialogFilter } from "./fileDialogPaths.ts";
 
 /** Опции диалога открытия — `IOpenDialogOptions` эталона без удалённых ФС. */
 export interface IOpenDialogOptions {
@@ -44,7 +55,6 @@ interface IFileItem extends QuickPickSessionItem {
 /** Исход попытки обновить список по набранному — `UpdateResult` эталона. */
 const enum UpdateResult {
     Updated,
-    UpdatedWithTrailing,
     NotUpdated,
     InvalidPath,
 }
@@ -55,8 +65,8 @@ export interface ISimpleFileDialogEnvironment {
     readonly defaultFolder: () => string;
 }
 
-const FOLDER_ICON = CODICON_GLYPHS.folder ?? "";
-const FILE_ICON = CODICON_GLYPHS.file ?? "";
+const FOLDER_ICON = CODICON_GLYPHS.folder;
+const FILE_ICON = CODICON_GLYPHS.file;
 
 /**
  * Диалог файлов на QuickInput-оверлее — порт `SimpleFileDialog` эталона
@@ -68,29 +78,44 @@ const FILE_ICON = CODICON_GLYPHS.file ?? "";
  * входит в него, на файле или набранном пути — принимает после проверок
  * эталона (несуществующий путь, папка вместо файла, перезапись — вопросом).
  *
+ * Диалог одноразовый: один показ — один экземпляр (его заводит
+ * `FileDialogService`), поэтому состояние показа живёт в полях без сброса.
+ *
  * Отступления: только локальная ФС (без удалённых и `availableFileSystems`), без
  * кнопок «OK»/«Show Local»/«скрыть dot-файлы» (Enter и Escape делают своё,
  * dot-файлы видны, как по умолчанию у эталона), без иконок по типу файла —
  * каталог и файл различаются значками. `canSelectMany` не поддержан и у эталона.
+ *
+ * Устройство проще эталонного: эталон отличает свою смену строки запроса от
+ * набора человека по сегментам «набрано»/«дописано» (`userEnteredPathSegment`,
+ * `autoCompletePathSegment`), потому что события его пикера приходят позже.
+ * У нашего пикера и смена строки (`onDidChangeValue`), и подсветка молчат или
+ * приходят синхронно, поэтому своя смена строки помечается флагом на время
+ * вызова, а `onDidChangeActive` приходит только от человека. Видимое то же:
+ * начало имени подсвечивает строку, стрелка дописывает имя выделенным, «..» не
+ * дописывается. Отличие одно: стёртое до самого каталога первую строку не
+ * подсвечивает (сопоставлять пустое имя не с чем).
  */
 export class SimpleFileDialog {
-    private options: IOpenDialogOptions = {};
-    private allowFileSelection = true;
-    private allowFolderSelection = false;
+    // Выставляются в show*Dialog, до первого чтения.
+    private title!: string | undefined;
+    private filters!: readonly IFileDialogFilter[] | undefined;
+    private defaultUri!: Uri | undefined;
+    private allowFileSelection!: boolean;
+    private allowFolderSelection!: boolean;
     /** Диалог сохранения: в конце пути — имя файла (`requiresTrailing` эталона). */
     private requiresTrailing = false;
     private trailing: string | undefined;
-    private currentFolder = "";
-    private userEnteredPathSegment = "";
-    private autoCompletePathSegment = "";
-    private activeItem: IFileItem | undefined;
+    // Выставляется в pickResource до показа пикера.
+    private currentFolder!: string;
     private badPath: string | undefined;
     private hidden = false;
-    private busy = false;
+    /** Строку запроса меняет сам диалог — это не набор человека. */
+    private settingValue = false;
     /** Текущая подгрузка каталога; более новая отменяет прежнюю номером. */
-    private updating: Promise<boolean> | undefined;
+    private updating: Promise<void> | undefined;
     private updateGeneration = 0;
-    /** Пикер диалога; заводится первой строкой pickResource, до неё никто не зовёт. */
+    /** Пикер диалога; заводится в pickResource, до него никто не зовёт. */
     private session!: QuickPickSession<IFileItem>;
 
     public constructor(
@@ -100,18 +125,27 @@ export class SimpleFileDialog {
     ) {}
 
     public async showOpenDialog(options: IOpenDialogOptions = {}): Promise<Uri[] | undefined> {
+        this.takeCommonOptions(options);
         // Ни файлов, ни папок не просили — файлы (`_convertOpenOptions` эталона).
-        const canSelectFiles = options.canSelectFiles === true || options.canSelectFolders !== true;
-        this.options = { ...options, canSelectFiles };
-        const picked = await this.pickResource(false);
+        this.allowFolderSelection = options.canSelectFolders === true;
+        this.allowFileSelection = options.canSelectFiles === true || !this.allowFolderSelection;
+        const picked = await this.pickResource();
         return picked === undefined ? undefined : [Uri.file(picked)];
     }
 
     public async showSaveDialog(options: ISaveDialogOptions = {}): Promise<Uri | undefined> {
-        this.options = { ...options, openLabel: options.saveLabel, canSelectFiles: true, canSelectFolders: true };
+        this.takeCommonOptions(options);
+        // Каталоги и так видны всегда; выбор папки проверяется только в открытии.
+        this.allowFileSelection = true;
         this.requiresTrailing = true;
-        const picked = await this.pickResource(true);
+        const picked = await this.pickResource();
         return picked === undefined ? undefined : Uri.file(picked);
+    }
+
+    private takeCommonOptions(options: IOpenDialogOptions | ISaveDialogOptions): void {
+        this.title = options.title;
+        this.filters = options.filters;
+        this.defaultUri = options.defaultUri;
     }
 
     private get value(): string {
@@ -128,20 +162,20 @@ export class SimpleFileDialog {
 
     /** Значение строки запроса и выделение в ней; по умолчанию курсор в конце. */
     private setValue(value: string, selection?: readonly [number, number]): void {
-        this.update({ value, valueSelection: selection ?? [value.length, value.length] });
+        this.settingValue = true;
+        try {
+            this.update({ value, valueSelection: selection ?? [value.length, value.length] });
+        } finally {
+            this.settingValue = false;
+        }
     }
 
-    private async pickResource(isSave: boolean): Promise<string | undefined> {
-        this.allowFolderSelection = this.options.canSelectFolders === true;
-        this.allowFileSelection = this.options.canSelectFiles === true;
-        this.hidden = false;
-        let homedir = this.options.defaultUri?.fsPath ?? this.environment.defaultFolder();
-        if (this.options.defaultUri !== undefined) {
-            const stat = await this.statOrUndefined(homedir);
-            if (!stat?.isDirectory) {
-                this.trailing = path.basename(homedir);
-                homedir = path.dirname(homedir);
-            }
+    private async pickResource(): Promise<string | undefined> {
+        let homedir = this.defaultUri?.fsPath ?? this.environment.defaultFolder();
+        // `defaultUri` на файл (или на то, чего ещё нет) — его имя встаёт в строку.
+        if (this.defaultUri !== undefined && (await this.statOrUndefined(homedir))?.isDirectory !== true) {
+            this.trailing = path.basename(homedir);
+            homedir = path.dirname(homedir);
         }
 
         return new Promise<string | undefined>((resolve) => {
@@ -149,7 +183,7 @@ export class SimpleFileDialog {
             let isAcceptHandled = false;
             const session = this.quickInput.createQuickPick<IFileItem>({
                 onDidChangeValue: (value) => {
-                    void this.handleValueChange(value);
+                    if (!this.settingValue) void this.handleValueChange(value);
                 },
                 onDidAccept: () => {
                     handleAccept();
@@ -158,14 +192,9 @@ export class SimpleFileDialog {
                     isAcceptHandled = false;
                     // Подсветку сдвинул человек — строка запроса идёт за ней.
                     const item = items.at(0);
-                    if (items.length === 1 && item !== undefined && this.isSelectionChangeFromUser(item)) {
-                        this.update({ validationMessage: undefined });
-                        const userPath = this.constructFullUserPath();
-                        if (!equalsIgnoreCase(this.value.substring(0, userPath.length), userPath)) {
-                            this.setValue(userPath);
-                        }
-                        this.setAutoComplete(userPath, this.userEnteredPathSegment, item, true);
-                    }
+                    if (item === undefined) return;
+                    this.update({ validationMessage: undefined });
+                    this.completeWith(item);
                 },
                 onDidChangeSelection: () => undefined,
                 onDidHide: () => {
@@ -175,6 +204,7 @@ export class SimpleFileDialog {
             });
             this.session = session;
 
+            // Ответ — и диалог закрыт: dispose снимает пикер с экрана.
             const doResolve = (picked: string | undefined): void => {
                 resolve(picked === undefined ? undefined : stripTrailingSeparator(picked));
                 session.dispose();
@@ -182,18 +212,10 @@ export class SimpleFileDialog {
 
             const handleAccept = (): void => {
                 if (isAcceptHandled) return;
-                if (this.busy) {
-                    // Подгрузка каталога ещё идёт — принять, когда она кончится.
-                    void this.updating?.then(() => {
-                        handleAccept();
-                    });
-                    return;
-                }
                 isAcceptHandled = true;
                 isResolving++;
                 void this.onDidAccept().then((picked) => {
                     if (picked !== undefined) {
-                        session.hide();
                         doResolve(picked);
                     } else if (this.hidden) {
                         doResolve(undefined);
@@ -205,25 +227,21 @@ export class SimpleFileDialog {
             };
 
             this.currentFolder = withSeparator(path.dirname(homedir));
-            this.userEnteredPathSegment = "";
-            this.autoCompletePathSegment = "";
             session.update({
-                title: this.options.title,
+                title: this.title,
                 placeholder: "Folder path",
                 matchOnLabel: false,
-                itemActivation: "none",
                 value: withSeparator(this.currentFolder),
             });
             session.show();
             const trailing = this.trailing;
-            void this.updateItems(homedir, true, trailing).then(() => {
+            void this.updateItems(homedir, { force: true, trailing }).then(() => {
                 const value = this.value;
-                if (trailing !== undefined && isSave) {
-                    // Курсор — перед расширением имени: «report|.txt».
+                // Имя без расширения выделено: «[report].txt». Без имени курсор и так
+                // в конце — строку ставит подгрузка.
+                if (trailing !== undefined && this.requiresTrailing) {
                     const ext = path.extname(trailing);
                     this.update({ valueSelection: [value.length - trailing.length, value.length - ext.length] });
-                } else {
-                    this.update({ valueSelection: [value.length, value.length] });
                 }
             });
         });
@@ -231,24 +249,14 @@ export class SimpleFileDialog {
 
     private async handleValueChange(value: string): Promise<void> {
         try {
-            // Значение сменило само автодополнение — человек тут ни при чём.
-            if (!this.isValueChangeFromUser()) return;
-            if (
-                !equalsIgnoreCase(value, this.constructFullUserPath()) &&
-                (!this.isBadSubpath(value) || this.canTildaEscapeHatch(value))
-            ) {
-                this.update({ validationMessage: undefined });
-                const typed = this.filePickBoxValue();
-                let updated = UpdateResult.NotUpdated;
-                if (!pathsEqual(this.currentFolder, typed)) {
-                    updated = await this.tryUpdateItems(value, typed);
-                }
-                if (updated === UpdateResult.NotUpdated || updated === UpdateResult.UpdatedWithTrailing) {
-                    this.setActiveItems(value);
-                }
-            } else {
-                this.update({ activeItems: [] });
-                this.userEnteredPathSegment = "";
+            // Набор дальше по несуществующему пути: stat на каждую букву не гоняем
+            // (подсветки там нет — путь не ведёт ни в одну строку).
+            if (this.isBadSubpath(value) && !this.canTildaEscapeHatch(value)) return;
+            this.update({ validationMessage: undefined });
+            // Подсветка — по строке запроса как она есть сейчас: допечатанное за время
+            // проверки пути учтётся и здесь, и в обработчике своей смены.
+            if ((await this.tryUpdateItems(value, this.filePickBoxValue())) === UpdateResult.NotUpdated) {
+                this.setActiveItems();
             }
         } catch {
             // Набрать можно что угодно — ошибочный ввод ничего не ломает.
@@ -256,106 +264,75 @@ export class SimpleFileDialog {
     }
 
     private isBadSubpath(value: string): boolean {
+        // Сам плохой путь сюда не приходит: следующая смена строки уже другая.
         const bad = this.badPath;
-        return bad !== undefined && value.length > bad.length && equalsIgnoreCase(value.substring(0, bad.length), bad);
-    }
-
-    private isValueChangeFromUser(): boolean {
-        return !equalsIgnoreCase(
-            this.value,
-            pathAppend(this.currentFolder, this.userEnteredPathSegment + this.autoCompletePathSegment),
-        );
-    }
-
-    private isSelectionChangeFromUser(item: IFileItem): boolean {
-        return this.activeItem !== item;
-    }
-
-    private constructFullUserPath(): string {
-        const currentFolderPath = this.currentFolder;
-        if (
-            equalsIgnoreCase(this.value.substring(0, this.userEnteredPathSegment.length), this.userEnteredPathSegment)
-        ) {
-            if (equalsIgnoreCase(this.value.substring(0, currentFolderPath.length), currentFolderPath)) {
-                return currentFolderPath;
-            }
-            return this.userEnteredPathSegment;
-        }
-        return pathAppend(this.currentFolder, this.userEnteredPathSegment);
+        return bad !== undefined && startsWithIgnoreCase(value, bad);
     }
 
     /** Путь, набранный в строке запроса (относительный — от текущего каталога). */
     private filePickBoxValue(): string {
         const typed = this.value.trimEnd();
-        if (equalsIgnoreCase(typed, this.currentFolder)) return this.currentFolder;
         const resolved = path.isAbsolute(typed) ? typed : path.join(this.currentFolder, typed);
-        const base = path.basename(typed);
-        if (base === "." || base === "..") return withSeparator(path.normalize(resolved)) + base;
+        // «..» на конце остаётся сегментом: каталог над ним — тот, где его набрали.
+        if (path.basename(typed) === "..") return withSeparator(path.normalize(resolved)) + "..";
         return endsWithSeparator(typed) ? withSeparator(resolved) : resolved;
     }
 
     private async onDidAccept(): Promise<string | undefined> {
-        this.busy = true;
-        const active = this.state().activeItems;
-        const item = active.at(0);
-        if (this.updating === undefined && item !== undefined) {
-            if (item.isFolder) {
-                if (this.trailing !== undefined) {
-                    await this.updateItems(item.path, true, this.trailing);
-                } else {
-                    // Вход в каталог — через строку запроса, тем же путём, что набор:
-                    // подгрузку запустит обработчик смены значения.
-                    this.setValue(item.path);
-                }
-                this.busy = false;
-                return undefined;
+        // Enter во время подгрузки каталога — после неё: строки и подсветка тогда
+        // про тот каталог, что в строке запроса.
+        await this.updating;
+        const item = this.state().activeItems.at(0);
+        if (item?.isFolder === true) {
+            const name = this.trailing;
+            if (name === undefined) {
+                // Вход в каталог — через строку запроса, тем же путём, что набор.
+                this.setValue(item.path);
+                await this.tryUpdateItems(item.path, item.path);
+            } else {
+                // Сохранение: в каталог переходит и набранное имя, курсор — перед ним.
+                await this.updateItems(item.path, { force: true, trailing: name });
+                const at = this.value.length - name.length;
+                this.update({ valueSelection: [at, at] });
             }
-        } else if (this.updating === undefined) {
-            // Набранное сменило каталог — принимать рано.
-            if ((await this.tryUpdateItems(this.value, this.filePickBoxValue())) !== UpdateResult.NotUpdated) {
-                this.busy = false;
-                return undefined;
-            }
+            return undefined;
+        }
+        // Набранное сменило каталог — принимать рано (подсвеченный файл каталог не
+        // меняет: строка запроса тогда ведёт в него же).
+        if ((await this.tryUpdateItems(this.value, this.filePickBoxValue())) !== UpdateResult.NotUpdated) {
+            return undefined;
         }
 
         let picked = item === undefined ? this.filePickBoxValue() : item.path;
-        picked = this.addPostfix(picked);
-        const ok = await this.validate(picked);
-        this.busy = false;
-        return ok ? picked : undefined;
+        if (this.requiresTrailing) picked = withFilterExtension(picked, this.filters);
+        return (await this.validate(picked)) ? picked : undefined;
     }
 
     private canTildaEscapeHatch(value: string): boolean {
         return value.endsWith("~") && this.isBadSubpath(value);
     }
 
-    private tildaReplace(value: string): string {
-        if (value.startsWith("~")) return path.join(this.environment.userHome, value.substring(1));
-        return this.environment.userHome;
-    }
-
-    private async tryUpdateItems(value: string, valuePath: string, reset = false): Promise<UpdateResult> {
-        if (value.startsWith("~") || this.canTildaEscapeHatch(value)) {
-            const home = this.tildaReplace(value);
-            return (await this.updateItems(home, true)) ? UpdateResult.UpdatedWithTrailing : UpdateResult.Updated;
+    private async tryUpdateItems(value: string, valuePath: string): Promise<UpdateResult> {
+        if (value.startsWith("~")) {
+            await this.updateItems(expandTilde(value, this.environment.userHome), { force: true });
+            return UpdateResult.Updated;
         }
-        const newFolderIsOldFolder = pathsEqual(this.currentFolder, valuePath);
-        const newFolderIsSubFolder = pathsEqual(this.currentFolder, path.dirname(valuePath));
-        const newFolderIsParent = isEqualOrParent(this.currentFolder, path.dirname(valuePath));
-        const newFolderIsUnrelated = !newFolderIsParent && !newFolderIsSubFolder;
-        if (
-            (!newFolderIsOldFolder && (endsWithSeparator(value) || newFolderIsParent || newFolderIsUnrelated)) ||
-            reset
-        ) {
+        if (this.canTildaEscapeHatch(value)) {
+            await this.updateItems(this.environment.userHome, { force: true });
+            return UpdateResult.Updated;
+        }
+        // У эталона здесь «не тот же каталог И (разделитель ИЛИ родитель ИЛИ
+        // посторонний)», но «родитель» у него включает равенство, а «посторонний» —
+        // его отрицание: скобка всегда истинна.
+        if (!pathsEqual(this.currentFolder, valuePath)) {
             const stat = await this.statOrUndefined(valuePath);
             // Пока шёл stat, человек допечатал: ответ про старое значение устарел, и
             // подгрузка по нему перебила бы более свежую (отступление от эталона —
             // там та же гонка не закрыта).
             if (this.value !== value) return UpdateResult.NotUpdated;
-            if (stat?.isDirectory === true && path.basename(valuePath) !== "." && endsWithSeparator(value)) {
-                return (await this.updateItems(withSeparator(valuePath)))
-                    ? UpdateResult.UpdatedWithTrailing
-                    : UpdateResult.Updated;
+            if (stat?.isDirectory === true && endsWithSeparator(value)) {
+                await this.updateItems(withSeparator(valuePath));
+                return UpdateResult.Updated;
             } else if (endsWithSeparator(value)) {
                 // Такого каталога нет. Запоминаем «плохой» префикс: человек, раз
                 // набравший несуществующий путь, обычно продолжает его набирать, и
@@ -370,9 +347,8 @@ export class SimpleFileDialog {
                     if (this.value !== value) return UpdateResult.NotUpdated;
                     if (dirStat?.isDirectory === true) {
                         this.badPath = undefined;
-                        return (await this.updateItems(withSeparator(inputDirname), false, path.basename(valuePath)))
-                            ? UpdateResult.UpdatedWithTrailing
-                            : UpdateResult.Updated;
+                        await this.updateItems(withSeparator(inputDirname), { trailing: path.basename(valuePath) });
+                        return UpdateResult.Updated;
                     }
                 }
             }
@@ -381,99 +357,38 @@ export class SimpleFileDialog {
         return UpdateResult.NotUpdated;
     }
 
-    private tryUpdateTrailing(value: string): void {
-        if (this.trailing !== undefined && path.extname(value) !== "") this.trailing = path.basename(value);
+    /**
+     * Подсветка по набранному: первая строка текущего каталога, чьё имя
+     * начинается с набранного (без учёта регистра). При сохранении с именем файла
+     * подсвечиваются только каталоги — набор имени не должен цеплять чужой файл;
+     * набранное имя с расширением тогда становится этим именем.
+     */
+    private setActiveItems(): void {
+        // Путь с разделителем на конце — каталог: его имя лежит уровнем выше.
+        const typed = this.filePickBoxValue();
+        const name = path.basename(typed);
+        // Подгрузка ещё идёт — строки списка про прежний каталог.
+        const match =
+            this.updating === undefined && name !== "" && pathsEqual(path.dirname(typed), this.currentFolder)
+                ? this.state().items.find((item) => item.label !== ".." && startsWithIgnoreCase(item.label, name))
+                : undefined;
+        if (match !== undefined && (match.isFolder || this.trailing === undefined)) {
+            this.update({ activeItems: [match] });
+            return;
+        }
+        this.update({ activeItems: [] });
+        if (this.trailing !== undefined && path.extname(typed) !== "") this.trailing = name;
     }
 
-    private setActiveItems(rawValue: string): void {
-        const value = rawValue.startsWith("~") ? this.tildaReplace(rawValue) : rawValue;
-        const inputBasename = endsWithSeparator(value) ? "" : path.basename(value);
-        const userPath = this.constructFullUserPath();
-        // Каталог, чьи строки показаны, обязан совпадать с путём в строке запроса.
-        const samePath =
-            equalsIgnoreCase(userPath, value.substring(0, userPath.length)) ||
-            equalsIgnoreCase(value, userPath.substring(0, value.length));
-        if (samePath) {
-            let hasMatch = false;
-            for (const item of this.state().items) {
-                if (this.setAutoComplete(value, inputBasename, item)) {
-                    hasMatch = true;
-                    break;
-                }
-            }
-            if (!hasMatch) {
-                const userBasename =
-                    inputBasename.length >= 2 ? userPath.substring(userPath.length - inputBasename.length + 2) : "";
-                this.userEnteredPathSegment = userBasename === inputBasename ? inputBasename : "";
-                this.autoCompletePathSegment = "";
-                this.update({ activeItems: [] });
-                this.tryUpdateTrailing(value);
-            }
-        } else {
-            this.userEnteredPathSegment = inputBasename;
-            this.autoCompletePathSegment = "";
-            this.update({ activeItems: [] });
-            this.tryUpdateTrailing(value);
+    /** Строка, подсвеченная человеком: её имя дописывается выделенным; на «..» — нет. */
+    private completeWith(item: IFileItem): void {
+        if (item.label === "..") {
+            // Дописанное прежней строкой уходит выделением — курсор в конец.
+            this.setValue(this.value);
+            return;
         }
-    }
-
-    private setAutoComplete(startingValue: string, startingBasename: string, item: IFileItem, force = false): boolean {
-        if (this.busy) {
-            // Посреди другой работы автодополнение перепутало бы буквы.
-            this.userEnteredPathSegment = startingBasename;
-            this.autoCompletePathSegment = "";
-            return false;
-        }
-        const itemBasename = item.label;
-        if (itemBasename === "..") {
-            // На «..» не дополняем никогда.
-            this.userEnteredPathSegment = "";
-            this.autoCompletePathSegment = "";
-            this.activeItem = item;
-            if (force) this.setValue(this.value);
-            return false;
-        }
-        if (
-            !force &&
-            itemBasename.length >= startingBasename.length &&
-            equalsIgnoreCase(itemBasename.substring(0, startingBasename.length), startingBasename)
-        ) {
-            this.userEnteredPathSegment = startingBasename;
-            this.activeItem = item;
-            this.autoCompletePathSegment = "";
-            this.update({ activeItems: item.isFolder || this.trailing === undefined ? [item] : [] });
-            return true;
-        }
-        if (
-            force &&
-            !equalsIgnoreCase(
-                basenameWithSeparator(item.path),
-                this.userEnteredPathSegment + this.autoCompletePathSegment,
-            )
-        ) {
-            this.userEnteredPathSegment = "";
-            this.autoCompletePathSegment = itemBasename;
-            this.activeItem = item;
-            const whole = pathAppend(this.currentFolder, this.autoCompletePathSegment);
-            this.setValue(whole, [whole.length - this.autoCompletePathSegment.length, whole.length]);
-            return true;
-        }
-        this.userEnteredPathSegment = startingBasename;
-        this.autoCompletePathSegment = "";
-        return false;
-    }
-
-    /** Сохранение с фильтрами: нет подходящего расширения — дописать первое. */
-    private addPostfix(picked: string): string {
-        const filters = this.options.filters;
-        if (!this.requiresTrailing || filters === undefined || filters.length === 0 || endsWithSeparator(picked)) {
-            return picked;
-        }
-        const current = path.extname(picked).substring(1);
-        const hasExt = filters.some((filter) => filter.extensions.some((ext) => ext === "*" || ext === current));
-        if (hasExt) return picked;
-        const first = filters[0].extensions.at(0);
-        return first === undefined ? picked : `${picked}.${first}`;
+        const whole = pathAppend(this.currentFolder, item.label);
+        this.setValue(whole, [whole.length - item.label.length, whole.length]);
     }
 
     /** Вопрос «да/нет» вторым пикером — `yesNoPrompt` эталона: Enter — да, иначе нет. */
@@ -494,10 +409,13 @@ export class SimpleFileDialog {
                 onDidHide: () => {
                     if (!isResolving) {
                         resolve(false);
-                        this.session.show();
+                        // Вернуть диалог — после нажатия, закрывшего вопрос: тот же
+                        // Escape дошёл бы до общего виджета и закрыл бы и диалог.
+                        queueMicrotask(() => {
+                            this.session.show();
+                        });
                     }
                     this.hidden = false;
-                    prompt.dispose();
                 },
             });
             prompt.update({ title: message, value: target, valueSelection: [target.length, target.length] });
@@ -525,8 +443,7 @@ export class SimpleFileDialog {
                     picked,
                     `The folder ${path.basename(path.dirname(picked))} does not exist. Would you like to create it?`,
                 );
-                if (ok) await this.files.createFolder(Uri.file(path.dirname(picked)));
-                return ok;
+                return ok && (await this.createFolder(path.dirname(picked)));
             } else if (!statDirname.isDirectory) {
                 this.update({ validationMessage: "Please enter a path that exists." });
                 return false;
@@ -545,14 +462,7 @@ export class SimpleFileDialog {
                     picked,
                     `The folder ${path.basename(picked)} does not exist. Would you like to create it?`,
                 );
-                if (!create) return false;
-                try {
-                    await this.files.createFolder(Uri.file(picked));
-                    return true;
-                } catch (error) {
-                    this.update({ validationMessage: `Could not create folder: ${errorMessage(error)}` });
-                    return false;
-                }
+                return create && (await this.createFolder(picked));
             }
             this.update({ validationMessage: "Please enter a path that exists." });
             return false;
@@ -566,19 +476,33 @@ export class SimpleFileDialog {
         return true;
     }
 
-    /** Подгрузить каталог; `true` — в конце пути был файл (он стал `trailing`). */
-    private updateItems(newFolder: string, force = false, trailingIn?: string): Promise<boolean> {
-        this.busy = true;
-        this.autoCompletePathSegment = "";
-        const wasDotDot = trailingIn === "..";
-        let trailing = wasDotDot ? undefined : trailingIn;
-        const isSave = trailing !== undefined;
+    /**
+     * Создать каталог после «да» в вопросе. Не вышло — диалог возвращается (вопрос
+     * его уже закрыл) с причиной в строке сообщения.
+     */
+    private async createFolder(folder: string): Promise<boolean> {
+        try {
+            await this.files.createFolder(Uri.file(folder));
+            return true;
+        } catch (error) {
+            this.session.show();
+            this.update({ validationMessage: `Could not create folder: ${errorMessage(error)}` });
+            return false;
+        }
+    }
+
+    /** Подгрузить каталог; путь на файл — его каталог, а имя встаёт в конец строки. */
+    private updateItems(newFolder: string, options: { force?: boolean; trailing?: string } = {}): Promise<void> {
+        const force = options.force === true;
+        const wasDotDot = options.trailing === "..";
+        let trailing = wasDotDot ? undefined : options.trailing;
+        // Stryker disable next-line UpdateOperator: номер — только метка подгрузки, убывающий счётчик различает их так же
         const generation = ++this.updateGeneration;
 
-        const run = async (): Promise<boolean> => {
+        const run = async (): Promise<void> => {
             let folder = newFolder;
-            let result = false;
-            let children: readonly { name: string; type: FileType }[] | undefined;
+            // Каталога нет — список останется пустым.
+            let children: readonly { name: string; type: FileType }[] = [];
             try {
                 const resolved = await this.files.resolve(fileUri(folder));
                 if (resolved.isDirectory) {
@@ -586,32 +510,21 @@ export class SimpleFileDialog {
                 } else {
                     trailing = path.basename(folder);
                     folder = path.dirname(folder);
-                    result = true;
+                    children = (await this.files.resolve(fileUri(folder))).children;
                 }
             } catch {
-                // Каталога нет — список останется пустым.
+                // Нечитаемый путь — пустой список, строка запроса остаётся.
             }
             const newValue = trailing !== undefined ? pathAppend(folder, trailing) : withSeparator(folder);
             this.currentFolder = withSeparator(folder);
-            this.userEnteredPathSegment = trailing ?? "";
             const items = await this.createItems(this.currentFolder, children);
-            if (generation !== this.updateGeneration) return false;
+            if (generation !== this.updateGeneration) return;
 
             this.update({ itemActivation: "none", items });
             // Человек мог допечатать, пока шла подгрузка: строку трогаем, только
             // если она не совпадает с каталогом.
             if (!equalsIgnoreCase(this.value, newValue) && (force || wasDotDot)) this.setValue(newValue);
-            const value = this.value;
-            if (force && trailing !== undefined && isSave) {
-                // Курсор — перед именем при сохранении.
-                const at = value.length - trailing.length;
-                this.update({ valueSelection: [at, at] });
-            } else if (trailing === undefined) {
-                this.update({ valueSelection: [value.length, value.length] });
-            }
-            this.busy = false;
             this.updating = undefined;
-            return result;
         };
         const promise = run();
         this.updating = promise;
@@ -620,22 +533,14 @@ export class SimpleFileDialog {
 
     private async createItems(
         currentFolder: string,
-        known: readonly { name: string; type: FileType }[] | undefined,
+        children: readonly { name: string; type: FileType }[],
     ): Promise<IFileItem[]> {
-        let children = known;
-        if (children === undefined) {
-            try {
-                children = (await this.files.resolve(fileUri(currentFolder))).children;
-            } catch {
-                children = [];
-            }
-        }
         const items: IFileItem[] = [];
         for (const child of children) {
             const full = path.join(currentFolder, child.name);
             if ((child.type & FileType.Directory) !== 0) {
                 items.push({ label: child.name, icon: FOLDER_ICON, path: withSeparator(full), isFolder: true });
-            } else if (this.allowFileSelection && this.filterFile(full)) {
+            } else if (this.allowFileSelection && matchesFilters(full, this.filters)) {
                 items.push({ label: child.name, icon: FILE_ICON, path: full, isFolder: false });
             }
         }
@@ -650,70 +555,18 @@ export class SimpleFileDialog {
         return items;
     }
 
-    private filterFile(file: string): boolean {
-        const filters = this.options.filters;
-        if (filters === undefined) return true;
-        return filters.some((filter) => filter.extensions.some((ext) => ext === "*" || file.endsWith(`.${ext}`)));
-    }
-
-    private async statOrUndefined(target: string): Promise<{ isDirectory: boolean } | undefined> {
-        try {
-            return await this.files.stat(fileUri(target));
-        } catch {
-            return undefined;
-        }
+    /** stat пути; нет такого (или нечитаем) — undefined. */
+    private statOrUndefined(target: string): Promise<{ isDirectory: boolean } | undefined> {
+        return this.files.stat(fileUri(target)).catch(() => undefined);
     }
 }
 
-/** `Uri` пути без разделителя на конце: у каталога в строке запроса он есть. */
+/**
+ * `Uri` пути: без разделителя на конце (у каталога в строке запроса он есть) и
+ * с разрешёнными `.`/`..` — набранное «/ws/src/..» ФС видит как «/ws».
+ */
 function fileUri(target: string): Uri {
-    return Uri.file(stripTrailingSeparator(target));
-}
-
-function equalsIgnoreCase(a: string, b: string): boolean {
-    return a.toLowerCase() === b.toLowerCase();
-}
-
-function endsWithSeparator(value: string): boolean {
-    return /[/\\]$/.test(value);
-}
-
-function withSeparator(value: string): string {
-    return endsWithSeparator(value) ? value : value + path.sep;
-}
-
-function stripTrailingSeparator(value: string): string {
-    return value.length > 1 && endsWithSeparator(value) ? value.substring(0, value.length - 1) : value;
-}
-
-/** Сравнение путей без учёта регистра и разделителя на конце (эталон: `extUriIgnorePathCase`). */
-function pathsEqual(a: string, b: string): boolean {
-    return equalsIgnoreCase(stripTrailingSeparator(path.normalize(a)), stripTrailingSeparator(path.normalize(b)));
-}
-
-/** `a` совпадает с `b` или лежит внутри него. */
-function isEqualOrParent(a: string, b: string): boolean {
-    const child = stripTrailingSeparator(path.normalize(a)).toLowerCase();
-    const parent = stripTrailingSeparator(path.normalize(b)).toLowerCase();
-    return child === parent || child.startsWith(withSeparator(parent));
-}
-
-function pathAppend(base: string, additional: string): string {
-    if (additional === ".." || additional === ".") return withSeparator(base) + additional;
-    return path.join(base, additional);
-}
-
-function basenameWithSeparator(full: string): string {
-    const parent = withSeparator(path.dirname(stripTrailingSeparator(full)));
-    return withSeparator(full).substring(parent.length);
-}
-
-/** Имя файла, которое ФС примет (`isValidBasename` эталона в упрощении). */
-function isValidBasename(name: string): boolean {
-    if (name === "" || name === "." || name === "..") return false;
-    if (/[/\\]/.test(name)) return false;
-    if (process.platform === "win32" && /[<>:"|?*]/.test(name)) return false;
-    return name.length <= 255;
+    return Uri.file(stripTrailingSeparator(path.normalize(target)));
 }
 
 function errorMessage(error: unknown): string {

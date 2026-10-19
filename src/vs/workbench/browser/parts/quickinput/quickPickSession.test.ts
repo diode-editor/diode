@@ -574,3 +574,36 @@ describe("QuickPickSession — общий виджет после чужого �
         expect(component.isOpen()).toBe(true);
     });
 });
+
+describe("QuickPickSession — виджет отдан из обработчика набора", () => {
+    it("после hide() в onDidChangeValue строки нового владельца не перетираются", () => {
+        const { service, component, testApp, view } = setup();
+        const main = service.createQuickPick<QuickPickSessionItem>({
+            onDidChangeValue: () => undefined,
+            onDidAccept: () => undefined,
+            onDidChangeActive: () => undefined,
+            onDidChangeSelection: () => undefined,
+            onDidHide: () => undefined,
+        });
+        main.update({ items: FRUITS });
+        // Вопрос поверх: набор в нём — «нет», он закрывается и возвращает главный.
+        const prompt = service.createQuickPick<QuickPickSessionItem>({
+            onDidChangeValue: () => {
+                prompt.hide();
+            },
+            onDidAccept: () => undefined,
+            onDidChangeActive: () => undefined,
+            onDidChangeSelection: () => undefined,
+            onDidHide: () => {
+                main.show();
+            },
+        });
+        prompt.show();
+        expect(view()).toMatchObject({ items: [] });
+
+        testApp.sendKey("x");
+
+        expect(component.isOpen()).toBe(true);
+        expect(view()).toMatchObject({ items: ["apple", "banana", "cherry"] });
+    });
+});

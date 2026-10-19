@@ -195,6 +195,9 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.onQueryChange = (query) => {
             this.state = { ...this.state, value: query };
             this.events.onDidChangeValue(query);
+            // Владелец мог в ответ отдать виджет (вопрос диалога файлов закрывается
+            // от набора) — тогда список в нём уже чужой.
+            if (this.view !== view) return;
             // Искать не по чему — список от запроса не зависит, подсветку не трогаем.
             if (!this.searches()) return;
             this.fillList(view, false);

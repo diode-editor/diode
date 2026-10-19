@@ -227,6 +227,7 @@ export class QuickPickElement extends TUIElement {
             this.itemsValue = value;
             this.rebuildRows();
             this.clearCursorIfNoActive();
+            // Stryker disable next-line CallExpression: пересборка рядов метит список грязным, а `performLayout` начинается с того же `syncStructure` — состав догоняет до кадра
             this.syncStructure();
             return;
         }
@@ -263,9 +264,9 @@ export class QuickPickElement extends TUIElement {
      * мышь, новые {@link items}).
      */
     public clearActive(): void {
+        // `ListViewElement.clearCursor` сам метит дерево грязным — перерисовка будет.
         this.selectedIndexValue = -1;
         this.clearCursorIfNoActive();
-        this.markDirty();
     }
 
     /**
@@ -547,6 +548,7 @@ export class QuickPickElement extends TUIElement {
     private moveSelection(delta: number): void {
         if (this.itemsValue.length === 0) return;
         // Без подсветки стрелки встают на край списка, а не шагают от «-1».
+        // Stryker disable next-line EqualityOperator: `delta` не бывает нулём — стрелки и страницы шагают минимум на 1
         const from = this.selectedIndexValue < 0 ? (delta > 0 ? -1 : this.itemsValue.length) : this.selectedIndexValue;
         const next = Math.max(0, Math.min(this.itemsValue.length - 1, from + delta));
         if (next === this.selectedIndexValue) return;

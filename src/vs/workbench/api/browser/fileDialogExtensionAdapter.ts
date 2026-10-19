@@ -39,6 +39,7 @@ export class FileDialogExtensionAdapter implements IFileDialogSink {
 }
 
 function localUri(raw: string | undefined): Uri | undefined {
+    // Stryker disable next-line ConditionalExpression: `Uri.parse(undefined)` даёт ресурс без схемы `file` — ответ тот же, проверка лишь не гоняет разбор
     if (raw === undefined) return undefined;
     const uri = Uri.parse(raw);
     return uri.scheme === "file" ? uri : undefined;

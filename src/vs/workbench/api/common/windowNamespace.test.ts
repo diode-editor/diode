@@ -224,6 +224,17 @@ describe("WindowNamespace", () => {
         await expect(window.showSaveDialog()).resolves.toBeUndefined();
     });
 
+    it("опции без defaultUri — папку диалога выбирает хост", async () => {
+        const { stub, window } = makeCtx();
+        stub.responder = () => null;
+        await window.showOpenDialog({ title: "Pick" });
+        await window.showSaveDialog({ title: "Save" });
+        expect(stub.requests.map((request) => (request.params as { defaultUri?: string }).defaultUri)).toEqual([
+            undefined,
+            undefined,
+        ]);
+    });
+
     it("showQuickPick уходит хосту запросом и резолвится выбранным", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ indices: [1] });

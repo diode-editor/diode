@@ -116,11 +116,13 @@ export default defineScenario({
         // ─── Диалог файлов (window.showOpenDialog) ──────────────────────────
         // Порт SimpleFileDialog эталона: путь — в строке, каталог — под ней.
         await runProbeCommand(editor, "Open File Dialog");
-        await editor.waitForText((t) => t.includes("Pick a file") && t.includes("README"), { timeoutMs: 20000 });
+        // Каталоги идут раньше файлов, и в корне репо README ниже видимой части
+        // списка — ждём каталог, который виден всегда.
+        await editor.waitForText((t) => t.includes("Pick a file") && t.includes(".github"), { timeoutMs: 20000 });
         await editor.capture("file-dialog");
         // Начало имени подсвечивает строку, Enter принимает файл.
         await editor.sendText("READ");
-        await editor.waitForText((t) => t.includes("READ") && t.includes("Pick a file"));
+        await editor.waitForText((t) => t.includes("README.md") && t.includes("Pick a file"));
         await editor.capture("file-dialog-typed");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Opened: ") && t.includes("README"), { timeoutMs: 20000 });
