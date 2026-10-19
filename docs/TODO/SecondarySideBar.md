@@ -45,8 +45,8 @@
   `onDidActivateView`/`onDidShowView` вместо `PanelService`), спавн шелла по
   активации вида в любой части; приёмка — TERMINAL во вторичной панели с
   живым шеллом, ресайзом и перезапуском (сценарий `auxiliary-bar-terminal`) (#661).
-- [ ] Снос `workbenchlayout/` из `@tuidom/elements` (PR в tuidom + релиз по
-  запросу человеку) — diode его больше не импортирует.
+- [x] Снос `workbenchlayout/` из `@tuidom/elements` — tuidom #45, релиз 0.12.0;
+  diode на нём.
 
 ## Открыто после стека
 
