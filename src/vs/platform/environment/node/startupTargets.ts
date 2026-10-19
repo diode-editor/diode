@@ -60,24 +60,32 @@ export interface IStartupTargets {
  *
  * @param cli результат {@link parseCliArgs}
  * @param isDirectory порт к FS — «этот абсолютный путь существует и это папка»
+ * @param logicalCwd каталог, от которого считается путь файла воркспейса
+ *   ({@link logicalWorkingDirectory}); остальные позиционные — от `process.cwd()`
  */
-export function resolveStartupTargets(cli: ICliArgs, isDirectory: (absolutePath: string) => boolean): IStartupTargets {
+export function resolveStartupTargets(
+    cli: ICliArgs,
+    isDirectory: (absolutePath: string) => boolean,
+    logicalCwd: string = process.cwd(),
+): IStartupTargets {
     if (cli.diff) {
         // Количество сторон уже проверено парсером; здесь просто резолвим пути.
         const [original, modified] = cli.positional.map((p) => path.resolve(p));
         return { folder: undefined, workspaceFile: undefined, files: [], diff: { original, modified } };
     }
 
-    const parsed = cli.positional.map((raw) => parsePositional(raw, cli.goto));
+    const parsed = cli.positional.map((raw) => parsePositional(raw, cli.goto, process.cwd()));
     // Папкой становится ТОЛЬКО первый позиционный: `diode file.ts src/` — это
     // файл в окне без воркспейса, как и в VS Code.
     const first = parsed.at(0);
     const folder = first !== undefined && isDirectory(first.path) ? first.path : undefined;
     // Файл воркспейса — тоже только первым и только по расширению: `diode a.ts
-    // web.code-workspace` открывает его как обычный файл.
-    const workspaceFile =
-        first !== undefined && folder === undefined && hasWorkspaceFileExtension(first.path) ? first.path : undefined;
-    const files = parsed.filter((entry) => !isDirectory(entry.path) && entry.path !== workspaceFile);
+    // web.code-workspace` открывает его как обычный файл. Путь — от логического
+    // cwd и без разворота симлинков: относительные `folders` файла считаются от
+    // каталога, который назвал человек, а не от того, куда ведёт симлинк.
+    const isWorkspaceFile = first !== undefined && folder === undefined && hasWorkspaceFileExtension(first.path);
+    const workspaceFile = isWorkspaceFile ? parsePositional(cli.positional[0], cli.goto, logicalCwd).path : undefined;
+    const files = parsed.filter((entry) => !isDirectory(entry.path) && entry !== (isWorkspaceFile ? first : undefined));
     return { folder, workspaceFile, files, diff: undefined };
 }
 
@@ -86,14 +94,33 @@ export function resolveStartupTargets(cli: ICliArgs, isDirectory: (absolutePath:
  * снимается только в режиме `--goto`: без него двоеточие — обычный символ в
  * имени файла, и отрезать его молча нельзя.
  */
-function parsePositional(raw: string, gotoMode: boolean): IStartupFile {
-    if (!gotoMode) return { path: path.resolve(raw) };
+function parsePositional(raw: string, gotoMode: boolean, cwd: string): IStartupFile {
+    if (!gotoMode) return { path: path.resolve(cwd, raw) };
 
     const { filePart, goto } = splitFileQuery(raw);
     if (filePart.length === 0) {
         throw new CliArgsError(`--goto expects file[:line[:column]], got: ${raw}`);
     }
-    const resolved = path.resolve(filePart);
+    const resolved = path.resolve(cwd, filePart);
     if (goto === null) return { path: resolved };
     return { path: resolved, line: goto.line, ...(goto.column !== undefined ? { column: goto.column } : {}) };
+}
+
+/**
+ * Текущий каталог так, как его видит оболочка (`pwd -L`): `$PWD`, если он
+ * абсолютный и ведёт туда же, что и `process.cwd()`. Node отдаёт cwd уже с
+ * развёрнутыми симлинками (`getcwd(3)`), и `diode web.code-workspace` из
+ * `~/link` иначе считал бы папки файла от цели ссылки. `$PWD` устарел
+ * (родитель сменил каталог без него) или не задан — физический cwd.
+ *
+ * @param sameDirectory порт к FS — оба пути ведут в один каталог (dev + inode)
+ */
+export function logicalWorkingDirectory(
+    pwd: string | undefined,
+    physicalCwd: string,
+    sameDirectory: (a: string, b: string) => boolean,
+): string {
+    if (pwd === undefined || !path.isAbsolute(pwd)) return physicalCwd;
+    const normalized = path.resolve(pwd);
+    return sameDirectory(normalized, physicalCwd) ? normalized : physicalCwd;
 }
