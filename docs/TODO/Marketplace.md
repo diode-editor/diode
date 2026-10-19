@@ -299,6 +299,23 @@ registry/v1/meta/<id>.json
   редактора в кадре равен `editor.background` из `themes/mocha.json` (`#1e1e2e`) и тема
   есть в пикере Color Theme.
 
+- [x] **Кандидат: `golang.go` 0.56.1** — опубликован (сайт#19, GoLSP A7,
+  [GoLSP.md](GoLSP.md)): запись `proxy-openvsx`, universal (0.6 МБ), гейт
+  `engines.diode: ">=0.9.2"` — до волны A GoLSP (#657) активация падала на
+  `vscode.debug`. `support: partial`: отладчика нет, Testing view и code lens'ов
+  пока нет, welcome/pprof — webview; требование Go toolchain — пунктом в `limits`
+  и в readme (решение человека, как JDK у `redhat.java`). gopls в vsix нет —
+  расширение ставит его само `go install`; смоук магазина кладёт заранее собранный
+  gopls в GOBIN (в CI — `.github/actions/go-tools`) и ждёт undercurl на `main.go`,
+  без Go кейс пропускается (`requires` у чека). Сьюты `extensionHost.goLsp*`, e2e
+  `goLsp.test.ts` и сценарий `go-lsp` берут расширение ИЗ МАГАЗИНА.
+- [ ] **id без учёта регистра в `--install-extension` и в поиске меты.** Open VSX
+  пишет `golang/Go`, а id в манифесте — `golang.go`; реестр хранит id манифеста
+  (сверка при установке побайтная), поэтому `--install-extension golang.Go`
+  отвечает «not found». В эталоне `ExtensionIdentifier` сравнивается без регистра —
+  клиенту нужен канонический id из `index.json` перед запросом
+  `meta/<id>.json` (Pages регистрозависим). Всплыло на A7 GoLSP.
+
 ## Шаг 4: Extensions view — [ExtensionsView.md](ExtensionsView.md)
 
 Просмотр магазина из редактора: вьюлет сайдбара (поиск + каталог + установленные),

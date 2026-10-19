@@ -7,8 +7,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
     ensureGopls,
-    fetchGoVsix,
     findGoBinary,
+    GO_ID,
     GO_SESSION_ENV,
     GO_TOOLS_BIN,
     goSampleFiles,
@@ -21,9 +21,8 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Go от НАСТОЯЩЕГО стокового golang.go в SEA-бинаре: vsix ставится штатным
- * `--install-extension` (из магазина; до записи в реестре — с Open VSX, см.
- * goFixture.ts), клиент внутри расширения поднимает gopls по stdio. Ассерты
+ * Go от НАСТОЯЩЕГО стокового golang.go в SEA-бинаре: расширение ставится штатным
+ * `--install-extension golang.go` из магазина (последняя опубликованная версия), клиент внутри расширения поднимает gopls по stdio. Ассерты
  * ждут текст, которого НЕТ в буфере (doc-комментарий из другого пакета,
  * отформатированная строка), а диск сверяется с буфером — контракт onSave.
  *
@@ -60,12 +59,10 @@ async function waitForGopls(session: { captureFrame: () => Promise<{ cells: { st
 describe.skipIf(
     process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE || skipReason !== undefined,
 )("SEA binary — стоковый golang.go (gopls)", () => {
-    let vsix: string;
     let caches: Record<string, string>;
 
     beforeAll(async () => {
         await getBinaryPath();
-        vsix = await fetchGoVsix();
         ensureGopls();
         caches = hostGoCaches();
     }, 900_000);
@@ -73,7 +70,7 @@ describe.skipIf(
     it("hover с doc-комментарием из другого пакета и F12 в него", { timeout: 300_000 }, async () => {
         const { session } = await useHeadlessApp({
             files: goSampleFiles(),
-            installVsix: [vsix],
+            installVsix: [GO_ID],
             open: ["main.go"],
             env: { ...caches, GOBIN: GO_TOOLS_BIN },
         });
@@ -101,7 +98,7 @@ describe.skipIf(
     it("Ctrl+S: organize imports и gofmt из configurationDefaults [go] — в буфере и на диске", { timeout: 300_000 }, async () => {
         const app = await useHeadlessApp({
             files: goSampleFiles(),
-            installVsix: [vsix],
+            installVsix: [GO_ID],
             open: ["main.go"],
             env: { ...caches, GOBIN: GO_TOOLS_BIN },
         });
@@ -128,7 +125,7 @@ describe.skipIf(
         try {
             const { session } = await useHeadlessApp({
                 files: goSampleFiles(),
-                installVsix: [vsix],
+                installVsix: [GO_ID],
                 open: ["main.go"],
                 env: { ...caches, GOBIN: gobin },
             });

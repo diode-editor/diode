@@ -392,9 +392,9 @@ expect(ed?.state?.hasSelection).toBe(true);
 заранее (`go install gopls@latest` в кэшируемый GOBIN `node_modules/.cache/diode-go-fixture`,
 как `npm install eslint` у eslint-фикстуры), путь авто-установки самим расширением закрывает
 один e2e. В CI Go и кэши ставит composite action `.github/actions/go-tools` в джобах со
-стоковыми сьютами (`test`, `mutation`, `e2e` на Linux, ночной мутационный). Пока записи
-`golang.go` нет в реестре, vsix приезжает мостом `fetchStockVsixOrOpenVsx` — последней
-universal-версией с Open VSX; появится запись — резолв уйдёт в реестр сам.
+стоковыми сьютами (`test`, `mutation`, `e2e` на Linux, ночной мутационный). Смоук магазина
+(`e2e/marketplace/checks.ts`) уважает то же правило: у чека есть поле `requires`, и без Go его
+поведенческая половина пропускается с причиной после проверенной установки.
 
 ### Extensions view (герметичный сьют)
 
