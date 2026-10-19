@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { IViewsHarness } from "./viewsService.testUtils.ts";
 import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
@@ -91,6 +91,18 @@ describe("ViewsService — openView без активации", () => {
         h.service.openView("terminal");
         expect(activated).toEqual(["terminal"]);
         expect(h.panelService.getActiveViewId()).toBe(TERMINAL);
+    });
+
+    it("фокус — только по просьбе", () => {
+        const h = makeViewsHarness();
+        const focus = vi.fn();
+        h.service.registerContainer({ id: PROBLEMS, title: "PROBLEMS", location: "panel", order: 0 });
+        h.service.registerView(testView("problems", PROBLEMS, 10, { focus }));
+        h.service.attachRegisteredContainers();
+        h.service.openView("problems");
+        expect(focus).not.toHaveBeenCalled();
+        h.service.openView("problems", true);
+        expect(focus).toHaveBeenCalledTimes(1);
     });
 
     it("вьюлет сайдбара показывается и без активации", () => {

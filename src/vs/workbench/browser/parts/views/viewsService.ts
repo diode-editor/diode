@@ -387,15 +387,15 @@ export class ViewsService implements IContextKeyContributor {
         // его не было видно.
         sidebarService.onDidChangeActiveViewlet((id) => {
             this.refreshStaleTitleActions(id);
-            this.fireContainerEvent(id, "show");
+            this.fireContainerEvent(id, this.onDidShowViewEmitter);
         });
         for (const part of [panelService, auxiliaryBarService]) {
             part.onDidChangeActiveView((id) => {
                 this.refreshStaleTitleActions(id);
-                this.fireContainerEvent(id, "show");
+                this.fireContainerEvent(id, this.onDidShowViewEmitter);
             });
             part.onDidActivateView((id) => {
-                this.fireContainerEvent(id, "activate");
+                this.fireContainerEvent(id, this.onDidActivateViewEmitter);
             });
         }
         panelService.onDidRequestTabContextMenu((request) => {
@@ -693,7 +693,8 @@ export class ViewsService implements IContextKeyContributor {
             this.rebuildPanes(entry);
             // Первая вкладка части становится активной молча (без события смены) —
             // о показе её видов сообщаем сами.
-            if (this.partOf(entry).getActiveViewId() === containerId) this.fireContainerEvent(containerId, "show");
+            if (this.partOf(entry).getActiveViewId() === containerId)
+                this.fireContainerEvent(containerId, this.onDidShowViewEmitter);
             return;
         }
         const stack = new VFlexElement();
@@ -982,10 +983,9 @@ export class ViewsService implements IContextKeyContributor {
      * Разослать по видимым секциям контейнера: «показан» (стал активным в своей
      * части) или «активирован» (пользователем).
      */
-    private fireContainerEvent(containerId: string, event: "show" | "activate"): void {
+    private fireContainerEvent(containerId: string, emitter: Emitter<string>): void {
         const entry = this.containers.get(containerId);
         if (entry?.view == null) return;
-        const emitter = event === "show" ? this.onDidShowViewEmitter : this.onDidActivateViewEmitter;
         for (const record of entry.views) {
             if (!entry.hidden.has(record.id)) emitter.fire(record.id);
         }

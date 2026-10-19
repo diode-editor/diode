@@ -29,7 +29,7 @@ export const toggleOutputAction: CommandAction = {
             views.closeView(OUTPUT_VIEW_ID);
             return;
         }
-        views.openView(OUTPUT_VIEW_ID, false, false);
+        views.openView(OUTPUT_VIEW_ID);
         accessor.get(OutputComponentDIToken).focus();
     },
 };

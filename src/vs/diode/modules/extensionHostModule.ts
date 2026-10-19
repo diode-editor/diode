@@ -331,7 +331,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 logService,
                 container.get(OutputServiceDIToken),
                 () => {
-                    container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID, false, false);
+                    container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID);
                 },
             ),
             // createTerminal расширений → инстансы встроенного терминала; жизнь

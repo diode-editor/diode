@@ -164,7 +164,7 @@ export const toggleProblemsAction: CommandAction = {
         if (views.isViewShown(PROBLEMS_VIEW_ID)) {
             views.closeView(PROBLEMS_VIEW_ID);
         } else {
-            views.openView(PROBLEMS_VIEW_ID, false, false);
+            views.openView(PROBLEMS_VIEW_ID);
             accessor.get(ProblemsComponentDIToken).focus();
         }
     },
