@@ -67,8 +67,11 @@ async function pickDestinationAndMove(accessor: ServiceAccessor, viewId: string)
     const currentContainer = views.getViewContainerByViewId(viewId);
     const containers = views.getViewContainers();
     const current = containers.find((container) => container.id === currentContainer);
-    const title = current?.views.find((view) => view.id === viewId)?.title ?? viewId;
-    const solo = current !== undefined && views.getContainerViews(current.id).length === 1;
+    // Stryker disable next-line ConditionalExpression,LogicalOperator,BlockStatement: переносимый вид всегда стоит в собранном контейнере (canMoveView) — охрана только ради типов
+    if (currentContainer === null || current === undefined) return;
+    // Скрытой секции в снимке нет — тогда в заголовке её id.
+    const title = current.views.find((view) => view.id === viewId)?.title ?? viewId;
+    const solo = views.getContainerViews(current.id).length === 1;
     const items: IPick[] = [];
     for (const entry of NEW_ENTRY_ITEMS) {
         if (solo && current.location === entry.location) continue;
@@ -168,7 +171,8 @@ export const resetFocusedViewLocationAction: CommandAction = {
     run(accessor) {
         const viewId = focusedViewId(accessor);
         const views = accessor.get(ViewsServiceDIToken);
-        if (viewId.trim() === "" || views.getViewContainerByViewId(viewId) === null) {
+        // Пустой и пробельный id — тоже «вида нет»: контейнера у него не найдётся.
+        if (views.getViewContainerByViewId(viewId) === null) {
             showError(accessor, NO_FOCUSED_VIEW);
             return;
         }
@@ -197,6 +201,7 @@ function moveViewsBetweenParts(
     const active = parts[source].getActiveViewId();
     for (const container of sourceContainers) views.moveViewContainerToLocation(container.id, destination);
     parts[destination].setVisible(true);
+    // Stryker disable next-line ConditionalExpression: у непустой части-источника активная вкладка есть всегда — `active !== null` охраняет только тип; условие целиком закрыто тестом «в непустую часть»
     if (active !== null && destinationWasEmpty) views.openViewContainer(active, true);
 }
 
