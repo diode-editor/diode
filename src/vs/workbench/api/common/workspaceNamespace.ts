@@ -38,6 +38,7 @@ import {
     type WireTextEdit,
 } from "./wireTypes.ts";
 import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
+import { simulateWorkspaceFoldersUpdate } from "./workspaceFoldersUpdate.ts";
 
 /** Тайм-аут на один waitUntil-thenable участника will-save, мс. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
@@ -648,6 +649,28 @@ export function createWorkspaceNamespace(
         // которых хост пока не фаерит, — валидные (никогда не стреляющие)
         // Event'ы; шаги закрытия — таблица стабов в docs/TODO/LSP.md. ──────────
         onDidChangeWorkspaceFolders: naiveEvent(),
+        // Multi-root у нас нет (docs/TODO/MultiRoot.md): из всех смен набора
+        // выполнима только та, что оставляет ровно одну папку, — её хост
+        // открывает, как Open Folder (расширения перезапускаются, как reload
+        // окна у эталона). Остальное — `false` и тост от хоста (решение человека).
+        updateWorkspaceFolders: (
+            start: number,
+            deleteCount: number | undefined | null,
+            ...workspaceFoldersToAdd: { readonly uri: vscode.Uri; readonly name?: string }[]
+        ): boolean => {
+            const next = simulateWorkspaceFoldersUpdate(
+                workspaceFolders,
+                start,
+                deleteCount ?? 0,
+                workspaceFoldersToAdd,
+            );
+            if (next === null) return false;
+            rpc.notify("workspace.updateWorkspaceFolders", {
+                extensionId: ctx.owner.current ?? null,
+                folders: next.map((uri) => uri.fsPath),
+            });
+            return next.length === 1;
+        },
         onDidCreateFiles: naiveEvent(),
         onDidDeleteFiles: naiveEvent(),
         onDidRenameFiles: naiveEvent(),

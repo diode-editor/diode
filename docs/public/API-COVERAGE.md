@@ -30,7 +30,7 @@
 | поверхность | статус | члены |
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 16/40 |
-| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 24/45 |
+| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 25/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 36/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
@@ -103,7 +103,8 @@
 | `workspaceFile` | ✅ | `Uri` файла `.code-workspace`, если окно открыто через него (файл с одной папкой); иначе `undefined`. `name` такого окна — `<файл> (Workspace)`, как в VS Code |
 | `saveAll` | 🟡 | сохраняет все несохранённые файлы всех групп (как `$saveAll` эталона); файл, изменённый на диске, не перезаписывается, сбой записи — `false`, остальные при этом сохраняются. Отклонение: `includeUntitled` не открывает Save As на безымянные буферы — они остаются несохранёнными, и ответ `false` |
 | `save` | ✅ | сохраняет открытый документ ресурса (и чистый — `force` эталона), результат — его `Uri`; не открыт, безымянный, конфликт с диском или сбой записи — `undefined` |
-| `rootPath`, `updateWorkspaceFolders`, `saveAs`, `decode`, `encode` | 🕐 | |
+| `rootPath`, `saveAs`, `decode`, `encode` | 🕐 | |
+| `updateWorkspaceFolders` | 🟡 | проверки эталона (повторы, границы, «ничего не меняется» → `false`); multi-root у нас нет, поэтому выполним только итог ровно в одну папку (пустое окно + папка, замена единственной) — она открывается, как `File: Open Folder`, расширения перезапускаются (у эталона — reload окна). Итог в две папки и больше или пустой — `false` и тост ошибки `Extension '…' failed to update workspace folders: multi-root workspaces are not supported`; `name` папки не учитывается (имя — basename) |
 
 ## vscode.window
 

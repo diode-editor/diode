@@ -92,6 +92,7 @@ import {
     NULL_FILE_DECORATIONS_SERVICE,
 } from "../../../api/common/iFileDecorationsService.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
+import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFoldersSink.ts";
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
     type IWireDocumentChangedEvent,
@@ -133,6 +134,7 @@ import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
 import { UriHandlersCustomer } from "./customers/uriHandlersCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
+import { WorkspaceFoldersCustomer } from "./customers/workspaceFoldersCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { ExtensionPhases } from "./extensionPhases.ts";
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
@@ -299,6 +301,11 @@ export interface IExtensionHostOptions {
      * зависимости (`extensionDependencies`), — как тост `unknownDep` эталона.
      */
     readonly notificationSink?: INotificationSink;
+    /**
+     * Сток смены папок воркспейса (`workspace.updateWorkspaceFolders`). Без
+     * него просьба расширения тихо пропадает.
+     */
+    readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
     /**
      * Сток терминалов расширений (`window.createTerminal` → `terminal.*`) и
      * источник жизни встроенного терминала для `window.terminals`. Если не
@@ -599,6 +606,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
             new LanguageConfigurationCustomer(options.languageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE),
+            new WorkspaceFoldersCustomer(options.workspaceFoldersSink),
             this.uriHandlersCustomer,
         ];
     }

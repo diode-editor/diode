@@ -68,6 +68,7 @@ import {
     type IWireTerminalSendText,
     type IWireTerminalShow,
     type IWireTerminalTarget,
+    type IWireUpdateWorkspaceFolders,
     type IWireValidationMessage,
     type IWireWatcherCreate,
     type IWireWorkspaceEditOp,
@@ -1152,4 +1153,16 @@ export function parseWireTaskExecuteRequest(raw: unknown): WireTaskExecuteReques
 export function parseWireTaskExecutionId(raw: unknown): IWireTaskExecutionId | null {
     const id = (raw as TaskEnvelope)?.id;
     return typeof id === "string" ? { id } : null;
+}
+
+/** Разбирает `workspace.updateWorkspaceFolders`; `null` — параметры структурно чужие. */
+export function parseWireUpdateWorkspaceFolders(raw: unknown): IWireUpdateWorkspaceFolders | null {
+    const p = raw as { extensionId?: unknown; folders?: unknown } | null | undefined;
+    if (!Array.isArray(p?.folders)) return null;
+    // Хоть один не-путь — запрос целиком чужой: открыть «часть набора» нельзя.
+    if (!p.folders.every((folder) => typeof folder === "string")) return null;
+    return {
+        extensionId: typeof p.extensionId === "string" ? p.extensionId : null,
+        folders: p.folders,
+    };
 }

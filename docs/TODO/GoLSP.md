@@ -169,6 +169,18 @@ gopls жив, даже когда активация падает (дыра №1
 - [~] **B8. Мелочи** (№13–№14): `createQuickPick`, `showOpenDialog`/`showSaveDialog`,
       `updateWorkspaceFolders`, формат лога отказа активации.
       - [x] лог отказа активации не-`Error` значением — само значение (#659);
+      - [x] `window.createQuickPick` — объектная форма эталона (#662); живьём
+        `Go: Generate Interface Stubs` (поле `lazyEnum` → `pickLazyEnum`: поиск
+        `fmt.Stringer` через `interactive/listEnum`, gopls вписывает заглушку).
+        Индикатора `busy` у оверлея нет — список просто пуст, пока сервер думает;
+      - [x] `workspace.updateWorkspaceFolders` (#663): итог в одну папку открывается,
+        вторая папка (`Go: Add Package to Workspace`) — `false` + тост ошибки.
+        **Решение человека:** «false + тост», а не строка в Output;
+      - [ ] `showOpenDialog`/`showSaveDialog` — **решение человека:** порт
+        `SimpleFileDialog` эталона (quick pick со списком каталога, путь в строке,
+        автодополнение сегмента выделением), и на него же переезжают наши
+        `File: Open File/Open Folder/Save As` (сейчас — голое поле пути).
+      - [x] лог отказа активации не-`Error` значением — само значение (#659);
       - [x] `window.createQuickPick` — объектная форма эталона; живьём проверен
         `Go: Generate Interface Stubs` (поле `lazyEnum` → `pickLazyEnum`: поиск
         `fmt.Stringer` через `interactive/listEnum`, gopls вписывает заглушку).
