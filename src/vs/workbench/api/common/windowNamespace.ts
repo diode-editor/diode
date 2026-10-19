@@ -85,6 +85,18 @@ function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): v
  * Человекочитаемое имя → slug для id: lower-case, не-алфанумерика схлопывается
  * в дефис, из имени без единой латинской буквы или цифры получается `fallback`.
  */
+/** Одна пустая каретка в начале документа — выделение свежей модели (1:1 эталона). */
+function isInitialSelection(selections: readonly IWireSelection[]): boolean {
+    const [only] = selections;
+    return (
+        selections.length === 1 &&
+        only.anchorLine === 0 &&
+        only.anchorCharacter === 0 &&
+        only.activeLine === 0 &&
+        only.activeCharacter === 0
+    );
+}
+
 function slugify(name: string, fallback: string): string {
     const slug = name
         .toLowerCase()
@@ -142,6 +154,12 @@ export function createWindowNamespace(
      */
     const selectionsByEditor = new Map<string, readonly IWireSelection[]>();
     /**
+     * Редакторы активной группы, ставшие видимыми последним снимком с
+     * выделением не в начале документа: их событие выделения ждёт
+     * `editor.activeEditorChanged` (см. {@link announceRestoredSelections}).
+     */
+    const pendingRestoredSelections = new Set<string>();
+    /**
      * Идентичность `TextEditor` = (группа, документ): один файл в двух группах —
      * два разных редактора с одним `document` (AS-7). Ключ — groupId, не
      * viewColumn: номер колонки пересчитывается при схлопывании, а объект
@@ -183,6 +201,46 @@ export function createWindowNamespace(
         return layout.groups.find((group) => group.isActive)?.groupId ?? 1;
     }
 
+    /** Рассылка `onDidChangeTextEditorSelection` по паре (группа, документ) — кэш выделений уже свежий. */
+    function fireSelectionChanged(
+        uri: string,
+        groupId: number,
+        selections: readonly IWireSelection[],
+        kind: vscode.TextEditorSelectionChangeKind | undefined,
+    ): void {
+        const editor = getEditorFor(registry.getOrCreate(Uri.parse(uri)), groupId);
+        const event: vscode.TextEditorSelectionChangeEvent = {
+            textEditor: editor,
+            selections: selections.map(toVscodeSelection),
+            kind,
+        };
+        for (const listener of [...selectionListeners]) listener(event);
+    }
+
+    /**
+     * Вкладка стала видимой с выделением не в начале документа (вернулись на
+     * неё, открыли с выделением) — эталон шлёт `onDidChangeTextEditorSelection`:
+     * у него новый `MainThreadTextEditor` читает 1:1 свежей модели, а
+     * восстановление курсора (`restoreState`, kind `undefined`) его меняет.
+     * Смена фокуса между уже видимыми группами — не событие, как и вкладка с
+     * кареткой в 1:1. Редактор активной группы получает событие после
+     * `onDidChangeActiveTextEditor` (снимок приходит раньше меты): слушатель
+     * сверяет `e.textEditor` с `activeTextEditor` — так фильтрует Claude Code.
+     */
+    function announceRestoredSelections(previous: IWireEditorLayout, next: IWireEditorLayout): void {
+        pendingRestoredSelections.clear();
+        const wasVisible = new Set(visiblePairs(previous));
+        for (const group of next.groups) {
+            const active = group.tabs.find((tab) => tab.isActive);
+            if (active?.kind !== "text") continue;
+            const key = selectionKey(group.groupId, active.uri);
+            const selections = selectionsByEditor.get(key);
+            if (wasVisible.has(key) || selections === undefined || isInitialSelection(selections)) continue;
+            if (group.isActive) pendingRestoredSelections.add(key);
+            else fireSelectionChanged(active.uri, group.groupId, selections, undefined);
+        }
+    }
+
     rpc.handleNotification("editor.activeEditorChanged", (params) => {
         const meta: {
             uri: string | null;
@@ -210,6 +268,17 @@ export function createWindowNamespace(
         for (const listener of [...activeEditorListeners]) {
             listener(editor);
         }
+        // Вкладку активной группы вернули из-под других — её восстановленное
+        // выделение (см. announceRestoredSelections) — после смены активного.
+        if (meta.uri != null) {
+            const groupId = effectiveActiveGroupId();
+            const key = selectionKey(groupId, meta.uri);
+            const selections = selectionsByEditor.get(key);
+            if (pendingRestoredSelections.has(key) && selections !== undefined) {
+                fireSelectionChanged(meta.uri, groupId, selections, undefined);
+            }
+        }
+        pendingRestoredSelections.clear();
     });
 
     // Каретка/выделение поехали в редакторе — обновляем только кэш выделений.
@@ -223,16 +292,10 @@ export function createWindowNamespace(
         selectionsByEditor.set(selectionKey(groupId, p.uri), selections);
         if (p.uri === activeEditorUri) activeSelections = selections;
         // Кэш обновлён ДО рассылки: слушатель читает `editor.selections` и
-        // обязан увидеть новое, а не то, что было до события.
-        const editor = getEditorFor(registry.getOrCreate(Uri.parse(p.uri)), groupId);
-        const event: vscode.TextEditorSelectionChangeEvent = {
-            textEditor: editor,
-            selections: selections.map(toVscodeSelection),
-            // Числа провода — это и есть значения `TextEditorSelectionChangeKind`
-            // (см. WireSelectionChangeKind); нераспознанный источник — `undefined`.
-            kind: parseWireSelectionChangeKind(p.kind),
-        };
-        for (const listener of [...selectionListeners]) listener(event);
+        // обязан увидеть новое, а не то, что было до события. Числа провода —
+        // это и есть значения `TextEditorSelectionChangeKind` (см.
+        // WireSelectionChangeKind); нераспознанный источник — `undefined`.
+        fireSelectionChanged(p.uri, groupId, selections, parseWireSelectionChangeKind(p.kind));
     });
 
     // Вид активной темы окна: семя на handshake + каждая настоящая смена.
@@ -363,6 +426,7 @@ export function createWindowNamespace(
             const editors = windowNs.visibleTextEditors;
             for (const listener of [...visibleEditorsListeners]) listener(editors);
         }
+        announceRestoredSelections(previous, next);
 
         // onDidChangeTextEditorViewColumn: выжившие редакторы со сменившейся колонкой.
         for (const group of next.groups) {
