@@ -88,8 +88,9 @@
 мутаций вызывающего.
 
 **Правило co-location.** Дескриптор объявляется рядом с **сервисом**-владельцем,
-а НЕ с TUIDom-элементом: элементы (напр. `WorkbenchLayoutElement`) в слое TUIDom и
-не могут импортировать Configuration. Реестр дескрипторов — `Workbench/Services/StateKeys.ts`
+а НЕ с элементом: элемент (напр. `WorkbenchLayoutElement`,
+`workbench/browser/workbenchLayoutElement.ts`) — view без DI, состояние ему
+пишет сервис сеттерами. Реестр дескрипторов — `workbench/common/stateKeys.ts`
 (параллель `ContextKeys.ts`).
 
 ## Движок (`Configuration/StateService.ts`)
@@ -149,7 +150,7 @@ main.ts: build container ─► lifecycle.onShutdownSync(flushSync) + страх
   публичные геттеры/сеттеры; сам элемент приходит от владельца view через шов
   `attachLayout`).
 - **Write-through:** `WorkbenchLayoutElement.onDidChangeLayout` (плейн-колбэк, без
-  DI — TUIDom чист) фаерит на drag сэша и на команды (toggle/resize);
+  DI — элемент про сервисы не знает) фаерит на drag сэша и на команды (toggle/resize);
   `LayoutService.attachLayout` подписывает его на `captureLayout()`. Открытые
   файлы — собственная подписка `WorkbenchStateService` на
   `EditorService.onActiveEditorChanged` + `onDidGroupsChange` →

@@ -1,6 +1,5 @@
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
-import { WorkbenchLayoutElement } from "@tuidom/elements/workbenchlayout/workbenchLayoutElement";
 
 import { CommandActionsDIToken, registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
@@ -61,6 +60,7 @@ import { StatusBarComponent, StatusBarComponentDIToken } from "./parts/statusbar
 import { type ViewsService, ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
+import { WorkbenchLayoutElement } from "./workbenchLayoutElement.ts";
 import type { WorkbenchStateService } from "./workbenchStateService.ts";
 import { WorkbenchStateServiceDIToken } from "./workbenchStateService.ts";
 
