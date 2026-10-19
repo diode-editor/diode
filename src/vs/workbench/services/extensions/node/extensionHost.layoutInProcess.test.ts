@@ -58,6 +58,7 @@ describe("ExtensionHost — обработчики полосы групп (in-p
         await expect(peer.request("editor.showTextDocument", { uri: "file:///a.ts" })).rejects.toThrow(
             "editor layout unavailable",
         );
+        await expect(peer.request("workspace.createUntitledDocument", {})).rejects.toThrow("editor layout unavailable");
         await expect(peer.request("editor.closeTabs", { tabs: [] })).resolves.toBe(false);
         await expect(peer.request("editor.closeGroups", { groupIds: [] })).resolves.toBe(false);
     });

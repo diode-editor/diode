@@ -11,6 +11,7 @@ import type { SyntheticTextModel } from "../../../common/editor/syntheticTextMod
 import type { ISerializedEditor } from "../../../common/stateKeys.ts";
 import type { IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
+import type { TextFileModel } from "../../textfile/common/textFileModel.ts";
 import type { TextFileModelService } from "../../textfile/common/textFileModelService.ts";
 import type { EditorGroup } from "../browser/editorGroupModel.ts";
 import type { IEditorPaneFactory, ITextEditorViewState } from "../browser/editorPaneFactory.ts";
@@ -20,6 +21,14 @@ import type { IEditorGroupsService } from "./editorGroupsService.ts";
 import type { IVirtualDocumentSource } from "./iVirtualDocumentSource.ts";
 
 /** Параметры {@link IEditorService.openUri}. */
+/** Начальное состояние безымянного буфера (`$tryCreateDocument` эталона). */
+export interface IUntitledOptions {
+    /** Начальный текст; непустой делает буфер изменённым, как в эталоне. */
+    readonly content?: string | undefined;
+    readonly languageId?: string | undefined;
+    readonly encoding?: string | undefined;
+}
+
 export interface IOpenUriOptions {
     readonly focus?: boolean;
     /**
@@ -89,6 +98,11 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
      * `bindDocumentSync`.
      */
     getTextSurfaces(): readonly TextEditorPane[];
+    /**
+     * Безымянные буферы без вкладки ({@link createUntitled}): документы уже
+     * открыты расширениям, но человек их ещё не видит.
+     */
+    getUntitledModelsWithoutEditor(): readonly TextFileModel[];
     /** Пути открытых файлов всех групп в порядке вкладок (без безымянных и недисковых). */
     getOpenFilePaths(): string[];
     /** Сохранить все несохранённые документы с путём; изменённые на диске — не перезаписывать. */
@@ -117,6 +131,11 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     openDetached(uri: Uri, languageId: string): TextEditorPane<SyntheticTextModel>;
     /** Новый безымянный буфер. */
     newUntitled(options?: { focus?: boolean }): void;
+    /**
+     * Безымянный буфер без вкладки (`workspace.openTextDocument({ content, language })`);
+     * показывает его {@link openUri} по возвращённому ресурсу.
+     */
+    createUntitled(options?: IUntitledOptions): Uri;
     /** Сможет ли {@link openUri} открыть этот ресурс заново. */
     canRestore(uri: Uri): boolean;
     /** Ресурс открыть не удалось. */

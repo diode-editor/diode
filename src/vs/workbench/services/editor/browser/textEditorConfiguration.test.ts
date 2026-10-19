@@ -113,6 +113,16 @@ describe("TextEditorConfiguration", () => {
             expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
         });
 
+        it("безымянный буфер расширения настраивается, когда его показывают", async () => {
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "editor.wordWrap": "on" }),
+            });
+
+            await ctrl.openUri(ctrl.createUntitled({ content: "x" }));
+
+            expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
+        });
+
         it("seeds indent options from the configuration service", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({

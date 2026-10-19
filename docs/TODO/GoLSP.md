@@ -152,8 +152,10 @@ gopls жив, даже когда активация падает (дыра №1
       `openSettings`; опции эталона (`revealSetting`, `query`, `openToSide`) пока не
       применяются (golang.go зовёт без аргументов).
 - [ ] **B6. `workspace.saveAll`** (№12) — сервис сохранения уже есть, нужен мост.
-- [ ] **B7. Untitled-документы `openTextDocument({ content, language })`** (№11) —
-      read-only вкладка на тех же рельсах, что виртуальные документы `jdt:`.
+- [x] **B7. Untitled-документы `openTextDocument({ content, language })`** (№11) —
+      как в эталоне: безымянный буфер ядра `untitled:Untitled-N` (грязный, правимый,
+      Save As), а не read-only вкладка — untitled-модели в ядре уже были (File → New
+      Untitled File), понадобился только мост.
 - [ ] **B8. Мелочи** (№13–№14): `createQuickPick`, `showOpenDialog`/`showSaveDialog`,
       `updateWorkspaceFolders`, формат лога отказа активации.
 

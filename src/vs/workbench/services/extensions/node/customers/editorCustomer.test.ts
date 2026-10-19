@@ -54,6 +54,10 @@ function setup() {
             log.push(["closeTabs", params]);
             return Promise.resolve(true);
         },
+        createUntitledDocument: (params) => {
+            log.push(["createUntitled", params]);
+            return { uri: "untitled:Untitled-1" };
+        },
         closeGroups: (params) => {
             log.push(["closeGroups", params]);
             return Promise.resolve(false);
@@ -220,5 +224,22 @@ describe("EditorCustomer — запросы субпроцесса", () => {
 
     it("editor.closeGroups отвечает после флаша полосы; мусор — отказ", async () => {
         await expectFlushedReply("editor.closeGroups", { groupIds: [1] }, "closeGroups", false);
+    });
+
+    it("workspace.createUntitledDocument: опции доезжают до порта, поле не той формы отброшено", async () => {
+        const h = setup();
+        h.attachTo();
+        await expect(
+            h.peer.request("workspace.createUntitledDocument", {
+                content: "x",
+                language: 42,
+                encoding: "utf8",
+            } as never),
+        ).resolves.toEqual({ uri: "untitled:Untitled-1" });
+        await h.peer.request("workspace.createUntitledDocument", null as never);
+        expect(h.log).toEqual([
+            ["createUntitled", { content: "x", encoding: "utf8" }],
+            ["createUntitled", {}],
+        ]);
     });
 });

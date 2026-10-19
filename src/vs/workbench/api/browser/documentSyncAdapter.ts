@@ -40,14 +40,19 @@ export function documentChangedEventOfModel(
  * vscode-languageclient читает его на `start()`).
  */
 export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncSnapshot[] {
-    const snapshots: IWireDocumentSyncSnapshot[] = [];
-    const seen = new Set<BaseTextEditorModel>();
-    for (const editor of group.getTextSurfaces()) {
-        if (seen.has(editor.model)) continue;
-        seen.add(editor.model);
-        snapshots.push(documentSyncSnapshotOfModel(editor.model));
-    }
-    return snapshots;
+    return [...openDocumentModels(group)].map(documentSyncSnapshotOfModel);
+}
+
+/**
+ * Модели документов, открытых расширениям: текстовых поверхностей (по одной на
+ * модель) и безымянных буферов без вкладки — `openTextDocument({ content })`
+ * открывает документ раньше, чем его кто-то покажет, как в эталоне.
+ */
+function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
+    const models = new Set<BaseTextEditorModel>();
+    for (const editor of group.getTextSurfaces()) models.add(editor.model);
+    for (const model of group.getUntitledModelsWithoutEditor()) models.add(model);
+    return models;
 }
 
 /** Под каким uri и языком документ открыт субпроцессу. */
@@ -66,7 +71,8 @@ interface ITrackedDocument {
  * вкладка документа. Подписка на МОДЕЛЬ, не на вкладку: документ в двух группах
  * даёт один didChange, а не два. Документы — всех текстовых поверхностей
  * (`getTextSurfaces`): вкладок и сторон дифф-вкладок, по которым тоже зовут
- * провайдеров. Панели Output — нет: их содержимое — лог, в том числе канал
+ * провайдеров, — плюс безымянные буферы без вкладки (`openTextDocument({ content })`).
+ * Панели Output — нет: их содержимое — лог, в том числе канал
  * «Extension Host (RPC)», и каждая его строка, уехав субпроцессу правкой,
  * порождала бы новую строку того же канала. didChange — дельта: точные правки батча
  * модели (`onDidChangeModelContent`), а не полный текст; полный снапшот — только
@@ -127,8 +133,7 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
 
     /** Согласует множество отслеживаемых моделей с открытыми вкладками. */
     const reconcile = (): void => {
-        const alive = new Set<BaseTextEditorModel>();
-        for (const editor of group.getTextSurfaces()) alive.add(editor.model);
+        const alive = openDocumentModels(group);
         for (const [model, record] of [...tracked]) {
             if (alive.has(model)) continue;
             record.subscriptions.dispose();

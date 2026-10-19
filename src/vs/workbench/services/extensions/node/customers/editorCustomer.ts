@@ -12,6 +12,7 @@ import {
     parseWireApplyWorkspaceEditParams,
     parseWireCloseGroupsParams,
     parseWireCloseTabsParams,
+    parseWireCreateUntitledParams,
     parseWireEditorEdits,
     parseWireShowTextDocumentParams,
 } from "../hostWireParsers.ts";
@@ -110,6 +111,14 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 this.editorLayout.flushPendingLayout();
                 return result;
             }),
+        );
+        // `workspace.openTextDocument({ content, language })`: документ без
+        // вкладки. `editor.didOpen` уходит синхронно внутри создания (document
+        // sync на смене состава документов) — ответ его не обгоняет.
+        store.add(
+            rpc.handleRequest("workspace.createUntitledDocument", (params) =>
+                this.editorLayout.createUntitledDocument(parseWireCreateUntitledParams(params)),
+            ),
         );
         store.add(
             rpc.handleRequest("editor.closeTabs", async (params): Promise<boolean> => {
