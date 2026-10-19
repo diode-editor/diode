@@ -766,6 +766,17 @@ declare module "vscode" {
 		export function showInputBox(options?: InputBoxOptions, token?: CancellationToken): Thenable<string | undefined>;
 
 		/**
+		 * Creates a {@link QuickPick} to let the user pick an item from a list of items of type `T`.
+		 *
+		 * Note that in many cases the more convenient {@link window.showQuickPick} is easier to use.
+		 * {@link window.createQuickPick} should be used when {@link window.showQuickPick} does not offer
+		 * the required flexibility.
+		 *
+		 * @returns A new {@link QuickPick}.
+		 */
+		export function createQuickPick<T extends QuickPickItem>(): QuickPick<T>;
+
+		/**
 		 * Creates a new {@link OutputChannel output channel} with the given name and language id
 		 * If language id is not provided, then **Log** is used as default language id.
 		 *
@@ -4555,6 +4566,14 @@ declare module "vscode" {
 		 * {@link QuickPickItemKind.Separator}.
 		 */
 		picked?: boolean;
+
+		/**
+		 * Determines if this item is always shown, even when filtered out by the user's input.
+		 *
+		 * **Note:** This property is ignored when {@link QuickPickItem.kind kind} is set to
+		 * {@link QuickPickItemKind.Separator}.
+		 */
+		alwaysShow?: boolean;
 	}
 
 	/**
@@ -4701,6 +4720,182 @@ declare module "vscode" {
 		 */
 		validateInput?(value: string): string | InputBoxValidationMessage | undefined | null |
 			Thenable<string | InputBoxValidationMessage | undefined | null>;
+	}
+
+	/**
+	 * The base interface for all quick input types.
+	 *
+	 * Quick input provides a unified way for extensions to interact with users through simple UI elements.
+	 * A quick input UI is initially not visible. After configuring it through its properties the extension
+	 * can make it visible by calling {@link QuickInput.show show}.
+	 *
+	 * There are several reasons why this UI might have to be hidden and the extension will be notified
+	 * through {@link QuickInput.onDidHide onDidHide}. Examples include: an explicit call to
+	 * {@link QuickInput.hide hide}, the user pressing Esc, some other input UI opening, etc.
+	 *
+	 * A user pressing Enter or some other gesture implying acceptance of the current state does not
+	 * automatically hide this UI component. It is up to the extension to decide whether to accept the
+	 * user's input and if the UI should indeed be hidden through a call to {@link QuickInput.hide hide}.
+	 *
+	 * When the extension no longer needs this input UI, it should {@link QuickInput.dispose dispose} it
+	 * to allow for freeing up any resources associated with it.
+	 *
+	 * See {@link QuickPick} and {@link InputBox} for concrete UIs.
+	 */
+	export interface QuickInput {
+
+		/**
+		 * An optional title for the input UI.
+		 */
+		title: string | undefined;
+
+		/**
+		 * An optional current step count for multi-step input flows.
+		 */
+		step: number | undefined;
+
+		/**
+		 * An optional total step count for multi-step input flows.
+		 */
+		totalSteps: number | undefined;
+
+		/**
+		 * Determines if the UI should allow for user input. Defaults to `true`.
+		 *
+		 * Change this to `false`, for example, while validating user input or loading data for the next
+		 * step in user input.
+		 */
+		enabled: boolean;
+
+		/**
+		 * Determines if the UI should show a progress indicator. Defaults to `false`.
+		 *
+		 * Change this to `true`, for example, while loading more data or validating user input.
+		 */
+		busy: boolean;
+
+		/**
+		 * Determines if the UI should stay open even when losing UI focus. Defaults to `false`.
+		 * This setting is ignored on iPad and is always `false`.
+		 */
+		ignoreFocusOut: boolean;
+
+		/**
+		 * Makes the input UI visible in its current configuration.
+		 *
+		 * Any other input UI will first fire an {@link QuickInput.onDidHide onDidHide} event.
+		 */
+		show(): void;
+
+		/**
+		 * Hides this input UI.
+		 *
+		 * This will also fire an {@link QuickInput.onDidHide onDidHide} event.
+		 */
+		hide(): void;
+
+		/**
+		 * An event signaling when this input UI is hidden.
+		 *
+		 * There are several reasons why this UI might have to be hidden and the extension will be notified
+		 * through {@link QuickInput.onDidHide onDidHide}. Examples include: an explicit call to
+		 * {@link QuickInput.hide hide}, the user pressing Esc, some other input UI opening, etc.
+		 */
+		readonly onDidHide: Event<void>;
+
+		/**
+		 * Dispose of this input UI and any associated resources.
+		 *
+		 * If it is still visible, it is first hidden. After this call the input UI is no longer functional
+		 * and no additional methods or properties on it should be accessed. Instead a new input UI should
+		 * be created.
+		 */
+		dispose(): void;
+	}
+
+	/**
+	 * A concrete {@link QuickInput} to let the user pick an item from a list of items of type `T`.
+	 *
+	 * The items can be filtered through a filter text field and there is an option
+	 * {@link QuickPick.canSelectMany canSelectMany} to allow for selecting multiple items.
+	 *
+	 * Note that in many cases the more convenient {@link window.showQuickPick} is easier to use.
+	 * {@link window.createQuickPick} should be used when {@link window.showQuickPick} does not offer
+	 * the required flexibility.
+	 */
+	export interface QuickPick<T extends QuickPickItem> extends QuickInput {
+
+		/**
+		 * The current value of the filter text.
+		 */
+		value: string;
+
+		/**
+		 * Optional placeholder text displayed in the filter text box when no value has been entered.
+		 */
+		placeholder: string | undefined;
+
+		/**
+		 * Optional text that provides instructions or context to the user.
+		 *
+		 * The prompt is displayed below the input box and above the list of items.
+		 */
+		prompt: string | undefined;
+
+		/**
+		 * An event signaling when the value of the filter text has changed.
+		 */
+		readonly onDidChangeValue: Event<string>;
+
+		/**
+		 * An event signaling when the user indicated acceptance of the selected item(s).
+		 */
+		readonly onDidAccept: Event<void>;
+
+		/**
+		 * Items to pick from. This can be read and updated by the extension.
+		 */
+		items: readonly T[];
+
+		/**
+		 * Determines if multiple items can be selected at the same time. Defaults to `false`.
+		 */
+		canSelectMany: boolean;
+
+		/**
+		 * Determines if the filter text should also be matched against the {@link QuickPickItem.description description} of the items. Defaults to `false`.
+		 */
+		matchOnDescription: boolean;
+
+		/**
+		 * Determines if the filter text should also be matched against the {@link QuickPickItem.detail detail} of the items. Defaults to `false`.
+		 */
+		matchOnDetail: boolean;
+
+		/**
+		 * Determines if the scroll position is maintained when the quick pick items are updated. Defaults to `false`.
+		 */
+		keepScrollPosition?: boolean;
+
+		/**
+		 * Active items. This can be read and updated by the extension.
+		 */
+		activeItems: readonly T[];
+
+		/**
+		 * An event signaling when the active items have changed.
+		 */
+		readonly onDidChangeActive: Event<readonly T[]>;
+
+		/**
+		 * Selected items. This can be read and updated by the extension.
+		 */
+		selectedItems: readonly T[];
+
+		/**
+		 * An event signaling when the selected items have changed.
+		 */
+		readonly onDidChangeSelection: Event<readonly T[]>;
 	}
 
 	/**

@@ -4,6 +4,12 @@ import type { QuickPickItem, ValidationSeverity } from "../../../common/quickPic
 
 import type { QuickInputComponent } from "./quickInputComponent.ts";
 import { QuickInputComponentDIToken } from "./quickInputComponent.ts";
+import {
+    type IQuickInputSlot,
+    QuickPickSession,
+    type QuickPickSessionEvents,
+    type QuickPickSessionItem,
+} from "./quickPickSession.ts";
 
 export const QuickInputServiceDIToken = token<QuickInputService>("QuickInputService");
 
@@ -91,9 +97,10 @@ function isThenable(value: unknown): value is Promise<InputValidation | null> {
  * показ полностью ре-инициализирует состояние и колбэки виджета. Only one
  * quick-input is ever active at a time; a new call cancels any previous one.
  *
- * Exposes the InputBox flavor (`input()`), the list-pick flavor (`quickPick()`)
- * и множественный выбор (`quickPickMany()`). The file-dialog flavor reuses the
- * same widget/session and is a future addition.
+ * Exposes the InputBox flavor (`input()`), the list-pick flavor (`quickPick()`),
+ * множественный выбор (`quickPickMany()`) и живой объектный пикер
+ * (`createQuickPick()`, {@link QuickPickSession}). The file-dialog flavor reuses
+ * the same widget/session and is a future addition.
  */
 export class QuickInputService {
     public static dependencies = [QuickInputComponentDIToken] as const;
@@ -307,6 +314,36 @@ export class QuickInputService {
         view.items = allItems;
         return view;
     }
+
+    /**
+     * Объектный пикер (`createQuickPick` эталона): живой, закрывается только
+     * владельцем, Escape-ом или перехватом виджета. События — в `events`.
+     */
+    public createQuickPick<T extends QuickPickSessionItem>(events: QuickPickSessionEvents<T>): QuickPickSession<T> {
+        return new QuickPickSession<T>(this.slot, events);
+    }
+
+    /**
+     * Слот виджета для {@link QuickPickSession}: тот же механизм владения, что
+     * у промисных флейворов, — владелец показа это `pendingResolve`, и любой
+     * перехват (`settle`) доводит до него потерю.
+     */
+    private readonly slot: IQuickInputSlot = {
+        claim: (onLost) => {
+            // Stryker disable next-line CallExpression: дублируется строкой ниже — `hide()` и так дёргает onDidClose прошлого владельца, а тот доводит его показ до конца сам; явный settle только называет намерение (как в quickPickMany)
+            this.settle(undefined);
+            this.component.hide();
+            this.pendingResolve = onLost;
+            this.takeOwnership();
+            return this.component.view;
+        },
+        open: () => {
+            this.component.show();
+        },
+        release: () => {
+            this.settle(undefined);
+        },
+    };
 
     /**
      * Снять текущий показ извне (токен отмены расширения, смерть его процесса):

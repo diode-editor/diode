@@ -2,7 +2,9 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type {
     IWireInputBoxRequest,
+    IWireQuickPickEvent,
     IWireQuickPickRequest,
+    IWireQuickPickUpdate,
     IWireShowMessageRequest,
     IWireStatusBarItem,
     IWireTerminalClosed,
@@ -73,6 +75,14 @@ export interface IQuickInputSink {
     showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined>;
     showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined>;
     cancel(handle: number): void;
+    /**
+     * Объектный пикер расширения (`window.createQuickPick`): первый апдейт
+     * handle'а заводит пикер, следующие меняют его диффом. Действия человека
+     * сток отдаёт в `emit` — того, что передан с ПЕРВЫМ апдейтом handle'а.
+     */
+    updateQuickPick(update: IWireQuickPickUpdate, emit: (event: IWireQuickPickEvent) => void): void;
+    /** Пикер снят расширением или его процесс умер: скрыть и забыть. */
+    disposeQuickPick(handle: number): void;
 }
 
 /**

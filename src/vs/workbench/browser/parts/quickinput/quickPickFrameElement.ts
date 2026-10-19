@@ -33,6 +33,10 @@ export class QuickPickFrameElement extends TUIElement {
         this.appendChild(child);
     }
 
+    public get title(): string | undefined {
+        return this.titleValue;
+    }
+
     public setTitle(value: string | undefined): void {
         if (this.titleValue === value) return;
         this.titleValue = value;

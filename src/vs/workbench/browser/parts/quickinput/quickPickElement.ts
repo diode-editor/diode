@@ -53,8 +53,18 @@ export class QuickPickElement extends TUIElement {
     /** Сколько строк списка показывать одновременно (дальше — скролл). */
     public maxVisibleItems = 10;
 
-    /** Заголовок, врезанный в верхнюю рамку (например, "Save As"). */
-    public title: string | undefined = undefined;
+    /**
+     * Заголовок, врезанный в верхнюю рамку (например, "Save As"). Уходит рамке
+     * СРАЗУ, а не из layout: пометка перерисовки, сделанная посреди раскладки,
+     * достаётся только следующему кадру, и заголовок открытого пикера
+     * (`createQuickPick` расширения меняет его на ходу) отставал бы на кадр.
+     */
+    public get title(): string | undefined {
+        return this.frame.title;
+    }
+    public set title(value: string | undefined) {
+        this.frame.setTitle(value);
+    }
     /**
      * Подсказка под строкой запроса (dim) — флейвор InputBox. Перебивается
      * {@link validationMessage}, когда та выставлена.
@@ -95,6 +105,15 @@ export class QuickPickElement extends TUIElement {
      * пустом наборе, и на пустом списке.
      */
     public onAcceptMany: (() => void) | null = null;
+    /**
+     * Enter на ПУСТОМ списке в режиме "item" (одиночный выбор): принять нечего,
+     * но объектный пикер расширения всё равно обязан узнать о нажатии
+     * (`QuickPick.onDidAccept` эталона файрится и без выбора — так принимают
+     * набранный текст). Палитре и Quick Open колбэк не нужен.
+     */
+    public onAcceptEmpty: (() => void) | null = null;
+    /** Отметка множественного выбора переключена человеком (`Space`, клик). */
+    public onCheckedChange: (() => void) | null = null;
     public onCancel: (() => void) | null = null;
     /**
      * Выделенная строка сменилась ПО ВОЛЕ ПОЛЬЗОВАТЕЛЯ (стрелки, PageUp/Down) —
@@ -251,6 +270,8 @@ export class QuickPickElement extends TUIElement {
         this.canPickMany = false;
         this.checkedValue.clear();
         this.onAcceptMany = null;
+        this.onAcceptEmpty = null;
+        this.onCheckedChange = null;
         this.password = false;
     }
 
@@ -389,7 +410,6 @@ export class QuickPickElement extends TUIElement {
             this.markDirty();
         }
 
-        this.frame.setTitle(this.title);
         this.frame.setSeparatorRow(hasItems ? BORDER_THICKNESS + this.headerRows : null);
     }
 
@@ -492,6 +512,7 @@ export class QuickPickElement extends TUIElement {
         if (item === undefined) return;
         if (!this.checkedValue.delete(item)) this.checkedValue.add(item);
         this.rebuildKeepingView();
+        this.onCheckedChange?.();
     }
 
     private accept(): void {
@@ -510,7 +531,9 @@ export class QuickPickElement extends TUIElement {
         }
         if (this.itemsValue.length > 0) {
             this.onAccept?.(this.itemsValue[this.selectedIndexValue], this.selectedIndexValue);
+            return;
         }
+        this.onAcceptEmpty?.();
     }
 
     /** Наведение мышью ведёт выделение за собой (поведение VS Code). */

@@ -1,11 +1,13 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { ExtHostQuickPick } from "./extHostQuickPick.ts";
 import { InputBoxValidationSeverity, QuickPickItemKind } from "./vscodeTypes.ts";
 import {
     type IWireQuickPickItem,
     type IWireValidationMessage,
     parseWireInputBoxResult,
+    parseWireQuickPickEvent,
     parseWireQuickPickResult,
     type WireValidationSeverity,
 } from "./wireTypes.ts";
@@ -31,6 +33,7 @@ export interface IQuickInputApi {
         options?: vscode.QuickPickOptions,
         token?: vscode.CancellationToken,
     ) => Thenable<unknown>;
+    createQuickPick<T extends vscode.QuickPickItem>(): vscode.QuickPick<T>;
 }
 
 /** Исход `validateInput` расширения → сообщение на проводе. */
@@ -94,6 +97,14 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
      */
     const validators = new Map<number, ((value: string) => unknown) | undefined>();
 
+    /** Живые объектные пикеры (`createQuickPick`) — адресаты событий хоста. */
+    const quickPicks = new Map<number, ExtHostQuickPick<vscode.QuickPickItem>>();
+    rpc.handleNotification("window.quickPick.event", (params) => {
+        const event = parseWireQuickPickEvent(params);
+        if (event === null) return;
+        quickPicks.get(event.handle)?.acceptEvent(event);
+    });
+
     rpc.handleRequest("window.inputBox.validate", async (params): Promise<IWireValidationMessage | null> => {
         const p: { handle?: unknown; value?: unknown } = params;
         // Stryker disable next-line ConditionalExpression: проверка handle — быстрый выход; мусорный handle всё равно не найдётся в карте валидаторов, и ответом будет тот же null
@@ -120,6 +131,14 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
     };
 
     return {
+        createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => {
+            // Счётчик общий с show*-показами: хост адресует ими один оверлей.
+            const handle = nextHandle++;
+            const quickPick = new ExtHostQuickPick<T>(rpc, handle, () => quickPicks.delete(handle));
+            quickPicks.set(handle, quickPick as unknown as ExtHostQuickPick<vscode.QuickPickItem>);
+            return quickPick;
+        },
+
         showInputBox: async (options, token) => {
             if (token?.isCancellationRequested === true) return undefined;
             const handle = nextHandle++;

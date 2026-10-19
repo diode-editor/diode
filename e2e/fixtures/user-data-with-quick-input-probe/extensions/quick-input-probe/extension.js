@@ -240,6 +240,55 @@ exports.activate = function activate(context) {
         });
         show("Both: " + describe(name) + " / " + describe(fruit));
     });
+
+    // ─── Объектный пикер (window.createQuickPick) ───────────────────────────
+    // Форма `pickLazyEnum` golang.go (`Go: Maintain gopls`): пикер открывается
+    // пустым, предметы приезжают с задержкой на каждый набранный запрос — как
+    // ответ языкового сервера, — Enter принимает, расширение прячет пикер само.
+
+    const MODULES = [
+        { name: "Alpha module", path: "example.com/alpha" },
+        { name: "Beta module", path: "example.com/beta" },
+        { name: "Gamma tools", path: "example.com/gamma" },
+    ];
+
+    register("diodeProbe.lazyPick", function () {
+        return new Promise(function (resolve) {
+            const quickPick = vscode.window.createQuickPick();
+            quickPick.title = "Lazy enum";
+            quickPick.placeholder = "Type to search modules";
+            quickPick.matchOnDescription = true;
+            let timer;
+            let accepted = false;
+            const search = function (query) {
+                quickPick.busy = true;
+                clearTimeout(timer);
+                timer = setTimeout(function () {
+                    quickPick.items = MODULES.filter(function (m) {
+                        return m.path.includes(query.toLowerCase());
+                    }).map(function (m) {
+                        return { label: "$(package) " + m.name, detail: m.path, path: m.path };
+                    });
+                    quickPick.prompt = query === "" ? "Все модули" : "Найдено по «" + query + "»";
+                    quickPick.busy = false;
+                }, 300);
+            };
+            quickPick.onDidChangeValue(search);
+            quickPick.onDidAccept(function () {
+                const selection = quickPick.selectedItems[0];
+                accepted = true;
+                show("Lazy: " + (selection ? selection.path : "(none)"));
+                quickPick.hide();
+            });
+            quickPick.onDidHide(function () {
+                if (!accepted) show("Lazy: cancelled");
+                quickPick.dispose();
+                resolve();
+            });
+            quickPick.show();
+            search("");
+        });
+    });
 };
 
 exports.deactivate = function deactivate() {};

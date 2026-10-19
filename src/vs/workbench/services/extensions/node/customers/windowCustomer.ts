@@ -10,6 +10,7 @@ import type {
 } from "../../../../api/common/iExtensionWindowSinks.ts";
 import type {
     IWireInputBoxResult,
+    IWireQuickPickEvent,
     IWireQuickPickResult,
     IWireShowMessageResult,
     IWireValidationMessage,
@@ -25,7 +26,9 @@ import {
     parseWireProgressReport,
     parseWireProgressStart,
     parseWireQuickInputCancel,
+    parseWireQuickPickDispose,
     parseWireQuickPickRequest,
+    parseWireQuickPickUpdate,
     parseWireShowMessageRequest,
     parseWireStatusBarItem,
     parseWireStatusBarItemDispose,
@@ -65,6 +68,16 @@ export class WindowCustomer implements IExtensionHostCustomer {
         const quickInputHandles = new Set<number>();
         /** Живые показы сообщений — по той же причине, что у quick input'а. */
         const messageHandles = new Set<number>();
+        /** Живые объектные пикеры (`createQuickPick`): на смерти — снимаются. */
+        const quickPickHandles = new Set<number>();
+        /**
+         * Субпроцесс ещё слушает: пикер, снятый на его смерти, сообщает о
+         * скрытии — слать это в закрытый канал некому.
+         */
+        let attached = true;
+        const emitQuickPickEvent = (event: IWireQuickPickEvent): void => {
+            if (attached) rpc.notify("window.quickPick.event", event);
+        };
 
         // Жизненный цикл withProgress расширения — отдаём стоку (module рисует
         // запись статус-бара со спиннером и снимает её на end).
@@ -193,6 +206,25 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 quickInputSink?.cancel(handle);
             }),
         );
+        // Объектный пикер (`window.createQuickPick`): состояние приходит диффом,
+        // действия человека уходят событиями обратно в тот же субпроцесс.
+        store.add(
+            rpc.handleNotification("window.quickPick.update", (params) => {
+                const update = parseWireQuickPickUpdate(params);
+                if (update === null || quickInputSink === undefined) return;
+                quickPickHandles.add(update.handle);
+                quickInputSink.updateQuickPick(update, emitQuickPickEvent);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("window.quickPick.dispose", (params) => {
+                const handle = parseWireQuickPickDispose(params);
+                // Stryker disable next-line ConditionalExpression: проверка null — для типов; `Set.delete(null)` и так false, и мусор отсеивается второй половиной
+                if (handle === null || !quickPickHandles.delete(handle)) return;
+                // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока (см. update) — пары «набор непуст, а стока нет» не бывает
+                quickInputSink?.disposeQuickPick(handle);
+            }),
+        );
         // ─── Сообщения человеку (window.show*Message) ────────────────────────
         // Сообщение одновременно уходит в лог расширений (история сообщений
         // остаётся читаемой после того, как тост погас) и на поверхность стока.
@@ -227,12 +259,15 @@ export class WindowCustomer implements IExtensionHostCustomer {
         // держал на экране, снимаем сами.
         store.add({
             dispose: () => {
+                attached = false;
                 for (const handle of progressHandles) progressSink?.end(handle);
                 statusBarItemSink?.clear();
                 // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока, поэтому пары «набор непуст, а стока нет» не бывает; `?.` стоит защитой
                 for (const handle of quickInputHandles) quickInputSink?.cancel(handle);
                 // Stryker disable next-line OptionalChaining: см. выше
                 for (const handle of messageHandles) notificationSink?.cancel(handle);
+                // Stryker disable next-line OptionalChaining: см. выше
+                for (const handle of quickPickHandles) quickInputSink?.disposeQuickPick(handle);
             },
         });
         return store;

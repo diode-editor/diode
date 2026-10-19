@@ -1035,6 +1035,9 @@ export function createWindowNamespace(
         // Каст — к четырём перегрузкам d.ts (строки/предметы × canPickMany):
         // форму ответа реализация выбирает по `canPickMany` в рантайме.
         showQuickPick: quickInput.showQuickPick as typeof vscode.window.showQuickPick,
+        // Объектная форма пикера: живой объект расширения, состояние — диффом
+        // хосту, действия человека — событиями обратно (extHostQuickPick.ts).
+        createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
 
         // `window.showTextDocument` (3 перегрузки): нормализуем в один запрос
         // хосту; к моменту резолва `editor.layoutChanged` уже применён (хост

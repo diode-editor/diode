@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { QuickInputComponent } from "../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputService } from "../../browser/parts/quickinput/quickInputService.ts";
-import type { IWireQuickPickRequest } from "../common/wireTypes.ts";
+import type { IWireQuickPickEvent, IWireQuickPickRequest } from "../common/wireTypes.ts";
 
 import { QuickInputExtensionAdapter } from "./quickInputExtensionAdapter.ts";
 
@@ -283,5 +283,245 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         await expect(first).resolves.toBeUndefined();
         testApp.sendKey("Enter");
         await expect(second).resolves.toEqual([0]);
+    });
+});
+
+describe("QuickInputExtensionAdapter — объектный пикер", () => {
+    function objectPick() {
+        const env = createAdapter();
+        const events: IWireQuickPickEvent[] = [];
+        const emit = (event: IWireQuickPickEvent): void => {
+            events.push(event);
+        };
+        return { ...env, events, emit };
+    }
+
+    it("первый апдейт заводит и показывает пикер; detail встаёт на место описания", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                title: "Pick",
+                items: [
+                    { handle: 0, label: "Alpha", description: "first", detail: "ignored" },
+                    { handle: 2, label: "Gamma", detail: "example.com/gamma" },
+                ],
+            },
+            emit,
+        );
+        expect(component.isOpen()).toBe(true);
+        expect(component.view.title).toBe("Pick");
+        expect(component.view.items.map((item) => [item.label, item.description])).toEqual([
+            ["Alpha", "first"],
+            ["Gamma", "example.com/gamma"],
+        ]);
+    });
+
+    it("действия человека уходят событиями с handle'ами пунктов расширения", () => {
+        const { adapter, testApp, events, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                items: [
+                    { handle: 0, label: "Alpha" },
+                    { handle: 2, label: "Gamma" },
+                ],
+            },
+            emit,
+        );
+        events.length = 0;
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("Enter");
+        testApp.sendKey("Escape");
+        expect(events).toEqual([
+            { handle: 5, kind: "changeActive", items: [2] },
+            { handle: 5, kind: "changeSelection", items: [2] },
+            { handle: 5, kind: "accept" },
+            { handle: 5, kind: "hide" },
+        ]);
+    });
+
+    it("набор — changeValue с текстом как есть", () => {
+        const { adapter, testApp, events, emit } = objectPick();
+        adapter.updateQuickPick({ handle: 5, visible: true }, emit);
+        testApp.sendKey("$");
+        expect(events).toContainEqual({ handle: 5, kind: "changeValue", value: "$" });
+    });
+
+    it("activeItems/selectedItems того же диффа разрешаются по НОВЫМ предметам", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick({ handle: 5, visible: true, items: [{ handle: 0, label: "old" }] }, emit);
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                canSelectMany: true,
+                items: [
+                    { handle: 0, label: "one" },
+                    { handle: 1, label: "two" },
+                ],
+                activeItems: [1],
+                selectedItems: [0, 9],
+            },
+            emit,
+        );
+        expect(component.view.inspectState()).toMatchObject({
+            items: ["one", "two"],
+            activeIndex: 1,
+            checked: ["one"],
+        });
+    });
+
+    it("null сбрасывает поле, visible:false прячет, следующий visible:true показывает снова", () => {
+        const { adapter, component, events, emit } = objectPick();
+        adapter.updateQuickPick({ handle: 5, visible: true, title: "T", step: 1, totalSteps: 2 }, emit);
+        expect(component.view.title).toBe("T (1/2)");
+        adapter.updateQuickPick({ handle: 5, title: null, step: null, totalSteps: null, placeholder: null }, emit);
+        expect(component.view.title).toBeUndefined();
+
+        adapter.updateQuickPick({ handle: 5, visible: false, prompt: "скрыто" }, emit);
+        expect(component.isOpen()).toBe(false);
+        expect(events.at(-1)).toEqual({ handle: 5, kind: "hide" });
+
+        adapter.updateQuickPick({ handle: 5, visible: true }, emit);
+        expect(component.isOpen()).toBe(true);
+        expect(component.view.prompt).toBe("скрыто");
+    });
+
+    it("прочие флаги доезжают до сессии", () => {
+        const { adapter, component, testApp, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                matchOnDescription: true,
+                matchOnDetail: true,
+                keepScrollPosition: true,
+                value: "sec",
+                items: [
+                    { handle: 0, label: "a", description: "first" },
+                    { handle: 1, label: "b", detail: "second" },
+                ],
+            },
+            emit,
+        );
+        expect(component.view.inspectState()).toMatchObject({ query: "sec", items: ["b"] });
+        testApp.sendKey("Backspace");
+        testApp.sendKey("Backspace");
+        testApp.sendKey("Backspace");
+        for (const ch of "fir") testApp.sendKey(ch);
+        expect(component.view.inspectState()).toMatchObject({ items: ["a"] });
+    });
+
+    it("dispose прячет и забывает; повторный и чужой dispose молчат", () => {
+        const { adapter, component, events, emit } = objectPick();
+        adapter.updateQuickPick({ handle: 5, visible: true }, emit);
+        adapter.disposeQuickPick(5);
+        expect(component.isOpen()).toBe(false);
+        expect(events.at(-1)).toEqual({ handle: 5, kind: "hide" });
+        events.length = 0;
+        adapter.disposeQuickPick(5);
+        adapter.disposeQuickPick(6);
+        expect(events).toEqual([]);
+
+        // Тот же handle после снятия — новый пикер, а не воскрешённый старый.
+        adapter.updateQuickPick({ handle: 5, visible: true }, emit);
+        expect(component.view.title).toBeUndefined();
+    });
+
+    it("после dispose тот же handle заводит живой пикер заново", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick({ handle: 5, visible: true, title: "old" }, emit);
+        adapter.disposeQuickPick(5);
+        adapter.updateQuickPick({ handle: 5, visible: true }, emit);
+        expect(component.isOpen()).toBe(true);
+        expect(component.view.title).toBeUndefined();
+    });
+
+    it("незнакомый handle в activeItems выпадает, подсветка — по первому знакомому", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                items: [
+                    { handle: 0, label: "one" },
+                    { handle: 1, label: "two" },
+                ],
+                activeItems: [9, 1],
+            },
+            emit,
+        );
+        expect(component.view.inspectState()).toMatchObject({ activeIndex: 1 });
+    });
+
+    it("дифф без поля его не трогает: ярлыки, шаги, флаги и запрос остаются", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                title: "T",
+                step: 1,
+                totalSteps: 2,
+                prompt: "p",
+                placeholder: "ph",
+                value: "o",
+                canSelectMany: true,
+                matchOnDescription: true,
+                items: [{ handle: 0, label: "one", description: "x" }],
+                selectedItems: [0],
+            },
+            emit,
+        );
+        adapter.updateQuickPick({ handle: 5, items: [{ handle: 0, label: "one", description: "x" }] }, emit);
+        expect(component.view.inspectState()).toMatchObject({
+            title: "T (1/2)",
+            query: "o",
+            items: ["one"],
+            checked: [],
+        });
+        expect(component.view.prompt).toBe("p");
+        expect(component.view.placeholder).toBe("ph");
+    });
+
+    it("keepScrollPosition из диффа держит подсветку на месте при новых предметах", () => {
+        const { adapter, component, testApp, emit } = objectPick();
+        const items = [
+            { handle: 0, label: "one" },
+            { handle: 1, label: "two" },
+        ];
+        adapter.updateQuickPick({ handle: 5, visible: true, keepScrollPosition: true, items }, emit);
+        testApp.sendKey("ArrowDown");
+        adapter.updateQuickPick({ handle: 5, items: [...items, { handle: 2, label: "three" }] }, emit);
+        expect(component.view.inspectState()).toMatchObject({ activeIndex: 1 });
+    });
+
+    it("matchOnDetail из диффа ищет по detail, даже когда на экране его заслонило описание", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                visible: true,
+                matchOnDetail: true,
+                value: "hidden",
+                items: [
+                    { handle: 0, label: "a", description: "shown", detail: "hidden" },
+                    { handle: 1, label: "b" },
+                ],
+            },
+            emit,
+        );
+        expect(component.view.inspectState()).toMatchObject({ items: ["a"] });
+    });
+
+    it("пустое описание уступает место detail", () => {
+        const { adapter, component, emit } = objectPick();
+        adapter.updateQuickPick(
+            { handle: 5, visible: true, items: [{ handle: 0, label: "a", description: "", detail: "det" }] },
+            emit,
+        );
+        expect(component.view.items[0]).toMatchObject({ description: "det" });
     });
 });

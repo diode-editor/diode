@@ -1,7 +1,7 @@
 {
     "name": "quick-input-probe",
     "displayName": "Quick Input Probe",
-    "description": "E2E demo extension: asks the user for a string (window.showInputBox) and for a choice (window.showQuickPick) and prints what it got.",
+    "description": "E2E demo extension: asks the user for a string (window.showInputBox) and for a choice (window.showQuickPick, window.createQuickPick) and prints what it got.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
@@ -25,7 +25,8 @@
             { "command": "diodeProbe.pickMany100", "title": "Diode Probe: Pick Many (100)" },
             { "command": "diodeProbe.pickAsync", "title": "Diode Probe: Pick Async" },
             { "command": "diodeProbe.pickEmpty", "title": "Diode Probe: Pick Empty" },
-            { "command": "diodeProbe.askThenPick", "title": "Diode Probe: Ask Then Pick" }
+            { "command": "diodeProbe.askThenPick", "title": "Diode Probe: Ask Then Pick" },
+            { "command": "diodeProbe.lazyPick", "title": "Diode Probe: Lazy Pick (createQuickPick)" }
         ]
     }
 }

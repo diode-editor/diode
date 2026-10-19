@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-// Ввод по просьбе расширения (`window.showInputBox` / `window.showQuickPick`):
+// Ввод по просьбе расширения (`window.showInputBox` / `window.showQuickPick` /
+// `window.createQuickPick`):
 // фикстурное расширение `quick-input-probe` из палитры просит строку и выбор, а
 // поднимается при этом ТОТ ЖЕ оверлей, которым пользуются палитра и Quick Open.
 //
@@ -95,6 +96,22 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Picked: alpha, beta"), { timeoutMs: 20000 });
         await editor.capture("multi-select-accepted");
+
+        // ─── Объектный пикер (window.createQuickPick) ────────────────────────
+        // Пикер открывается пустым, предметы приезжают позже — как ответ
+        // языкового сервера у `Go: Maintain gopls` (golang.go, pickLazyEnum).
+        await runProbeCommand(editor, "Lazy Pick");
+        await editor.waitForText((t) => t.includes("Lazy enum") && t.includes("Alpha module"), {
+            timeoutMs: 20000,
+        });
+        await editor.capture("create-quick-pick");
+
+        // Запрос уходит расширению, оно присылает новый список.
+        await editor.sendText("beta");
+        await editor.waitForText((t) => t.includes("Найдено по «beta»") && !t.includes("Alpha module"));
+        await editor.capture("create-quick-pick-filtered");
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("Lazy: example.com/beta"), { timeoutMs: 20000 });
 
         // ─── Свой потребитель оверлея не сломался ───────────────────────────
         // Палитра после множественного выбора: чекбоксов в ней нет.
