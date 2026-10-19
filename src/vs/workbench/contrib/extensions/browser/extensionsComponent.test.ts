@@ -160,6 +160,17 @@ function activate(component: ExtensionsComponent, rowId: string): void {
 }
 
 describe("ExtensionsComponent", () => {
+    it("контейнер магазина чужих видов не принимает", () => {
+        const containers: { id: string; rejectAddedViews?: boolean }[] = [];
+        const views = {
+            registerContainer: (d: { id: string; rejectAddedViews?: boolean }) => containers.push(d),
+            registerView: () => {},
+        } as unknown as ViewsService;
+        new ExtensionsComponent(new FakeService([]), views, fakeTarget().target, PAGE_ACTIONS);
+        expect(containers).toHaveLength(1);
+        expect(containers[0].rejectAddedViews).toBe(true);
+    });
+
     it("список и корень несут свои id и цвета сайдбара", () => {
         const component = make(new FakeService([entry({ id: "acme.tools" })]));
         expect(component.view.id).toBe("extensionsView");

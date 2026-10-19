@@ -437,6 +437,50 @@ describe("ViewsService — меню переноса", () => {
         expect(h.shown).toEqual([]);
     });
 
+    function ids(entries: readonly MenuEntry[]): (string | undefined)[] {
+        return entries.map((entry) => (entry.type === "separator" || entry.type === "submenu" ? undefined : entry.id));
+    }
+
+    it("пункты несут стабильные id, а выбор отдаёт фокус контейнеру на новом месте", () => {
+        const h = workbench();
+        const focused: string[] = [];
+        const focus = () => focused.push("terminal");
+        h.service.registerView(testView("terminal", TERMINAL, 10, { canMoveView: true, focus }));
+        const moves = moveTo(tabMenu(h, TERMINAL)).entries;
+        expect(ids(moves)).toEqual([
+            `${TERMINAL}.moveViewContainerTo.sidebar`,
+            `${TERMINAL}.moveViewContainerTo.auxiliarybar`,
+        ]);
+        select(moves, "Secondary Side Bar");
+        expect(focused).toEqual(["terminal"]);
+
+        const entries = tabMenu(h, TERMINAL, "auxiliarybar");
+        expect(ids(entries)).toEqual([undefined, `${TERMINAL}.resetViewContainerLocation`]);
+        select(entries, "Reset Location");
+        expect(focused).toEqual(["terminal", "terminal"]);
+    });
+
+    it("«Reset Location» вида из сгенерированного — id от вида и фокус на нём", () => {
+        const h = workbench();
+        const focused: string[] = [];
+        const focus = () => focused.push("terminal");
+        h.service.registerView(testView("terminal", TERMINAL, 10, { canMoveView: true, focus }));
+        h.service.moveViewToLocation("terminal", "auxiliarybar");
+        const entries = tabMenu(h, h.service.getViewContainerByViewId("terminal")!, "auxiliarybar");
+        expect(ids(entries)).toEqual([undefined, "terminal.resetViewLocation"]);
+        select(entries, "Reset Location");
+        expect(focused).toEqual(["terminal"]);
+    });
+
+    it("подменю сгенерированного вьюлета подписано названием его вида", () => {
+        const h = workbench();
+        h.service.moveViewToLocation("output", "sidebar");
+        const generated = h.service.getViewContainerByViewId("output")!;
+        h.paneView(generated).onDidRequestPaneMenu?.("output", { screenX: 0, screenY: 0 });
+        const container = h.shown.at(-1)!.getEntries!().find((e) => e.type === "submenu")!;
+        expect(container.label).toBe("OUTPUT");
+    });
+
     it("«⋯» вьюлета сайдбара тоже несёт «Move To» — без Primary Side Bar", () => {
         const h = workbench();
         h.paneView(SEARCH).onDidRequestPaneMenu?.("search", { screenX: 0, screenY: 0 });
@@ -454,5 +498,319 @@ describe("ViewsService — меню переноса", () => {
         h.service.attachContainer(OUTPUT);
         h.header(OUTPUT)!.onMenu?.({ screenX: 0, screenY: 0 });
         expect(labels(h.shown.at(-1)!.getEntries!())).toEqual(["Clear"]);
+    });
+});
+
+function storedLocations(viewLocations: Record<string, unknown>, viewContainerLocations: Record<string, unknown> = {}) {
+    return new Map([[VIEWS_CUSTOMIZATIONS_STATE.key, { viewContainerLocations, viewLocations }]]);
+}
+
+describe("ViewsService — справки о местах", () => {
+    it("незнакомый вид или контейнер — null и false", () => {
+        const h = workbench();
+        // Вид, записанный в счёт незарегистрированного контейнера.
+        h.service.registerView(testView("orphan", "unregistered", 10));
+        expect(h.service.getDefaultViewContainerLocation("ghost")).toBeNull();
+        expect(h.service.getDefaultViewContainerLocation("unregistered")).toBeNull();
+        expect(h.service.getDefaultContainerById("ghost")).toBeNull();
+        expect(h.service.canMoveView("ghost")).toBe(false);
+        expect(h.service.canMoveView("extensions")).toBe(false);
+    });
+
+    it("снимок контейнеров — только собранные, по местам, внутри места по order", () => {
+        const h = makeViewsHarness();
+        const add = (id: string, location: "sidebar" | "panel" | "auxiliarybar", order?: number) => {
+            h.service.registerContainer({ id, title: id, location, order });
+            h.service.registerView(testView(`${id}View`, id, 10));
+        };
+        add("aux0", "auxiliarybar", 0);
+        add("panel2", "panel", 2);
+        add("side5", "sidebar", 5);
+        add("panel1", "panel", 1);
+        add("sideAny", "sidebar");
+        add("side1", "sidebar", 1);
+        h.service.registerContainer({ id: "empty", title: "empty", location: "sidebar", order: 0 });
+        h.service.attachRegisteredContainers();
+        expect(h.service.getViewContainers().map((c) => c.id)).toEqual([
+            "side1",
+            "side5",
+            "sideAny",
+            "panel1",
+            "panel2",
+            "aux0",
+        ]);
+    });
+});
+
+describe("ViewsService — переносы: края", () => {
+    it("непереносимый и незнакомый вид напрямую не едут", () => {
+        const h = workbench();
+        h.service.moveViewsToContainer(["extensions", "ghost"], OUTPUT);
+        h.service.resetViewLocation("ghost");
+        expect(h.service.getViewContainerByViewId("extensions")).toBe(STORE);
+        expect(h.service.getContainerViews(OUTPUT).map((v) => v.id)).toEqual(["output"]);
+        expect(customizations(h)).toBeUndefined();
+    });
+
+    it("свой вид отвергающий контейнер принимает обратно", () => {
+        const h = workbench();
+        h.service.registerView(testView("recommended", STORE, 20, { canMoveView: true }));
+        h.service.moveViewsToContainer(["recommended"], OUTPUT);
+        h.service.moveViewsToContainer(["recommended"], STORE);
+        expect(h.service.getViewContainerByViewId("recommended")).toBe(STORE);
+    });
+
+    it("непереносимый вид в новое место — пустой сгенерированный не доживает даже до стора", () => {
+        const h = workbench();
+        h.service.moveViewToLocation("extensions", "auxiliarybar");
+        h.service.moveViewContainerToLocation(SEARCH, "panel");
+        expect(customizations(h)).toEqual({ viewContainerLocations: { [SEARCH]: "panel" }, viewLocations: {} });
+    });
+
+    it("перенос, в котором никто не уехал, приёмник не удаляет", () => {
+        const h = workbench();
+        h.service.moveViewToLocation("terminal", "auxiliarybar");
+        const generated = h.service.getViewContainerByViewId("terminal")!;
+        // TERMINAL опустел, но он не сгенерированный; generated — не пуст.
+        h.service.moveViewsToContainer(["extensions"], TERMINAL);
+        h.service.moveViewsToContainer(["extensions"], generated);
+        h.service.moveViewsToContainer(["terminal"], generated);
+        expect(h.service.getViewContainerLocation(TERMINAL)).toBe("panel");
+        expect(h.service.getViewContainerLocation(generated)).toBe("auxiliarybar");
+    });
+
+    it("приехавший вид встаёт секцией по order, при равном order — по id", () => {
+        const h = workbench();
+        h.service.registerView(testView("zzz", OUTPUT, 5));
+        h.service.registerView(testView("aaa", SEARCH, 10, { canMoveView: true }));
+        h.service.moveViewsToContainer(["terminal"], OUTPUT);
+        h.service.moveViewsToContainer(["aaa"], OUTPUT);
+        expect(h.service.getContainerViews(OUTPUT).map((v) => v.id)).toEqual(["zzz", "aaa", "output", "terminal"]);
+    });
+
+    it("уехавшая скрытая секция не уносит скрытость соседей и не возвращается скрытой", () => {
+        const h = workbench();
+        h.service.registerView(testView("log", OUTPUT, 20));
+        h.service.moveViewsToContainer(["terminal"], OUTPUT);
+        // OUTPUT: output, terminal, log — первую и вторую скрыли.
+        h.service.setViewVisible("output", false);
+        h.service.setViewVisible("terminal", false);
+        h.service.moveViewToLocation("terminal", "auxiliarybar");
+        expect(h.service.isViewVisible("output")).toBe(false);
+        h.service.moveViewsToContainer(["terminal"], OUTPUT);
+        expect(h.service.isViewVisible("terminal")).toBe(true);
+        expect(h.service.isViewVisible("output")).toBe(false);
+    });
+
+    it("снятый контейнер отпускает секции старого PaneView", () => {
+        const h = workbench();
+        const old = h.paneView(TERMINAL);
+        h.service.moveViewContainerToLocation(TERMINAL, "auxiliarybar");
+        expect(old.getPaneIds()).toEqual([]);
+        expect(h.paneView(TERMINAL)).not.toBe(old);
+        expect(h.paneView(TERMINAL).getPaneIds()).toEqual(["terminal"]);
+    });
+
+    it("переезд: секция на время сборки свёрнута для подписчиков, потом снова раскрыта", () => {
+        const h = workbench();
+        const seen: [string, boolean][] = [];
+        h.service.onDidChangeViewExpanded(({ viewId, expanded }) => seen.push([viewId, expanded]));
+        h.service.moveViewContainerToLocation(TERMINAL, "auxiliarybar");
+        expect(seen).toEqual([
+            ["terminal", false],
+            ["terminal", true],
+        ]);
+    });
+
+    it("переехавший контейнер собирается со своим состоянием секций", () => {
+        const h = makeViewsHarness();
+        h.stored.set(SIDEBAR_VIEWS_STATE.key, { [OUTPUT]: { collapsed: { log: true }, weights: {} } });
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(testView("output", OUTPUT, 10));
+        h.service.registerView(testView("log", OUTPUT, 20));
+        h.service.attachContainer(OUTPUT);
+        h.service.moveViewContainerToLocation(OUTPUT, "auxiliarybar");
+        expect(h.paneView(OUTPUT).isCollapsed("log")).toBe(true);
+    });
+
+    it("снятие неактивного вьюлета и вкладки части активный вьюлет не трогает", () => {
+        const h = workbench();
+        const before = h.shownViewlets.length;
+        h.service.moveViewContainerToLocation(TERMINAL, "auxiliarybar");
+        h.service.moveViewContainerToLocation(SEARCH, "panel");
+        h.service.resetViewLocations();
+        expect(h.shownViewlets.length).toBe(before);
+    });
+
+    it("сброс не пересобирает контейнеры, стоящие дома", () => {
+        const h = workbench();
+        h.showViewlet(SEARCH);
+        const before = h.shownViewlets.length;
+        h.service.resetViewLocations();
+        expect(h.shownViewlets.length).toBe(before);
+    });
+
+    it("сброс не раскрывает скрытые секции, стоящие дома", () => {
+        const h = workbench();
+        h.service.registerView(testView("log", OUTPUT, 20));
+        h.service.setViewVisible("log", false);
+        h.service.moveViewContainerToLocation(SEARCH, "panel");
+        h.service.resetViewLocations();
+        expect(h.service.isViewVisible("log")).toBe(false);
+    });
+
+    it("на место уехавшего дефолтного встаёт вьюлет сайдбара, а не контейнер другого места", () => {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: EXPLORER, title: "E", location: "sidebar", order: 0, isDefault: true });
+        h.service.registerContainer({ id: OUTPUT, title: "O", location: "panel", order: 1 });
+        h.service.registerContainer({ id: SEARCH, title: "S", location: "sidebar", order: 2 });
+        h.service.registerView(testView("explorer", EXPLORER, 10));
+        h.service.registerView(testView("output", OUTPUT, 10));
+        h.service.registerView(testView("search", SEARCH, 10));
+        h.service.attachRegisteredContainers();
+        h.service.moveViewContainerToLocation(EXPLORER, "auxiliarybar");
+        expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: false });
+    });
+
+    it("вид в незарегистрированном контейнере переносам, сбросу и рестору не мешает", () => {
+        const h = workbench();
+        h.service.registerView(testView("orphan", "unregistered", 10, { canMoveView: true }));
+        h.service.moveViewContainerToLocation(SEARCH, "panel");
+        h.service.resetViewLocations();
+        h.openWorkspace();
+        expect(customizations(h)).toEqual({ viewContainerLocations: {}, viewLocations: {} });
+        expect(h.service.getViewContainerLocation("unregistered")).toBeNull();
+    });
+
+    it("перенос туда и обратно без состояния секций стор секций не заводит", () => {
+        const h = workbench();
+        h.service.moveViewToLocation("terminal", "auxiliarybar");
+        h.service.resetViewLocation("terminal");
+        expect(h.stored.has(SIDEBAR_VIEWS_STATE.key)).toBe(false);
+    });
+
+    it("перенос до первого рестора тоже пишется в стор", () => {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(testView("output", OUTPUT, 10, { canMoveView: true }));
+        h.service.attachContainer(OUTPUT);
+        h.service.moveViewContainerToLocation(OUTPUT, "auxiliarybar");
+        expect(customizations(h)).toEqual({ viewContainerLocations: { [OUTPUT]: "auxiliarybar" }, viewLocations: {} });
+    });
+});
+
+describe("ViewsService — рестор переносов: края", () => {
+    it("id, лишь похожий на сгенерированный, и не-строка в сторе места не задают", () => {
+        // Та же длина, что у префикса «workbench.views.service.», — но не он.
+        const fake = "workbench.views.servicX.panel.0000";
+        const h = workbench(storedLocations({ terminal: fake, output: null }));
+        expect(h.service.getViewContainerByViewId("terminal")).toBe(TERMINAL);
+        expect(h.service.getViewContainerByViewId("output")).toBe(OUTPUT);
+        expect(h.service.getViewContainerLocation(fake)).toBeNull();
+    });
+
+    it("поздний вид: без записи, непереносимый и без места в сторе — встают в свой контейнер", () => {
+        const h = workbench(storedLocations({ pinned: OUTPUT, lost: "unknown.container", odd: 42 }));
+        h.service.registerView(testView("late", SEARCH, 20, { canMoveView: true }));
+        h.service.registerView(testView("pinned", SEARCH, 30));
+        h.service.registerView(testView("lost", SEARCH, 40, { canMoveView: true }));
+        h.service.registerView(testView("odd", SEARCH, 50, { canMoveView: true }));
+        expect(h.paneView(SEARCH).getPaneIds()).toEqual(["search", "late", "pinned", "lost", "odd"]);
+    });
+
+    it("смена проекта пересобирает и опустевший источник, и приёмник", () => {
+        const h = workbench();
+        h.stored.set(VIEWS_CUSTOMIZATIONS_STATE.key, {
+            viewContainerLocations: {},
+            viewLocations: { terminal: OUTPUT },
+        });
+        h.openWorkspace();
+        expect(tabs(h, "panel")).toEqual(["OUTPUT"]);
+        expect(h.paneView(OUTPUT).getPaneIds()).toEqual(["output", "terminal"]);
+    });
+
+    it("смена проекта: место из стора, совпавшее с текущим, контейнер не пересобирает", () => {
+        const h = workbench();
+        h.stored.set(VIEWS_CUSTOMIZATIONS_STATE.key, {
+            viewContainerLocations: { [SEARCH]: "sidebar" },
+            viewLocations: {},
+        });
+        h.showViewlet(SEARCH);
+        const before = h.shownViewlets.length;
+        h.openWorkspace();
+        expect(h.shownViewlets.length).toBe(before);
+    });
+
+    it("сброс при смене проекта не стирает состояние секций сгенерированных, а переносы после — пишутся", () => {
+        const h = workbench();
+        h.service.moveViewToLocation("terminal", "auxiliarybar");
+        const generated = h.service.getViewContainerByViewId("terminal")!;
+        h.stored.set(SIDEBAR_VIEWS_STATE.key, { [generated]: { collapsed: {}, weights: {} } });
+        h.openWorkspace();
+        expect(Object.keys(h.stored.get(SIDEBAR_VIEWS_STATE.key) as object)).toEqual([generated]);
+        h.service.moveViewContainerToLocation(SEARCH, "panel");
+        expect(customizations(h)?.viewContainerLocations).toEqual({ [generated]: "auxiliarybar", [SEARCH]: "panel" });
+    });
+});
+
+describe("ViewsService — скрытость секций из стора", () => {
+    function scene(stored: { hidden: string[] }) {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(testView("output", OUTPUT, 10, { canToggleVisibility: false }));
+        h.service.registerView(testView("log", OUTPUT, 20));
+        h.service.registerView(testView("trace", OUTPUT, 30));
+        h.service.attachContainer(OUTPUT);
+        h.stored.set(SIDEBAR_VIEWS_STATE.key, { [OUTPUT]: { collapsed: {}, weights: {}, ...stored } });
+        h.service.restoreViewsState();
+        return h;
+    }
+
+    const visibility = (h: IViewsHarness) => ["output", "log", "trace"].map((id) => h.service.isViewVisible(id));
+
+    it("несворачиваемую и незнакомую секцию стор не скрывает, остальные — скрывает", () => {
+        expect(visibility(scene({ hidden: ["output", "ghost", "trace"] }))).toEqual([true, true, false]);
+    });
+
+    it("скрытость из нового стора заменяет прежнюю", () => {
+        const h = scene({ hidden: ["log"] });
+        h.stored.set(SIDEBAR_VIEWS_STATE.key, { [OUTPUT]: { collapsed: {}, weights: {}, hidden: [] } });
+        h.service.restoreViewsState();
+        expect(visibility(h)).toEqual([true, true, true]);
+    });
+
+    it("скрытая первая секция остаётся скрытой, если видимые есть", () => {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(testView("output", OUTPUT, 10));
+        h.service.registerView(testView("log", OUTPUT, 20));
+        h.service.attachContainer(OUTPUT);
+        h.stored.set(SIDEBAR_VIEWS_STATE.key, { [OUTPUT]: { collapsed: {}, weights: {}, hidden: ["output"] } });
+        h.service.restoreViewsState();
+        expect(h.service.isViewVisible("output")).toBe(false);
+    });
+});
+
+describe("ViewsService — фокус при открытии", () => {
+    it("без просьбы фокус не уходит; приветствие с кнопкой забирает фокус себе", () => {
+        const h = makeViewsHarness();
+        const focused: string[] = [];
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(testView("output", OUTPUT, 10, { focus: () => focused.push("output") }));
+        h.service.registerView(
+            testView("welcome", OUTPUT, 20, {
+                body: null,
+                placeholder: [{ kind: "button", label: "Open Folder", command: "openFolder" }],
+                focus: () => focused.push("welcome"),
+            }),
+        );
+        h.service.attachContainer(OUTPUT);
+        h.service.openViewContainer(OUTPUT);
+        h.service.openView("output");
+        expect(focused).toEqual([]);
+        h.service.openView("welcome", true);
+        expect(focused).toEqual([]);
+        h.service.openView("output", true);
+        expect(focused).toEqual(["output"]);
     });
 });

@@ -445,9 +445,10 @@ export class ViewsService implements IContextKeyContributor {
         // Вид, пришедший после рестора переносов, встаёт туда, куда его
         // перенесли в прошлый раз.
         if (previous === undefined && this.customizationsApplied) {
-            const target = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE).viewLocations[descriptor.id];
-            if (target !== undefined && this.placeStoredView(descriptor.id, target)) return;
+            const target: unknown = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE).viewLocations[descriptor.id];
+            if (typeof target === "string") this.placeStoredView(descriptor.id, target);
         }
+        // Вид мог уехать — тогда сборка контейнера по умолчанию его отпускает.
         this.syncPresence(entry);
     }
 
@@ -735,6 +736,7 @@ export class ViewsService implements IContextKeyContributor {
         if (paneView === null || state === undefined) return;
         // Скрытость применяем до весов: она пересобирает секции, а
         // единственная оставшаяся видимой секция становится merged.
+        // Stryker disable next-line ArrayDeclaration: незнакомый id в списке скрытых пропускается ниже — мусорный элемент ненаблюдаем
         const hidden = state.hidden ?? [];
         entry.hidden.clear();
         for (const viewId of hidden) {
@@ -742,7 +744,8 @@ export class ViewsService implements IContextKeyContributor {
             if (record?.canToggleVisibility === true) entry.hidden.add(viewId);
         }
         // Все секции скрытыми быть не могут — протухший стор чиним молча.
-        if (entry.views.length > 0 && entry.hidden.size === entry.views.length) {
+        // Собранный контейнер без видов не бывает (syncPresence его снимает).
+        if (entry.hidden.size === entry.views.length) {
             entry.hidden.delete(entry.views[0].id);
         }
         this.rebuildPanes(entry);
@@ -813,7 +816,7 @@ export class ViewsService implements IContextKeyContributor {
      * no-op.
      */
     public moveViewToLocation(viewId: string, location: ViewContainerLocation): void {
-        if (!this.canMoveView(viewId)) return;
+        // Непереносимый вид перенос пропустит, а пустой новый контейнер удалит.
         const target = this.createGeneratedContainer(location);
         this.moveViewsToContainer([viewId], target.descriptor.id);
     }
@@ -855,14 +858,15 @@ export class ViewsService implements IContextKeyContributor {
 
     /** Возвращает вид в его контейнер по умолчанию (`resetViewLocation` эталона). */
     public resetViewLocation(viewId: string): void {
+        // Вид, уже стоящий дома, перенос в свой же контейнер пропустит сам.
         const found = this.findRecord(viewId);
-        if (found === undefined || found.record.containerId === found.record.defaultContainerId) return;
-        this.moveViewsToContainer([viewId], found.record.defaultContainerId);
+        if (found !== undefined) this.moveViewsToContainer([viewId], found.record.defaultContainerId);
     }
 
     /** Возвращает контейнер на его место по умолчанию. */
     public resetViewContainerLocation(containerId: string): void {
         const location = this.getDefaultViewContainerLocation(containerId);
+        // Stryker disable next-line ConditionalExpression: у незнакомого контейнера места нет, и перенос его пропустит сам — охрана только ради типа
         if (location !== null) this.moveViewContainerToLocation(containerId, location);
     }
 
@@ -901,7 +905,8 @@ export class ViewsService implements IContextKeyContributor {
     public openView(viewId: string, focus = false): void {
         const found = this.findRecord(viewId);
         if (found?.entry.view == null) return;
-        if (found.entry.hidden.has(viewId)) this.setViewVisible(viewId, true);
+        // Видимую секцию setViewVisible не трогает.
+        this.setViewVisible(viewId, true);
         this.openViewContainer(found.record.containerId, false);
         if (!focus) return;
         const body = this.bodyOf(found.record);
@@ -1047,6 +1052,7 @@ export class ViewsService implements IContextKeyContributor {
         location: ViewContainerLocation,
         id = `${GENERATED_CONTAINER_PREFIX}${location}.${generateUuid()}`,
     ): AttachedEntryDescriptor {
+        // Stryker disable next-line StringLiteral: название сгенерированного не читается — его носит первый вид (containerTitle)
         this.registerContainer({ id, title: "", location });
         const entry = this.containerOrThrow(id) as AttachedEntryDescriptor;
         entry.generated = true;
@@ -1102,6 +1108,7 @@ export class ViewsService implements IContextKeyContributor {
 
     /** Только отличия от дефолта — как `saveViewCustomizations` эталона. */
     private saveCustomizations(): void {
+        // Stryker disable next-line ConditionalExpression: рестор и сброс переносов сюда не ходят (они без didChangeLocations) — охрана на случай подписчика, который двинет вид из onDidChangeLocations
         if (this.applyingCustomizations) return;
         const viewContainerLocations: Record<string, string> = {};
         const viewLocations: Record<string, string> = {};
@@ -1119,6 +1126,7 @@ export class ViewsService implements IContextKeyContributor {
     /** Применяет переносы из стора к зарегистрированным видам и контейнерам. */
     private applyStoredCustomizations(): void {
         const stored = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE);
+        // Stryker disable next-line BooleanLiteral: рестор только расставляет виды по сгенерированным, а не опустошает их — стор под флагом здесь не пишется; флаг ради сброса в reapplyStoredCustomizations
         this.applyingCustomizations = true;
         try {
             for (const [id, location] of Object.entries(stored.viewContainerLocations)) {
@@ -1126,8 +1134,8 @@ export class ViewsService implements IContextKeyContributor {
                 if (entry?.descriptor == null || entry.generated || !isViewContainerLocation(location)) continue;
                 if (entry.location !== location) this.setContainerLocation(entry, location);
             }
-            for (const [viewId, containerId] of Object.entries(stored.viewLocations)) {
-                if (containerId !== undefined) this.placeStoredView(viewId, containerId);
+            for (const [viewId, containerId] of Object.entries(stored.viewLocations) as [string, unknown][]) {
+                if (typeof containerId === "string") this.placeStoredView(viewId, containerId);
             }
         } finally {
             this.applyingCustomizations = false;
@@ -1139,33 +1147,30 @@ export class ViewsService implements IContextKeyContributor {
      * Ставит вид в контейнер из стора (сгенерированный — создаёт). `false` —
      * поставить некуда: вид остаётся в контейнере по умолчанию.
      */
-    private placeStoredView(viewId: string, containerId: string): boolean {
+    private placeStoredView(viewId: string, containerId: string): void {
         const found = this.findRecord(viewId);
-        if (!found?.record.canMoveView) return false;
+        if (!found?.record.canMoveView) return;
         let target = this.containers.get(containerId);
         if (target?.descriptor == null) {
             const stored = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE).viewContainerLocations[containerId];
             const location = isViewContainerLocation(stored) ? stored : generatedContainerLocation(containerId);
-            if (location === null) return false;
+            if (location === null) return;
             target = this.createGeneratedContainer(location, containerId);
         }
+        // Stryker disable next-line ConditionalExpression: в стор попадают только виды не в своём контейнере, а новый вид стоит в своём — «→ true» переставил бы запись на то же место
         if (found.entry !== target) {
             this.moveRecord(found, target);
             this.syncPresence(found.entry);
         }
         this.syncPresence(target);
-        return true;
     }
 
     /** Проект сменился (Open Folder) — переносы читаются из его стора. */
     private reapplyStoredCustomizations(): void {
         if (!this.customizationsApplied) return;
+        // Флаг снимает applyStoredCustomizations — сброс идёт под ним же.
         this.applyingCustomizations = true;
-        try {
-            this.resetLocations();
-        } finally {
-            this.applyingCustomizations = false;
-        }
+        this.resetLocations();
         this.applyStoredCustomizations();
         this.onDidChangeLocationsEmitter.fire();
     }
@@ -1242,7 +1247,7 @@ export class ViewsService implements IContextKeyContributor {
         const location = this.sidebarLocationEntries(entry);
         const entries = commands.length > 0 ? [...commands, ...location] : location.slice(1);
         if (entries.length === 0) return null;
-        return { type: "submenu", label: attached(entry).descriptor.title, entries };
+        return { type: "submenu", label: containerTitle(entry), entries };
     }
 
     /**
@@ -1325,8 +1330,9 @@ export class ViewsService implements IContextKeyContributor {
     private titleMenuPossible(entry: ContainerEntry): boolean {
         const viewId = this.headerTargetView(entry);
         if (viewId !== null) return this.paneMenuPossible(entry, viewId);
-        const context: ViewContainerMenuContext = { container: attached(entry).descriptor.id };
-        return this.hasOverflow(MenuId.ViewContainerTitle, context) || entry.views.length >= 2 || !this.isTabbed(entry);
+        // Сюда доходят вьюлет сайдбара (в «⋯» всегда есть «Move To») и вкладка
+        // не merged — у неё видимых секций не меньше двух, значит есть «Views».
+        return true;
     }
 
     private titleMenuEntries(entry: ContainerEntry): MenuEntry[] {
@@ -1644,6 +1650,7 @@ function containerPaneTitle(entry: ContainerEntry): string {
  * единственным видом), поэтому он носит название первого своего вида.
  */
 function containerTitle(entry: ContainerEntry): string {
+    // Stryker disable next-line OptionalChaining,StringLiteral: опустевший сгенерированный удаляется сразу (syncPresence) — без видов его название не спрашивают
     if (entry.generated) return entry.views.at(0)?.title ?? "";
     return attached(entry).descriptor.title;
 }

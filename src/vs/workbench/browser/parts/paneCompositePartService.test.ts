@@ -33,6 +33,15 @@ describe("PaneCompositePartService.removeView", () => {
         expect(active).toEqual([]);
     });
 
+    it("снятие неактивной, когда активна не первая, — активность остаётся на месте", () => {
+        const { part, active } = withViews("a", "b", "c");
+        part.setActiveView("b");
+        active.length = 0;
+        part.removeView("c");
+        expect(part.getActiveViewId()).toBe("b");
+        expect(active).toEqual([]);
+    });
+
     it("последняя снятая — активной нет", () => {
         const { part, active } = withViews("a");
         part.removeView("a");

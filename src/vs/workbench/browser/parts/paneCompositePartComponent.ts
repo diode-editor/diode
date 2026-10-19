@@ -69,6 +69,7 @@ export class PaneCompositePartComponent extends Component {
         for (const id of [...this.contents.keys()]) {
             if (views.some((view) => view.id === id)) continue;
             this.contents.delete(id);
+            // Stryker disable next-line CallExpression: вернувшуюся вкладку узнают по contents — её actions перепишет addView-ветка ниже; сирота в карте ненаблюдаем
             this.actions.delete(id);
             this.view.removeView(id);
         }
