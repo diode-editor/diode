@@ -643,19 +643,22 @@ export class EditorComponent extends Component {
      * indentation, provider winning on a shared start line) so the user never
      * loses indentation folding for languages the provider only partially covers.
      * Collapsed state is carried across by start line on every apply.
+     *
+     * With a provider the current regions (already shifted by the edit) stand
+     * until it answers, as in VS Code: an indentation-only apply in between keys
+     * collapsed state to regions the provider doesn't have. A Java method with a
+     * multi-line signature is one provider region, but by indentation its header
+     * folds just the parameters — the body would flash open on every keystroke.
      */
     private recomputeFoldingRegions(): void {
         // Регионы задаёт владелец вью (панель диффа: свёртка unchanged-кусков) —
         // авто-пересчёт indentation-фолдов и провайдера перетёр бы их, а его
         // ensurePrimaryCursorVisible разъезжал бы синхронный скролл сторон.
         if (this.foldingOwnedExternally) return;
-        // Snapshot which start lines are collapsed BEFORE we touch the regions.
-        // The indentation apply below may momentarily be empty (a file with no
-        // indentation folds), which would wipe the collapsed set before the async
-        // provider result restores it — so both applies reuse this one snapshot.
+        // Snapshot which start lines are collapsed BEFORE the request: the user
+        // may fold while it is in flight, the apply unions both.
         const collapsedStarts = this.collapsedStartLines();
         const indentation = computeIndentationFolds(this.model.document, this.editorViewState.tabSize);
-        this.applyFoldingRegions(indentation, collapsedStarts);
 
         // Every recompute (an edit, a provider registered or removed) supersedes
         // the in-flight request — including the one that finds no providers
@@ -664,8 +667,10 @@ export class EditorComponent extends Component {
         // provideFoldingRanges — indentation folds stand.
         const ticket = this.foldingRequest.start();
         const providers = this.foldingProviders.ordered(this.model);
-        // Stryker disable next-line ConditionalExpression: with no providers the aggregator answers [] and the branch below returns the same way — the guard only spares the aggregator call
-        if (providers.length === 0) return;
+        if (providers.length === 0) {
+            this.applyFoldingRegions(indentation, collapsedStarts);
+            return;
+        }
 
         // The ticket's token reaches the extension's provider: a superseded
         // request stops its work there too.
@@ -679,9 +684,10 @@ export class EditorComponent extends Component {
             ticket.token,
         ).then((providerRegions) => {
             if (ticket.isStale()) return;
-            // Stryker disable next-line ConditionalExpression: merging an empty set re-applies the indentation folds already applied above — the guard only skips that no-op
-            if (providerRegions.length === 0) return; // nothing to merge, indentation stays
-            this.applyFoldingRegions(mergeFoldingRegions(indentation, providerRegions), collapsedStarts);
+            this.applyFoldingRegions(
+                providerRegions.length === 0 ? indentation : mergeFoldingRegions(indentation, providerRegions),
+                collapsedStarts,
+            );
         });
     }
 
