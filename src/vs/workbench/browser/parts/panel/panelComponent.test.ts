@@ -18,6 +18,43 @@ function makeHarness() {
 }
 
 describe("PanelComponent", () => {
+    it("view части — #panel", () => {
+        const { component } = makeHarness();
+        expect(component.view.id).toBe("panel");
+        component.dispose();
+    });
+
+    it("подхватывает активную вкладку сервиса, выбранную до сборки компонента", () => {
+        const service = new PanelService();
+        service.addView({ id: "problems", title: "PROBLEMS" });
+        service.addView({ id: "terminal", title: "TERMINAL" });
+        service.setActiveView("terminal");
+        const component = new PanelComponent(service, new CommandRegistry());
+        expect(component.view.getActiveViewId()).toBe("terminal");
+        component.dispose();
+    });
+
+    it("пересинхронизация реестра не трогает вкладки без изменений, новые контролы — доносит", () => {
+        const { service, component } = makeHarness();
+        service.addView({ id: "problems", title: "PROBLEMS" });
+        service.setViewContent("problems", new TUIElement());
+        const setViewContent = vi.spyOn(component.view, "setViewContent");
+        const setViewActions = vi.spyOn(component.view, "setViewActions");
+
+        service.addView({ id: "terminal", title: "TERMINAL" });
+        expect(setViewContent).not.toHaveBeenCalled();
+        expect(setViewActions).not.toHaveBeenCalled();
+
+        const actions = new TUIElement();
+        service.setViewActions("problems", actions);
+        expect(setViewActions).toHaveBeenCalledTimes(1);
+        expect(setViewActions).toHaveBeenCalledWith("problems", actions);
+        // Те же контролы при следующей пересинхронизации — уже без вызова.
+        service.addView({ id: "output", title: "OUTPUT" });
+        expect(setViewActions).toHaveBeenCalledTimes(1);
+        component.dispose();
+    });
+
     it("reflects views registered before and after construction", () => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         const service = new PanelService();

@@ -45,6 +45,7 @@ import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 import { withMacKeybindings } from "./actions/macKeybindings.ts";
 import { Component } from "./component.ts";
 import { MenuBarComponentDIToken } from "./menuBarComponent.ts";
+import { AuxiliaryBarComponentDIToken } from "./parts/auxiliarybar/auxiliaryBarComponent.ts";
 import { EditorPartComponent, EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 import {
@@ -234,6 +235,9 @@ export class WorkbenchComponent extends Component {
         this.workbenchLayout = new WorkbenchLayoutElement();
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
         this.workbenchLayout.setBottomPanel(panelComponent.view);
+        // Вторичная боковая панель — правая колонка во всю высоту (у эталона —
+        // с противоположной от сайдбара стороны).
+        this.workbenchLayout.setRightPanel(this.register(accessor.get(AuxiliaryBarComponentDIToken)).view);
         this.layoutService.attachLayout(this.workbenchLayout);
         // Персист открытых редакторов (write-through подписан на IEditorService
         // внутри сервиса; layout персистит LayoutService через onDidChangeLayout).

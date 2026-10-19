@@ -19,7 +19,7 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  *   своих у эталона не имеют и идут за семьёй.
  * - `explorer.*`, `files.enableTrash`, `files.refactoring.autoSave`, `workbench.colorTheme`,
  *   `workbench.editor.enablePreview`, `workbench.editor.closeOnFileDelete`,
- *   `workbench.tree.expandMode` — `window`: у эталона скоуп не указан, то
+ *   `workbench.tree.expandMode`, `workbench.secondarySideBar.defaultVisibility` — `window`: у эталона скоуп не указан, то
  *   есть дефолтный `WINDOW` (одно значение на окно).
  * - `files.watcherExclude`, `files.watcherInclude`, `scm.graph.pageSize` —
  *   `resource`: у эталона первые два помечены `RESOURCE` явно, третий
@@ -42,6 +42,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "workbench.editor.enablePreview": "window",
     "workbench.editor.closeOnFileDelete": "window",
     "workbench.tree.expandMode": "window",
+    "workbench.secondarySideBar.defaultVisibility": "window",
 
     "editor.tabSize": "language-overridable",
     "editor.insertSpaces": "language-overridable",

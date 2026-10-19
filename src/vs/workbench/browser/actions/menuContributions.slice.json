@@ -305,6 +305,7 @@
             "workbench.action.output.toggleOutput",
             "workbench.action.terminal.toggleTerminal",
             "workbench.action.toggleSidebarVisibility",
+            "workbench.action.toggleAuxiliaryBar",
             "workbench.action.togglePanel"
         ],
         "4_sidebar": [

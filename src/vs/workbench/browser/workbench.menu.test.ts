@@ -298,6 +298,7 @@ describe("Workbench — menu bar wiring", () => {
             "Output",
             "Terminal",
             "Toggle Primary Side Bar",
+            "Toggle Secondary Side Bar",
             "Toggle Panel",
             "Increase Side Bar Width",
             "Decrease Side Bar Width",

@@ -1,0 +1,49 @@
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+
+import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { PaneCompositePartComponent } from "../paneCompositePartComponent.ts";
+
+import type { AuxiliaryBarService } from "./auxiliaryBarService.ts";
+import { AuxiliaryBarServiceDIToken } from "./auxiliaryBarService.ts";
+
+export const AuxiliaryBarComponentDIToken = token<AuxiliaryBarComponent>("AuxiliaryBarComponent");
+
+/** Команда кнопки `×` в таб-строке вторичной панели (у эталона — `closeAuxiliaryBar`). */
+export const CLOSE_AUXILIARY_BAR_COMMAND_ID = "workbench.action.closeAuxiliaryBar";
+
+/**
+ * Компонент вторичной боковой панели (`view.id = "auxiliarybar"`): та же
+ * таб-строка контейнеров, что у нижней панели, но в одежде сайдбара — у
+ * эталона у `AuxiliaryBarPart` своих цветов нет, фон и текст `sideBar.*`,
+ * вкладки — `panelTitle.*`. Полосы `panel.border` сверху нет (часть во всю
+ * высоту, сверху у неё строка меню), а первая колонка отдана сашу ресайза —
+ * на её месте у эталона `sideBar.border` со стороны редактора.
+ *
+ * Свои ключи фича выставляет сама: `auxiliaryBarFocus` (фокус в поддереве
+ * части) и `activeAuxiliary` (активный контейнер, пока часть видна).
+ */
+export class AuxiliaryBarComponent extends PaneCompositePartComponent implements IContextKeyContributor {
+    public static dependencies = [AuxiliaryBarServiceDIToken, CommandRegistryDIToken] as const;
+
+    public constructor(
+        private readonly auxiliaryBarService: AuxiliaryBarService,
+        commands: CommandRegistry,
+    ) {
+        super(auxiliaryBarService, commands, "auxiliarybar", CLOSE_AUXILIARY_BAR_COMMAND_ID, {
+            background: "sideBar.background",
+            foreground: "sideBar.foreground",
+            topBorder: false,
+            contentLeft: 1,
+        });
+    }
+
+    public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        contextKeys.set("auxiliaryBarFocus", active?.getAncestorPath().includes(this.view) ?? false);
+        const activeId = this.auxiliaryBarService.visible ? this.auxiliaryBarService.getActiveViewId() : null;
+        contextKeys.set("activeAuxiliary", activeId ?? "");
+    }
+}

@@ -53,5 +53,25 @@ export const workbenchConfiguration = {
                 "Controls how tree folders are expanded when clicking the folder names. Note that some trees and " +
                 "lists might choose to ignore this setting if it is not applicable.",
         },
+        // Видимость вторичной боковой панели в воркспейсе, открытом впервые
+        // (сохранённой видимости ещё нет). Читает LayoutService на restore.
+        // `maximized*` развёртывания части у нас нет — до него такие значения
+        // значат «видима». Пустую часть, как и эталон, не показываем вовсе.
+        "workbench.secondarySideBar.defaultVisibility": {
+            scope: "window",
+            type: "string",
+            enum: ["hidden", "visibleInWorkspace", "visible", "maximizedInWorkspace", "maximized"],
+            default: "visibleInWorkspace",
+            description:
+                "Controls the default visibility of the secondary side bar in workspaces or empty windows that are " +
+                "opened for the first time. Can be overridden by the agent sessions startup editor setting.",
+            enumDescriptions: [
+                "The secondary side bar is hidden by default.",
+                "The secondary side bar is visible by default if a workspace is opened.",
+                "The secondary side bar is visible by default.",
+                "The secondary side bar is visible and maximized by default if a workspace is opened.",
+                "The secondary side bar is visible and maximized by default.",
+            ],
+        },
     },
 } as const satisfies IConfigurationNode;

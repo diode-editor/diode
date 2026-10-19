@@ -34,6 +34,18 @@ import {
     OpenFailureNotificationContributionDIToken,
 } from "../../workbench/browser/openFailureNotificationContribution.ts";
 import {
+    AuxiliaryBarComponent,
+    AuxiliaryBarComponentDIToken,
+} from "../../workbench/browser/parts/auxiliarybar/auxiliaryBarComponent.ts";
+import {
+    AuxiliaryBarFocusContribution,
+    AuxiliaryBarFocusContributionDIToken,
+} from "../../workbench/browser/parts/auxiliarybar/auxiliaryBarFocusContribution.ts";
+import {
+    AuxiliaryBarService,
+    AuxiliaryBarServiceDIToken,
+} from "../../workbench/browser/parts/auxiliarybar/auxiliaryBarService.ts";
+import {
     EditorPartComponent,
     EditorPartComponentDIToken,
 } from "../../workbench/browser/parts/editor/editorPartComponent.ts";
@@ -574,6 +586,10 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(PanelServiceDIToken, PanelService);
     container.bind(PanelComponentDIToken, PanelComponent);
     container.bind(PanelFocusContributionDIToken, PanelFocusContribution);
+    // Вторичная боковая панель: та же пара «реестр вкладок + компонент», что у панели.
+    container.bind(AuxiliaryBarServiceDIToken, AuxiliaryBarService);
+    container.bind(AuxiliaryBarComponentDIToken, AuxiliaryBarComponent);
+    container.bind(AuxiliaryBarFocusContributionDIToken, AuxiliaryBarFocusContribution);
     container.bind(ProblemsComponentDIToken, ProblemsComponent);
     // Output-кластер: реестр каналов (аналог IOutputChannelRegistry), модель
     // панели и её view-владелец. Человекочитаемое имя канала объявляет его

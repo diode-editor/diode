@@ -4,7 +4,8 @@
 
 Персистентное машинное состояние рабочего места (аналог `IStorageService` /
 `Memento` из VS Code): открытые файлы + активная вкладка, ширина/видимость
-сайдбара, видимость/высота нижней панели.
+сайдбара, видимость/высота нижней панели, видимость/ширина и активная вкладка
+вторичной боковой панели.
 
 ## Назначение и non-goals
 
@@ -178,7 +179,20 @@ main.ts: build container ─► lifecycle.onShutdownSync(flushSync) + страх
   `onDidChangeActiveView` → `PANEL_ACTIVE_VIEW_STATE`. На restore вкладка
   активируется программно (`setActiveView`, не `activateView`) — ленивые фичи не
   будятся, TERMINAL восстанавливается с placeholder'ом без спавна шелла.
-- **restoreLayout** во время restore глушит авто-capture (re-entrancy guard).
+- **Вторичная боковая панель** — ключи эталона: `workbench.auxiliaryBar.hidden`,
+  `workbench.auxiliaryBar.size`, `workbench.auxiliarybar.activepanelid` (все
+  `workspace`, как остальная раскладка; у эталона размер — PROFILE, это
+  отступление ради «раскладка — по-проектно»). У `hidden` и `size` дефолт
+  `null` — «в этом воркспейсе не сохраняли»: видимость тогда выводит
+  `workbench.secondarySideBar.defaultVisibility`, ширина остаётся динамической
+  (30, но не шире четверти окна). Часть без единого контейнера рестор не
+  показывает, что бы ни лежало в сторе (как у эталона, не нашедшего
+  `activepanelid`). Активная вкладка — свой write-through по
+  `AuxiliaryBarService.onDidChangeActiveView`, как у нижней панели.
+- **restoreLayout** во время restore глушит авто-capture (re-entrancy guard);
+  синхронизация истины видимости в `PanelService`/`AuxiliaryBarService` — тоже
+  внутри него: первый старт воркспейса не записывает выведенную из настройки
+  видимость как сохранённую.
 - **restoreOpenEditors** пропускает отсутствующие на диске файлы (как VS Code) и
   переотображает индекс активной вкладки на выживших.
 - **Смена папки в рантайме** (`setWorkspaceFolder`): `openWorkspace(newDir)` сначала

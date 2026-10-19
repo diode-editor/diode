@@ -2,9 +2,12 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
 import { loadState, StateService } from "../../../../platform/state/node/stateService.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
+import { AuxiliaryBarService } from "../../../browser/parts/auxiliarybar/auxiliaryBarService.ts";
 import { PanelService } from "../../../browser/parts/panel/panelService.ts";
 import { WorkbenchLayoutElement } from "../../../browser/workbenchLayoutElement.ts";
 import {
@@ -22,13 +25,26 @@ describe("LayoutService", () => {
     let state: StateService;
     let panelService: PanelService;
     let contextKeys: ContextKeyService;
+    let auxiliaryBarService: AuxiliaryBarService;
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-layoutsvc-" });
         state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: ws.dir }));
         panelService = new PanelService();
         contextKeys = new ContextKeyService();
+        auxiliaryBarService = new AuxiliaryBarService();
     });
+
+    function newLayoutService(): LayoutService {
+        return new LayoutService(
+            state,
+            panelService,
+            contextKeys,
+            auxiliaryBarService,
+            NULL_CONFIGURATION_SERVICE,
+            new WorkspaceContextService(),
+        );
+    }
 
     afterEach(() => {
         // Писателя глушим ДО сноса каталога: debounced-запись,
@@ -39,7 +55,7 @@ describe("LayoutService", () => {
 
     function make(layout?: WorkbenchLayoutElement): { service: LayoutService; layout: WorkbenchLayoutElement } {
         const element = layout ?? new WorkbenchLayoutElement();
-        const service = new LayoutService(state, panelService, contextKeys);
+        const service = newLayoutService();
         service.attachLayout(element);
         return { service, layout: element };
     }
@@ -230,7 +246,7 @@ describe("LayoutService", () => {
         });
 
         it("visibility changes before attachLayout still update the context key", () => {
-            const service = new LayoutService(state, panelService, contextKeys);
+            const service = newLayoutService();
             expect(() => {
                 service.setPanelVisible(true);
             }).not.toThrow();
@@ -239,14 +255,14 @@ describe("LayoutService", () => {
     });
 
     it("throws when used before attachLayout", () => {
-        const service = new LayoutService(state, panelService, contextKeys);
+        const service = newLayoutService();
         expect(() => {
             service.toggleSidebar();
         }).toThrow("attachLayout");
     });
 
     it("mainContainer — корневая view из attachRoot; до него — честная ошибка", () => {
-        const service = new LayoutService(state, panelService, contextKeys);
+        const service = newLayoutService();
         expect(() => service.mainContainer).toThrow("attachRoot must be called first");
 
         const root = new BodyElement();

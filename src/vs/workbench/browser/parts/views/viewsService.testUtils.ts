@@ -14,6 +14,7 @@ import type { IStateDescriptor, IStateService } from "../../../../platform/state
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
+import { AuxiliaryBarService } from "../auxiliarybar/auxiliaryBarService.ts";
 import type { IPanelView } from "../panel/panelService.ts";
 import { PanelService } from "../panel/panelService.ts";
 import type { SidebarService } from "../sidebar/sidebarService.ts";
@@ -28,6 +29,7 @@ export interface IViewsHarness {
     readonly service: ViewsService;
     /** Настоящий реестр вкладок нижней панели — для контейнеров location: "panel". */
     readonly panelService: PanelService;
+    readonly auxiliaryBarService: AuxiliaryBarService;
     readonly menuService: MenuService;
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
@@ -94,6 +96,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     } as unknown as ContextMenuService;
 
     const panelService = new PanelService();
+    const auxiliaryBarService = new AuxiliaryBarService();
     const commands = new CommandRegistry();
     const contextKeys = new ContextKeyService();
     const menuService = new MenuService(
@@ -119,7 +122,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     };
 
     const panelView = (containerId: string): IPanelView | undefined =>
-        panelService.getViews().find((v) => v.id === containerId);
+        [...panelService.getViews(), ...auxiliaryBarService.getViews()].find((v) => v.id === containerId);
     const root = (containerId: string): TUIElement => {
         const viewlet = registered.get(containerId);
         if (viewlet !== undefined) return viewlet.view;
@@ -136,8 +139,18 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     };
     const workspace = new WorkspaceContextService();
     return {
-        service: new ViewsService(sidebar, panelService, contextMenu, menuService, state, workspace, commands),
+        service: new ViewsService(
+            sidebar,
+            panelService,
+            contextMenu,
+            menuService,
+            state,
+            workspace,
+            commands,
+            auxiliaryBarService,
+        ),
         panelService,
+        auxiliaryBarService,
         menuService,
         commands,
         contextKeys,

@@ -9,6 +9,15 @@ const MIN_LEFT_WIDTH = 12;
 /** Minimum width left for the center (editor) so a wide sidebar can't starve it. */
 const MIN_CENTER_WIDTH = 20;
 
+/**
+ * Upper bound of the right panel's (secondary side bar) dynamic default width —
+ * the sidebar's default: the reference sizes the auxiliary bar with "the side bar
+ * dimensions", `min(300, width / 4)` px (`layout.ts`).
+ */
+const DEFAULT_RIGHT_WIDTH = 30;
+/** Minimum right-panel width — the same as the sidebar's. */
+const MIN_RIGHT_WIDTH = MIN_LEFT_WIDTH;
+
 /** Default/reset height of the bottom panel (Problems, Output, …), in rows. */
 const DEFAULT_PANEL_HEIGHT = 12;
 /** Minimum bottom-panel height — fits the tab header + a couple of content rows. */
@@ -18,13 +27,19 @@ const MIN_EDITOR_HEIGHT = 3;
 
 /**
  * Workbench layout: a full-height left panel (sidebar), the center content
- * (editor), and — aligned to the center's width, à la VS Code's default
- * `center` panel alignment — a bottom panel (Problems/Output/…) below the
- * editor. A vertical sash resizes the sidebar; a horizontal sash resizes the
- * bottom panel. The bottom panel is hidden by default (like VS Code).
+ * (editor), a full-height right panel (secondary side bar, VS Code's auxiliary
+ * bar) and — aligned to the center's width, à la VS Code's default `center`
+ * panel alignment — a bottom panel (Problems/Output/…) below the editor.
+ * Vertical sashes resize the side panels; a horizontal sash resizes the bottom
+ * panel. The bottom and right panels are hidden by default.
+ *
+ * Не хватает ширины — первой сжимается правая панель (у эталона вторичная
+ * панель — `LayoutPriority.Low`), затем левая; редактор держит
+ * {@link MIN_CENTER_WIDTH}. Клампы — только при раскладке: сохранённые ширины
+ * не меняются, и временно узкий терминал их не портит.
  *
  * Переехал из `@tuidom/elements` (`workbenchlayout/`): API построен на понятиях
- * workbench'а VS Code (сайдбар, нижняя панель), по критерию
+ * workbench'а VS Code (сайдбар, нижняя панель, вторичная панель), по критерию
  * docs/TODO/EngineWidgetRepatriation.md ему место у нас. Аналог эталона —
  * `workbench/browser/layout.ts`.
  */
@@ -32,12 +47,17 @@ export class WorkbenchLayoutElement extends TUIElement {
     private leftPanel: TUIElement | null = null;
     private centerContent: TUIElement | null = null;
     private bottomPanel: TUIElement | null = null;
+    private rightPanel: TUIElement | null = null;
 
     private leftPanelVisible = true;
     private leftPanelWidth = DEFAULT_LEFT_WIDTH;
 
     private bottomPanelVisible = false;
     private bottomPanelHeight = DEFAULT_PANEL_HEIGHT;
+
+    private rightPanelVisible = false;
+    /** `null` — пользователь ширину не задавал: действует динамический дефолт {@link defaultRightWidth}. */
+    private rightPanelWidth: number | null = null;
 
     /**
      * Уведомление о смене layout по действию пользователя (drag сэша или команда):
@@ -47,9 +67,10 @@ export class WorkbenchLayoutElement extends TUIElement {
      */
     public onDidChangeLayout?: () => void;
 
-    // Draggable dividers: vertical between sidebar and editor, horizontal between
-    // editor and bottom panel.
+    // Draggable dividers: vertical between sidebar and editor, vertical between
+    // editor and right panel, horizontal between editor and bottom panel.
     private sash = new SashElement("vertical");
+    private rightSash = new SashElement("vertical");
     // Stryker disable next-line StringLiteral: SashElement сверяет ориентацию только с "vertical" — любая другая строка и есть горизонталь, мутант эквивалентен
     private bottomSash = new SashElement("horizontal");
 
@@ -59,6 +80,14 @@ export class WorkbenchLayoutElement extends TUIElement {
         this.sash.onDrag = (boundaryScreenX) => {
             // Translate the absolute boundary column to a panel width and clamp it.
             this.leftPanelWidth = this.clampWidth(boundaryScreenX - this.globalPosition.x);
+            this.markDirty();
+            this.onDidChangeLayout?.();
+        };
+        this.rightSash.onDrag = (boundaryScreenX) => {
+            // The sash sits on the right panel's first column, so the boundary column
+            // belongs to the panel: width = containerRight - boundaryColumn.
+            const containerRight = this.globalPosition.x + this.layoutSize.width;
+            this.rightPanelWidth = this.clampRightWidth(containerRight - boundaryScreenX);
             this.markDirty();
             this.onDidChangeLayout?.();
         };
@@ -87,6 +116,11 @@ export class WorkbenchLayoutElement extends TUIElement {
         this.syncChildren();
     }
 
+    public setRightPanel(element: TUIElement | null): void {
+        this.rightPanel = element;
+        this.syncChildren();
+    }
+
     public setLeftPanelVisible(visible: boolean): void {
         this.leftPanelVisible = visible;
         this.syncChildren();
@@ -107,6 +141,16 @@ export class WorkbenchLayoutElement extends TUIElement {
         return this.bottomPanelVisible;
     }
 
+    public setRightPanelVisible(visible: boolean): void {
+        this.rightPanelVisible = visible;
+        this.syncChildren();
+        this.onDidChangeLayout?.();
+    }
+
+    public getRightPanelVisible(): boolean {
+        return this.rightPanelVisible;
+    }
+
     public setLeftPanelWidth(width: number): void {
         // Context-free lower clamp; the upper bound depends on the container and is
         // enforced in performLayout (and by clampWidth for interactive changes).
@@ -116,6 +160,20 @@ export class WorkbenchLayoutElement extends TUIElement {
 
     public getLeftPanelWidth(): number {
         return this.leftPanelWidth;
+    }
+
+    /**
+     * Задаёт ширину правой панели; `null` — вернуть динамический дефолт (его и
+     * сохраняют, пока пользователь ширину не трогал).
+     */
+    public setRightPanelWidth(width: number | null): void {
+        this.rightPanelWidth = width === null ? null : Math.max(MIN_RIGHT_WIDTH, Math.round(width));
+        this.onDidChangeLayout?.();
+    }
+
+    /** Заданная ширина правой панели; `null` — пользователь её не задавал (динамический дефолт). */
+    public getRightPanelWidth(): number | null {
+        return this.rightPanelWidth;
     }
 
     public setBottomPanelHeight(height: number): void {
@@ -141,6 +199,21 @@ export class WorkbenchLayoutElement extends TUIElement {
         this.onDidChangeLayout?.();
     }
 
+    /** Grow/shrink the right panel by `delta` columns from its current width, clamped to the container. */
+    public nudgeRightPanelWidth(delta: number): void {
+        const current = this.rightPanelWidth ?? this.defaultRightWidth(this.layoutSize.width);
+        this.rightPanelWidth = this.clampRightWidth(current + delta);
+        this.markDirty();
+        this.onDidChangeLayout?.();
+    }
+
+    /** Grow/shrink the bottom panel by `delta` rows, clamped to the current container. */
+    public nudgeBottomPanelHeight(delta: number): void {
+        this.bottomPanelHeight = this.clampHeight(this.bottomPanelHeight + delta);
+        this.markDirty();
+        this.onDidChangeLayout?.();
+    }
+
     public getLeftPanel(): TUIElement | null {
         return this.leftPanel;
     }
@@ -153,6 +226,10 @@ export class WorkbenchLayoutElement extends TUIElement {
         return this.bottomPanel;
     }
 
+    public getRightPanel(): TUIElement | null {
+        return this.rightPanel;
+    }
+
     /**
      * Пересобирает список детей и их видимость. Скрытая панель ОСТАЁТСЯ в
      * дереве с hidden=true (root и стили доходят — раньше её исключали из
@@ -161,8 +238,6 @@ export class WorkbenchLayoutElement extends TUIElement {
      * hit-testing; каждый скрыт вместе со своей панелью.
      */
     private syncChildren(): void {
-        const showLeft = this.leftPanel !== null && this.leftPanelVisible;
-        const showBottom = this.bottomPanel !== null && this.bottomPanelVisible;
         const children: TUIElement[] = [];
         if (this.leftPanel !== null) {
             this.leftPanel.hidden = !this.leftPanelVisible;
@@ -175,22 +250,80 @@ export class WorkbenchLayoutElement extends TUIElement {
             this.bottomPanel.hidden = !this.bottomPanelVisible;
             children.push(this.bottomPanel);
         }
-        this.sash.hidden = !showLeft;
+        if (this.rightPanel !== null) {
+            this.rightPanel.hidden = !this.rightPanelVisible;
+            children.push(this.rightPanel);
+        }
+        this.sash.hidden = !this.isLeftShown();
         children.push(this.sash);
-        this.bottomSash.hidden = !showBottom;
+        this.rightSash.hidden = !this.isRightShown();
+        children.push(this.rightSash);
+        this.bottomSash.hidden = !(this.bottomPanel !== null && this.bottomPanelVisible);
         children.push(this.bottomSash);
         this.setChildren(children);
+    }
+
+    private isLeftShown(): boolean {
+        return this.leftPanel !== null && this.leftPanelVisible;
+    }
+
+    private isRightShown(): boolean {
+        return this.rightPanel !== null && this.rightPanelVisible;
     }
 
     private clampWidth(width: number): number {
         return this.clampWidthTo(width, this.layoutSize.width);
     }
 
+    /**
+     * Интерактивный кламп левой ширины (drag, nudge): левая панель вправе
+     * оттеснить показанную правую до её минимума, но не съесть его — иначе
+     * правая пропала бы под сайдбаром без команды пользователя.
+     */
     private clampWidthTo(width: number, containerWidth: number): number {
-        const maxLeft = Math.max(MIN_LEFT_WIDTH, containerWidth - MIN_CENTER_WIDTH);
+        const reserved = this.isRightShown() ? MIN_RIGHT_WIDTH : 0;
+        const maxLeft = Math.max(MIN_LEFT_WIDTH, containerWidth - MIN_CENTER_WIDTH - reserved);
         const clamped = Math.max(MIN_LEFT_WIDTH, Math.min(Math.round(width), maxLeft));
         // Never exceed the container itself (degenerate, very narrow terminals).
         return Math.min(clamped, containerWidth);
+    }
+
+    /**
+     * Интерактивный кламп правой ширины: приоритет у правой панели ниже, она
+     * растёт только за счёт редактора, а показанную левую не теснит.
+     */
+    private clampRightWidth(width: number): number {
+        const containerWidth = this.layoutSize.width;
+        const { left } = this.computeSideWidths(containerWidth);
+        const maxRight = Math.max(MIN_RIGHT_WIDTH, containerWidth - MIN_CENTER_WIDTH - left);
+        const clamped = Math.max(MIN_RIGHT_WIDTH, Math.min(Math.round(width), maxRight));
+        return Math.min(clamped, containerWidth);
+    }
+
+    /** Динамический дефолт правой ширины: как у сайдбара, но не шире четверти окна. */
+    private defaultRightWidth(containerWidth: number): number {
+        return Math.max(MIN_RIGHT_WIDTH, Math.min(DEFAULT_RIGHT_WIDTH, Math.floor(containerWidth / 4)));
+    }
+
+    /**
+     * Показываемые ширины боковых панелей в контейнере шириной
+     * `containerWidth`: желаемые ширины, ужатые так, чтобы редактору осталось
+     * {@link MIN_CENTER_WIDTH}, — сначала за счёт правой панели, потом левой.
+     * Не хватает и минимумов (вырожденно узкий терминал) — панели хотя бы не
+     * вылезают за контейнер, и первой уступает правая.
+     */
+    private computeSideWidths(containerWidth: number): { left: number; right: number } {
+        const showLeft = this.isLeftShown();
+        const showRight = this.isRightShown();
+        let left = showLeft ? Math.max(MIN_LEFT_WIDTH, this.leftPanelWidth) : 0;
+        let right = showRight ? (this.rightPanelWidth ?? this.defaultRightWidth(containerWidth)) : 0;
+        const budget = Math.max(0, containerWidth - MIN_CENTER_WIDTH);
+        // Stryker disable EqualityOperator: на равенстве ужатие — тождество (ширины уже не меньше минимумов), `>=` эквивалентно `>`
+        if (showRight && left + right > budget) right = Math.max(MIN_RIGHT_WIDTH, budget - left);
+        if (showLeft && left + right > budget) left = Math.max(MIN_LEFT_WIDTH, budget - right);
+        if (left + right > containerWidth) right = Math.max(0, containerWidth - left);
+        // Stryker restore EqualityOperator
+        return { left: Math.min(left, containerWidth), right };
     }
 
     private clampHeight(height: number): number {
@@ -206,16 +339,15 @@ export class WorkbenchLayoutElement extends TUIElement {
     protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
 
-        const showLeft = this.leftPanel !== null && this.leftPanelVisible;
         const showBottom = this.bottomPanel !== null && this.bottomPanelVisible;
         // Display-only clamps — do NOT mutate the stored width/height, so absolute
         // sizes survive terminal resizes (a temporary shrink is not permanent).
-        const leftWidth = showLeft ? this.clampWidthTo(this.leftPanelWidth, containerSize.width) : 0;
-        const centerWidth = Math.max(0, containerSize.width - leftWidth);
+        const { left: leftWidth, right: rightWidth } = this.computeSideWidths(containerSize.width);
+        const centerWidth = Math.max(0, containerSize.width - leftWidth - rightWidth);
         const panelHeight = showBottom ? this.clampHeightTo(this.bottomPanelHeight, containerSize.height) : 0;
         const centerHeight = Math.max(0, containerSize.height - panelHeight);
 
-        if (showLeft && this.leftPanel) {
+        if (this.isLeftShown() && this.leftPanel) {
             this.layoutChild(this.leftPanel, 0, 0, BoxConstraints.tight(new Size(leftWidth, containerSize.height)));
         }
 
@@ -237,7 +369,25 @@ export class WorkbenchLayoutElement extends TUIElement {
             );
         }
 
-        if (showLeft) {
+        if (this.isRightShown() && this.rightPanel) {
+            const rightX = leftWidth + centerWidth;
+            this.layoutChild(
+                this.rightPanel,
+                rightX,
+                0,
+                BoxConstraints.tight(new Size(rightWidth, containerSize.height)),
+            );
+            // 1-column hit target on the right panel's first column — not on the
+            // editor's last one, where the editor's scrollbar lives.
+            this.layoutChild(
+                this.rightSash,
+                rightX,
+                0,
+                BoxConstraints.tight(new Size(Math.min(1, rightWidth), containerSize.height)),
+            );
+        }
+
+        if (this.isLeftShown()) {
             // 1-column hit target sitting on the boundary between the sidebar and center.
             // Must be laid out explicitly, otherwise its lazy layoutSize would report a
             // stale box at (0,0) and break hit-testing.

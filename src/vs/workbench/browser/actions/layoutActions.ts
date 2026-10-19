@@ -97,6 +97,30 @@ export const resetSidebarWidthAction: CommandAction = {
     },
 };
 
+// Rows added/removed per increase/decrease Current View Size on the bottom panel.
+const PANEL_HEIGHT_STEP = 1;
+
+/**
+ * Ресайз части с фокусом (сайдбар, вторичная панель, нижняя панель или
+ * редактор за счёт соседей) — `workbench.action.increaseViewSize` эталона. Как
+ * и там, без дефолтного биндинга: только палитра и keybindings.json.
+ */
+export const increaseViewSizeAction: CommandAction = {
+    id: "workbench.action.increaseViewSize",
+    title: "View: Increase Current View Size",
+    run(accessor) {
+        accessor.get(LayoutServiceDIToken).resizeFocusedPart(SIDEBAR_WIDTH_STEP, PANEL_HEIGHT_STEP);
+    },
+};
+
+export const decreaseViewSizeAction: CommandAction = {
+    id: "workbench.action.decreaseViewSize",
+    title: "View: Decrease Current View Size",
+    run(accessor) {
+        accessor.get(LayoutServiceDIToken).resizeFocusedPart(-SIDEBAR_WIDTH_STEP, -PANEL_HEIGHT_STEP);
+    },
+};
+
 // Bottom Panel (Problems/Output/…) visibility.
 export const togglePanelAction: CommandAction = {
     id: "workbench.action.togglePanel",

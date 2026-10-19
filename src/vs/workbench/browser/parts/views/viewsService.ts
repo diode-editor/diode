@@ -26,6 +26,9 @@ import type { IWorkspaceContextService } from "../../../../platform/workspace/co
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { type IViewContainerViewsState, SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 import type { ViewContainerMenuContext, ViewMenuContext } from "../../actions/menuContexts.ts";
+import type { AuxiliaryBarService } from "../auxiliarybar/auxiliaryBarService.ts";
+import { AuxiliaryBarServiceDIToken } from "../auxiliarybar/auxiliaryBarService.ts";
+import type { PaneCompositePartService } from "../paneCompositePartService.ts";
 import type { PanelService } from "../panel/panelService.ts";
 import { PanelServiceDIToken } from "../panel/panelService.ts";
 import type { BooleanContextKey, SidebarService } from "../sidebar/sidebarService.ts";
@@ -46,10 +49,11 @@ const NAVIGATION_GROUP = "navigation";
 const VIEWS_SUBMENU_LABEL = "Views";
 
 /**
- * Где живёт контейнер (аналог `ViewContainerLocation` VS Code): вьюлет левого
- * сайдбара или вкладка нижней панели.
+ * Где живёт контейнер (аналог `ViewContainerLocation` VS Code; строки — те же,
+ * что отдаёт `ViewContainerLocationToString` эталона): вьюлет левого сайдбара,
+ * вкладка нижней панели или вкладка вторичной боковой панели.
  */
-export type ViewContainerLocation = "sidebar" | "panel";
+export type ViewContainerLocation = "sidebar" | "panel" | "auxiliarybar";
 
 /** Контейнер view-секций = «активити»: единица, которую показывает место (location). */
 export interface IViewContainerDescriptor {
@@ -244,6 +248,7 @@ export class ViewsService {
         StateServiceDIToken,
         IWorkspaceContextServiceDIToken,
         CommandRegistryDIToken,
+        AuxiliaryBarServiceDIToken,
     ] as const;
 
     private readonly containers = new Map<string, ContainerEntry>();
@@ -262,6 +267,7 @@ export class ViewsService {
         private readonly stateService: IStateService,
         private readonly workspaceContext: IWorkspaceContextService,
         private readonly commands: CommandRegistry,
+        private readonly auxiliaryBarService: AuxiliaryBarService,
     ) {
         // Подписка живёт столько же, сколько сервис (он синглтон на всё окно),
         // поэтому снимать её некому и незачем.
@@ -280,6 +286,9 @@ export class ViewsService {
             this.refreshStaleTitleActions(id);
         });
         panelService.onDidChangeActiveView((id) => {
+            this.refreshStaleTitleActions(id);
+        });
+        auxiliaryBarService.onDidChangeActiveView((id) => {
             this.refreshStaleTitleActions(id);
         });
     }
@@ -371,7 +380,7 @@ export class ViewsService {
         // появление и уход спиннера этот расчёт меняют. Смена самого кадра
         // (10 Гц) сюда не попадает: пересчёт резолвит меню всех секций.
         // Stryker disable next-line ConditionalExpression,LogicalOperator: та же причина, что строкой выше — лишний пересчёт ненаблюдаем
-        if (appeared && this.isPanel(entry)) this.refreshContainerTitleActions(entry);
+        if (appeared && this.isTabbed(entry)) this.refreshContainerTitleActions(entry);
     }
 
     /** Контрол заголовка view, если он задан (читает отрисовка заголовка). */
@@ -505,10 +514,10 @@ export class ViewsService {
             runAction(this.viewTitleGroups(paneId), actionId);
         };
         entry.paneView = paneView;
-        // В панели заголовка-строки нет — та же строка заголовка работает
-        // полосой контролов в таб-строке, поэтому названия не несёт.
-        const panel = entry.descriptor.location === "panel";
-        const header = new ViewContainerHeaderElement(panel ? "" : entry.descriptor.title);
+        // В панели (и во вторичной панели) заголовка-строки нет — та же строка
+        // заголовка работает полосой контролов в таб-строке, поэтому названия не несёт.
+        const tabbed = this.isTabbed(entry);
+        const header = new ViewContainerHeaderElement(tabbed ? "" : entry.descriptor.title);
         header.id = `viewContainerHeader-${domId}`;
         header.onMenu = (anchor) => {
             this.contextMenuService.showContextMenu({
@@ -521,14 +530,14 @@ export class ViewsService {
             runAction(this.titleGroups(entry), actionId);
         };
         entry.header = header;
-        if (panel) {
+        if (tabbed) {
             // Позиция считается ДО того, как контейнер станет приаттаченным:
             // сам себя он не считает.
-            const index = this.panelIndexOf(entry.descriptor);
+            const index = this.tabIndexOf(entry.descriptor);
             entry.view = paneView;
             // Вкладку заводим ДО сборки секций: полоса контролов таб-строки
-            // ставится через реестр панели, а он игнорирует незнакомый id.
-            this.panelService.addView({ id: containerId, title: entry.descriptor.title, content: paneView, index });
+            // ставится через реестр части, а он игнорирует незнакомый id.
+            this.partOf(entry).addView({ id: containerId, title: entry.descriptor.title, content: paneView, index });
             this.rebuildPanes(entry);
             return;
         }
@@ -554,10 +563,10 @@ export class ViewsService {
      * Позиция новой вкладки панели: после всех уже построенных панельных
      * контейнеров с тем же или меньшим `order`.
      */
-    private panelIndexOf(descriptor: IViewContainerDescriptor): number {
+    private tabIndexOf(descriptor: IViewContainerDescriptor): number {
         let index = 0;
         for (const entry of this.containers.values()) {
-            if (entry.view === null || !this.isPanel(entry)) continue;
+            if (entry.view === null || attached(entry).descriptor.location !== descriptor.location) continue;
             if (orderOf(attached(entry).descriptor) <= orderOf(descriptor)) index++;
         }
         return index;
@@ -696,7 +705,7 @@ export class ViewsService {
      * таб-строки несёт действия ЕДИНСТВЕННОЙ секции (как в VS Code).
      */
     private headerTargetView(entry: ContainerEntry): string | null {
-        if (!this.isPanel(entry) || !this.isMerged(entry)) return null;
+        if (!this.isTabbed(entry) || !this.isMerged(entry)) return null;
         // merged — это ровно одна видимая секция, так что индекс 0 существует.
         return this.visibleViews(entry)[0].id;
     }
@@ -799,7 +808,8 @@ export class ViewsService {
         const header = attached(entry).header;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
-        if (!this.isPanel(entry)) return;
+        // Stryker disable next-line ConditionalExpression: у вьюлета сайдбара таб-строки нет — виджет у него null (headerTargetView), меню шапки 2+ секций видно и так, а partOf отдаёт panelService, который незнакомый id пропускает
+        if (!this.isTabbed(entry)) return;
         const headerRecord = headerViewId === null ? null : this.recordOrThrow(headerViewId).record;
         const widget = headerRecord?.titleWidget ?? null;
         header.setTitleWidget(widget);
@@ -810,7 +820,7 @@ export class ViewsService {
         // осталась бы неприкреплённой, и прогресс секции панели было бы не видно.
         // Stryker disable next-line OptionalChaining: до этого операнда цепочка доходит только при `!hasMenu`, а он ложен ровно тогда, когда секций 2+ и headerRecord пуст — то есть здесь запись всегда есть
         const empty = actions.length === 0 && widget === null && !hasMenu && headerRecord?.spinner == null;
-        this.panelService.setViewActions(attached(entry).descriptor.id, empty ? null : header);
+        this.partOf(entry).setViewActions(attached(entry).descriptor.id, empty ? null : header);
     }
 
     /** Контейнер стал показан — досчитать кнопки, пропущенные, пока он был скрыт. */
@@ -828,8 +838,8 @@ export class ViewsService {
      */
     private isShown(entry: ContainerEntry): boolean {
         const id = attached(entry).descriptor.id;
-        return this.isPanel(entry)
-            ? this.panelService.getActiveViewId() === id
+        return this.isTabbed(entry)
+            ? this.partOf(entry).getActiveViewId() === id
             : this.sidebarService.getActiveViewletId() === id;
     }
 
@@ -906,8 +916,20 @@ export class ViewsService {
         return this.visibleViews(entry).length === 1;
     }
 
-    private isPanel(entry: ContainerEntry): boolean {
-        return entry.descriptor?.location === "panel";
+    /**
+     * Контейнер живёт вкладкой в таб-строке части (нижняя или вторичная боковая
+     * панель), а не вьюлетом сайдбара: его заголовок — таб, а полоса контролов
+     * уезжает в таб-строку.
+     */
+    private isTabbed(entry: ContainerEntry): boolean {
+        // Спрашивают только о собранных контейнерах — дескриптор у них есть.
+        const location = attached(entry).descriptor.location;
+        return location === "panel" || location === "auxiliarybar";
+    }
+
+    /** Реестр части, где вкладкой живёт контейнер (см. {@link isTabbed}). */
+    private partOf(entry: ContainerEntry): PaneCompositePartService {
+        return attached(entry).descriptor.location === "auxiliarybar" ? this.auxiliaryBarService : this.panelService;
     }
 
     /**
@@ -973,14 +995,14 @@ export class ViewsService {
         const visible = this.visibleViews(entry);
         const merged = visible.length === 1;
         // В панели заголовок merged-секции — сам таб, поэтому строки под него нет.
-        const headerVisible = !(merged && this.isPanel(entry));
+        const headerVisible = !(merged && this.isTabbed(entry));
         for (const view of visible) {
             paneView.addPane({
                 id: view.id,
                 // Merged в сайдбаре: единственная секция носит заголовок
                 // контейнера и не сворачивается — её заголовок и есть заголовок
                 // контейнера.
-                title: merged && !this.isPanel(entry) ? containerPaneTitle(entry) : view.title,
+                title: merged && !this.isTabbed(entry) ? containerPaneTitle(entry) : view.title,
                 body: this.bodyOf(view),
                 minBodyHeight: view.minBodyHeight,
                 collapsible: !merged,

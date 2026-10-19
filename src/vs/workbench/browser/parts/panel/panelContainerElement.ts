@@ -1,6 +1,7 @@
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
+import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
 /** Вкладка нижней панели (Problems, Output, Terminal, …). */
 export interface PanelView {
@@ -27,12 +28,26 @@ interface TabSegment {
 const TAB_PAD = 1;
 /** Отступ таб-строки от левого края. */
 const TAB_INDENT = 1;
-/** Строка, на которой живёт шапка с вкладками (под полосой верхней границы). */
-const TAB_ROW = 1;
-/** Первая строка контента (под полосой границы + шапкой). */
-const CONTENT_TOP = 2;
-/** Левый отступ контента/placeholder'а (выравнивание под названием вкладки). */
-const CONTENT_LEFT = 2;
+/**
+ * Вид части с таб-строкой. Дефолты — нижняя панель; вторичная боковая панель
+ * (у эталона — тот же `AbstractPaneCompositePart`) рисуется как сайдбар: фон
+ * `sideBar.*`, без полосы верхней границы, а первая колонка отдана сашу.
+ */
+export interface IPanelContainerOptions {
+    /** Токен фона (по умолчанию `panel.background`). */
+    readonly background?: string;
+    /** Токен переднего плана, наследуемый контентом (по умолчанию — от родителя). */
+    readonly foreground?: string;
+    /** Полоса верхней границы `panel.border` над таб-строкой (по умолчанию есть). */
+    readonly topBorder?: boolean;
+    /** Левый отступ контента/placeholder'а (по умолчанию 2 — под названием вкладки). */
+    readonly contentLeft?: number;
+    /**
+     * Сообщение части без единой вкладки (у эталона — «Drag a view here to
+     * display.» в `paneCompositePart.ts`); без него пустая часть пуста.
+     */
+    readonly emptyMessage?: string;
+}
 
 /**
  * Кнопка закрытия панели в правом конце таб-строки. Глиф — тот же `×`, что у
@@ -70,16 +85,31 @@ export class PanelContainerElement extends TUIElement {
     /** Курсор над кнопкой закрытия — подсветка фона, как у кнопок заголовков view. */
     private closeHovered = false;
 
-    public constructor() {
+    /** Строка, на которой живёт шапка с вкладками (под полосой верхней границы, если она есть). */
+    private readonly tabRow: number;
+    /** Первая строка контента (под шапкой). */
+    private readonly contentTop: number;
+    /** Левый отступ контента/placeholder'а. */
+    private readonly contentLeft: number;
+    private readonly topBorder: boolean;
+    private readonly emptyMessage: string | undefined;
+
+    public constructor(options: IPanelContainerOptions = {}) {
         super();
-        this.style = { bg: "panel.background" };
+        this.topBorder = options.topBorder ?? true;
+        this.tabRow = this.topBorder ? 1 : 0;
+        this.contentTop = this.tabRow + 1;
+        this.contentLeft = options.contentLeft ?? 2;
+        this.emptyMessage = options.emptyMessage;
+        // fg без значения наследуется от родителя.
+        this.style = { fg: options.foreground, bg: options.background ?? "panel.background" };
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;
             // Событие, всплывшее из дочернего контрола (селектор в шапке), не наше:
             // без этой проверки клик по нему ещё и переключал бы вкладку.
             if (event.target !== this) return;
             const localY = event.screenY - this.globalPosition.y;
-            if (localY !== TAB_ROW) return; // переключают вкладки только на строке шапки
+            if (localY !== this.tabRow) return; // переключают вкладки только на строке шапки
             const localX = event.screenX - this.globalPosition.x;
             // Кнопка закрытия раньше вкладок: на узкой панели она рисуется ПОВЕРХ
             // хвоста таб-строки, и в этих колонках она и должна срабатывать —
@@ -99,7 +129,7 @@ export class PanelContainerElement extends TUIElement {
         this.addEventListener("mousemove", (event) => {
             const localY = event.screenY - this.globalPosition.y;
             const localX = event.screenX - this.globalPosition.x;
-            this.setCloseHovered(localY === TAB_ROW && this.isCloseHit(localX));
+            this.setCloseHovered(localY === this.tabRow && this.isCloseHit(localX));
         });
         this.addEventListener("mouseleave", () => {
             this.setCloseHovered(false);
@@ -199,7 +229,7 @@ export class PanelContainerElement extends TUIElement {
                       width: CLOSE_WIDTH,
                       centerX: originX + closeStart + Math.floor(CLOSE_WIDTH / 2),
                   };
-        return { activeId: this.activeId, tabRow: this.globalPosition.y + TAB_ROW, tabs, close };
+        return { activeId: this.activeId, tabRow: this.globalPosition.y + this.tabRow, tabs, close };
     }
 
     /** Правая граница таб-строки — за неё контролы вкладки заезжать не должны. */
@@ -253,16 +283,16 @@ export class PanelContainerElement extends TUIElement {
             const available = Math.max(0, containerSize.width - CLOSE_WIDTH);
             const actionsWidth = Math.min(actions.getMaxIntrinsicWidth(1), available);
             const x = Math.max(this.tabsEnd(), available - actionsWidth);
-            this.layoutChild(actions, x, TAB_ROW, BoxConstraints.tight(new Size(Math.max(0, available - x), 1)));
+            this.layoutChild(actions, x, this.tabRow, BoxConstraints.tight(new Size(Math.max(0, available - x), 1)));
         }
         const content = this.activeView()?.content;
         if (content != null) {
-            const contentWidth = Math.max(0, containerSize.width - CONTENT_LEFT);
-            const contentHeight = Math.max(0, containerSize.height - CONTENT_TOP);
+            const contentWidth = Math.max(0, containerSize.width - this.contentLeft);
+            const contentHeight = Math.max(0, containerSize.height - this.contentTop);
             this.layoutChild(
                 content,
-                CONTENT_LEFT,
-                CONTENT_TOP,
+                this.contentLeft,
+                this.contentTop,
                 BoxConstraints.tight(new Size(contentWidth, contentHeight)),
             );
         }
@@ -280,8 +310,10 @@ export class PanelContainerElement extends TUIElement {
         }
 
         // Top border strip (row 0).
-        for (let x = 0; x < width; x++) {
-            context.setCell(x, 0, { char: "─", fg: this.styleVar("panel.border"), bg: this.resolvedStyle.bg });
+        if (this.topBorder) {
+            for (let x = 0; x < width; x++) {
+                context.setCell(x, 0, { char: "─", fg: this.styleVar("panel.border"), bg: this.resolvedStyle.bg });
+            }
         }
 
         // Tab header (dim). The active tab is underlined — but only under the title
@@ -296,7 +328,7 @@ export class PanelContainerElement extends TUIElement {
                 const isGlyph = textIndex >= 0 && textIndex < view.title.length;
                 const char = isGlyph ? view.title[textIndex] : " ";
                 const style = isActive && isGlyph ? StyleFlags.Underline : StyleFlags.None;
-                context.setCell(x, TAB_ROW, {
+                context.setCell(x, this.tabRow, {
                     char,
                     fg: this.styleVar("panelTitle.inactiveForeground"),
                     bg: this.resolvedStyle.bg,
@@ -316,14 +348,31 @@ export class PanelContainerElement extends TUIElement {
 
         // Placeholder empty-state message, если у активной вкладки нет контента.
         const active = this.activeView();
-        if (active?.content == null && active?.placeholder !== undefined && height > CONTENT_TOP) {
+        if (active?.content == null && active?.placeholder !== undefined && height > this.contentTop) {
             const message = active.placeholder;
-            for (let i = 0; i < message.length && i + CONTENT_LEFT < width; i++) {
-                context.setCell(i + CONTENT_LEFT, CONTENT_TOP, {
+            // Stryker disable next-line UpdateOperator: «i--» зацикливает отрисовку — тест виснет (таймаут верификатора), а не проходит; текст плейсхолдера закрыт тестами отрисовки
+            for (let i = 0; i < message.length && i + this.contentLeft < width; i++) {
+                context.setCell(i + this.contentLeft, this.contentTop, {
                     char: message[i],
                     fg: this.styleVar("panelTitle.inactiveForeground"),
                     bg: this.resolvedStyle.bg,
                 });
+            }
+        }
+
+        // Части без единой вкладки — её подсказка, с переносом по словам: вторичная
+        // боковая панель узкая, а строка шапки над подсказкой пуста.
+        if (this.views.length === 0 && this.emptyMessage !== undefined) {
+            const lines = wrapText(this.emptyMessage, Math.max(1, width - this.contentLeft));
+            for (let row = 0; row < lines.length && this.contentTop + row < height; row++) {
+                const line = lines[row];
+                for (let i = 0; i < line.length; i++) {
+                    context.setCell(i + this.contentLeft, this.contentTop + row, {
+                        char: line[i],
+                        fg: this.styleVar("descriptionForeground"),
+                        bg: this.resolvedStyle.bg,
+                    });
+                }
             }
         }
     }
@@ -333,7 +382,7 @@ export class PanelContainerElement extends TUIElement {
         if (start === null) return;
         const bg = this.closeHovered ? this.styleVar("toolbar.hoverBackground") : this.resolvedStyle.bg;
         for (let i = 0; i < CLOSE_WIDTH; i++) {
-            context.setCell(start + i, TAB_ROW, {
+            context.setCell(start + i, this.tabRow, {
                 char: CLOSE_LABEL[i],
                 fg: this.styleVar("descriptionForeground"),
                 bg,

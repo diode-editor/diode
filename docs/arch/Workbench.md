@@ -850,6 +850,42 @@ hide-toggle (`isHiddenByDefault`). См.
     overflow). Глиф — `×`, как у `EditorTabItemElement`, а **не codicon**:
     PUA-глифы codicon'ов в текстовом дампе кадра неотличимы, сценарий не
     проверил бы кнопку; хит-бокс — `inspectState().close`.
+  - **Общая основа частей с таб-строкой** (у эталона — `AbstractPaneCompositePart`
+    под `PanelPart` и `AuxiliaryBarPart`): реестр вкладок + видимость —
+    `parts/paneCompositePartService.ts`, компонент — `paneCompositePartComponent.ts`,
+    возврат фокуса в редактор при уходе контента со сцены —
+    `paneCompositeFocusContribution.ts`. `PanelService`/`PanelComponent`/
+    `PanelFocusContribution` — их наследники ради своих DI-токенов. Вид части
+    задают опции `PanelContainerElement` (`IPanelContainerOptions`: токены фона и
+    текста, полоса `panel.border`, отступ контента, подсказка пустой части).
+- **Вторичная боковая панель** (Secondary Side Bar, `browser/parts/auxiliarybar/`)
+  — правая колонка `WorkbenchLayoutElement` во всю высоту (выравнивание панели
+  `center`: нижняя панель — только под редактором). Контейнеры с
+  `location: "auxiliarybar"` живут в ней вкладками, как в нижней панели: у
+  эталона при `workbench.activityBar.location=default` то же самое.
+  - `auxiliaryBarService.ts` — реестр вкладок и видимость (истина видимости;
+    `LayoutService` двигает layout и ключ `auxiliaryBarVisible`).
+  - `auxiliaryBarComponent.ts` — `view.id = "auxiliarybar"`, в одежде сайдбара:
+    фон/текст `sideBar.*` (своих токенов у эталона нет), без полосы
+    `panel.border`, первая колонка — под саш (у эталона там `sideBar.border`).
+    Контрибьютор ключей `auxiliaryBarFocus` и `activeAuxiliary`.
+  - `auxiliaryBarActions.ts` — `workbench.action.toggleAuxiliaryBar`
+    (Ctrl+Alt+B), `closeAuxiliaryBar` (кнопка `×`), `focusAuxiliaryBar`,
+    `previous/nextAuxiliaryBarView`. Показ отдаёт фокус активному контейнеру,
+    как `setAuxiliaryBarHidden(false)` эталона.
+  - Не хватает ширины — первой ужимается вторичная панель (`LayoutPriority.Low`
+    эталона), затем сайдбар; редактор держит 20 колонок. Ширина по умолчанию —
+    динамическая: как у сайдбара (30), но не шире четверти окна; ресайз — саш
+    и `workbench.action.increaseViewSize`/`decreaseViewSize` (часть с фокусом,
+    `LayoutService.resizeFocusedPart`).
+  - Видимость на старте — `workbench.secondarySideBar.defaultVisibility` для
+    впервые открытого воркспейса, дальше — сохранённая
+    (`workbench.auxiliaryBar.hidden`); часть без единого контейнера не
+    показывается вовсе. Ключи состояния — [State.md](State.md).
+  - Не поддержано (отступления названы): развёртывание (`maximize/restore`,
+    значения `maximized*` настройки значат «видима»),
+    `workbench.sideBar.location`, `secondarySideBar.showLabels`/`forceMaximized`,
+    drag & drop видов.
   - `Components/Panel/ProblemsComponent.ts` — `Component`; дерево
     «файл → маркеры» (`TreeViewElement` поверх `ProblemsTreeDataProvider`,
     `view` = `ScrollBarDecorator`, `view.id = "problemsView"`; стили —

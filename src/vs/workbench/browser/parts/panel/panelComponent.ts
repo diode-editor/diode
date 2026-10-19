@@ -1,11 +1,8 @@
-import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { Component } from "../../component.ts";
+import { PaneCompositePartComponent } from "../paneCompositePartComponent.ts";
 
-import { PanelContainerElement } from "./panelContainerElement.ts";
 import type { PanelService } from "./panelService.ts";
 import { PanelServiceDIToken } from "./panelService.ts";
 
@@ -20,75 +17,14 @@ export const PanelComponentDIToken = token<PanelComponent>("PanelComponent");
 export const CLOSE_PANEL_COMMAND_ID = "workbench.action.closePanel";
 
 /**
- * Компонент нижней панели: владеет {@link PanelContainerElement} и отражает в
- * нём реестр {@link PanelService} — вкладки, их контент и активную вкладку.
- * Про конкретные вкладки (Problems, Terminal) ничего не знает: их регистрируют
- * фичи через сервис. Клик по табу возвращается в сервис
- * (`PanelService.activateView`) — на нём висят ленивые фичи (спавн терминала).
+ * Компонент нижней панели (`view.id = "panel"`): отражает реестр
+ * {@link PanelService} в таб-строке. Механика — {@link PaneCompositePartComponent},
+ * общая со вторичной боковой панелью.
  */
-export class PanelComponent extends Component {
+export class PanelComponent extends PaneCompositePartComponent {
     public static dependencies = [PanelServiceDIToken, CommandRegistryDIToken] as const;
 
-    public readonly view: PanelContainerElement;
-
-    /** Контент, отданный контролу для каждой вкладки, — чтобы не перевешивать без нужды. */
-    private contents = new Map<string, TUIElement | null>();
-    /** То же для контролов шапки — чтобы не перевешивать их на каждый чих. */
-    private actions = new Map<string, TUIElement | null>();
-
-    public constructor(
-        private readonly panelService: PanelService,
-        commands: CommandRegistry,
-    ) {
-        super();
-        this.view = new PanelContainerElement();
-        this.view.id = "panel";
-        // Клик по табу: контрол уже переключил активную вкладку у себя — синхронизируем
-        // сервис и даём его подписчикам среагировать (ленивый спавн терминала и т.п.).
-        this.view.onActivateView = (id) => {
-            this.panelService.activateView(id);
-        };
-        // Кнопка `×` не трогает видимость сама: панель закрывает команда, и это
-        // та же дверь, что у Ctrl+J и у палитры (включая её `enablement`).
-        this.view.onClose = () => {
-            void commands.execute(CLOSE_PANEL_COMMAND_ID);
-        };
-        this.register(
-            this.panelService.onDidChangeViews(() => {
-                this.syncViews();
-            }),
-        );
-        this.register(
-            this.panelService.onDidChangeActiveView((id) => {
-                this.view.setActiveView(id);
-            }),
-        );
-        this.syncViews();
-    }
-
-    /** Приводит контрол к реестру сервиса: новые вкладки + изменившийся контент. */
-    private syncViews(): void {
-        for (const view of this.panelService.getViews()) {
-            if (!this.contents.has(view.id)) {
-                this.contents.set(view.id, view.content);
-                this.actions.set(view.id, view.actions);
-                this.view.addView({
-                    id: view.id,
-                    title: view.title,
-                    content: view.content,
-                    actions: view.actions,
-                    placeholder: view.placeholder,
-                });
-            } else if (this.contents.get(view.id) !== view.content) {
-                this.contents.set(view.id, view.content);
-                this.view.setViewContent(view.id, view.content);
-            }
-            if (this.actions.get(view.id) !== view.actions) {
-                this.actions.set(view.id, view.actions);
-                this.view.setViewActions(view.id, view.actions);
-            }
-        }
-        const activeId = this.panelService.getActiveViewId();
-        if (activeId !== null) this.view.setActiveView(activeId);
+    public constructor(panelService: PanelService, commands: CommandRegistry) {
+        super(panelService, commands, "panel", CLOSE_PANEL_COMMAND_ID);
     }
 }

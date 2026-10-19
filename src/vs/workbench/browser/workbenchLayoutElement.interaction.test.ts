@@ -25,11 +25,15 @@ function mouse(action: MouseToken["action"], x: number, y: number): MouseToken {
 }
 
 /** Layout корнем дерева, по смещению `origin` на экране: так drag идёт через настоящий диспетчер мыши. */
-function rooted(origin: Offset, options: { bottom?: boolean } = {}): WorkbenchLayoutElement {
+function rooted(origin: Offset, options: { bottom?: boolean; right?: boolean } = {}): WorkbenchLayoutElement {
     const layout = new WorkbenchLayoutElement();
     layout.setLeftPanel(new TUIElement());
     layout.setCenterContent(new TUIElement());
     layout.setLeftPanelWidth(20);
+    if (options.right === true) {
+        layout.setRightPanel(new TUIElement());
+        layout.setRightPanelVisible(true);
+    }
     if (options.bottom === true) {
         layout.setBottomPanel(new TUIElement());
         layout.setBottomPanelVisible(true);
@@ -66,11 +70,23 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
         expect(layout.getBottomPanelHeight()).toBe(10);
     });
 
+    it("вертикальный саш правой панели ведёт ширину по колонке курсора, а не по строке", () => {
+        const layout = rooted(new Offset(5, 2), { right: true });
+        const dispatcher = new MouseEventDispatcher();
+        // Правая по умолчанию — 20 колонок (четверть от 80): саш на колонке 5 + 60.
+        // Тянем влево на 10 колонок и вверх на 7 строк → ширина 30.
+        dispatcher.handleMouseToken(mouse("press", 65, 10), layout);
+        dispatcher.handleMouseToken(mouse("move", 55, 3), layout);
+        dispatcher.handleMouseToken(mouse("release", 55, 3), layout);
+        expect(layout.getRightPanelWidth()).toBe(30);
+    });
+
     // Флаг кадра (`needsRepaint`) снимает только настоящий кадр, а layout-грязь
     // гасит и сам хит-тест мыши — поэтому заказ перерисовки виден лишь так.
     it.each([
         ["сайдбара", 20, 12, 40, 12],
         ["панели", 40, 18, 40, 10],
+        ["правой панели", 60, 5, 50, 5],
     ])("drag саша %s заказывает кадр", (_name, pressX, pressY, moveX, moveY) => {
         const layout = new WorkbenchLayoutElement();
         layout.setLeftPanel(new TUIElement());
@@ -79,6 +95,8 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
         layout.setBottomPanel(new TUIElement());
         layout.setBottomPanelVisible(true);
         layout.setBottomPanelHeight(6);
+        layout.setRightPanel(new TUIElement());
+        layout.setRightPanelVisible(true);
         const app = TestApp.createWithContent(layout, new Size(80, 24));
         app.render();
         expect(layout.needsRepaint).toBe(false);
@@ -98,6 +116,17 @@ describe("WorkbenchLayoutElement: перерисовку команды зака
 
         layout.layout(BoxConstraints.tight(new Size(80, 24)));
         layout.resetLeftPanelWidth();
+        expect(layout.isLayoutDirty).toBe(true);
+    });
+
+    it("nudge правой ширины и высоты панели помечают раскладку грязной", () => {
+        const layout = rooted(new Offset(0, 0), { right: true, bottom: true });
+        expect(layout.isLayoutDirty).toBe(false);
+        layout.nudgeRightPanelWidth(3);
+        expect(layout.isLayoutDirty).toBe(true);
+
+        layout.layout(BoxConstraints.tight(new Size(80, 24)));
+        layout.nudgeBottomPanelHeight(2);
         expect(layout.isLayoutDirty).toBe(true);
     });
 });
@@ -123,6 +152,17 @@ describe("WorkbenchLayoutElement: скрытое не раскладываетс
         layout.layout(BoxConstraints.tight(new Size(80, 24)));
         expect(bottom.isLayoutDirty).toBe(true);
         expect(sashes(layout).at(-1)!.isLayoutDirty).toBe(true);
+    });
+
+    it("скрытая правая панель и её саш не получают раскладки", () => {
+        const layout = new WorkbenchLayoutElement();
+        const right = new TUIElement();
+        layout.setCenterContent(new TUIElement());
+        layout.setRightPanel(right);
+        layout.localPosition = new Offset(0, 0);
+        layout.layout(BoxConstraints.tight(new Size(80, 24)));
+        expect(right.isLayoutDirty).toBe(true);
+        expect(sashes(layout)[1].isLayoutDirty).toBe(true);
     });
 
     it("саш скрытого сайдбара не получает раскладки", () => {
