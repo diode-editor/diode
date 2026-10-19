@@ -672,6 +672,22 @@ describe("ViewsService — переносы: края", () => {
         expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: false });
     });
 
+    it("без дефолтного на место уехавшего встаёт первый вьюлет по order, а не по регистрации", () => {
+        const h = makeViewsHarness();
+        for (const [id, order] of [
+            ["s3", 3],
+            ["s1", 1],
+            ["s2", 2],
+        ] as const) {
+            h.service.registerContainer({ id, title: id, location: "sidebar", order });
+            h.service.registerView(testView(`${id}View`, id, 10));
+        }
+        h.service.attachRegisteredContainers();
+        h.showViewlet("s2");
+        h.service.moveViewContainerToLocation("s2", "panel");
+        expect(h.shownViewlets.at(-1)).toEqual({ id: "s1", reveal: false });
+    });
+
     it("вид в незарегистрированном контейнере переносам, сбросу и рестору не мешает", () => {
         const h = workbench();
         h.service.registerView(testView("orphan", "unregistered", 10, { canMoveView: true }));
@@ -757,8 +773,8 @@ describe("ViewsService — скрытость секций из стора", () 
     function scene(stored: { hidden: string[] }) {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
-        h.service.registerView(testView("output", OUTPUT, 10, { canToggleVisibility: false }));
-        h.service.registerView(testView("log", OUTPUT, 20));
+        h.service.registerView(testView("output", OUTPUT, 10));
+        h.service.registerView(testView("log", OUTPUT, 20, { canToggleVisibility: false }));
         h.service.registerView(testView("trace", OUTPUT, 30));
         h.service.attachContainer(OUTPUT);
         h.stored.set(SIDEBAR_VIEWS_STATE.key, { [OUTPUT]: { collapsed: {}, weights: {}, ...stored } });
@@ -769,11 +785,11 @@ describe("ViewsService — скрытость секций из стора", () 
     const visibility = (h: IViewsHarness) => ["output", "log", "trace"].map((id) => h.service.isViewVisible(id));
 
     it("несворачиваемую и незнакомую секцию стор не скрывает, остальные — скрывает", () => {
-        expect(visibility(scene({ hidden: ["output", "ghost", "trace"] }))).toEqual([true, true, false]);
+        expect(visibility(scene({ hidden: ["log", "ghost", "trace"] }))).toEqual([true, true, false]);
     });
 
     it("скрытость из нового стора заменяет прежнюю", () => {
-        const h = scene({ hidden: ["log"] });
+        const h = scene({ hidden: ["trace"] });
         h.stored.set(SIDEBAR_VIEWS_STATE.key, { [OUTPUT]: { collapsed: {}, weights: {}, hidden: [] } });
         h.service.restoreViewsState();
         expect(visibility(h)).toEqual([true, true, true]);

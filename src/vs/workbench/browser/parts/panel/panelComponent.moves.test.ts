@@ -45,9 +45,21 @@ describe("PanelComponent — вкладки уходят и возвращают
     });
 
     it("снятие незнакомой контролу вкладки — no-op", () => {
-        const component = new PanelComponent(new PanelService(), new CommandRegistry());
-        component.view.removeView("ghost");
-        expect(component.view.getViewIds()).toEqual([]);
+        const view = new PanelContainerElement();
+        for (const id of ["a", "b"]) view.addView({ id, title: id, content: null });
+        view.removeView("ghost");
+        expect(view.getViewIds()).toEqual(["a", "b"]);
+    });
+
+    it("контент снятой вкладки уходит из дерева, контент новой активной — показан", () => {
+        const view = new PanelContainerElement();
+        const a = new TUIElement();
+        const b = new TUIElement();
+        view.addView({ id: "a", title: "A", content: a });
+        view.addView({ id: "b", title: "B", content: b });
+        view.removeView("a");
+        expect(view.getChildren()).toEqual([b]);
+        expect(b.hidden).toBe(false);
     });
 });
 

@@ -444,6 +444,7 @@ export class ViewsService implements IContextKeyContributor {
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
         // Вид, пришедший после рестора переносов, встаёт туда, куда его
         // перенесли в прошлый раз.
+        // Stryker disable next-line ConditionalExpression: повторная регистрация и вид до рестора встали бы туда же — стор переносов и так совпадает с текущим местом, а рестор расставит ранние виды сам
         if (previous === undefined && this.customizationsApplied) {
             const target: unknown = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE).viewLocations[descriptor.id];
             if (typeof target === "string") this.placeStoredView(descriptor.id, target);
@@ -922,6 +923,7 @@ export class ViewsService implements IContextKeyContributor {
         if (active === null) return null;
         const path = active.getAncestorPath();
         for (const entry of this.containers.values()) {
+            // Stryker disable next-line ConditionalExpression: отсев контейнера целиком — только ускорение: тело вида вне его PaneView на пути фокуса не стоит
             if (entry.paneView === null || !path.includes(entry.paneView)) continue;
             for (const record of entry.views) {
                 const body = record.body ?? record.placeholderView;
@@ -1069,6 +1071,7 @@ export class ViewsService implements IContextKeyContributor {
             this.rebuildPanes(entry);
             return;
         }
+        // Stryker disable next-line ConditionalExpression: `wanted` ставят только attachContainer и createGeneratedContainer, оба — с дескриптором; проверка на null — ради типа
         if (entry.descriptor === null || !entry.wanted) return;
         if (entry.views.length === 0) {
             if (entry.view !== null) this.detachContainer(entry);
