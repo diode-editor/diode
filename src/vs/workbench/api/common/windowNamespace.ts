@@ -274,6 +274,7 @@ export function createWindowNamespace(
         }
         // Вкладку активной группы вернули из-под других — её восстановленное
         // выделение (см. announceRestoredSelections) — после смены активного.
+        // Stryker disable next-line StringLiteral: подстановка без uri — любой не-uri ключ ни с одной вкладкой не совпадёт
         const restored = pendingRestoredSelections.get(selectionKey(effectiveActiveGroupId(), meta.uri ?? ""));
         if (restored !== undefined)
             fireSelectionChanged(restored.uri, restored.groupId, restored.selections, undefined);
