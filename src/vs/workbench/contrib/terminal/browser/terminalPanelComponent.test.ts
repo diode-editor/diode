@@ -34,7 +34,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
     };
     const configuration = createTestConfigurationService(settings);
     const colors = makeTerminalColors(themeService, configuration).colors;
-    const service = new TerminalService(panelService, views.service, configuration, factory);
+    const service = new TerminalService(views.service, configuration, factory);
     // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
     views.service.attachRegisteredContainers();
     const focusFallback = { focusEditor: vi.fn() };
@@ -232,12 +232,7 @@ describe("TerminalPanelComponent", () => {
         const views = makeViewsHarness();
         const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
         const configuration = createTestConfigurationService();
-        const service = new TerminalService(
-            views.panelService,
-            views.service,
-            configuration,
-            () => new FakeTerminalSurface(),
-        );
+        const service = new TerminalService(views.service, configuration, () => new FakeTerminalSurface());
         views.service.attachRegisteredContainers();
         service.openTerminal(); // инстанс существует ДО компонента
 

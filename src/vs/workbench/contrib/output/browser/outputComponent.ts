@@ -9,8 +9,6 @@ import type { IMenu, MenuService } from "../../../../platform/actions/common/men
 import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
-import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts";
@@ -36,7 +34,6 @@ export const OutputComponentDIToken = token<OutputComponent>("OutputComponent");
 export class OutputComponent extends Disposable {
     public static dependencies = [
         OutputServiceDIToken,
-        PanelServiceDIToken,
         ViewsServiceDIToken,
         EditorServiceDIToken,
         MenuServiceDIToken,
@@ -52,7 +49,6 @@ export class OutputComponent extends Disposable {
 
     public constructor(
         private readonly outputService: OutputService,
-        private readonly panelService: PanelService,
         private readonly viewsService: ViewsService,
         private readonly editorService: IEditorService,
         menuService: MenuService,
@@ -106,13 +102,14 @@ export class OutputComponent extends Disposable {
                 if (follow) this.revealLastLine(this.pane);
             }),
         );
-        // Ленивая инициализация: вкладка стала активной — только тогда поднимаем
-        // редактор. Слушаем именно смену активной вкладки, а не пользовательскую
+        // Ленивая инициализация: вид стал активным в своей части (в панели или во
+        // вторичной панели — где бы он ни стоял) — только тогда поднимаем
+        // редактор. Слушаем именно показ, а не пользовательскую
         // активацию: при восстановлении сессии вкладку делает активной
         // `LayoutService.restoreLayout()`, клика не будет вовсе — и панель
         // показывалась бы с плейсхолдером до первого ручного переключения.
         this.register(
-            this.panelService.onDidChangeActiveView((id) => {
+            this.viewsService.onDidShowView((id) => {
                 if (id === OUTPUT_VIEW_ID) this.syncActiveChannel();
             }),
         );

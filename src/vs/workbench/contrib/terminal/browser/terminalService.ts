@@ -20,8 +20,6 @@ import type { IContextKeyContributor } from "../../../../platform/contextkey/com
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
-import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
-import { PanelServiceDIToken } from "../../../browser/parts/panel/panelService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import {
@@ -166,7 +164,6 @@ interface TerminalInstanceRecord extends ITerminalInstance {
  */
 export class TerminalService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
-        PanelServiceDIToken,
         ViewsServiceDIToken,
         IConfigurationServiceDIToken,
         TerminalSessionFactoryDIToken,
@@ -189,8 +186,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private readonly onDidChangeInstanceTitleEmitter = this.register(new Emitter<ITerminalInstance>());
 
     public constructor(
-        private readonly panelService: PanelService,
-        viewsService: ViewsService,
+        private readonly viewsService: ViewsService,
         private readonly configuration: IConfigurationService,
         private readonly factory: TerminalSessionFactory,
     ) {
@@ -210,10 +206,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 this.ensureAndFocus();
             },
         });
-        // Клик по вкладке TERMINAL лениво спавнит шелл и фокусирует его; чужие
-        // вкладки игнорируем.
+        // Активация вида TERMINAL (клик по его вкладке в любой части — панели,
+        // вторичной панели, вьюлете) лениво спавнит шелл и фокусирует его; чужие
+        // виды игнорируем.
         this.register(
-            panelService.onDidActivateView((id) => {
+            viewsService.onDidActivateView((id) => {
                 if (id === TERMINAL_VIEW_ID) this.ensureAndFocus();
             }),
         );
@@ -531,7 +528,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.onDidChangeActiveInstanceEmitter.fire(next);
         if (next !== null) return;
         if (!this.configuration.get("terminal.integrated.hideOnLastClosed")) return;
-        if (this.panelService.getActiveViewId() === TERMINAL_VIEW_ID) this.panelService.setVisible(false);
+        this.viewsService.closeView(TERMINAL_VIEW_ID);
     }
 
     /** Освобождает ресурсы одного инстанса: PTY и наши подписки на сессию. */

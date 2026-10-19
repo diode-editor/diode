@@ -64,7 +64,7 @@ describe("TaskService — задачи tasks.json", () => {
 
     it("ошибка в tasks.json — тост эталона один раз на текст; «Show Output» — панель Output на канале Tasks", async () => {
         const h = buildTaskServiceHarness({ tasksJson: '{ "version": "2.0.0", "tasks": [ { "label": "x", ' });
-        const setActiveView = vi.spyOn(h.views.panelService, "setActiveView");
+        const openView = vi.spyOn(h.views.service, "openView");
         await h.service.getWorkspaceTasks();
         await h.service.getWorkspaceTasks();
         const ask = h.notifications.current();
@@ -83,8 +83,7 @@ describe("TaskService — задачи tasks.json", () => {
         await vi.waitFor(() => {
             expect(h.output.showChannel).toHaveBeenCalledWith("tasks");
         });
-        expect(h.layout.setPanelVisible).toHaveBeenCalledWith(true);
-        expect(setActiveView).toHaveBeenCalledWith("workbench.panel.output");
+        expect(openView).toHaveBeenCalledWith("workbench.panel.output", false, false);
         h.dispose();
     });
 

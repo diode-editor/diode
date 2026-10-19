@@ -30,14 +30,14 @@ function setup(options: { pushInitialState?: boolean } = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
     let nextPid = 500;
-    const service = new TerminalService(views.panelService, views.service, createTestConfigurationService({}), (o) => {
+    const service = new TerminalService(views.service, createTestConfigurationService({}), (o) => {
         const surface = new FakeTerminalSurface(o.shell ?? "/bin/bash", nextPid++);
         sessions.push(surface);
         return surface;
     });
     views.service.attachRegisteredContainers();
     const ptySessions: FakeExtensionPtySession[] = [];
-    const adapter = new ExtensionTerminalAdapter(service, views.panelService, (o) => {
+    const adapter = new ExtensionTerminalAdapter(service, views.service, (o) => {
         const session = new FakeExtensionPtySession(o);
         ptySessions.push(session);
         return session;

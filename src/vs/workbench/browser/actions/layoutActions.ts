@@ -7,8 +7,8 @@ import { PROBLEMS_VIEW_ID, ProblemsComponentDIToken } from "../../contrib/marker
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 import { LayoutServiceDIToken } from "../../services/layout/browser/layoutService.ts";
 import { CLOSE_PANEL_COMMAND_ID } from "../parts/panel/panelComponent.ts";
-import { PanelServiceDIToken } from "../parts/panel/panelService.ts";
 import { SidebarServiceDIToken } from "../parts/sidebar/sidebarService.ts";
+import { ViewsServiceDIToken } from "../parts/views/viewsService.ts";
 
 import { editorTabIsFile, editorTabPathArg } from "./menuContexts.ts";
 
@@ -158,16 +158,13 @@ export const toggleProblemsAction: CommandAction = {
     keybinding: parseChord("ctrl+k m"),
     keybindings: [{ keys: parseKeybinding("mod+shift+m"), when: "tier != 'legacy'" }],
     run(accessor) {
-        // Toggle like VS Code: show + focus Problems, or hide the panel if
-        // Problems is already the visible view.
-        const layout = accessor.get(LayoutServiceDIToken);
-        const panel = accessor.get(PanelServiceDIToken);
-        const showing = layout.isPanelVisible() && panel.getActiveViewId() === PROBLEMS_VIEW_ID;
-        if (showing) {
-            layout.setPanelVisible(false);
+        // Toggle like VS Code: show + focus Problems, or hide the part if
+        // Problems is already the visible view there (wherever it was moved).
+        const views = accessor.get(ViewsServiceDIToken);
+        if (views.isViewShown(PROBLEMS_VIEW_ID)) {
+            views.closeView(PROBLEMS_VIEW_ID);
         } else {
-            panel.setActiveView(PROBLEMS_VIEW_ID);
-            layout.setPanelVisible(true);
+            views.openView(PROBLEMS_VIEW_ID);
             accessor.get(ProblemsComponentDIToken).focus();
         }
     },

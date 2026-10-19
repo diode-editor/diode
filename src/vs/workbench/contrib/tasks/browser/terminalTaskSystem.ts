@@ -11,7 +11,7 @@ import * as paths from "node:path";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
-import type { PanelService } from "../../../browser/parts/panel/panelService.ts";
+import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import {
     type ITerminalInstance,
     TERMINAL_VIEW_ID,
@@ -172,7 +172,7 @@ export class TerminalTaskSystem extends Disposable {
 
     public constructor(
         private readonly terminalService: TerminalService,
-        private readonly panel: PanelService,
+        private readonly views: ViewsService,
         private readonly defaultShell: DefaultShellResolver,
     ) {
         super();
@@ -257,8 +257,7 @@ export class TerminalTaskSystem extends Disposable {
         const id = this.terminalOf(task);
         return (
             id !== undefined &&
-            this.panel.visible &&
-            this.panel.getActiveViewId() === TERMINAL_VIEW_ID &&
+            this.views.isViewShown(TERMINAL_VIEW_ID) &&
             // Stryker disable next-line OptionalChaining: эквивалентный — у задачи с терминалом активный инстанс есть всегда (снятые терминалы забываются)
             this.terminalService.getActiveInstance()?.id === id
         );
@@ -425,8 +424,7 @@ export class TerminalTaskSystem extends Disposable {
 
     private show(terminalId: number, focus: boolean): void {
         this.terminalService.showInstance(terminalId);
-        this.panel.setActiveView(TERMINAL_VIEW_ID);
-        this.panel.setVisible(true);
+        this.views.openView(TERMINAL_VIEW_ID, false, false);
         if (focus) this.terminalService.focusActive();
     }
 

@@ -32,7 +32,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
     const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
     const configuration = createTestConfigurationService(settings);
     const sessions: FakeTerminalSurface[] = [];
-    const service = new TerminalService(views.panelService, views.service, configuration, () => {
+    const service = new TerminalService(views.service, configuration, () => {
         const surface = new FakeTerminalSurface();
         surface.setGrid(["$ "]);
         sessions.push(surface);

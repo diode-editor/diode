@@ -48,6 +48,8 @@ export interface IViewsHarness {
     readonly viewlets: string[];
     /** Вызовы `showViewlet` сайдбара: id и флаг reveal. */
     readonly shownViewlets: { id: string; reveal: boolean | undefined }[];
+    /** Вызовы `hideViewlet` сайдбара, спрятавшие активный вьюлет. */
+    readonly hiddenViewlets: string[];
     /**
      * Показать вьюлет, как это делает команда (`showViewlet` сайдбара): кнопки
      * заголовков ViewsService резолвит только у показанного контейнера.
@@ -74,6 +76,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     // ViewsService кнопки заголовков контейнера сейчас или при показе.
     let activeViewlet: string | null = null;
     const activeViewletEmitter = new Emitter<string>();
+    const hiddenViewlets: string[] = [];
     const sidebar = {
         registerViewlet: (id: string, view: TUIElement, focus: () => void) => {
             registered.set(id, { view, focus });
@@ -89,6 +92,11 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
             if (activeViewlet === id) activeViewlet = null;
         },
         getActiveViewletId: () => activeViewlet,
+        // Сайдбар стенда всегда виден: прятать его некому.
+        isViewletVisible: (id: string) => activeViewlet === id,
+        hideViewlet: (id: string) => {
+            if (activeViewlet === id) hiddenViewlets.push(id);
+        },
         onDidChangeActiveViewlet: activeViewletEmitter.event,
     } as unknown as SidebarService;
 
@@ -168,6 +176,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
             return [...registered.keys()];
         },
         shownViewlets,
+        hiddenViewlets,
         showViewlet: (containerId) => {
             sidebar.showViewlet(containerId);
         },

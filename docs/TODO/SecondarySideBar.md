@@ -26,26 +26,27 @@
 
 ## Стек PR
 
-- [~] PR0 — `WorkbenchLayoutElement` переезжает из `@tuidom/elements` к нам (#649, на ревью).
-- [~] PR1 — часть: правая колонка и саш, `AuxiliaryBarService`/`Component`,
+- [x] PR0 — `WorkbenchLayoutElement` переезжает из `@tuidom/elements` к нам (#649).
+- [x] PR1 — часть: правая колонка и саш, `AuxiliaryBarService`/`Component`,
   команды toggle/close/focus/previous/next, `increaseViewSize`/
   `decreaseViewSize`, ключи `auxiliaryBarVisible`/`auxiliaryBarFocus`/
   `activeAuxiliary`, состояние, настройка `defaultVisibility`, сценарий
-  `auxiliary-bar` (#654, на ревью).
-- [~] PR2 — модель расположения: аналог `IViewDescriptorService`
+  `auxiliary-bar` (#654).
+- [x] PR2 — модель расположения: аналог `IViewDescriptorService`
   (`moveViewToLocation`, `moveViewsToContainer`, `moveViewContainerToLocation`,
   сгенерированные контейнеры, `canMoveView`/`rejectAddedViews`, `reset`),
   персист `views.customizations`, ключ `focusedView`, команды `moveView`,
   `moveFocusedView`, `resetViewLocations`, `resetFocusedViewLocation`,
   `movePanelToSecondarySideBar`/`moveSecondarySideBarToPanel`, «Move To» и
   «Reset Location» в контекстном меню вкладки и в «⋯» вьюлета, сценарий
-  `view-locations`.
-- [ ] PR3 — живые виды на новом месте: Terminal/Output/Problems открываются там,
-  где стоит их вид (команды терминала сейчас прибиты к `PanelService`), спавн
-  шелла по активации вида в любой части; приёмка — TERMINAL во вторичной
-  панели с живым шеллом и перезапуском.
+  `view-locations` (#660).
+- [x] PR3 — живые виды на новом месте: Terminal/Output/Problems открываются там,
+  где стоит их вид (`ViewsService.openView`/`closeView`/`isViewShown`, события
+  `onDidActivateView`/`onDidShowView` вместо `PanelService`), спавн шелла по
+  активации вида в любой части; приёмка — TERMINAL во вторичной панели с
+  живым шеллом, ресайзом и перезапуском (сценарий `auxiliary-bar-terminal`) (#661).
 - [ ] Снос `workbenchlayout/` из `@tuidom/elements` (PR в tuidom + релиз по
-  запросу человеку).
+  запросу человеку) — diode его больше не импортирует.
 
 ## Открыто после стека
 
@@ -61,5 +62,11 @@
   команду пользовательским биндом.
 - [ ] Разделители в выборе из списка (`QuickPickItemKind.Separator`): сейчас
   подпись группы стоит справа у каждого пункта.
+- [ ] Стартовый размер PTY — 80×24 до первого ресайза (`INITIAL_COLS`): в
+  узкой вторичной панели readline перерисовывает перенесённое приглашение, и
+  оно видно дважды. Эталон создаёт процесс по размеру вида — нужен размер тела
+  вида TERMINAL до спавна (проблема старая, в узкой панели она тоже есть).
+- [ ] Шелл после перезапуска — по активации (как в нижней панели); у эталона
+  терминалы переживают перезапуск (persistent sessions).
 - [ ] Legacy-алиасы эталона `workbench.action.movePanelToSidePanel` /
   `moveSidePanelToPanel` (у эталона скрыты из палитры) — не заведены.

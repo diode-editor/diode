@@ -1,0 +1,179 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
+import { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
+import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
+import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
+import { loadState, type StateService } from "../../platform/state/node/stateService.ts";
+import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
+import { TerminalSessionFactoryDIToken } from "../contrib/terminal/common/terminalSessionFactory.ts";
+
+import { AuxiliaryBarServiceDIToken } from "./parts/auxiliarybar/auxiliaryBarService.ts";
+import type { PanelContainerElement } from "./parts/panel/panelContainerElement.ts";
+import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
+import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
+import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
+
+const SIZE = new Size(120, 24);
+const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
+
+/**
+ * Приёмка задачи (docs/TODO/SecondarySideBar.md): вид TERMINAL перенесён во
+ * вторичную боковую панель и живёт там — спавн, фокус, ввод, ресайз по ширине
+ * части, переключатель, закрытие последнего терминала, перезапуск.
+ */
+describe("Workbench — терминал во вторичной боковой панели", () => {
+    let ws: ITempWorkspace;
+    let userData: ITempWorkspace;
+    let writers: StateService[];
+    let sessions: FakeTerminalSurface[];
+
+    beforeEach(() => {
+        ws = createTempWorkspace({ prefix: "diode-auxterm-ws-" });
+        userData = createTempWorkspace({ prefix: "diode-auxterm-home-" });
+        writers = [];
+        sessions = [];
+    });
+
+    afterEach(() => {
+        for (const writer of writers) writer.dispose();
+        ws.dispose();
+        userData.dispose();
+    });
+
+    function launch(settings: Readonly<Record<string, unknown>> = {}): { h: IAppHarness; state: StateService } {
+        const state = loadState(resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir }));
+        writers.push(state);
+        const h = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            stateService: state,
+            size: SIZE,
+            configurationService: createTestConfigurationService(settings),
+            containerOverrides: (container) => {
+                container.bind(TerminalSessionFactoryDIToken, () => () => {
+                    const surface = new FakeTerminalSurface();
+                    surface.setGrid(["$ ready"]);
+                    sessions.push(surface);
+                    return surface;
+                });
+            },
+        });
+        return { h, state };
+    }
+
+    function moveTerminalRight(h: IAppHarness): void {
+        h.container.get(ViewsServiceDIToken).moveViewToLocation(TERMINAL_VIEW_ID, "auxiliarybar");
+    }
+
+    function part(h: IAppHarness): PanelContainerElement {
+        return h.workbench.workbenchLayout.getRightPanel() as PanelContainerElement;
+    }
+
+    function keys(h: IAppHarness) {
+        h.container.get(WorkbenchContextKeysDIToken).update();
+        return h.container.get(ContextKeyServiceDIToken);
+    }
+
+    function frame(h: IAppHarness): string[] {
+        h.testApp.render();
+        return h.testApp.backend.screenToString().split("\n");
+    }
+
+    it("Toggle Terminal поднимает шелл во вторичной панели, нижнюю не трогает, фокус в терминале", () => {
+        const { h } = launch();
+        moveTerminalRight(h);
+        h.commands.execute(TOGGLE_TERMINAL);
+
+        expect(sessions).toHaveLength(1);
+        expect(h.workbench.workbenchLayout.getRightPanelVisible()).toBe(true);
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
+        expect(keys(h).get("terminalFocus")).toBe(true);
+        expect(keys(h).get("auxiliaryBarFocus")).toBe(true);
+        // Вывод шелла — на кадре, правее редактора.
+        const x = part(h).globalPosition.x;
+        expect(frame(h).some((row) => row.slice(x).includes("$ ready"))).toBe(true);
+        h.dispose();
+    });
+
+    it("ввод уходит в шелл, ширина эмулятора — ширина части", () => {
+        const { h } = launch();
+        moveTerminalRight(h);
+        h.commands.execute(TOGGLE_TERMINAL);
+        frame(h);
+        h.testApp.sendKey("l");
+        h.testApp.sendKey("s");
+        expect(sessions[0].writes.join("")).toContain("ls");
+        // Часть 30 колонок (четверть 120): колонка саша и отступ таб-строки не в счёт.
+        const cols = sessions[0].resizes.at(-1)?.cols ?? 0;
+        expect(cols).toBeGreaterThan(20);
+        expect(cols).toBeLessThan(part(h).layoutSize.width);
+
+        // Ресайз части с клавиатуры — эмулятор следует за ней.
+        h.commands.execute("workbench.action.increaseViewSize");
+        frame(h);
+        expect(sessions[0].resizes.at(-1)?.cols).toBe(cols + 3);
+        h.dispose();
+    });
+
+    it("повторный Toggle Terminal прячет вторичную панель", () => {
+        const { h } = launch();
+        moveTerminalRight(h);
+        h.commands.execute(TOGGLE_TERMINAL);
+        h.commands.execute(TOGGLE_TERMINAL);
+        expect(h.workbench.workbenchLayout.getRightPanelVisible()).toBe(false);
+        expect(sessions).toHaveLength(1);
+        expect(keys(h).get("terminalFocus")).toBe(false);
+        h.dispose();
+    });
+
+    it("клик по вкладке TERMINAL во вторичной панели будит ленивый спавн", () => {
+        const { h } = launch();
+        moveTerminalRight(h);
+        h.container.get(AuxiliaryBarServiceDIToken).setVisible(true);
+        expect(sessions).toHaveLength(0);
+        const container = h.container.get(ViewsServiceDIToken).getViewContainerByViewId(TERMINAL_VIEW_ID)!;
+        part(h).onActivateView?.(container);
+        expect(sessions).toHaveLength(1);
+        h.dispose();
+    });
+
+    it("закрыт последний терминал при hideOnLastClosed — прячется вторичная панель, не нижняя", () => {
+        const { h } = launch({ "terminal.integrated.hideOnLastClosed": true });
+        h.container.get(PanelServiceDIToken).setVisible(true);
+        moveTerminalRight(h);
+        h.commands.execute(TOGGLE_TERMINAL);
+        const terminal = h.container.get(TerminalServiceDIToken);
+        terminal.closeInstance(terminal.getActiveInstance()!.id);
+        expect(h.workbench.workbenchLayout.getRightPanelVisible()).toBe(false);
+        expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
+        h.dispose();
+    });
+
+    it("переживает перезапуск: вкладка во вторичной панели, панель видна, шелл — по активации", () => {
+        const first = launch();
+        moveTerminalRight(first.h);
+        first.h.commands.execute(TOGGLE_TERMINAL);
+        first.state.flushSync();
+        first.h.dispose();
+
+        const second = launch();
+        const auxiliaryBar = second.h.container.get(AuxiliaryBarServiceDIToken);
+        expect(auxiliaryBar.getViews().map((v) => v.title)).toEqual(["TERMINAL"]);
+        expect(second.h.workbench.workbenchLayout.getRightPanelVisible()).toBe(true);
+        expect(
+            second.h.container
+                .get(PanelServiceDIToken)
+                .getViews()
+                .map((v) => v.title),
+        ).not.toContain("TERMINAL");
+        // Как и в нижней панели, рестор шелл не спавнит — до первой активации.
+        expect(sessions).toHaveLength(1);
+        second.h.commands.execute(TOGGLE_TERMINAL);
+        expect(sessions).toHaveLength(2);
+        expect(second.h.workbench.workbenchLayout.getRightPanelVisible()).toBe(true);
+        second.h.dispose();
+    });
+});

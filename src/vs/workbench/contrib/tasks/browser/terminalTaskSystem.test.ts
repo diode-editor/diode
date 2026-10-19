@@ -27,17 +27,12 @@ function buildHarness() {
     const sessions: FakeTerminalSurface[] = [];
     const factoryCalls: ITerminalSessionOptions[] = [];
     let nextPid = 100;
-    const terminals = new TerminalService(
-        views.panelService,
-        views.service,
-        createTestConfigurationService({}),
-        (options) => {
-            factoryCalls.push(options);
-            const session = new FakeTerminalSurface(options.shell ?? "/bin/sh", nextPid++);
-            sessions.push(session);
-            return session;
-        },
-    );
+    const terminals = new TerminalService(views.service, createTestConfigurationService({}), (options) => {
+        factoryCalls.push(options);
+        const session = new FakeTerminalSurface(options.shell ?? "/bin/sh", nextPid++);
+        sessions.push(session);
+        return session;
+    });
     // Соседняя вкладка панели — чтобы «панель видна, но не на терминале».
     views.service.registerContainer({ id: "other", title: "OTHER", location: "panel", order: 1 });
     views.service.registerView({
@@ -50,7 +45,7 @@ function buildHarness() {
         focus: () => undefined,
     });
     views.service.attachRegisteredContainers();
-    const system = new TerminalTaskSystem(terminals, views.panelService, () => "/bin/bash");
+    const system = new TerminalTaskSystem(terminals, views.service, () => "/bin/bash");
     const events: string[] = [];
     const raw: ITaskEvent[] = [];
     system.onDidStateChange((event) => {

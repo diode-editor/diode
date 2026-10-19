@@ -11,16 +11,11 @@ import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 function buildHarness(count: number, settings: Readonly<Record<string, unknown>> = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
-    const service = new TerminalService(
-        views.panelService,
-        views.service,
-        createTestConfigurationService(settings),
-        () => {
-            const surface = new FakeTerminalSurface();
-            sessions.push(surface);
-            return surface;
-        },
-    );
+    const service = new TerminalService(views.service, createTestConfigurationService(settings), () => {
+        const surface = new FakeTerminalSurface();
+        sessions.push(surface);
+        return surface;
+    });
     views.service.attachRegisteredContainers();
     views.panelService.setActiveView(TERMINAL_VIEW_ID);
     views.panelService.setVisible(true);

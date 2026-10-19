@@ -72,6 +72,16 @@ export class SidebarService implements IContextKeyContributor {
         this.layout.setSidebarContent(null);
     }
 
+    /** Вьюлет активен и сайдбар виден — то есть он на экране. */
+    public isViewletVisible(id: string): boolean {
+        return this.activeId === id && this.layout.isSidebarVisible();
+    }
+
+    /** Прячет сайдбар, если активен вьюлет `id` (закрыть вид, живущий в сайдбаре). */
+    public hideViewlet(id: string): void {
+        if (this.activeId === id) this.layout.setSidebarVisible(false);
+    }
+
     public updateContextKeys(contextKeys: ContextKeyService): void {
         const sidebarVisible = this.layout.isSidebarVisible();
         for (const [id, viewlet] of this.viewlets) {

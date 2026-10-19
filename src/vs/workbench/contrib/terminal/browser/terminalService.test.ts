@@ -22,7 +22,7 @@ function buildHarness(shell?: string, settings: Readonly<Record<string, unknown>
         return surface;
     };
     const configuration = createTestConfigurationService(settings);
-    const service = new TerminalService(panelService, views.service, configuration, factory);
+    const service = new TerminalService(views.service, configuration, factory);
     // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
     views.service.attachRegisteredContainers();
     return { panelService, views, service, created: sessions, factoryOptions };
