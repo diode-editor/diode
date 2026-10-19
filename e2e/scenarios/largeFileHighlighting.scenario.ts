@@ -88,14 +88,21 @@ export default defineScenario({
         );
         await editor.capture("middle");
 
-        // Ввод посреди фоновой токенизации: текст сразу на экране и в подсветке.
+        // Ввод посреди фоновой токенизации: новая строка над `// block` сразу
+        // на экране и в подсветке — `const` тем же цветом, что `const text` ниже.
+        const fgAt = (frame: GridSnapshot, needle: string): number | undefined => {
+            const cell = findTextCell(frame, needle);
+            return cell === null ? undefined : frame.cells[cell.y * frame.cols + cell.x].fg;
+        };
+        await editor.sendKey("ArrowUp");
         await editor.sendKey("Home");
-        await editor.sendText("export ");
+        await editor.sendText("const answer = 42;");
+        await editor.sendKey("Escape"); // попап автодополнения, если открылся
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => {
-                const cell = findTextCell(frame, `export export function f${String(middleBlock)}(`);
-                return cell !== null && frame.cells[cell.y * frame.cols + cell.x].fg === keyword;
+                const typed = fgAt(frame, "const answer = 42;");
+                return typed !== undefined && typed === fgAt(frame, "const text") && typed !== valueFg(frame, middleBlock);
             },
             { describe: "набранное покрашено", diagnose: (last) => frameToText(last as GridSnapshot) },
         );
