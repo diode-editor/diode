@@ -84,7 +84,11 @@ describe("languages.getDiagnostics", () => {
                         { severity: 1, range: WIRE_RANGE, message: "Unknown setting", code: "S1", source: "json" },
                     ],
                 },
-                { resource: B.toString(), markers: [{ severity: 3, range: WIRE_RANGE, message: "hint" }] },
+                // code/source не строкой — выпадают, маркер остаётся.
+                {
+                    resource: B.toString(),
+                    markers: [{ severity: 3, range: WIRE_RANGE, message: "hint", code: 5, source: 7 }],
+                },
             ],
         });
 

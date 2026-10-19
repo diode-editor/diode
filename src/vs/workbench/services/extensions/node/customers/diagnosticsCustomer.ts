@@ -76,7 +76,10 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
      */
     public pushInitialState(): void {
         if (this.markers === undefined) return;
-        this.forward(this.markers.read().map((marker) => marker.resource));
+        this.forward(
+            this.markers,
+            this.markers.read().map((marker) => marker.resource),
+        );
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
@@ -92,10 +95,11 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
                 this.sink?.(publish.owner, publish.resource, publish.markers);
             }),
         );
-        if (this.markers !== undefined) {
+        const markers = this.markers;
+        if (markers !== undefined) {
             store.add(
-                this.markers.onDidChangeMarkers((resources) => {
-                    this.forward(resources);
+                markers.onDidChangeMarkers((resources) => {
+                    this.forward(markers, resources);
                 }),
             );
         }
@@ -109,11 +113,12 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
         return store;
     }
 
-    private forward(resources: readonly string[]): void {
-        if (this.rpc === null || this.markers === undefined) return;
+    private forward(markers: IMarkerReader, resources: readonly string[]): void {
+        // Семя до спавна — некому слать.
+        if (this.rpc === null) return;
         const entries: IWireForeignMarkers[] = [];
         for (const resource of new Set(resources)) {
-            const foreign = this.markers.read({ resource }).filter((marker) => !this.ownOwners.has(marker.owner));
+            const foreign = markers.read({ resource }).filter((marker) => !this.ownOwners.has(marker.owner));
             if (foreign.length === 0) {
                 if (!this.forwarded.delete(resource)) continue;
             } else {

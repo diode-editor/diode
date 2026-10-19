@@ -79,6 +79,15 @@ describe("DiagnosticsCustomer — публикация коллекций", () =
 });
 
 describe("DiagnosticsCustomer — чужие маркеры субпроцессу", () => {
+    it("семя до первого спавна — некому слать, и не падает", () => {
+        const { markers, customer } = setup();
+        markers.changeOne("settings", SETTINGS, [{ severity: MarkerSeverity.Warning, range: RANGE, message: "a" }]);
+
+        expect(() => {
+            customer.pushInitialState();
+        }).not.toThrow();
+    });
+
     it("маркер чужого владельца уходит полным набором ресурса; серьёзность — числа vscode", () => {
         const { markers, customer } = setup();
         const { rpc, mirrored } = makeRpc();
@@ -91,7 +100,8 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
             { severity: MarkerSeverity.Hint, range: RANGE, message: "h" },
         ]);
 
-        expect(mirrored()).toEqual([
+        // Строго: поле без значения в провод не попадает вовсе.
+        expect(mirrored()).toStrictEqual([
             [
                 {
                     resource: MAIN,
