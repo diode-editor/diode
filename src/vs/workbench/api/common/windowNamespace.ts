@@ -158,7 +158,10 @@ export function createWindowNamespace(
      * выделением не в начале документа: их событие выделения ждёт
      * `editor.activeEditorChanged` (см. {@link announceRestoredSelections}).
      */
-    const pendingRestoredSelections = new Set<string>();
+    const pendingRestoredSelections = new Map<
+        string,
+        { readonly uri: string; readonly groupId: number; readonly selections: readonly IWireSelection[] }
+    >();
     /**
      * Идентичность `TextEditor` = (группа, документ): один файл в двух группах —
      * два разных редактора с одним `document` (AS-7). Ключ — groupId, не
@@ -236,7 +239,8 @@ export function createWindowNamespace(
             const key = selectionKey(group.groupId, active.uri);
             const selections = selectionsByEditor.get(key);
             if (wasVisible.has(key) || selections === undefined || isInitialSelection(selections)) continue;
-            if (group.isActive) pendingRestoredSelections.add(key);
+            if (group.isActive)
+                pendingRestoredSelections.set(key, { uri: active.uri, groupId: group.groupId, selections });
             else fireSelectionChanged(active.uri, group.groupId, selections, undefined);
         }
     }
@@ -270,14 +274,9 @@ export function createWindowNamespace(
         }
         // Вкладку активной группы вернули из-под других — её восстановленное
         // выделение (см. announceRestoredSelections) — после смены активного.
-        if (meta.uri != null) {
-            const groupId = effectiveActiveGroupId();
-            const key = selectionKey(groupId, meta.uri);
-            const selections = selectionsByEditor.get(key);
-            if (pendingRestoredSelections.has(key) && selections !== undefined) {
-                fireSelectionChanged(meta.uri, groupId, selections, undefined);
-            }
-        }
+        const restored = pendingRestoredSelections.get(selectionKey(effectiveActiveGroupId(), meta.uri ?? ""));
+        if (restored !== undefined)
+            fireSelectionChanged(restored.uri, restored.groupId, restored.selections, undefined);
         pendingRestoredSelections.clear();
     });
 

@@ -157,4 +157,43 @@ describe("WindowNamespace — выделение вкладки, ставшей 
 
         expect(log).toEqual([`active ${A}`, `active ${B}`]);
     });
+
+    it("ожидание снимает и мета другого редактора: позже пришедшая мета вкладки события не тянет", () => {
+        const { log, showInGroup, activate } = setup();
+        showInGroup(1, B, INITIAL);
+        activate(B);
+        log.length = 0;
+
+        showInGroup(1, A, LINES_2_3);
+        activate(B);
+        activate(A);
+
+        expect(log).toEqual([`active ${B}`, `active ${A}`]);
+    });
+
+    // 1:1 — это ровно одна пустая каретка в начале; отличие в любом поле или
+    // вторая каретка — уже восстановленное выделение.
+    const sel = (anchorLine: number, anchorCharacter: number, activeLine: number, activeCharacter: number) => ({
+        anchorLine,
+        anchorCharacter,
+        activeLine,
+        activeCharacter,
+    });
+    it.each([
+        ["anchorLine", [sel(2, 0, 0, 0)]],
+        ["anchorCharacter", [sel(0, 3, 0, 0)]],
+        ["activeLine", [sel(0, 0, 2, 0)]],
+        ["activeCharacter", [sel(0, 0, 0, 3)]],
+        ["вторая каретка", [sel(0, 0, 0, 0), sel(1, 0, 1, 0)]],
+    ])("не 1:1 (%s) — событие есть", (_name, selections) => {
+        const { log, showInGroup, activate } = setup();
+        showInGroup(1, B, INITIAL);
+        activate(B);
+        log.length = 0;
+
+        showInGroup(1, A, selections);
+        activate(A);
+
+        expect(log).toEqual([`active ${A}`, `selection ${A} active`]);
+    });
 });
