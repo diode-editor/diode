@@ -4,22 +4,13 @@ import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorT
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
+import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
-import type { TestApp } from "../../../TestUtils/TestApp.ts";
-import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
-import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
-import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
-
-/** The visible Save As InputBox is the QuickPickElement carrying a seeded query. */
-function openInputBox(testApp: TestApp): QuickPickElement {
-    const pickers = testApp.querySelectorAll("QuickPickElement") as QuickPickElement[];
-    const input = pickers.find((p) => p.getQuery().length > 0);
-    if (!input) throw new Error("Save As input box not found");
-    return input;
-}
+/** Вопрос о перезаписи — заголовок второго пикера диалога (эталон). */
+const overwriteQuestion = (name: string): string => `${name} already exists. Are you sure you want to overwrite it?`;
 
 describe("Workbench — Save As", () => {
     let ws: ITempWorkspace;
@@ -41,15 +32,15 @@ describe("Workbench — Save As", () => {
         ws.dispose();
     });
 
-    it("seeds the input with the current file path", () => {
+    it("диалог стоит на пути текущего файла, каталог файла — под строкой", async () => {
         const filePath = ws.path("alpha.txt");
         h.commands.execute("workbench.openFile", filePath);
-        h.testApp.render();
-
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
-        h.testApp.render();
-
-        expect(openInputBox(h.testApp).getQuery()).toBe(filePath);
+        await dialog.settle({ title: "Save As", query: filePath, items: ["..", "alpha.txt", "beta.txt"] });
+        // Имя без расширения выделено: набор заменит его, «.txt» останется.
+        expect(dialog.component.view.inputElement.inputState.selectedText).toBe("alpha");
+        dialog.key("Escape");
     });
 
     it("saves the active editor to a new path and renames the tab", async () => {
@@ -57,12 +48,14 @@ describe("Workbench — Save As", () => {
         h.commands.execute("workbench.openFile", filePath);
         h.testApp.render();
 
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
-        h.testApp.render();
+        await dialog.settle({ query: filePath });
 
         const newPath = ws.path("renamed.md");
-        openInputBox(h.testApp).setQuery(newPath);
-        h.testApp.sendKey("Enter");
+        dialog.replaceQuery(newPath);
+        await dialog.settle({ query: newPath });
+        dialog.key("Enter");
         // Цель проверяется по диску асинхронно (файловый сервис).
         await vi.waitFor(() => {
             expect(fs.readFileSync(newPath, "utf-8")).toBe("Alpha content");
@@ -81,20 +74,21 @@ describe("Workbench — Save As", () => {
         });
     });
 
-    it("Save As в собственный путь сохраняет без вопроса о перезаписи", async () => {
+    it("Save As в собственный путь — вопрос эталона о перезаписи, Enter сохраняет", async () => {
         const alphaPath = ws.path("alpha.txt");
         h.commands.execute("workbench.openFile", alphaPath);
         h.testApp.render();
         h.activeEditor().viewState.type("X");
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
-        h.testApp.render();
+        await dialog.settle({ query: alphaPath });
 
-        openInputBox(h.testApp).setQuery(alphaPath);
-        h.testApp.sendKey("Enter");
+        dialog.key("Enter");
+        await dialog.settle({ title: overwriteQuestion("alpha.txt") });
+        dialog.key("Enter");
         await vi.waitFor(() => {
             expect(fs.readFileSync(alphaPath, "utf-8")).toBe("XAlpha content");
         });
-        expect(h.container.get(DialogServiceDIToken).getOpenConfirmDialog()).toBeNull();
     });
 
     it("Save As виртуального документа пишет копию и открывает её файлом; исходная вкладка остаётся", async () => {
@@ -106,11 +100,13 @@ describe("Workbench — Save As", () => {
         const jdt = Uri.parse("jdt://contents/lib.jar/Lib.java");
         await service.openUri(jdt);
 
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
-        h.testApp.render();
+        await dialog.settle({ title: "Save As" });
         const copyPath = ws.path("Lib.java");
-        openInputBox(h.testApp).setQuery(copyPath);
-        h.testApp.sendKey("Enter");
+        dialog.replaceQuery(copyPath);
+        await dialog.settle({ query: copyPath });
+        dialog.key("Enter");
         // Запись — через файловый сервис, асинхронно.
         await vi.waitFor(() => {
             expect(service.editorGroups.activeGroup.editorCount).toBe(2);
@@ -124,86 +120,92 @@ describe("Workbench — Save As", () => {
         expect(service.getActiveTabPane()?.uri.toString()).toBe(Uri.file(copyPath).toString());
     });
 
-    it("prompts before overwriting a different existing file", async () => {
+    it("перезапись другого файла — только после «да» на вопрос эталона", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
-        h.testApp.render();
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
-        h.testApp.render();
+        await dialog.settle({ query: ws.path("alpha.txt") });
 
         const betaPath = ws.path("beta.txt");
-        openInputBox(h.testApp).setQuery(betaPath);
-        h.testApp.sendKey("Enter");
-        // A confirm dialog appears and beta.txt is NOT overwritten yet.
-        await vi.waitFor(() => {
-            expect(h.container.get(DialogServiceDIToken).getOpenConfirmDialog()).not.toBeNull();
-        });
-        h.testApp.render();
-        const dialog = h.container.get(DialogServiceDIToken).getOpenConfirmDialog();
+        dialog.replaceQuery(betaPath);
+        await dialog.settle({ query: betaPath });
+        dialog.key("Enter");
+        await dialog.settle({ title: overwriteQuestion("beta.txt") });
         expect(fs.readFileSync(betaPath, "utf-8")).toBe("Beta content");
 
-        dialog!.onConfirm?.();
-        h.testApp.render();
-
+        dialog.key("Enter");
         await vi.waitFor(() => {
             expect(fs.readFileSync(betaPath, "utf-8")).toBe("Alpha content");
         });
     });
 
-    it("validates the target path", async () => {
+    it("отказ от перезаписи (Escape) возвращает в диалог и ничего не пишет", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
-        h.testApp.render();
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
-        h.testApp.render();
+        await dialog.settle({ query: ws.path("alpha.txt") });
+        const betaPath = ws.path("beta.txt");
+        dialog.replaceQuery(betaPath);
+        await dialog.settle({ query: betaPath });
+        dialog.key("Enter");
+        await dialog.settle({ title: overwriteQuestion("beta.txt") });
+        dialog.key("Escape");
+        await dialog.settle({ title: "Save As", query: betaPath });
+        expect(fs.readFileSync(betaPath, "utf-8")).toBe("Beta content");
+        dialog.key("Escape");
+    });
 
-        const input = openInputBox(h.testApp);
-
-        input.onQueryChange?.("   ");
+    it("каталог вместо имени файла — сообщение эталона", async () => {
+        h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.saveAs");
+        await dialog.settle({ query: ws.path("alpha.txt") });
+        fs.mkdirSync(ws.path("folder"));
+        dialog.replaceQuery(ws.path("folder"));
+        await dialog.settle({ query: ws.path("folder") });
+        dialog.key("Enter");
         await vi.waitFor(() => {
-            expect(input.validationMessage).toBe("Please enter a file name");
+            expect(dialog.validationMessage()).toBe("The folder already exists. Please use a new file name.");
         });
+        dialog.key("Escape");
+    });
 
-        const missingDir = ws.path("no/such/dir/file.txt");
-        input.onQueryChange?.(missingDir);
+    it("несуществующий каталог — вопрос о создании, «да» создаёт его и сохраняет", async () => {
+        h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.saveAs");
+        await dialog.settle({ query: ws.path("alpha.txt") });
+        const target = ws.path("made/new.txt");
+        dialog.replaceQuery(target);
+        await dialog.settle({ query: target });
+        dialog.key("Enter");
+        await dialog.settle({ title: "The folder made does not exist. Would you like to create it?" });
+        dialog.key("Enter");
         await vi.waitFor(() => {
-            expect(input.validationMessage).toContain("Directory does not exist");
-        });
-
-        // The workspace directory itself is a folder, not a valid file target.
-        input.onQueryChange?.(ws.dir);
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBe("A folder with that name already exists");
-        });
-
-        input.onQueryChange?.(ws.path("fresh.txt"));
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBeNull();
+            expect(fs.readFileSync(target, "utf-8")).toBe("Alpha content");
         });
     });
 
-    it("does nothing when there is no active editor", () => {
-        // No file opened → no active editor → the command is a no-op (no prompt shown).
+    it("нет активного редактора — команда ничего не показывает", () => {
         h.commands.execute("workbench.action.files.saveAs");
         h.testApp.render();
-
-        const anySeeded = (h.testApp.querySelectorAll("QuickPickElement") as QuickPickElement[]).some(
-            (p) => p.getQuery().length > 0,
-        );
-        expect(anySeeded).toBe(false);
+        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
     it("Escape cancels without writing anything", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         h.testApp.render();
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
-        h.testApp.render();
+        await dialog.settle({ query: ws.path("alpha.txt") });
 
         const newPath = ws.path("should-not-exist.txt");
-        openInputBox(h.testApp).setQuery(newPath);
-        h.testApp.sendKey("Escape");
-        await flushMicrotasks();
-        h.testApp.render();
-
+        dialog.replaceQuery(newPath);
+        await dialog.settle({ query: newPath });
+        dialog.key("Escape");
+        await vi.waitFor(() => {
+            expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
+        });
         expect(fs.existsSync(newPath)).toBe(false);
-        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
     });
 });

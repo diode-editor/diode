@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
@@ -71,8 +71,10 @@ export default defineScenario({
         await editor.sendKey("e");
         await editor.waitForText((t) => t.includes("[ Open Folder ]"));
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("Open Folder") && t.includes("Enter a folder path"));
-        await editor.sendText(folder);
+        await editor.waitForText((t) => t.includes("Open Folder") && t.includes(".."));
+        await editor.sendKey("Ctrl+A");
+        await editor.sendText(folder + sep);
+        await editor.waitForText((t) => t.includes(folder + sep));
         await editor.sendKey("Enter");
         // Дерево обязано НАПОЛНИТЬСЯ, а не просто потерять welcome.
         await editor.waitForText((t) => t.includes("greeting.ts") && !t.includes("You have not yet opened a"));

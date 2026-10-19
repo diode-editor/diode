@@ -4,6 +4,7 @@ import iconv from "iconv-lite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
+import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { EndOfLine } from "../../editor/common/core/endOfLine.ts";
@@ -192,15 +193,15 @@ describe("Workbench — Change File Encoding", () => {
         await pick(h, "Save with Encoding");
         await pick(h, "Cyrillic (Windows 1251)");
 
-        // Кодировка уже на редакторе, путь спрашивает Save As InputBox.
+        // Кодировка уже на редакторе, путь спрашивает диалог Save As.
         expect(h.activeEditor().encoding).toBe("windows1251");
-        const pickers = h.testApp.querySelectorAll("QuickPickElement") as QuickPickElement[];
-        const input = pickers.find((p) => p.getQuery().length > 0);
-        expect(input).toBeDefined();
+        const dialog = fileDialogDriver(h);
+        await dialog.settle({ title: "Save As" });
 
         const target = ws.path("untitled-out.txt");
-        input!.setQuery(target);
-        h.testApp.sendKey("Enter");
+        dialog.replaceQuery(target);
+        await dialog.settle({ query: target });
+        dialog.key("Enter");
         // Save As проверяет цель по диску асинхронно (файловый сервис).
         await vi.waitFor(() => {
             expect([...fs.readFileSync(target)]).toEqual([...iconv.encode("Ёлка", "windows1251")]);

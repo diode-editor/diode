@@ -4,9 +4,13 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
-import { quickPickByTitle, tabLabels } from "../../../TestUtils/domQueries.ts";
+import { tabLabels } from "../../../TestUtils/domQueries.ts";
+import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
-import { flushMicrotasks } from "../../../TestUtils/timing.ts";
+import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+
+// File: Open File / Open Folder — диалог файлов (порт SimpleFileDialog эталона)
+// в настоящем приложении на настоящем диске: путь в строке, каталог под ней.
 
 describe("Workbench — Open File / Open Folder", () => {
     let ws: ITempWorkspace;
@@ -18,6 +22,7 @@ describe("Workbench — Open File / Open Folder", () => {
             files: {
                 "alpha.txt": "Alpha content",
                 "beta.txt": "Beta content",
+                "sub/inner.txt": "Inner",
             },
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
@@ -28,248 +33,135 @@ describe("Workbench — Open File / Open Folder", () => {
         ws.dispose();
     });
 
-    it("opens the Open File prompt empty (no scary seed error)", async () => {
-        h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
+    const root = (): string =>
+        h.container.get(IWorkspaceContextServiceDIToken).getWorkspace().folders[0]?.uri.fsPath ?? "";
 
-        const input = quickPickByTitle(h.testApp, "Open File");
-        expect(input.getQuery()).toBe("");
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBeNull();
+    it("Open File открывает диалог в папке воркспейса: путь в строке, каталог под ней", async () => {
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.openFile");
+        await dialog.settle({
+            title: "Open File",
+            query: ws.dir + path.sep,
+            items: ["..", "sub", "alpha.txt", "beta.txt"],
         });
+        dialog.key("Escape");
     });
 
-    it("opens the entered absolute path in a new tab", async () => {
+    it("начало имени и Enter открывают файл во вкладке", async () => {
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
-
-        const input = quickPickByTitle(h.testApp, "Open File");
-        input.onQueryChange?.(ws.path("beta.txt"));
-        input.setQuery(ws.path("beta.txt"));
-        h.testApp.sendKey("Enter");
-        await flushMicrotasks();
-        h.testApp.render();
-
-        expect(tabLabels(h.testApp).some((l) => l.includes("beta.txt"))).toBe(true);
-    });
-
-    it("resolves a relative path against the workspace root", async () => {
-        h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
-
-        const input = quickPickByTitle(h.testApp, "Open File");
-        // A bare name is valid because it resolves against the workspace root.
-        input.onQueryChange?.("beta.txt");
+        await dialog.settle({ query: ws.dir + path.sep });
+        for (const ch of "be") h.testApp.sendKey(ch);
+        await dialog.settle({ activeIndex: 3 });
+        dialog.key("Enter");
         await vi.waitFor(() => {
-            expect(input.validationMessage).toBeNull();
-        });
-
-        input.setQuery("beta.txt");
-        h.testApp.sendKey("Enter");
-        await flushMicrotasks();
-        h.testApp.render();
-
-        expect(tabLabels(h.testApp).some((l) => l.includes("beta.txt"))).toBe(true);
-    });
-
-    it("validates the Open File path", async () => {
-        h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
-        const input = quickPickByTitle(h.testApp, "Open File");
-
-        // Empty input is not flagged as an error (Enter is a harmless no-op).
-        input.onQueryChange?.("   ");
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBeNull();
-        });
-
-        input.onQueryChange?.(ws.path("nope.txt"));
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toContain("File does not exist");
-        });
-
-        // The workspace directory itself is a folder, not a file.
-        input.onQueryChange?.(ws.dir);
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBe("That is a folder, not a file");
-        });
-
-        input.onQueryChange?.(ws.path("alpha.txt"));
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBeNull();
-        });
-    });
-
-    it("Escape cancels Open File without opening anything", async () => {
-        h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
-
-        const input = quickPickByTitle(h.testApp, "Open File");
-        input.onQueryChange?.(ws.path("beta.txt"));
-        input.setQuery(ws.path("beta.txt"));
-        h.testApp.sendKey("Escape");
-        await flushMicrotasks();
-        h.testApp.render();
-
-        expect(tabLabels(h.testApp).some((l) => l.includes("beta.txt"))).toBe(false);
-        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
-    });
-
-    it("swaps the workspace root to the entered folder", async () => {
-        const other = createTempWorkspace({
-            prefix: "diode-open-other-",
-            files: { "gamma.txt": "Gamma content" },
-        });
-        try {
-            h.commands.execute("workbench.action.files.openFolder");
             h.testApp.render();
-
-            const folderInput = quickPickByTitle(h.testApp, "Open Folder");
-            folderInput.onQueryChange?.(other.dir);
-            folderInput.setQuery(other.dir);
-            h.testApp.sendKey("Enter");
-            await flushMicrotasks();
-            h.testApp.render();
-
-            // Observable effect: relative Open File paths now resolve against the new
-            // root — gamma.txt exists only there, not in the original workspace.
-            h.commands.execute("workbench.action.files.openFile");
-            h.testApp.render();
-            const fileInput = quickPickByTitle(h.testApp, "Open File");
-            fileInput.onQueryChange?.("gamma.txt");
-            await vi.waitFor(() => {
-                expect(fileInput.validationMessage).toBeNull();
-            });
-        } finally {
-            other.dispose();
-        }
+            expect(tabLabels(h.testApp).some((l) => l.includes("beta.txt"))).toBe(true);
+        });
     });
 
-    it("accepting an empty Open File prompt opens nothing and closes", async () => {
+    it("набранный абсолютный путь — в каталог и к файлу", async () => {
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
+        await dialog.settle({ query: ws.dir + path.sep });
+        dialog.replaceQuery(ws.path("sub/inner.txt"));
+        await dialog.settle({ items: ["..", "inner.txt"] });
+        dialog.key("Enter");
+        await vi.waitFor(() => {
+            h.testApp.render();
+            expect(tabLabels(h.testApp).some((l) => l.includes("inner.txt"))).toBe(true);
+        });
+    });
 
-        // Empty is a valid (non-error) value, so Enter is accepted but is a no-op.
-        h.testApp.sendKey("Enter");
-        await flushMicrotasks();
-        h.testApp.render();
+    it("несуществующий файл — сообщение эталона, ничего не открыто", async () => {
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.openFile");
+        await dialog.settle({ query: ws.dir + path.sep });
+        for (const ch of "nope.txt") h.testApp.sendKey(ch);
+        await dialog.settle({ query: ws.path("nope.txt") });
+        dialog.key("Enter");
+        await vi.waitFor(() => {
+            expect(dialog.validationMessage()).toBe("Please enter a path that exists.");
+        });
+        expect(tabLabels(h.testApp).some((l) => l.includes("nope.txt"))).toBe(false);
+    });
 
+    it("«~/» переводит в домашний каталог", async () => {
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.openFile");
+        await dialog.settle({ query: ws.dir + path.sep });
+        dialog.replaceQuery("~/");
+        await dialog.settle({ query: os.homedir() + path.sep });
+        dialog.key("Escape");
+    });
+
+    it("Escape отменяет Open File: вкладок нет, оверлей закрыт", async () => {
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.openFile");
+        await dialog.settle({ query: ws.dir + path.sep });
+        dialog.key("Escape");
+        await vi.waitFor(() => {
+            expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
+        });
         expect(tabLabels(h.testApp).some((l) => l.includes(".txt"))).toBe(false);
-        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
-    it("Ctrl+O opens the Open File prompt", () => {
+    it("Ctrl+O открывает Open File, Ctrl+K Ctrl+O — Open Folder", async () => {
+        const dialog = fileDialogDriver(h);
         h.testApp.sendKey("Ctrl+O");
-        h.testApp.render();
-
-        expect(() => quickPickByTitle(h.testApp, "Open File")).not.toThrow();
-    });
-
-    it("Ctrl+K Ctrl+O opens the Open Folder prompt", () => {
+        await dialog.settle({ title: "Open File" });
+        dialog.key("Escape");
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("Ctrl+O");
-        h.testApp.render();
-
-        expect(() => quickPickByTitle(h.testApp, "Open Folder")).not.toThrow();
+        await dialog.settle({ title: "Open Folder" });
+        dialog.key("Escape");
     });
 
-    it("validates the Open Folder path", async () => {
+    it("Open Folder: только каталоги; войти и Enter на пути — новый корень воркспейса", async () => {
+        const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFolder");
-        h.testApp.render();
-        const input = quickPickByTitle(h.testApp, "Open Folder");
-
-        input.onQueryChange?.(ws.path("no-such-dir"));
+        await dialog.settle({ title: "Open Folder", query: ws.dir + path.sep, items: ["..", "sub"] });
+        dialog.replaceQuery(ws.path("sub") + path.sep);
+        await dialog.settle({ query: ws.path("sub") + path.sep, items: [".."], activeIndex: -1 });
+        dialog.key("Enter");
         await vi.waitFor(() => {
-            expect(input.validationMessage).toContain("Folder does not exist");
-        });
-
-        // An existing file is not a valid folder target.
-        input.onQueryChange?.(ws.path("alpha.txt"));
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBe("That is a file, not a folder");
-        });
-
-        input.onQueryChange?.(ws.dir);
-        await vi.waitFor(() => {
-            expect(input.validationMessage).toBeNull();
+            expect(root()).toBe(ws.path("sub"));
         });
     });
 
-    it("expands a leading ~ to the home directory", async () => {
-        h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
-        const input = quickPickByTitle(h.testApp, "Open File");
-
-        input.onQueryChange?.("~/definitely-nonexistent-xyz");
+    it("Open Folder: файл вместо папки — «Please select a folder.»", async () => {
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.openFolder");
+        await dialog.settle({ query: ws.dir + path.sep });
+        dialog.replaceQuery(ws.path("alpha.txt"));
+        await dialog.settle({ query: ws.path("alpha.txt") });
+        dialog.key("Enter");
         await vi.waitFor(() => {
-            expect(input.validationMessage).toBe(
-                `File does not exist: ${path.join(os.homedir(), "definitely-nonexistent-xyz")}`,
-            );
+            expect(dialog.validationMessage()).toBe("Please select a folder.");
         });
+        expect(root()).toBe(ws.dir);
     });
 
-    it("Escape cancels Open Folder without swapping the root", async () => {
-        const other = createTempWorkspace({ prefix: "diode-open-cancel-" });
-        try {
-            h.commands.execute("workbench.action.files.openFolder");
-            h.testApp.render();
-
-            const folderInput = quickPickByTitle(h.testApp, "Open Folder");
-            folderInput.onQueryChange?.(other.dir);
-            folderInput.setQuery(other.dir);
-            h.testApp.sendKey("Escape");
-            await flushMicrotasks();
-            h.testApp.render();
-
+    it("Escape отменяет Open Folder без смены корня", async () => {
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.openFolder");
+        await dialog.settle({ query: ws.dir + path.sep });
+        dialog.key("Escape");
+        await vi.waitFor(() => {
             expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
-            // Root unchanged: a tmpDir-relative file still resolves.
-            h.commands.execute("workbench.action.files.openFile");
-            h.testApp.render();
-            const fileInput = quickPickByTitle(h.testApp, "Open File");
-            fileInput.onQueryChange?.("beta.txt");
-            await vi.waitFor(() => {
-                expect(fileInput.validationMessage).toBeNull();
-            });
-        } finally {
-            other.dispose();
-        }
-    });
-
-    it("accepting an empty Open Folder prompt swaps nothing and closes", async () => {
-        h.commands.execute("workbench.action.files.openFolder");
-        h.testApp.render();
-
-        h.testApp.sendKey("Enter");
-        await flushMicrotasks();
-        h.testApp.render();
-
-        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
-        // Root unchanged: a tmpDir-relative file still resolves.
-        h.commands.execute("workbench.action.files.openFile");
-        h.testApp.render();
-        const fileInput = quickPickByTitle(h.testApp, "Open File");
-        fileInput.onQueryChange?.("beta.txt");
-        await vi.waitFor(() => {
-            expect(fileInput.validationMessage).toBeNull();
         });
+        expect(root()).toBe(ws.dir);
     });
 });
 
-describe("Workbench — Open File without a workspace folder", () => {
-    it("resolves relative paths against the process cwd", async () => {
-        // No workspaceFolder: getRootPath() is null → cwd fallback.
+describe("Workbench — Open File без папки", () => {
+    it("диалог стоит в домашнем каталоге (`defaultFilePath` эталона)", async () => {
         const h = createAppTestHarness();
         try {
+            const dialog = fileDialogDriver(h);
             h.commands.execute("workbench.action.files.openFile");
-            h.testApp.render();
-            const input = quickPickByTitle(h.testApp, "Open File");
-
-            input.onQueryChange?.("definitely-nonexistent-xyz.txt");
-            await vi.waitFor(() => {
-                expect(input.validationMessage).toBe(
-                    `File does not exist: ${path.join(process.cwd(), "definitely-nonexistent-xyz.txt")}`,
-                );
-            });
+            await dialog.settle({ query: os.homedir() + path.sep });
+            dialog.key("Escape");
         } finally {
             h.dispose();
         }

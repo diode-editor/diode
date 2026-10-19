@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
@@ -34,10 +34,15 @@ export default defineScenario({
         // Ctrl+K Ctrl+O — выход из пустого окна.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+O");
-        await editor.waitForText((t) => t.includes("Open Folder") && t.includes("Enter a folder path"));
+        // Диалог файлов в режиме «только папки» стоит в домашнем каталоге: путь
+        // заменяем целиком (Ctrl+A и вставка), разделитель на конце входит в папку,
+        // Enter без подсвеченной строки выбирает её.
+        await editor.waitForText((t) => t.includes("Open Folder") && t.includes(".."));
         await editor.capture("prompt");
 
-        await editor.sendText(folder);
+        await editor.sendKey("Ctrl+A");
+        await editor.sendText(folder + sep);
+        await editor.waitForText((t) => t.includes(folder + sep));
         await editor.sendKey("Enter");
         // Дерево обязано НАПОЛНИТЬСЯ, а не просто потерять подсказку: смена
         // корня строит новый TreeViewElement, который грузится только refresh'ем.

@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { quickPickByTitle, tabLabels } from "../../../TestUtils/domQueries.ts";
+import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
@@ -204,17 +205,15 @@ describe("Workbench — New Untitled File", () => {
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
 
-        // No path yet → runSave falls through to Save As, which pops its InputBox.
-        const saveAs = (h.testApp.querySelectorAll("QuickPickElement") as QuickPickElement[]).find(
-            (p) => p.title === "Save As",
-        );
-        expect(saveAs).toBeDefined();
+        // No path yet → runSave falls through to Save As, which pops its dialog.
+        const dialog = fileDialogDriver(h);
+        await dialog.settle({ title: "Save As" });
 
         // Complete the Save As so runSave's no-file branch returns.
         const target = ws.path("saved-untitled.txt");
-        saveAs!.setQuery(target);
-        saveAs!.onQueryChange?.(target);
-        h.testApp.sendKey("Enter");
+        dialog.replaceQuery(target);
+        await dialog.settle({ query: target });
+        dialog.key("Enter");
         // Цель Save As проверяется по диску асинхронно (файловый сервис).
         await vi.waitFor(() => {
             expect(fs.existsSync(target)).toBe(true);

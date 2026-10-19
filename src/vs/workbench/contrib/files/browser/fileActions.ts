@@ -10,6 +10,7 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import {
     hasWorkspaceFileExtension,
     type IWorkspaceFileContents,
@@ -21,6 +22,7 @@ import {
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
+import { FileDialogServiceDIToken } from "../../../services/dialogs/browser/fileDialogService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
@@ -40,62 +42,30 @@ export interface IWorkspaceFolderOpener {
 export const WorkspaceFolderOpenerDIToken = token<IWorkspaceFolderOpener>("WorkspaceFolderOpener");
 
 /**
- * Open File flow: prompt for a path (InputBox), validate it points at an
- * existing file, then open it in the active editor group (команда
- * `workbench.openFile`). The prompt opens empty; a relative path is resolved
- * against the workspace root.
+ * Open File (`workbench.action.files.openFile`): диалог выбора файла
+ * ({@link IFileDialogService} — порт SimpleFileDialog эталона), выбранный файл
+ * открывается в активной группе (команда `workbench.openFile`). Диалог стоит в
+ * папке воркспейса (без неё — в домашнем каталоге).
  */
 async function runOpenFile(accessor: ServiceAccessor): Promise<void> {
-    const quickInput = accessor.get(QuickInputServiceDIToken);
-    const fileOperations = accessor.get(FileOperationsServiceDIToken);
-    const files = accessor.get(IFileServiceDIToken);
-
-    const target = await quickInput.input({
-        title: "Open File",
-        placeholder: "Enter a file path",
-        validateInput: async (value) => {
-            const resolved = fileOperations.resolveInputPath(value);
-            // Empty is not flagged (fresh prompt shows no error); Enter is a no-op.
-            if (!resolved) return null;
-            const stat = await statOrNull(files, resolved);
-            if (stat === null) return `File does not exist: ${resolved}`;
-            if (stat.isDirectory) return "That is a folder, not a file";
-            return null;
-        },
-    });
-    if (target === undefined) return;
-    // An accepted-but-empty value resolves to null → nothing to open.
-    const resolved = fileOperations.resolveInputPath(target);
-    if (resolved) accessor.get(CommandRegistryDIToken).execute("workbench.openFile", resolved);
+    const picked = await accessor
+        .get(FileDialogServiceDIToken)
+        .showOpenDialog({ title: "Open File", canSelectFiles: true, canSelectFolders: false });
+    const file = picked?.at(0);
+    if (file !== undefined) accessor.get(CommandRegistryDIToken).execute("workbench.openFile", file.fsPath);
 }
 
 /**
- * Open Folder flow: prompt for a path (InputBox), validate it points at an
- * existing directory, then swap the workspace root to it (file tree, side
- * panel and the Quick Open search index all re-target the new folder).
+ * Open Folder (`workbench.action.files.openFolder`): тот же диалог в режиме
+ * «только папки»; выбранная папка становится корнем воркспейса (дерево, боковая
+ * панель и индекс Quick Open переезжают на неё).
  */
 async function runOpenFolder(accessor: ServiceAccessor): Promise<void> {
-    const quickInput = accessor.get(QuickInputServiceDIToken);
-    const fileOperations = accessor.get(FileOperationsServiceDIToken);
-    const files = accessor.get(IFileServiceDIToken);
-
-    const target = await quickInput.input({
-        title: "Open Folder",
-        placeholder: "Enter a folder path",
-        validateInput: async (value) => {
-            const resolved = fileOperations.resolveInputPath(value);
-            // Empty is not flagged (fresh prompt shows no error); Enter is a no-op.
-            if (!resolved) return null;
-            const stat = await statOrNull(files, resolved);
-            if (stat === null) return `Folder does not exist: ${resolved}`;
-            if (!stat.isDirectory) return "That is a file, not a folder";
-            return null;
-        },
-    });
-    if (target === undefined) return;
-    // An accepted-but-empty value resolves to null → nothing to swap to.
-    const resolved = fileOperations.resolveInputPath(target);
-    if (resolved) accessor.get(WorkspaceFolderOpenerDIToken).setWorkspaceFolder(resolved);
+    const picked = await accessor
+        .get(FileDialogServiceDIToken)
+        .showOpenDialog({ title: "Open Folder", canSelectFiles: false, canSelectFolders: true });
+    const folder = picked?.at(0);
+    if (folder !== undefined) accessor.get(WorkspaceFolderOpenerDIToken).setWorkspaceFolder(folder.fsPath);
 }
 
 /**
@@ -187,8 +157,10 @@ async function runSave(accessor: ServiceAccessor): Promise<void> {
 }
 
 /**
- * Save As flow: prompt for a target path (InputBox), confirm overwrite if a
- * different file already exists, then write via `TextFileModel.saveAs`.
+ * Save As (`workbench.action.files.saveAs`): диалог сохранения
+ * ({@link IFileDialogService}), запись — `TextFileModel.saveAs`. Перезапись
+ * существующего файла диалог спрашивает сам (вопрос эталона), поэтому здесь
+ * подтверждения нет.
  */
 async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
     const editorService = accessor.get(EditorServiceDIToken);
@@ -196,72 +168,43 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
     if (!editor) return;
     const files = accessor.get(IFileServiceDIToken);
 
-    // Безымянный буфер (Ctrl+N) не имеет пути — стартуем от cwd и предложенного
-    // имени (`Untitled-3.txt`: метка буфера + расширение его языка).
+    // Безымянный буфер (Ctrl+N) не имеет пути — стартуем от папки воркспейса
+    // (без неё — cwd) и предложенного имени (`Untitled-3.txt`: метка буфера +
+    // расширение его языка).
+    const folder = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0)?.uri.fsPath;
     const seed =
         editor.uri.scheme === "file"
             ? editor.uri.fsPath
-            : path.join(process.cwd(), editorService.suggestedSaveName(editor));
-    const target = await accessor.get(QuickInputServiceDIToken).input({
-        title: "Save As",
-        placeholder: "Enter path to save",
-        value: seed,
-        validateInput: async (value) => {
-            const trimmed = value.trim();
-            if (trimmed === "") return "Please enter a file name";
-            const resolved = path.resolve(trimmed);
-            const dir = path.dirname(resolved);
-            if (!(await files.exists(Uri.file(dir)))) return `Directory does not exist: ${dir}`;
-            if ((await statOrNull(files, resolved))?.isDirectory === true) {
-                return "A folder with that name already exists";
-            }
-            return null;
-        },
-    });
+            : path.join(folder ?? process.cwd(), editorService.suggestedSaveName(editor));
+    const target = await accessor
+        .get(FileDialogServiceDIToken)
+        .showSaveDialog({ title: "Save As", defaultUri: Uri.file(seed) });
     if (target === undefined) return;
 
-    const resolved = path.resolve(target.trim());
-    const doSave = async (): Promise<void> => {
-        try {
-            if (editor.fileModel !== null) {
-                await editor.saveAs(resolved);
-            } else {
-                // Синтетика (виртуальный документ, снимок): своего файла у неё нет,
-                // и перепривязать буфер не к чему — копия пишется на диск и
-                // открывается обычным файлом (как upstream Save As не-файлового
-                // ресурса), а исходная вкладка остаётся собой.
-                await files.writeFile(
-                    Uri.file(resolved),
-                    await encodeText(editor.model.document.serialize(), editor.encoding),
-                );
-                editorService.openFile(resolved);
-            }
-            accessor.get(WorkbenchContextKeysDIToken).update();
-        } catch (error) {
-            /* v8 ignore start -- defensive: surfaces a filesystem write failure (permissions/disk); not reproducible in tests */
-            accessor
-                .get(ILogServiceDIToken)
-                .createLogger("input.keybindings")
-                .error("Save As failed", { path: resolved, error: String(error) });
-            /* v8 ignore stop */
+    const resolved = target.fsPath;
+    try {
+        if (editor.fileModel !== null) {
+            await editor.saveAs(resolved);
+        } else {
+            // Синтетика (виртуальный документ, снимок): своего файла у неё нет,
+            // и перепривязать буфер не к чему — копия пишется на диск и
+            // открывается обычным файлом (как upstream Save As не-файлового
+            // ресурса), а исходная вкладка остаётся собой.
+            await files.writeFile(
+                Uri.file(resolved),
+                await encodeText(editor.model.document.serialize(), editor.encoding),
+            );
+            editorService.openFile(resolved);
         }
-    };
-
-    // Overwriting a *different* existing file → confirm first. Сравниваем ресурсы,
-    // а не сырые строки: `resolved` уже абсолютный, но канонизацию даёт Uri.
-    if (Uri.file(resolved).toString() !== editor.uri.toString() && (await files.exists(Uri.file(resolved)))) {
-        accessor.get(DialogServiceDIToken).showConfirmDialog(
-            {
-                title: "Save As",
-                message: `${path.basename(resolved)} already exists. Overwrite?`,
-                confirmLabel: "Overwrite",
-                cancelLabel: "Cancel",
-            },
-            { onConfirm: () => void doSave() },
-        );
-        return;
+        accessor.get(WorkbenchContextKeysDIToken).update();
+    } catch (error) {
+        /* v8 ignore start -- defensive: surfaces a filesystem write failure (permissions/disk); not reproducible in tests */
+        accessor
+            .get(ILogServiceDIToken)
+            .createLogger("input.keybindings")
+            .error("Save As failed", { path: resolved, error: String(error) });
+        /* v8 ignore stop */
     }
-    void doSave();
 }
 
 export const fileSaveAction: CommandAction = {
