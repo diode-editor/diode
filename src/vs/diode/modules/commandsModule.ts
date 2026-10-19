@@ -1,4 +1,5 @@
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyService, ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry, KeybindingRegistryDIToken } from "../../platform/keybinding/common/keybindingRegistry.ts";
@@ -9,8 +10,8 @@ import {
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 
 /**
- * Команды, кейбиндинги и when-context. Без внешнего конфига —
- * все три реестра конструируются с дефолтным состоянием.
+ * Команды, кейбиндинги и when-context. Реестры конструируются с дефолтным
+ * состоянием; when-context читает `config.*` из настроек.
  */
 export const commandsModule: ContainerModule = (container) => {
     container.bind(
@@ -19,6 +20,7 @@ export const commandsModule: ContainerModule = (container) => {
         () => new CommandRegistry(container.get(ILogServiceDIToken).createLogger("commands", { label: "Commands" })),
     );
     container.bind(KeybindingRegistryDIToken, () => new KeybindingRegistry());
-    container.bind(ContextKeyServiceDIToken, () => new ContextKeyService());
+    // `config.*` в when — из настроек (корневой контекст эталона).
+    container.bind(ContextKeyServiceDIToken, () => new ContextKeyService(container.get(IConfigurationServiceDIToken)));
     container.bind(ModifierReleaseArmoryDIToken, () => new ModifierReleaseArmory());
 };

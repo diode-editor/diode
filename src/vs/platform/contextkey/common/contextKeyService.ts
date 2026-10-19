@@ -1,5 +1,6 @@
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import type { IConfigurationService } from "../../configuration/common/iConfigurationService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import { type ContextKeyValue, deserializeWhen, evaluateWhen } from "./contextKeyExpr.ts";
@@ -11,8 +12,21 @@ export const ContextKeyServiceDIToken = token<ContextKeyService>("ContextKeyServ
 export type ContextKeySettableValue = Exclude<ContextKeyValue, undefined>;
 type ContextValue = ContextKeySettableValue;
 
+/** Префикс ключей-настроек (`ConfigAwareContextValuesContainer._keyPrefix` эталона). */
+const CONFIG_KEY_PREFIX = "config.";
+
+/**
+ * When-контекст: значения ключей, их вычисление в when-выражениях и событие
+ * смены. Ключи `config.<настройка>` (`config.editor.minimap.enabled`,
+ * `config.claudeCode.useTerminal`) читаются из настроек сами — как корневой
+ * `ConfigAwareContextValuesContainer` эталона: лениво, с кэшем, который сброс
+ * настройки чистит и о котором сообщает {@link onDidChange}.
+ */
 export class ContextKeyService implements IDisposable {
     private values = new Map<string, ContextValue>();
+    /** Прочитанные `config.*`: ключ → значение (`undefined` — настройки нет). */
+    private readonly configValues = new Map<string, ContextValue | undefined>();
+    private readonly configListener: IDisposable | undefined;
     /** Names whose values actually changed since the previous event. */
     private readonly onDidChangeEmitter = new Emitter<ReadonlySet<string>>();
     /**
@@ -20,6 +34,17 @@ export class ContextKeyService implements IDisposable {
      * queued — several `set` in one tick become one event.
      */
     private pending: Set<string> | null = null;
+
+    /** Без настроек (тесты, витрины) `config.*` — обычные ключи, как любые другие. */
+    public constructor(private readonly configuration?: IConfigurationService) {
+        this.configListener = configuration?.onDidChangeConfiguration((event) => {
+            for (const key of [...this.configValues.keys()]) {
+                if (!event.affectsConfiguration(key.slice(CONFIG_KEY_PREFIX.length))) continue;
+                this.configValues.delete(key);
+                this.markChanged(key);
+            }
+        });
+    }
 
     public set<K extends ContextKey>(key: K, value: ContextKeyTypes[K]): void {
         this.write(key, value as ContextValue);
@@ -36,7 +61,7 @@ export class ContextKeyService implements IDisposable {
     }
 
     public get<K extends ContextKey>(key: K): ContextKeyTypes[K] | undefined {
-        return this.values.get(key) as ContextKeyTypes[K] | undefined;
+        return this.lookup(key) as ContextKeyTypes[K] | undefined;
     }
 
     /**
@@ -44,7 +69,7 @@ export class ContextKeyService implements IDisposable {
      * имя знает только строкой (инспектор: `Diode.getContextKey`).
      */
     public getRaw(key: string): ContextValue | undefined {
-        return this.values.get(key);
+        return this.lookup(key);
     }
 
     public reset(key: ContextKey): void {
@@ -80,15 +105,28 @@ export class ContextKeyService implements IDisposable {
         const expr = deserializeWhen(when);
         if (expr === undefined) return false;
         return evaluateWhen(expr, {
-            getValue: (key) =>
-                overlay !== undefined && Object.hasOwn(overlay, key) ? overlay[key] : this.values.get(key),
+            getValue: (key) => (overlay !== undefined && Object.hasOwn(overlay, key) ? overlay[key] : this.lookup(key)),
         });
     }
 
     public dispose(): void {
+        this.configListener?.dispose();
+        this.configValues.clear();
         this.values.clear();
         this.onDidChangeEmitter.dispose();
         this.pending = null;
+    }
+
+    /**
+     * Значение ключа: `config.*` — из настроек (запись в такой ключ им не
+     * мешает, как у эталона), остальное — записанное.
+     */
+    private lookup(key: string): ContextValue | undefined {
+        if (this.configuration === undefined || !key.startsWith(CONFIG_KEY_PREFIX)) return this.values.get(key);
+        if (this.configValues.has(key)) return this.configValues.get(key);
+        const value = toContextValue(this.configuration.getValue(key.slice(CONFIG_KEY_PREFIX.length)));
+        this.configValues.set(key, value);
+        return value;
     }
 
     private write(key: string, value: ContextValue): void {
@@ -114,5 +152,24 @@ export class ContextKeyService implements IDisposable {
         const changed = this.pending ?? new Set<string>();
         this.pending = null;
         this.onDidChangeEmitter.fire(changed);
+    }
+}
+
+/**
+ * Настройка → значение ключа (`getValue` контейнера эталона): примитив как
+ * есть, массив — JSON-строкой (так его видит `=~`/`==`), объект — как есть
+ * (под `in`), `null`/нет настройки — «нет значения».
+ */
+function toContextValue(value: unknown): ContextValue | undefined {
+    switch (typeof value) {
+        case "boolean":
+        case "number":
+        case "string":
+            return value;
+        case "object":
+            if (value === null) return undefined;
+            return Array.isArray(value) ? JSON.stringify(value) : (value as Readonly<Record<string, unknown>>);
+        default:
+            return undefined;
     }
 }
