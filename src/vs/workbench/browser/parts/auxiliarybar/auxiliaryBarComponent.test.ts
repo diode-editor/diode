@@ -1,7 +1,8 @@
 import { FocusManager } from "@tuidom/core/dom/events/focusManager";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
-import { describe, expect, it, vi } from "vitest";
+import type { MockInstance } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -58,6 +59,17 @@ describe("AuxiliaryBarComponent — ключи контекста", () => {
 });
 
 describe("AuxiliaryBarFocusContribution — края", () => {
+    // Исключение подписчика Emitter глотает в onUnexpectedError (console.error) —
+    // «no-op» здесь значит ещё и «без ошибки».
+    let consoleError: MockInstance<typeof console.error>;
+    beforeEach(() => {
+        consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    });
+    afterEach(() => {
+        expect(consoleError).not.toHaveBeenCalled();
+        consoleError.mockRestore();
+    });
+
     it("часть вне дерева или корень без менеджера фокуса: скрытие — no-op", () => {
         for (const rooted of ["none", "bare"] as const) {
             const { service, focusEditor } = scene(rooted);
