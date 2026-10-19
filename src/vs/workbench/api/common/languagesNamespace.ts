@@ -60,6 +60,7 @@ import type {
     IWireDocumentSemanticTokensParams,
     IWireEditorEdit,
     IWireFoldingParams,
+    IWireForeignMarkers,
     IWireFormattingParams,
     IWireHoverParams,
     IWireInlineCompletionParams,
@@ -75,11 +76,12 @@ import type {
     WireCodeAction,
     WireFoldingRange,
     WireLanguageFeatureKind,
+    WireMarker,
     WireRenamePrepare,
     WireRenameResult,
     WireSemanticTokensResult,
 } from "./wireTypes.ts";
-import { parseWireMarkersChanged } from "./wireTypes.ts";
+import { isFiniteNumber, parseRange } from "./wireTypes.ts";
 
 /** Зарегистрированный провайдер автодополнения. */
 export interface ICompletionRegistration {
@@ -202,6 +204,35 @@ interface ICachedCompletion extends IRegistrationOwner {
 
 /** Сколько последних ответов completion держим ради resolve. */
 const COMPLETION_CACHE_DEPTH = 2;
+
+/**
+ * Разбирает `diagnostics.markersChanged`: запись без строки-ресурса или без
+ * массива маркеров выпадает, маркер чужой формы — тоже (drop+skip).
+ */
+function parseWireMarkersChanged(raw: unknown): IWireForeignMarkers[] {
+    const entries = (raw as { entries?: unknown } | null)?.entries;
+    if (!Array.isArray(entries)) return [];
+    const result: IWireForeignMarkers[] = [];
+    for (const item of entries as unknown[]) {
+        const entry = item as { resource?: unknown; markers?: unknown } | null;
+        if (typeof entry?.resource !== "string" || !Array.isArray(entry.markers)) continue;
+        const markers: WireMarker[] = [];
+        for (const rawMarker of entry.markers as unknown[]) {
+            const m = (rawMarker ?? {}) as Record<string, unknown>;
+            const range = parseRange(m.range);
+            if (range === null || !isFiniteNumber(m.severity) || typeof m.message !== "string") continue;
+            markers.push({
+                severity: m.severity,
+                range,
+                message: m.message,
+                ...(typeof m.code === "string" ? { code: m.code } : {}),
+                ...(typeof m.source === "string" ? { source: m.source } : {}),
+            });
+        }
+        result.push({ resource: entry.resource, markers });
+    }
+    return result;
+}
 
 /** Окно `onDidChangeDiagnostics`, мс (`delay` DebounceEmitter'а ExtHostDiagnostics эталона). */
 const DIAGNOSTICS_CHANGE_DELAY_MS = 50;
