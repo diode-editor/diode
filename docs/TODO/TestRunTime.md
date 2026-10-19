@@ -131,6 +131,19 @@ PR влит `--admin`.
   150 МБ) съедают и память, и CPU. В CI не видно: там `DIODE_E2E_WORKERS: '1'`.
   Это и есть «e2e память поедает» на слабой машине: воркеров там `cpus/2`, и каждый
   может уйти в пересборку.
+- **Известные флаки юнит-набора (2026-10-19, стек #649–#661) — не разобраны.** Все
+  три PR-диффом не задеты; `gh run rerun --failed` зеленит.
+  - [ ] `explorerComponent.decorations.test.ts` › «свёрнутая папка с изменённым
+    файлом глубоко внутри — цвет файла и «●»»: `expected '  old\n  pkg/a/b\n
+    C.java\n …' to contain 'util.ts'`. Локально на main — 4 из 10. Валит и job
+    `test`, и dry run мутаций (`There were failed tests in the initial test run`).
+  - [ ] `treeWatcherMain.integration.test.ts` › «правка файла на диске доезжает до
+    колбэка в процессе редактора»: `expected 'changed' to be 'created'` —
+    похоже, первым долетает событие создания файла, а не правки.
+  - [ ] `workbench.saveConflict.test.ts` — необработанный `FileOperationError:
+    ENOENT … lstat …/doc.txt` после теста; уже описан в
+    [MutationGateFlake.md](MutationGateFlake.md#открыто-runtime-error-от-чужого-необработанного-отказа-602),
+    повторился на #660.
 
 ### e2e: цена инстанса
 
