@@ -132,11 +132,14 @@ gopls жив, даже когда активация падает (дыра №1
       (`installVsix`), обновить [API-COVERAGE.md](../public/API-COVERAGE.md).
 - [x] **A6. CI:** Go toolchain (`actions/setup-go`) в джобах, где идут стоковые сьюты,
       и кэш `GOBIN`/`GOMODCACHE` с gopls — иначе каждый прогон ставит gopls по сети.
-- [ ] **A7. Запись в магазине** — `proxy-openvsx`, universal, без платформенной оси
-      (реестр + смоук в `e2e/marketplace/checks.ts`). Пока записи нет, сьюты и сценарий
-      берут vsix мостом `fetchStockVsixOrOpenVsx` (`src/TestUtils/stockVsix.ts`, latest
-      universal с Open VSX); с записью резолв уйдёт в реестр сам — мост для `golang.go`
-      можно удалить, а e2e/сценарий перевести на установку по id.
+- [x] **A7. Запись в магазине** — `proxy-openvsx`, universal `0.56.1`, `engines.diode
+      >=0.9.2` (волна A вошла после 0.9.1; раньше активация падала), `support: partial`
+      (сайт#19). id — `golang.go`, как в манифесте vsix, хотя Open VSX пишет `golang/Go`:
+      `--install-extension golang.Go` у нас пока «not found» (задача в
+      [Marketplace.md](Marketplace.md)). Смоук в `e2e/marketplace/checks.ts` — undercurl
+      gopls на `main.go` фикстуры с заранее собранным gopls в GOBIN; без Go кейс
+      пропускается полем `requires`. Мост `fetchStockVsixOrOpenVsx` удалён, e2e и сценарий
+      ставят расширение по id.
 
 Итог волны A: активация доходит до `activated extension "golang.go"`, все команды `go.*`
 регистрируются. Попутно: `QuickPickItemKind` стал значением — разделители в
@@ -203,18 +206,18 @@ Type Definition, document highlight, call hierarchy, `createLanguageStatusItem` 
 - ~~**gopls в тестах:** ставить в фикстуре заранее или проверять авто-установку?~~ Решено
   дефолтом в волне A: фикстура ставит gopls заранее (`go install` в кэшируемый GOBIN),
   авто-установку расширением закрывает один e2e (`e2e/goLsp.test.ts`).
-- **Сообщение пользователю без Go:** тост расширения уже честный; нужна ли строка на
-  странице расширения в магазине («требует Go toolchain»)?
+- ~~**Сообщение пользователю без Go:** нужна ли строка на странице расширения в магазине
+  («требует Go toolchain»)?~~ Решение человека (A7): да — пункт в `support.limits` и абзац
+  в readme записи, как JDK у `redhat.java`.
 
 ## Как воспроизвести спайк
 
 ```bash
 # Go — в любой каталог, gopls не обязателен (расширение поставит само)
 curl -sfL https://go.dev/dl/go1.27.2.linux-amd64.tar.gz | tar -xz -C <dir>
-# vsix — с open-vsx (в реестре магазина записи пока нет, см. A7)
-curl -sfL "$(curl -sf https://open-vsx.org/api/golang/go | jq -r .files.download)" -o go.vsix
-PATH=<dir>/go/bin:$PATH npm run -s drive -- start --seed <go-модуль> \
-    --install ./go.vsix --open main.go
+# расширение — из магазина по id (или --install ./go.vsix с Open VSX)
+PATH=<dir>/go/bin:$PATH npm run -s drive -- start --seed e2e/fixtures/goSample \
+    --install golang.go --open main.go
 npm run -s drive -- output extensions.host      # failed to activate … registerDebugConfigurationProvider
 npm run -s drive -- output extensions.golang.go.go
 ```

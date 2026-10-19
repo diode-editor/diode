@@ -9,7 +9,7 @@ import { installVsix } from "../vs/platform/extensionManagement/node/extensionIn
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
-import { fetchStockVsixOrOpenVsx } from "./stockVsix.ts";
+import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
  * Общая обвязка сьютов на стоковый golang.go (extensionHost.goLsp*, e2e
@@ -25,11 +25,14 @@ import { fetchStockVsixOrOpenVsx } from "./stockVsix.ts";
  *   `npm install eslint` у eslintFixture.ts) — иначе каждый прогон собирал бы
  *   его по сети. Путь авто-установки самим расширением закрывает один e2e.
  *
- * Vsix — из магазина, последней версией; пока записи `golang.go` в реестре нет
- * (A7 в docs/TODO/GoLSP.md) — последней universal-версией с Open VSX.
+ * Vsix — из магазина, последней совместимой версией (запись `golang.go` в
+ * реестре; e2e и сценарий ставят её по id, как пользователь).
  */
 
-/** id записи в реестре (и на Open VSX). */
+/**
+ * id записи в реестре — как в манифесте vsix (`golang.go`); Open VSX пишет
+ * namespace/name `golang/Go`, но наш клиент сверяет id с манифестом побайтно.
+ */
 export const GO_ID = "golang.go";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -124,26 +127,6 @@ export function ensureGopls(): string {
     return gopls;
 }
 
-/** Путь к vsix golang.go (кэш стоковых vsix; e2e и сценарий ставят его по пути). */
-export async function fetchGoVsix(): Promise<string> {
-    return (await fetchStockVsixOrOpenVsx(GO_ID)).vsixPath;
-}
-
-/**
- * Неизменный путь vsix для сценария: `installVsix` сценария — статическое поле,
- * а версия (и имя файла в кэше) становится известна только после резолва.
- * {@link prepareGoScenario} кладёт сюда свежий vsix перед запуском.
- */
-export const GO_SCENARIO_VSIX = path.join(GO_TOOLS_DIR, "..", "diode-go-scenario", `${GO_ID}.vsix`);
-
-/** Подготовка сценария go-lsp: gopls в кэше и vsix по {@link GO_SCENARIO_VSIX}. */
-export async function prepareGoScenario(): Promise<void> {
-    ensureGopls();
-    const vsix = await fetchGoVsix();
-    fs.mkdirSync(path.dirname(GO_SCENARIO_VSIX), { recursive: true });
-    fs.copyFileSync(vsix, GO_SCENARIO_VSIX);
-}
-
 export interface IInstalledGo {
     readonly registration: IExtensionRegistration;
     dispose(): void;
@@ -157,7 +140,7 @@ export interface IInstalledGo {
  */
 export async function installGo(): Promise<IInstalledGo> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
-    const { id, version } = await installVsix(await fetchGoVsix(), extensionsDir);
+    const { id, version } = await installVsix((await fetchStockVsix(GO_ID)).vsixPath, extensionsDir);
     return {
         registration: await registrationFromInstalled(extensionsDir, id, version),
         dispose: (): void => {

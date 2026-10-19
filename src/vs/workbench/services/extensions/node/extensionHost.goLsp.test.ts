@@ -29,7 +29,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageConfiguration } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// Go «как у пользователя»: НАСТОЯЩИЙ golang.go (vsix из магазина / Open VSX),
+// Go «как у пользователя»: НАСТОЯЩИЙ golang.go (vsix из магазина),
 // установленный штатным installVsix, на настоящем ext-host subprocess'е;
 // gopls — `go install` фикстуры. Расширение обрывало `activate()` на
 // отсутствующем `vscode.debug` (а дальше — `vscode.tests`,

@@ -8,6 +8,12 @@ import {
     LINT_JS,
     linkEslintLibrary,
 } from "../../src/TestUtils/eslintFixture.ts";
+import {
+    ensureGopls,
+    GO_SAMPLE_DIR,
+    GO_SESSION_ENV,
+    goToolchainMissing,
+} from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
@@ -41,6 +47,13 @@ export interface IMarketplaceCheck {
     readonly expectFiles: readonly string[];
     /** Таймаут кейса, если стандартного мало (холодный старт language-сервера). */
     readonly timeoutMs?: number;
+    /**
+     * Внешний инструмент, без которого поведенческую половину не прогнать (Go
+     * toolchain у `golang.go`): причина пропуска либо `undefined`. Та же
+     * договорённость, что `requires` у сценариев: в CI инструмент ставится в
+     * джобу, и чек там идёт; локально без него кейс честно пропускается.
+     */
+    requires?(): string | undefined;
     /** Поднимает редактор на этом user-data-dir и проверяет работу расширения. */
     run(ctx: ICheckContext): Promise<void>;
 }
@@ -309,6 +322,43 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
                     { describe: "undercurl squiggle от jdt.ls", timeoutMs: 420_000, intervalMs: 1000 },
+                );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx" — стоковый golang.go поверх gopls. Undercurl над
+        // ошибкой типов в main.go рисуется только если расширение активировалось
+        // и его languageclient поднял gopls: своего Go-клиента у diode нет.
+        //
+        // gopls в vsix нет — без него расширение ставит его само `go install`
+        // (минуты и сеть на каждый прогон). Чек кладёт в GOBIN заранее собранный
+        // gopls фикстуры (в CI его собирает и кэширует .github/actions/go-tools),
+        // путь авто-установки закрывает e2e goLsp.test.ts. Без Go toolchain
+        // расширение отказывает в активации и в VS Code — кейс пропускается.
+        id: "golang.go",
+        expectFiles: ["package.json", "dist/goMain.js"],
+        requires: goToolchainMissing,
+        // Первый локальный прогон собирает gopls внутри кейса (`ensureGopls`).
+        timeoutMs: 600_000,
+        run: async (ctx) => {
+            const gobin = dirname(ensureGopls());
+            // Модуль — в подкаталоге: в корне сессии лежит user-data-dir.
+            const projectRoot = join(ctx.root, "goproj");
+            cpSync(GO_SAMPLE_DIR, projectRoot, { recursive: true });
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, join(projectRoot, "main.go")],
+                env: { ...GO_SESSION_ENV, GOBIN: gobin },
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle от gopls", timeoutMs: 300_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();

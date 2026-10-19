@@ -59,7 +59,7 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
         const what = check === undefined ? "ставится из магазина" : "ставится из магазина и работает в редакторе";
         it(
             `${entry.id}@${entry.latest.version} ${what}`,
-            async () => {
+            async (testContext) => {
                 const { root, userDataDir } = createMarketplaceRoot();
                 try {
                     const install = await runCli(binary, [
@@ -88,6 +88,10 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
                         for (const rel of check.expectFiles) {
                             expect(existsSync(join(extDir, rel)), `${rel} не распакован в ${extDir}`).toBe(true);
                         }
+                        // Без внешнего инструмента (Go toolchain) — честный пропуск с
+                        // причиной, а не зелёный кейс: установка выше уже проверена.
+                        const missing = check.requires?.();
+                        if (missing !== undefined) testContext.skip(missing);
                         await check.run({ root });
                     }
                 } finally {

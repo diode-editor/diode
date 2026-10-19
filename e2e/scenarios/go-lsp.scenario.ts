@@ -1,19 +1,19 @@
 import { join } from "node:path";
 
 import {
+    ensureGopls,
+    GO_ID,
     GO_SAMPLE_DIR,
-    GO_SCENARIO_VSIX,
     GO_SESSION_ENV,
     GO_TOOLS_BIN,
     goToolchainMissing,
-    prepareGoScenario,
 } from "../../src/TestUtils/goFixture.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Go: НАСТОЯЩИЙ стоковый golang.go (vsix из магазина; до записи в реестре — с
-// Open VSX) и gopls из GOBIN фикстуры. Раньше `activate()` обрывался на
+// Go: НАСТОЯЩИЙ стоковый golang.go (из магазина по id, как у пользователя) и
+// gopls из GOBIN фикстуры. Раньше `activate()` обрывался на
 // отсутствующем `vscode.debug`: диагностики были, а ~60 команд `go.*` — нет.
 // Демо закрывает видимую часть: squiggle на ошибке типов и лишнем импорте,
 // версия Go в статус-баре, hover с doc-комментарием из другого пакета и F12 в
@@ -29,10 +29,13 @@ export default defineScenario({
     name: "go-lsp",
     title: "Go (golang.go + gopls): squiggle, версия Go, hover, F12",
     open: [GO_SAMPLE_DIR, mainFile],
-    installVsix: [GO_SCENARIO_VSIX],
+    installVsix: [GO_ID],
     network: true,
     requires: goToolchainMissing,
-    prepare: prepareGoScenario,
+    // gopls — заранее в кэшируемый GOBIN: иначе расширение собирало бы его само.
+    async prepare() {
+        ensureGopls();
+    },
     env: { ...GO_SESSION_ENV, GOBIN: GO_TOOLS_BIN },
     cols: 110,
     rows: 28,
