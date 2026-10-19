@@ -7,6 +7,7 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import type { IPaneCompositeTabContextMenuRequest } from "../paneCompositePartService.ts";
 
 import { PanelComponent } from "./panelComponent.ts";
+import { PanelContainerElement } from "./panelContainerElement.ts";
 import { PanelService } from "./panelService.ts";
 
 describe("PanelComponent — вкладки уходят и возвращаются", () => {
@@ -28,6 +29,19 @@ describe("PanelComponent — вкладки уходят и возвращают
         service.removeView("a");
         service.addView({ id: "a", title: "A", index: 0 });
         expect(component.view.getViewIds()).toEqual(["a", "b"]);
+    });
+
+    it("контрол: снятая активная передаёт активность первой оставшейся, неактивная — не трогает", () => {
+        const view = new PanelContainerElement();
+        for (const id of ["a", "b", "c"]) view.addView({ id, title: id, content: null });
+        view.setActiveView("b");
+        view.removeView("c");
+        expect(view.getActiveViewId()).toBe("b");
+        view.removeView("b");
+        expect(view.getActiveViewId()).toBe("a");
+        view.removeView("a");
+        expect(view.getActiveViewId()).toBeNull();
+        expect(view.getViewIds()).toEqual([]);
     });
 
     it("снятие незнакомой контролу вкладки — no-op", () => {
@@ -78,6 +92,43 @@ describe("PanelComponent — контекстное меню вкладки", ()
         expect(requests).toEqual([
             { id: "problems", anchor: { screenX: 5 + 1, screenY: 3 + 2 }, owner: component.view },
         ]);
+    });
+
+    it("попадание по колонкам: вкладка — от первой колонки своего сегмента до последней", () => {
+        const { requests, menu } = scene();
+        let map = "";
+        for (let x = 0; x < 24; x++) {
+            requests.length = 0;
+            menu("mouse", 5 + x, 3 + 1);
+            map += requests.at(0)?.id.charAt(0) ?? ".";
+        }
+        // PROBLEMS — колонки 1..10 (с отступами таба), OUTPUT — 11..18.
+        expect(map).toBe(".ppppppppppoooooooo.....");
+    });
+
+    it("Shift+F10 — меню именно активной вкладки, не первой", () => {
+        const { component, requests, menu } = scene();
+        component.view.setActiveView("output");
+        menu("keyboard", 0, 0);
+        expect(requests).toEqual([
+            { id: "output", anchor: { screenX: 5 + 11, screenY: 3 + 2 }, owner: component.view },
+        ]);
+    });
+
+    it("без подписчика на меню вкладки — событие гасится без ошибки", () => {
+        const view = new PanelContainerElement();
+        view.addView({ id: "a", title: "A", content: null });
+        view.layout(BoxConstraints.tight(new Size(20, 4)));
+        const event = new TUIContextMenuEvent({
+            trigger: "keyboard",
+            button: "none",
+            screenX: 0,
+            screenY: 0,
+            localX: 0,
+            localY: 0,
+        });
+        view.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(true);
     });
 
     it("мимо вкладок и вне таб-строки меню не просит и событие не гасит", () => {
