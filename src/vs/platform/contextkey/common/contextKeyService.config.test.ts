@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createTestConfigurationService } from "../../../../TestUtils/testConfigurationService.ts";
 
@@ -49,10 +49,24 @@ describe("ContextKeyService — ключи config.*", () => {
         expect(keys.evaluate("config.claudeCode.useTerminal")).toBe(false);
 
         await configuration.updateValue("claudeCode.useTerminal", true);
-        await configuration.updateValue("other.setting", 1);
         await flush();
         expect(changes).toStrictEqual([["config.claudeCode.useTerminal"]]);
         expect(keys.evaluate("config.claudeCode.useTerminal")).toBe(true);
+
+        // Чужая настройка прочитанный ключ не трогает.
+        await configuration.updateValue("other.setting", 1);
+        await flush();
+        expect(changes).toHaveLength(1);
+        keys.dispose();
+    });
+
+    it("прочитанное кэшируется: when на каждое нажатие не ходит в настройки повторно", () => {
+        const configuration = createTestConfigurationService({ "demo.flag": true });
+        const read = vi.spyOn(configuration, "getValue");
+        const keys = new ContextKeyService(configuration);
+        keys.evaluate("config.demo.flag");
+        keys.evaluate("config.demo.flag && config.demo.flag");
+        expect(read).toHaveBeenCalledTimes(1);
         keys.dispose();
     });
 

@@ -111,7 +111,6 @@ export class ContextKeyService implements IDisposable {
 
     public dispose(): void {
         this.configListener?.dispose();
-        this.configValues.clear();
         this.values.clear();
         this.onDidChangeEmitter.dispose();
         this.pending = null;
@@ -156,20 +155,11 @@ export class ContextKeyService implements IDisposable {
 }
 
 /**
- * Настройка → значение ключа (`getValue` контейнера эталона): примитив как
- * есть, массив — JSON-строкой (так его видит `=~`/`==`), объект — как есть
- * (под `in`), `null`/нет настройки — «нет значения».
+ * Настройка → значение ключа (`getValue` контейнера эталона): значение
+ * настройки — JSON, поэтому примитив и объект (под `in`) идут как есть, массив
+ * — JSON-строкой (так его видит `=~`/`==`), `null`/нет настройки — «нет значения».
  */
 function toContextValue(value: unknown): ContextValue | undefined {
-    switch (typeof value) {
-        case "boolean":
-        case "number":
-        case "string":
-            return value;
-        case "object":
-            if (value === null) return undefined;
-            return Array.isArray(value) ? JSON.stringify(value) : (value as Readonly<Record<string, unknown>>);
-        default:
-            return undefined;
-    }
+    if (value === null) return undefined;
+    return Array.isArray(value) ? JSON.stringify(value) : (value as ContextValue | undefined);
 }
