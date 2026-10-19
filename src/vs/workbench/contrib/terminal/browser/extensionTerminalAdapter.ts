@@ -273,8 +273,8 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
                 location: { viewColumn: location.viewColumn, preserveFocus: location.preserveFocus === true },
             };
         }
-        const parentId = location === undefined ? undefined : this.resolve(location.parentTerminal);
-        const parent = parentId === undefined ? null : this.terminals.getInstance(parentId);
+        const parent =
+            location === undefined ? null : this.terminals.getInstance(this.resolve(location.parentTerminal));
         if (parent !== null)
             return parent.target === "editor" ? { kind: "split", parentId: parent.id } : { kind: "panel" };
         return this.configuration.get("terminal.integrated.defaultLocation") === "editor"
@@ -283,9 +283,14 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
     }
 
     private createIn(place: TerminalPlace, options: ITerminalCreateOptions): ITerminalInstance {
-        if (place.kind === "panel") return this.terminals.createInstance(options);
-        if (place.kind === "split") return this.editorTerminals.splitInstance(place.parentId, options);
-        return this.editorTerminals.createTerminal(options, place.location);
+        switch (place.kind) {
+            case "panel":
+                return this.terminals.createInstance(options);
+            case "split":
+                return this.editorTerminals.splitInstance(place.parentId, options);
+            case "editor":
+                return this.editorTerminals.createTerminal(options, place.location);
+        }
     }
 
     private resolve(terminal: IWireTerminalRef): number | undefined {

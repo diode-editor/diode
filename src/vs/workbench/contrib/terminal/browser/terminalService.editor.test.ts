@@ -120,13 +120,15 @@ describe("TerminalService — инстансы в области редакто�
         const h = buildHarness();
         const panel = h.service.createInstance();
         const editor = h.service.createInstance({ target: "editor" });
+        const other = h.service.createInstance({ target: "editor" });
         h.events.length = 0;
 
         expect(h.service.moveToPanel(editor.id)).toBe(editor);
         expect(editor.target).toBe("panel");
         expect(h.events).toStrictEqual([`open:${String(editor.id)}`, `active:${String(editor.id)}`]);
         expect(h.service.getInstances()).toStrictEqual([panel, editor]);
-        expect(h.service.getEditorInstances()).toStrictEqual([]);
+        // Переехал именно названный, второй редакторный остался на месте.
+        expect(h.service.getEditorInstances()).toStrictEqual([other]);
         expect(h.service.getActiveInstance()).toBe(editor);
         // Панельный и неизвестный — no-op.
         expect(h.service.moveToPanel(panel.id)).toBeUndefined();

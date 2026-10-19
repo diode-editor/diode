@@ -15,6 +15,7 @@ import {
     TerminalServiceDIToken,
 } from "../contrib/terminal/browser/terminalService.ts";
 import { EditorGroupsServiceDIToken } from "../services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 import type { EditorTitleMenuContext } from "./actions/menuContexts.ts";
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
@@ -166,10 +167,19 @@ describe("Workbench — терминал в области редакторов"
         ).toBe(false);
     });
 
-    it("Move Terminal into Panel без вкладки-терминала — ничего", () => {
+    it("Move Terminal into Panel без вкладки-терминала — ничего, и в пустой группе тоже", async () => {
         boot();
         h.commands.execute("workbench.action.terminal.moveToTerminalPanel");
         h.commands.execute("workbench.action.terminal.moveToEditor");
         expect(terminal.getInstances()).toStrictEqual([]);
+        await h.container.get(EditorServiceDIToken).closeAllEditors(groups().activeGroup);
+        expect(() => h.commands.execute("workbench.action.terminal.moveToTerminalPanel")).not.toThrow();
+    });
+
+    it("Kill the Active Terminal in Editor Area не трогает вкладку другого вида", () => {
+        boot();
+        h.commands.execute("workbench.action.terminal.killEditor");
+        expect(groups().activeGroup.editorCount).toBe(1);
+        expect(screen()).toContain("alpha");
     });
 });

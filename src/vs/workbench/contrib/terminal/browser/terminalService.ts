@@ -257,8 +257,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return this.active() ?? null;
     }
 
-    /** Инстанс по id, в том числе фоновый (null — такого нет или уже закрыт). */
-    public getInstance(id: number): ITerminalInstance | null {
+    /** Инстанс по id, в том числе фоновый (null — такого нет, уже закрыт или id не задан). */
+    public getInstance(id: number | undefined): ITerminalInstance | null {
         return this.find(id) ?? null;
     }
 

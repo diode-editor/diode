@@ -83,10 +83,9 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
         this.widget.focus();
     }
 
+    /** Повторный dispose процесс второй раз не трогает: эмиттер уже снят. */
     public override dispose(): void {
         if (!this.detached) this.onDidCloseEmitter.fire();
-        // Повторный dispose процесс второй раз не трогает.
-        this.detached = true;
         this.widget.dispose();
         super.dispose();
     }

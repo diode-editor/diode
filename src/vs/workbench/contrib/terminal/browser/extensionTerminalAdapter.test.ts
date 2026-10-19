@@ -270,6 +270,8 @@ describe("ExtensionTerminalAdapter — pty-терминал задачи (Custom
         const id = h.adapter.createPtyInstance({ name: "pty task", message: "Executing", waitOnExit: "bye" });
         const instance = h.service.getInstance(id);
         expect(instance?.title).toBe("pty task");
+        // Терминал задачи — в виде TERMINAL, и при defaultLocation.
+        expect(h.service.getInstances()).toStrictEqual([instance]);
         expect(h.ptySessions[0].printed).toStrictEqual(["Executing\r\n"]);
         expect(h.events.ptyStart).toHaveBeenCalledWith(id, 80, 24);
         expect(h.events.opened.mock.calls[0][0]).not.toHaveProperty("extHostId");
@@ -339,6 +341,10 @@ describe("ExtensionTerminalAdapter — место терминала", () => {
         expect(h.views.panelService.visible).toBe(true);
         h.adapter.show({ extHostId: 2 }, false);
         expect(h.editorTerminals.revealed).toStrictEqual([{ id: 2, preserveFocus: false }]);
+        // Хостовый id, которого уже нет, — молча.
+        expect(() => {
+            h.adapter.show({ id: 999 }, false);
+        }).not.toThrow();
         h.service.dispose();
     });
 });

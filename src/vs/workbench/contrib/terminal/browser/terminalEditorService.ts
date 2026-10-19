@@ -12,7 +12,6 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import type { TerminalColorsService } from "./terminalColorsService.ts";
 import { TerminalColorsServiceDIToken } from "./terminalColorsService.ts";
 import { TerminalEditorPane } from "./terminalEditorPane.ts";
-import { holdsFocus } from "./terminalPanelComponent.ts";
 import type { ITerminalCreateOptions, ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TerminalServiceDIToken } from "./terminalService.ts";
 
@@ -72,9 +71,10 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
 
     /** IContextKeyContributor: `terminalEditorFocus`, `terminalEditorActive`. */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        const focusPath = active?.getAncestorPath() ?? [];
         contextKeys.set(
             "terminalEditorFocus",
-            active !== null && [...this.panes.values()].some((pane) => holdsFocus(pane.view)),
+            [...this.panes.values()].some((pane) => focusPath.includes(pane.view)),
         );
         contextKeys.set("terminalEditorActive", this.editors.getActiveTabPane() instanceof TerminalEditorPane);
     }
@@ -103,7 +103,10 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
      */
     public splitInstance(parentId: number, options: Omit<ITerminalCreateOptions, "target"> = {}): ITerminalInstance {
         const parent = this.panes.get(parentId);
+        // Stryker disable next-line ConditionalExpression: эквивалентный — groupOf панели, которой нет ни в одной группе, и так null
         const group = parent === undefined ? null : this.editors.editorGroups.groupOf(parent);
+        // Фокус следом забирает новая вкладка — здесь важна только активная группа.
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral: эквивалентный — фокус группы родителя сразу уходит в новую вкладку справа
         if (group !== null) this.editors.editorGroups.focusGroup(group.id, { focus: false });
         return this.createTerminal(options, { viewColumn: SIDE_GROUP });
     }
@@ -124,6 +127,8 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
             this.editors.editorGroups.revealPane(pane);
             return;
         }
+        // Вкладка из `panes` всегда стоит в группе: закрытая уходит из `panes` раньше.
+        // Stryker disable next-line OptionalChaining: недостижимо — см. выше
         const group = this.editors.editorGroups.groupOf(pane);
         group?.activateTab(group.getPanes().indexOf(pane), { focus: false });
     }
@@ -143,15 +148,11 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
     }
 
     /**
-     * Вкладка инстанса в группе колонки: фокус — в неё, если не
-     * `preserveFocus` (тогда активная группа остаётся прежней, как у
-     * `showTextDocument`). Уже открытая — показывается.
+     * Вкладка инстанса (у него её ещё нет) в группе колонки: фокус — в неё,
+     * если не `preserveFocus` (тогда активная группа остаётся прежней, как у
+     * `showTextDocument`).
      */
     private openEditor(instance: ITerminalInstance, location: ITerminalEditorLocation): void {
-        if (this.panes.has(instance.id)) {
-            this.reveal(instance.id, location.preserveFocus === true);
-            return;
-        }
         const groups = this.editors.editorGroups;
         const previous = groups.activeGroup;
         const group = location.group ?? columnToEditorGroup(groups, location.viewColumn ?? ACTIVE_GROUP);
@@ -171,12 +172,10 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
     private closePane(pane: TerminalEditorPane): void {
         this.panes.delete(pane.instance.id);
         pane.detach();
+        // Вкладка из `panes` всегда стоит в группе (см. `reveal`).
         const group = this.editors.editorGroups.groupOf(pane);
-        if (group === null) {
-            pane.dispose();
-            return;
-        }
-        void this.editors.closeEditor(group, pane);
+        // Stryker disable next-line ConditionalExpression: недостижимо — вкладка из `panes` всегда в группе
+        if (group !== null) void this.editors.closeEditor(group, pane);
     }
 }
 

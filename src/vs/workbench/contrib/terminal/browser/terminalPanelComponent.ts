@@ -342,7 +342,7 @@ export function applyTerminalColors(
 }
 
 /** Держит ли фокус сам виджет или что-то в его поддереве. */
-export function holdsFocus(widget: TUIElement): boolean {
+function holdsFocus(widget: TerminalViewElement): boolean {
     const active = widget.getRoot()?.focusManager?.activeElement ?? null;
     return active?.getAncestorPath().includes(widget) === true;
 }

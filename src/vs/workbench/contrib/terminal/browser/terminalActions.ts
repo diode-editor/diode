@@ -13,7 +13,7 @@ import {
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
-import { ACTIVE_GROUP, SIDE_GROUP } from "../../../services/editor/common/editorGroupColumn.ts";
+import { SIDE_GROUP } from "../../../services/editor/common/editorGroupColumn.ts";
 import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
@@ -135,9 +135,9 @@ export const newTerminalAction: CommandAction = {
 export const createTerminalEditorAction: CommandAction = {
     id: "workbench.action.createTerminalEditor",
     title: "Terminal: Create New Terminal in Editor Area",
+    // Ключи освежает сама смена фокуса: вкладка открывается с фокусом.
     run(accessor) {
-        accessor.get(TerminalEditorServiceDIToken).createTerminal({}, { viewColumn: ACTIVE_GROUP });
-        refreshContextKeys(accessor);
+        accessor.get(TerminalEditorServiceDIToken).createTerminal();
     },
 };
 
@@ -146,7 +146,6 @@ export const createTerminalEditorSideAction: CommandAction = {
     title: "Terminal: Create New Terminal in Editor Area to the Side",
     run(accessor) {
         accessor.get(TerminalEditorServiceDIToken).createTerminal({}, { viewColumn: SIDE_GROUP });
-        refreshContextKeys(accessor);
     },
 };
 
@@ -163,9 +162,10 @@ export const moveToEditorAction: CommandAction = {
     run(accessor, instanceId) {
         const id =
             typeof instanceId === "number" ? instanceId : accessor.get(TerminalServiceDIToken).getActiveInstance()?.id;
+        // Stryker disable next-line ConditionalExpression: эквивалентный — перенос неизвестного id сервис и так пропускает; проверка — сужение для типа
         if (id === undefined) return;
+        // Фокус уходит во вкладку — ключи освежает его смена.
         accessor.get(TerminalEditorServiceDIToken).moveToEditor(id);
-        refreshContextKeys(accessor);
     },
 };
 
@@ -193,7 +193,6 @@ export const moveToTerminalPanelAction: CommandAction = {
         if (!(pane instanceof TerminalEditorPane)) return;
         accessor.get(TerminalEditorServiceDIToken).moveToPanel(pane.instance.id);
         showPanel(accessor);
-        refreshContextKeys(accessor);
     },
 };
 
