@@ -131,8 +131,10 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral: без перефильтрации подсветка не сдвигалась, и notifyActive всё равно промолчит (дедупликация по первой строке)
         const activeMayHaveMoved = !ownerMovedActive && listChanged;
         if (listChanged) this.fillList(view, this.state.keepScrollPosition && !valueChanged);
+        // Stryker disable next-line ConditionalExpression: без новых отметок setCheckedItems ставит тот же набор (отметки человека уже в состоянии) — кадр тот же
         if (checksChanged) view.setCheckedItems(this.state.selectedItems);
         if (ownerMovedActive) this.applyActive(view);
+        // Stryker disable next-line ConditionalExpression: без перефильтрации подсветка на месте, и notifyActive промолчит сам (дедупликация по первой строке)
         if (activeMayHaveMoved) this.notifyActive(view);
         // Stryker disable next-line CallExpression: без пометки не перезапустится раскладка, а подсказку и сообщение переносит именно она — наблюдаемо только в живом приложении (TestApp раскладывает кадр безусловно); гейт — e2e-сценарий quick-input (кадр create-quick-pick-filtered)
         view.markDirty();
