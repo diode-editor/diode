@@ -488,5 +488,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-19-dda301448f17.json",
+    "generatedAt": "2026-10-19T11:15:03.465Z",
+    "commit": "dda301448f17",
+    "binaryVersion": "nightly-dda3014",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
