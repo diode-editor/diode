@@ -684,10 +684,8 @@ export class EditorComponent extends Component {
             ticket.token,
         ).then((providerRegions) => {
             if (ticket.isStale()) return;
-            this.applyFoldingRegions(
-                providerRegions.length === 0 ? indentation : mergeFoldingRegions(indentation, providerRegions),
-                collapsedStarts,
-            );
+            // An empty answer merges down to the indentation folds alone.
+            this.applyFoldingRegions(mergeFoldingRegions(indentation, providerRegions), collapsedStarts);
         });
     }
 
