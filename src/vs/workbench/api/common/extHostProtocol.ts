@@ -66,6 +66,7 @@ import type {
     IWireLanguageConfiguration,
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
+    IWireMarkersChanged,
     IWireMementoUpdate,
     IWireOpenExternalResult,
     IWireOutputAppend,
@@ -205,6 +206,8 @@ export interface IHostToSubprocess {
     };
     readonly notifications: {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
+        /** Чужие маркеры MarkerService (`$acceptMarkersChange`): зеркало для `languages.getDiagnostics`. */
+        readonly "diagnostics.markersChanged": IWireMarkersChanged;
 
         readonly "workspace.initialize": IWireWorkspaceInitialize;
         readonly "env.initialize": IWireEnvInitialize;

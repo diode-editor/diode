@@ -29,7 +29,7 @@
 
 | поверхность | статус | члены |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 16/40 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 18/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 25/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 36/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
@@ -45,17 +45,18 @@
 | [`vscode.notebooks`](#пока-не-поднятые-namespace) | 🕐 | 0/3 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 261/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 262/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
 
-🟡 **16/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
+🟡 **18/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
 регистрацию, но пока не дёргаются.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
 | `createDiagnosticCollection` | 🟡 | работает (squiggle + Problems); related information не передаётся, маркеры умершего extension host не сбрасываются до его рестарта |
+| `getDiagnostics`, `onDidChangeDiagnostics` | ✅ | диагностики всех коллекций субпроцесса плюс чужие маркеры ядра (настройки, задачи) — зеркало, как `$acceptMarkersChange` эталона; событие склеивает изменения за 50 мс. Отступление: чужие маркеры, легшие до старта extension host, приезжают семенем; снятие чужих сообщается, даже когда у ресурса остались свои |
 | `registerCompletionItemProvider` | ✅ | trigger-символы, resolve (описание, авто-импорт) |
 | `registerDefinitionProvider` | ✅ | |
 | `registerHoverProvider` | ✅ | несколько провайдеров конкатенируются |
@@ -73,7 +74,7 @@
 | `match` | ✅ | работает в рантайме (скоринг селекторов для языковых клиентов); декларация в `vscode.d.ts` ещё не поднята |
 | остальные `register*Provider` (16: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, color, onTypeFormatting, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | регистрация принимается (no-op) — расширение не падает, провайдер не дёргается |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` — определение слова языка для `TextDocument.getWordRangeAtPosition` в субпроцессе (регекс, матчащий пустую строку, — эталонное исключение); `comments`, `brackets`, `autoClosingPairs` — слой поверх `language-configuration.json` в ядре (комментирование, авто-закрытие и обрамление): заданная секция заменяет секцию файла, поздний слой побеждает ранний, dispose и смерть extension host снимают слой. Не применяются (ядро не умеет их и из файла): `indentationRules`, `onEnterRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, устаревшие `__electricCharacterSupport`/`__characterPairSupport`; `wordPattern` редактору ядра (выделение слова, границы автодополнения) не передаётся |
-| `getLanguages`, `setTextDocumentLanguage`, `onDidChangeDiagnostics`, `getDiagnostics`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
+| `getLanguages`, `setTextDocumentLanguage`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
 ## vscode.workspace
 
@@ -344,7 +345,7 @@ Namespace есть, потому что `golang.go` заводит контро�
 
 ## Типы с неполной поверхностью
 
-Активно 261 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 262 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.

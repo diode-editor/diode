@@ -24,11 +24,14 @@ Open in Terminal`) открывает `claude` в **нижней панели** 
 
 Сводка открытых пунктов; подробности — в разделах ниже.
 
-1. **Живая проверка контекста.** API под `selection_changed`/`at_mentioned`
-   есть (`onDidChangeTextEditorSelection`, `activeTextEditor`, ключ
-   `editorTextFocus` для `Alt+K`/`Ctrl+Alt+K`), но что `claude` реально
-   получает выделение и открытый файл, вживую не проверено — до сих пор
-   смотрели только подключение (`/ide`).
+1. [~] **Живая проверка контекста** (19.10.2026, 2.1.303) — подробности в
+   «Живая проверка контекста» ниже. Нашёлся блокер: без
+   `languages.onDidChangeDiagnostics` расширение рвало каждое подключение CLI,
+   и `claude` не получал от IDE ничего; закрыт вместе с пунктом 6. После него
+   `selection_changed`, `at_mentioned` (`Ctrl+Alt+K`) и `getDiagnostics`
+   доходят. Осталось: событие выделения при возврате на вкладку (эталон шлёт
+   его из `restoreState`, мы — нет) и проверка глазами в настоящем `claude`
+   («что выделено?»).
 2. **Терминал вкладкой в области редакторов** (`TerminalLocation.Editor`,
    `ViewColumn.Beside`) — сейчас `location` выбрасывается, `claude`
    открывается в нижней панели. См. «Раскладка».
@@ -38,7 +41,7 @@ Open in Terminal`) открывает `claude` в **нижней панели** 
 5. **Предложенный дифф** (пункт 3): запись в ФС провайдера расширения и
    редактируемый документ на чужой схеме, `tabGroups` с `TabInputTextDiff` и
    закрытием дифф-вкладки.
-6. **Диагностики** (пункт 4): `languages.getDiagnostics`,
+6. [x] **Диагностики** (пункт 4): `languages.getDiagnostics`,
    `onDidChangeDiagnostics` — обратный путь из `MarkerService` в субпроцесс.
 7. **Магазин и стоковый e2e**: запись `Anthropic.claude-code` в реестр
    (платформенные vsix), стоковый сценарий через `fetchStockVsix`.
@@ -79,8 +82,8 @@ Open in Terminal`) открывает `claude` в **нижней панели** 
   совпадают.
 
 Что даёт терминальный режим (сверено с бандлом 2.1.283 и живым VS Code):
-выделение и открытый файл уходят в CLI (`selection_changed`, `at_mentioned`,
-Alt+K), диагностики по запросу (`getDiagnostics`), `openFile`, а правки при
+выделение и открытый файл уходят в CLI (`selection_changed`, `at_mentioned`
+по `Ctrl+Alt+K`), диагностики по запросу (`getDiagnostics`), `openFile`, а правки при
 запросе разрешения открываются **дифф-вкладкой** через `vscode.diff` с
 accept/reject — инлайн-предложения в стиле Copilot есть только у webview-режима,
 который в TUI невозможен. Условия на стороне CLI: `/config` → «Diff tool» =
@@ -195,9 +198,52 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 
 ### 4. Диагностики
 
-- [ ] `languages.getDiagnostics(uri?)` и `onDidChangeDiagnostics` — обратный
-      путь из `MarkerService` в субпроцесс (сейчас диагностики идут только
-      субпроцесс → хост). Без этого инструмент `getDiagnostics` у Claude пуст.
+- [x] `languages.getDiagnostics(uri?)` и `onDidChangeDiagnostics` — обратный
+      путь из `MarkerService` в субпроцесс (`DiagnosticsCustomer`, зеркало
+      чужих маркеров в субпроцессе; устройство — docs/arch/Extensions.md,
+      «Сток диагностик»). Оказался блокером всего контекста: 2.1.303 на каждом
+      подключении CLI подписывается на `onDidChangeDiagnostics`
+      (`DiagnosticStreamManager.startStreaming`), исключение уходит в
+      `.catch` подключения, и тот закрывает сокет — `/ide` видит IDE, но ни
+      выделения, ни at-mention не приходит. Вживую: инструмент `getDiagnostics`
+      отдаёт ошибки TypeScript, `diagnostics_changed` приходит на правку.
+
+### Живая проверка контекста (19.10.2026)
+
+Стенд: `npm run drive` из ветки, `Anthropic.claude-code@2.1.303`
+(linux-x64 vsix из OpenVSX, `--install <vsix>` — в реестре магазина его нет,
+пункт 7). Вместо CLI к ide-серверу подключался пробный WebSocket-клиент
+(порт и `authToken` из `~/.claude/ide/<port>.lock`, заголовок
+`x-claude-code-ide-authorization`, MCP `initialize`), который пишет каждое
+уведомление сервера, — так видны точные полезные нагрузки. Сервер держит
+одного клиента: новое подключение выбивает прежнее (проба и `claude`
+одновременно не живут).
+
+- **Выделение** — работает: Shift+стрелки в редакторе → через 300 мс
+  (дебаунс расширения) `selection_changed` с текстом, `filePath`/`fileUrl` и
+  диапазоном. На подключении расширение через 500 мс досылает последнее
+  известное выделение.
+- **Открытый файл** — работает через то же событие: `selection_changed` с
+  пустым выделением и путём файла приходит на любое движение каретки (клик в
+  файле). Своего слушателя `onDidChangeActiveTextEditor` у расширения нет.
+  Дыра: при возврате на вкладку с сохранённым выделением эталон шлёт
+  `onDidChangeTextEditorSelection` (курсор восстанавливается `restoreState`,
+  `CursorsController.restoreState` → `MainThreadTextEditor`), мы — нет, и
+  `claude` думает, что открыт прошлый файл, пока каретка не сдвинется. У
+  свежеоткрытого файла (каретка в 1:1) события нет и в эталоне.
+- **At-mention** — в 2.1.303 у терминального CLI это **`Ctrl+Alt+K`**
+  (`claude-code.insertAtMentioned`, `when: editorTextFocus`): `at_mentioned`
+  с `filePath` и `lineStart`/`lineEnd` (0-based) выделения, без выделения —
+  только файл. Работает. **`Alt+K`** (`claude-vscode.insertAtMention`) — путь
+  webview-чата: ищет видимую панель чата, иначе открывает
+  `claude-vscode.editor.openLast` → `createWebviewPanel` (у нас no-op с
+  предупреждением в канале Extensions). Так устроено само расширение, у VS
+  Code в терминальном режиме `Alt+K` тоже уходит в webview; к `config.*`
+  (пункт 3) отношения не имеет, оба кейбиндинга — только `editorTextFocus`.
+- **Настоящий `claude`** в терминале diode агентом не запускался (в его
+  сессии запуск вложенного агента запрещён); проверка «выдели строки — спроси
+  claude, что выделено» — руками: `claude` в TERMINAL, `/ide` → Diode,
+  выделить строки, спросить.
 
 ### Раскладка — Claude вкладкой справа (разведка 16.10.2026)
 
@@ -253,8 +299,9 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 
 ## Порядок
 
-1 + 2 — сделаны. Дальше живая проверка контекста, раскладка (терминал
-вкладкой справа → `config.*` → `editor/title`), затем 3, затем 4.
+1 + 2 — сделаны; 4 — сделан по ходу живой проверки контекста (был её
+блокером). Дальше хвост проверки контекста (выделение при смене вкладки),
+раскладка (терминал вкладкой справа → `config.*` → `editor/title`), затем 3.
 
 ## Устаревшее в VISION.md
 

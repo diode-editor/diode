@@ -3571,6 +3571,17 @@ declare module "vscode" {
 	}
 
 	/**
+	 * The event that is fired when diagnostics change.
+	 */
+	export interface DiagnosticChangeEvent {
+
+		/**
+		 * An array of resources for which diagnostics have changed.
+		 */
+		readonly uris: readonly Uri[];
+	}
+
+	/**
 	 * Represents the severity of diagnostics.
 	 */
 	export enum DiagnosticSeverity {
@@ -6915,6 +6926,27 @@ declare module "vscode" {
 	}
 
 	export namespace languages {
+
+		/**
+		 * An {@link Event} which fires when the global set of diagnostics changes. This is
+		 * newly added and removed diagnostics.
+		 */
+		export const onDidChangeDiagnostics: Event<DiagnosticChangeEvent>;
+
+		/**
+		 * Get all diagnostics for a given resource.
+		 *
+		 * @param resource A resource
+		 * @returns An array of {@link Diagnostic diagnostics} objects or an empty array.
+		 */
+		export function getDiagnostics(resource: Uri): Diagnostic[];
+
+		/**
+		 * Get all diagnostics.
+		 *
+		 * @returns An array of uri-diagnostics tuples or an empty array.
+		 */
+		export function getDiagnostics(): [Uri, Diagnostic[]][];
 
 		/**
 		 * Create a diagnostics collection.

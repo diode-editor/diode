@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
+import { MarkerService } from "../../../../platform/markers/common/markerService.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import type { DiagnosticsSink } from "../../../api/common/iExtensionWindowSinks.ts";
@@ -128,6 +130,78 @@ describe("ExtensionHost — сток диагностик сквозняком (
                 resource: uri,
                 markers: [],
             });
+        } finally {
+            await harness.dispose();
+        }
+    });
+});
+
+describe("ExtensionHost — обратный путь диагностик сквозняком (subprocess)", () => {
+    // Мост стока в MarkerService — как в module (`extensionHostModule.ts`).
+    const SEVERITY = [MarkerSeverity.Error, MarkerSeverity.Warning, MarkerSeverity.Info, MarkerSeverity.Hint];
+    function bridge(markerService: MarkerService): DiagnosticsSink {
+        return (owner, resource, markers) => {
+            markerService.changeOne(
+                owner,
+                resource,
+                markers.map((m) => ({ ...m, severity: SEVERITY[m.severity] ?? MarkerSeverity.Error })),
+            );
+        };
+    }
+    const SETTINGS = "file:///proj/settings.json";
+    const MAIN = "file:///proj/main.ts";
+    const RANGE = { start: { line: 3, character: 0 }, end: { line: 3, character: 7 } };
+
+    it("getDiagnostics видит чужие маркеры (семя и поток), свои — один раз; onDidChangeDiagnostics стреляет", async () => {
+        const markerService = new MarkerService();
+        // Маркер настроек лёг ДО спавна — доедет семенем.
+        markerService.changeOne("settings", SETTINGS, [
+            { severity: MarkerSeverity.Warning, range: RANGE, message: "Unknown setting", source: "settings" },
+        ]);
+        const harness = await createExtensionTestHarness({
+            extensions: [extensionFixture("test.publishesDiagnostics", "publishesDiagnostics.cjs")],
+            diagnosticsSink: bridge(markerService),
+            markers: markerService,
+        });
+        const get = (uri?: string) => harness.commandRegistry.execute("test.diag.get", uri);
+        try {
+            expect(await get(SETTINGS)).toEqual([
+                { message: "Unknown setting", severity: 1, source: "settings", range: [3, 0, 3, 7] },
+            ]);
+
+            await harness.commandRegistry.execute("test.diag.publish", MAIN, "Broken type");
+            markerService.changeOne("tasks", MAIN, [
+                { severity: MarkerSeverity.Error, range: RANGE, message: "Build failed", code: "TS1" },
+            ]);
+            await harness.flushRpc();
+
+            // Своя диагностика — из коллекции, без эха через MarkerService; чужая —
+            // из зеркала. Зеркало завелось семенем до активации, поэтому оно
+            // первое в наборе (у эталона — тоже порядок появления).
+            expect(await get(MAIN)).toEqual([
+                { message: "Build failed", severity: 0, code: "TS1", range: [3, 0, 3, 7] },
+                { message: "Broken type", severity: 1, source: "fixture", range: [0, 1, 0, 5] },
+            ]);
+            expect(await get()).toEqual([
+                [SETTINGS, [expect.objectContaining({ message: "Unknown setting" })]],
+                [
+                    MAIN,
+                    [
+                        expect.objectContaining({ message: "Build failed" }),
+                        expect.objectContaining({ message: "Broken type" }),
+                    ],
+                ],
+            ]);
+            // Окна событий зависят от тайминга активации — проверяем состав.
+            await vi.waitFor(async () => {
+                const changes = (await harness.commandRegistry.execute("test.diag.changes")) as string[][];
+                expect(changes.flat()).toEqual(expect.arrayContaining([SETTINGS, MAIN]));
+            });
+
+            // Чужие сняты — зеркало пустеет, свои на месте.
+            markerService.changeOne("tasks", MAIN, []);
+            await harness.flushRpc();
+            expect(await get(MAIN)).toEqual([expect.objectContaining({ message: "Broken type" })]);
         } finally {
             await harness.dispose();
         }

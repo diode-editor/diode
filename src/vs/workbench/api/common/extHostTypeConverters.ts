@@ -22,6 +22,7 @@ import type {
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import {
+    Diagnostic,
     EndOfLine,
     ParameterInformation,
     Position,
@@ -222,6 +223,14 @@ export function toWireMarker(diag: unknown): WireMarker | null {
         ...(code !== undefined ? { code } : {}),
         ...(typeof d.source === "string" ? { source: d.source } : {}),
     };
+}
+
+/** Маркер провода → `vscode.Diagnostic` (обратный к {@link toWireMarker}, `Diagnostic.to` эталона). */
+export function toVscodeDiagnostic(marker: WireMarker): vscode.Diagnostic {
+    const diag = new Diagnostic(toVscodeRange(marker.range), marker.message, marker.severity);
+    if (marker.code !== undefined) diag.code = marker.code;
+    if (marker.source !== undefined) diag.source = marker.source;
+    return diag;
 }
 
 /**

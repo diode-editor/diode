@@ -983,6 +983,51 @@ export interface IWireDiagnosticsPublish {
     readonly markers: readonly WireMarker[];
 }
 
+/**
+ * Чужие маркеры одного ресурса — те, что ведут не коллекции субпроцесса
+ * (настройки, задачи): полный набор, замена, а не мерж; пустой — их не осталось.
+ */
+export interface IWireForeignMarkers {
+    /** Ресурс как `uri.toString()` — ключ MarkerService. */
+    readonly resource: string;
+    /** Серьёзность — числа `vscode.DiagnosticSeverity` (0=Error…3=Hint). */
+    readonly markers: readonly WireMarker[];
+}
+
+/** Параметры `diagnostics.markersChanged` (host → subprocess, `$acceptMarkersChange` эталона). */
+export interface IWireMarkersChanged {
+    readonly entries: readonly IWireForeignMarkers[];
+}
+
+/**
+ * Разбирает `diagnostics.markersChanged`: запись без строки-ресурса или без
+ * массива маркеров выпадает, маркер чужой формы — тоже (drop+skip).
+ */
+export function parseWireMarkersChanged(raw: unknown): IWireForeignMarkers[] {
+    const entries = (raw as { entries?: unknown } | null)?.entries;
+    if (!Array.isArray(entries)) return [];
+    const result: IWireForeignMarkers[] = [];
+    for (const item of entries as unknown[]) {
+        const entry = item as { resource?: unknown; markers?: unknown } | null;
+        if (typeof entry?.resource !== "string" || !Array.isArray(entry.markers)) continue;
+        const markers: WireMarker[] = [];
+        for (const rawMarker of entry.markers as unknown[]) {
+            const m = rawMarker as Record<string, unknown> | null;
+            const range = parseRange(m?.range);
+            if (m == null || range === null || !isFiniteNumber(m.severity) || typeof m.message !== "string") continue;
+            markers.push({
+                severity: m.severity,
+                range,
+                message: m.message,
+                ...(typeof m.code === "string" ? { code: m.code } : {}),
+                ...(typeof m.source === "string" ? { source: m.source } : {}),
+            });
+        }
+        result.push({ resource: entry.resource, markers });
+    }
+    return result;
+}
+
 // ─── Editor write (selection + edit, #194) ───────────────────────────────────
 
 /** Wire-форма выделения (0-based; anchor — якорь, active — курсор). */

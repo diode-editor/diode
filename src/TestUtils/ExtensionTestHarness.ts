@@ -76,6 +76,7 @@ import { prepareRename, renameSymbol } from "../vs/workbench/contrib/rename/brow
 import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/contrib/suggest/browser/provideCompletions.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
+import type { IMarkerReader } from "../vs/workbench/services/extensions/node/customers/diagnosticsCustomer.ts";
 import type { IExtensionHostEnvironment } from "../vs/workbench/services/extensions/node/customers/envCustomer.ts";
 import {
     ExtensionHost,
@@ -252,6 +253,8 @@ export interface IExtensionHarnessOptions {
     readonly languageService?: ILanguageService;
     /** Сток диагностик расширений (`diagnostics.publish`). По умолчанию не подключён. */
     readonly diagnosticsSink?: DiagnosticsSink;
+    /** Чтение MarkerService для обратного пути диагностик. По умолчанию не подключено. */
+    readonly markers?: IMarkerReader;
     /** Сток прогресса расширений (`window.progress.*`). По умолчанию не подключён. */
     readonly progressSink?: IProgressSink;
     /** Сток output-каналов расширений (`output.append`/`show`). По умолчанию не подключён. */
@@ -454,6 +457,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         openDocumentsProvider: () => openDocumentSnapshots(group),
         editorLayout,
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
+        ...(options.markers !== undefined ? { markers: options.markers } : {}),
         ...(options.progressSink !== undefined ? { progressSink: options.progressSink } : {}),
         ...(options.outputSink !== undefined ? { outputSink: options.outputSink } : {}),
         ...(options.statusBarItemSink !== undefined ? { statusBarItemSink: options.statusBarItemSink } : {}),

@@ -8,7 +8,6 @@ import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import { type IWindowSinks, WindowCustomer } from "./windowCustomer.ts";
 
 const NO_SINKS: IWindowSinks = {
-    diagnosticsSink: undefined,
     progressSink: undefined,
     outputSink: undefined,
     statusBarItemSink: undefined,
@@ -18,7 +17,6 @@ const NO_SINKS: IWindowSinks = {
 
 function makeSinks() {
     return {
-        diagnosticsSink: vi.fn(),
         progressSink: { start: vi.fn(), report: vi.fn(), end: vi.fn() },
         outputSink: { append: vi.fn(), show: vi.fn() },
         statusBarItemSink: { update: vi.fn(), remove: vi.fn(), clear: vi.fn() },
@@ -55,7 +53,6 @@ const WINDOW_NOTIFICATIONS: readonly [string, unknown][] = [
     ["output.show", { channel: "ext.log", label: "Ext" }],
     ["window.statusBarItem.update", { handle: 2, id: "ext.item", text: "ok", alignment: "left", priority: 0 }],
     ["window.statusBarItem.dispose", { handle: 2 }],
-    ["diagnostics.publish", { owner: "ext", resource: "file:///a.ts", markers: [] }],
 ];
 
 describe("WindowCustomer — стоки окна", () => {
@@ -73,7 +70,6 @@ describe("WindowCustomer — стоки окна", () => {
         expect(sinks.outputSink.show).toHaveBeenCalledWith("ext.log", "Ext");
         expect(sinks.statusBarItemSink.update).toHaveBeenCalledWith(expect.objectContaining({ handle: 2, text: "ok" }));
         expect(sinks.statusBarItemSink.remove).toHaveBeenCalledWith(2);
-        expect(sinks.diagnosticsSink).toHaveBeenCalledWith("ext", "file:///a.ts", []);
         expect(rpcLogger.warn).not.toHaveBeenCalled();
     });
 
@@ -91,7 +87,6 @@ describe("WindowCustomer — стоки окна", () => {
         expect(sinks.outputSink.show).not.toHaveBeenCalled();
         expect(sinks.statusBarItemSink.update).not.toHaveBeenCalled();
         expect(sinks.statusBarItemSink.remove).not.toHaveBeenCalled();
-        expect(sinks.diagnosticsSink).not.toHaveBeenCalled();
         expect(rpcLogger.warn).not.toHaveBeenCalled();
     });
 
