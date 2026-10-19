@@ -26,6 +26,18 @@ describe("simulateWorkspaceFoldersUpdate — проверки эталона", (
         expect(paths(simulateWorkspaceFoldersUpdate([], 0, 0, [{ uri: C }]))).toEqual(["/ws/c"]);
     });
 
+    it("разные папки добавляются все; замена второй из двух — изменение", () => {
+        expect(paths(simulateWorkspaceFoldersUpdate([{ uri: A }], 1, 0, [{ uri: B }, { uri: C }]))).toEqual([
+            "/ws/a",
+            "/ws/b",
+            "/ws/c",
+        ]);
+        expect(paths(simulateWorkspaceFoldersUpdate([{ uri: A }, { uri: B }], 1, 1, [{ uri: C }]))).toEqual([
+            "/ws/a",
+            "/ws/c",
+        ]);
+    });
+
     it("повторы и не-Uri среди добавляемых отбрасываются", () => {
         const odd = [{ uri: B }, { uri: B }, { uri: "нет" }, null] as unknown as { uri: Uri }[];
         expect(paths(simulateWorkspaceFoldersUpdate([{ uri: A }], 1, 0, odd))).toEqual(["/ws/a", "/ws/b"]);

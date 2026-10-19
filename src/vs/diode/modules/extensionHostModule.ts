@@ -316,7 +316,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // workspace.updateWorkspaceFolders → Open Folder, если итог — ровно одна
             // папка; иначе тост (multi-root нет). Опенер берётся в момент просьбы:
             // его регистрирует модуль workbench.
-            // Stryker disable next-line ArrowFunction: production-проводка модуля — решение живёт в WorkspaceFoldersExtensionAdapter и закрыто юнитами
+            // Stryker disable ArrowFunction,BlockStatement,CallExpression: production-проводка модуля — решение живёт в WorkspaceFoldersExtensionAdapter и закрыто юнитами, сквозняк — extensionHost.updateWorkspaceFolders.test.ts и живой прогон golang.go («Go: Add Package to Workspace»)
             workspaceFoldersSink: new WorkspaceFoldersExtensionAdapter(
                 (folder) => {
                     container.get(WorkspaceFolderOpenerDIToken).setWorkspaceFolder(folder);
@@ -324,6 +324,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 container.get(NotificationServiceDIToken),
                 (id) => installedExtensionDisplayName(ctx.extensions, id),
             ),
+            // Stryker restore ArrowFunction,BlockStatement,CallExpression
             // env.clipboard — тот же буфер, которым пользуются copy/paste ядра.
             clipboard: container.get(ClipboardDIToken),
             // env.openExternal — системный обработчик, а без графического сеанса

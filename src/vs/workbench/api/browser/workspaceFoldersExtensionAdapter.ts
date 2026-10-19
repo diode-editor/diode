@@ -25,7 +25,7 @@ export class WorkspaceFoldersExtensionAdapter implements IWorkspaceFoldersSink {
             return;
         }
         const id = request.extensionId;
-        const name = (id === null ? undefined : this.extensionName(id)) ?? id ?? "unknown";
+        const name = id === null ? "unknown" : (this.extensionName(id) ?? id);
         this.notifications.show({
             severity: "error",
             message: `Extension '${name}' failed to update workspace folders: multi-root workspaces are not supported`,

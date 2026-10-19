@@ -10,8 +10,8 @@ export interface IWorkspaceFolderToAdd {
  * Симуляция `workspace.updateWorkspaceFolders` над текущим набором папок —
  * проверки `ExtHostWorkspace.updateWorkspaceFolders` эталона дословно по смыслу:
  * чужие `uri` и повторы среди добавляемых отбрасываются; отрицательные или не
- * числа, «нечего удалять и добавлять», удаление сверх имеющегося, папка дважды
- * в итоге и итог без изменений — отказ (`null`). Иначе — новый набор папок
+ * числа, удаление сверх имеющегося, папка дважды в итоге и итог без изменений
+ * (в том числе «нечего удалять и добавлять») — отказ (`null`). Иначе — новый набор папок
  * (только `uri`: имя папки у нас — её basename, как у открытой напрямую).
  *
  * Папки сравниваются по `fsPath` (в эталоне — с учётом регистра ФС; у нас ФС
@@ -30,7 +30,6 @@ export function simulateWorkspaceFoldersUpdate(
         if (!added.some((other) => other.fsPath === uri.fsPath)) added.push(uri);
     }
     if (!isCount(index) || !isCount(deleteCount)) return null;
-    if (deleteCount === 0 && added.length === 0) return null;
     if (index + deleteCount > current.length) return null;
 
     const next = current.map((folder) => folder.uri);
