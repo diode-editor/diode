@@ -185,17 +185,27 @@ jobs:
 
       # continue-on-error, чтобы отчёт долетел до PR и когда балл ниже порога;
       # красным job делает последний шаг.
-      # База: у PR — его base.sha, у ручного запуска — `base` из inputs, а без
-      # него merge-base с main (fetch-depth: 0 приносит origin/main).
+      # База: у PR — первый родитель merge-ref (`HEAD^1`), то есть ровно тот
+      # main, с которым собран проверяемый код. НЕ `pull_request.base.sha`: он
+      # фиксируется на момент события и отстаёт, если main ушёл вперёд, а
+      # merge-ref GitHub собирает против свежего main — тогда в скоуп попадали
+      # чужие, уже влитые коммиты (#663: выжившие в viewsService.ts из #660).
+      # У ручного запуска — `base` из inputs, без него merge-base с main
+      # (fetch-depth: 0 приносит origin/main).
       # Лог — в артефакт: при ручном запуске комментария в PR нет.
       - name: Mutation testing
         id: mutation
         continue-on-error: true
         env:
-          BASE: ${{ github.event.pull_request.base.sha || inputs.base }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          BASE: ${{ inputs.base }}
         run: |
           set -o pipefail
-          base="${BASE:-$(git merge-base origin/main HEAD)}"
+          if [ "$IS_PR" = "true" ]; then
+            base="$(git rev-parse HEAD^1)"
+          else
+            base="${BASE:-$(git merge-base origin/main HEAD)}"
+          fi
           echo "База диффа: $base"
           mkdir -p reports/mutation
           # Перепроверка вживлением — после Stryker'а, в том же шаге; бюджет с
