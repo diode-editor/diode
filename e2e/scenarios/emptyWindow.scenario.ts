@@ -1,6 +1,6 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, sep } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
@@ -9,9 +9,14 @@ import { defineScenario } from "./framework.ts";
 // выйти из этого состояния можно командой Open Folder, которая наполняет дерево.
 // Сам welcome и его кнопка — в сценарии `no-folder-welcome`.
 
+const MARKER = "demo-assets";
+
 /** Маленький воркспейс: в кадр целиком влезает весь его список файлов. */
 function makeFolder(): string {
     const dir = mkdtempSync(join(tmpdir(), "diode-empty-window-"));
+    // Каталог-метка: диалог «только папки» показывает лишь каталоги, и по нему
+    // видно, что подгрузка папки дошла до конца.
+    mkdirSync(join(dir, MARKER));
     writeFileSync(join(dir, "greeting.ts"), 'export const greeting = "hello";\n');
     writeFileSync(join(dir, "README.md"), "# Demo\n");
     return dir;
@@ -34,10 +39,17 @@ export default defineScenario({
         // Ctrl+K Ctrl+O — выход из пустого окна.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+O");
-        await editor.waitForText((t) => t.includes("Open Folder") && t.includes("Enter a folder path"));
+        // Диалог файлов в режиме «только папки» стоит в домашнем каталоге: путь
+        // заменяем целиком (Ctrl+A и вставка), разделитель на конце входит в папку,
+        // Enter без подсвеченной строки выбирает её.
+        await editor.waitForText((t) => t.includes("Open Folder") && t.includes(".."));
         await editor.capture("prompt");
 
-        await editor.sendText(folder);
+        await editor.sendKey("Ctrl+A");
+        await editor.sendText(folder + sep);
+        // Длинный путь (временный каталог на Windows) в строке прокручен — видна
+        // только его хвостовая часть.
+        await editor.waitForText((t) => t.includes(basename(folder) + sep) && t.includes(MARKER));
         await editor.sendKey("Enter");
         // Дерево обязано НАПОЛНИТЬСЯ, а не просто потерять подсказку: смена
         // корня строит новый TreeViewElement, который грузится только refresh'ем.

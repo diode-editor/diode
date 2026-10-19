@@ -1,6 +1,6 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
@@ -19,9 +19,14 @@ function makeLonelyFile(): string {
     return file;
 }
 
+const MARKER = "demo-assets";
+
 /** Папка, которой заканчивается демо: её список файлов целиком влезает в кадр. */
 function makeFolder(): string {
     const dir = mkdtempSync(join(tmpdir(), "diode-no-folder-"));
+    // Каталог-метка: диалог «только папки» показывает лишь каталоги, и по нему
+    // видно, что подгрузка папки дошла до конца.
+    mkdirSync(join(dir, MARKER));
     writeFileSync(join(dir, "greeting.ts"), 'export const greeting = "hello";\n');
     writeFileSync(join(dir, "README.md"), "# Demo\n");
     return dir;
@@ -71,8 +76,12 @@ export default defineScenario({
         await editor.sendKey("e");
         await editor.waitForText((t) => t.includes("[ Open Folder ]"));
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("Open Folder") && t.includes("Enter a folder path"));
-        await editor.sendText(folder);
+        await editor.waitForText((t) => t.includes("Open Folder") && t.includes(".."));
+        await editor.sendKey("Ctrl+A");
+        await editor.sendText(folder + sep);
+        // Длинный путь (временный каталог на Windows) в строке прокручен — видна
+        // только его хвостовая часть.
+        await editor.waitForText((t) => t.includes(basename(folder) + sep) && t.includes(MARKER));
         await editor.sendKey("Enter");
         // Дерево обязано НАПОЛНИТЬСЯ, а не просто потерять welcome.
         await editor.waitForText((t) => t.includes("greeting.ts") && !t.includes("You have not yet opened a"));

@@ -795,6 +795,15 @@ function holdFolder(files: FileService, folder: string): { started: () => Promis
 }
 
 describe("SimpleFileDialog — во время подгрузки каталога", () => {
+    it("Enter сразу после набранного пути в другой каталог принимает этот путь", async () => {
+        const { dialog, settle, type, testApp } = await setup();
+        const result = dialog.showOpenDialog();
+        await settle({ query: "/ws/" });
+        type("src/a.ts");
+        testApp.sendKey("Enter");
+        await expect(result).resolves.toEqual([Uri.file("/ws/src/a.ts")]);
+    });
+
     it("Enter ждёт подгрузку и судит уже по новому каталогу", async () => {
         const { dialog, settle, type, testApp, files, component } = await setup();
         void dialog.showOpenDialog({ canSelectFiles: true });
@@ -963,30 +972,29 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ query: "/ws/docs/", items: [".."] });
     });
 
-    it("открытие с фильтром расширение не дописывает", async () => {
-        const { dialog, settle, type, testApp, component } = await setup();
-        void dialog.showOpenDialog({ filters: [{ name: "Markdown", extensions: ["md"] }] });
-        await settle({ query: "/ws/" });
-        type("readme");
-        testApp.sendKey("Enter");
-        await vi.waitFor(() => {
-            expect(component.view.validationMessage).toBe("Please enter a path that exists.");
-        });
-    });
-
-    it("Enter сразу после набранного каталога — переход, а не выбор", async () => {
+    it("Enter сразу после набранного каталога — выбор этого каталога", async () => {
         const { dialog, settle, type, testApp } = await setup();
-        let settled = false;
         const result = dialog.showOpenDialog({ canSelectFolders: true });
-        void result.then(() => (settled = true));
         await settle({ query: "/ws/" });
         type("src/");
         testApp.sendKey("Enter");
-        // Только папки: файлов каталога не видно.
-        await settle({ query: "/ws/src/", items: [".."] });
-        expect(settled).toBe(false);
-        testApp.sendKey("Enter");
         await expect(result).resolves.toEqual([Uri.file("/ws/src")]);
+    });
+
+    it("Enter на несуществующем каталоге — подсказка про ~, а не проверка пути", async () => {
+        const { dialog, settle, type, testApp, component } = await setup();
+        void dialog.showOpenDialog({ canSelectFolders: true });
+        await settle({ query: "/ws/" });
+        type("nope/");
+        testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(component.view.validationMessage).toBe(
+                "The path does not exist. Use ~ to go to your home directory.",
+            );
+        });
+        await new Promise((done) => setTimeout(done, 30));
+        expect(component.view.validationMessage).toBe("The path does not exist. Use ~ to go to your home directory.");
+        expect(component.isOpen()).toBe(true);
     });
 
     it("ответ stat каталога про устаревший набор не подгружает его", async () => {

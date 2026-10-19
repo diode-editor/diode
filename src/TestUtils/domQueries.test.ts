@@ -27,7 +27,6 @@ describe("domQueries", () => {
 
         const input = quickPickByTitle(h.testApp, "Open File");
         expect(input.title).toBe("Open File");
-        expect(input.getQuery()).toBe("");
     });
 
     it("tabLabels возвращает ярлыки вкладок в порядке отображения", () => {

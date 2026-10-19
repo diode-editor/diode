@@ -660,8 +660,9 @@ hide-toggle (`isHiddenByDefault`). См.
   пикером открытых редакторов), `ThemeActions.ts` (`selectColorTheme` поверх
   `QuickInputService.quickPick` + `ThemeRegistry`/`ThemeService`, live-preview
   через `onDidChangeActive`, персист в `workbench.colorTheme`; здесь же
-  `themeTypeLabel`), `FileActions.ts` (Open File / Open Folder: InputBox-промпт
-  пути + `FileOperationsService.resolveInputPath`; открытие — команда
+  `themeTypeLabel`), `FileActions.ts` (Open File / Open Folder / Save As: диалог
+  файлов `IFileDialogService` — порт `SimpleFileDialog` эталона в
+  `services/dialogs/browser/simpleFileDialog.ts`; открытие — команда
   `workbench.openFile`, смена воркспейса — шов `IWorkspaceFolderOpener` →
   `WorkbenchComponent` структурно, биндинг в `Modules/WorkbenchModule.ts`).
   Регистрирует их `WorkbenchComponent` в общем цикле по `WORKBENCH_ACTIONS`.

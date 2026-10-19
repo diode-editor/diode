@@ -169,7 +169,7 @@ gopls жив, даже когда активация падает (дыра №1
       как в эталоне: безымянный буфер ядра `untitled:Untitled-N` (грязный, правимый,
       Save As), а не read-only вкладка — untitled-модели в ядре уже были (File → New
       Untitled File), понадобился только мост.
-- [~] **B8. Мелочи** (№13–№14): `createQuickPick`, `showOpenDialog`/`showSaveDialog`,
+- [x] **B8. Мелочи** (№13–№14): `createQuickPick`, `showOpenDialog`/`showSaveDialog`,
       `updateWorkspaceFolders`, формат лога отказа активации.
       - [x] лог отказа активации не-`Error` значением — само значение (#659);
       - [x] `window.createQuickPick` — объектная форма эталона (#662); живьём
@@ -179,17 +179,11 @@ gopls жив, даже когда активация падает (дыра №1
       - [x] `workspace.updateWorkspaceFolders` (#663): итог в одну папку открывается,
         вторая папка (`Go: Add Package to Workspace`) — `false` + тост ошибки.
         **Решение человека:** «false + тост», а не строка в Output;
-      - [ ] `showOpenDialog`/`showSaveDialog` — **решение человека:** порт
-        `SimpleFileDialog` эталона (quick pick со списком каталога, путь в строке,
-        автодополнение сегмента выделением), и на него же переезжают наши
-        `File: Open File/Open Folder/Save As` (сейчас — голое поле пути).
-      - [x] лог отказа активации не-`Error` значением — само значение (#659);
-      - [x] `window.createQuickPick` — объектная форма эталона; живьём проверен
-        `Go: Generate Interface Stubs` (поле `lazyEnum` → `pickLazyEnum`: поиск
-        `fmt.Stringer` через `interactive/listEnum`, gopls вписывает заглушку).
-        Индикатора `busy` у оверлея нет — список просто пуст, пока сервер думает;
-      - [ ] `showOpenDialog`/`showSaveDialog`;
-      - [ ] `updateWorkspaceFolders`.
+      - [x] `showOpenDialog`/`showSaveDialog` — **решение человека:** порт
+        `SimpleFileDialog` эталона (#668: путь в строке, каталог под ней,
+        автодополнение имени выделением, проверки и вопросы эталона); живьём
+        `Go: Choose Go Environment` → «Choose from file browser». На него же
+        переехали наши `File: Open File/Open Folder/Save As` (вместо голого поля пути).
 
 ### Волна C — заработает само, когда фичи появятся в ядре (ради Go не делаем)
 
