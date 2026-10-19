@@ -357,7 +357,7 @@ describe("SimpleFileDialog — набор пути", () => {
 
     it("стрелкой выбранный каталог и Enter — внутрь", async () => {
         const { dialog, settle, testApp, type } = await setup();
-        void dialog.showOpenDialog();
+        const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
         for (let i = 0; i < 3; i++) testApp.sendKey("ArrowDown");
         await settle({ query: "/ws/src", activeIndex: 2 });
@@ -366,6 +366,9 @@ describe("SimpleFileDialog — набор пути", () => {
         // Подгрузка дошла до конца — набор дальше снова подсвечивает.
         type("b");
         await settle({ query: "/ws/src/b", activeIndex: 2 });
+        // Вход в каталог принятием не был — следующий Enter принимает файл.
+        testApp.sendKey("Enter");
+        await expect(result).resolves.toEqual([Uri.file("/ws/src/b.ts")]);
     });
 });
 

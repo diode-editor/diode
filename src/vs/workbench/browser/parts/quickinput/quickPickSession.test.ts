@@ -575,6 +575,29 @@ describe("QuickPickSession — общий виджет после чужого �
     });
 });
 
+describe("QuickPickSession — правила поиска и выделение запроса", () => {
+    it("matchOnLabel: false на открытом пикере — список снова целиком", () => {
+        const { pick, view, type } = setup();
+        pick.update({ items: FRUITS });
+        pick.show();
+        type("app");
+        expect(view()).toMatchObject({ items: ["apple"] });
+
+        pick.update({ matchOnLabel: false });
+
+        expect(view()).toMatchObject({ items: ["apple", "banana", "cherry"] });
+    });
+
+    it("выделение запроса, заданное до показа, видно при показе", () => {
+        const { pick, component } = setup();
+        pick.update({ value: "/ws/report.txt", valueSelection: [4, 10] });
+
+        pick.show();
+
+        expect(component.view.inputElement.inputState.selectedText).toBe("report");
+    });
+});
+
 describe("QuickPickSession — виджет отдан из обработчика набора", () => {
     it("после hide() в onDidChangeValue строки нового владельца не перетираются", () => {
         const { service, component, testApp, view } = setup();

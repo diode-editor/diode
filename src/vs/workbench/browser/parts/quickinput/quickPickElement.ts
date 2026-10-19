@@ -338,6 +338,7 @@ export class QuickPickElement extends TUIElement {
         state.moveCursorToStart();
         for (let i = 0; i < from; i++) state.moveCursorRight();
         for (let i = from; i < to; i++) state.selectRight();
+        // Stryker disable next-line CallExpression: без пометки не перезапустится раскладка, и выделение дорисует следующий кадр — наблюдаемо только в живом приложении (TestApp раскладывает кадр безусловно); гейт — e2e-сценарий quick-input (кадр file-dialog-typed)
         this.markDirty();
     }
 

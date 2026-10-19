@@ -237,11 +237,13 @@ export class SimpleFileDialog {
             const trailing = this.trailing;
             void this.updateItems(homedir, { force: true, trailing }).then(() => {
                 const value = this.value;
+                const name = trailing ?? "";
                 // Имя без расширения выделено: «[report].txt». Без имени курсор и так
                 // в конце — строку ставит подгрузка.
-                if (trailing !== undefined && this.requiresTrailing) {
-                    const ext = path.extname(trailing);
-                    this.update({ valueSelection: [value.length - trailing.length, value.length - ext.length] });
+                // Stryker disable next-line ConditionalExpression: без имени выделение пустое и стоит в конце строки — ровно там, где курсор оставила подгрузка
+                if (this.requiresTrailing && name !== "") {
+                    const ext = path.extname(name);
+                    this.update({ valueSelection: [value.length - name.length, value.length - ext.length] });
                 }
             });
         });
