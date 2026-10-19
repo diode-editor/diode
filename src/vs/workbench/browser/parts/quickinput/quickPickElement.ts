@@ -222,6 +222,15 @@ export class QuickPickElement extends TUIElement {
      * клампится в новые границы, а строка остаётся на экране.
      */
     public refreshItems(value: readonly QuickPickItem[]): void {
+        // Подсветки не было (clearActive) — новые строки её тоже не получают.
+        if (this.selectedIndexValue < 0) {
+            this.itemsValue = value;
+            this.rebuildRows();
+            this.clearCursorIfNoActive();
+            // Stryker disable next-line CallExpression: пересборка рядов метит список грязным, а `performLayout` начинается с того же `syncStructure` — состав догоняет до кадра
+            this.syncStructure();
+            return;
+        }
         const hadPrevious = this.itemsValue.length > 0;
         const previous = this.itemsValue[this.selectedIndexValue];
         this.itemsValue = value;
@@ -242,8 +251,22 @@ export class QuickPickElement extends TUIElement {
         this.syncStructure();
     }
 
+    /** Подсвеченная строка; `-1` — ни одна ({@link clearActive}). */
     public get selectedIndex(): number {
         return this.selectedIndexValue;
+    }
+
+    /**
+     * Снять подсветку: ни одна строка не активна — состояние `activeItems = []`
+     * quick pick'а эталона. Enter тогда принимает не строку, а набранное
+     * ({@link onAcceptEmpty}); `↓` встаёт на первую строку, `↑` — на последнюю.
+     * Подсветку возвращает любая её постановка ({@link setActiveIndex}, стрелки,
+     * мышь, новые {@link items}).
+     */
+    public clearActive(): void {
+        // `ListViewElement.clearCursor` сам метит дерево грязным — перерисовка будет.
+        this.selectedIndexValue = -1;
+        this.clearCursorIfNoActive();
     }
 
     /**
@@ -299,6 +322,24 @@ export class QuickPickElement extends TUIElement {
 
     public getQuery(): string {
         return this.inputElement.inputState.value;
+    }
+
+    /**
+     * Выделение в строке запроса `[start, end)` (смещения в графемах): курсор в
+     * `end`, якорь в `start`. Набранное следом заменит выделенное — так диалог
+     * файлов подсовывает автодополнение. `start === end` — просто курсор.
+     */
+    public setQuerySelection(start: number, end: number): void {
+        const state = this.inputElement.inputState;
+        const length = new DisplayLine(state.value).slots.length;
+        const to = Math.max(0, Math.min(length, end));
+        const from = Math.max(0, Math.min(to, start));
+        // Как `setSelectionRange`: якорь в начале, курсор — в конце выделения.
+        state.moveCursorToStart();
+        for (let i = 0; i < from; i++) state.moveCursorRight();
+        for (let i = from; i < to; i++) state.selectRight();
+        // Stryker disable next-line CallExpression: без пометки не перезапустится раскладка, и выделение дорисует следующий кадр — наблюдаемо только в живом приложении (TestApp раскладывает кадр безусловно); гейт — e2e-сценарий quick-input (кадр file-dialog-typed)
+        this.markDirty();
     }
 
     public setQuery(value: string): void {
@@ -439,6 +480,7 @@ export class QuickPickElement extends TUIElement {
         const keepScroll = this.list.scrollTop;
         this.rebuildRows();
         this.list.scrollTop = keepScroll;
+        this.clearCursorIfNoActive();
         // Stryker disable next-line ObjectLiteral: отсутствующий `notify` читается как `!undefined`, то есть ровно как `notify: false`
         this.moveCursorTo(keepIndex, { notify: false });
     }
@@ -452,6 +494,11 @@ export class QuickPickElement extends TUIElement {
         } finally {
             this.suppressActiveNotification = false;
         }
+    }
+
+    /** Пересборка рядов возвращает курсор списка — снятую подсветку надо снять снова. */
+    private clearCursorIfNoActive(): void {
+        if (this.selectedIndexValue < 0) this.list.clearCursor();
     }
 
     private notifyActive(): void {
@@ -501,13 +548,17 @@ export class QuickPickElement extends TUIElement {
 
     private moveSelection(delta: number): void {
         if (this.itemsValue.length === 0) return;
-        const next = Math.max(0, Math.min(this.itemsValue.length - 1, this.selectedIndexValue + delta));
+        // Без подсветки стрелки встают на край списка, а не шагают от «-1».
+        // Stryker disable next-line EqualityOperator: `delta` не бывает нулём — стрелки и страницы шагают минимум на 1
+        const from = this.selectedIndexValue < 0 ? (delta > 0 ? -1 : this.itemsValue.length) : this.selectedIndexValue;
+        const next = Math.max(0, Math.min(this.itemsValue.length - 1, from + delta));
         if (next === this.selectedIndexValue) return;
         this.moveCursorTo(next, { notify: true });
     }
 
     /** Переключает отметку строки под курсором (множественный выбор). */
     private toggleChecked(): void {
+        if (this.selectedIndexValue < 0) return;
         const item = this.itemsValue.at(this.selectedIndexValue);
         if (item === undefined) return;
         if (!this.checkedValue.delete(item)) this.checkedValue.add(item);
@@ -529,7 +580,7 @@ export class QuickPickElement extends TUIElement {
             this.onAcceptMany?.();
             return;
         }
-        if (this.itemsValue.length > 0) {
+        if (this.selectedIndexValue >= 0 && this.itemsValue.length > 0) {
             this.onAccept?.(this.itemsValue[this.selectedIndexValue], this.selectedIndexValue);
             return;
         }
@@ -605,6 +656,7 @@ export class QuickPickElement extends TUIElement {
             const keep = this.selectedIndexValue;
             this.rebuildRows();
             this.moveCursorTo(keep, { notify: false });
+            this.clearCursorIfNoActive();
         }
 
         super.performLayout(BoxConstraints.tight(size));

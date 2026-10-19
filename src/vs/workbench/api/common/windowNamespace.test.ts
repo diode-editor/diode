@@ -163,6 +163,78 @@ describe("WindowNamespace", () => {
 
     // Сам провод quick input'а закрыт в quickInputNamespace.test.ts; здесь
     // проверяется только то, что window его действительно отдаёт наружу.
+    it("showOpenDialog: опции — запросом хосту (фильтры парами), ответ — Uri расширения", async () => {
+        const { stub, window } = makeCtx();
+        stub.responder = () => ({ uris: ["file:///ws/a.go", 5] });
+        const picked = await window.showOpenDialog({
+            defaultUri: Uri.file("/ws"),
+            canSelectFiles: true,
+            canSelectMany: false,
+            openLabel: "Select",
+            filters: { Go: ["go"], All: ["*"] },
+            title: "Pick",
+        });
+        expect(picked?.map((uri) => uri.fsPath)).toEqual(["/ws/a.go"]);
+        expect(stub.requests[0]).toEqual({
+            method: "window.showOpenDialog",
+            params: {
+                defaultUri: "file:///ws",
+                openLabel: "Select",
+                canSelectFiles: true,
+                canSelectFolders: undefined,
+                canSelectMany: false,
+                filters: [
+                    { name: "Go", extensions: ["go"] },
+                    { name: "All", extensions: ["*"] },
+                ],
+                title: "Pick",
+            },
+        });
+    });
+
+    it("showOpenDialog: отмена и мусорный ответ — undefined", async () => {
+        const { stub, window } = makeCtx();
+        stub.responder = () => ({ uris: null });
+        await expect(window.showOpenDialog()).resolves.toBeUndefined();
+        stub.responder = () => null;
+        await expect(window.showOpenDialog()).resolves.toBeUndefined();
+        expect(stub.requests[0]?.params).toEqual({
+            defaultUri: undefined,
+            openLabel: undefined,
+            canSelectFiles: undefined,
+            canSelectFolders: undefined,
+            canSelectMany: undefined,
+            filters: undefined,
+            title: undefined,
+        });
+    });
+
+    it("showSaveDialog: Uri ресурса или undefined", async () => {
+        const { stub, window } = makeCtx();
+        stub.responder = () => ({ uri: "file:///ws/new.txt" });
+        const uri = await window.showSaveDialog({ defaultUri: Uri.file("/ws/new.txt"), saveLabel: "Save", title: "T" });
+        expect(uri?.fsPath).toBe("/ws/new.txt");
+        expect(stub.requests[0]).toEqual({
+            method: "window.showSaveDialog",
+            params: { defaultUri: "file:///ws/new.txt", saveLabel: "Save", filters: undefined, title: "T" },
+        });
+        stub.responder = () => ({ uri: null });
+        await expect(window.showSaveDialog()).resolves.toBeUndefined();
+        stub.responder = () => ({ uri: 7 });
+        await expect(window.showSaveDialog()).resolves.toBeUndefined();
+    });
+
+    it("опции без defaultUri — папку диалога выбирает хост", async () => {
+        const { stub, window } = makeCtx();
+        stub.responder = () => null;
+        await window.showOpenDialog({ title: "Pick" });
+        await window.showSaveDialog({ title: "Save" });
+        expect(stub.requests.map((request) => (request.params as { defaultUri?: string }).defaultUri)).toEqual([
+            undefined,
+            undefined,
+        ]);
+    });
+
     it("showQuickPick уходит хосту запросом и резолвится выбранным", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ indices: [1] });

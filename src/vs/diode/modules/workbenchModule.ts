@@ -295,6 +295,10 @@ import {
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
 import { UserDataProfileWorkspaceOpener } from "../../workbench/contrib/userDataProfile/browser/userDataProfileWorkspaceOpener.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
+import {
+    FileDialogService,
+    FileDialogServiceDIToken,
+} from "../../workbench/services/dialogs/browser/fileDialogService.ts";
 import { EditorGroupsService } from "../../workbench/services/editor/browser/editorGroupsService.ts";
 import {
     EditorPaneFactoriesDIToken,
@@ -393,6 +397,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // Модальные диалоги: хост (BodyElement с overlay-слоем) прикрепляет владелец
     // корневого дерева — WorkbenchComponent — через attachHost() после построения view.
     container.bind(DialogServiceDIToken, DialogService);
+    container.bind(FileDialogServiceDIToken, FileDialogService);
     // Сообщения человеку: сервис (очередь показов и самогашение) + компонент
     // (стек тостов над статус-баром и окно модального сообщения; overlay-хост
     // прикрепляет WorkbenchComponent через attachHost).

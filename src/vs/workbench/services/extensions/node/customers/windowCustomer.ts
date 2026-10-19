@@ -1,6 +1,7 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type {
+    IFileDialogSink,
     INotificationSink,
     IOutputSink,
     IProgressSink,
@@ -9,8 +10,10 @@ import type {
 } from "../../../../api/common/iExtensionWindowSinks.ts";
 import type {
     IWireInputBoxResult,
+    IWireOpenDialogResult,
     IWireQuickPickEvent,
     IWireQuickPickResult,
+    IWireSaveDialogResult,
     IWireShowMessageResult,
     IWireValidationMessage,
     WireMessageSeverity,
@@ -18,6 +21,7 @@ import type {
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
     parseWireInputBoxRequest,
+    parseWireOpenDialogRequest,
     parseWireOutputAppend,
     parseWireOutputShow,
     parseWireProgressEnd,
@@ -27,6 +31,7 @@ import {
     parseWireQuickPickDispose,
     parseWireQuickPickRequest,
     parseWireQuickPickUpdate,
+    parseWireSaveDialogRequest,
     parseWireShowMessageRequest,
     parseWireStatusBarItem,
     parseWireStatusBarItemDispose,
@@ -40,6 +45,7 @@ export interface IWindowSinks {
     readonly statusBarItemSink: IStatusBarItemSink | undefined;
     readonly quickInputSink: IQuickInputSink | undefined;
     readonly notificationSink: INotificationSink | undefined;
+    readonly fileDialogSink?: IFileDialogSink;
 }
 
 /**
@@ -56,7 +62,8 @@ export class WindowCustomer implements IExtensionHostCustomer {
     public constructor(private readonly sinks: IWindowSinks) {}
 
     public attach({ rpc, logger }: IExtensionHostContext): IDisposable {
-        const { progressSink, outputSink, statusBarItemSink, quickInputSink, notificationSink } = this.sinks;
+        const { progressSink, outputSink, statusBarItemSink, quickInputSink, notificationSink, fileDialogSink } =
+            this.sinks;
         const store = new DisposableStore();
         /** Живые handle'ы withProgress — на смерти всем шлётся end (спиннеры не зависают). */
         const progressHandles = new Set<number>();
@@ -210,6 +217,19 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 if (handle === null || !quickPickHandles.delete(handle)) return;
                 // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока (см. update) — пары «набор непуст, а стока нет» не бывает
                 quickInputSink?.disposeQuickPick(handle);
+            }),
+        );
+        // Диалоги файлов: без стока — «человек отменил» сразу, а не вечное ожидание.
+        store.add(
+            rpc.handleRequest("window.showOpenDialog", async (params): Promise<IWireOpenDialogResult> => {
+                const uris = await fileDialogSink?.showOpenDialog(parseWireOpenDialogRequest(params));
+                return { uris: uris ?? null };
+            }),
+        );
+        store.add(
+            rpc.handleRequest("window.showSaveDialog", async (params): Promise<IWireSaveDialogResult> => {
+                const uri = await fileDialogSink?.showSaveDialog(parseWireSaveDialogRequest(params));
+                return { uri: uri ?? null };
             }),
         );
         // ─── Сообщения человеку (window.show*Message) ────────────────────────

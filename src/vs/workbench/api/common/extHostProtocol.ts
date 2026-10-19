@@ -68,6 +68,8 @@ import type {
     IWireLanguageProviderUnregistration,
     IWireMarkersChanged,
     IWireMementoUpdate,
+    IWireOpenDialogRequest,
+    IWireOpenDialogResult,
     IWireOpenExternalResult,
     IWireOutputAppend,
     IWireOutputShow,
@@ -88,6 +90,8 @@ import type {
     IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireSaveAllParams,
+    IWireSaveDialogRequest,
+    IWireSaveDialogResult,
     IWireSaveResult,
     IWireSchemes,
     IWireSecretKeys,
@@ -274,6 +278,8 @@ export interface ISubprocessToHost {
 
         readonly "window.showInputBox": readonly [IWireInputBoxRequest, IWireInputBoxResult];
         readonly "window.showQuickPick": readonly [IWireQuickPickRequest, IWireQuickPickResult];
+        readonly "window.showOpenDialog": readonly [IWireOpenDialogRequest, IWireOpenDialogResult];
+        readonly "window.showSaveDialog": readonly [IWireSaveDialogRequest, IWireSaveDialogResult];
         readonly "window.showMessage": readonly [IWireShowMessageRequest, IWireShowMessageResult];
 
         readonly "env.clipboard.readText": readonly [undefined, IWireClipboardText];

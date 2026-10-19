@@ -18,10 +18,26 @@ export interface QuickPickSessionState<T extends QuickPickSessionItem> {
     readonly placeholder: string | undefined;
     readonly prompt: string | undefined;
     readonly value: string;
+    /**
+     * Выделение в строке запроса `[начало, конец)` — `valueSelection` эталона:
+     * так диалог файлов показывает дописанный автодополнением хвост пути
+     * выделенным, и следующая набранная буква его заменяет. Применяется вместе
+     * с `value` (или само по себе); `undefined` — курсор в конце.
+     */
+    readonly valueSelection: readonly [number, number] | undefined;
+    /** Сообщение под строкой запроса (ошибка) — `validationMessage` эталона. */
+    readonly validationMessage: string | undefined;
     readonly canSelectMany: boolean;
+    /** Искать ли по `label` (эталон: `matchOnLabel`). Ни одного поля — список не фильтруется. */
+    readonly matchOnLabel: boolean;
     readonly matchOnDescription: boolean;
     readonly matchOnDetail: boolean;
     readonly keepScrollPosition: boolean;
+    /**
+     * Что подсвечивать при новых предметах — `itemActivation` эталона: первую
+     * строку или ничего (тогда Enter принимает набранное, а не строку).
+     */
+    readonly itemActivation: "first" | "none";
     readonly items: readonly T[];
     readonly activeItems: readonly T[];
     readonly selectedItems: readonly T[];
@@ -57,10 +73,14 @@ const DEFAULT_STATE: QuickPickSessionState<never> = {
     placeholder: undefined,
     prompt: undefined,
     value: "",
+    valueSelection: undefined,
+    validationMessage: undefined,
     canSelectMany: false,
+    matchOnLabel: true,
     matchOnDescription: false,
     matchOnDetail: false,
     keepScrollPosition: false,
+    itemActivation: "first",
     items: [],
     activeItems: [],
     selectedItems: [],
@@ -118,11 +138,13 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         this.paintChrome(view);
         // Stryker disable next-line ConditionalExpression: без смены значения в состоянии лежит ровно то, что уже в строке запроса (набранное человеком кладётся туда же, `onQueryChange`), и повторная запись того же текста ничего не меняет
         if (valueChanged) view.setQuery(this.state.value);
+        if (valueChanged || "valueSelection" in changes) this.applyValueSelection(view);
         const listChanged =
-            valueChanged ||
+            (valueChanged && this.searches()) ||
             "items" in changes ||
             // Stryker disable next-line ConditionalExpression,StringLiteral: строки с чекбоксами пересоберёт и раскладка (ширина ряда сверяется на каждом layout), перефильтровка тут — явное намерение, кадр без неё тот же
             "canSelectMany" in changes ||
+            "matchOnLabel" in changes ||
             "matchOnDescription" in changes ||
             "matchOnDetail" in changes;
         // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral,StringLiteral: проверка — чтобы не пересобирать строки вхолостую; без новых отметок набор тот же (отметки человека кладутся в состояние сразу, `onCheckedChange`), а перефильтровка ставит его сама
@@ -173,6 +195,11 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.onQueryChange = (query) => {
             this.state = { ...this.state, value: query };
             this.events.onDidChangeValue(query);
+            // Владелец мог в ответ отдать виджет (вопрос диалога файлов закрывается
+            // от набора) — тогда список в нём уже чужой.
+            if (this.view !== view) return;
+            // Искать не по чему — список от запроса не зависит, подсветку не трогаем.
+            if (!this.searches()) return;
             this.fillList(view, false);
             this.notifyActive(view);
         };
@@ -201,9 +228,17 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         };
 
         view.setQuery(this.state.value);
+        this.applyValueSelection(view);
         this.fillList(view, false);
-        this.applyActive(view);
+        if (this.state.activeItems.length > 0) this.applyActive(view);
         this.notifyActive(view);
+    }
+
+    /** Выделение (или курсор в конце) в строке запроса — по {@link QuickPickSessionState.valueSelection}. */
+    private applyValueSelection(view: QuickPickElement): void {
+        const selection = this.state.valueSelection;
+        if (selection === undefined) return;
+        view.setQuerySelection(selection[0], selection[1]);
     }
 
     /** Заголовок с шагами, подсказка, placeholder, режим отметок — не сам список. */
@@ -212,38 +247,58 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.prompt = this.state.prompt;
         view.placeholder = this.state.placeholder ?? "";
         view.canPickMany = this.state.canSelectMany;
+        view.validationMessage = this.state.validationMessage ?? null;
+        view.validationSeverity = "error";
     }
 
     private fillList(view: QuickPickElement, keepPosition: boolean): void {
         const visible = this.filtered();
         if (keepPosition) view.refreshItems(visible);
         else view.items = visible;
+        if (this.state.itemActivation === "none") view.clearActive();
         // Отметки — по идентичности предмета: после замены предметов прежние
         // объекты в наборе ни с чем не совпадут, поэтому ставим набор заново.
         view.setCheckedItems(this.state.selectedItems);
     }
 
+    /** Фильтрует ли запрос список (хоть одно поле поиска включено). */
+    private searches(): boolean {
+        const { matchOnLabel, matchOnDescription, matchOnDetail } = this.state;
+        return matchOnLabel || matchOnDescription || matchOnDetail;
+    }
+
     private filtered(): readonly T[] {
         const needle = this.state.value.trim().toLowerCase();
-        const { matchOnDescription, matchOnDetail } = this.state;
+        const { matchOnLabel, matchOnDescription, matchOnDetail } = this.state;
+        // Искать не по чему — список целиком (эталон: так диалог файлов держит
+        // каталог, пока в строке запроса — путь).
+        if (!this.searches()) return this.state.items;
         const hit = (text: string | undefined): boolean => text?.toLowerCase().includes(needle) === true;
         return this.state.items.filter(
             (item) =>
                 item.alwaysShow === true ||
-                hit(item.label) ||
+                (matchOnLabel && hit(item.label)) ||
                 (matchOnDescription && hit(item.description)) ||
                 (matchOnDetail && hit(item.detail)),
         );
     }
 
-    /** Программная подсветка (`activeItems =`) — молча, как в эталоне. */
+    /**
+     * Программная подсветка (`activeItems =`) — молча, как в эталоне. Пустой
+     * набор снимает подсветку; незнакомый предмет её не трогает.
+     */
     private applyActive(view: QuickPickElement): void {
+        if (this.state.activeItems.length === 0) {
+            view.clearActive();
+            return;
+        }
         const index = view.items.indexOf(this.state.activeItems[0]);
         if (index >= 0) view.setActiveIndex(index);
     }
 
     private notifyActive(view: QuickPickElement): void {
-        const active = view.items.at(view.selectedIndex) as T | undefined;
+        const index = view.selectedIndex;
+        const active = index < 0 ? undefined : (view.items.at(index) as T | undefined);
         // Подсветка не сдвинулась (перефильтровали, а первая строка та же) —
         // молчим, как эталон: событие только про настоящую смену.
         if (active === this.state.activeItems.at(0)) return;

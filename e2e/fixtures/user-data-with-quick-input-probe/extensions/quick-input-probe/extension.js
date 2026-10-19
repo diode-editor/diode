@@ -289,6 +289,20 @@ exports.activate = function activate(context) {
             search("");
         });
     });
+
+    // ─── Диалог файлов (window.showOpenDialog) ──────────────────────────────
+    // Форма «Go: Choose Go Environment → Choose from file browser» golang.go.
+    register("diodeProbe.openDialog", async function () {
+        const folders = vscode.workspace.workspaceFolders;
+        const picked = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            defaultUri: folders ? folders[0].uri : undefined,
+            title: "Pick a file",
+        });
+        show("Opened: " + (picked && picked.length === 1 ? picked[0].fsPath : "(cancelled)"));
+    });
 };
 
 exports.deactivate = function deactivate() {};

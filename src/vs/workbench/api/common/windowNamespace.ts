@@ -29,6 +29,7 @@ import {
 } from "./vscodeTypes.ts";
 import { createWebviewNoopMembers } from "./webviewNoop.ts";
 import {
+    type IWireDialogFilter,
     type IWireEditorEdit,
     type IWireEditorLayout,
     type IWireFileDecoration,
@@ -38,6 +39,8 @@ import {
     type IWireTabSnapshot,
     parseWireColorTheme,
     parseWireEditorLayout,
+    parseWireOpenDialogResult,
+    parseWireSaveDialogResult,
     parseWireSelectionChangeKind,
     parseWireSelections,
     type WireOutputLevel,
@@ -1102,6 +1105,33 @@ export function createWindowNamespace(
         // Объектная форма пикера: живой объект расширения, состояние — диффом
         // хосту, действия человека — событиями обратно (extHostQuickPick.ts).
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
+        // Диалоги файлов поднимает хост (SimpleFileDialog на общем оверлее);
+        // ресурсы туда и обратно — строками `uri.toString()`.
+        showOpenDialog: async (options?: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined> => {
+            const result = parseWireOpenDialogResult(
+                await rpc.request("window.showOpenDialog", {
+                    defaultUri: options?.defaultUri?.toString(),
+                    openLabel: options?.openLabel,
+                    canSelectFiles: options?.canSelectFiles,
+                    canSelectFolders: options?.canSelectFolders,
+                    canSelectMany: options?.canSelectMany,
+                    filters: toWireDialogFilters(options?.filters),
+                    title: options?.title,
+                }),
+            );
+            return result.uris?.map((uri) => Uri.parse(uri));
+        },
+        showSaveDialog: async (options?: vscode.SaveDialogOptions): Promise<vscode.Uri | undefined> => {
+            const result = parseWireSaveDialogResult(
+                await rpc.request("window.showSaveDialog", {
+                    defaultUri: options?.defaultUri?.toString(),
+                    saveLabel: options?.saveLabel,
+                    filters: toWireDialogFilters(options?.filters),
+                    title: options?.title,
+                }),
+            );
+            return result.uri === null ? undefined : Uri.parse(result.uri);
+        },
 
         // `window.showTextDocument` (3 перегрузки): нормализуем в один запрос
         // хосту; к моменту резолва `editor.layoutChanged` уже применён (хост
@@ -1218,4 +1248,10 @@ function normalizeIndentSize(value: number | string): number | undefined {
     if (value === "tabSize") return undefined;
     const parsed = Number.parseInt(value, 10);
     return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
+}
+
+/** Фильтры диалога `{ имя: расширения }` → массив пар провода. */
+function toWireDialogFilters(filters: Readonly<Record<string, string[]>> | undefined): IWireDialogFilter[] | undefined {
+    if (filters === undefined) return undefined;
+    return Object.entries(filters).map(([name, extensions]) => ({ name, extensions }));
 }

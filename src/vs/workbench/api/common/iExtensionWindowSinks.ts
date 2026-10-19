@@ -2,9 +2,11 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type {
     IWireInputBoxRequest,
+    IWireOpenDialogRequest,
     IWireQuickPickEvent,
     IWireQuickPickRequest,
     IWireQuickPickUpdate,
+    IWireSaveDialogRequest,
     IWireShowMessageRequest,
     IWireStatusBarItem,
     IWireTerminalClosed,
@@ -83,6 +85,16 @@ export interface IQuickInputSink {
     updateQuickPick(update: IWireQuickPickUpdate, emit: (event: IWireQuickPickEvent) => void): void;
     /** Пикер снят расширением или его процесс умер: скрыть и забыть. */
     disposeQuickPick(handle: number): void;
+}
+
+/**
+ * Сток диалогов файлов расширений (`window.showOpenDialog` / `showSaveDialog`):
+ * потребитель (module) показывает диалог и резолвится выбранным (`uri.toString()`)
+ * либо `undefined` — человек отменил.
+ */
+export interface IFileDialogSink {
+    showOpenDialog(request: IWireOpenDialogRequest): Promise<readonly string[] | undefined>;
+    showSaveDialog(request: IWireSaveDialogRequest): Promise<string | undefined>;
 }
 
 /**

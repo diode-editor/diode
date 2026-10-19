@@ -766,6 +766,24 @@ declare module "vscode" {
 		export function showInputBox(options?: InputBoxOptions, token?: CancellationToken): Thenable<string | undefined>;
 
 		/**
+		 * Shows a file open dialog to the user which allows to select a file
+		 * for opening-purposes.
+		 *
+		 * @param options Options that control the dialog.
+		 * @returns A promise that resolves to the selected resources or `undefined`.
+		 */
+		export function showOpenDialog(options?: OpenDialogOptions): Thenable<Uri[] | undefined>;
+
+		/**
+		 * Shows a file save dialog to the user which allows to select a file
+		 * for saving-purposes.
+		 *
+		 * @param options Options that control the dialog.
+		 * @returns A promise that resolves to the selected resource or `undefined`.
+		 */
+		export function showSaveDialog(options?: SaveDialogOptions): Thenable<Uri | undefined>;
+
+		/**
 		 * Creates a {@link QuickPick} to let the user pick an item from a list of items of type `T`.
 		 *
 		 * Note that in many cases the more convenient {@link window.showQuickPick} is easier to use.
@@ -4785,6 +4803,96 @@ declare module "vscode" {
 		 */
 		validateInput?(value: string): string | InputBoxValidationMessage | undefined | null |
 			Thenable<string | InputBoxValidationMessage | undefined | null>;
+	}
+
+	/**
+	 * Options to configure the behavior of a file open dialog.
+	 *
+	 * * Note 1: On Windows and Linux, a file dialog cannot be both a file selector and a folder selector, so if you
+	 * set both `canSelectFiles` and `canSelectFolders` to `true` on these platforms, a folder selector will be shown.
+	 * * Note 2: Explicitly setting `canSelectFiles` and `canSelectFolders` to `false` is futile
+	 * and the editor then silently adjusts the options to select files.
+	 */
+	export interface OpenDialogOptions {
+		/**
+		 * The resource the dialog shows when opened.
+		 */
+		defaultUri?: Uri;
+
+		/**
+		 * A human-readable string for the open button.
+		 */
+		openLabel?: string;
+
+		/**
+		 * Allow to select files, defaults to `true`.
+		 */
+		canSelectFiles?: boolean;
+
+		/**
+		 * Allow to select folders, defaults to `false`.
+		 */
+		canSelectFolders?: boolean;
+
+		/**
+		 * Allow to select many files or folders.
+		 */
+		canSelectMany?: boolean;
+
+		/**
+		 * A set of file filters that are used by the dialog. Each entry is a human-readable label,
+		 * like "TypeScript", and an array of extensions, for example:
+		 * ```ts
+		 * {
+		 * 	'Images': ['png', 'jpg'],
+		 * 	'TypeScript': ['ts', 'tsx']
+		 * }
+		 * ```
+		 */
+		filters?: { [name: string]: string[] };
+
+		/**
+		 * Dialog title.
+		 *
+		 * This parameter might be ignored, as not all operating systems display a title on open dialogs
+		 * (for example, macOS).
+		 */
+		title?: string;
+	}
+
+	/**
+	 * Options to configure the behaviour of a file save dialog.
+	 */
+	export interface SaveDialogOptions {
+		/**
+		 * The resource the dialog shows when opened.
+		 */
+		defaultUri?: Uri;
+
+		/**
+		 * A human-readable string for the save button.
+		 */
+		saveLabel?: string;
+
+		/**
+		 * A set of file filters that are used by the dialog. Each entry is a human-readable label,
+		 * like "TypeScript", and an array of extensions, for example:
+		 * ```ts
+		 * {
+		 * 	'Images': ['png', 'jpg'],
+		 * 	'TypeScript': ['ts', 'tsx']
+		 * }
+		 * ```
+		 */
+		filters?: { [name: string]: string[] };
+
+		/**
+		 * Dialog title.
+		 *
+		 * This parameter might be ignored, as not all operating systems display a title on save dialogs
+		 * (for example, macOS).
+		 */
+		title?: string;
 	}
 
 	/**

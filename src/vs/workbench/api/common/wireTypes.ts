@@ -1533,6 +1533,58 @@ export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | nul
     }
 }
 
+// ─── Диалоги файлов (window.showOpenDialog / window.showSaveDialog) ─────────
+// Диалог поднимает хост (SimpleFileDialog на общем QuickInput-оверлее);
+// расширение получает выбранные ресурсы строками `uri.toString()`.
+
+/** Фильтр диалога: `{ "Images": ["png", "jpg"] }` расширения — массивом пар. */
+export interface IWireDialogFilter {
+    readonly name: string;
+    readonly extensions: readonly string[];
+}
+
+/** Просьба открыть диалог выбора (`window.showOpenDialog`, subprocess → host). */
+export interface IWireOpenDialogRequest {
+    readonly defaultUri?: string;
+    readonly openLabel?: string;
+    readonly canSelectFiles?: boolean;
+    readonly canSelectFolders?: boolean;
+    readonly canSelectMany?: boolean;
+    readonly filters?: readonly IWireDialogFilter[];
+    readonly title?: string;
+}
+
+/** Просьба открыть диалог сохранения (`window.showSaveDialog`, subprocess → host). */
+export interface IWireSaveDialogRequest {
+    readonly defaultUri?: string;
+    readonly saveLabel?: string;
+    readonly filters?: readonly IWireDialogFilter[];
+    readonly title?: string;
+}
+
+/** Ответ на `window.showOpenDialog`: выбранные ресурсы; `null` — отмена. */
+export interface IWireOpenDialogResult {
+    readonly uris: readonly string[] | null;
+}
+
+/** Ответ на `window.showSaveDialog`: ресурс; `null` — отмена. */
+export interface IWireSaveDialogResult {
+    readonly uri: string | null;
+}
+
+/** Разбирает ответ хоста на `window.showOpenDialog` (host → subprocess). */
+export function parseWireOpenDialogResult(raw: unknown): IWireOpenDialogResult {
+    const uris = (raw as { uris?: unknown } | null | undefined)?.uris;
+    if (!Array.isArray(uris)) return { uris: null };
+    return { uris: uris.filter((uri): uri is string => typeof uri === "string") };
+}
+
+/** Разбирает ответ хоста на `window.showSaveDialog` (host → subprocess). */
+export function parseWireSaveDialogResult(raw: unknown): IWireSaveDialogResult {
+    const uri = (raw as { uri?: unknown } | null | undefined)?.uri;
+    return { uri: typeof uri === "string" ? uri : null };
+}
+
 // ─── Смена папок воркспейса (workspace.updateWorkspaceFolders) ──────────────
 
 /**
