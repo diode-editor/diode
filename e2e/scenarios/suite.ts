@@ -47,7 +47,8 @@ export async function scenarioSuite(index: number | "heavy"): Promise<void> {
         for (const spec of scenarios) {
             const skip =
                 (spec.skipOn?.includes(process.platform) ?? false) ||
-                (spec.network === true && process.env.DIODE_E2E_OFFLINE === "1");
+                (spec.network === true && process.env.DIODE_E2E_OFFLINE === "1") ||
+                spec.requires?.() !== undefined;
             // 300с вместо дефолтных 60с e2e: extension-host сценарии на холодном
             // раннере включают prepare (npm install библиотеки у eslint-lint),
             // установку расширения из магазина и старт language-сервера — та же

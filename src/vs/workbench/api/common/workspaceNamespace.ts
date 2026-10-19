@@ -590,7 +590,7 @@ export function createWorkspaceNamespace(
 
     /** Документ вне реестра открытых буферов: EOL детектим из текста, как ядро. */
     function makeEphemeralDocument(uri: Uri, text: string, encoding: string): ExtHostTextDocument {
-        const doc = new ExtHostTextDocument(uri);
+        const doc = new ExtHostTextDocument(uri, ctx.registry.wordDefinitionFor);
         doc.applyFull({
             uri: uri.toString(),
             text,

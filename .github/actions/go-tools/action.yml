@@ -1,0 +1,56 @@
+name: Go toolchain для стоковых сьютов golang.go
+description: >-
+  Ставит Go (actions/setup-go), восстанавливает кэш модулей и сборки и кладёт
+  gopls в GOBIN фикстуры (node_modules/.cache/diode-go-fixture/bin). Без Go
+  сьюты golang.go (extensionHost.goLsp*, e2e goLsp, сценарий go-lsp) честно
+  пропускаются, без кэша каждый прогон собирал бы gopls по сети. Вызывать
+  после `npm install`.
+
+runs:
+  using: composite
+  steps:
+    # Последний stable: стоковое расширение и gopls@latest версию Go не пинят, и мы не пиним.
+    - uses: actions/setup-go@v5
+      with:
+        go-version: stable
+        # Встроенный кэш setup-go ключуется по go.sum, которого у репозитория нет.
+        cache: false
+
+    # Ключи с месяцем: gopls@latest не застывает навечно на первой собранной
+    # версии — раз в месяц соберётся свежий. Кэш gopls поэтому без
+    # restore-keys, а кэш модулей и сборки берёт прошлый месяц — сборка не с нуля.
+    - name: Go tools cache key
+      id: key
+      shell: bash
+      run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: go-mod-${{ runner.os }}-${{ steps.key.outputs.month }}
+        restore-keys: |
+          go-mod-${{ runner.os }}-
+
+    - id: gopls
+      uses: actions/cache/restore@v4
+      with:
+        path: node_modules/.cache/diode-go-fixture
+        key: go-gopls-${{ runner.os }}-${{ steps.key.outputs.month }}
+
+    # gopls собирается здесь, а не в `ensureGopls` фикстуры: сборка — минуты, и
+    # внутри тестов она съедала бюджет initial test run мутационного гейта.
+    # Тот же путь, что у фикстуры, — `ensureGopls` найдёт готовый.
+    - name: Build gopls
+      if: steps.gopls.outputs.cache-hit != 'true'
+      shell: bash
+      run: GOBIN="$PWD/node_modules/.cache/diode-go-fixture/bin" go install golang.org/x/tools/gopls@latest
+
+    # Явное сохранение сразу после сборки: post-шаг actions/cache пишет кэш
+    # только при зелёной джобе, и красный прогон собирал бы gopls заново.
+    - if: steps.gopls.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: node_modules/.cache/diode-go-fixture
+        key: go-gopls-${{ runner.os }}-${{ steps.key.outputs.month }}

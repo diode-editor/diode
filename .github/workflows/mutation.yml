@@ -55,6 +55,9 @@ jobs:
 
       - run: npm install
 
+      # Go для стоковых сьютов golang.go (иначе они пропускаются) + кэш gopls.
+      - uses: ./.github/actions/go-tools
+
       - name: Определить базу прогона
         id: base
         run: |

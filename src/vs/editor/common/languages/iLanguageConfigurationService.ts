@@ -1,3 +1,5 @@
+import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
+import type { ILanguageConfiguration } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
 import { EMPTY_LANGUAGE_CONFIGURATION, type IResolvedLanguageConfiguration } from "./languageConfiguration.ts";
@@ -29,6 +31,16 @@ export interface ILanguageConfigurationService {
      * битый или отсутствующий файл — это {@link EMPTY_LANGUAGE_CONFIGURATION}.
      */
     ensureLoaded(languageId: string): Promise<IResolvedLanguageConfiguration>;
+
+    /**
+     * Слой конфигурации поверх `language-configuration.json` — то, что расширение
+     * задаёт кодом (`languages.setLanguageConfiguration`). Как `register` эталона
+     * с приоритетом расширения: заданные слоем секции заменяют секции файла
+     * целиком, незаданные остаются из файла, а поздний слой побеждает ранний.
+     * Dispose снимает слой. На готовность ({@link get} до {@link ensureLoaded})
+     * слой не влияет.
+     */
+    register(languageId: string, configuration: ILanguageConfiguration): IDisposable;
 }
 
 export const LanguageConfigurationServiceDIToken = token<ILanguageConfigurationService>("LanguageConfigurationService");
@@ -40,4 +52,5 @@ export const LanguageConfigurationServiceDIToken = token<ILanguageConfigurationS
 export const NULL_LANGUAGE_CONFIGURATION_SERVICE: ILanguageConfigurationService = {
     get: () => EMPTY_LANGUAGE_CONFIGURATION,
     ensureLoaded: () => Promise.resolve(EMPTY_LANGUAGE_CONFIGURATION),
+    register: () => Disposable.None,
 };

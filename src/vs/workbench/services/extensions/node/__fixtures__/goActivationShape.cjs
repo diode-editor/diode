@@ -1,0 +1,73 @@
+"use strict";
+
+/**
+ * Фикстура для extensionHost.goActivationShape.test.ts — форма `activate()`
+ * у `golang.go` после старта языкового сервера.
+ *
+ * По порядку, как у стокового расширения: дебаггер (провайдер конфигураций,
+ * фабрики адаптера и трекера, подписки на сессии), Test API (контроллер, три
+ * профиля по `TestRunProfileKind`, элемент тест-файла в коллекции), и
+ * последним шагом — `languages.setLanguageConfiguration`. Без любого из этих
+ * членов `activate()` обрывался, и команда, зарегистрированная после них,
+ * не появлялась: её исполнение и есть наблюдаемое «расширение активно целиком».
+ */
+const vscode = require("vscode");
+
+exports.activate = function activate(context) {
+    context.subscriptions.push(
+        vscode.debug.registerDebugConfigurationProvider("go", {
+            provideDebugConfigurations: function () {
+                return [];
+            },
+        }),
+        vscode.debug.registerDebugAdapterDescriptorFactory("go", {
+            createDebugAdapterDescriptor: function () {
+                return new vscode.DebugAdapterServer(4711);
+            },
+        }),
+        vscode.debug.registerDebugAdapterTrackerFactory("*", { createDebugAdapterTracker: function () {} }),
+        vscode.debug.onDidStartDebugSession(function () {}),
+        vscode.debug.onDidTerminateDebugSession(function () {}),
+    );
+
+    const controller = vscode.tests.createTestController("go", "Go");
+    context.subscriptions.push(controller);
+    const kinds = [vscode.TestRunProfileKind.Run, vscode.TestRunProfileKind.Debug, vscode.TestRunProfileKind.Coverage];
+    const profiles = kinds.map(function (kind) {
+        return controller.createRunProfile("Go", kind, function () {}, true);
+    });
+    const file = controller.createTestItem("file:///w/a_test.go", "a_test.go", vscode.Uri.file("/w/a_test.go"));
+    controller.items.add(file);
+    file.children.add(controller.createTestItem("file:///w/a_test.go?test#TestA", "TestA"));
+
+    context.subscriptions.push(
+        vscode.languages.setLanguageConfiguration("gofixture", {
+            wordPattern: /(-?\d*\.\d\w*)|([^`~!@#%^&*()\-=+[{\]}\\|;:'",.<>/?\s]+)/g,
+            comments: { lineComment: { comment: "//", noIndent: true }, blockComment: ["/*", "*/"] },
+            brackets: [["{", "}"]],
+        }),
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("test.goActivationShape", async function () {
+            const started = await vscode.debug.startDebugging(undefined, { type: "go", name: "x", request: "launch" });
+            return {
+                activeDebugSession: vscode.debug.activeDebugSession === undefined ? "none" : "some",
+                started: started,
+                profileKinds: profiles.map(function (profile) {
+                    return profile.kind;
+                }),
+                found: controller.items.get("file:///w/a_test.go") === file,
+                childParent: file.children.get("file:///w/a_test.go?test#TestA").parent === file,
+                adapter: new vscode.DebugAdapterInlineImplementation({}).implementation !== undefined,
+                symbol: new vscode.DocumentSymbol(
+                    "TestA",
+                    "",
+                    vscode.SymbolKind.Function,
+                    new vscode.Range(0, 0, 2, 1),
+                    new vscode.Range(0, 5, 0, 10),
+                ).children.length,
+            };
+        }),
+    );
+};

@@ -39,6 +39,7 @@ import {
     type IWireEditorEdit,
     type IWireFileDecoration,
     type IWireInputBoxRequest,
+    type IWireLanguageConfiguration,
     type IWireLanguageFilter,
     type IWireLanguageProviderRegistration,
     type IWireLanguageProviderUnregistration,
@@ -191,6 +192,19 @@ function parseWireLanguageFilter(raw: unknown): IWireLanguageFilter | null {
 
 function isWireHandle(value: unknown): value is number {
     return Number.isInteger(value);
+}
+
+/**
+ * Разбирает `languages.setLanguageConfiguration`; `null` — форма не распознана.
+ * Сами секции не валидируются здесь: их, как и JSONC файла конфигурации,
+ * разворачивает терпимый к мусору `resolveLanguageConfiguration`.
+ */
+export function parseWireLanguageConfiguration(raw: unknown): IWireLanguageConfiguration | null {
+    const p = raw as Partial<Record<keyof IWireLanguageConfiguration, unknown>> | null | undefined;
+    const configuration = p?.configuration;
+    if (!isWireHandle(p?.handle) || typeof p.languageId !== "string") return null;
+    if (typeof configuration !== "object" || configuration === null || Array.isArray(configuration)) return null;
+    return { handle: p.handle, languageId: p.languageId, configuration };
 }
 
 /** Разбирает `languages.register`; `null` — форма не распознана (регистрация игнорируется). */

@@ -385,6 +385,17 @@ expect(ed?.state?.hasSelection).toBe(true);
 расширения пишутся сразу по конвенции; предпосылка — расширение опубликовано в магазине
 ([Marketplace.md](TODO/Marketplace.md)).
 
+**Внешний toolchain (Go).** `golang.go` не несёт ни Go, ни gopls: сьюты `extensionHost.goLsp*`,
+`e2e/goLsp.test.ts` и сценарий `go-lsp` берут `go` из PATH, а без него **пропускаются с
+причиной** (`goToolchainMissing()` из `src/TestUtils/goFixture.ts`; сценарию — поле
+`requires`, которое уважают и CI-safety-net, и `npm run screenshots`). gopls фикстура ставит
+заранее (`go install gopls@latest` в кэшируемый GOBIN `node_modules/.cache/diode-go-fixture`,
+как `npm install eslint` у eslint-фикстуры), путь авто-установки самим расширением закрывает
+один e2e. В CI Go и кэши ставит composite action `.github/actions/go-tools` в джобах со
+стоковыми сьютами (`test`, `mutation`, `e2e` на Linux, ночной мутационный). Пока записи
+`golang.go` нет в реестре, vsix приезжает мостом `fetchStockVsixOrOpenVsx` — последней
+universal-версией с Open VSX; появится запись — резолв уйдёт в реестр сам.
+
 ### Extensions view (герметичный сьют)
 
 `e2e/extensionsView.functional.test.ts` — сам магазин в UI: вьюлет `EXTENSIONS`, поиск, бейджи,

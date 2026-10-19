@@ -29,7 +29,7 @@
 
 | поверхность | статус | члены |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 15/40 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 16/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 21/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 35/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
@@ -39,18 +39,18 @@
 | [`vscode.tasks`](#vscodetasks) | 🟡 | 8/8 |
 | [`vscode.authentication`](#vscodeauthentication) | 🟡 | 4/4 |
 | [`vscode.comments`](#vscodecomments) | 🟡 | 1/1 |
-| [`vscode.debug`](#пока-не-поднятые-namespace) | 🕐 | 0/18 |
+| [`vscode.debug`](#vscodedebug) | 🟡 | 18/18 |
+| [`vscode.tests`](#vscodetests) | 🟡 | 1/1 |
 | [`vscode.scm`](#пока-не-поднятые-namespace) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#пока-не-поднятые-namespace) | 🕐 | 0/3 |
-| [`vscode.tests`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.chat`](#пока-не-поднятые-namespace) | 🕐 | 0/1 |
 | [`vscode.lm`](#пока-не-поднятые-namespace) | 🕐 | 0/7 |
-| [типы и классы](#типы-с-неполной-поверхностью) | — | 216/424 |
+| [типы и классы](#типы-с-неполной-поверхностью) | — | 261/424 |
 | [события активации](#события-активации-activationevents) | 🟡 | 6/32 |
 
 ## vscode.languages
 
-🟡 **15/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
+🟡 **16/40.** Языковой стек уровня LSP поднят целиком; остальные провайдеры принимают
 регистрацию, но пока не дёргаются.
 
 | член | статус | комментарий |
@@ -72,7 +72,8 @@
 | `createLanguageStatusItem` | 🟡 | держатель полей с честным dispose, в UI пока не проецируется |
 | `match` | ✅ | работает в рантайме (скоринг селекторов для языковых клиентов); декларация в `vscode.d.ts` ещё не поднята |
 | остальные `register*Provider` (16: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, color, onTypeFormatting, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | регистрация принимается (no-op) — расширение не падает, провайдер не дёргается |
-| `getLanguages`, `setTextDocumentLanguage`, `setLanguageConfiguration`, `onDidChangeDiagnostics`, `getDiagnostics`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
+| `setLanguageConfiguration` | 🟡 | `wordPattern` — определение слова языка для `TextDocument.getWordRangeAtPosition` в субпроцессе (регекс, матчащий пустую строку, — эталонное исключение); `comments`, `brackets`, `autoClosingPairs` — слой поверх `language-configuration.json` в ядре (комментирование, авто-закрытие и обрамление): заданная секция заменяет секцию файла, поздний слой побеждает ранний, dispose и смерть extension host снимают слой. Не применяются (ядро не умеет их и из файла): `indentationRules`, `onEnterRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, устаревшие `__electricCharacterSupport`/`__characterPairSupport`; `wordPattern` редактору ядра (выделение слова, границы автодополнения) не передаётся |
+| `getLanguages`, `setTextDocumentLanguage`, `onDidChangeDiagnostics`, `getDiagnostics`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
 ## vscode.workspace
 
@@ -121,7 +122,7 @@ webview — потолок.
 | `tabGroups` | 🟡 | снимки `Tab` на момент вызова (идентичность не гарантируется), `Tab.group` — объект своей группы в том же снимке; `onDidChangeTabs` живой, `close` работает |
 | `createTextEditorDecorationType` | ✅ | gutter change-bar'ы, overview ruler |
 | `registerFileDecorationProvider` | ✅ | файловые декорации в explorer; `propagate` всплывает к папкам (цвет + «●») |
-| `showQuickPick` | 🟡 | список строк и `QuickPickItem` на общем QuickInput-оверлее: фильтрация по `label`, `canPickMany` с чекбоксами и `picked`, `placeHolder`, `title`, токен отмены; список-промис ждётся и показывается заполненным. Не поддержаны `QuickPickItemKind.Separator`, `iconPath`, `buttons`, `alwaysShow`, `matchOnDescription`/`matchOnDetail`, `ignoreFocusOut`, устаревший `onDidSelectItem`; `detail` рисуется на месте `description`, только когда `description` пуст (строка списка однострочная) |
+| `showQuickPick` | 🟡 | список строк и `QuickPickItem` на общем QuickInput-оверлее: фильтрация по `label`, `canPickMany` с чекбоксами и `picked`, `placeHolder`, `title`, токен отмены; список-промис ждётся и показывается заполненным. Разделители (`kind: QuickPickItemKind.Separator`) не показываются и не выбираются — заголовков групп у оверлея нет. Не поддержаны `iconPath`, `buttons`, `alwaysShow`, `matchOnDescription`/`matchOnDetail`, `ignoreFocusOut`, устаревший `onDidSelectItem`; `detail` рисуется на месте `description`, только когда `description` пуст (строка списка однострочная) |
 | `showInputBox` | 🟡 | `title`, `prompt`, `placeHolder`, `value`, `password` (набранное закрыто маской `*` и не видно ни на экране, ни в инспекторе), `validateInput` (строкой и объектной формой со строгостью — ошибка блокирует Enter; асинхронная валидация поддержана, устаревшие ответы отбрасываются), токен отмены. Не поддержаны `valueSelection`, `ignoreFocusOut` |
 | quick input прочее (`showWorkspaceFolderPick`, `showOpenDialog`, `showSaveDialog`, `createQuickPick`, `createInputBox`) | 🕐 | объектные формы (пошаговые мастера) и диалоги файлов |
 | `createStatusBarItem` | 🟡 | пункт в полосе: `text` со значками `$(name)`, `name`, `alignment`, `priority`, команда по клику, `show`/`hide`/`dispose`. Стабы: `tooltip` принимается, но не показывается (виджета подсказки в TUI нет); `color`/`backgroundColor`/`accessibilityInformation` ни на что не влияют. Текст длиннее 24 символов усекается — ширина полосы в терминале дефицитна |
@@ -246,6 +247,42 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `onDidChangeSessions` | 🟡 | валидное событие, никогда не стреляет — сессий нет |
 | `registerAuthenticationProvider` | 🟡 | `Disposable`, провайдер никто не зовёт; в Output — одна строка на id провайдера, что входа не будет |
 
+## vscode.debug
+
+🟡 **18/18.** Декларации подняты целиком, рантайм — null-объект: дебаггера (DAP) в Diode нет и
+не планируется. Namespace есть, потому что его отсутствие убивало расширение целиком: `golang.go`
+регистрирует провайдер конфигураций посреди `activate()`, и без `vscode.debug` не появлялись ~60
+его команд (языковой сервер при этом уже жил).
+
+| член | статус | комментарий |
+| --- | :-: | --- |
+| `registerDebugConfigurationProvider`, `registerDebugAdapterDescriptorFactory`, `registerDebugAdapterTrackerFactory` | 🟡 | `Disposable`, провайдеры и фабрики никто не зовёт; в Output — одна строка на тип отладчика, что сессий не будет (трекеры на `*` молчат) |
+| `startDebugging` / `stopDebugging` | 🟡 | `false` («не начата», одна строка в Output) / выполнено — останавливать нечего |
+| `activeDebugSession`, `activeStackItem`, `breakpoints`, `activeDebugConsole` | 🟡 | `undefined` / `undefined` / пусто / консоль, вывод которой некому показать |
+| `onDidChangeActiveDebugSession`, `onDidStartDebugSession`, `onDidReceiveDebugSessionCustomEvent`, `onDidTerminateDebugSession`, `onDidChangeBreakpoints`, `onDidChangeActiveStackItem` | 🟡 | валидные события, никогда не стреляют |
+| `addBreakpoints`, `removeBreakpoints` | 🟡 | no-op |
+| `asDebugSourceUri` | ✅ | по эталону: `debug:`-uri для `sourceReference`, `file:` для пути |
+
+Значения-типы — эталонные: `DebugAdapterExecutable`, `DebugAdapterServer`,
+`DebugAdapterNamedPipeServer`, `DebugAdapterInlineImplementation`, `Breakpoint`,
+`SourceBreakpoint`, `FunctionBreakpoint`, `DebugThread`, `DebugStackFrame`, enum'ы
+`DebugConsoleMode`, `DebugConfigurationProviderTriggerKind`. События активации `onDebug*` не
+стреляют (см. таблицу ниже).
+
+## vscode.tests
+
+🟡 **1/1.** Декларации Test API подняты целиком, рантайм — инертный: view Testing нет.
+Namespace есть, потому что `golang.go` заводит контроллер в `activate()` (`go.testExplorer.enable`
+по умолчанию включён) — без него активация обрывалась.
+
+| член | статус | комментарий |
+| --- | :-: | --- |
+| `createTestController` | 🟡 | контроллер с `id`/`label`; `items` и `children` элементов — рабочие коллекции (`add`/`get`/`delete`/`replace`/итерация, `parent` выставляется, тот же id заменяет элемент); `createTestItem` — элемент с эталонными дефолтами; `createRunProfile` — профиль с переданными полями; `createTestRun` — прогон, принимающий отчёты, `end` один раз шлёт `onDidDispose`. `runHandler`, `resolveHandler`, `refreshHandler` никто не зовёт; в Output — одна строка на id контроллера |
+
+Значения-типы — эталонные: `TestRunProfileKind`, `TestTag`, `TestRunRequest`, `TestMessage`
+(с `diff`), `TestMessageStackFrame`, `TestCoverageCount`, `FileCoverage` (с `fromDetails`),
+`StatementCoverage`, `BranchCoverage`, `DeclarationCoverage`.
+
 ## События активации (`activationEvents`)
 
 Это часть контракта расширения, которой нет в `vscode.d.ts`: она объявляется в `package.json`, но
@@ -267,7 +304,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 | `onOpenExternalUri` | 🕐 | вместе с `env.asExternalUri` |
 | `onView:<id>`, `onWalkthrough:<id>` | 🕐 | ждут своих поверхностей (`contributes.views`, walkthrough) |
 | `onWebviewPanel:<id>`, `onCustomEditor:<id>`, `onRenderer:<id>` | ⛔ | поверхности webview-природы — см. [потолок](#не-будет-by-design) |
-| `onDebug`, `onDebugInitialConfigurations`, `onDebugDynamicConfigurations`, `onDebugResolve:<type>`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | вместе с `vscode.debug` |
+| `onDebug`, `onDebugInitialConfigurations`, `onDebugDynamicConfigurations`, `onDebugResolve:<type>`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | не стреляют: дебаггера нет, `vscode.debug` — null-объект |
 | `onTaskType:<type>` | ✅ | Run Task поднимает провайдеров перед тем, как спросить задачи (`onCommand:workbench.action.tasks.runTask` и `onTaskType:<type>`; без типа — все типы из `contributes.taskDefinitions`), плюс **неявное** `onTaskType:<type>` из `contributes.taskDefinitions` |
 | `onNotebook:<type>` | 🕐 | вместе с `vscode.notebooks` |
 | `onAuthenticationRequest:<id>` | 🕐 | вместе с настоящими провайдерами `vscode.authentication` (сейчас namespace — null-объект) |
@@ -279,10 +316,8 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 | namespace | статус | комментарий |
 | --- | :-: | --- |
-| `vscode.debug` | 🕐 | DAP — в заявленном стеке проекта, поверхность появится вместе с дебаггером |
 | `vscode.scm` | 🕐 | source control |
 | `vscode.notebooks` | 🕐 | сериализация — возможна; рендеры ячеек — webview, их не будет |
-| `vscode.tests` | 🕐 | Test API |
 | `vscode.chat`, `vscode.lm` | 🕐 | текстовые по природе — терминалу не противопоказаны |
 
 ## Не будет by design
@@ -304,7 +339,7 @@ Restart / Terminate / Show Running Tasks — то же, что у задач и�
 
 ## Типы с неполной поверхностью
 
-Активно 216 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
+Активно 261 из 424 типов/классов upstream; поднятые — целиком, кроме перечисленных ниже
 (bounded member-level uncommenting — раскомментировано подмножество членов). Одна строка
 (`TextDocument`) — про другое: там раскомментировано и реализовано всё, но `save` — 🟡
 заглушка; помечена отдельно, потому что для автора расширения это та же неполнота.

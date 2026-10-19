@@ -19,6 +19,7 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../vs/editor/common/languages/iInlineCompletionSource.ts";
+import type { ILanguageConfigurationService } from "../vs/editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import type { ICoreReference, IReferenceRequest } from "../vs/editor/common/languages/iReferenceSource.ts";
@@ -306,6 +307,8 @@ export interface IExtensionHarnessOptions {
     readonly environment?: IExtensionHostEnvironment;
     /** Хранилище коллекций окружения расширений; по умолчанию — в памяти хоста. */
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
+    /** Куда ложатся слои `languages.setLanguageConfiguration` (в приложении — сервис конфигураций языков). */
+    readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
     /**
      * Чем транспилировать `.ts` в subprocess'е. По умолчанию `"tsx"`; `"node"`
      * нужен тестам ESM-расширений — см. {@link SubprocessLoader}.
@@ -466,6 +469,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.environment !== undefined ? { environment: options.environment } : {}),
         ...(options.environmentVariableCollections !== undefined
             ? { environmentVariableCollections: options.environmentVariableCollections }
+            : {}),
+        ...(options.languageConfigurations !== undefined
+            ? { languageConfigurations: options.languageConfigurations }
             : {}),
     });
 

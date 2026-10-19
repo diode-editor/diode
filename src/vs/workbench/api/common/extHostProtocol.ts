@@ -63,6 +63,7 @@ import type {
     IWireInputBoxRequest,
     IWireInputBoxResult,
     IWireInputBoxValidate,
+    IWireLanguageConfiguration,
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
     IWireMementoUpdate,
@@ -291,6 +292,9 @@ export interface ISubprocessToHost {
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
         /** `onDidChangeSemanticTokens` провайдера `handle` (upstream `$emitDocumentSemanticTokensEvent`). */
         readonly "languages.didChangeSemanticTokens": IWireProviderHandle;
+        /** `languages.setLanguageConfiguration` — слой конфигурации языка; снятие — по тому же `handle`. */
+        readonly "languages.setLanguageConfiguration": IWireLanguageConfiguration;
+        readonly "languages.unsetLanguageConfiguration": IWireProviderHandle;
 
         readonly "workspace.fileSystemProvidersChanged": IWireSchemes;
         readonly "workspace.fs.didChangeFile": IWireChangedFiles;

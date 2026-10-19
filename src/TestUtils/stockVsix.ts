@@ -88,3 +88,49 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 }
+
+const OPEN_VSX_API = "https://open-vsx.org/api";
+
+/**
+ * Мост до записи в реестре: расширение, которого в магазине ещё нет, берётся
+ * последней universal-версией с Open VSX (та же политика «версию не пиним»,
+ * `sha256` — из файла рядом с артефактом). Появилась запись — резолв уходит в
+ * реестр сам, и мост для этого id можно удалять. Сейчас им пользуется
+ * `golang.go` (запись — задача A7 в docs/TODO/GoLSP.md).
+ */
+export async function fetchStockVsixOrOpenVsx(id: string): Promise<IStockVsix> {
+    const meta = await createRegistrySource(DEFAULT_REGISTRY_URL).getMeta(id);
+    if (meta !== undefined) return fetchStockVsix(id);
+
+    const [namespace, name] = id.split(".", 2);
+    const info = JSON.parse(await fetchText(`${OPEN_VSX_API}/${namespace}/${name}`)) as {
+        version: string;
+        files: { download: string; sha256: string };
+    };
+    const cached = path.join(VSIX_CACHE_DIR, `${id}-${info.version}.openvsx.vsix`);
+    const expectedSha = (await fetchText(info.files.sha256)).trim().split(/\s+/)[0];
+    if (fs.existsSync(cached) && (await sha256File(cached)) === expectedSha) {
+        return { vsixPath: cached, version: info.version };
+    }
+    const response = await fetch(info.files.download);
+    if (!response.ok) throw new Error(`${id}: open-vsx download failed (${String(response.status)})`);
+    fs.mkdirSync(VSIX_CACHE_DIR, { recursive: true });
+    // Тот же атомарный rename, что у реестрового пути (параллельные воркеры).
+    const staging = `${cached}.${String(process.pid)}.${randomBytes(6).toString("hex")}.tmp`;
+    fs.writeFileSync(staging, Buffer.from(await response.arrayBuffer()));
+    const actualSha = await sha256File(staging);
+    if (actualSha !== expectedSha) {
+        fs.rmSync(staging, { force: true });
+        throw new Error(
+            `sha256 mismatch for ${id}@${info.version} from open-vsx: expected ${expectedSha}, got ${actualSha}`,
+        );
+    }
+    fs.renameSync(staging, cached);
+    return { vsixPath: cached, version: info.version };
+}
+
+async function fetchText(url: string): Promise<string> {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`GET ${url} failed (${String(response.status)})`);
+    return response.text();
+}

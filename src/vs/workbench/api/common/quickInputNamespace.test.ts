@@ -3,7 +3,7 @@ import type * as vscode from "vscode";
 
 import { createQuickInputApi, toWireQuickPickItem, toWireValidation } from "./quickInputNamespace.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import { CancellationTokenSource, InputBoxValidationSeverity } from "./vscodeTypes.ts";
+import { CancellationTokenSource, InputBoxValidationSeverity, QuickPickItemKind } from "./vscodeTypes.ts";
 
 function makeApi() {
     const stub = makeStubRpc();
@@ -308,6 +308,23 @@ describe("window.showQuickPick (шим)", () => {
         stub.responder = () => ({ indices: [2] });
         const items = [{ label: "a" }, { label: "b" }, { label: "c" }];
         await expect(api.showQuickPick(items)).resolves.toBe(items[2]);
+    });
+
+    it("разделители не показываются и не выбираются; индексы ответа — по оставшимся пунктам", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: [1] });
+        // Форма `Go: Choose Go Environment`: заголовки групп между вариантами.
+        const items: vscode.QuickPickItem[] = [
+            { label: "Locally discovered", kind: QuickPickItemKind.Separator },
+            { label: "go1.27.2" },
+            { label: "Downloadable", kind: QuickPickItemKind.Separator },
+            { label: "go1.26.0", kind: QuickPickItemKind.Default },
+        ];
+        await expect(api.showQuickPick(items)).resolves.toBe(items[3]);
+        expect((lastRequest(stub, "window.showQuickPick").items as { label: string }[]).map((i) => i.label)).toEqual([
+            "go1.27.2",
+            "go1.26.0",
+        ]);
     });
 
     it("отмена — undefined", async () => {

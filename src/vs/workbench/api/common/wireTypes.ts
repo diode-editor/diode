@@ -9,6 +9,7 @@ import type {
     SignatureHelpTriggerKind,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
+import type { ILanguageConfiguration } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type {
     EnvironmentVariableMutatorType,
     IEnvironmentVariableCollectionDescription,
@@ -549,6 +550,22 @@ export interface IWireLanguageProviderRegistration extends IWireLanguageProvider
     readonly handle: number;
     readonly kind: WireLanguageFeatureKind;
     readonly selector: readonly IWireLanguageFilter[];
+}
+
+/**
+ * `languages.setLanguageConfiguration` (subprocess → host, upstream
+ * `$setLanguageConfiguration`): слой конфигурации языка от расширения поверх
+ * `language-configuration.json`. Снятие — `languages.unsetLanguageConfiguration`
+ * с тем же `handle`.
+ */
+export interface IWireLanguageConfiguration {
+    readonly handle: number;
+    readonly languageId: string;
+    /**
+     * Только секции, которые ядро умеет применить, в формате файла
+     * конфигурации (`notIn` — строками, как в JSON).
+     */
+    readonly configuration: ILanguageConfiguration;
 }
 
 /** `languages.unregister`: провайдер снят (subprocess → host). */

@@ -7,6 +7,7 @@ import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import {
     type ILanguageConfigurationService,
     LanguageConfigurationServiceDIToken,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ISignatureHelpRequest } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -25,6 +26,7 @@ const PARENS: IResolvedLanguageConfiguration = {
 };
 
 const withParens: ILanguageConfigurationService = {
+    ...NULL_LANGUAGE_CONFIGURATION_SERVICE,
     get: () => PARENS,
     ensureLoaded: () => Promise.resolve(PARENS),
 };

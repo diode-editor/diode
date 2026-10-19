@@ -4459,6 +4459,25 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Defines the kind of {@link QuickPickItem quick pick item}.
+	 */
+	export enum QuickPickItemKind {
+		/**
+		 * A separator item that provides a visual grouping.
+		 *
+		 * When a {@link QuickPickItem} has a kind of {@link Separator}, the item is just a visual separator
+		 * and does not represent a selectable item. The only property that applies is
+		 * {@link QuickPickItem.label label}. All other properties on {@link QuickPickItem} will be ignored
+		 * and have no effect.
+		 */
+		Separator = -1,
+		/**
+		 * The default kind for an item that can be selected in the quick pick.
+		 */
+		Default = 0,
+	}
+
+	/**
 	 * Represents an item that can be selected from a list of items.
 	 */
 	export interface QuickPickItem {
@@ -4473,6 +4492,13 @@ declare module "vscode" {
 		 * `$(<name>)`-syntax.
 		 */
 		label: string;
+
+		/**
+		 * The kind of this item that determines how it is rendered in the quick pick.
+		 *
+		 * When not specified, the default is {@link QuickPickItemKind.Default}.
+		 */
+		kind?: QuickPickItemKind;
 
 		/**
 		 * A human-readable string which is rendered less prominently in the same line.
@@ -6853,6 +6879,15 @@ declare module "vscode" {
 		 * @returns A new language status item.
 		 */
 		export function createLanguageStatusItem(id: string, selector: DocumentSelector): LanguageStatusItem;
+
+		/**
+		 * Set a {@link LanguageConfiguration language configuration} for a language.
+		 *
+		 * @param language A language identifier like `typescript`.
+		 * @param configuration Language configuration.
+		 * @returns A {@link Disposable} that unsets this configuration.
+		 */
+		export function setLanguageConfiguration(language: string, configuration: LanguageConfiguration): Disposable;
 	}
 
 	/**
@@ -11110,6 +11145,1916 @@ declare module "vscode" {
 		export function createCommentController(id: string, label: string): CommentController;
 	}
 
+
+	/**
+	 * A tuple of two characters, like a pair of
+	 * opening and closing brackets.
+	 */
+	export type CharacterPair = [string, string];
+
+	/**
+	 * Configuration for line comments.
+	 */
+	export interface LineCommentRule {
+		/**
+		 * The line comment token, like `//`
+		 */
+		comment: string;
+		/**
+		 * Whether the comment token should not be indented and placed at the first column.
+		 * Defaults to false.
+		 */
+		noIndent?: boolean;
+	}
+
+	/**
+	 * Describes how comments for a language work.
+	 */
+	export interface CommentRule {
+
+		/**
+		 * The line comment token, like `// this is a comment`
+		 */
+		lineComment?: string | LineCommentRule;
+
+		/**
+		 * The block comment character pair, like `/* block comment *&#47;`
+		 */
+		blockComment?: CharacterPair;
+	}
+
+	/**
+	 * Describes indentation rules for a language.
+	 */
+	export interface IndentationRule {
+		/**
+		 * If a line matches this pattern, then all the lines after it should be unindented once (until another rule matches).
+		 */
+		decreaseIndentPattern: RegExp;
+		/**
+		 * If a line matches this pattern, then all the lines after it should be indented once (until another rule matches).
+		 */
+		increaseIndentPattern: RegExp;
+		/**
+		 * If a line matches this pattern, then **only the next line** after it should be indented once.
+		 */
+		indentNextLinePattern?: RegExp;
+		/**
+		 * If a line matches this pattern, then its indentation should not be changed and it should not be evaluated against the other rules.
+		 */
+		unIndentedLinePattern?: RegExp;
+	}
+
+	/**
+	 * Describes what to do with the indentation when pressing Enter.
+	 */
+	export enum IndentAction {
+		/**
+		 * Insert new line and copy the previous line's indentation.
+		 */
+		None = 0,
+		/**
+		 * Insert new line and indent once (relative to the previous line's indentation).
+		 */
+		Indent = 1,
+		/**
+		 * Insert two new lines:
+		 *  - the first one indented which will hold the cursor
+		 *  - the second one at the same indentation level
+		 */
+		IndentOutdent = 2,
+		/**
+		 * Insert new line and outdent once (relative to the previous line's indentation).
+		 */
+		Outdent = 3
+	}
+
+	/**
+	 * Describes what to do when pressing Enter.
+	 */
+	export interface EnterAction {
+		/**
+		 * Describe what to do with the indentation.
+		 */
+		indentAction: IndentAction;
+		/**
+		 * Describes text to be appended after the new line and after the indentation.
+		 */
+		appendText?: string;
+		/**
+		 * Describes the number of characters to remove from the new line's indentation.
+		 */
+		removeText?: number;
+	}
+
+	/**
+	 * Describes a rule to be evaluated when pressing Enter.
+	 */
+	export interface OnEnterRule {
+		/**
+		 * This rule will only execute if the text before the cursor matches this regular expression.
+		 */
+		beforeText: RegExp;
+		/**
+		 * This rule will only execute if the text after the cursor matches this regular expression.
+		 */
+		afterText?: RegExp;
+		/**
+		 * This rule will only execute if the text above the current line matches this regular expression.
+		 */
+		previousLineText?: RegExp;
+		/**
+		 * The action to execute.
+		 */
+		action: EnterAction;
+	}
+
+	/**
+	 * Enumeration of commonly encountered syntax token types.
+	 */
+	export enum SyntaxTokenType {
+		/**
+		 * Everything except tokens that are part of comments, string literals and regular expressions.
+		 */
+		Other = 0,
+		/**
+		 * A comment.
+		 */
+		Comment = 1,
+		/**
+		 * A string literal.
+		 */
+		String = 2,
+		/**
+		 * A regular expression.
+		 */
+		RegEx = 3
+	}
+
+	/**
+	 * Describes pairs of strings where the close string will be automatically inserted when typing the opening string.
+	 */
+	export interface AutoClosingPair {
+		/**
+		 * The string that will trigger the automatic insertion of the closing string.
+		 */
+		open: string;
+		/**
+		 * The closing string that will be automatically inserted when typing the opening string.
+		 */
+		close: string;
+		/**
+		 * A set of tokens where the pair should not be auto closed.
+		 */
+		notIn?: SyntaxTokenType[];
+	}
+
+	/**
+	 * The language configuration interfaces defines the contract between extensions
+	 * and various editor features, like automatic bracket insertion, automatic indentation etc.
+	 */
+	export interface LanguageConfiguration {
+		/**
+		 * The language's comment settings.
+		 */
+		comments?: CommentRule;
+		/**
+		 * The language's brackets.
+		 * This configuration implicitly affects pressing Enter around these brackets.
+		 */
+		brackets?: CharacterPair[];
+		/**
+		 * The language's word definition.
+		 * If the language supports Unicode identifiers (e.g. JavaScript), it is preferable
+		 * to provide a word definition that uses exclusion of known separators.
+		 * e.g.: A regex that matches anything except known separators (and dot is allowed to occur in a floating point number):
+		 * ```
+		 * /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g
+		 * ```
+		 */
+		wordPattern?: RegExp;
+		/**
+		 * The language's indentation settings.
+		 */
+		indentationRules?: IndentationRule;
+		/**
+		 * The language's rules to be evaluated when pressing Enter.
+		 */
+		onEnterRules?: OnEnterRule[];
+		/**
+		 * The language's auto closing pairs.
+		 */
+		autoClosingPairs?: AutoClosingPair[];
+
+		/**
+		 * **Deprecated** Do not use.
+		 *
+		 * @deprecated Will be replaced by a better API soon.
+		 */
+		__electricCharacterSupport?: {
+			/**
+			 * This property is deprecated and will be **ignored** from
+			 * the editor.
+			 * @deprecated
+			 */
+			brackets?: any;
+			/**
+			 * This property is deprecated and not fully supported anymore by
+			 * the editor (scope and lineStart are ignored).
+			 * Use the autoClosingPairs property in the language configuration file instead.
+			 * @deprecated
+			 */
+			docComment?: {
+				/**
+				 * @deprecated
+				 */
+				scope: string;
+				/**
+				 * @deprecated
+				 */
+				open: string;
+				/**
+				 * @deprecated
+				 */
+				lineStart: string;
+				/**
+				 * @deprecated
+				 */
+				close?: string;
+			};
+		};
+
+		/**
+		 * **Deprecated** Do not use.
+		 *
+		 * @deprecated * Use the autoClosingPairs property in the language configuration file instead.
+		 */
+		__characterPairSupport?: {
+			/**
+			 * @deprecated
+			 */
+			autoClosingPairs: {
+				/**
+				 * @deprecated
+				 */
+				open: string;
+				/**
+				 * @deprecated
+				 */
+				close: string;
+				/**
+				 * @deprecated
+				 */
+				notIn?: string[];
+			}[];
+		};
+	}
+
+	/**
+	 * A DebugProtocolMessage is an opaque stand-in type for the [ProtocolMessage](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_ProtocolMessage) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolMessage {
+		// Properties: see [ProtocolMessage details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_ProtocolMessage).
+	}
+
+	/**
+	 * A DebugProtocolSource is an opaque stand-in type for the [Source](https://microsoft.github.io/debug-adapter-protocol/specification#Types_Source) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolSource {
+		// Properties: see [Source details](https://microsoft.github.io/debug-adapter-protocol/specification#Types_Source).
+	}
+
+	/**
+	 * A DebugProtocolBreakpoint is an opaque stand-in type for the [Breakpoint](https://microsoft.github.io/debug-adapter-protocol/specification#Types_Breakpoint) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolBreakpoint {
+		// Properties: see [Breakpoint details](https://microsoft.github.io/debug-adapter-protocol/specification#Types_Breakpoint).
+	}
+
+	/**
+	 * Configuration for a debug session.
+	 */
+	export interface DebugConfiguration {
+		/**
+		 * The type of the debug session.
+		 */
+		type: string;
+
+		/**
+		 * The name of the debug session.
+		 */
+		name: string;
+
+		/**
+		 * The request type of the debug session.
+		 */
+		request: string;
+
+		/**
+		 * Additional debug type specific properties.
+		 */
+		[key: string]: any;
+	}
+
+	/**
+	 * A debug session.
+	 */
+	export interface DebugSession {
+
+		/**
+		 * The unique ID of this debug session.
+		 */
+		readonly id: string;
+
+		/**
+		 * The debug session's type from the {@link DebugConfiguration debug configuration}.
+		 */
+		readonly type: string;
+
+		/**
+		 * The parent session of this debug session, if it was created as a child.
+		 * @see DebugSessionOptions.parentSession
+		 */
+		readonly parentSession?: DebugSession;
+
+		/**
+		 * The debug session's name is initially taken from the {@link DebugConfiguration debug configuration}.
+		 * Any changes will be properly reflected in the UI.
+		 */
+		name: string;
+
+		/**
+		 * The workspace folder of this session or `undefined` for a folderless setup.
+		 */
+		readonly workspaceFolder: WorkspaceFolder | undefined;
+
+		/**
+		 * The "resolved" {@link DebugConfiguration debug configuration} of this session.
+		 * "Resolved" means that
+		 * - all variables have been substituted and
+		 * - platform specific attribute sections have been "flattened" for the matching platform and removed for non-matching platforms.
+		 */
+		readonly configuration: DebugConfiguration;
+
+		/**
+		 * Send a custom request to the debug adapter.
+		 */
+		customRequest(command: string, args?: any): Thenable<any>;
+
+		/**
+		 * Maps a breakpoint in the editor to the corresponding Debug Adapter Protocol (DAP) breakpoint that is managed by the debug adapter of the debug session.
+		 * If no DAP breakpoint exists (either because the editor breakpoint was not yet registered or because the debug adapter is not interested in the breakpoint), the value `undefined` is returned.
+		 *
+		 * @param breakpoint A {@link Breakpoint} in the editor.
+		 * @returns A promise that resolves to the Debug Adapter Protocol breakpoint or `undefined`.
+		 */
+		getDebugProtocolBreakpoint(breakpoint: Breakpoint): Thenable<DebugProtocolBreakpoint | undefined>;
+	}
+
+	/**
+	 * A custom Debug Adapter Protocol event received from a {@link DebugSession debug session}.
+	 */
+	export interface DebugSessionCustomEvent {
+		/**
+		 * The {@link DebugSession debug session} for which the custom event was received.
+		 */
+		readonly session: DebugSession;
+
+		/**
+		 * Type of event.
+		 */
+		readonly event: string;
+
+		/**
+		 * Event specific information.
+		 */
+		readonly body: any;
+	}
+
+	/**
+	 * A debug configuration provider allows to add debug configurations to the debug service
+	 * and to resolve launch configurations before they are used to start a debug session.
+	 * A debug configuration provider is registered via {@link debug.registerDebugConfigurationProvider}.
+	 */
+	export interface DebugConfigurationProvider {
+		/**
+		 * Provides {@link DebugConfiguration debug configuration} to the debug service. If more than one debug configuration provider is
+		 * registered for the same type, debug configurations are concatenated in arbitrary order.
+		 *
+		 * @param folder The workspace folder for which the configurations are used or `undefined` for a folderless setup.
+		 * @param token A cancellation token.
+		 * @returns An array of {@link DebugConfiguration debug configurations}.
+		 */
+		provideDebugConfigurations?(folder: WorkspaceFolder | undefined, token?: CancellationToken): ProviderResult<DebugConfiguration[]>;
+
+		/**
+		 * Resolves a {@link DebugConfiguration debug configuration} by filling in missing values or by adding/changing/removing attributes.
+		 * If more than one debug configuration provider is registered for the same type, the resolveDebugConfiguration calls are chained
+		 * in arbitrary order and the initial debug configuration is piped through the chain.
+		 * Returning the value 'undefined' prevents the debug session from starting.
+		 * Returning the value 'null' prevents the debug session from starting and opens the underlying debug configuration instead.
+		 *
+		 * @param folder The workspace folder from which the configuration originates from or `undefined` for a folderless setup.
+		 * @param debugConfiguration The {@link DebugConfiguration debug configuration} to resolve.
+		 * @param token A cancellation token.
+		 * @returns The resolved debug configuration or undefined or null.
+		 */
+		resolveDebugConfiguration?(folder: WorkspaceFolder | undefined, debugConfiguration: DebugConfiguration, token?: CancellationToken): ProviderResult<DebugConfiguration>;
+
+		/**
+		 * This hook is directly called after 'resolveDebugConfiguration' but with all variables substituted.
+		 * It can be used to resolve or verify a {@link DebugConfiguration debug configuration} by filling in missing values or by adding/changing/removing attributes.
+		 * If more than one debug configuration provider is registered for the same type, the 'resolveDebugConfigurationWithSubstitutedVariables' calls are chained
+		 * in arbitrary order and the initial debug configuration is piped through the chain.
+		 * Returning the value 'undefined' prevents the debug session from starting.
+		 * Returning the value 'null' prevents the debug session from starting and opens the underlying debug configuration instead.
+		 *
+		 * @param folder The workspace folder from which the configuration originates from or `undefined` for a folderless setup.
+		 * @param debugConfiguration The {@link DebugConfiguration debug configuration} to resolve.
+		 * @param token A cancellation token.
+		 * @returns The resolved debug configuration or undefined or null.
+		 */
+		resolveDebugConfigurationWithSubstitutedVariables?(folder: WorkspaceFolder | undefined, debugConfiguration: DebugConfiguration, token?: CancellationToken): ProviderResult<DebugConfiguration>;
+	}
+
+	/**
+	 * Represents a debug adapter executable and optional arguments and runtime options passed to it.
+	 */
+	export class DebugAdapterExecutable {
+
+		/**
+		 * Creates a description for a debug adapter based on an executable program.
+		 *
+		 * @param command The command or executable path that implements the debug adapter.
+		 * @param args Optional arguments to be passed to the command or executable.
+		 * @param options Optional options to be used when starting the command or executable.
+		 */
+		constructor(command: string, args?: string[], options?: DebugAdapterExecutableOptions);
+
+		/**
+		 * The command or path of the debug adapter executable.
+		 * A command must be either an absolute path of an executable or the name of an command to be looked up via the PATH environment variable.
+		 * The special value 'node' will be mapped to the editor's built-in Node.js runtime.
+		 */
+		readonly command: string;
+
+		/**
+		 * The arguments passed to the debug adapter executable. Defaults to an empty array.
+		 */
+		readonly args: string[];
+
+		/**
+		 * Optional options to be used when the debug adapter is started.
+		 * Defaults to undefined.
+		 */
+		readonly options?: DebugAdapterExecutableOptions;
+	}
+
+	/**
+	 * Options for a debug adapter executable.
+	 */
+	export interface DebugAdapterExecutableOptions {
+
+		/**
+		 * The additional environment of the executed program or shell. If omitted
+		 * the parent process' environment is used. If provided it is merged with
+		 * the parent process' environment.
+		 */
+		env?: { [key: string]: string };
+
+		/**
+		 * The current working directory for the executed debug adapter.
+		 */
+		cwd?: string;
+	}
+
+	/**
+	 * Represents a debug adapter running as a socket based server.
+	 */
+	export class DebugAdapterServer {
+
+		/**
+		 * The port.
+		 */
+		readonly port: number;
+
+		/**
+		 * The host.
+		 */
+		readonly host?: string | undefined;
+
+		/**
+		 * Create a description for a debug adapter running as a socket based server.
+		 */
+		constructor(port: number, host?: string);
+	}
+
+	/**
+	 * Represents a debug adapter running as a Named Pipe (on Windows)/UNIX Domain Socket (on non-Windows) based server.
+	 */
+	export class DebugAdapterNamedPipeServer {
+		/**
+		 * The path to the NamedPipe/UNIX Domain Socket.
+		 */
+		readonly path: string;
+
+		/**
+		 * Create a description for a debug adapter running as a Named Pipe (on Windows)/UNIX Domain Socket (on non-Windows) based server.
+		 */
+		constructor(path: string);
+	}
+
+	/**
+	 * A debug adapter that implements the Debug Adapter Protocol can be registered with the editor if it implements the DebugAdapter interface.
+	 */
+	export interface DebugAdapter extends Disposable {
+
+		/**
+		 * An event which fires after the debug adapter has sent a Debug Adapter Protocol message to the editor.
+		 * Messages can be requests, responses, or events.
+		 */
+		readonly onDidSendMessage: Event<DebugProtocolMessage>;
+
+		/**
+		 * Handle a Debug Adapter Protocol message.
+		 * Messages can be requests, responses, or events.
+		 * Results or errors are returned via onSendMessage events.
+		 * @param message A Debug Adapter Protocol message
+		 */
+		handleMessage(message: DebugProtocolMessage): void;
+	}
+
+	/**
+	 * A debug adapter descriptor for an inline implementation.
+	 */
+	export class DebugAdapterInlineImplementation {
+
+		/**
+		 * Create a descriptor for an inline implementation of a debug adapter.
+		 */
+		constructor(implementation: DebugAdapter);
+	}
+
+	/**
+	 * Represents the different types of debug adapters
+	 */
+	export type DebugAdapterDescriptor = DebugAdapterExecutable | DebugAdapterServer | DebugAdapterNamedPipeServer | DebugAdapterInlineImplementation;
+
+	/**
+	 * A debug adapter factory that creates {@link DebugAdapterDescriptor debug adapter descriptors}.
+	 */
+	export interface DebugAdapterDescriptorFactory {
+		/**
+		 * 'createDebugAdapterDescriptor' is called at the start of a debug session to provide details about the debug adapter to use.
+		 * These details must be returned as objects of type {@link DebugAdapterDescriptor}.
+		 * Currently two types of debug adapters are supported:
+		 * - a debug adapter executable is specified as a command path and arguments (see {@link DebugAdapterExecutable}),
+		 * - a debug adapter server reachable via a communication port (see {@link DebugAdapterServer}).
+		 * If the method is not implemented the default behavior is this:
+		 *   createDebugAdapter(session: DebugSession, executable: DebugAdapterExecutable) {
+		 *      if (typeof session.configuration.debugServer === 'number') {
+		 *         return new DebugAdapterServer(session.configuration.debugServer);
+		 *      }
+		 *      return executable;
+		 *   }
+		 * @param session The {@link DebugSession debug session} for which the debug adapter will be used.
+		 * @param executable The debug adapter's executable information as specified in the package.json (or undefined if no such information exists).
+		 * @returns a {@link DebugAdapterDescriptor debug adapter descriptor} or undefined.
+		 */
+		createDebugAdapterDescriptor(session: DebugSession, executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor>;
+	}
+
+	/**
+	 * A Debug Adapter Tracker is a means to track the communication between the editor and a Debug Adapter.
+	 */
+	export interface DebugAdapterTracker {
+		/**
+		 * A session with the debug adapter is about to be started.
+		 */
+		onWillStartSession?(): void;
+		/**
+		 * The debug adapter is about to receive a Debug Adapter Protocol message from the editor.
+		 */
+		onWillReceiveMessage?(message: any): void;
+		/**
+		 * The debug adapter has sent a Debug Adapter Protocol message to the editor.
+		 */
+		onDidSendMessage?(message: any): void;
+		/**
+		 * The debug adapter session is about to be stopped.
+		 */
+		onWillStopSession?(): void;
+		/**
+		 * An error with the debug adapter has occurred.
+		 */
+		onError?(error: Error): void;
+		/**
+		 * The debug adapter has exited with the given exit code or signal.
+		 */
+		onExit?(code: number | undefined, signal: string | undefined): void;
+	}
+
+	/**
+	 * A debug adapter factory that creates {@link DebugAdapterTracker debug adapter trackers}.
+	 */
+	export interface DebugAdapterTrackerFactory {
+		/**
+		 * The method 'createDebugAdapterTracker' is called at the start of a debug session in order
+		 * to return a "tracker" object that provides read-access to the communication between the editor and a debug adapter.
+		 *
+		 * @param session The {@link DebugSession debug session} for which the debug adapter tracker will be used.
+		 * @returns A {@link DebugAdapterTracker debug adapter tracker} or undefined.
+		 */
+		createDebugAdapterTracker(session: DebugSession): ProviderResult<DebugAdapterTracker>;
+	}
+
+	/**
+	 * Represents the debug console.
+	 */
+	export interface DebugConsole {
+		/**
+		 * Append the given value to the debug console.
+		 *
+		 * @param value A string, falsy values will not be printed.
+		 */
+		append(value: string): void;
+
+		/**
+		 * Append the given value and a line feed character
+		 * to the debug console.
+		 *
+		 * @param value A string, falsy values will be printed.
+		 */
+		appendLine(value: string): void;
+	}
+
+	/**
+	 * An event describing the changes to the set of {@link Breakpoint breakpoints}.
+	 */
+	export interface BreakpointsChangeEvent {
+		/**
+		 * Added breakpoints.
+		 */
+		readonly added: readonly Breakpoint[];
+
+		/**
+		 * Removed breakpoints.
+		 */
+		readonly removed: readonly Breakpoint[];
+
+		/**
+		 * Changed breakpoints.
+		 */
+		readonly changed: readonly Breakpoint[];
+	}
+
+	/**
+	 * The base class of all breakpoint types.
+	 */
+	export class Breakpoint {
+		/**
+		 * The unique ID of the breakpoint.
+		 */
+		readonly id: string;
+		/**
+		 * Is breakpoint enabled.
+		 */
+		readonly enabled: boolean;
+		/**
+		 * An optional expression for conditional breakpoints.
+		 */
+		readonly condition?: string | undefined;
+		/**
+		 * An optional expression that controls how many hits of the breakpoint are ignored.
+		 */
+		readonly hitCondition?: string | undefined;
+		/**
+		 * An optional message that gets logged when this breakpoint is hit. Embedded expressions within {} are interpolated by the debug adapter.
+		 */
+		readonly logMessage?: string | undefined;
+
+		/**
+		 * Creates a new breakpoint
+		 *
+		 * @param enabled Is breakpoint enabled.
+		 * @param condition Expression for conditional breakpoints
+		 * @param hitCondition Expression that controls how many hits of the breakpoint are ignored
+		 * @param logMessage Log message to display when breakpoint is hit
+		 */
+		protected constructor(enabled?: boolean, condition?: string, hitCondition?: string, logMessage?: string);
+	}
+
+	/**
+	 * A breakpoint specified by a source location.
+	 */
+	export class SourceBreakpoint extends Breakpoint {
+		/**
+		 * The source and line position of this breakpoint.
+		 */
+		readonly location: Location;
+
+		/**
+		 * Create a new breakpoint for a source location.
+		 */
+		constructor(location: Location, enabled?: boolean, condition?: string, hitCondition?: string, logMessage?: string);
+	}
+
+	/**
+	 * A breakpoint specified by a function name.
+	 */
+	export class FunctionBreakpoint extends Breakpoint {
+		/**
+		 * The name of the function to which this breakpoint is attached.
+		 */
+		readonly functionName: string;
+
+		/**
+		 * Create a new function breakpoint.
+		 */
+		constructor(functionName: string, enabled?: boolean, condition?: string, hitCondition?: string, logMessage?: string);
+	}
+
+	/**
+	 * Debug console mode used by debug session, see {@link DebugSessionOptions options}.
+	 */
+	export enum DebugConsoleMode {
+		/**
+		 * Debug session should have a separate debug console.
+		 */
+		Separate = 0,
+
+		/**
+		 * Debug session should share debug console with its parent session.
+		 * This value has no effect for sessions which do not have a parent session.
+		 */
+		MergeWithParent = 1
+	}
+
+	/**
+	 * Options for {@link debug.startDebugging starting a debug session}.
+	 */
+	export interface DebugSessionOptions {
+
+		/**
+		 * When specified the newly created debug session is registered as a "child" session of this
+		 * "parent" debug session.
+		 */
+		parentSession?: DebugSession;
+
+		/**
+		 * Controls whether lifecycle requests like 'restart' are sent to the newly created session or its parent session.
+		 * By default (if the property is false or missing), lifecycle requests are sent to the new session.
+		 * This property is ignored if the session has no parent session.
+		 */
+		lifecycleManagedByParent?: boolean;
+
+		/**
+		 * Controls whether this session should have a separate debug console or share it
+		 * with the parent session. Has no effect for sessions which do not have a parent session.
+		 * Defaults to Separate.
+		 */
+		consoleMode?: DebugConsoleMode;
+
+		/**
+		 * Controls whether this session should run without debugging, thus ignoring breakpoints.
+		 * When this property is not specified, the value from the parent session (if there is one) is used.
+		 */
+		noDebug?: boolean;
+
+		/**
+		 * Controls if the debug session's parent session is shown in the CALL STACK view even if it has only a single child.
+		 * By default, the debug session will never hide its parent.
+		 * If compact is true, debug sessions with a single child are hidden in the CALL STACK view to make the tree more compact.
+		 */
+		compact?: boolean;
+
+		/**
+		 * When true, a save will not be triggered for open editors when starting a debug session, regardless of the value of the `debug.saveBeforeStart` setting.
+		 */
+		suppressSaveBeforeStart?: boolean;
+
+		/**
+		 * When true, the debug toolbar will not be shown for this session.
+		 */
+		suppressDebugToolbar?: boolean;
+
+		/**
+		 * When true, the window statusbar color will not be changed for this session.
+		 */
+		suppressDebugStatusbar?: boolean;
+
+		/**
+		 * When true, the debug viewlet will not be automatically revealed for this session.
+		 */
+		suppressDebugView?: boolean;
+
+		/**
+		 * Signals to the editor that the debug session was started from a test run
+		 * request. This is used to link the lifecycle of the debug session and
+		 * test run in UI actions.
+		 */
+		testRun?: TestRun;
+	}
+
+	/**
+	 * A DebugConfigurationProviderTriggerKind specifies when the `provideDebugConfigurations` method of a `DebugConfigurationProvider` is triggered.
+	 * Currently there are two situations: to provide the initial debug configurations for a newly created launch.json or
+	 * to provide dynamically generated debug configurations when the user asks for them through the UI (e.g. via the "Select and Start Debugging" command).
+	 * A trigger kind is used when registering a `DebugConfigurationProvider` with {@link debug.registerDebugConfigurationProvider}.
+	 */
+	export enum DebugConfigurationProviderTriggerKind {
+		/**
+		 *	`DebugConfigurationProvider.provideDebugConfigurations` is called to provide the initial debug configurations for a newly created launch.json.
+		 */
+		Initial = 1,
+		/**
+		 * `DebugConfigurationProvider.provideDebugConfigurations` is called to provide dynamically generated debug configurations when the user asks for them through the UI (e.g. via the "Select and Start Debugging" command).
+		 */
+		Dynamic = 2
+	}
+
+	/**
+	 * Represents a thread in a debug session.
+	 */
+	export class DebugThread {
+		/**
+		 * Debug session for thread.
+		 */
+		readonly session: DebugSession;
+
+		/**
+		 * ID of the associated thread in the debug protocol.
+		 */
+		readonly threadId: number;
+
+		/**
+		 * @hidden
+		 */
+		private constructor(session: DebugSession, threadId: number);
+	}
+
+	/**
+	 * Represents a stack frame in a debug session.
+	 */
+	export class DebugStackFrame {
+		/**
+		 * Debug session for thread.
+		 */
+		readonly session: DebugSession;
+
+		/**
+		 * ID of the associated thread in the debug protocol.
+		 */
+		readonly threadId: number;
+		/**
+		 * ID of the stack frame in the debug protocol.
+		 */
+		readonly frameId: number;
+
+		/**
+		 * @hidden
+		 */
+		private constructor(session: DebugSession, threadId: number, frameId: number);
+	}
+
+	/**
+	 * Namespace for debug functionality.
+	 */
+	export namespace debug {
+
+		/**
+		 * The currently active {@link DebugSession debug session} or `undefined`. The active debug session is the one
+		 * represented by the debug action floating window or the one currently shown in the drop down menu of the debug action floating window.
+		 * If no debug session is active, the value is `undefined`.
+		 */
+		export let activeDebugSession: DebugSession | undefined;
+
+		/**
+		 * The currently active {@link DebugConsole debug console}.
+		 * If no debug session is active, output sent to the debug console is not shown.
+		 */
+		export let activeDebugConsole: DebugConsole;
+
+		/**
+		 * List of breakpoints.
+		 */
+		export let breakpoints: readonly Breakpoint[];
+
+		/**
+		 * An {@link Event} which fires when the {@link debug.activeDebugSession active debug session}
+		 * has changed. *Note* that the event also fires when the active debug session changes
+		 * to `undefined`.
+		 */
+		export const onDidChangeActiveDebugSession: Event<DebugSession | undefined>;
+
+		/**
+		 * An {@link Event} which fires when a new {@link DebugSession debug session} has been started.
+		 */
+		export const onDidStartDebugSession: Event<DebugSession>;
+
+		/**
+		 * An {@link Event} which fires when a custom DAP event is received from the {@link DebugSession debug session}.
+		 */
+		export const onDidReceiveDebugSessionCustomEvent: Event<DebugSessionCustomEvent>;
+
+		/**
+		 * An {@link Event} which fires when a {@link DebugSession debug session} has terminated.
+		 */
+		export const onDidTerminateDebugSession: Event<DebugSession>;
+
+		/**
+		 * An {@link Event} that is emitted when the set of breakpoints is added, removed, or changed.
+		 */
+		export const onDidChangeBreakpoints: Event<BreakpointsChangeEvent>;
+
+		/**
+		 * The currently focused thread or stack frame, or `undefined` if no
+		 * thread or stack is focused. A thread can be focused any time there is
+		 * an active debug session, while a stack frame can only be focused when
+		 * a session is paused and the call stack has been retrieved.
+		 */
+		export const activeStackItem: DebugThread | DebugStackFrame | undefined;
+
+		/**
+		 * An event which fires when the {@link debug.activeStackItem} has changed.
+		 */
+		export const onDidChangeActiveStackItem: Event<DebugThread | DebugStackFrame | undefined>;
+
+		/**
+		 * Register a {@link DebugConfigurationProvider debug configuration provider} for a specific debug type.
+		 * The optional {@link DebugConfigurationProviderTriggerKind triggerKind} can be used to specify when the `provideDebugConfigurations` method of the provider is triggered.
+		 * Currently two trigger kinds are possible: with the value `Initial` (or if no trigger kind argument is given) the `provideDebugConfigurations` method is used to provide the initial debug configurations to be copied into a newly created launch.json.
+		 * With the trigger kind `Dynamic` the `provideDebugConfigurations` method is used to dynamically determine debug configurations to be presented to the user (in addition to the static configurations from the launch.json).
+		 * Please note that the `triggerKind` argument only applies to the `provideDebugConfigurations` method: so the `resolveDebugConfiguration` methods are not affected at all.
+		 * Registering a single provider with resolve methods for different trigger kinds, results in the same resolve methods called multiple times.
+		 * More than one provider can be registered for the same type.
+		 *
+		 * @param debugType The debug type for which the provider is registered.
+		 * @param provider The {@link DebugConfigurationProvider debug configuration provider} to register.
+		 * @param triggerKind The {@link DebugConfigurationProviderTriggerKind trigger} for which the 'provideDebugConfiguration' method of the provider is registered. If `triggerKind` is missing, the value `DebugConfigurationProviderTriggerKind.Initial` is assumed.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDebugConfigurationProvider(debugType: string, provider: DebugConfigurationProvider, triggerKind?: DebugConfigurationProviderTriggerKind): Disposable;
+
+		/**
+		 * Register a {@link DebugAdapterDescriptorFactory debug adapter descriptor factory} for a specific debug type.
+		 * An extension is only allowed to register a DebugAdapterDescriptorFactory for the debug type(s) defined by the extension. Otherwise an error is thrown.
+		 * Registering more than one DebugAdapterDescriptorFactory for a debug type results in an error.
+		 *
+		 * @param debugType The debug type for which the factory is registered.
+		 * @param factory The {@link DebugAdapterDescriptorFactory debug adapter descriptor factory} to register.
+		 * @returns A {@link Disposable} that unregisters this factory when being disposed.
+		 */
+		export function registerDebugAdapterDescriptorFactory(debugType: string, factory: DebugAdapterDescriptorFactory): Disposable;
+
+		/**
+		 * Register a debug adapter tracker factory for the given debug type.
+		 *
+		 * @param debugType The debug type for which the factory is registered or '*' for matching all debug types.
+		 * @param factory The {@link DebugAdapterTrackerFactory debug adapter tracker factory} to register.
+		 * @returns A {@link Disposable} that unregisters this factory when being disposed.
+		 */
+		export function registerDebugAdapterTrackerFactory(debugType: string, factory: DebugAdapterTrackerFactory): Disposable;
+
+		/**
+		 * Start debugging by using either a named launch or named compound configuration,
+		 * or by directly passing a {@link DebugConfiguration}.
+		 * The named configurations are looked up in '.vscode/launch.json' found in the given folder.
+		 * Before debugging starts, all unsaved files are saved and the launch configurations are brought up-to-date.
+		 * Folder specific variables used in the configuration (e.g. '${workspaceFolder}') are resolved against the given folder.
+		 * @param folder The {@link WorkspaceFolder workspace folder} for looking up named configurations and resolving variables or `undefined` for a non-folder setup.
+		 * @param nameOrConfiguration Either the name of a debug or compound configuration or a {@link DebugConfiguration} object.
+		 * @param parentSessionOrOptions Debug session options. When passed a parent {@link DebugSession debug session}, assumes options with just this parent session.
+		 * @returns A thenable that resolves when debugging could be successfully started.
+		 */
+		export function startDebugging(folder: WorkspaceFolder | undefined, nameOrConfiguration: string | DebugConfiguration, parentSessionOrOptions?: DebugSession | DebugSessionOptions): Thenable<boolean>;
+
+		/**
+		 * Stop the given debug session or stop all debug sessions if session is omitted.
+		 *
+		 * @param session The {@link DebugSession debug session} to stop; if omitted all sessions are stopped.
+		 * @returns A thenable that resolves when the session(s) have been stopped.
+		 */
+		export function stopDebugging(session?: DebugSession): Thenable<void>;
+
+		/**
+		 * Add breakpoints.
+		 * @param breakpoints The breakpoints to add.
+		 */
+		export function addBreakpoints(breakpoints: readonly Breakpoint[]): void;
+
+		/**
+		 * Remove breakpoints.
+		 * @param breakpoints The breakpoints to remove.
+		 */
+		export function removeBreakpoints(breakpoints: readonly Breakpoint[]): void;
+
+		/**
+		 * Converts a "Source" descriptor object received via the Debug Adapter Protocol into a Uri that can be used to load its contents.
+		 * If the source descriptor is based on a path, a file Uri is returned.
+		 * If the source descriptor uses a reference number, a specific debug Uri (scheme 'debug') is constructed that requires a corresponding ContentProvider and a running debug session
+		 *
+		 * If the "Source" descriptor has insufficient information for creating the Uri, an error is thrown.
+		 *
+		 * @param source An object conforming to the [Source](https://microsoft.github.io/debug-adapter-protocol/specification#Types_Source) type defined in the Debug Adapter Protocol.
+		 * @param session An optional debug session that will be used when the source descriptor uses a reference number to load the contents from an active debug session.
+		 * @returns A uri that can be used to load the contents of the source.
+		 */
+		export function asDebugSourceUri(source: DebugProtocolSource, session?: DebugSession): Uri;
+	}
+
+	/**
+	 * Namespace for testing functionality. Tests are published by registering
+	 * {@link TestController} instances, then adding {@link TestItem TestItems}.
+	 * Controllers may also describe how to run tests by creating one or more
+	 * {@link TestRunProfile} instances.
+	 */
+	export namespace tests {
+		/**
+		 * Creates a new test controller.
+		 *
+		 * @param id Identifier for the controller, must be globally unique.
+		 * @param label A human-readable label for the controller.
+		 * @returns An instance of the {@link TestController}.
+		 */
+		export function createTestController(id: string, label: string): TestController;
+	}
+
+	/**
+	 * The kind of executions that {@link TestRunProfile TestRunProfiles} control.
+	 */
+	export enum TestRunProfileKind {
+		/**
+		 * The `Run` test profile kind.
+		 */
+		Run = 1,
+		/**
+		 * The `Debug` test profile kind.
+		 */
+		Debug = 2,
+		/**
+		 * The `Coverage` test profile kind.
+		 */
+		Coverage = 3,
+	}
+
+	/**
+	 * Tags can be associated with {@link TestItem TestItems} and
+	 * {@link TestRunProfile TestRunProfiles}. A profile with a tag can only
+	 * execute tests that include that tag in their {@link TestItem.tags} array.
+	 */
+	export class TestTag {
+		/**
+		 * ID of the test tag. `TestTag` instances with the same ID are considered
+		 * to be identical.
+		 */
+		readonly id: string;
+
+		/**
+		 * Creates a new TestTag instance.
+		 * @param id ID of the test tag.
+		 */
+		constructor(id: string);
+	}
+
+	/**
+	 * A TestRunProfile describes one way to execute tests in a {@link TestController}.
+	 */
+	export interface TestRunProfile {
+		/**
+		 * Label shown to the user in the UI.
+		 *
+		 * Note that the label has some significance if the user requests that
+		 * tests be re-run in a certain way. For example, if tests were run
+		 * normally and the user requests to re-run them in debug mode, the editor
+		 * will attempt use a configuration with the same label of the `Debug`
+		 * kind. If there is no such configuration, the default will be used.
+		 */
+		label: string;
+
+		/**
+		 * Configures what kind of execution this profile controls. If there
+		 * are no profiles for a kind, it will not be available in the UI.
+		 */
+		readonly kind: TestRunProfileKind;
+
+		/**
+		 * Controls whether this profile is the default action that will
+		 * be taken when its kind is actioned. For example, if the user clicks
+		 * the generic "run all" button, then the default profile for
+		 * {@link TestRunProfileKind.Run} will be executed, although the
+		 * user can configure this.
+		 *
+		 * Changes the user makes in their default profiles will be reflected
+		 * in this property after a {@link onDidChangeDefault} event.
+		 */
+		isDefault: boolean;
+
+		/**
+		 * Fired when a user has changed whether this is a default profile. The
+		 * event contains the new value of {@link isDefault}
+		 */
+		readonly onDidChangeDefault: Event<boolean>;
+
+		/**
+		 * Whether this profile supports continuous running of requests. If so,
+		 * then {@link TestRunRequest.continuous} may be set to `true`. Defaults
+		 * to false.
+		 */
+		supportsContinuousRun: boolean;
+
+		/**
+		 * Associated tag for the profile. If this is set, only {@link TestItem}
+		 * instances with the same tag will be eligible to execute in this profile.
+		 */
+		tag: TestTag | undefined;
+
+		/**
+		 * If this method is present, a configuration gear will be present in the
+		 * UI, and this method will be invoked when it's clicked. When called,
+		 * you can take other editor actions, such as showing a quick pick or
+		 * opening a configuration file.
+		 */
+		configureHandler: (() => void) | undefined;
+
+		/**
+		 * Handler called to start a test run. When invoked, the function should call
+		 * {@link TestController.createTestRun} at least once, and all test runs
+		 * associated with the request should be created before the function returns
+		 * or the returned promise is resolved.
+		 *
+		 * If {@link supportsContinuousRun} is set, then {@link TestRunRequest.continuous}
+		 * may be `true`. In this case, the profile should observe changes to
+		 * source code and create new test runs by calling {@link TestController.createTestRun},
+		 * until the cancellation is requested on the `token`.
+		 *
+		 * @param request Request information for the test run.
+		 * @param cancellationToken Token that signals the used asked to abort the
+		 * test run. If cancellation is requested on this token, all {@link TestRun}
+		 * instances associated with the request will be
+		 * automatically cancelled as well.
+		 */
+		runHandler: (request: TestRunRequest, token: CancellationToken) => Thenable<void> | void;
+
+		/**
+		 * An extension-provided function that provides detailed statement and
+		 * function-level coverage for a file. The editor will call this when more
+		 * detail is needed for a file, such as when it's opened in an editor or
+		 * expanded in the **Test Coverage** view.
+		 *
+		 * The {@link FileCoverage} object passed to this function is the same instance
+		 * emitted on {@link TestRun.addCoverage} calls associated with this profile.
+		 */
+		loadDetailedCoverage?: (testRun: TestRun, fileCoverage: FileCoverage, token: CancellationToken) => Thenable<FileCoverageDetail[]>;
+
+		/**
+		 * An extension-provided function that provides detailed statement and
+		 * function-level coverage for a single test in a file. This is the per-test
+		 * sibling of {@link TestRunProfile.loadDetailedCoverage}, called only if
+		 * a test item is provided in {@link FileCoverage.includesTests} and only
+		 * for files where such data is reported.
+		 *
+		 * Often {@link TestRunProfile.loadDetailedCoverage} will be called first
+		 * when a user opens a file, and then this method will be called if they
+		 * drill down into specific per-test coverage information. This method
+		 * should then return coverage data only for statements and declarations
+		 * executed by the specific test during the run.
+		 *
+		 * The {@link FileCoverage} object passed to this function is the same
+		 * instance emitted on {@link TestRun.addCoverage} calls associated with this profile.
+		 *
+		 * @param testRun The test run that generated the coverage data.
+		 * @param fileCoverage The file coverage object to load detailed coverage for.
+		 * @param fromTestItem The test item to request coverage information for.
+		 * @param token A cancellation token that indicates the operation should be cancelled.
+		 */
+		loadDetailedCoverageForTest?: (testRun: TestRun, fileCoverage: FileCoverage, fromTestItem: TestItem, token: CancellationToken) => Thenable<FileCoverageDetail[]>;
+
+		/**
+		 * Deletes the run profile.
+		 */
+		dispose(): void;
+	}
+
+	/**
+	 * Entry point to discover and execute tests. It contains {@link TestController.items} which
+	 * are used to populate the editor UI, and is associated with
+	 * {@link TestController.createRunProfile run profiles} to allow
+	 * for tests to be executed.
+	 */
+	export interface TestController {
+		/**
+		 * The id of the controller passed in {@link tests.createTestController}.
+		 * This must be globally unique.
+		 */
+		readonly id: string;
+
+		/**
+		 * Human-readable label for the test controller.
+		 */
+		label: string;
+
+		/**
+		 * A collection of "top-level" {@link TestItem} instances, which can in
+		 * turn have their own {@link TestItem.children children} to form the
+		 * "test tree."
+		 *
+		 * The extension controls when to add tests. For example, extensions should
+		 * add tests for a file when {@link workspace.onDidOpenTextDocument}
+		 * fires in order for decorations for tests within a file to be visible.
+		 *
+		 * However, the editor may sometimes explicitly request children using the
+		 * {@link resolveHandler} See the documentation on that method for more details.
+		 */
+		readonly items: TestItemCollection;
+
+		/**
+		 * Creates a profile used for running tests. Extensions must create
+		 * at least one profile in order for tests to be run.
+		 * @param label A human-readable label for this profile.
+		 * @param kind Configures what kind of execution this profile manages.
+		 * @param runHandler Function called to start a test run.
+		 * @param isDefault Whether this is the default action for its kind.
+		 * @param tag Profile test tag.
+		 * @param supportsContinuousRun Whether the profile supports continuous running.
+		 * @returns An instance of a {@link TestRunProfile}, which is automatically
+		 * associated with this controller.
+		 */
+		createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Thenable<void> | void, isDefault?: boolean, tag?: TestTag, supportsContinuousRun?: boolean): TestRunProfile;
+
+		/**
+		 * A function provided by the extension that the editor may call to request
+		 * children of a test item, if the {@link TestItem.canResolveChildren} is
+		 * `true`. When called, the item should discover children and call
+		 * {@link TestController.createTestItem} as children are discovered.
+		 *
+		 * Generally the extension manages the lifecycle of test items, but under
+		 * certain conditions the editor may request the children of a specific
+		 * item to be loaded. For example, if the user requests to re-run tests
+		 * after reloading the editor, the editor may need to call this method
+		 * to resolve the previously-run tests.
+		 *
+		 * The item in the explorer will automatically be marked as "busy" until
+		 * the function returns or the returned thenable resolves.
+		 *
+		 * @param item An unresolved test item for which children are being
+		 * requested, or `undefined` to resolve the controller's initial {@link TestController.items items}.
+		 */
+		resolveHandler?: (item: TestItem | undefined) => Thenable<void> | void;
+
+		/**
+		 * If this method is present, a refresh button will be present in the
+		 * UI, and this method will be invoked when it's clicked. When called,
+		 * the extension should scan the workspace for any new, changed, or
+		 * removed tests.
+		 *
+		 * It's recommended that extensions try to update tests in realtime, using
+		 * a {@link FileSystemWatcher} for example, and use this method as a fallback.
+		 *
+		 * @returns A thenable that resolves when tests have been refreshed.
+		 */
+		refreshHandler: ((token: CancellationToken) => Thenable<void> | void) | undefined;
+
+		/**
+		 * Creates a {@link TestRun}. This should be called by the
+		 * {@link TestRunProfile} when a request is made to execute tests, and may
+		 * also be called if a test run is detected externally. Once created, tests
+		 * that are included in the request will be moved into the queued state.
+		 *
+		 * All runs created using the same `request` instance will be grouped
+		 * together. This is useful if, for example, a single suite of tests is
+		 * run on multiple platforms.
+		 *
+		 * @param request Test run request. Only tests inside the `include` may be
+		 * modified, and tests in its `exclude` are ignored.
+		 * @param name The human-readable name of the run. This can be used to
+		 * disambiguate multiple sets of results in a test run. It is useful if
+		 * tests are run across multiple platforms, for example.
+		 * @param persist Whether the results created by the run should be
+		 * persisted in the editor. This may be false if the results are coming from
+		 * a file already saved externally, such as a coverage information file.
+		 * @returns An instance of the {@link TestRun}. It will be considered "running"
+		 * from the moment this method is invoked until {@link TestRun.end} is called.
+		 */
+		createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun;
+
+		/**
+		 * Creates a new managed {@link TestItem} instance. It can be added into
+		 * the {@link TestItem.children} of an existing item, or into the
+		 * {@link TestController.items}.
+		 *
+		 * @param id Identifier for the TestItem. The test item's ID must be unique
+		 * in the {@link TestItemCollection} it's added to.
+		 * @param label Human-readable label of the test item.
+		 * @param uri URI this TestItem is associated with. May be a file or directory.
+		 */
+		createTestItem(id: string, label: string, uri?: Uri): TestItem;
+
+		/**
+		 * Marks an item's results as being outdated. This is commonly called when
+		 * code or configuration changes and previous results should no longer
+		 * be considered relevant. The same logic used to mark results as outdated
+		 * may be used to drive {@link TestRunRequest.continuous continuous test runs}.
+		 *
+		 * If an item is passed to this method, test results for the item and all of
+		 * its children will be marked as outdated. If no item is passed, then all
+		 * test owned by the TestController will be marked as outdated.
+		 *
+		 * Any test runs started before the moment this method is called, including
+		 * runs which may still be ongoing, will be marked as outdated and deprioritized
+		 * in the editor's UI.
+		 *
+		 * @param items Item to mark as outdated. If undefined, all the controller's items are marked outdated.
+		 */
+		invalidateTestResults(items?: TestItem | readonly TestItem[]): void;
+
+		/**
+		 * Unregisters the test controller, disposing of its associated tests
+		 * and unpersisted results.
+		 */
+		dispose(): void;
+	}
+
+	/**
+	 * A TestRunRequest is a precursor to a {@link TestRun}, which in turn is
+	 * created by passing a request to {@link TestController.createTestRun}. The
+	 * TestRunRequest contains information about which tests should be run, which
+	 * should not be run, and how they are run (via the {@link TestRunRequest.profile profile}).
+	 *
+	 * In general, TestRunRequests are created by the editor and pass to
+	 * {@link TestRunProfile.runHandler}, however you can also create test
+	 * requests and runs outside of the `runHandler`.
+	 */
+	export class TestRunRequest {
+		/**
+		 * A filter for specific tests to run. If given, the extension should run
+		 * all of the included tests and all their children, excluding any tests
+		 * that appear in {@link TestRunRequest.exclude}. If this property is
+		 * undefined, then the extension should simply run all tests.
+		 *
+		 * The process of running tests should resolve the children of any test
+		 * items who have not yet been resolved.
+		 */
+		readonly include: readonly TestItem[] | undefined;
+
+		/**
+		 * An array of tests the user has marked as excluded from the test included
+		 * in this run; exclusions should apply after inclusions.
+		 *
+		 * May be omitted if no exclusions were requested. Test controllers should
+		 * not run excluded tests or any children of excluded tests.
+		 */
+		readonly exclude: readonly TestItem[] | undefined;
+
+		/**
+		 * The profile used for this request. This will always be defined
+		 * for requests issued from the editor UI, though extensions may
+		 * programmatically create requests not associated with any profile.
+		 */
+		readonly profile: TestRunProfile | undefined;
+
+		/**
+		 * Whether the profile should run continuously as source code changes. Only
+		 * relevant for profiles that set {@link TestRunProfile.supportsContinuousRun}.
+		 */
+		readonly continuous?: boolean;
+
+		/**
+		 * Controls how test Test Results view is focused.  If true, the editor
+		 * will keep the maintain the user's focus. If false, the editor will
+		 * prefer to move focus into the Test Results view, although
+		 * this may be configured by users.
+		 */
+		readonly preserveFocus: boolean;
+
+		/**
+		 * @param include Array of specific tests to run, or undefined to run all tests
+		 * @param exclude An array of tests to exclude from the run.
+		 * @param profile The run profile used for this request.
+		 * @param continuous Whether to run tests continuously as source changes.
+		 * @param preserveFocus Whether to preserve the user's focus when the run is started
+		 */
+		constructor(include?: readonly TestItem[], exclude?: readonly TestItem[], profile?: TestRunProfile, continuous?: boolean, preserveFocus?: boolean);
+	}
+
+	/**
+	 * A TestRun represents an in-progress or completed test run and
+	 * provides methods to report the state of individual tests in the run.
+	 */
+	export interface TestRun {
+		/**
+		 * The human-readable name of the run. This can be used to
+		 * disambiguate multiple sets of results in a test run. It is useful if
+		 * tests are run across multiple platforms, for example.
+		 */
+		readonly name: string | undefined;
+
+		/**
+		 * A cancellation token which will be triggered when the test run is
+		 * canceled from the UI.
+		 */
+		readonly token: CancellationToken;
+
+		/**
+		 * Whether the test run will be persisted across reloads by the editor.
+		 */
+		readonly isPersisted: boolean;
+
+		/**
+		 * Indicates a test is queued for later execution.
+		 * @param test Test item to update.
+		 */
+		enqueued(test: TestItem): void;
+
+		/**
+		 * Indicates a test has started running.
+		 * @param test Test item to update.
+		 */
+		started(test: TestItem): void;
+
+		/**
+		 * Indicates a test has been skipped.
+		 * @param test Test item to update.
+		 */
+		skipped(test: TestItem): void;
+
+		/**
+		 * Indicates a test has failed. You should pass one or more
+		 * {@link TestMessage TestMessages} to describe the failure.
+		 * @param test Test item to update.
+		 * @param message Messages associated with the test failure.
+		 * @param duration How long the test took to execute, in milliseconds.
+		 */
+		failed(test: TestItem, message: TestMessage | readonly TestMessage[], duration?: number): void;
+
+		/**
+		 * Indicates a test has errored. You should pass one or more
+		 * {@link TestMessage TestMessages} to describe the failure. This differs
+		 * from the "failed" state in that it indicates a test that couldn't be
+		 * executed at all, from a compilation error for example.
+		 * @param test Test item to update.
+		 * @param message Messages associated with the test failure.
+		 * @param duration How long the test took to execute, in milliseconds.
+		 */
+		errored(test: TestItem, message: TestMessage | readonly TestMessage[], duration?: number): void;
+
+		/**
+		 * Indicates a test has passed.
+		 * @param test Test item to update.
+		 * @param duration How long the test took to execute, in milliseconds.
+		 */
+		passed(test: TestItem, duration?: number): void;
+
+		/**
+		 * Appends raw output from the test runner. On the user's request, the
+		 * output will be displayed in a terminal. ANSI escape sequences,
+		 * such as colors and text styles, are supported. New lines must be given
+		 * as CRLF (`\r\n`) rather than LF (`\n`).
+		 *
+		 * @param output Output text to append.
+		 * @param location Indicate that the output was logged at the given
+		 * location.
+		 * @param test Test item to associate the output with.
+		 */
+		appendOutput(output: string, location?: Location, test?: TestItem): void;
+
+		/**
+		 * Adds coverage for a file in the run.
+		 */
+		addCoverage(fileCoverage: FileCoverage): void;
+
+		/**
+		 * Signals the end of the test run. Any tests included in the run whose
+		 * states have not been updated will have their state reset.
+		 */
+		end(): void;
+
+		/**
+		 * An event fired when the editor is no longer interested in data
+		 * associated with the test run.
+		 */
+		readonly onDidDispose: Event<void>;
+	}
+
+	/**
+	 * Collection of test items, found in {@link TestItem.children} and
+	 * {@link TestController.items}.
+	 */
+	export interface TestItemCollection extends Iterable<[id: string, testItem: TestItem]> {
+		/**
+		 * Gets the number of items in the collection.
+		 */
+		readonly size: number;
+
+		/**
+		 * Replaces the items stored by the collection.
+		 * @param items Items to store.
+		 */
+		replace(items: readonly TestItem[]): void;
+
+		/**
+		 * Iterate over each entry in this collection.
+		 *
+		 * @param callback Function to execute for each entry.
+		 * @param thisArg The `this` context used when invoking the handler function.
+		 */
+		forEach(callback: (item: TestItem, collection: TestItemCollection) => unknown, thisArg?: any): void;
+
+		/**
+		 * Adds the test item to the children. If an item with the same ID already
+		 * exists, it'll be replaced.
+		 * @param item Item to add.
+		 */
+		add(item: TestItem): void;
+
+		/**
+		 * Removes a single test item from the collection.
+		 * @param itemId Item ID to delete.
+		 */
+		delete(itemId: string): void;
+
+		/**
+		 * Efficiently gets a test item by ID, if it exists, in the children.
+		 * @param itemId Item ID to get.
+		 * @returns The found item or undefined if it does not exist.
+		 */
+		get(itemId: string): TestItem | undefined;
+	}
+
+	/**
+	 * An item shown in the "test explorer" view.
+	 *
+	 * A `TestItem` can represent either a test suite or a test itself, since
+	 * they both have similar capabilities.
+	 */
+	export interface TestItem {
+		/**
+		 * Identifier for the `TestItem`. This is used to correlate
+		 * test results and tests in the document with those in the workspace
+		 * (test explorer). This cannot change for the lifetime of the `TestItem`,
+		 * and must be unique among its parent's direct children.
+		 */
+		readonly id: string;
+
+		/**
+		 * URI this `TestItem` is associated with. May be a file or directory.
+		 */
+		readonly uri: Uri | undefined;
+
+		/**
+		 * The children of this test item. For a test suite, this may contain the
+		 * individual test cases or nested suites.
+		 */
+		readonly children: TestItemCollection;
+
+		/**
+		 * The parent of this item. It's set automatically, and is undefined
+		 * top-level items in the {@link TestController.items} and for items that
+		 * aren't yet included in another item's {@link TestItem.children children}.
+		 */
+		readonly parent: TestItem | undefined;
+
+		/**
+		 * Tags associated with this test item. May be used in combination with
+		 * {@link TestRunProfile.tag tags}, or simply as an organizational feature.
+		 */
+		tags: readonly TestTag[];
+
+		/**
+		 * Indicates whether this test item may have children discovered by resolving.
+		 *
+		 * If true, this item is shown as expandable in the Test Explorer view and
+		 * expanding the item will cause {@link TestController.resolveHandler}
+		 * to be invoked with the item.
+		 *
+		 * Default to `false`.
+		 */
+		canResolveChildren: boolean;
+
+		/**
+		 * Controls whether the item is shown as "busy" in the Test Explorer view.
+		 * This is useful for showing status while discovering children.
+		 *
+		 * Defaults to `false`.
+		 */
+		busy: boolean;
+
+		/**
+		 * Display name describing the test case.
+		 */
+		label: string;
+
+		/**
+		 * Optional description that appears next to the label.
+		 */
+		description?: string;
+
+		/**
+		 * A string that should be used when comparing this item
+		 * with other items. When `falsy` the {@link TestItem.label label}
+		 * is used.
+		 */
+		sortText?: string | undefined;
+
+		/**
+		 * Location of the test item in its {@link TestItem.uri uri}.
+		 *
+		 * This is only meaningful if the `uri` points to a file.
+		 */
+		range: Range | undefined;
+
+		/**
+		 * Optional error encountered while loading the test.
+		 *
+		 * Note that this is not a test result and should only be used to represent errors in
+		 * test discovery, such as syntax errors.
+		 */
+		error: string | MarkdownString | undefined;
+	}
+
+	/**
+	 * A stack frame found in the {@link TestMessage.stackTrace}.
+	 */
+	export class TestMessageStackFrame {
+		/**
+		 * The location of this stack frame. This should be provided as a URI if the
+		 * location of the call frame can be accessed by the editor.
+		 */
+		uri?: Uri;
+
+		/**
+		 * Position of the stack frame within the file.
+		 */
+		position?: Position;
+
+		/**
+		 * The name of the stack frame, typically a method or function name.
+		 */
+		label: string;
+
+		/**
+		 * @param label The name of the stack frame
+		 * @param file The file URI of the stack frame
+		 * @param position The position of the stack frame within the file
+		 */
+		constructor(label: string, uri?: Uri, position?: Position);
+	}
+
+	/**
+	 * Message associated with the test state. Can be linked to a specific
+	 * source range -- useful for assertion failures, for example.
+	 */
+	export class TestMessage {
+		/**
+		 * Human-readable message text to display.
+		 */
+		message: string | MarkdownString;
+
+		/**
+		 * Expected test output. If given with {@link TestMessage.actualOutput actualOutput }, a diff view will be shown.
+		 */
+		expectedOutput?: string;
+
+		/**
+		 * Actual test output. If given with {@link TestMessage.expectedOutput expectedOutput }, a diff view will be shown.
+		 */
+		actualOutput?: string;
+
+		/**
+		 * Associated file location.
+		 */
+		location?: Location;
+
+		/**
+		 * Context value of the test item. This can be used to contribute message-
+		 * specific actions to the test peek view. The value set here can be found
+		 * in the `testMessage` property of the following `menus` contribution points:
+		 *
+		 * - `testing/message/context` - context menu for the message in the results tree
+		 * - `testing/message/content` - a prominent button overlaying editor content where
+		 *    the message is displayed.
+		 *
+		 * For example:
+		 *
+		 * ```json
+		 * "contributes": {
+		 *   "menus": {
+		 *     "testing/message/content": [
+		 *       {
+		 *         "command": "extension.deleteCommentThread",
+		 *         "when": "testMessage == canApplyRichDiff"
+		 *       }
+		 *     ]
+		 *   }
+		 * }
+		 * ```
+		 *
+		 * The command will be called with an object containing:
+		 * - `test`: the {@link TestItem} the message is associated with, *if* it
+		 *    is still present in the {@link TestController.items} collection.
+		 * - `message`: the {@link TestMessage} instance.
+		 */
+		contextValue?: string;
+
+		/**
+		 * The stack trace associated with the message or failure.
+		 */
+		stackTrace?: TestMessageStackFrame[];
+
+		/**
+		 * Creates a new TestMessage that will present as a diff in the editor.
+		 * @param message Message to display to the user.
+		 * @param expected Expected output.
+		 * @param actual Actual output.
+		 */
+		static diff(message: string | MarkdownString, expected: string, actual: string): TestMessage;
+
+		/**
+		 * Creates a new TestMessage instance.
+		 * @param message The message to show to the user.
+		 */
+		constructor(message: string | MarkdownString);
+	}
+
+	/**
+	 * A class that contains information about a covered resource. A count can
+	 * be give for lines, branches, and declarations in a file.
+	 */
+	export class TestCoverageCount {
+		/**
+		 * Number of items covered in the file.
+		 */
+		covered: number;
+		/**
+		 * Total number of covered items in the file.
+		 */
+		total: number;
+
+		/**
+		 * @param covered Value for {@link TestCoverageCount.covered}
+		 * @param total Value for {@link TestCoverageCount.total}
+		 */
+		constructor(covered: number, total: number);
+	}
+
+	/**
+	 * Contains coverage metadata for a file.
+	 */
+	export class FileCoverage {
+		/**
+		 * File URI.
+		 */
+		readonly uri: Uri;
+
+		/**
+		 * Statement coverage information. If the reporter does not provide statement
+		 * coverage information, this can instead be used to represent line coverage.
+		 */
+		statementCoverage: TestCoverageCount;
+
+		/**
+		 * Branch coverage information.
+		 */
+		branchCoverage?: TestCoverageCount;
+
+		/**
+		 * Declaration coverage information. Depending on the reporter and
+		 * language, this may be types such as functions, methods, or namespaces.
+		 */
+		declarationCoverage?: TestCoverageCount;
+
+		/**
+		 * A list of {@link TestItem test cases} that generated coverage in this
+		 * file. If set, then {@link TestRunProfile.loadDetailedCoverageForTest}
+		 * should also be defined in order to retrieve detailed coverage information.
+		 */
+		includesTests?: TestItem[];
+
+		/**
+		 * Creates a {@link FileCoverage} instance with counts filled in from
+		 * the coverage details.
+		 * @param uri Covered file URI
+		 * @param details Detailed coverage information
+		 */
+		static fromDetails(uri: Uri, details: readonly FileCoverageDetail[]): FileCoverage;
+
+		/**
+		 * @param uri Covered file URI
+		 * @param statementCoverage Statement coverage information. If the reporter
+		 * does not provide statement coverage information, this can instead be
+		 * used to represent line coverage.
+		 * @param branchCoverage Branch coverage information
+		 * @param declarationCoverage Declaration coverage information
+		 * @param includesTests Test cases included in this coverage report, see {@link FileCoverage.includesTests}
+		 */
+		constructor(
+			uri: Uri,
+			statementCoverage: TestCoverageCount,
+			branchCoverage?: TestCoverageCount,
+			declarationCoverage?: TestCoverageCount,
+			includesTests?: TestItem[],
+		);
+	}
+
+	/**
+	 * Contains coverage information for a single statement or line.
+	 */
+	export class StatementCoverage {
+		/**
+		 * The number of times this statement was executed, or a boolean indicating
+		 * whether it was executed if the exact count is unknown. If zero or false,
+		 * the statement will be marked as un-covered.
+		 */
+		executed: number | boolean;
+
+		/**
+		 * Statement location.
+		 */
+		location: Position | Range;
+
+		/**
+		 * Coverage from branches of this line or statement. If it's not a
+		 * conditional, this will be empty.
+		 */
+		branches: BranchCoverage[];
+
+		/**
+		 * @param location The statement position.
+		 * @param executed The number of times this statement was executed, or a
+		 * boolean indicating  whether it was executed if the exact count is
+		 * unknown. If zero or false, the statement will be marked as un-covered.
+		 * @param branches Coverage from branches of this line.  If it's not a
+		 * conditional, this should be omitted.
+		 */
+		constructor(executed: number | boolean, location: Position | Range, branches?: BranchCoverage[]);
+	}
+
+	/**
+	 * Contains coverage information for a branch of a {@link StatementCoverage}.
+	 */
+	export class BranchCoverage {
+		/**
+		 * The number of times this branch was executed, or a boolean indicating
+		 * whether it was executed if the exact count is unknown. If zero or false,
+		 * the branch will be marked as un-covered.
+		 */
+		executed: number | boolean;
+
+		/**
+		 * Branch location.
+		 */
+		location?: Position | Range;
+
+		/**
+		 * Label for the branch, used in the context of "the ${label} branch was
+		 * not taken," for example.
+		 */
+		label?: string;
+
+		/**
+		 * @param executed The number of times this branch was executed, or a
+		 * boolean indicating  whether it was executed if the exact count is
+		 * unknown. If zero or false, the branch will be marked as un-covered.
+		 * @param location The branch position.
+		 */
+		constructor(executed: number | boolean, location?: Position | Range, label?: string);
+	}
+
+	/**
+	 * Contains coverage information for a declaration. Depending on the reporter
+	 * and language, this may be types such as functions, methods, or namespaces.
+	 */
+	export class DeclarationCoverage {
+		/**
+		 * Name of the declaration.
+		 */
+		name: string;
+
+		/**
+		 * The number of times this declaration was executed, or a boolean
+		 * indicating whether it was executed if the exact count is unknown. If
+		 * zero or false, the declaration will be marked as un-covered.
+		 */
+		executed: number | boolean;
+
+		/**
+		 * Declaration location.
+		 */
+		location: Position | Range;
+
+		/**
+		 * @param executed The number of times this declaration was executed, or a
+		 * boolean indicating  whether it was executed if the exact count is
+		 * unknown. If zero or false, the declaration will be marked as un-covered.
+		 * @param location The declaration position.
+		 */
+		constructor(name: string, executed: number | boolean, location: Position | Range);
+	}
+
+	/**
+	 * Coverage details returned from {@link TestRunProfile.loadDetailedCoverage}.
+	 */
+	export type FileCoverageDetail = StatementCoverage | DeclarationCoverage;
 }
 
 /**
