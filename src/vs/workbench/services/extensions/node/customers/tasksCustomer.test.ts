@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { FakeEditorTerminals } from "../../../../../../TestUtils/FakeEditorTerminals.ts";
 import { FakeExtensionPtySession } from "../../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { buildTaskServiceHarness } from "../../../../../../TestUtils/taskServiceHarness.ts";
 import { createLoggerSpy } from "../../../../../../TestUtils/themeExtensionFixture.ts";
@@ -46,11 +47,17 @@ async function flush(): Promise<void> {
 function setup() {
     const h = buildTaskServiceHarness();
     const ptySessions: FakeExtensionPtySession[] = [];
-    const terminalAdapter = new ExtensionTerminalAdapter(h.terminals, h.views.service, (o) => {
-        const session = new FakeExtensionPtySession(o);
-        ptySessions.push(session);
-        return session;
-    });
+    const terminalAdapter = new ExtensionTerminalAdapter(
+        h.terminals,
+        h.views.service,
+        (o) => {
+            const session = new FakeExtensionPtySession(o);
+            ptySessions.push(session);
+            return session;
+        },
+        new FakeEditorTerminals(h.terminals),
+        h.configuration,
+    );
     const taskAdapter = new ExtensionTaskAdapter(
         h.service,
         { getWorkspace: () => ({ id: "ws", folders: [{ uri: Uri.file("/ws"), name: "ws", index: 0 }] }) } as never,

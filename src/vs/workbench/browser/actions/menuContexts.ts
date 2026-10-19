@@ -125,6 +125,8 @@ export interface EditorTitleMenuContext {
     readonly index: number;
     /** Абсолютный путь файла вкладки; `null` у безымянного буфера и диффа. */
     readonly path: string | null;
+    /** Схема ресурса вкладки (`resourceScheme` эталона) — видимость пунктов вкладок своего вида. */
+    readonly resourceScheme: string;
     readonly tabCount: number;
     readonly hasTabsToTheRight: boolean;
     /** Есть ли в группе вкладки без несохранённых правок — видимость Close Saved. */

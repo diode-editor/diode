@@ -911,6 +911,12 @@ hide-toggle (`isHiddenByDefault`). См.
     контрола нет — его UI это несколько виджетов. ВАЖНО: у `TUIElement` нет
     unmount-хуков, поэтому компонент **обязан** сам dispose'ить виджеты — при
     закрытии инстанса и при своём `dispose()`.
+  - `contrib/terminal/browser/terminalEditorService.ts` — терминалы вкладками
+    в области редакторов (`TerminalLocation.Editor`): инстанс `target: "editor"`
+    плюс вкладка `TerminalEditorPane` (`vscode-terminal:/<id>`), колонка —
+    `columnToEditorGroup` (`services/editor/common/editorGroupColumn.ts`, общий
+    с `showTextDocument`). Устройство — docs/TODO/IntegratedTerminal.md,
+    «Терминал в области редакторов».
   - `Services/Diagnostics/DiagnosticsService.ts` — headless-проводник диагностик
     поверх `MarkerService`: поставщик — валидатор активного settings.json,
     потребитель — editor squiggles (Problems — второй потребитель того же

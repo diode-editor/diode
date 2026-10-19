@@ -101,6 +101,14 @@ export const terminalConfiguration = {
             ],
             description: "Controls whether focusing the terminal of a tab happens on double or single click.",
         },
+        "terminal.integrated.defaultLocation": {
+            scope: "window",
+            type: "string",
+            default: "view",
+            enum: ["editor", "view"],
+            enumDescriptions: ["Create terminals in the editor", "Create terminals in the terminal view"],
+            description: "Controls where newly created terminals will appear.",
+        },
         "terminal.integrated.hideOnLastClosed": {
             scope: "window",
             type: "boolean",

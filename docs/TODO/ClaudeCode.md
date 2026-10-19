@@ -17,8 +17,9 @@
   (нашлось по ходу живой проверки).
 
 Как сейчас выглядит: «✻ Claude Code» в статус-баре (и палитра `Claude Code:
-Open in Terminal`) открывает `claude` в **нижней панели** TERMINAL — `location`
-терминала мы пока выбрасываем.
+Open in Terminal`) открывает `claude` **вкладкой редактора в группе справа**,
+как в VS Code (`location: { viewColumn: Beside }`, проверено вживую на
+2.1.304). `Ctrl+Esc` и кнопка в заголовке редактора пока мертвы — пункты 3–4.
 
 ## Осталось (19.10.2026)
 
@@ -33,9 +34,9 @@ Open in Terminal`) открывает `claude` в **нижней панели** 
    (`Ctrl+Alt+K`) и `getDiagnostics` доходят. Глазами в настоящем `claude`
    («что выделено?») — за человеком: агенту запуск вложенного `claude`
    запрещён.
-2. **Терминал вкладкой в области редакторов** (`TerminalLocation.Editor`,
-   `ViewColumn.Beside`) — сейчас `location` выбрасывается, `claude`
-   открывается в нижней панели. См. «Раскладка».
+2. ~~**Терминал вкладкой в области редакторов**~~ — сделано: `location`
+   терминала (`TerminalLocation.Editor`, `{ viewColumn }`, `{ parentTerminal }`),
+   `claude` открывается вкладкой справа. См. «Раскладка».
 3. **When-ключи `config.*`** — без них мёртв `Ctrl+Esc`
    (`claude-vscode.terminal.open.keyboard`) и кнопка в заголовке редактора.
 4. **Точка меню `editor/title`** — кнопка Claude у вкладок и accept/reject диффа.
@@ -280,8 +281,11 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
   справа от вкладок — тоже.
 
 План, по убыванию пользы:
-- [ ] **Терминал вкладкой в области редакторов** (`TerminalLocation.Editor`,
-      `{ viewColumn }`, `{ parentTerminal }`): `location` по проводу на хост;
+- [x] **Терминал вкладкой в области редакторов** (`TerminalLocation.Editor`,
+      `{ viewColumn }`, `{ parentTerminal }`) — устройство в
+      [IntegratedTerminal.md](IntegratedTerminal.md#терминал-в-области-редакторов-terminallocationeditor);
+      вживую: «✻ Claude Code» → `claude` вкладкой справа, `Ctrl+W` закрывает
+      вкладку с процессом. Исходный план: `location` по проводу на хост;
       у инстанса `TerminalService` место «панель/редактор» (в
       `window.terminals` — оба, в списке панели — только панельные);
       `TerminalEditorPane` (`vscode-terminal:/<id>`, метка — имя терминала,

@@ -108,8 +108,8 @@ describe("TabActions", () => {
     it("метаданные nextEditor/previousEditor: заголовки, бинды с Alt-дублями, when", () => {
         expect(nextEditorAction.title).toBe("Open Next Editor");
         expect(previousEditorAction.title).toBe("Open Previous Editor");
-        expect(nextEditorAction.when).toBe("textViewFocus");
-        expect(previousEditorAction.when).toBe("textViewFocus");
+        expect(nextEditorAction.when).toBe("textViewFocus || terminalEditorFocus");
+        expect(previousEditorAction.when).toBe("textViewFocus || terminalEditorFocus");
         expect(nextEditorAction.keybinding).toEqual(parseKeybinding("ctrl+pagedown"));
         expect(nextEditorAction.keybindings).toEqual([parseKeybinding("alt+pagedown")]);
         expect(previousEditorAction.keybinding).toEqual(parseKeybinding("ctrl+pageup"));

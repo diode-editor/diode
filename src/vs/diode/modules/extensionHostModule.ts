@@ -52,6 +52,7 @@ import {
 } from "../../workbench/contrib/tasks/browser/extensionTaskAdapter.ts";
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
 import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
+import { TerminalEditorServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalEditorService.ts";
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/terminal/common/environmentVariableService.ts";
@@ -184,6 +185,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             container.get(TerminalServiceDIToken),
             container.get(ViewsServiceDIToken),
             container.get(ExtensionPtySessionFactoryDIToken),
+            container.get(TerminalEditorServiceDIToken),
+            container.get(IConfigurationServiceDIToken),
         ));
     // Stryker restore ArrowFunction,AssignmentOperator
     container.bind(ExtensionHostDIToken, () => {

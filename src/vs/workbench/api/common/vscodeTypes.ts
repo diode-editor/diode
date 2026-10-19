@@ -881,7 +881,7 @@ export enum StatusBarAlignment {
     Right = 2,
 }
 
-/** Где показан терминал (`vscode.TerminalLocation`); Diode держит все терминалы в панели. */
+/** Где показан терминал (`vscode.TerminalLocation`): нижняя панель или вкладка в области редакторов. */
 export enum TerminalLocation {
     Panel = 1,
     Editor = 2,

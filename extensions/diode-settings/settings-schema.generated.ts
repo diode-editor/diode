@@ -423,6 +423,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["theme", "host"],
     },
     {
+        key: "terminal.integrated.defaultLocation",
+        type: "string",
+        default: "view",
+        description: "Controls where newly created terminals will appear.",
+        enum: ["editor", "view"],
+    },
+    {
         key: "terminal.integrated.hideOnLastClosed",
         type: "boolean",
         default: true,

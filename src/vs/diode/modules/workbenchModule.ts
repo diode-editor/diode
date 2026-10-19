@@ -271,6 +271,11 @@ import {
     TerminalColorsService,
     TerminalColorsServiceDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalColorsService.ts";
+import { createTerminalEditorPaneFactory } from "../../workbench/contrib/terminal/browser/terminalEditorPaneFactory.ts";
+import {
+    TerminalEditorService,
+    TerminalEditorServiceDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalEditorService.ts";
 import {
     TerminalFocusFallbackDIToken,
     TerminalPanelComponent,
@@ -372,6 +377,7 @@ import {
 const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
     createKeybindingsEditorPaneFactory,
     createDiffEditorPaneFactory,
+    createTerminalEditorPaneFactory,
 ];
 
 /**
@@ -636,6 +642,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // Палитра и фон/текст терминала: тема или хост-терминал (`terminal.integrated.colorSource`).
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);
     container.bind(TerminalPanelComponentDIToken, TerminalPanelComponent);
+    // Терминалы вкладками в области редакторов (`TerminalLocation.Editor`).
+    container.bind(TerminalEditorServiceDIToken, TerminalEditorService);
     // Диагностики: поставщики → MarkerService → потребители (squiggles, Problems).
     container.bind(DiagnosticsEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(MarkerRevealTargetDIToken, () => container.get(EditorServiceDIToken));

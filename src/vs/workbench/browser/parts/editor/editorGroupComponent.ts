@@ -120,6 +120,7 @@ export class EditorGroupComponent extends Component {
             // Путь есть только у текстовой вкладки файла: у безымянного буфера и
             // у диффа его нет, и файловые пункты (пути, reveal) прячутся.
             path: pane instanceof TextEditorPane ? pane.absoluteFilePath : null,
+            resourceScheme: pane.uri.scheme,
             tabCount: panes.length,
             hasTabsToTheRight: index < panes.length - 1,
             hasSavedTabs: panes.some((candidate) => !candidate.isModified),

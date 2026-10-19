@@ -8,6 +8,7 @@ import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
+import { ACTIVE_GROUP, columnToEditorGroup } from "../../services/editor/common/editorGroupColumn.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IEditorLayoutService } from "../common/iEditorLayoutService.ts";
@@ -23,11 +24,6 @@ import type {
     IWireTabSnapshot,
     IWireUriParams,
 } from "../common/wireTypes.ts";
-
-/** `vscode.ViewColumn.Active` — символическая «текущая колонка». */
-const VIEW_COLUMN_ACTIVE = -1;
-/** `vscode.ViewColumn.Beside` — колонка справа от активной. */
-const VIEW_COLUMN_BESIDE = -2;
 
 /**
  * Реализация {@link IEditorLayoutService} поверх полосы групп `IEditorService`:
@@ -81,7 +77,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const uri = Uri.parse(params.uri);
         const focus = params.preserveFocus !== true;
         const previousActive = this.groups.activeGroup;
-        const target = this.resolveTargetGroup(params.viewColumn ?? VIEW_COLUMN_ACTIVE);
+        const target = columnToEditorGroup(this.groups, params.viewColumn ?? ACTIVE_GROUP);
 
         // Открытие в конкретной группе: активируем её (без фокуса при
         // preserveFocus) и открываем ресурс фасадом — дедуп пер-группный. Уже
@@ -221,37 +217,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             // его selection сеется расширению из снимка.
             ...(isActive ? { selections: pane.viewState.selections.map(toWireSelection) } : {}),
         };
-    }
-
-    /**
-     * Резолв `ViewColumn` в группу: Active — активная; Beside — сосед справа
-     * (создаётся при отсутствии); 1..9 — по позиции, за краем — догоняющее
-     * создание хвостовых групп (AS-5; отказ по месту оставляет последнюю).
-     */
-    private resolveTargetGroup(viewColumn: number): EditorGroup {
-        if (viewColumn === VIEW_COLUMN_ACTIVE) return this.groups.activeGroup;
-        if (viewColumn === VIEW_COLUMN_BESIDE) {
-            const index = this.groups.groups.indexOf(this.groups.activeGroup);
-            return (
-                this.groups.groups.at(index + 1) ??
-                // Любая позиция, кроме "before", — справа: пустая строка ведёт себя как "after".
-                // Stryker disable next-line StringLiteral: эквивалентен — см. выше
-                this.groups.newGroup("after", { focus: false }) ??
-                this.groups.activeGroup
-            );
-        }
-        const wanted = Math.max(1, Math.floor(viewColumn));
-        while (this.groups.groups.length < wanted) {
-            const before = this.groups.groups.length;
-            this.groups.focusGroup({ index: before - 1 }, { focus: false });
-            // Stryker disable next-line StringLiteral: позиция "" ведёт себя как "after" — эквивалентен
-            if (this.groups.newGroup("after", { focus: false }) === null) break; // не влезло — фолбэк в край
-            /* v8 ignore start -- защитный выход от зацикливания при неожиданном no-op */
-            // Stryker disable next-line ConditionalExpression,EqualityOperator: защитный выход — недостижим по той же причине
-            if (this.groups.groups.length === before) break;
-            /* v8 ignore stop */
-        }
-        return this.groups.groups[Math.min(wanted, this.groups.groups.length) - 1];
     }
 }
 

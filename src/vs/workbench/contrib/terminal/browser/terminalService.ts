@@ -57,9 +57,18 @@ export interface ITerminalLaunchInfo {
     readonly hideFromUser: boolean;
 }
 
+/**
+ * Где стоит инстанс — `TerminalLocation` эталона: вкладкой в виде TERMINAL
+ * (`panel`) или вкладкой в области редакторов (`editor`). Вкладкой-редактором
+ * владеет `TerminalEditorService`; список вкладок вида TERMINAL и его активный
+ * инстанс — только панельные.
+ */
+export type TerminalTarget = "panel" | "editor";
+
 /** Один открытый терминал: сессия (PTY+эмулятор) за интерфейсом поверхности. */
 export interface ITerminalInstance {
     readonly id: number;
+    readonly target: TerminalTarget;
     /**
      * Заголовок вкладки — имя процесса шелла (`${process}` эталона: `bash`,
      * `zsh`) либо имя, данное создателем (`TerminalOptions.name` расширения).
@@ -123,13 +132,21 @@ export interface ITerminalCreateOptions {
      * Закрывает его любая клавиша человека или Kill. Терминалы задач.
      */
     readonly waitOnExit?: TerminalWaitOnExit;
+    /**
+     * Место инстанса; без него — панель. Редакторный инстанс сервис только
+     * заводит: вкладку ему открывает `TerminalEditorService`.
+     */
+    readonly target?: TerminalTarget;
 }
 
 /** Ждать ли после выхода процесса и что тогда напечатать (см. {@link ITerminalCreateOptions.waitOnExit}). */
 export type TerminalWaitOnExit = boolean | string | ((exitCode: number) => string);
 
 /** С чем перезапускается инстанс, ждущий после выхода ({@link TerminalService.relaunchInstance}). */
-export interface ITerminalRelaunchInstanceOptions extends Omit<ITerminalCreateOptions, "session" | "hideFromUser"> {
+export interface ITerminalRelaunchInstanceOptions extends Omit<
+    ITerminalCreateOptions,
+    "session" | "hideFromUser" | "target"
+> {
     /** Стереть вывод прежнего процесса (`presentation.clear` задачи). */
     readonly clear?: boolean;
 }
@@ -137,6 +154,7 @@ export interface ITerminalRelaunchInstanceOptions extends Omit<ITerminalCreateOp
 interface TerminalInstanceRecord extends ITerminalInstance {
     readonly session: ITerminalSession;
     readonly subscriptions: IDisposable[];
+    target: TerminalTarget;
     title: string;
     processId: number | undefined;
     launch: ITerminalLaunchInfo;
@@ -172,6 +190,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private instances: TerminalInstanceRecord[] = [];
     /** Фоновые (`hideFromUser`): живы, но не в списке вкладок, пока их не покажут. */
     private backgroundInstances: TerminalInstanceRecord[] = [];
+    /** Вкладки в области редакторов (`TerminalEditorService.instances` эталона). */
+    private editorInstances: TerminalInstanceRecord[] = [];
     private activeId: number | null = null;
     private nextId = 1;
     private cwd: string | null = null;
@@ -227,7 +247,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         contextKeys.set("terminalCount", this.instances.length);
     }
 
-    /** Открытые инстансы в порядке создания. */
+    /** Открытые инстансы вида TERMINAL в порядке создания (редакторные и фоновые — нет). */
     public getInstances(): readonly ITerminalInstance[] {
         return this.instances;
     }
@@ -245,6 +265,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     /** Фоновые инстансы (`hideFromUser`), ещё не показанные, в порядке создания. */
     public getBackgroundInstances(): readonly ITerminalInstance[] {
         return this.backgroundInstances;
+    }
+
+    /** Инстансы-вкладки области редакторов в порядке появления там. */
+    public getEditorInstances(): readonly ITerminalInstance[] {
+        return this.editorInstances;
     }
 
     /** Задать рабочий каталог для будущих инстансов (следует за папкой воркспейса). */
@@ -268,9 +293,9 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     /**
      * Создаёт инстанс терминала и делает его активным (без фокуса). Опции —
-     * у терминалов расширений; фоновый (`hideFromUser`) в список не попадает
-     * и активным не становится — {@link onDidCreateInstance} о нём всё равно
-     * сообщает.
+     * у терминалов расширений; фоновый (`hideFromUser`) и редакторный
+     * (`target: "editor"`) в список вкладок вида не попадают и активным не
+     * становятся — {@link onDidCreateInstance} о них всё равно сообщает.
      */
     public createInstance(options: ITerminalCreateOptions = {}): ITerminalInstance {
         const id = this.nextId++;
@@ -284,6 +309,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const hideFromUser = options.hideFromUser === true;
         const instance: TerminalInstanceRecord = {
             id,
+            target: options.target ?? "panel",
             title: titleOf(options, session),
             session,
             processId: session.pid,
@@ -305,8 +331,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 }),
             ],
         };
-        if (hideFromUser) {
-            this.backgroundInstances.push(instance);
+        if (hideFromUser || instance.target === "editor") {
+            (hideFromUser ? this.backgroundInstances : this.editorInstances).push(instance);
             this.onDidCreateInstanceEmitter.fire(instance);
             return instance;
         }
@@ -347,17 +373,54 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     /**
      * Показать инстанс (`Terminal.show` расширения, `$show` эталона): фоновый
-     * переезжает в список вкладок, инстанс становится активным. Панель и фокус —
-     * забота вызывающего. Неизвестный id — no-op.
+     * переезжает в список вкладок своего места, панельный становится активным.
+     * Панель, вкладку редактора и фокус — забота вызывающего. Неизвестный id — no-op.
      */
     public showInstance(id: number): void {
         const background = this.backgroundInstances.find((i) => i.id === id);
         if (background !== undefined) {
             this.backgroundInstances.splice(this.backgroundInstances.indexOf(background), 1);
+            if (background.target === "editor") {
+                this.editorInstances.push(background);
+                return;
+            }
             this.instances.push(background);
             this.onDidOpenInstanceEmitter.fire(background);
         }
         this.setActiveInstance(id);
+    }
+
+    /**
+     * Перенести панельный инстанс в область редакторов (`moveToEditor`
+     * эталона): процесс и эмулятор те же, вкладка вида TERMINAL уходит (как
+     * при закрытии — со сменой активного), вкладку редактора открывает
+     * вызывающий. Не панельный и неизвестный id — `undefined`.
+     */
+    public moveToEditor(id: number): ITerminalInstance | undefined {
+        const instance = this.instances.find((i) => i.id === id);
+        if (instance === undefined) return undefined;
+        instance.target = "editor";
+        this.removeFromPanel(instance, () => {
+            this.editorInstances.push(instance);
+        });
+        return instance;
+    }
+
+    /**
+     * Вернуть редакторный инстанс в вид TERMINAL (`moveToTerminalView`
+     * эталона): он встаёт последним в список и становится активным. Вкладку
+     * редактора снимает вызывающий. Не редакторный и неизвестный id — `undefined`.
+     */
+    public moveToPanel(id: number): ITerminalInstance | undefined {
+        const instance = this.editorInstances.find((i) => i.id === id);
+        if (instance === undefined) return undefined;
+        this.editorInstances.splice(this.editorInstances.indexOf(instance), 1);
+        instance.target = "panel";
+        this.instances.push(instance);
+        this.activeId = id;
+        this.onDidOpenInstanceEmitter.fire(instance);
+        this.onDidChangeActiveInstanceEmitter.fire(instance);
+        return instance;
     }
 
     /**
@@ -453,9 +516,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     public override dispose(): void {
         // Убиваем все PTY и рвём подписки до базового dispose(). События close не
         // файрим: виджеты чистит их владелец (TerminalPanelComponent) в своём dispose.
-        for (const instance of [...this.instances, ...this.backgroundInstances]) this.destroyInstance(instance);
+        for (const instance of [...this.instances, ...this.backgroundInstances, ...this.editorInstances])
+            this.destroyInstance(instance);
         this.instances = [];
         this.backgroundInstances = [];
+        this.editorInstances = [];
         this.activeId = null;
         super.dispose();
     }
@@ -507,20 +572,39 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         if (instance === undefined) return;
         // Причина — до любых событий: подписчики close/dispose её уже видят.
         const disposed: IDisposedTerminalInstance = Object.assign(instance, { exitReason: reason });
-        const background = this.backgroundInstances.indexOf(instance);
-        if (background !== -1) {
-            // Фонового нет ни в списке вкладок, ни среди активных — только снять.
-            this.backgroundInstances.splice(background, 1);
+        for (const list of [this.backgroundInstances, this.editorInstances]) {
+            const index = list.indexOf(instance);
+            if (index === -1) continue;
+            // Фонового и редакторного нет ни в списке вкладок вида, ни среди
+            // активных — только снять (вкладку редактора закроет её владелец).
+            list.splice(index, 1);
             this.destroyInstance(instance);
             this.onDidDisposeInstanceEmitter.fire(disposed);
             return;
         }
+        this.removeFromPanel(
+            instance,
+            () => {
+                this.destroyInstance(instance);
+            },
+            () => {
+                this.onDidDisposeInstanceEmitter.fire(disposed);
+            },
+        );
+    }
+
+    /**
+     * Снять инстанс со списка вкладок вида: `detach` — что сделать с ним до
+     * события закрытия (убить или переселить), `closed` — после него, затем
+     * выбор нового активного.
+     */
+    private removeFromPanel(instance: TerminalInstanceRecord, detach: () => void, closed?: () => void): void {
         const index = this.instances.indexOf(instance);
         const wasActive = this.activeId === instance.id;
         this.instances.splice(index, 1);
-        this.destroyInstance(instance);
+        detach();
         this.onDidCloseInstanceEmitter.fire(instance);
-        this.onDidDisposeInstanceEmitter.fire(disposed);
+        closed?.();
 
         if (!wasActive) return;
         const next = this.instances.at(Math.min(index, this.instances.length - 1)) ?? null;
@@ -538,7 +622,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     private find(id: number | undefined): TerminalInstanceRecord | undefined {
-        return this.instances.find((i) => i.id === id) ?? this.backgroundInstances.find((i) => i.id === id);
+        return [...this.instances, ...this.backgroundInstances, ...this.editorInstances].find((i) => i.id === id);
     }
 
     private active(): TerminalInstanceRecord | undefined {

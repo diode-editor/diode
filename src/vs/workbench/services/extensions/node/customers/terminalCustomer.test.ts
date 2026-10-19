@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { FakeEditorTerminals } from "../../../../../../TestUtils/FakeEditorTerminals.ts";
 import { FakeExtensionPtySession } from "../../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createTestConfigurationService } from "../../../../../../TestUtils/testConfigurationService.ts";
@@ -9,7 +10,7 @@ import type { IExtensionTerminalSink } from "../../../../api/common/iExtensionWi
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import { createTerminalNamespace } from "../../../../api/common/terminalNamespace.ts";
-import { EventEmitter, TerminalExitReason } from "../../../../api/common/vscodeTypes.ts";
+import { EventEmitter, TerminalExitReason, TerminalLocation, ViewColumn } from "../../../../api/common/vscodeTypes.ts";
 import { makeViewsHarness } from "../../../../browser/parts/views/viewsService.testUtils.ts";
 import { ExtensionTerminalAdapter } from "../../../../contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "../../../../contrib/terminal/browser/terminalService.ts";
@@ -37,11 +38,18 @@ function setup(options: { pushInitialState?: boolean } = {}) {
     });
     views.service.attachRegisteredContainers();
     const ptySessions: FakeExtensionPtySession[] = [];
-    const adapter = new ExtensionTerminalAdapter(service, views.service, (o) => {
-        const session = new FakeExtensionPtySession(o);
-        ptySessions.push(session);
-        return session;
-    });
+    const editorTerminals = new FakeEditorTerminals(service);
+    const adapter = new ExtensionTerminalAdapter(
+        service,
+        views.service,
+        (o) => {
+            const session = new FakeExtensionPtySession(o);
+            ptySessions.push(session);
+            return session;
+        },
+        editorTerminals,
+        createTestConfigurationService({}),
+    );
     const customer = new TerminalCustomer(adapter);
     const [a, b] = createInProcessChannelPair();
     const hostRpc = new RpcEndpoint(a) as unknown as HostRpc;
@@ -49,7 +57,7 @@ function setup(options: { pushInitialState?: boolean } = {}) {
     const ns = createTerminalNamespace(subRpc);
     const attached = customer.attach({ rpc: hostRpc, logger: undefined });
     if (options.pushInitialState !== false) customer.pushInitialState();
-    return { views, service, sessions, ptySessions, customer, ns, attached, hostRpc, subRpc };
+    return { views, service, sessions, ptySessions, customer, ns, attached, hostRpc, subRpc, editorTerminals };
 }
 
 describe("терминалы расширений — сквозь провод", () => {
@@ -278,6 +286,56 @@ describe("терминалы расширений — сквозь провод"
         await flush();
         expect(ns.terminals).toStrictEqual([terminal]);
         attached.dispose();
+    });
+
+    it("location уходит хосту: колонка — вкладкой, Panel — в вид, родитель — по его месту", async () => {
+        const h = setup();
+        const beside = h.ns.createTerminal({
+            name: "Claude Code",
+            location: { viewColumn: ViewColumn.Beside, preserveFocus: true },
+        });
+        h.ns.createTerminal({ name: "panel", location: TerminalLocation.Panel });
+        h.ns.createTerminal({ name: "editor", location: TerminalLocation.Editor });
+        // Родитель — объект расширения, ещё до `opened`: адресуется меткой.
+        h.ns.createTerminal({ name: "child", location: { parentTerminal: beside } });
+        await flush();
+
+        const [besideId, editorId, childId] = h.service.getEditorInstances().map((i) => i.id);
+        expect(h.editorTerminals.created).toStrictEqual([
+            { id: besideId, location: { viewColumn: -2, preserveFocus: true } },
+            { id: editorId, location: {} },
+            { id: childId, location: { split: besideId } },
+        ]);
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["panel"]);
+        // Редакторный — в terminals, как и панельный.
+        expect(h.ns.terminals.map((t) => t.name)).toStrictEqual(["Claude Code", "panel", "editor", "child"]);
+
+        beside.show(true);
+        await flush();
+        expect(h.editorTerminals.revealed).toStrictEqual([{ id: besideId, preserveFocus: true }]);
+        expect(h.views.panelService.visible).toBe(false);
+        h.service.dispose();
+    });
+
+    it("родитель отпущен — location пропадает, терминал встаёт по умолчанию", async () => {
+        const h = setup();
+        const parent = h.ns.createTerminal({ name: "p", location: TerminalLocation.Editor });
+        parent.dispose();
+        h.ns.createTerminal({ name: "orphan", location: { parentTerminal: parent } });
+        await flush();
+        expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["orphan"]);
+        h.service.dispose();
+    });
+
+    it("pty-терминал с location — тоже вкладкой", async () => {
+        const h = setup();
+        const { pty } = makePty();
+        h.ns.createTerminal({ name: "pty", pty, location: { viewColumn: ViewColumn.One } });
+        await flush();
+        expect(h.editorTerminals.created).toStrictEqual([
+            { id: h.service.getEditorInstances()[0].id, location: { viewColumn: 1, preserveFocus: false } },
+        ]);
+        h.service.dispose();
     });
 
     it("битые конверты субпроцесса не доходят до стока", async () => {

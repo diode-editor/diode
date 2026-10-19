@@ -30,6 +30,13 @@ function cycleMruStep(accessor: ServiceAccessor, direction: 1 | -1): void {
 }
 
 /**
+ * Фокус в содержимом вкладки, где клавиши вкладок — области редакторов:
+ * текст либо вкладка-терминал (у эталона команды вкладок стоят в
+ * `commandsToSkipShell` — в шелл они не уходят).
+ */
+const EDITOR_TABS_FOCUS = "textViewFocus || terminalEditorFocus";
+
+/**
  * Шаг по вкладкам в ВИЗУАЛЬНОМ порядке (VS Code `nextEditor`/`previousEditor`,
  * Ctrl+PgDn/PgUp): все группы слева направо, с заворотом. Без hold-сессии —
  * каждый шаг сразу коммитится; за MRU-переключение отвечает пара Ctrl+Tab
@@ -43,7 +50,7 @@ export const nextEditorAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 1 }],
     keybinding: parseKeybinding("ctrl+pagedown"),
     keybindings: [parseKeybinding("alt+pagedown")],
-    when: "textViewFocus",
+    when: EDITOR_TABS_FOCUS,
     run(accessor) {
         accessor.get(EditorGroupsServiceDIToken).cycleEditor(1);
     },
@@ -56,7 +63,7 @@ export const previousEditorAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 2 }],
     keybinding: parseKeybinding("ctrl+pageup"),
     keybindings: [parseKeybinding("alt+pageup")],
-    when: "textViewFocus",
+    when: EDITOR_TABS_FOCUS,
     run(accessor) {
         accessor.get(EditorGroupsServiceDIToken).cycleEditor(-1);
     },
@@ -86,7 +93,7 @@ export const nextEditorInGroupAction: CommandAction = {
         { keys: parseKeybinding("ctrl+down"), when: TAB_SWITCHER_ARROWS },
         { keys: parseKeybinding("ctrl+shift+down"), when: TAB_SWITCHER_ARROWS },
     ],
-    when: "textViewFocus && editorTabsMultiple",
+    when: "textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, 1);
     },
@@ -103,7 +110,7 @@ export const previousEditorInGroupAction: CommandAction = {
         { keys: parseKeybinding("ctrl+up"), when: TAB_SWITCHER_ARROWS },
         { keys: parseKeybinding("ctrl+shift+up"), when: TAB_SWITCHER_ARROWS },
     ],
-    when: "textViewFocus && editorTabsMultiple",
+    when: "textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, -1);
     },

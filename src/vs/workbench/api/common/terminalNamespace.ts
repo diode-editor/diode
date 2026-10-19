@@ -5,6 +5,7 @@ import { EventEmitter, TerminalExitReason, Uri } from "./vscodeTypes.ts";
 import {
     type IWireTerminalCreate,
     type IWireTerminalLaunch,
+    type IWireTerminalLocation,
     type IWireTerminalRef,
     parseWireTerminalActive,
     parseWireTerminalClosed,
@@ -157,7 +158,7 @@ class TerminalRecord {
          * Адрес в нотификациях: свой терминал — меткой субпроцесса (хост помнит
          * её до закрытия), чужой — хостовым id.
          */
-        private readonly ref: IWireTerminalRef,
+        public readonly ref: IWireTerminalRef,
         name: string,
         creationOptions: vscode.TerminalOptions | vscode.ExtensionTerminalOptions,
         rpc: SubprocessRpc,
@@ -236,9 +237,15 @@ function normalizeOptions(
 /**
  * `TerminalOptions` → `terminal.create`. Строковые `shellArgs` (Windows-форма
  * одной командной строкой) режутся по пробелам; `env` без `undefined`-значений;
- * `iconPath`/`color`/`location`/`isTransient` не уезжают — терминал всегда в панели.
+ * `location` — см. {@link toWireLocation}; `iconPath`/`color` не уезжают
+ * (иконок и цвета вкладок терминала нет), `isTransient` — тоже: терминалы и так
+ * не восстанавливаются после перезапуска.
  */
-function toWireCreate(extHostId: number, options: vscode.TerminalOptions): IWireTerminalCreate {
+function toWireCreate(
+    extHostId: number,
+    options: vscode.TerminalOptions,
+    location: IWireTerminalLocation | undefined,
+): IWireTerminalCreate {
     const { shellArgs, cwd, env } = options;
     const args = typeof shellArgs === "string" ? shellArgs.split(/\s/u).filter((a) => a !== "") : shellArgs;
     const wireEnv: Record<string, string | null> = {};
@@ -255,7 +262,34 @@ function toWireCreate(extHostId: number, options: vscode.TerminalOptions): IWire
         ...(options.strictEnv === true ? { strictEnv: true } : {}),
         ...(options.hideFromUser === true ? { hideFromUser: true } : {}),
         ...(options.message !== undefined ? { message: options.message } : {}),
+        ...(location !== undefined ? { location } : {}),
     };
+}
+
+/**
+ * `TerminalOptions.location` → провод (`_serializeParentTerminal` эталона):
+ * `TerminalLocation` — числом, `{ viewColumn, preserveFocus }` — как есть,
+ * `{ parentTerminal }` — адресом родителя. Родитель, о котором субпроцесс не
+ * знает (уже закрыт, чужой объект), — как у эталона: опция пропадает.
+ */
+function toWireLocation(
+    location: vscode.TerminalOptions["location"],
+    refOf: (terminal: vscode.Terminal) => IWireTerminalRef | undefined,
+): IWireTerminalLocation | undefined {
+    if (typeof location === "number") {
+        // Числа `TerminalLocation` — те же, что на проводе; чужие — «не задано».
+        const value: number = location;
+        return value === 1 || value === 2 ? value : undefined;
+    }
+    if (location === undefined) return undefined;
+    if ("viewColumn" in location) {
+        return {
+            viewColumn: location.viewColumn,
+            ...(location.preserveFocus === true ? { preserveFocus: true } : {}),
+        };
+    }
+    const parentTerminal = refOf(location.parentTerminal);
+    return parentTerminal === undefined ? undefined : { parentTerminal };
 }
 
 /** `creationOptions` чужого терминала — из того, чем его запустил хост. */
@@ -357,15 +391,29 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
             record.pty = new ExtensionPty(nameOrOptions.pty, { extHostId }, rpc);
             byExtHostId.set(extHostId, record);
             order.push(record);
-            rpc.notify("terminal.create", { extHostId, pty: true, name: nameOrOptions.name });
+            const location = toWireLocation(nameOrOptions.location, refOf);
+            rpc.notify("terminal.create", {
+                extHostId,
+                pty: true,
+                name: nameOrOptions.name,
+                ...(location !== undefined ? { location } : {}),
+            });
             return record.value;
         }
         const options = normalizeOptions(nameOrOptions, shellPath, shellArgs);
+        // Родителя ищем до заведения записи: сам себе он родителем быть не может.
+        const location = toWireLocation(options.location, refOf);
         const record = new TerminalRecord({ extHostId }, options.name ?? "", options, rpc);
         byExtHostId.set(extHostId, record);
         order.push(record);
-        rpc.notify("terminal.create", toWireCreate(extHostId, options));
+        rpc.notify("terminal.create", toWireCreate(extHostId, options, location));
         return record.value;
+    }
+
+    /** Адрес живого терминала по объекту расширения; отпущенный и незнакомый — `undefined`. */
+    function refOf(terminal: vscode.Terminal): IWireTerminalRef | undefined {
+        const record = order.find((r) => r.value === terminal);
+        return record === undefined || record.disposed ? undefined : record.ref;
     }
 
     function attachPty(terminalId: number, pty: vscode.Pseudoterminal): void {
