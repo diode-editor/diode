@@ -10,6 +10,9 @@
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
+    /** Пикер, показанный командой test.showForHide. */
+    let shown;
+
     const SOURCE = [
         { description: "Alpha module", value: "example.com/alpha" },
         { description: "Beta module", value: "example.com/beta" },
@@ -106,22 +109,28 @@ exports.activate = function activate(context) {
             });
         }),
         // Показ и скрытие самим расширением: onDidHide ровно один раз.
-        vscode.commands.registerCommand("test.showThenHide", function () {
+        // Показ и скрытие самим расширением: onDidHide ровно один раз. Две
+        // команды, а не таймер: тест сам решает, когда пикер уже на экране.
+        vscode.commands.registerCommand("test.showForHide", function () {
+            const quickPick = vscode.window.createQuickPick();
+            shown = { quickPick: quickPick, hides: 0 };
+            quickPick.onDidHide(function () {
+                shown.hides++;
+            });
+            quickPick.items = [{ label: "x" }];
+            quickPick.show();
+            return null;
+        }),
+        vscode.commands.registerCommand("test.hideShown", function () {
+            const current = shown;
             return new Promise(function (resolve) {
-                const quickPick = vscode.window.createQuickPick();
-                let hides = 0;
-                quickPick.onDidHide(function () {
-                    hides++;
+                const subscription = current.quickPick.onDidHide(function () {
+                    subscription.dispose();
+                    // dispose после скрытия второго onDidHide давать не должен.
+                    current.quickPick.dispose();
+                    resolve({ hides: current.hides });
                 });
-                quickPick.items = [{ label: "x" }];
-                quickPick.show();
-                setTimeout(function () {
-                    quickPick.hide();
-                    setTimeout(function () {
-                        quickPick.dispose();
-                        resolve({ hides: hides });
-                    }, 50);
-                }, 50);
+                current.quickPick.hide();
             });
         }),
     );

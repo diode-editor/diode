@@ -124,11 +124,11 @@ describe("ExtensionHost — window.createQuickPick через настоящий
     it("hide() расширения закрывает оверлей, onDidHide — ровно один раз", async () => {
         const { harness, component } = await setup();
         try {
-            const result = harness.commandRegistry.execute("test.showThenHide") as Promise<{ hides: number }>;
+            await harness.commandRegistry.execute("test.showForHide");
             await vi.waitFor(() => {
                 expect(component.isOpen()).toBe(true);
             });
-            await expect(result).resolves.toEqual({ hides: 1 });
+            await expect(harness.commandRegistry.execute("test.hideShown")).resolves.toEqual({ hides: 1 });
             expect(component.isOpen()).toBe(false);
         } finally {
             await harness.dispose();
