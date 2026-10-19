@@ -23,9 +23,11 @@ export default defineScenario({
         await editor.capture("menu");
         await editor.sendKey("Escape");
 
-        // Ctrl+O pops the Open File dialog in the workspace folder.
+        // Ctrl+O pops the Open File dialog in the workspace folder. Folders come
+        // first, so in the repo root README.md is below the visible rows — wait
+        // for a folder that always shows.
         await editor.sendKey("Ctrl+O");
-        await editor.waitForText((t) => t.includes("Open File") && t.includes("README.md") && t.includes(".."));
+        await editor.waitForText((t) => t.includes("Open File") && t.includes(".github") && t.includes(".."));
         await editor.capture("prompt");
 
         // Typing the start of a name highlights its row; Enter opens the file.

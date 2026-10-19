@@ -50,7 +50,8 @@ export const WorkspaceFolderOpenerDIToken = token<IWorkspaceFolderOpener>("Works
 async function runOpenFile(accessor: ServiceAccessor): Promise<void> {
     const picked = await accessor
         .get(FileDialogServiceDIToken)
-        .showOpenDialog({ title: "Open File", canSelectFiles: true, canSelectFolders: false });
+        // Без canSelect* диалог выбирает файлы (`_convertOpenOptions` эталона).
+        .showOpenDialog({ title: "Open File" });
     const file = picked?.at(0);
     if (file !== undefined) accessor.get(CommandRegistryDIToken).execute("workbench.openFile", file.fsPath);
 }
@@ -198,12 +199,11 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
         }
         accessor.get(WorkbenchContextKeysDIToken).update();
     } catch (error) {
-        /* v8 ignore start -- defensive: surfaces a filesystem write failure (permissions/disk); not reproducible in tests */
+        // Сбой записи (права, место) — в лог; команда при этом не падает.
         accessor
             .get(ILogServiceDIToken)
             .createLogger("input.keybindings")
             .error("Save As failed", { path: resolved, error: String(error) });
-        /* v8 ignore stop */
     }
 }
 
@@ -243,8 +243,9 @@ export const fileSaveAsAction: CommandAction = {
     // где терминал различает Shift.
     keybinding: parseChord("ctrl+k alt+s"),
     keybindings: [{ keys: parseKeybinding("mod+shift+s"), when: "tier != 'legacy'" }],
+    // Промис — команде: отказ доходит до общего обработчика CommandRegistry.execute.
     run(accessor) {
-        void runSaveAs(accessor);
+        return runSaveAs(accessor);
     },
 };
 
@@ -254,8 +255,9 @@ export const fileOpenAction: CommandAction = {
     shortTitle: "Open File...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "2_open", order: 10 }],
     keybinding: parseKeybinding("mod+o"),
+    // Промис — команде: отказ доходит до общего обработчика CommandRegistry.execute.
     run(accessor) {
-        void runOpenFile(accessor);
+        return runOpenFile(accessor);
     },
 };
 
@@ -265,8 +267,9 @@ export const fileOpenFolderAction: CommandAction = {
     shortTitle: "Open Folder...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "2_open", order: 20 }],
     keybinding: parseChord("ctrl+k ctrl+o"),
+    // Промис — команде: отказ доходит до общего обработчика CommandRegistry.execute.
     run(accessor) {
-        void runOpenFolder(accessor);
+        return runOpenFolder(accessor);
     },
 };
 

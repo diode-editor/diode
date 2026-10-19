@@ -7,7 +7,11 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { Uri } from "../../base/common/uri.ts";
+import type { ILogger } from "../../platform/log/common/iLogger.ts";
+import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
+
+import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 /** Вопрос о перезаписи — заголовок второго пикера диалога (эталон). */
 const overwriteQuestion = (name: string): string => `${name} already exists. Are you sure you want to overwrite it?`;
@@ -186,6 +190,62 @@ describe("Workbench — Save As", () => {
         });
     });
 
+    it("после записи ключи контекста пересчитываются (язык и вкладка — уже про новый путь)", async () => {
+        h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
+        h.testApp.render();
+        const editor = h.container.get(EditorServiceDIToken).getActiveTabEditor();
+        if (editor === null) throw new Error("нет активного редактора");
+        const update = vi.spyOn(h.container.get(WorkbenchContextKeysDIToken), "update");
+        // Закрытый диалог возвращает фокус редактору — это свой пересчёт, до записи.
+        const saveAs = editor.saveAs.bind(editor);
+        vi.spyOn(editor, "saveAs").mockImplementation((target) => {
+            update.mockClear();
+            return saveAs(target);
+        });
+
+        const dialog = fileDialogDriver(h);
+        const run = h.commands.execute("workbench.action.files.saveAs") as Promise<void>;
+        await dialog.settle({ query: ws.path("alpha.txt") });
+        const newPath = ws.path("alpha.ts");
+        dialog.replaceQuery(newPath);
+        await dialog.settle({ query: newPath });
+        dialog.key("Enter");
+        await run;
+
+        expect(fs.existsSync(newPath)).toBe(true);
+        expect(update).toHaveBeenCalled();
+    });
+
+    it("сбой записи — в лог, а не в отказ команды", async () => {
+        h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
+        h.testApp.render();
+        const editor = h.container.get(EditorServiceDIToken).getActiveTabEditor();
+        if (editor === null) throw new Error("нет активного редактора");
+        vi.spyOn(editor, "saveAs").mockRejectedValueOnce(new Error("disk full"));
+        const errors: unknown[][] = [];
+        const logs = h.container.get(ILogServiceDIToken);
+        const createLogger = logs.createLogger.bind(logs);
+        vi.spyOn(logs, "createLogger").mockImplementation((channel, options) => {
+            const logger = createLogger(channel, options);
+            return {
+                ...logger,
+                error: (...args: unknown[]) => {
+                    errors.push([channel, ...args]);
+                },
+            } as ILogger;
+        });
+
+        const dialog = fileDialogDriver(h);
+        const run = h.commands.execute("workbench.action.files.saveAs") as Promise<void>;
+        await dialog.settle({ query: ws.path("alpha.txt") });
+        const newPath = ws.path("gamma.txt");
+        dialog.replaceQuery(newPath);
+        await dialog.settle({ query: newPath });
+        dialog.key("Enter");
+        await expect(run).resolves.toBeUndefined();
+        expect(errors).toEqual([["input.keybindings", "Save As failed", { path: newPath, error: "Error: disk full" }]]);
+    });
+
     it("нет активного редактора — команда ничего не показывает", () => {
         h.commands.execute("workbench.action.files.saveAs");
         h.testApp.render();
@@ -207,5 +267,25 @@ describe("Workbench — Save As", () => {
             expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
         });
         expect(fs.existsSync(newPath)).toBe(false);
+    });
+});
+
+describe("Workbench — Save As без папки", () => {
+    it("безымянный буфер стартует из текущего каталога процесса", async () => {
+        const h = createAppTestHarness();
+        try {
+            h.commands.execute("workbench.action.files.newUntitledFile");
+            h.testApp.render();
+            const dialog = fileDialogDriver(h);
+            const run = h.commands.execute("workbench.action.files.saveAs") as Promise<void>;
+            await vi.waitFor(() => {
+                expect(String(dialog.state().query)).toMatch(/Untitled-1/);
+            });
+            expect(String(dialog.state().query).startsWith(process.cwd())).toBe(true);
+            dialog.key("Escape");
+            await expect(run).resolves.toBeUndefined();
+        } finally {
+            h.dispose();
+        }
     });
 });

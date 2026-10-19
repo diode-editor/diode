@@ -86,6 +86,17 @@ describe("Workbench — Open File / Open Folder", () => {
         expect(tabLabels(h.testApp).some((l) => l.includes("nope.txt"))).toBe(false);
     });
 
+    it("Open File: Enter на каталоге без подсветки — «Please select a file.»", async () => {
+        const dialog = fileDialogDriver(h);
+        h.commands.execute("workbench.action.files.openFile");
+        await dialog.settle({ query: ws.dir + path.sep, items: ["..", "sub", "alpha.txt", "beta.txt"] });
+        dialog.key("Enter");
+        await vi.waitFor(() => {
+            expect(dialog.validationMessage()).toBe("Please select a file.");
+        });
+        dialog.key("Escape");
+    });
+
     it("«~/» переводит в домашний каталог", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
@@ -97,9 +108,10 @@ describe("Workbench — Open File / Open Folder", () => {
 
     it("Escape отменяет Open File: вкладок нет, оверлей закрыт", async () => {
         const dialog = fileDialogDriver(h);
-        h.commands.execute("workbench.action.files.openFile");
+        const run = h.commands.execute("workbench.action.files.openFile") as Promise<void>;
         await dialog.settle({ query: ws.dir + path.sep });
         dialog.key("Escape");
+        await expect(run).resolves.toBeUndefined();
         await vi.waitFor(() => {
             expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
         });
@@ -144,9 +156,10 @@ describe("Workbench — Open File / Open Folder", () => {
 
     it("Escape отменяет Open Folder без смены корня", async () => {
         const dialog = fileDialogDriver(h);
-        h.commands.execute("workbench.action.files.openFolder");
+        const run = h.commands.execute("workbench.action.files.openFolder") as Promise<void>;
         await dialog.settle({ query: ws.dir + path.sep });
         dialog.key("Escape");
+        await expect(run).resolves.toBeUndefined();
         await vi.waitFor(() => {
             expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
         });
