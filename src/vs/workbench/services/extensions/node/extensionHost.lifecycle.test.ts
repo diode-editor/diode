@@ -1546,6 +1546,29 @@ describe("ExtensionHost — readiness failures", () => {
         await expect(host.activateByEvent("*")).rejects.toThrow(/did not become ready/);
     });
 
+    it("по умолчанию ждёт host.ready 60 с, как эталон, а не списывает медленный старт", async () => {
+        vi.useFakeTimers();
+        try {
+            const child = new FakeChild();
+            spawnMock.mockReturnValue(child as never); // ready не придёт никогда
+            const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE, { spawnArgs });
+            host.registerExtension(makeReg("ext.a", "/a.js"));
+            let settled = false;
+            const activation = host.activateByEvent("*").finally(() => {
+                settled = true;
+            });
+            activation.catch(() => undefined);
+
+            await vi.advanceTimersByTimeAsync(59_999);
+            expect(settled).toBe(false);
+            await vi.advanceTimersByTimeAsync(1);
+            await expect(activation).rejects.toThrow("did not become ready in 60000ms");
+            host.dispose();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("заглушка-активатор команды не отклоняется, когда субпроцесс не поднялся", async () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never); // ready не придёт никогда
