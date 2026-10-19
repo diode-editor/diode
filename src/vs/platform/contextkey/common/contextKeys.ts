@@ -236,7 +236,8 @@ export interface ContextKeyTypes {
     // inZenMode: boolean;
     // isCenteredLayout: boolean;
     // isFullscreen: boolean;
-    // focusedView: string;
+    /** «The identifier of the view that has keyboard focus» — id вида с фокусом (выставляет `ViewsService`); пусто — фокус не в виде. */
+    focusedView: string;
     /** True while there is somewhere to go back to in the navigation history. */
     canNavigateBack: boolean;
     /** True while there is somewhere to go forward to in the navigation history. */

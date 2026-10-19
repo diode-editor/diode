@@ -33,6 +33,8 @@ describe("TerminalService — instances", () => {
         const h = buildHarness();
         const tab = h.panelService.getViews().find((v) => v.id === TERMINAL_VIEW_ID);
         expect(tab?.title).toBe("TERMINAL");
+        // Вид переносится — например, во вторичную боковую панель.
+        expect(h.views.service.canMoveView(TERMINAL_VIEW_ID)).toBe(true);
         // Тела у секции ещё нет — вкладка рисует пустое состояние.
         expect(h.views.paneView(TERMINAL_VIEW_ID).querySelector("#viewPlaceholder-terminal")).not.toBeNull();
         expect(h.created).toHaveLength(0);

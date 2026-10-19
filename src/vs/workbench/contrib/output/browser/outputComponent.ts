@@ -77,6 +77,7 @@ export class OutputComponent extends Disposable {
         // таб-строку через `setViewTitleWidget`.
         this.viewsService.registerContainer({ id: OUTPUT_VIEW_ID, title: "OUTPUT", location: "panel", order: 1 });
         this.viewsService.registerView({
+            canMoveView: true,
             id: OUTPUT_VIEW_ID,
             containerId: OUTPUT_VIEW_ID,
             title: "OUTPUT",

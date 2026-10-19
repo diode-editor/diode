@@ -286,6 +286,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         // Тело единственной view merged-контейнера Search: заголовок секции —
         // заголовок вьюлета, «⋯»-меню приходит от PaneHeaderElement.
         viewsService.registerView({
+            canMoveView: true,
             id: SEARCH_VIEW_ID,
             containerId: SEARCH_VIEWLET_ID,
             title: "SEARCH",

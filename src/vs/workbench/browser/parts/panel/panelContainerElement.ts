@@ -1,5 +1,6 @@
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
@@ -79,6 +80,8 @@ export class PanelContainerElement extends TUIElement {
     public onActivateView?: (id: string) => void;
     /** Клик по кнопке закрытия панели в таб-строке. */
     public onClose?: () => void;
+    /** Контекстное меню вкладки `id` (правый клик или Shift+F10); якорь — экранная точка попапа. */
+    public onTabContextMenu?: (id: string, anchor: { readonly screenX: number; readonly screenY: number }) => void;
 
     private views: PanelView[] = [];
     private activeId: string | null = null;
@@ -134,11 +137,45 @@ export class PanelContainerElement extends TUIElement {
         this.addEventListener("mouseleave", () => {
             this.setCloseHovered(false);
         });
+        // Контекстное меню вкладки (у эталона — меню композит-бара: «Move To»,
+        // «Reset Location»): правый клик по табу или Shift+F10 — для активной.
+        this.addEventListener("contextmenu", (event) => {
+            if (event.target !== this) return;
+            const menuEvent = event as TUIContextMenuEvent;
+            const segments = this.tabSegments();
+            const originX = this.globalPosition.x;
+            const tabRow = this.globalPosition.y + this.tabRow;
+            const segment =
+                menuEvent.trigger === "keyboard"
+                    ? segments.find((s) => s.id === this.activeId)
+                    : menuEvent.screenY === tabRow
+                      ? segments.find(
+                            (s) => menuEvent.screenX - originX >= s.start && menuEvent.screenX - originX < s.end,
+                        )
+                      : undefined;
+            if (segment === undefined) return;
+            event.preventDefault();
+            const anchor =
+                menuEvent.trigger === "keyboard"
+                    ? { screenX: originX + segment.start, screenY: tabRow + 1 }
+                    : { screenX: menuEvent.screenX, screenY: menuEvent.screenY };
+            this.onTabContextMenu?.(segment.id, anchor);
+        });
     }
 
-    public addView(view: PanelView): void {
-        this.views.push(view);
+    /** Добавляет вкладку на позицию `index` (по умолчанию — в конец таб-строки). */
+    public addView(view: PanelView, index = this.views.length): void {
+        this.views.splice(index, 0, view);
         this.activeId ??= view.id;
+        this.syncChildren();
+    }
+
+    /** Убирает вкладку; снятая активная передаёт активность первой оставшейся. */
+    public removeView(id: string): void {
+        const index = this.views.findIndex((v) => v.id === id);
+        if (index < 0) return;
+        this.views.splice(index, 1);
+        if (this.activeId === id) this.activeId = this.views.at(0)?.id ?? null;
         this.syncChildren();
     }
 

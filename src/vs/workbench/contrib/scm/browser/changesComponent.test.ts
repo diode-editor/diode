@@ -21,6 +21,7 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import { SCM_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
 import { ChangesComponent } from "./changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
@@ -83,6 +84,8 @@ interface IHarness {
     menu: IMenu;
     themeService: ThemeService;
     executed: [string, unknown[]][];
+    /** Дескрипторы, с которыми компонент регистрировал свои view. */
+    views: { id: string; canMoveView?: boolean }[];
 }
 
 function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {}): IHarness {
@@ -90,8 +93,12 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     const scm = new ScmChangesService(commands);
     const { service: menuService, menu } = fakeMenu(opts.menuEntries);
     const themeService = new ThemeService(theme);
-    // Реестр view здесь не участвует — компонент тестируется standalone.
-    const viewsService = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
+    // Реестр view здесь только записывает дескрипторы — компонент тестируется standalone.
+    const views: IHarness["views"] = [];
+    const viewsService = {
+        registerContainer: () => {},
+        registerView: (descriptor: IHarness["views"][number]) => views.push(descriptor),
+    } as unknown as ViewsService;
     const state = opts.state ?? NULL_STATE_SERVICE;
     const scmInput = new ScmInputComponent(
         state,
@@ -115,8 +122,15 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     commands.register("scm.action.openFile", (...args) => executed.push(["scm.action.openFile", args]));
     commands.register("scm.action.openChanges", (...args) => executed.push(["scm.action.openChanges", args]));
 
-    return { component, commands, scm, menu, themeService, executed };
+    return { component, commands, scm, menu, themeService, executed, views };
 }
+
+describe("ChangesComponent — регистрация", () => {
+    it("секция CHANGES переносится в другое место", () => {
+        const { views } = make();
+        expect(views.find((view) => view.id === SCM_CHANGES_VIEW_ID)).toMatchObject({ canMoveView: true });
+    });
+});
 
 function publish(
     commands: CommandRegistry,

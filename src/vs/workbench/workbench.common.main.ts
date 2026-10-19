@@ -106,6 +106,7 @@ import {
     previousEditorInGroupAction,
 } from "./browser/actions/tabActions.ts";
 import { TAB_CLOSE_ACTIONS } from "./browser/actions/tabCloseActions.ts";
+import { VIEW_LOCATION_ACTIONS } from "./browser/actions/viewLocationActions.ts";
 import { LanguageFeatureContextKeysDIToken } from "./browser/languageFeatureContextKeys.ts";
 import { OpenFailureNotificationContributionDIToken } from "./browser/openFailureNotificationContribution.ts";
 import { AUXILIARY_BAR_ACTIONS } from "./browser/parts/auxiliarybar/auxiliaryBarActions.ts";
@@ -125,6 +126,7 @@ import { SidebarServiceDIToken } from "./browser/parts/sidebar/sidebarService.ts
 import { ProgressStatusBarContributionDIToken } from "./browser/parts/statusbar/progressStatusBarContribution.ts";
 import { WindowTitleContributionDIToken } from "./browser/parts/titlebar/windowTitleContribution.ts";
 import { ViewProgressContributionDIToken } from "./browser/parts/views/viewProgressContribution.ts";
+import { ViewsServiceDIToken } from "./browser/parts/views/viewsService.ts";
 import { ViewTitleActionsContributionDIToken } from "./browser/parts/views/viewTitleActionsContribution.ts";
 import { SetContextCommandContributionDIToken } from "./browser/setContextCommandContribution.ts";
 import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusalNotificationContribution.ts";
@@ -461,6 +463,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     closePanelAction,
     toggleProblemsAction,
     ...AUXILIARY_BAR_ACTIONS,
+    ...VIEW_LOCATION_ACTIONS,
     ...OUTPUT_ACTIONS,
     ...TERMINAL_ACTIONS,
     ...TASKS_ACTIONS,
@@ -504,6 +507,8 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     SidebarServiceDIToken,
     // Фокус во вторичной панели и её активный контейнер.
     AuxiliaryBarComponentDIToken,
+    // Вид с фокусом (`focusedView`) — для Move/Reset Focused View.
+    ViewsServiceDIToken,
     ExplorerComponentDIToken,
     ScmInputComponentDIToken,
     TerminalServiceDIToken,

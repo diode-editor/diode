@@ -105,6 +105,7 @@ export class ProblemsComponent extends Component {
         // одна секция без своего заголовка (его роль играет таб).
         this.viewsService.registerContainer({ id: PROBLEMS_VIEW_ID, title: "PROBLEMS", location: "panel", order: 0 });
         this.viewsService.registerView({
+            canMoveView: true,
             id: PROBLEMS_VIEW_ID,
             containerId: PROBLEMS_VIEW_ID,
             title: "PROBLEMS",

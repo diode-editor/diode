@@ -84,6 +84,10 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
             activeViewlet = id;
             activeViewletEmitter.fire(id);
         },
+        unregisterViewlet: (id: string) => {
+            registered.delete(id);
+            if (activeViewlet === id) activeViewlet = null;
+        },
         getActiveViewletId: () => activeViewlet,
         onDidChangeActiveViewlet: activeViewletEmitter.event,
     } as unknown as SidebarService;

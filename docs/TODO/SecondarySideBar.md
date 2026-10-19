@@ -26,19 +26,20 @@
 
 ## Стек PR
 
-- [x] PR0 — `WorkbenchLayoutElement` переехал из `@tuidom/elements` к нам (#649).
+- [~] PR0 — `WorkbenchLayoutElement` переезжает из `@tuidom/elements` к нам (#649, на ревью).
 - [~] PR1 — часть: правая колонка и саш, `AuxiliaryBarService`/`Component`,
   команды toggle/close/focus/previous/next, `increaseViewSize`/
   `decreaseViewSize`, ключи `auxiliaryBarVisible`/`auxiliaryBarFocus`/
   `activeAuxiliary`, состояние, настройка `defaultVisibility`, сценарий
-  `auxiliary-bar`.
-- [ ] PR2 — модель расположения: аналог `IViewDescriptorService`
+  `auxiliary-bar` (#654, на ревью).
+- [~] PR2 — модель расположения: аналог `IViewDescriptorService`
   (`moveViewToLocation`, `moveViewsToContainer`, `moveViewContainerToLocation`,
   сгенерированные контейнеры, `canMoveView`/`rejectAddedViews`, `reset`),
   персист `views.customizations`, ключ `focusedView`, команды `moveView`,
   `moveFocusedView`, `resetViewLocations`, `resetFocusedViewLocation`,
   `movePanelToSecondarySideBar`/`moveSecondarySideBarToPanel`, «Move To» и
-  «Reset Location» в меню.
+  «Reset Location» в контекстном меню вкладки и в «⋯» вьюлета, сценарий
+  `view-locations`.
 - [ ] PR3 — живые виды на новом месте: Terminal/Output/Problems открываются там,
   где стоит их вид (команды терминала сейчас прибиты к `PanelService`), спавн
   шелла по активации вида в любой части; приёмка — TERMINAL во вторичной
@@ -54,3 +55,11 @@
   `auxiliaryBarMaximized`, Ctrl+W на restore) и значения `maximized*`.
 - [ ] `workbench.secondarySideBar.showLabels` — у нас вкладки всегда подписями.
 - [ ] Перетаскивание видов мышью (`CompositeDragAndDropObserver` эталона).
+- [ ] Ранжирование палитры: точное «View: Move View» стоит ниже «View: Move
+  Editor…» (fuzzy-оценка, смежно с пунктом палитры в
+  [ParityBacklog](ParityBacklog.md)); сценарий `view-locations` поэтому зовёт
+  команду пользовательским биндом.
+- [ ] Разделители в выборе из списка (`QuickPickItemKind.Separator`): сейчас
+  подпись группы стоит справа у каждого пункта.
+- [ ] Legacy-алиасы эталона `workbench.action.movePanelToSidePanel` /
+  `moveSidePanelToPanel` (у эталона скрыты из палитры) — не заведены.

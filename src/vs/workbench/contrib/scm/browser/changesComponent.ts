@@ -159,6 +159,7 @@ export class ChangesComponent extends Component {
             visibleContextKey: "scmViewletVisible",
         });
         viewsService.registerView({
+            canMoveView: true,
             id: SCM_CHANGES_VIEW_ID,
             containerId: SCM_VIEWLET_ID,
             title: "CHANGES",

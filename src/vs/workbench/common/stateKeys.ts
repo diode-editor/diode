@@ -235,6 +235,29 @@ export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Partial<Record<string, IViewC
 };
 
 /**
+ * Переносы видов и контейнеров (`IViewsCustomizations` эталона без бейджей):
+ * только отличия от дефолта. Место — строка `ViewContainerLocationToString`
+ * эталона (`"sidebar"` | `"panel"` | `"auxiliarybar"`).
+ */
+export interface IViewsCustomizationsState {
+    /** Контейнер → место, где он стоит не по умолчанию (и места сгенерированных контейнеров). */
+    readonly viewContainerLocations: Readonly<Partial<Record<string, string>>>;
+    /** Вид → контейнер, в котором он стоит не по умолчанию. */
+    readonly viewLocations: Readonly<Partial<Record<string, string>>>;
+}
+
+/**
+ * Переносы видов (у эталона — `views.customizations`, PROFILE). Здесь
+ * `workspace`, как остальная раскладка: решение человека, отступление от
+ * эталона (docs/TODO/SecondarySideBar.md).
+ */
+export const VIEWS_CUSTOMIZATIONS_STATE: IStateDescriptor<IViewsCustomizationsState> = {
+    key: "views.customizations",
+    scope: "workspace",
+    default: { viewContainerLocations: {}, viewLocations: {} },
+};
+
+/**
  * Id записей статус-бара, скрытых пользователем через контекстное меню полосы.
  *
  * Единственный `global` в этом файле — сознательное отступление от

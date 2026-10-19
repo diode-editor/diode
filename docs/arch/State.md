@@ -179,6 +179,15 @@ main.ts: build container ─► lifecycle.onShutdownSync(flushSync) + страх
   `onDidChangeActiveView` → `PANEL_ACTIVE_VIEW_STATE`. На restore вкладка
   активируется программно (`setActiveView`, не `activateView`) — ленивые фичи не
   будятся, TERMINAL восстанавливается с placeholder'ом без спавна шелла.
+- **Переносы видов** — `views.customizations` (ключ и форма эталона без
+  бейджей): `{viewContainerLocations: {контейнер → место}, viewLocations: {вид →
+  контейнер}}`, только отличия от дефолта; место — строка `"sidebar"` |
+  `"panel"` | `"auxiliarybar"`. Сгенерированный контейнер в стор не
+  описывается: его место зашито в id (`workbench.views.service.<место>.<uuid>`),
+  на старте он создаётся заново по первому виду, который в нём стоит. Scope —
+  `workspace` (у эталона PROFILE; решение человека — раскладка по-проектно).
+  Пишет `ViewsService` на каждый перенос, читает до сборки контейнеров и на
+  Open Folder; рестор и сброс на Open Folder стор не пишут.
 - **Вторичная боковая панель** — ключи эталона: `workbench.auxiliaryBar.hidden`,
   `workbench.auxiliaryBar.size`, `workbench.auxiliarybar.activepanelid` (все
   `workspace`, как остальная раскладка; у эталона размер — PROFILE, это
