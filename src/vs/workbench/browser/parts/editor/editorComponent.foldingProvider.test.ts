@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
@@ -194,5 +196,99 @@ describe("EditorComponent – extension folding provider merge", () => {
         ctrl.component.dispose();
 
         expect(tokens.every((token) => token.isCancellationRequested)).toBe(true);
+    });
+
+    describe("правка до ответа провайдера", () => {
+        // Многострочная сигнатура, как в Java: по отступам «first(» — область
+        // только параметров (1..2), а тело — своя область с «) {» (3..4);
+        // провайдер отдаёт метод целиком (1..4).
+        const source = [
+            "class A {",
+            "    void first(",
+            "        int a",
+            "    ) {",
+            "        body1();",
+            "    }",
+            "    void second() {",
+            "        body2();",
+            "    }",
+            "}",
+        ].join("\n");
+        const methodRegions: IFoldingRegion[] = [
+            { startLine: 0, endLine: 8, isCollapsed: false },
+            { startLine: 1, endLine: 4, isCollapsed: false },
+            { startLine: 6, endLine: 7, isCollapsed: false },
+        ];
+
+        /** Отвечает сразу, пока не позван `defer`; после — запросы ждут `answer`. */
+        function registerDeferredProvider(): { defer: () => void; answer: (regions: IFoldingRegion[]) => void } {
+            const pending: ((regions: IFoldingRegion[]) => void)[] = [];
+            let deferred = false;
+            providers.register("*", {
+                provideFoldingRanges: () => {
+                    if (!deferred) return Promise.resolve(methodRegions.map((r) => ({ ...r })));
+                    return new Promise((resolve) => pending.push(resolve));
+                },
+            });
+            return {
+                defer: () => {
+                    deferred = true;
+                },
+                answer: (regions) => {
+                    for (const resolve of pending.splice(0)) resolve(regions.map((r) => ({ ...r })));
+                },
+            };
+        }
+
+        function frame(ctrl: TextEditorPane): string {
+            return renderElement(ctrl.component.view, 40, 12, { themeVars: true }).screenToString();
+        }
+
+        it("свёрнутый метод с многострочной сигнатурой не разворачивается на нажатие клавиши", async () => {
+            const ctrl = open(source);
+            const provider = registerDeferredProvider();
+            await flush();
+            ctrl.viewState.foldRegionContaining(1); // свернули first целиком
+            expect(frame(ctrl)).not.toContain("body1");
+
+            provider.defer();
+            ctrl.viewState.selections = [createCursorSelection(7, 16)];
+            ctrl.viewState.type("!"); // печатаем в развёрнутом second
+            await flush();
+
+            // Провайдер ещё думает: тело first обязано оставаться скрытым,
+            // иначе текст выше каретки прыгает на каждое нажатие.
+            expect(frame(ctrl)).not.toContain("body1");
+            expect(frame(ctrl)).toContain("body2();!");
+
+            provider.answer(methodRegions);
+            await flush();
+
+            expect(frame(ctrl)).not.toContain("body1");
+            expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 1)).toMatchObject({
+                endLine: 4,
+                isCollapsed: true,
+            });
+        });
+
+        it("пустой ответ провайдера после правки → indentation-фолды", async () => {
+            const ctrl = open(source);
+            const provider = registerDeferredProvider();
+            await flush();
+            const methodEnd = (): number | undefined =>
+                ctrl.viewState.foldedRegions.find((r) => r.startLine === 1)?.endLine;
+            expect(methodEnd()).toBe(4); // метод целиком — от провайдера
+
+            provider.defer();
+            ctrl.viewState.selections = [createCursorSelection(7, 16)];
+            ctrl.viewState.type("!");
+            await flush();
+            expect(methodEnd()).toBe(4); // до ответа — прежние области
+
+            provider.answer([]);
+            await flush();
+
+            expect(methodEnd()).toBe(2); // провайдеру нечего сказать — стоят отступы
+        });
     });
 });
