@@ -170,8 +170,8 @@ export class LayoutService extends Disposable {
             // вкладка TERMINAL восстанавливается с placeholder'ом, шелл не спавним.
             const activeViewId = this.state.get(PANEL_ACTIVE_VIEW_STATE);
             if (activeViewId !== "") this.panelService.setActiveView(activeViewId);
-            const activeAuxiliaryId = this.state.get(AUXILIARYBAR_ACTIVE_VIEW_STATE);
-            if (activeAuxiliaryId !== "") this.auxiliaryBarService.setActiveView(activeAuxiliaryId);
+            // Пустой id (вкладку не выбирали) сервис части пропускает сам.
+            this.auxiliaryBarService.setActiveView(this.state.get(AUXILIARYBAR_ACTIVE_VIEW_STATE));
             // Истина видимости — в сервисы частей; их подписчики двигают layout
             // повторно, и эта запись — тоже рестор, а не действие пользователя:
             // впервые открытый воркспейс продолжает выводить видимость из настройки.
@@ -202,9 +202,9 @@ export class LayoutService extends Disposable {
             case "visibleInWorkspace":
             case "maximizedInWorkspace":
                 return this.workspaceContext.getWorkbenchState() === "empty";
-            default:
-                return false;
         }
+        // "visible", "maximized" — видима и в пустом окне.
+        return false;
     }
 
     /** Снимает текущий layout из элемента в стор (write-through). No-op во время restore. */
@@ -273,11 +273,6 @@ export class LayoutService extends Disposable {
         this.panelService.setVisible(visible);
     }
 
-    /** Grow/shrink the bottom panel by `delta` rows, clamped by the layout element. */
-    public nudgePanelHeight(delta: number): void {
-        this.requireLayout().nudgeBottomPanelHeight(delta);
-    }
-
     // ── Вторичная боковая панель ────────────────────────────────────────────
 
     public isAuxiliaryBarVisible(): boolean {
@@ -307,8 +302,9 @@ export class LayoutService extends Disposable {
     public getFocusedPart(): WorkbenchPart {
         const layout = this.requireLayout();
         const active = this.root?.focusManager?.activeElement ?? null;
-        const path = active?.getAncestorPath() ?? [];
-        const owns = (part: TUIElement | null): boolean => part !== null && path.includes(part);
+        if (active === null) return "editor";
+        const path = active.getAncestorPath();
+        const owns = (part: TUIElement | null): boolean => path.some((node) => node === part);
         if (owns(layout.getLeftPanel())) return "sidebar";
         if (owns(layout.getRightPanel())) return "auxiliarybar";
         if (owns(layout.getBottomPanel())) return "panel";

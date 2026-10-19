@@ -20,6 +20,7 @@ const FOCUS = "workbench.action.focusAuxiliaryBar";
 const NEXT = "workbench.action.nextAuxiliaryBarView";
 const PREVIOUS = "workbench.action.previousAuxiliaryBarView";
 const INCREASE = "workbench.action.increaseViewSize";
+const DECREASE = "workbench.action.decreaseViewSize";
 
 const SIZE = new Size(100, 20);
 
@@ -152,8 +153,10 @@ describe("Workbench — вторичная боковая панель", () => {
     });
 
     it("Next/Previous Secondary Side Bar View ходят по вкладкам по кругу", () => {
+        // Три вкладки: на двух шаг вперёд и шаг назад неразличимы.
         addContainer("test.aux.one", "ONE", 1);
         const two = addContainer("test.aux.two", "TWO", 2);
+        addContainer("test.aux.three", "THREE", 3);
         const auxiliaryBar = h.container.get(AuxiliaryBarServiceDIToken);
         expect(auxiliaryBar.getActiveViewId()).toBe("test.aux.one");
 
@@ -162,10 +165,12 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(visible()).toBe(true);
         expect(focused() === two).toBe(true);
 
-        h.commands.execute(NEXT);
+        h.commands.execute(PREVIOUS);
         expect(auxiliaryBar.getActiveViewId()).toBe("test.aux.one");
         h.commands.execute(PREVIOUS);
-        expect(auxiliaryBar.getActiveViewId()).toBe("test.aux.two");
+        expect(auxiliaryBar.getActiveViewId()).toBe("test.aux.three");
+        h.commands.execute(NEXT);
+        expect(auxiliaryBar.getActiveViewId()).toBe("test.aux.one");
     });
 
     it("Next/Previous на пустой части ничего не делают", () => {
@@ -180,6 +185,21 @@ describe("Workbench — вторичная боковая панель", () => {
         frame();
         expect(part().layoutSize.width).toBe(28);
         expect(part().globalPosition.x).toBe(SIZE.width - 28);
+    });
+
+    it("Decrease Current View Size с фокусом в редакторе отдаёт его колонки части, а строки — панели", () => {
+        addContainer("test.aux.one", "ONE", 1);
+        const layout = h.container.get(LayoutServiceDIToken);
+        layout.setAuxiliaryBarVisible(true);
+        layout.setPanelVisible(true);
+        frame();
+        expect(layout.getFocusedPart()).toBe("editor");
+        const bottom = h.workbench.workbenchLayout.getBottomPanel()!;
+        const height = bottom.layoutSize.height;
+        h.commands.execute(DECREASE);
+        frame();
+        expect(part().layoutSize.width).toBe(28);
+        expect(bottom.layoutSize.height).toBe(height + 1);
     });
 
     it("узкий терминал (80): редактору остаётся 20 колонок, часть ужимается первой", () => {

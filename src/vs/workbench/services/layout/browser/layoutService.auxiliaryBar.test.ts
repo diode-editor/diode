@@ -41,12 +41,15 @@ class FocusablePart extends TUIElement {
 
 function setup(options: Options = {}) {
     const stored = new Map<string, unknown>(Object.entries(options.stored ?? {}));
+    /** Журнал записей в стор — и тех, что значение не меняют. */
+    const writes: string[] = [];
     const state: IStateService = {
         ...NULL_STATE_SERVICE,
         get<T>(descriptor: IStateDescriptor<T>): T {
             return stored.has(descriptor.key) ? (stored.get(descriptor.key) as T) : descriptor.default;
         },
         store<T>(descriptor: IStateDescriptor<T>, value: T): void {
+            writes.push(descriptor.key);
             stored.set(descriptor.key, value);
         },
     };
@@ -94,6 +97,7 @@ function setup(options: Options = {}) {
         service,
         layout,
         stored,
+        writes,
         contextKeys,
         auxiliaryBarService,
         parts: { sidebar, editor, panel, auxiliaryBar },
@@ -165,7 +169,7 @@ describe("LayoutService: вторичная боковая панель", () => 
         });
 
         it("ширина и активная вкладка восстанавливаются, рестор сам ничего не пишет", () => {
-            const { service, layout, auxiliaryBarService, stored } = setup({
+            const { service, layout, auxiliaryBarService, stored, writes } = setup({
                 views: ["a", "b"],
                 folder: true,
                 stored: { [AUXILIARYBAR_SIZE_STATE.key]: 44, [AUXILIARYBAR_ACTIVE_VIEW_STATE.key]: "b" },
@@ -174,6 +178,14 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(layout.getRightPanelWidth()).toBe(44);
             expect(auxiliaryBarService.getActiveViewId()).toBe("b");
             expect(stored.has(AUXILIARYBAR_HIDDEN_STATE.key)).toBe(false);
+            // Ни одной записи, даже того же значения: смена вкладки при ресторе — не выбор пользователя.
+            expect(writes).toEqual([]);
+        });
+
+        it("без сохранённой вкладки активной остаётся та, что выбрал сервис части", () => {
+            const { service, auxiliaryBarService } = setup({ views: ["a", "b"], folder: true });
+            service.restoreLayout();
+            expect(auxiliaryBarService.getActiveViewId()).toBe("a");
         });
     });
 
@@ -255,6 +267,22 @@ describe("LayoutService: вторичная боковая панель", () => 
             focus(parts.panel);
             expect(service.getFocusedPart()).toBe("panel");
             focus(parts.editor);
+            expect(service.getFocusedPart()).toBe("editor");
+        });
+
+        it("без корня или без менеджера фокуса — редактор", () => {
+            const service = new LayoutService(
+                NULL_STATE_SERVICE,
+                new PanelService(),
+                new ContextKeyService(),
+                new AuxiliaryBarService(),
+                new InMemoryConfigurationService(),
+                new WorkspaceContextService(),
+            );
+            service.attachLayout(new WorkbenchLayoutElement());
+            expect(service.getFocusedPart()).toBe("editor");
+            // Живой корень получает FocusManager только в TuiApplication.run.
+            service.attachRoot(new BodyElement());
             expect(service.getFocusedPart()).toBe("editor");
         });
 

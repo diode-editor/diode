@@ -101,10 +101,8 @@ export class PanelContainerElement extends TUIElement {
         this.contentTop = this.tabRow + 1;
         this.contentLeft = options.contentLeft ?? 2;
         this.emptyMessage = options.emptyMessage;
-        this.style =
-            options.foreground === undefined
-                ? { bg: options.background ?? "panel.background" }
-                : { fg: options.foreground, bg: options.background ?? "panel.background" };
+        // fg без значения наследуется от родителя.
+        this.style = { fg: options.foreground, bg: options.background ?? "panel.background" };
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;
             // Событие, всплывшее из дочернего контрола (селектор в шапке), не наше:

@@ -808,6 +808,7 @@ export class ViewsService {
         const header = attached(entry).header;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
+        // Stryker disable next-line ConditionalExpression: у вьюлета сайдбара таб-строки нет — виджет у него null (headerTargetView), меню шапки 2+ секций видно и так, а partOf отдаёт panelService, который незнакомый id пропускает
         if (!this.isTabbed(entry)) return;
         const headerRecord = headerViewId === null ? null : this.recordOrThrow(headerViewId).record;
         const widget = headerRecord?.titleWidget ?? null;
@@ -921,7 +922,8 @@ export class ViewsService {
      * уезжает в таб-строку.
      */
     private isTabbed(entry: ContainerEntry): boolean {
-        const location = entry.descriptor?.location;
+        // Спрашивают только о собранных контейнерах — дескриптор у них есть.
+        const location = attached(entry).descriptor.location;
         return location === "panel" || location === "auxiliarybar";
     }
 

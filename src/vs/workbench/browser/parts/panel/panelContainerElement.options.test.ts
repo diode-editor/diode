@@ -185,6 +185,8 @@ describe("PanelContainerElement: опции вида части", () => {
             expect(row(screen, 3, 14)).toBe(" it.          ");
             expect(at(screen, 1, 1).fg).toBe(DESCRIPTION_FG);
             expect(at(screen, 1, 1).bg).toBe(SIDEBAR_BG);
+            // Ячейка сразу за строкой подсказки — уже не её.
+            expect(at(screen, 12, 1).fg).not.toBe(DESCRIPTION_FG);
         });
 
         it("не вылезает за нижний край части", () => {

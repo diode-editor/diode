@@ -318,9 +318,11 @@ export class WorkbenchLayoutElement extends TUIElement {
         let left = showLeft ? Math.max(MIN_LEFT_WIDTH, this.leftPanelWidth) : 0;
         let right = showRight ? (this.rightPanelWidth ?? this.defaultRightWidth(containerWidth)) : 0;
         const budget = Math.max(0, containerWidth - MIN_CENTER_WIDTH);
+        // Stryker disable EqualityOperator: на равенстве ужатие — тождество (ширины уже не меньше минимумов), `>=` эквивалентно `>`
         if (showRight && left + right > budget) right = Math.max(MIN_RIGHT_WIDTH, budget - left);
         if (showLeft && left + right > budget) left = Math.max(MIN_LEFT_WIDTH, budget - right);
         if (left + right > containerWidth) right = Math.max(0, containerWidth - left);
+        // Stryker restore EqualityOperator
         return { left: Math.min(left, containerWidth), right };
     }
 

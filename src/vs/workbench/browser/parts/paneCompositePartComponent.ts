@@ -64,8 +64,6 @@ export class PaneCompositePartComponent extends Component {
     private syncViews(): void {
         for (const view of this.partService.getViews()) {
             if (!this.contents.has(view.id)) {
-                this.contents.set(view.id, view.content);
-                this.actions.set(view.id, view.actions);
                 this.view.addView({
                     id: view.id,
                     title: view.title,
@@ -73,16 +71,15 @@ export class PaneCompositePartComponent extends Component {
                     actions: view.actions,
                     placeholder: view.placeholder,
                 });
-            } else if (this.contents.get(view.id) !== view.content) {
-                this.contents.set(view.id, view.content);
-                this.view.setViewContent(view.id, view.content);
+            } else {
+                if (this.contents.get(view.id) !== view.content) this.view.setViewContent(view.id, view.content);
+                if (this.actions.get(view.id) !== view.actions) this.view.setViewActions(view.id, view.actions);
             }
-            if (this.actions.get(view.id) !== view.actions) {
-                this.actions.set(view.id, view.actions);
-                this.view.setViewActions(view.id, view.actions);
-            }
+            this.contents.set(view.id, view.content);
+            this.actions.set(view.id, view.actions);
         }
         const activeId = this.partService.getActiveViewId();
+        // Stryker disable next-line ConditionalExpression: «→ true» эквивалентен — null для контрола неизвестный id, setActiveView его пропускает (охрана — ради типа)
         if (activeId !== null) this.view.setActiveView(activeId);
     }
 }
