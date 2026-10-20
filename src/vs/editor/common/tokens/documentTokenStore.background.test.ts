@@ -41,11 +41,21 @@ class StatefulTokenizer implements ITokenizationSupport {
 const lines = (count: number, line = "x"): TextDocument =>
     new TextDocument(new Array<string>(count).fill(line).join("\n"));
 
-async function untilBackgroundCompleted(store: DocumentTokenStore): Promise<void> {
-    while (!store.isBackgroundTokenizationCompleted) {
+/**
+ * Ждёт условия, уступая очередь фону. Срок обязателен: без него сломанный фон
+ * (мутант) крутил бы цикл вечно и после таймаута теста — воркер vitest не
+ * освобождается, и мутационный прогон виснет (docs/TESTING.md, «обрывай счётчиком»).
+ */
+async function until(condition: () => boolean): Promise<void> {
+    const deadline = Date.now() + 2000;
+    while (!condition()) {
+        if (Date.now() > deadline) throw new Error("фон не дошёл за 2 с");
         await new Promise<void>((resolve) => setImmediate(resolve));
     }
 }
+
+const untilBackgroundCompleted = (store: DocumentTokenStore): Promise<void> =>
+    until(() => store.isBackgroundTokenizationCompleted);
 
 afterEach(() => {
     vi.useRealTimers();
@@ -101,9 +111,7 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
 
         doc.applyEdits([createInsertEdit(0, 0, ">")]);
         expect(store.hasAccurateTokensForLine(49)).toBe(false);
-        while (!store.hasAccurateTokensForLine(49)) {
-            await new Promise<void>((resolve) => setImmediate(resolve));
-        }
+        await until(() => store.hasAccurateTokensForLine(49));
         expect(store.getLineTokens(49)?.tokens[0].scopes).toEqual(["s1"]);
         store.dispose();
     });
