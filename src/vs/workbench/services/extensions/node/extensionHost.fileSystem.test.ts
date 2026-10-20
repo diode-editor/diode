@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { FileOperationResult } from "../../../../platform/files/common/files.ts";
 import { FileService } from "../../../../platform/files/common/fileService.ts";
 import { FileSystemProviderAdapter } from "../../../api/browser/fileSystemProviderAdapter.ts";
 
@@ -24,11 +25,50 @@ async function harnessWithProvider() {
 }
 
 describe("ExtensionHost — провайдеры ФС расширений", () => {
-    it("субпроцесс объявляет схему, хост её видит", async () => {
+    it("субпроцесс объявляет схемы и их записываемость, хост их видит", async () => {
         const harness = await harnessWithProvider();
         try {
-            expect(harness.host.getFileSystemSchemes()).toEqual(["demo"]);
+            expect(harness.host.getFileSystemSchemes()).toEqual(["demo", "memo"]);
+            expect(harness.host.isReadonlyFileSystem("demo")).toBe(true);
+            expect(harness.host.isReadonlyFileSystem("memo")).toBe(false);
         } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("сквозь адаптер ядро пишет в пишущий провайдер: создание, перезапись, stat", async () => {
+        // Цепочка сохранения правой стороны предложенного диффа:
+        // IFileService → адаптер → ExtensionHost → RPC → провайдер расширения.
+        const harness = await harnessWithProvider();
+        const registry = new FileService();
+        const adapter = new FileSystemProviderAdapter(harness.host, registry);
+        const uri = Uri.parse("memo:/repo/a.ts");
+        try {
+            await expect(harness.host.statProvidedFile(uri)).resolves.toBeNull();
+
+            await registry.writeFile(uri, new TextEncoder().encode("первое"));
+            const written = await registry.writeFile(uri, new TextEncoder().encode("второе"));
+
+            await expect(harness.commandRegistry.execute("memo.read", "/repo/a.ts")).resolves.toBe("второе");
+            expect(written.size).toBe(new TextEncoder().encode("второе").length);
+            expect(new TextDecoder().decode((await registry.readFile(uri)).value)).toBe("второе");
+        } finally {
+            adapter.dispose();
+            await harness.dispose();
+        }
+    });
+
+    it("запись в read-only схему ядро отклоняет, не доходя до субпроцесса; прямой запрос — отказ", async () => {
+        const harness = await harnessWithProvider();
+        const registry = new FileService();
+        const adapter = new FileSystemProviderAdapter(harness.host, registry);
+        try {
+            await expect(registry.writeFile(Uri.parse("demo:/a"), new Uint8Array())).rejects.toMatchObject({
+                result: FileOperationResult.PermissionDenied,
+            });
+            await expect(harness.host.writeProvidedFile(Uri.parse("demo:/a"), new Uint8Array())).rejects.toThrow();
+        } finally {
+            adapter.dispose();
             await harness.dispose();
         }
     });

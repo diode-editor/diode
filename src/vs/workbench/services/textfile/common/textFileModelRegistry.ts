@@ -34,13 +34,14 @@ export class TextFileModelRegistry {
 
     /**
      * Возвращает ссылку на модель ресурса, создавая модель фабрикой при первом
-     * обращении. Каждую полученную ссылку владелец обязан освободить.
+     * обращении (своя фабрика вызова — для ресурса, чьи байты уже прочитаны).
+     * Каждую полученную ссылку владелец обязан освободить.
      */
-    public acquire(uri: Uri): ITextFileModelReference {
+    public acquire(uri: Uri, factory: (uri: Uri) => TextFileModel = this.factory): ITextFileModelReference {
         const key = uri.toString();
         let entry = this.byUri.get(key);
         if (entry === undefined) {
-            const model = this.factory(uri);
+            const model = factory(uri);
             entry = { model, refs: 0, key };
             this.entries.add(entry);
             this.byUri.set(key, entry);

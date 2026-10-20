@@ -57,6 +57,19 @@ describe("WireTypes — parseWireEditorLayout", () => {
         expect(parseWireEditorLayout(raw)).toEqual(raw);
     });
 
+    it("sideEditors diff-вкладки: строки остаются, мусор внутри отбрасывается, не-массив опускается", () => {
+        const raw = layoutOf(
+            layoutTab({ kind: "diff", sideEditors: ["file:///p/a.ts", 5, "_claude_fs_right:/p/a.ts"] }),
+        );
+        expect(parseWireEditorLayout(raw)?.groups[0].tabs[0].sideEditors).toEqual([
+            "file:///p/a.ts",
+            "_claude_fs_right:/p/a.ts",
+        ]);
+        expect(
+            parseWireEditorLayout(layoutOf(layoutTab({ sideEditors: "file:///p/a.ts" })))?.groups[0].tabs[0],
+        ).not.toHaveProperty("sideEditors");
+    });
+
     it("нестроковые original/modified/languageId и не-массив selections опускаются", () => {
         const parsed = parseWireEditorLayout(
             layoutOf(layoutTab({ original: 5, modified: null, languageId: 42, selections: "junk" })),

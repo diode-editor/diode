@@ -64,6 +64,7 @@ import {
     isBuiltinVSCodeExtension,
     readExtensionDependencies,
 } from "../../../../platform/extensions/common/extensionDependencies.ts";
+import type { IStat } from "../../../../platform/files/common/files.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { IEnvironmentVariableCollectionStore } from "../../../../platform/terminal/common/environmentVariable.ts";
@@ -1301,9 +1302,24 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.fileSystem.onFileSystemProvidersChanged;
     }
 
+    /** Схема провайдера только для чтения (см. FileSystemCustomer). */
+    public isReadonlyFileSystem(scheme: string): boolean {
+        return this.fileSystem.isReadonlyFileSystem(scheme);
+    }
+
     /** Читает недисковый ресурс провайдером субпроцесса (см. FileSystemCustomer). */
     public readProvidedFile(uri: Uri): Promise<Uint8Array> {
         return this.fileSystem.readProvidedFile(uri);
+    }
+
+    /** Метаданные ресурса провайдера субпроцесса; `null` — ресурса нет. */
+    public statProvidedFile(uri: Uri): Promise<IStat | null> {
+        return this.fileSystem.statProvidedFile(uri);
+    }
+
+    /** Пишет ресурс провайдером субпроцесса (см. FileSystemCustomer). */
+    public writeProvidedFile(uri: Uri, content: Uint8Array): Promise<void> {
+        return this.fileSystem.writeProvidedFile(uri, content);
     }
 
     /** Содержимое ресурсов провайдера изменилось снаружи. */

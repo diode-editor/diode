@@ -213,6 +213,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "When an extension is listed here, a confirmation prompt will not be shown when that extension handles a URI.",
     },
     {
+        key: "files.autoSave",
+        type: "string",
+        default: "off",
+        description:
+            "Controls [auto save](https://code.visualstudio.com/docs/editor/codebasics#_save-auto-save) of editors that have unsaved changes.",
+        enum: ["off", "afterDelay", "onFocusChange", "onWindowChange"],
+    },
+    {
         key: "files.enableTrash",
         type: "boolean",
         default: true,

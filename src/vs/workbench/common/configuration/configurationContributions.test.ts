@@ -16,7 +16,8 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  * - `editor.*` — `language-overridable`: у эталона весь узел `editor` объявлен
  *   с этим скоупом (`editorConfigurationBaseNode`), включая `formatOnSave` и
  *   `codeActionsOnSave`; наши `editor.inlineSuggest.{delay,requestTimeout}`
- *   своих у эталона не имеют и идут за семьёй.
+ *   своих у эталона не имеют и идут за семьёй. `files.autoSave` — тоже: у
+ *   эталона `LANGUAGE_OVERRIDABLE` явно.
  * - `explorer.*`, `files.enableTrash`, `files.refactoring.autoSave`, `workbench.colorTheme`,
  *   `workbench.editor.enablePreview`, `workbench.editor.closeOnFileDelete`,
  *   `workbench.tree.expandMode`, `workbench.secondarySideBar.defaultVisibility` — `window`: у эталона скоуп не указан, то
@@ -75,6 +76,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "explorer.decorations.colors": "window",
     "explorer.decorations.badges": "window",
 
+    "files.autoSave": "language-overridable",
     "files.enableTrash": "window",
     "files.refactoring.autoSave": "window",
     "files.exclude": "resource",

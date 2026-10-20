@@ -1,0 +1,52 @@
+{
+    "name": "proposed-diff-demo",
+    "displayName": "Proposed Diff Demo",
+    "description": "Демо-расширение предложенного диффа в форме стокового Claude Code (openDiff терминального режима): правая сторона — в своём FileSystemProvider, vscode.diff, гонка accept/reject, закрытия вкладки и сохранения.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "*"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "proposedDiffDemo.propose",
+                "title": "Proposed Diff Demo: Propose Changes"
+            },
+            {
+                "command": "proposedDiffDemo.closeTab",
+                "title": "Proposed Diff Demo: Close Diff Tab"
+            },
+            {
+                "command": "proposedDiffDemo.accept",
+                "title": "Proposed Diff Demo: Accept Proposed Changes",
+                "enablement": "proposedDiffDemo.viewingProposedDiff",
+                "icon": "$(check)"
+            },
+            {
+                "command": "proposedDiffDemo.reject",
+                "title": "Proposed Diff Demo: Reject Proposed Changes",
+                "enablement": "proposedDiffDemo.viewingProposedDiff",
+                "icon": "$(discard)"
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                {
+                    "command": "proposedDiffDemo.accept",
+                    "when": "proposedDiffDemo.viewingProposedDiff",
+                    "group": "navigation"
+                },
+                {
+                    "command": "proposedDiffDemo.reject",
+                    "when": "proposedDiffDemo.viewingProposedDiff",
+                    "group": "navigation"
+                }
+            ]
+        }
+    }
+}

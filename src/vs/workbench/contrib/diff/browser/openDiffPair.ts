@@ -3,7 +3,7 @@ import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLan
 import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistryDIToken } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IFileService } from "../../../../platform/files/common/files.ts";
-import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
+import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
@@ -221,14 +221,24 @@ function pairUri(options: IOpenDiffPairOptions): Uri {
 
 /**
  * Источник стороны по её спеке. Порядок ветвления — от явного к выводимому:
- * готовая модель → готовый текст → без uri пусто → снимок с диска/провайдера
- * (`preferDisk`, не-file схемы) → **живая модель из реестра** для `file:`.
+ * готовая модель → готовый текст → без uri пусто → **живая модель** ресурса
+ * пишущего провайдера ФС расширения → снимок с диска/провайдера (`preferDisk`,
+ * прочие не-file схемы) → **живая модель из реестра** для `file:`.
  * Файл, которого нет ни в буферах, ни на диске, — по политике `onMissing`.
  */
 async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Promise<DiffV2SideSource | null> {
     if (side.ownedModel !== undefined) return { kind: "owned", model: side.ownedModel };
     if (side.text !== undefined) return { kind: "snapshot", text: side.text };
     if (side.uri === undefined) return { kind: "snapshot", text: "" };
+    if (side.preferDisk !== true && isWritableProvided(accessor.get(IFileServiceDIToken), side.uri)) {
+        // Сторона на пишущей схеме расширения (предложенная правка Claude Code) —
+        // правится и сохраняется в провайдера, как в эталоне.
+        try {
+            return { kind: "shared", ref: await accessor.get(TextFileModelServiceDIToken).acquireProvided(side.uri) };
+        } catch {
+            // Не читается — дальше, снимком: там политика `onMissing`.
+        }
+    }
     if (side.preferDisk === true || side.uri.scheme !== "file") {
         const text = await readSideText(accessor.get(IFileServiceDIToken), side);
         return text === null ? null : { kind: "snapshot", text };
@@ -247,6 +257,16 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
         }
     }
     return { kind: "shared", ref: models.acquire(side.uri) };
+}
+
+/** Ресурс пишущего провайдера ФС (не `file:`): сторона такого ресурса — живая модель. */
+function isWritableProvided(files: IFileService, uri: Uri): boolean {
+    return (
+        // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный по результату — `file:` дошёл бы до `acquireProvided`, `openProvided` его отверг бы, и сторона ушла бы общим путём; гард экономит лишнее чтение файла
+        uri.scheme !== "file" &&
+        files.hasProvider(uri) &&
+        !files.hasCapability(uri, FileSystemProviderCapabilities.Readonly)
+    );
 }
 
 /**

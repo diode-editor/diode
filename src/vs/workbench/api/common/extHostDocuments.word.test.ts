@@ -63,8 +63,21 @@ describe("ExtHostTextDocument — getWordRangeAtPosition", () => {
 });
 
 describe("ExtHostTextDocument — save", () => {
-    it("RPC сохранения нет — честное false", async () => {
+    it("без хоста сохранять некому — честное false", async () => {
         await expect(docWith(TEXT).save()).resolves.toBe(false);
+    });
+
+    it("сохраняет ядро через saver реестра: uri документа, ответ — результат", async () => {
+        const registry = new DocumentRegistry();
+        const saved: string[] = [];
+        registry.saver = (uri) => {
+            saved.push(uri.toString());
+            return Promise.resolve(true);
+        };
+        const doc = registry.getOrCreate(Uri.parse("_claude_fs_right:/repo/a.ts"));
+
+        await expect(doc.save()).resolves.toBe(true);
+        expect(saved).toEqual(["_claude_fs_right:/repo/a.ts"]);
     });
 
     it("закрытый документ — отказ, как upstream", async () => {

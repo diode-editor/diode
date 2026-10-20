@@ -5,6 +5,8 @@ import {
     parseWireCloseTabsParams,
     parseWireCreateUntitledParams,
     parseWireEditorEdits,
+    parseWireFileStat,
+    parseWireFileSystemSchemes,
     parseWireProviderHandle,
     parseWireReadFileResult,
     parseWireShowTextDocumentParams,
@@ -175,6 +177,36 @@ describe("hostWireParsers — parseWireCloseGroupsParams", () => {
         expect(parseWireCloseGroupsParams({})).toBeNull();
         expect(parseWireCloseGroupsParams({ groupIds: [1, "2"] })).toBeNull();
         expect(parseWireCloseGroupsParams({ groupIds: [Number.NaN] })).toBeNull();
+    });
+});
+
+describe("parseWireFileStat", () => {
+    it("метаданные провайдера: type, mtime, size (ctime ядру не нужен)", () => {
+        expect(parseWireFileStat({ type: 1, ctime: 0, mtime: 7, size: 3 })).toEqual({ type: 1, mtime: 7, size: 3 });
+    });
+
+    it("null — ресурса нет", () => {
+        expect(parseWireFileStat(null)).toBeNull();
+    });
+
+    it.each([undefined, 42, "строка", { type: 1, mtime: 1 }, { type: "1", mtime: 1, size: 1 }])(
+        "чужая форма (%s) — ошибка",
+        (raw) => {
+            expect(() => parseWireFileStat(raw)).toThrow(/workspace\.fs\.stat/);
+        },
+    );
+});
+
+describe("parseWireFileSystemSchemes", () => {
+    it("readonly — подмножество схем; лишнее в readonly отбрасывается", () => {
+        expect(parseWireFileSystemSchemes({ schemes: ["git", "_claude_fs_right"], readonly: ["git", "nope"] })).toEqual(
+            { schemes: ["git", "_claude_fs_right"], readonly: ["git"] },
+        );
+    });
+
+    it("без поля readonly (старый субпроцесс) — все схемы только для чтения", () => {
+        expect(parseWireFileSystemSchemes({ schemes: ["git"] })).toEqual({ schemes: ["git"], readonly: ["git"] });
+        expect(parseWireFileSystemSchemes(null)).toEqual({ schemes: [], readonly: [] });
     });
 });
 

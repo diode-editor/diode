@@ -337,14 +337,23 @@ export function createWindowNamespace(
 
     /** Пары (groupId, uri) видимых ТЕКСТОВЫХ редакторов снимка. */
     function visiblePairs(snapshot: IWireEditorLayout): string[] {
-        const pairs: string[] = [];
+        return visibleDocuments(snapshot).map(({ groupId, uri }) => selectionKey(groupId, uri));
+    }
+
+    /**
+     * Документы видимых редакторов: активная текстовая вкладка группы либо
+     * стороны-модели активной дифф-вкладки (у эталона дифф — два редактора).
+     */
+    function visibleDocuments(snapshot: IWireEditorLayout): { groupId: number; uri: string }[] {
+        const visible: { groupId: number; uri: string }[] = [];
         for (const group of snapshot.groups) {
             const active = group.tabs.find((tab) => tab.isActive);
-            if (active?.kind === "text") {
-                pairs.push(selectionKey(group.groupId, active.uri));
+            if (active?.kind === "text") visible.push({ groupId: group.groupId, uri: active.uri });
+            if (active?.kind === "diff") {
+                for (const uri of active.sideEditors ?? []) visible.push({ groupId: group.groupId, uri });
             }
         }
-        return pairs;
+        return visible;
     }
 
     function applyLayoutDiff(previous: IWireEditorLayout, next: IWireEditorLayout): void {
@@ -843,21 +852,18 @@ export function createWindowNamespace(
             return getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)), effectiveActiveGroupId());
         },
 
-        // Видимые редакторы — активная ТЕКСТОВАЯ вкладка каждой группы полосы:
-        // один файл в двух группах — два разных TextEditor с одним document (AS-7).
-        // Пустой снимок (до первого layoutChanged) деградирует в «только активный».
+        // Видимые редакторы — активная ТЕКСТОВАЯ вкладка каждой группы полосы
+        // и стороны-модели активной дифф-вкладки: один файл в двух группах — два
+        // разных TextEditor с одним document (AS-7). Пустой снимок (до первого
+        // layoutChanged) деградирует в «только активный».
         get visibleTextEditors(): readonly vscode.TextEditor[] {
             if (layout.groups.length === 0) {
                 if (activeEditorUri === null) return [];
                 return [getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)), effectiveActiveGroupId())];
             }
-            const editors: vscode.TextEditor[] = [];
-            for (const group of layout.groups) {
-                const active = group.tabs.find((tab) => tab.isActive);
-                if (active?.kind !== "text") continue;
-                editors.push(getEditorFor(registry.getOrCreate(Uri.parse(active.uri)), group.groupId));
-            }
-            return editors;
+            return visibleDocuments(layout).map(({ groupId, uri }) =>
+                getEditorFor(registry.getOrCreate(Uri.parse(uri)), groupId),
+            );
         },
 
         // Оконное состояние. В TUI мы всегда «сфокусированы»; событие

@@ -4,12 +4,15 @@ import { Emitter } from "../../../../../base/common/event.ts";
 import { matchGlob } from "../../../../../base/common/glob.ts";
 import { Disposable, DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
+import type { IStat } from "../../../../../platform/files/common/files.ts";
 import type { ITreeFileChange } from "../../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IExtensionFileWatcher } from "../../../../api/common/iExtensionFileWatcher.ts";
 import type { IWireWatcherCreate, IWireWatcherEvent } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
+    parseWireFileStat,
+    parseWireFileSystemSchemes,
     parseWireReadFileResult,
     parseWireSchemes,
     parseWireTextContentResult,
@@ -31,6 +34,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
      */
     private live: { readonly rpc: HostRpc; textContentSchemes: readonly string[] } | null = null;
     private fileSystemSchemesValue: readonly string[] = [];
+    private readonlySchemes: ReadonlySet<string> = new Set();
     private readonly onFileSystemProvidersChangedEmitter = this.register(new Emitter<void>());
     private readonly onDidChangeProvidedFileEmitter = this.register(new Emitter<readonly Uri[]>());
     private readonly onDidChangeTextContentEmitter = this.register(new Emitter<Uri>());
@@ -51,15 +55,37 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         return this.fileSystemSchemesValue;
     }
 
+    /** Схема провайдера только для чтения (`isReadonly` или провайдер без `writeFile`). */
+    public isReadonlyFileSystem(scheme: string): boolean {
+        return this.readonlySchemes.has(scheme);
+    }
+
     /**
      * Читает недисковый ресурс провайдером субпроцесса. Отклоняется, если host
      * не поднят или провайдер схемы не зарегистрирован — потребитель обязан
      * это пережить (для гуттера «git-расширения нет» — штатная ситуация).
      */
     public async readProvidedFile(uri: Uri): Promise<Uint8Array> {
+        return parseWireReadFileResult(await this.rpc().request("workspace.fs.readFile", { uri: uri.toString() }));
+    }
+
+    /** Метаданные ресурса провайдера; `null` — ресурса нет. Отклоняется, как {@link readProvidedFile}. */
+    public async statProvidedFile(uri: Uri): Promise<IStat | null> {
+        return parseWireFileStat(await this.rpc().request("workspace.fs.stat", { uri: uri.toString() }));
+    }
+
+    /** Пишет ресурс провайдером субпроцесса (создать или перезаписать). Отклоняется, как {@link readProvidedFile}. */
+    public async writeProvidedFile(uri: Uri, content: Uint8Array): Promise<void> {
+        await this.rpc().request("workspace.fs.writeFile", {
+            uri: uri.toString(),
+            content: Buffer.from(content).toString("base64"),
+        });
+    }
+
+    private rpc(): HostRpc {
         const rpc = this.live?.rpc;
         if (rpc === undefined) throw new Error("extension host is not running");
-        return parseWireReadFileResult(await rpc.request("workspace.fs.readFile", { uri: uri.toString() }));
+        return rpc;
     }
 
     /**
@@ -98,7 +124,9 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         // недисковые ресурсы через IFileSystemProviderRegistry.
         store.add(
             rpc.handleNotification("workspace.fileSystemProvidersChanged", (params) => {
-                this.fileSystemSchemesValue = parseWireSchemes(params);
+                const { schemes, readonly } = parseWireFileSystemSchemes(params);
+                this.fileSystemSchemesValue = schemes;
+                this.readonlySchemes = new Set(readonly);
                 this.onFileSystemProvidersChangedEmitter.fire();
             }),
         );
@@ -166,6 +194,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 this.live = null;
                 if (this.fileSystemSchemesValue.length === 0) return;
                 this.fileSystemSchemesValue = [];
+                this.readonlySchemes = new Set();
                 this.onFileSystemProvidersChangedEmitter.fire();
             },
         });

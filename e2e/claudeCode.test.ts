@@ -6,7 +6,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MARKETPLACE_OFFLINE } from "../src/TestUtils/marketplaceEnv.ts";
 import { type HeadlessApp, startHeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
-import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, type IIdeLock, waitForIdeLock } from "./helpers/claudeIde.ts";
+import {
+    CLAUDE_CODE_ID,
+    claudeCodeSessionEnv,
+    IdeProbe,
+    type IIdeLock,
+    type IToolResult,
+    waitForIdeLock,
+} from "./helpers/claudeIde.ts";
 import { findTextCell, frameToText } from "./helpers/frame.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
@@ -27,6 +34,12 @@ import { waitUntil } from "./helpers/waitFor.ts";
  */
 
 const MAIN_TS = 'const reply: number = "hi";\nexport { reply };\n';
+/** Правка, которую «предлагает» CLI через `openDiff`. */
+const PROPOSED_TS = 'const reply: string = "hello";\nexport { reply };\n';
+/** codicon `check` — кнопка «принять» в панели группы. */
+const CHECK = "\u{eab2}";
+/** codicon `discard` — кнопка «отклонить». */
+const DISCARD = "\u{eae2}";
 
 // Extension-host subprocess + подставной `claude` на sh — Linux, как goLsp/eslintLsp
 // (docs/TODO/E2E.md); без сети (установка из магазина) сьют пропускается.
@@ -120,6 +133,58 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                 probe.close();
             }
         });
+
+        it(
+            "openDiff: дифф-вкладка с ✓/↺; правка + Ctrl+S — FILE_SAVED с правленым текстом, Ctrl+W — DIFF_REJECTED",
+            { timeout: 120_000 },
+            async () => {
+                const { probe } = await IdeProbe.connect(lock);
+                const proposeDiff = (tabName: string): Promise<IToolResult> =>
+                    probe.callTool("openDiff", {
+                        old_file_path: mainFile,
+                        new_file_path: mainFile,
+                        new_file_contents: PROPOSED_TS,
+                        tab_name: tabName,
+                    });
+                // Вкладка с кнопками ✓/↺ (ключ `claude-code.viewingProposedDiff` — по видимой стороне).
+                const waitForDiffTab = (title: string): Promise<unknown> =>
+                    app.session.waitForText((t) => t.includes(title) && t.includes(CHECK) && t.includes(DISCARD), {
+                        timeoutMs: 30_000,
+                    });
+                try {
+                    // Правка правой стороны прямо в диффе и Ctrl+S — принятие с правками человека.
+                    const saved = proposeDiff("[Claude Code] main.ts (save) ⧉");
+                    const frame = await waitForDiffTab("main.ts (save)");
+                    const right = findTextCell(frame, '"hello"');
+                    expect(right).not.toBeNull();
+                    await app.session.click(right?.x ?? 0, right?.y ?? 0);
+                    await app.session.key("End");
+                    await app.session.sendText(" // ok");
+                    await app.session.key("Ctrl+S");
+                    expect(await saved).toEqual({
+                        isError: false,
+                        text: `FILE_SAVED${PROPOSED_TS.replace('"hello";', '"hello"; // ok')}`,
+                    });
+                    // CLI закрывает вкладку сам: сохранение стороны + tabGroups.close, без диалога.
+                    expect(
+                        (await probe.callTool("close_tab", { tab_name: "[Claude Code] main.ts (save) ⧉" })).text,
+                    ).toBe("TAB_CLOSED");
+                    await app.session.waitForText((t) => !t.includes("main.ts (save)") && !t.includes(CHECK));
+
+                    // Закрытие вкладки — отклонение; кнопки уходят вместе с ключом.
+                    const closed = proposeDiff("[Claude Code] main.ts (close) ⧉");
+                    await waitForDiffTab("main.ts (close)");
+                    await app.session.key("Ctrl+W");
+                    expect(await closed).toEqual({
+                        isError: false,
+                        text: "DIFF_REJECTED[Claude Code] main.ts (close) ⧉",
+                    });
+                    await app.session.waitForText((t) => !t.includes("main.ts (close)") && !t.includes(CHECK));
+                } finally {
+                    probe.close();
+                }
+            },
+        );
 
         it(
             "клик по «✻ Claude Code» открывает claude вкладкой справа, CLI видит порт и лок",

@@ -15,6 +15,25 @@ export const filesConfiguration = {
         // рефакторинг, тронувший больше одного файла, сохраняет их — иначе
         // «Move to a new file» оставляет новый файл на диске, а исходник
         // грязным в буфере, и закрытие без сохранения дублирует класс.
+        // Ключ, enum, дефолт и описания — дословно эталон (`files.contribution.ts`;
+        // `markdown*` идут в `description`/`enumDescriptions`). Автосохранения у
+        // нас нет — действует только `off`, прочие значения редактор не
+        // исполняет. Ключ читают расширения: Claude Code считает сохранение
+        // предложенного диффа принятием правки только при `off`.
+        "files.autoSave": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["off", "afterDelay", "onFocusChange", "onWindowChange"],
+            enumDescriptions: [
+                "An editor with changes is never automatically saved.",
+                "An editor with changes is automatically saved after the configured `#files.autoSaveDelay#`.",
+                "An editor with changes is automatically saved when the editor loses focus.",
+                "An editor with changes is automatically saved when the window loses focus.",
+            ],
+            default: "off",
+            description:
+                "Controls [auto save](https://code.visualstudio.com/docs/editor/codebasics#_save-auto-save) of editors that have unsaved changes.",
+        },
         "files.refactoring.autoSave": {
             scope: "window",
             type: "boolean",
