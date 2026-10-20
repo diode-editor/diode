@@ -123,13 +123,9 @@ issue, а не из замеров. Расхождение с живым мак�
     файла по ⌘↓, а такой команды (`list.select` / `explorer.openAndPassFocus`) нет;
   - «выделить всё» на маке — только ⌘A: ⌃A занят началом строки с `mac-legacy`;
   - Cmd+C/V/X не биндятся (решение человека) — копипаст остаётся эмулятору.
-- [ ] **Конфликты pc-раскладки, вскрытые паритетом.** Оба бинда pc-шные, были и до
-  мак-работы (тест держит их в `PRE_EXISTING_PC_CONFLICTS`):
-  - Ctrl+K Ctrl+U — `editor.action.removeCommentLine` (эталон) и
-    `editor.action.showHover` (у diode вместо эталонного Ctrl+K Ctrl+I, занятого
-    legacy-фоллбэком);
-  - Ctrl+K Ctrl+F — `editor.action.formatSelection` (эталон) и
-    `workbench.action.navigateForward` (legacy-фоллбэк diode).
+- [ ] **Конфликты pc-раскладки, вскрытые паритетом** (Ctrl+K Ctrl+U, Ctrl+K Ctrl+F) —
+  развести. Были и до мак-работы, тест держит их в `PRE_EXISTING_PC_CONFLICTS`;
+  таблица коллизий дефолтов — [arch/workbench/Commands.md](../arch/workbench/Commands.md#коллизии-дефолтов).
 - [ ] **Дыры pc-паритета**, которые показала сверка (на маке их нет, потому что нет и
   на pc): Shift+Escape у close-команд, Shift+Backspace у deleteLeft, F1 у палитры не
   только на legacy, Ctrl+K Ctrl+X trim whitespace, Ctrl+R reload window и др. — срез

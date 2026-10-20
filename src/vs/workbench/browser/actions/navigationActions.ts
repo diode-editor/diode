@@ -47,7 +47,7 @@ export const navigateBackAction: CommandAction = {
 /** Шаг вперёд по истории навигации (VS Code `workbench.action.navigateForward`). */
 export const navigateForwardAction: CommandAction = {
     id: "workbench.action.navigateForward",
-    // Чорд Ctrl+K Ctrl+F делит с pc-биндом `editor.action.formatSelection` и сейчас его перебивает (так было и при порядке регистрации; коллизия записана в docs/TODO/KeybindingsEditor.md). Вес держит это поведение, пока коллизию не развели.
+    // Чорд Ctrl+K Ctrl+F делит с pc-биндом `editor.action.formatSelection` и сейчас его перебивает (так было и при порядке регистрации; коллизия записана в docs/arch/workbench/Commands.md#коллизии-дефолтов). Вес держит это поведение, пока коллизию не развели.
     weight: KeybindingWeight.WorkbenchContrib,
     title: "Go Forward",
     shortTitle: "Forward",

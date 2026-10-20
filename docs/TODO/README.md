@@ -42,11 +42,8 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Terraform](Terraform.md) — стоковое `hashicorp.terraform`: PR1 сделан — активация целиком (`env.createTelemetryLogger`, `vscode.authentication` как null-объект), работают hover, автодополнение по схеме AWS, F12, диагностики; дальше — деревья Providers/Module Calls (фаза 8b) и HCP Terraform с настоящим `authentication`
 - [~] [SecondarySideBar](SecondarySideBar.md) — вторичная боковая панель (auxiliary bar эталона) и перенос в неё видов и контейнеров из сайдбара и нижней панели; приёмка — TERMINAL справа с живым шеллом. Стек: PR0 (перенос `WorkbenchLayoutElement`) сделан, PR1 (часть) в работе, дальше модель расположения и живые виды
 - [~] [ClaudeCode](ClaudeCode.md) — интеграция с Claude Code: стоковое `Anthropic.claude-code` в режиме `useTerminal` в нашем магазине (v0.9.7) — `claude` вкладкой справа, контекст редактора, `getDiagnostics`, предложенный дифф с ✓/↺; открыты хвосты — уведомление на webview-команды, стоковые тесты терминала, `claude` во вторичной панели
-- [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, terminal, menuBar; `panel` и `workbenchlayout` переехали): по критерию «публичный API не упоминает понятий Diode» им место у нас
-- [~] [ListControls](ListControls.md) — два списочных контрола (`TreeViewElement` data-driven / `ListViewElement` DOM-строки): решение зафиксировано, остался техдолг (дублирование механик, union-instanceof)
-- [x] [WhenContext](WhenContext.md) — парсер when вместо `new Function` (C7) и владение ключами у фич (F3) сделаны; объявления ключей у фич (`RawContextKey`) сознательно отложены
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate и семантические токены LSP готовы; далее scope-селекторы, background токенизация)
 - [~] [Theming](Theming.md) — цветовые темы (встроенные, пикер, live-reload, темы от расширений / установка из магазина готовы; открыто — подсветка текущей строки, группировка пикера, `IWorkbenchColors`)
 - [~] [DiffViewer](DiffViewer.md) — смотрелка изменений: остались фаза 2 (интерактив: раскрытие свёртки жестом, Switch Side, F7) и фаза 6 (краевые случаи: большой файл, бинарник, whitespace). История движка и этапов — [Diff](Diff.md), дифф v2 на двух настоящих редакторах — [DiffEditable](DiffEditable.md) (сделан, в конце — follow-up'ы)
@@ -61,9 +58,6 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [LSP](LSP.md) — платформа готова end-to-end со стоковым `typescript-language-server` (definition, hover, references, parameter hints, диагностики, автодополнение); Python готов ДВУМЯ серверами: сторонний basedpyright.vsix (типы, шесть фич сквозняком) + сторонний ruff.vsix (#305: линт-диагностики, quickfix, organize imports / fix all, формат от нативного `ruff server`; платформенные vsix через ось `targetPlatform` магазина); далее — gopls, закрытие остальных стабов (rename, implementations, …) по таблице в LSP.md
 - [ ] [GoLSP](GoLSP.md) — стоковый `golang.go` (gopls): волна A сделана (#657) — активация доходит до конца (`vscode.debug`/`vscode.tests` — null-объекты, `setLanguageConfiguration`), сьюта/e2e/сценарий на стоковом vsix, Go в CI; осталось A7 (запись в магазине), волна B (дыры ядра: completion `isIncomplete` и авто-импорт, `vscode.open`, untitled, `saveAll`), волна C — заработает с фичами ядра. Отладчик не делаем
 - [~] [JavaLSP](JavaLSP.md) — стоковый `redhat.java` (Eclipse JDT LS) поверх extension host: код закрыт целиком (#359 активация, #363 виртуальные `jdt:`-документы, добор `workspace.fs` / `workspace.findFiles` / `env.*` / заглушка custom editor), maven и gradle подняты живьём на JDK 21. Осталась запись в реестр магазина — платформенные vsix с вшитым JRE 21 плюс `universal` (затрагивает три репозитория, см. [Marketplace](Marketplace.md))
-- [x] [KeybindingsEditor](KeybindingsEditor.md) — вкладка редактирования keyboard shortcuts как в VS Code: Ctrl+K Ctrl+S открывает UI-таблицу всех команд (`Command | Keybinding | When | Source`) с поиском (`@source:`/`@conflicts` + fuzzy), рекордером комбинаций (с предупреждением о непереносимых на legacy-терминале) и конфликт-детекцией; мутации применяются мгновенно и пишутся в keybindings.json (`KeybindingsEditorService`), JSON — отдельной командой `…openGlobalKeybindingsFile`. Заодно вынесен общий контрол `FilteredListControl` (третий потребитель, см. [ListControls](ListControls.md))
-- [x] [References](References.md) — Find All References сделан (вьюлет REFERENCES, F4/Shift+F4); дальше — implementations/type definition на тех же рельсах, история запросов, peek
-- [x] [ParameterHints](ParameterHints.md) — подсказка параметров сделана (попап по триггер-символам и Ctrl+K Ctrl+Space, перегрузки Up/Down); дальше — markdown в описаниях, скролл длинного текста
 - [~] [Suggest](Suggest.md) — автодополнение работает, авто-открытие по эталону (`editor.quickSuggestions`, уступает призраку); дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
 - [~] [InlineCompletions](InlineCompletions.md) — призрачные подсказки (ghost text) v1 сделаны end-to-end (`registerInlineCompletionItemProvider`, Tab/Esc, view zones); открыты люфты (mid-line, partial accept, lifecycle-хуки, `selectedCompletionInfo`/augmentation под попапом) и часть 2 — реальный LLM-провайдер
 - [~] [E2E](E2E.md) — инфраструктура готова; открыто — кросс-платформенность Phase 1.x и найденный дефект фокуса (find + вторая вкладка)
@@ -88,7 +82,6 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Problems](Problems.md) — маркер-сервис, squiggle и панель готовы; далее — счётчик в статус-баре, доп. поставщики (расширения/matchers)
 - [~] [TerminalPanelBugs](TerminalPanelBugs.md) — баги панели/терминала из e2e-прогона MVP закрыты; осталась необработанная ошибка спавна шелла на неподдерживаемой платформе
 - [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), сплиты/rename терминалов, minimumContrastRatio и прочая цветовая механика xterm.js, commandsToSkipShell
-- [x] [EditorGroups](EditorGroups.md) — сплиты области редактора сделаны (включая API расширений); в документе остались follow-up'ы (Quick Open Ctrl+Enter, read-only на документ, сплит untitled/дифф-вкладок)
 - [x] [SourceControlGraph](SourceControlGraph.md) — панель GRAPH сделана; в документе остались follow-up'ы (пикер ref'ов, compare/diff коммита, действия на бейджах)
 
 ---
@@ -106,6 +99,28 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 `bindExtensionHostToEditorGroup` в `api/browser` — одна проводка вместо двух копий в
 `extensionHostModule.ts` и `TestUtils/ExtensionTestHarness.ts`.
+
+---
+
+## Workbench
+
+### [ ] Хвосты MenuRegistry
+
+Основное перенесено ([arch/workbench/Menus.md](../arch/workbench/Menus.md)). Осталось:
+палитра команд не фильтрует по `when` (по `enablement` фильтрует) — перечисляет весь
+`CommandRegistry`; `alt`-пункты (альтернатива по Alt) и user hide-toggle
+(`isHiddenByDefault` + скрытие пользователем) — нужна поддержка в `PopupMenuElement`
+и персист.
+
+### [ ] Два списочных контрола
+
+Решение — [arch/workbench/Views.md](../arch/workbench/Views.md#общие-контролы-списков).
+Техдолг двух реализаций, браться при следующей содержательной правке этих механик,
+не ради симметрии: курсор, мультивыбор, typeahead, hover и `ensureVisible` —
+близнецы (сближение — общий selection-модуль или `TreeViewElement` фасадом над
+`ListViewElement`); ключ `listFocus` и команды `list.*` перечисляют оба класса
+руками; QuickPick и CompletionList рисуют свои списки сами — кандидаты на
+`ListViewElement` по реальной необходимости.
 
 ---
 

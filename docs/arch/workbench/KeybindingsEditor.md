@@ -39,5 +39,14 @@
   приоритет. Контракт в `common/`, реализация в `node/` — как у
   Extensions-кластера; file-watcher нет (ручные правки — после Reload).
 - `platform/keybinding/common/keybindingConflicts.ts` — конфликт-детекция
-  (одна комбинация + пересекающийся when; when-пересечение упрощено до
-  равенства строк, не SAT).
+  (одна комбинация + пересекающийся when). Пересечение when упрощено до
+  равенства канонической записи разобранных выражений (`serializeWhen`: `b && a`
+  = `a && b`), это не SAT: ложноотрицательные возможны, детектор — фильтр-помощник.
+  Известные коллизии дефолтов — [Commands.md](Commands.md#коллизии-дефолтов).
+
+Рекордер на legacy-tier'е предупреждает о неразличимой комбинации, но запись не
+запрещает. Чего нет: валидатора `keybindings.json` в редакторе (неизвестный
+commandId → маркер, как `validateSettingsJson` у настроек) и подсказки
+«Configure Binding» у пункта палитры (поле `QuickPickItem.hint` зарезервировано в
+`common/quickPickItem.ts`). Ручные правки `keybindings.json` применяются после
+Reload Window — трекер в [TODO/Profiles.md](../../TODO/Profiles.md).
