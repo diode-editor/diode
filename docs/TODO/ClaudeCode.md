@@ -37,8 +37,8 @@ Open in Terminal`) открывает `claude` **вкладкой редакто
 2. ~~**Терминал вкладкой в области редакторов**~~ — сделано: `location`
    терминала (`TerminalLocation.Editor`, `{ viewColumn }`, `{ parentTerminal }`),
    `claude` открывается вкладкой справа. См. «Раскладка».
-3. **When-ключи `config.*`** — без них мёртв `Ctrl+Esc`
-   (`claude-vscode.terminal.open.keyboard`) и кнопка в заголовке редактора.
+3. ~~**When-ключи `config.*`**~~ — сделано: `Ctrl+Esc`
+   (`claude-vscode.terminal.open.keyboard`) жив — в kitty/csi-u, в legacy это Esc.
 4. **Точка меню `editor/title`** — кнопка Claude у вкладок и accept/reject диффа.
 5. **Предложенный дифф** (пункт 3): запись в ФС провайдера расширения и
    редактируемый документ на чужой схеме, `tabGroups` с `TabInputTextDiff` и
@@ -295,8 +295,9 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
       Проверить клавиши области редакторов внутри терминала (`Ctrl+W`,
       `Ctrl+Tab`). Побочно — эталонные `Terminal: Create New Terminal in Editor
       Area` / `Move Terminal into Editor Area`.
-- [ ] **When-ключи `config.*`** (`ConfigurationContextKeys` эталона) —
-      оживляет `Ctrl+Esc` и пригодится всем расширениям.
+- [x] **When-ключи `config.*`** (`ConfigAwareContextValuesContainer` эталона)
+      — [WhenContext.md](WhenContext.md); `Ctrl+Esc` жив, и больше не срабатывают
+      ветки `!config.claudeCode.useTerminal` (фокус несуществующего webview).
 - [ ] **Точка меню `editor/title`**: панель действий справа от вкладок
       группы, `MenuId.EditorTitle`, группа `navigation`; SVG-иконку в TUI не
       нарисовать — фоллбэк на кодикон или заголовок. Тот же вклад нужен

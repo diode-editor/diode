@@ -27,6 +27,15 @@
 встроенная when-строка разбирается и ссылается только на ключи, объявленные в
 `ContextKeyTypes` (или на семейства `mode_*`/`cap_*`) — опечатка в when краснит сборку.
 
+### [x] Ключи `config.*`
+Настройки в when (`config.claudeCode.useTerminal`, `config.editor.minimap.enabled`)
+— как `ConfigAwareContextValuesContainer` эталона: `ContextKeyService` читает их
+из настроек сам, лениво и с кэшем; смена настройки сбрасывает ключ и сообщает
+`onDidChange` (кнопки заголовка пере-резолвятся). Ожил `Ctrl+Esc` стокового Claude
+Code (`claude-vscode.terminal.open.keyboard`): раньше `config.*` был `undefined`, и
+вместо него срабатывали ветки `!config.claudeCode.useTerminal` (фокус webview,
+которого нет). `Ctrl+Esc` различим только в kitty/csi-u — в legacy это Esc.
+
 ## Владение ключами (F3) — сделано
 
 Ключи фич выставляют сами фичи (`IContextKeyContributor` + явный список
