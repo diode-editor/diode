@@ -143,5 +143,6 @@ export function containsUnusualLineTerminators(str: string): boolean {
 export const UTF8_BOM_CHARACTER = String.fromCharCode(UTF8_BOM);
 
 export function startsWithUTF8BOM(str: string): boolean {
-    return str.length > 0 && str.charCodeAt(0) === UTF8_BOM;
+    // Upstream ещё проверяет `str.length > 0`; на пустой строке `charCodeAt(0)` — NaN.
+    return str.charCodeAt(0) === UTF8_BOM;
 }
