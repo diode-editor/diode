@@ -543,8 +543,15 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 }
 
-/** Кусок чтения файла — как у эталона (`readFileIntoStream`, 64 КБ). */
-const READ_CHUNK_SIZE = 64 * 1024;
+/**
+ * Кусок чтения файла. Не 64 КБ эталона (`readFileIntoStream`): декод куска
+ * больше ~1 МБ (`EXTERN_APEX` node) node отдаёт внешней строкой — память вне
+ * кучи V8, как у прежней одной строки файла. Куски по 64 КБ — обычные строки
+ * кучи: она росла с запасом, и peak RSS на 13 МБ файле был +40 МБ к прежнему
+ * (`bench:open`, A4 в docs/TODO/VscodeModel.md). 4 МБ — с запасом и для текста
+ * в 2–3 байта на символ.
+ */
+export const READ_CHUNK_SIZE = 4 * 1024 * 1024;
 
 /**
  * Файл кусками по {@link READ_CHUNK_SIZE}: открывается на первом куске,

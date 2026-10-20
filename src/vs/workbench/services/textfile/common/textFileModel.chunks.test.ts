@@ -8,13 +8,15 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { encodeText } from "../../../../editor/common/model/encoding.ts";
 
+import { READ_CHUNK_SIZE } from "./textFileModel.ts";
+
 /**
- * Файл читается кусками по 64 КБ и пишется снимком документа (A4,
+ * Файл читается кусками ({@link READ_CHUNK_SIZE}) и пишется снимком документа (A4,
  * docs/TODO/VscodeModel.md). Граница куска в настоящем файле режет `\r\n`,
  * многобайтовый символ utf-8, суррогатную пару и пару байт UTF-16 — открытие и
  * сохранение без правок обязаны вернуть файл байт в байт.
  */
-const CHUNK = 64 * 1024;
+const CHUNK = READ_CHUNK_SIZE;
 
 describe("TextFileModel — чтение кусками и запись снимком", () => {
     let ws: ITempWorkspace;

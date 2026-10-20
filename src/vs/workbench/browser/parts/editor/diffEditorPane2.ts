@@ -365,8 +365,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
      * трогаются вовсе — позиции документные.
      */
     private recomputeLayout({ preserveView }: { preserveView: boolean }): void {
-        const originalLines = this.sides.original.model.getText().split(EOL_SPLIT);
-        const modifiedLines = this.sides.modified.model.getText().split(EOL_SPLIT);
+        const originalLines = this.sides.original.model.document.getLinesContent();
+        const modifiedLines = this.sides.modified.model.document.getLinesContent();
 
         this.syncing = true;
         try {
