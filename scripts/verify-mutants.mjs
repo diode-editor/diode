@@ -5,7 +5,7 @@
  * его вносил Stryker (`location.start`–`location.end` → `replacement`, по
  * `files[f].source` из отчёта), гоняем vitest и присваиваем класс — real,
  * phantom, runtime-error, inconclusive, timeout, stale (что значит каждый —
- * `CLASSES` в `mutation-inject.mjs` и docs/TESTING.md).
+ * `CLASSES` в `mutation-inject.mjs` и docs/MUTATION.md).
  *
  * Зовётся из `mutation-diff.mjs` после прогона Stryker'а, а руками — так:
  *

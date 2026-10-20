@@ -184,7 +184,7 @@ if (classes.phantom > 0) {
 if (undecided.length > 0) {
     out.push(`#### Без вердикта — ${undecided.length}`);
     out.push("");
-    out.push("Гейт красный, пока их не разберут: балл их не видит, а «не смогли проверить» — не «проверено». Что делать с каждым классом — docs/TESTING.md.");
+    out.push("Гейт красный, пока их не разберут: балл их не видит, а «не смогли проверить» — не «проверено». Что делать с каждым классом — docs/MUTATION.md.");
     out.push("");
     undecided.sort((a, b) => a.file.localeCompare(b.file) || a.mutant.location.start.line - b.mutant.location.start.line);
     for (const { file, mutant } of undecided.slice(0, DETAIL_LIMIT)) {

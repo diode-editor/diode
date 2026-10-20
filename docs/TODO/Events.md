@@ -51,7 +51,7 @@
   изоляция ошибок слушателя (сейчас есть в 1 месте из 76), единая семантика
   отписки во время обхода (сейчас 10 мест ходят по живой коллекции), снятие
   слушателей при `dispose` (сейчас 6 из 76). Первая закрывает архитектурную
-  дыру #275 из [TESTING.md](../TESTING.md) — источник `RuntimeError` в
+  дыру #275 из [MUTATION.md](../MUTATION.md) — источник `RuntimeError` в
   мутационном гейте.
 - **Одиночные слоты (`public onX?:`) в основном остаются:** из 55 событием
   становятся 3, один сливается с уже существующим событием, остальное —
@@ -463,7 +463,7 @@ public readonly onDidChangeMarkers = this.onDidChangeMarkersEmitter.event;
 
 | PR | Содержание | Событий | Размер | Зависит от |
 |---|---|---|---|---|
-| **1. Ядро + пилот** | `base/common/event.ts` с тестами (100% покрытие и мутации); провод `setUnexpectedErrorHandler` в `main.ts` и `extensionHostSubprocess.ts`; vitest `setupFiles`, роняющий тест на непредвиденной ошибке; пилот на двух разных идиомах — `MarkerService` (массив, живой обход) и `PanelService` (4 `Set` + свои хелперы); правка [TESTING.md](../TESTING.md) (раздел про `RuntimeError`/#275) и `docs/arch/Common.md` | 5 | средний | — |
+| **1. Ядро + пилот** | `base/common/event.ts` с тестами (100% покрытие и мутации); провод `setUnexpectedErrorHandler` в `main.ts` и `extensionHostSubprocess.ts`; vitest `setupFiles`, роняющий тест на непредвиденной ошибке; пилот на двух разных идиомах — `MarkerService` (массив, живой обход) и `PanelService` (4 `Set` + свои хелперы); правка [MUTATION.md](../MUTATION.md) (раздел про `RuntimeError`/#275) и `docs/arch/Common.md` | 5 | средний | — |
 | **2. `platform` + `editor/common`** | оставшиеся 10 событий `platform` и 6 `editor/common`; `ContextKeyService` (коалесинг остаётся), `LogService` (`onListenerError`), `TextDocument` (горячий путь — замер до/после на бенче правок) | 16 | средний | 1 |
 | **3. `workbench/services`** | 31 событие; при объёме диффа — двумя PR: 3а `textFileModel` + `editorService` + `editorGroupModel` (17, вместе со слотами `onOpenFailed`, `onDidSave`, `onEditorCreate`), 3б остальное (14, вместе с `FileSearchService.onIndexChanged`) | 31 | крупный | 1; желательно после решения Lifecycle |
 | **4. `browser/parts` + `contrib` + `api`** | 4 + 13 + 7 событий; `ViewsService` (нагрузка-объект), тестовый дублёр статус-бара | 24 | средний | 1 |
@@ -538,7 +538,7 @@ PR 2, 3, 4 между собой независимы и могут идти в 
   из обработчика пропускает следующего слушателя.
 - В проде нет обработчика `uncaughtException`: синхронный бросок слушателя из
   микротаска (`ContextKeyService.flush`) роняет процесс — это #275, описано в
-  [TESTING.md](../TESTING.md).
+  [MUTATION.md](../MUTATION.md).
 - `onUnexpectedError` по умолчанию пишет в `console.error`, то есть в экран
   TUI: `main.ts` обработчик не переставляет.
 
@@ -566,7 +566,7 @@ PR 2, 3, 4 между собой независимы и могут идти в 
 - [Lifecycle](Lifecycle.md) — `Disposable`, владение, утечки подписок
 - [FileService](FileService.md) — файловый сервис (его события `onDidChangeFile`
   переедут на `Emitter` в общем порядке)
-- [docs/TESTING.md](../TESTING.md) — «Раннер упал на мутанте», #275
+- [docs/MUTATION.md](../MUTATION.md) — «Раннер упал на мутанте», #275
 - [docs/ARCHITECTURE.md](../ARCHITECTURE.md#дословный-перенос-upstream-editorcommondiff)
   — шимы `base/common` против дословного переноса
 - [MutationGateFlake](MutationGateFlake.md), [TestRunTime](TestRunTime.md) —

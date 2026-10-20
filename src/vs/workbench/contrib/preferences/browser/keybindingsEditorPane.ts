@@ -142,7 +142,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         };
         this.control.onActivateRow = (rowId) => {
             const item = this.rowItems.get(rowId);
-            // Stryker disable next-line ConditionalExpression: снятие guard'а вызывает changeKeybinding(undefined) → item.title кидает из fire-and-forget промиса; unhandled-ошибка из слушателя роняет раннер вместо падения теста (дыра в локализации ошибок эмиттеров, см. docs/TESTING.md → #275), а не пробел в тестах этой строки.
+            // Stryker disable next-line ConditionalExpression: снятие guard'а вызывает changeKeybinding(undefined) → item.title кидает из fire-and-forget промиса; unhandled-ошибка из слушателя роняет раннер вместо падения теста (дыра в локализации ошибок эмиттеров, см. docs/MUTATION.md → #275), а не пробел в тестах этой строки.
             if (item !== undefined) void this.changeKeybinding(item);
         };
         this.control.list.onContextMenu = (element, screenX, screenY) => {

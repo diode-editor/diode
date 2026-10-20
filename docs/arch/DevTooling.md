@@ -11,7 +11,17 @@
 Контракт story (`StoryContext`/`StoryModule`) приходит из пакета — `@tuidom/testing/storyTypes` (в diode остался шим `src/StoryRunner/StoryTypes.ts`). Истории движковых виджетов уехали вместе с tuidom в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom); в diode остаются только diode-интеграционные (`src/StoryRunner/stories/`). **Браузер** историй (дерево всех story + Ctrl+K-поиск, аналог веб-Storybook) — отдельный сайд-проект **`tuidom/storybook`**: он ссылается на соседний checkout diode (`../../diode`), сканирует его `src/**/*.stories.ts` и запускает выбранную story; после выноса tuidom его shim нужно переключить на пакет/репозиторий tuidom (не сделано, follow-up). Запуск — из репозитория storybook (`npm run storybook`), при diode рядом на диске.
 
 ## TestUtils/
-Общие утилиты для тестов (визуальные assertions для экрана). `ExtensionTestHarness.createExtensionTestHarness({ initialFile?, extensions? })` поднимает реальный `EditorService` (+ `EditorGroupComponent`) + `ExtensionHost` поверх `TestApp`/`MockTerminalBackend`. `ExtensionHost` форкается через `subprocessSpawnArgsForTests()` — `node --import tsx/esm src/vs/platform/extensions/Host/__fixtures__/subprocessEntry.ts` (в vitest `process.argv[1]` указывает на vitest CLI, не на `main.ts`). Тестовые расширения лежат рядом — `*.cjs` файлы с `exports.activate = function(ctx) { var vscode = require("vscode"); ... }`.
+Общие утилиты для тестов (`src/TestUtils/`): харнессы, временные воркспейсы, `expectScreen`, учёт утечек — справочник в [../TESTING.md](../TESTING.md#тестовые-утилиты).
+
+## e2e: кэш сборок
+
+`scripts/e2e-artifacts.mjs` (зовёт `e2e/globalSetup.ts`) собирает бинарь для e2e неизменяемым и кладёт в кэш по хешу; как этим пользоваться в тестах — [../TESTING.md](../TESTING.md#прогон-сборка-воркеры-автоповтор-уборка).
+
+- **Ключ** — sha256 от СОДЕРЖИМОГО входов бинаря: blob-хеш каждого файла рабочей копии (отслеживаемого и нет, кроме игнорируемых) по `src/ extensions/ package*.json tsconfig.json tsup.config.ts scripts/{build,pack}-*.mjs …`, плюс версия node/платформа и `node_modules/.package-lock.json` (его меняют и `npm ci`, и `engine:link`). От состояния git ключ не зависит: коммит/amend/squash с тем же деревом дают ту же сборку. Тесты `*.test.ts` и `e2e/` — не входы.
+- **Публикация атомарная:** сборка идёт в `~/.cache/diode-e2e/<key>.tmp-<pid>/`, переезжает `rename` в `<key>/` и становится read-only. Рабочий `dist/` прогон не трогает — раньше `tsup clean` сносил бинарь из-под воркеров (ENOENT/ETXTBSY), а редактор, открытый на репозитории, смотрел на сотни МБ записи в `dist/`. Промах кэша — ~30 с на 4 ядрах.
+- **Замок** `<key>.lock` (mkdir + pid владельца, замок мёртвого снимается): два сеанса с одним ключом не собирают его дважды, второй ждёт первого.
+- **Хранение:** `DIODE_E2E_CACHE_KEEP` (по умолчанию 3) последних по использованию сборок плюс любая, на которой идёт прогон (`.in-use/<key>@<pid>`). Корень — `DIODE_E2E_CACHE_DIR`; посмотреть — `node scripts/e2e-artifacts.mjs --list`, ключ текущего дерева — `--key`.
+- **Версия пиннится в `nightly-e2e`** (если `DIODE_VERSION` не задан): обычная сборка зашивает `nightly-<sha HEAD>`, и любой коммит, даже docs-only, давал бы новый бинарь. Именно не-semver: у сборки без релизной версии проверка `engines.diode` в магазине считается пройденной (`resolveCompatibleVersion.ts`), а semver-заглушка вроде `0.0.0-e2e` её проваливает — и сценарии, ставящие расширение с `engines.diode`, падают.
 
 ## tools/drive
 

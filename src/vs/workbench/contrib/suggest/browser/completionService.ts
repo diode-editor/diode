@@ -919,7 +919,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const id = core.id;
         if (id === undefined) return;
         const resolve = this.resolverOf(core);
-        // Stryker disable next-line ConditionalExpression: без проверки `resolve(id)` кидает из промиса, который никто не ждёт, — раннер падает на unhandled error, а не тест (см. docs/TESTING.md, «Раннер упал на мутанте»); ветку «провайдер без resolve» держит тест «источник без резолвера панель не ломает»
+        // Stryker disable next-line ConditionalExpression: без проверки `resolve(id)` кидает из промиса, который никто не ждёт, — раннер падает на unhandled error, а не тест (см. docs/MUTATION.md, «Раннер упал на мутанте»); ветку «провайдер без resolve» держит тест «источник без резолвера панель не ломает»
         if (resolve === undefined) return;
         // Кэш и склейка параллельных запросов — внутри resolveItem; здесь не
         // дублируем проверку, иначе её ветка становится мёртвой.

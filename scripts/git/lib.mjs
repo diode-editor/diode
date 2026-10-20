@@ -1,4 +1,4 @@
-// Общее для git-помощников `npm run git:*` (docs/PR.md, «Стек PR, rebase и push»).
+// Общее для git-помощников `npm run git:*` (docs/GIT.md, «Стек PR, rebase и push»).
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
