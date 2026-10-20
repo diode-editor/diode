@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RunOnceScheduler, runWhenGlobalIdle } from "./async.ts";
+import { setUnexpectedErrorHandler } from "./errors.ts";
 import { setTimeout0 } from "./platform.ts";
 
 describe("RunOnceScheduler", () => {
@@ -116,6 +117,23 @@ describe("runWhenGlobalIdle", () => {
 });
 
 describe("setTimeout0", () => {
+    it("исключение колбэка уходит в onUnexpectedError, а не роняет процесс", async () => {
+        const errors: unknown[] = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+        try {
+            const boom = new Error("boom");
+            setTimeout0(() => {
+                throw boom;
+            });
+            await new Promise<void>((resolve) => setImmediate(resolve));
+            expect(errors).toEqual([boom]);
+        } finally {
+            setUnexpectedErrorHandler((e) => {
+                console.error(e);
+            });
+        }
+    });
+
     it("ставит колбэк в очередь setImmediate — после текущей задачи и её микрозадач", async () => {
         const order: string[] = [];
         setTimeout0(() => order.push("macrotask"));

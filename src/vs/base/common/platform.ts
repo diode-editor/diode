@@ -7,6 +7,8 @@
 // определение ОС/локали на верхнем уровне модуля, которое нам запрещено
 // (V8-снапшот, AGENTS.md «Верхний уровень модулей»).
 
+import { onUnexpectedError } from "./errors.ts";
+
 /**
  * Макрозадача «как можно скорее», но после ввода-вывода. Upstream в браузере —
  * `postMessage` (обходит клэмп `setTimeout` в 4 мс), в Node — `setTimeout(cb)`,
@@ -19,5 +21,14 @@
  * так что нажатия клавиш между кусками обрабатываются так же.
  */
 export function setTimeout0(callback: () => void): void {
-    setImmediate(callback);
+    setImmediate(() => {
+        // В браузере эталона исключение макрозадачи только логируется
+        // (window.onerror), в Node — роняет процесс. Сбой фоновой работы
+        // (кусок токенизации) не должен ронять редактор — как в эталоне.
+        try {
+            callback();
+        } catch (e) {
+            onUnexpectedError(e);
+        }
+    });
 }

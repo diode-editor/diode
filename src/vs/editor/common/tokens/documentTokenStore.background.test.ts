@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createInsertEdit } from "../core/iTextEdit.ts";
+import { setUnexpectedErrorHandler } from "../../../base/common/errors.ts";
+import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
 import type { IState } from "../languages/iState.ts";
 import type { ITokenizationResult, ITokenizationSupport } from "../languages/iTokenizationSupport.ts";
 import { TextDocument } from "../model/textDocument.ts";
@@ -114,6 +115,34 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
         await until(() => store.hasAccurateTokensForLine(49));
         expect(store.getLineTokens(49)?.tokens[0].scopes).toEqual(["s1"]);
         store.dispose();
+    });
+
+    it("правки в середине файла: после доводки до конца фону нечего делать, и он не падает", () => {
+        vi.useFakeTimers();
+        const errors: unknown[] = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+        try {
+            const onLine = vi.fn();
+            const doc = lines(10);
+            const store = new DocumentTokenStore(doc, new StatefulTokenizer(onLine));
+            store.forceTokenization(9);
+
+            doc.applyEdits([createInsertEdit(5, 0, "y")]);
+            doc.applyEdits([createInsertEdit(7, 0, "a\nb\n")]);
+            doc.applyEdits([createDeleteEdit(2, 0, 4, 0)]);
+            store.forceTokenization(doc.lineCount - 1);
+            expect(store.hasAccurateTokensForLine(doc.lineCount - 1)).toBe(true);
+
+            onLine.mockClear();
+            vi.runAllTimers();
+            expect(onLine).not.toHaveBeenCalled();
+            expect(errors).toEqual([]);
+            store.dispose();
+        } finally {
+            setUnexpectedErrorHandler((e) => {
+                console.error(e);
+            });
+        }
     });
 
     it("dispose останавливает фон: токенизатор больше не зовут", () => {
