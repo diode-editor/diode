@@ -11,30 +11,8 @@ git-версии (`git:`), output-каналы (`output:`), diff, webview, remot
 `vscode-uri`; ext-host на общем типе; гейт `workspace.fs` для не-file схем;
 идентичность ядра по `Uri`; `untitled:` — настоящая схема; undo на модель документа
 (в сплитах редактора, #245); `ExtHostTextDocument` по спецификации; реестр
-провайдеров ФС (`IFileSystemProviderRegistry`, появился в [Diff](Diff.md) этап 1).
-
-## Виртуальные read-only документы (сделано)
-
-`workspace.registerTextDocumentContentProvider` доведён до провода: ресурс с не-`file:`
-схемой открывается настоящей read-only вкладкой, содержимое которой даёт провайдер
-расширения. Этим путём в редактор попадают исходники, которых нет на диске — `jdt:` у
-стокового `redhat.java` (класс из jar, исходник JDK, декомпиляция), Go to Super
-Implementation, `git:`-ревизии.
-
-Устройство: порт `IVirtualDocumentSource` (шов ядра) →
-`EditorService.openUri` → синтетическая модель (`TextFileModel.openSynthetic`) +
-`readOnly`. Схемы объявляет субпроцесс, содержимое едет обратным запросом
-`workspace.provideTextDocumentContent`; `onDidChange` провайдера перечитывает открытую
-вкладку.
-
-До этой работы такой ресурс **убивал процесс**: `TextFileModel.openFile` бросал на
-не-`file:` схеме, промис команды никто не ждал, и Node закрывал редактор со всеми
-буферами. Поэтому вместе с фичей закрыт и класс: `openUri` не отклоняется никогда,
-команды возвращают свой промис вместо `void`, `CommandRegistry.execute` вешает на него
-обработчик отказа, а в главном процессе стоит последняя страховка
-`process.on("unhandledRejection")` — такая же, как у extension host'а.
-
-Демо: `e2e/scenarios/virtualDocument.scenario.ts`.
+провайдеров ФС (`IFileSystemProviderRegistry`); виртуальные read-only документы
+(`registerTextDocumentContentProvider` до вкладки).
 
 ## Осталось
 

@@ -27,17 +27,16 @@ watcher и Go в магазине — после поста.
       [API-COVERAGE.md](../public/API-COVERAGE.md) и [BENCHMARKS.md](../public/BENCHMARKS.md).
 - [x] **`.gitignore` в поиске и Quick Open** (#593). Дерево (`explorer.excludeGitIgnore`) — нет,
       это хвост дерева «после поста».
-- [~] **Перф-гейт старта** `e2e/bench/startupBudget.bench.ts` есть, но бюджет
-      `STARTUP_BUDGET_OURS_MS = 700` щедрый; зажимается последним шагом этапа 1.
+- [x] **Перф-гейт старта** `e2e/bench/startupBudget.bench.ts`: бюджет
+      `STARTUP_BUDGET_OURS_MS = 200` мс наших над полом node на `small` (факт ≈175).
 
 ## До поста
 
 ### Перф: старт и открытие файла
 
-- [~] **Этап 1 [OpenPerformance.md](OpenPerformance.md)** — ≤ 50 мс наших над полом node на
-      `small` (сейчас 321 локально, ≈400 на CI). Порядок: механика распила с пилотом yauzl
-      (сделано) → части по одной (xterm, semver, iconv, LSP-клиент) → кухня воркбенча →
-      tuidom под снапшот → CJS → `useSnapshot` → зажать бюджет гейта.
+- [~] **Этап 1 [OpenPerformance.md](OpenPerformance.md)** — кухня старта: было 321 мс наших на
+      `small`, сейчас ≈175 (распил бандла, CJS-ядро, V8-снапшот в SEA), гейт зажат до 200. Цель
+      ≤ 50 мс; открытые рычаги — в OpenPerformance.
 - [ ] **Этап 2 [OpenPerformance.md](OpenPerformance.md)** — жадные проходы: файл до десятков МБ
       открывается как маленький (`xlarge` ≤ `small` + 100 мс), клавиша не зависит от размера
       (сюда же `Ctrl+End` на `xlarge` — 9.2 с).
@@ -68,7 +67,7 @@ watcher и Go в магазине — после поста.
   Java, Terraform и Python.
 - **Damage-tracking кадра** (LongLinePerformance.md «Осталось»): hover-damage, пер-item damage в
   `OverlayLayer`, сужение страховки consumed-key, клип-ограничение цикла строк редактора.
-- **Фоновая токенизация** ([SyntaxHighlighting.md](SyntaxHighlighting.md#-background-tokenization-chunked))
+- **Фоновая токенизация** ([VscodeModel.md](VscodeModel.md))
   — не главная: токенизация уже ленивая до вьюпорта, фоновая лечит в основном прыжок в конец
   большого файла, а это ближе к этапу 2.
 - **Semantic tokens из LSP** — новый источник токенов, а не оптимизация; к демо-кадру не относится.

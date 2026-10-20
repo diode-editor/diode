@@ -37,13 +37,6 @@ Output UI, `createOutputChannel` для расширений) описано в 
   Уровни сделаны в форме эталона: `--log <level>` (для всех каналов) и
   `--log <channel>:<level>` (например `extensions.host:debug`), флаг повторяемый,
   плюс `--verbose` ≡ `--log trace`. Парсинг — `parseCliArgs` (`ILogLevelRule[]`),
-  применение — `LogService.setLevel` до первой записи (см. [Startup](Startup.md)).
+  применение — `LogService.setLevel` до первой записи.
   Осталось: `--log-file=<path>`, `--no-log-file` и снижение `DEFAULT_LEVEL` до `Info`
   (сейчас дефолт `Trace`, поэтому `--log` умеет только опускать планку).
-
-## Принципы
-
-- **Никаких прямых `console.*` в runtime** (после bootstrap-CLI). Тесты/explore — исключение.
-- **Sinks не должны бросать**: ошибки логируются в `process.stderr` (если возможно) и проглатываются.
-- **DEFAULT_LEVEL = Trace** — пока активная разработка, хочется видеть всё. Перед релизом снизить до Info через `setLevel("*", Info)`.
-- **Channel naming**: `<area>` или `<area>.<sub>`; для расширений — `extensions.<id>`.

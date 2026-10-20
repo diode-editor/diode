@@ -230,7 +230,7 @@ async function runEditor(): Promise<void> {
     }
 
     // Что открываем: папка/файлы/дифф. Пустой набор — законный вход: поднимается
-    // пустое окно (см. docs/TODO/Startup.md), cwd при этом НЕ трогается.
+    // пустое окно (см. docs/arch/workbench/Shell.md), cwd при этом НЕ трогается.
     let targets: IStartupTargets;
     try {
         const cwd = logicalWorkingDirectory(process.env.PWD, process.cwd(), isSameDirectory);

@@ -16,7 +16,7 @@
 - **UI** — `contrib/search/browser/searchComponent.ts` (запрос + тумблеры
   Aa/`\b`/`.*`, include/exclude, счётчик, поиск по мере ввода) +
   `searchResultRows.ts` (фабрики строк с посимвольной подсветкой) поверх
-  виртуализирующего `tuidom/ui/list/ListViewElement` (фокус, курсор,
+  виртуализирующего `ListViewElement` (`@tuidom/elements/list`) (фокус, курсор,
   клавиатура, hover — от контейнера).
 - **Интерактивные результаты** — режимы VS Code-семантики: `list` — файлы
   плоским списком, матчи-дети сворачиваются; `tree` — иерархия каталогов со

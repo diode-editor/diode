@@ -85,7 +85,7 @@
   `browser/actions/macKeybindings.ts`. Отсутствие семейства в условии значит
   «действует в обоих», поэтому бинд, досягаемый на любой платформе
   (`Alt+Backspace` у `deleteWordLeft`), объявляется при команде, а не дельтой.
-  Подробно — [TODO/MacKeybindings.md](../../TODO/MacKeybindings.md).
+  Подробно — [Keyboard.md](Keyboard.md).
 - Tier определяется по env, но **под мультиплексором env-флаги хост-терминала
   (`KITTY_WINDOW_ID` и родня) не считаются доказательством**: расширенные клавиши
   доходят, только если их пропускает сам tmux (`extended-keys on`). Внутри tmux

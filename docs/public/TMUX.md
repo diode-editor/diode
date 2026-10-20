@@ -1,7 +1,33 @@
 # Diode in tmux
 
-Diode runs inside tmux as is. This page covers the one thing tmux needs from your config: showing
-Diode's window title.
+Diode runs inside tmux as is. This page covers what tmux needs from your config: extended keys
+(Ctrl+Tab, Ctrl+Shift+letter) and showing Diode's window title.
+
+## Keys: Ctrl+Tab and Ctrl+Shift+letter
+
+By default tmux strips the modifiers that a terminal can only send with an extended keyboard
+protocol: inside tmux, Ctrl+Tab arrives as a plain Tab and Ctrl+Shift+letter doesn't arrive at all.
+tmux 3.5 or newer can pass them through. Add to `~/.tmux.conf`:
+
+```tmux
+set -s extended-keys always
+set -g extended-keys-format csi-u   # tmux 3.5+ only
+set -as terminal-features ',*:extkeys'
+```
+
+tmux 3.4 has no `extended-keys-format`, and with kitty as the outer terminal it can't deliver these
+keys at all. Every command still has a key that works in any tmux: switch tabs with
+`Ctrl+PageDown`/`Ctrl+PageUp`, and the `Ctrl+K <key>` chords (`Ctrl+K F` for Search, `Ctrl+K G` for
+Source Control) stand in for the Ctrl+Shift shortcuts. **Diode: Keyboard Doctor** shows what your
+terminal actually sends.
+
+On a Mac, Cmd never reaches an app inside tmux: tmux stores Cmd and Option in the same bit. Diode
+uses its Ctrl-based layout there. If you set `LC_DIODE_PLATFORM=mac` to tell Diode the keyboard is a
+Mac's, let tmux pass it on:
+
+```tmux
+set -ag update-environment LC_DIODE_PLATFORM
+```
 
 ## Window title
 
