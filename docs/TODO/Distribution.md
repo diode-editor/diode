@@ -5,61 +5,23 @@
 (16 каналов, sha256 у каждого ассета, `install.sh` с автоопределением). Реализация — `packaging/`
 ([README](../../packaging/README.md)), пользовательская страница — [docs/public/INSTALL.md](../public/INSTALL.md).
 
-## Сделано (2026-09-27)
+## Сделано
 
-- [x] `LICENSE` — GPL-3.0-or-later; `THIRD-PARTY-NOTICES.md` для MIT-кода vscode и bundled-компонентов.
-      Без лицензии не проходят winget (поле License), npm и любые сторонние пакетные репозитории.
-- [x] `.sha256`-сайдкары у каждого ассета (`build.yml`) — их читают установщик, npm и рендер манифестов.
-- [x] `install.sh` — POSIX, curl или wget, sha256, `/usr/local/bin` или `~/.local/bin`, `DIODE_VERSION`,
-      `DIODE_INSTALL_DIR`. Проверен на живом v0.3.0.
-- [x] `install.sh --method=apt|brew|npm` (как у fresh, `sh -s -- --method=…` после пайпа): apt ставит
-      keyring и `sources.list.d`, обновляет только свой список и ставит пакет; после binary-установки
-      на Debian-подобных подсказывает `--method=apt`. Все четыре метода прогнаны в контейнере на v0.4.0.
-- [x] apt — `.deb` через `dpkg-deb` (без nfpm), плоский репозиторий ассетами релиза, подпись GPG.
-      Цепочка `apt update` → `InRelease` по `signed-by` → `Packages.gz` → `.deb` проверена локально
-      через сервер с 302-редиректами как у GitHub; GitHub принимает путь `/./InRelease`, который шлёт apt.
-- [x] apt хранит все стабильные версии с v0.4.0 (2026-10-14): `fetch-history.sh` собирает станзы
-      прошлых релизов, их `Filename` ведут через `../../download/vX/` в свои релизы; новая версия —
-      с голым именем. `apt install diode=X`, `install.sh` с `DIODE_VERSION` для apt. Проверено
-      apt 3.x (Ubuntu 26.04): `madison` видит 0.4.0…последнюю, `download diode=0.5.0` идёт с GitHub.
-- [x] npm — `@diode-editor/diode`, тонкая обёртка с докачкой бинаря и sha256; `npx` работает.
-      Проверено: `npm pack` → `npm install -g --prefix` → `diode --version` = 0.3.0.
-- [x] Homebrew — **cask** (не формула) со стансами `os`/`arch`, один на macOS и Linux, рендерится из
-      sha256. Формулу без бутылки Homebrew считает сборкой из исходников и на macOS требует свежие
-      Command Line Tools — на этом упала первая живая установка v0.4.0 на macOS 14.
-- [x] winget — три манифеста `DiodeEditor.Diode`, `InstallerType: portable`.
-- [x] `release.yml` — jobs `packages`, `npm`, `brew`, `winget`; каждая молча пропускается без своего секрета.
-- [x] Job `site` (`site-version.yml`) — версия в футере лендинга коммитом в репозиторий сайта; без секрета
-      падает красной, релизу не мешает; руками — `gh workflow run site-version.yml -f version=vX.Y.Z`.
-- [x] `README.md` — quick install первым, ниже команды остальных каналов; детали на INSTALL.md.
+Все каналы работают с v0.4.0: `install.sh` (`--method=binary|apt|brew|npm`), apt (плоский репозиторий
+ассетами релиза с историей версий), npm `@diode-editor/diode` (Trusted Publishing), Homebrew cask,
+winget-манифесты, версия на лендинге; лицензия GPL-3.0-or-later и `THIRD-PARTY-NOTICES.md`,
+`.sha256`-сайдкары у каждого ассета. Формат бинаря — решение человека 2026-10-15: SEA везде (V8-снапшот
+ядра возможен только в SEA), selfextract — только Intel macOS, где node не собирает рабочий SEA.
+Антивирусный скан SEA прошёл в пайплайне winget-pkgs на v0.3.0. Устройство, секреты и ручные шаги — [packaging/README.md](../../packaging/README.md).
 
-## Чтобы заработало (руками, один раз)
+## Открыто
 
-- [x] `packaging/apt/gen-key.sh` → секреты `APT_GPG_PRIVATE_KEY` (base64 armored-ключа, печатает
-      скрипт) и `APT_GPG_PASSPHRASE` заведены 2026-09-27; ключ и пароль — в парольнице владельца.
-      Путь ключа проверен локально: генерация с паролем → base64 → импорт «в CI» → подпись →
-      проверка опубликованным keyring.
-- [x] `@diode-editor/diode@0.3.0` опубликован руками 2026-09-27, `npx` с чистого кэша работает.
-- [x] Trusted Publisher (GitHub Actions, `release.yml`) настроен: v0.4.0 опубликован джобой `npm`
-      без токена, у версии есть SLSA-provenance (`dist.attestations`).
-- [x] Репозиторий `diode-editor/homebrew-tap` создан (2026-09-27); формула заменена cask'ом.
-- [x] `REPOSITORY_PAT` имеет push в `homebrew-tap`: джоба `brew` релиза v0.4.0 обновила формулу
-      сама. (Если токен когда-нибудь меняется: classic со scope `repo` покрывает все репозитории
-      организации, fine-grained — только перечисленные в «Repository access» с Contents: read and write.)
 - [ ] Секрет `SITE_PAT` (fine-grained, только `diode-editor.github.io`, Contents: read and write) — до него
       job `site` красная; проверить первым же релизом или ручным запуском `site-version.yml`.
 - [~] Первая подача в winget: PR [microsoft/winget-pkgs#442141](https://github.com/microsoft/winget-pkgs/pull/442141)
       (2026-09-27, ветка `DiodeEditor.Diode-0.3.0` в форке `tihonove/winget-pkgs`, коммит через
       Git Data API — клон с `tree:0` при push дотягивает всё дерево). После мержа — секрет
       `WINGET_TOKEN` (PAT с `public_repo`), дальше версии подаёт `release.yml`.
-- [x] v0.4.0 (2026-09-27) — первый релиз со всеми каналами: все джобы `release.yml` зелёные, в ассетах
-      сайдкары, `diode_0.4.0_{amd64,arm64}.deb`, `Packages`/`InRelease`/`Release.gpg`,
-      `diode-archive-keyring.gpg`.
-- [x] Проверено на живом релизе: `install.sh` с raw main → `sha256 OK`, `diode 0.4.0`;
-      `apt-get update` → `InRelease` по `signed-by` с GitHub, `policy` → 0.4.0, `download` → 49.8 МБ
-      за 3 с; `npx @diode-editor/diode --version` с чистого кэша → 0.4.0; тап обновлён на v0.4.0.
-- [x] `brew install diode-editor/tap/diode` на macOS 14 (Intel): первая попытка упала на формуле
-      (CLT), после замены на cask переустановка прошла (2026-09-27, сторонняя машина).
 - [ ] Не проверено руками: `winget install DiodeEditor.Diode` (после мержа PR) — нужна Windows.
 - [ ] **Windows-SEA до 0.8.5 не узнавал себя** (найдено в #612): `isSeaBinary()` на Windows всегда
       отвечал `false` (`createRequire("file:///")` на win32 бросает), и бинарь искал `diode.bundle`,
@@ -81,9 +43,3 @@
       и notability (у homebrew-core — звёзды/форки).
 - [ ] Подпись: Apple Developer ID для нотаризации macOS (Gatekeeper на бинарь из браузера),
       code signing для Windows (SmartScreen). Оба — деньги, не код.
-- [x] SEA или selfextract по платформам. Решение человека 2026-10-15: SEA везде, selfextract —
-      только Intel macOS, где node не собирает рабочий SEA (#143, #144). Linux x64/arm64 вернулись
-      на SEA: ~150 МБ против ~48 у selfextract, зато V8-снапшот ядра (#620) возможен только
-      в SEA. `.deb` больше не зависит от `tar`/`gzip` — их звал только стаб selfextract.
-- [x] Антивирусный скан SEA-сборки: пайплайн winget-pkgs (несколько антивирусов + Windows Sandbox)
-      прошёл на v0.3.0 (`Validation-Completed`), опасение снято.

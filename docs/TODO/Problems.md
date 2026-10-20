@@ -10,47 +10,13 @@
 Готовое (реестр `MarkerService`, squiggle в редакторе, валидатор `settings.json`, нижняя
 Panel + дерево Problems) — см. [arch/Editor.md](../arch/Editor.md) (Editor/Markers) и
 [arch/workbench/Shell.md](../arch/workbench/Shell.md#нижняя-панель) (Panel-кластер: `DiagnosticsService`,
-`PanelService`+`PanelComponent`, `ProblemsComponent`). Ниже — модель и открытые этапы.
-
-## Модель маркера (как в VS Code)
-
-`IMarker { owner, resource, severity, range, message, code?, source? }`:
-- `owner` — неймспейс поставщика (`"settings"`, позже `"typescript"`, `"eslint"`);
-- `resource` — ресурс как `uri.toString()` (не путь: диагностики бывают и у недисковых ресурсов);
-- `severity` — `Error | Warning | Info | Hint`;
-- `range` — `IRange` в документе.
-
-API реестра: `changeOne(owner, resource, markers[])`, `read({ resource?, owner?, severities? })`,
-`onMarkerChanged(resources[])`.
-
-## Слои
-
-- **Реестр** — `src/vs/editor/Markers/` (чистый, без DI — зеркало `Editor/Tokenization`,
-  `TokenizationRegistry`). DI-токен `MarkerServiceDIToken` — в `platform/markers/common/markerService.ts`,
-  модуль — `Workbench/Modules/MarkersModule.ts`.
-- **Поставщик** — `DiagnosticsService` (`Workbench/Services/Diagnostics/`). Пишет через `changeOne`.
-- **Потребитель (editor squiggly)** — тот же `DiagnosticsService` подписан на `onDidChangeMarkers`,
-  фильтрует маркеры открытых редакторов (шов `IDiagnosticsEditorSource`), пушит диапазоны+severity в
-  `EditorElement.setMarkerDecorations(...)`. Editor не знает про DI/Workbench/resource —
-  рисует только диапазоны.
-- **Потребитель (панель)** — `ProblemsComponent` (`Workbench/Components/Panel/`), подписан на весь реестр.
-
-Точка пересчёта — `ITextDocument.onDidChangeContent` (см. [arch/Editor.md](../arch/Editor.md)).
-
-## Производительность на больших наборах маркеров
-
-- [x] На монорепе jdtls даёт ~24k маркеров по ~1.7k файлам, и вкладка вешала UI-поток на
-      минуты: пересчёт на каждую публикацию, параллельные пересчёты, `expand` на каждый файл
-      (каждый пересобирал весь плоский список дерева). Теперь изменения сводятся в окно 64 мс
-      (как `MarkersView` эталона), пересчёт не больше одного за раз (#578), файлы раскрываются
-      одним `TreeViewElement.expandElements` (tuidom 0.6.1, #579). Исследование и замеры — в #578.
+`PanelService`+`PanelComponent`, `ProblemsComponent`). Ниже — открытые этапы.
 
 ## Осталось
 
 ### [ ] 3. Дополнительные поставщики
 - JSON Schema-валидация целиком (типы/enum'ы, не только неизвестные ключи).
-- Расширения: `vscode.languages.createDiagnosticCollection` → RPC → `changeOne`.
-- LSP `publishDiagnostics`, problem matchers тасков — по мере появления слоёв.
+- Problem matchers тасков — по мере появления слоёв.
 - Подмешать дефолты `contributes.configuration` расширений в валидатор `settings.json`
   (иначе реальные VS Code-настройки, ещё не реализованные в Diode, помечаются как неизвестные).
 

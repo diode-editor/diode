@@ -143,9 +143,33 @@ Ctrl+D и родня — состояние плюс чистые функции
 
 ## Диагностики (`platform/markers/common/`)
 Провайдер-агностичный реестр диагностик (аналог VS Code `IMarkerService`). **Диагностики отвязаны от источников:** LSP / problem matchers / расширения — *поставщики* (пишут `MarkerService.changeOne(owner, resource, markers)`); squiggle в редакторе, панель Problems, счётчики — *потребители* (`read`/`onDidChangeMarkers`). Поэтому MVP собирается с одним поставщиком, без LSP.
-- **`IMarker`/`IMarkerData`/`MarkerSeverity`** (`Hint|Info|Warning|Error`) — модель; `IMarker` = `IMarkerData` + `owner` (неймспейс поставщика) + `resource` (путь файла).
+- **`IMarker`/`IMarkerData`/`MarkerSeverity`** (`Hint|Info|Warning|Error`) — модель; `IMarker` = `IMarkerData` + `owner` (неймспейс поставщика: `"settings"`, `"typescript"`, …) + `resource` — `uri.toString()`, а не путь на диске: диагностики бывают и у недисковых ресурсов. API реестра — `changeOne(owner, resource, markers[])`, `read({ resource?, owner?, severities? })`, `onDidChangeMarkers(resources[])`; точка пересчёта поставщиков — `ITextDocument.onDidChangeContent`.
 - **`MarkerService`** — чистый реестр `owner → resource → IMarker[]` без DI (зеркало `TokenizationRegistry`; DI-токен — рядом с классом, `platform/markers/common/markerService.ts`, модуль — `src/vs/diode/modules/markersModule.ts`).
 - **`IMarkerDecoration`** — view-проекция маркера (`range` + `severity`), чтобы Editor не зависел от `owner`/`resource`/`message`. Рендер — `EditorElement` красит покрытые ячейки severity-цветом (`editorError/Warning/Info/Hint.foreground`) + `StyleFlags.Undercurl` (на legacy-терминалах — обычный цвет). Диапазоны живут в документе как tracked decorations (`EditorViewState.setMarkerDecorations` → `ITextDocument.deltaDecorations`, stickiness `NeverGrowsWhenTypingAtEdges`, как `markerDecorationsService` эталона): правка двигает волну сразу, до новых маркеров поставщика; новый набор заменяет сдвинутый. Проводка «поставщик → реестр → потребитель» — в Workbench (`DiagnosticsService`, см. [workbench/Shell.md](workbench/Shell.md#нижняя-панель)).
+
+## Read-only редактор
+
+Три уровня защиты, как в VS Code:
+
+| Уровень | VS Code | У нас |
+|---|---|---|
+| Опция редактора | `EditorOption.readOnly` | `EditorViewState.readOnly` |
+| Гейт команд | `precondition: EditorContextKeys.writable` | `when: "textInputFocus && !editorReadonly"` |
+| Runtime-гард | `CodeEditorWidget.executeEdits` → `false` | ранний выход в мутаторах `EditorViewState` |
+
+- Флаг живёт на **`EditorViewState`**, потому что через него проходят ВСЕ правки: клавиатура и paste,
+  accept completion, rename/bulk edit, `editor.applyEdit` из расширений. Мутаторы — no-op и возвращают
+  `undefined`.
+- **Пути мимо view-state** закрыты на `EditorPane`: `undo`/`redo`/`setEol`/`setEncoding` идут в
+  `TextFileModel` напрямую (как `pushUndoStop` в `CodeEditorWidget`); `applyActiveEditorEdits` честно
+  возвращает `false`, а не врёт расширению об успехе.
+- Контекст-ключ `editorReadonly` — по сфокусированному `EditorElement`, симметрично `textInputFocus`.
+  Команда `workbench.action.files.toggleActiveEditorReadonlyInSession` (session-скоуп), индикация — замок
+  на вкладке. Фолдинг, курсор, выделение, копирование и поиск в read-only работают, как в VS Code.
+- На том же флаге стоят Output-панель (detached pane: `EditorService.openDetached` +
+  `TextFileModel.openSynthetic/appendOwnedContent` — как `OutputEditor extends
+  AbstractTextResourceEditor` эталона) и виртуальные документы расширений. Демо —
+  `e2e/scenarios/readonlyEditor.scenario.ts`.
 
 ## Tracked decorations (декорации, которые едут с текстом)
 `editor/common/model/trackedDecorations.ts` — аналог дерева декораций `textModel` эталона: `ITextDocument.deltaDecorations(oldIds, [{ range, options: { description, stickiness } }])` → id, `getDecorationRange(id)` — текущий диапазон. Сдвиг — порт `nodeAcceptEdit` (`intervalTree.ts`) в позициях вместо офсетов: `TextDocument.applyEdits` двигает декорации ДО применения батча к буферу, снизу вверх по правкам (смещения внутри заменяемого диапазона меряются по старому тексту; длины нужны только строк правки до её последней, а их нижние правки не трогают), то есть раньше любых событий правки; поведение краёв — `TrackedRangeStickiness` (те же 4 значения), проверено дословной таблицей «Decorations and editing» эталона. Диапазон при добавлении приводится к документу (`validateRange`). `setText` (flush) правок не несёт — диапазоны остаются на прежних координатах, приведённые к новому тексту (отступление: эталон на `setValue` декорации сносит, но перечитку файла проводит диффом правок, и декорации переживают её). Упрощение — плоский `Map` и линейный проход на правку, без `IntervalTree`; `forceMoveMarkers`/`collapseOnReplaceEdit` нет. Владельцы — вью: декорации маркеров каждой `EditorViewState` свои и снимаются её `dispose`. Остальные декорации (поиск, вхождения, gutter-бары) пока пересчитываются владельцами — follow-up в [docs/TODO/TrackedDecorations.md](../TODO/TrackedDecorations.md).

@@ -238,7 +238,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 (component → element). Эталоны: `EditorGroupComponent` ↔ `EditorTabStripElement`,
 `InputWidgetService` ↔ `InputElement` + `InputState`. «Контроллеры под видом
 элемента» (напр. `MenuBarElement`, `ContextMenuLayer`) сводим к этому паттерну —
-см. [../TODO/Inspector.md](../TODO/Inspector.md).
+см. [../TODO/EngineWidgetRepatriation.md](../TODO/EngineWidgetRepatriation.md).
 
 **Где живёт Element.** Элемент общего назначения (его публичный API не упоминает
 понятий Diode) — в `@tuidom/elements`. Diode-специфичному элементу в tuidom не
