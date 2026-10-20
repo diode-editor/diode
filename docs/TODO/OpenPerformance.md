@@ -66,8 +66,9 @@ EditorComponent`. Разведка 2026-09-27, ссылки на код акту
 5. **`buildProjection`** (`editorViewState.ts:2211-2305`): проход по всем строкам с двумя
    `number[]` и `Int32Array`, при открытии строится 2–4 раза (фолдинг бампает версию дважды,
    `setWordWrap`, `ensurePrimaryCursorVisible`).
-6. **`new TextDocument`**: `detectEndOfLine` — два полных `indexOf`-прохода, затем regex
-   `split(/\r\n|\n/)` — третий проход и N строк-слайсов.
+6. ~~**`new TextDocument`**: `detectEndOfLine` — два полных `indexOf`-прохода, затем regex
+   `split(/\r\n|\n/)` — третий проход и N строк-слайсов.~~ С A3 ([VscodeModel](VscodeModel.md)) —
+   один проход билдера PieceTree (`createLineStarts`) без строк-слайсов.
 7. `detectIndentation` — дважды, но с капом 10 К строк (дёшево, просто лишнее).
 8. После кадра, но тоже O(N): QuickDiff (`getText` + два `split` + diff с капом 1 с).
 

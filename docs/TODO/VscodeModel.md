@@ -1,7 +1,7 @@
 # Модель документа и токенизация из VS Code
 
 **Статус**: `[~]` — план согласован с человеком 2026-10-19; B1 (фоновая и вьюпортная
-токенизация) и A1+A2 (вендор PieceTree с upstream-тестами) сделаны. Порядок — по очереди, каждый шаг вливается до следующего:
+токенизация), A1+A2 (вендор PieceTree с upstream-тестами) и A3 (`TextDocument` на PieceTree) сделаны. Порядок — по очереди, каждый шаг вливается до следующего:
 **B1 → A1+A2 → A3 → A4 → (замер) B2 → B3**. Жадные O(N) проходы вью — отдельно, этап 2
 [OpenPerformance](OpenPerformance.md).
 
@@ -121,24 +121,38 @@ upstream-файлами.
 буферу тем же путём, что `TextModel` эталона (фабрика билдера, `ValidAnnotatedEditOperation`,
 `createSnapshot(false)`).
 
-### [ ] A3. `TextDocument` поверх PieceTree за тем же `ITextDocument`
-Контракт, который обязан сохраниться (тесты `textDocument.*` остаются зелёными **без правок**):
-- `getText()`, `getLineContent`, `getLineLength`, `lineCount`, `getLength()`,
-  `getPositionAt ↔ getOffsetAt` (O(log n));
-- `applyEdits(edits[])` — батч снизу вверх; `setText(text)` (`isFlush`);
-- **`onDidChangeContent`** — `{ startLine, oldEndLine, newEndLine }` с теми же координатами и в
-  том же порядке (документный, последовательный — см. [arch/Editor.md](../arch/Editor.md)); на нём
-  стоят `DocumentTokenStore`, декорации, маркеры, view-state;
-- `onDidChangeModelContent` (точные правки для зеркала в extension host), `versionId`, декорации;
-- inverse edits — из `reverseEdits` PieceTree; undo остаётся на inverse-edits, снапшоты дерева —
-  опционально позже;
-- честные CRLF и смешанные EOL (сейчас теряются в `split`).
+### [x] A3. `TextDocument` поверх PieceTree за тем же `ITextDocument`
+`model/textDocument.ts` — адаптер над `PieceTreeTextBuffer` (устройство и решения —
+[arch/Editor.md](../arch/Editor.md#хранение-текста-piece-tree-эталона)). Тесты `textDocument.*`,
+`trackedDecorations`, `undoManager.*`, `editorViewState.*`, `documentTokenStore.*` зелёные без
+правок; новые кейсы адаптера — `textDocument.pieceTree.test.ts`. Наш `computeInverseEdits` ушёл —
+обратные правки из `reverseEdits` буфера.
+
+- **EOL — нормализация при загрузке, как у эталона по умолчанию** (`normalizeEOL`), а не честное
+  хранение смешанных EOL: поведение для пользователя то же, что было, кроме одиночного `\r` — он
+  теперь перевод строки, как в VS Code. Честное хранение mixed EOL — не в планах (эталон его тоже
+  не делает по умолчанию).
+- `getLength()` и `getPositionAt ↔ getOffsetAt` в `ITextDocument` не добавлены: потребителей нет.
+
+**Замер** (`bench:open`, локально, медианы; xlarge — 2 круга × 5 прогонов поочерёдно): до текста
+и правки — в пределах шума, `Ctrl+End` на xlarge 165 → 33–86 мс, peak RSS xlarge 512 → 483 МБ,
+`main.cjs` +92 КБ. **Правки на xlarge от A3 не ускорились** (вставка ~200, Enter ~340,
+undo ~350 мс что до, что после): CPU-профиль клавиши (`--cpu-prof` бинаря через drive) — ~100 мс
+синхронно во вью при ~10 мс на буфер: рендер маркер-декораций (`paintMarkerDecoration` по всем
+маркерам TS), `buildProjection`, `visualToLogicalLine`; асинхронно — `computeIndentationFolds` и
+вхождения слова (`findTextMatches`) полным проходом по строкам. Это этап 2
+[OpenPerformance](OpenPerformance.md), а не буфер. Цена A3 там: полный проход `getLineContent` по
+200k строк — ~20 мс вместо ~1 мс у `string[]` (O(log n) на строку), поэтому эти проходы стали
+дороже в абсолюте (фолдинг ~2.4× по профилю). `getLineLength` адаптер считает через
+`getLineContent` — иначе тот же проход стоил бы ~110 мс.
 
 ### [ ] A4. Полный текст с горячих путей
 Сборка из чанков чтения; `extHostDocuments.ts` (полный `getText()` на правку), QuickDiff,
 `serialize` — через снапшот/итератор. `getText()` наружу — только потребителям с лимитом.
 
-Метрика ветки A: вставка/Enter/undo на `xlarge` не зависят от размера, RSS падает.
+Метрика ветки A: вставка/Enter/undo на `xlarge` не зависят от размера, RSS падает. После A3
+ясно, что одной веткой A её не достать: правку на xlarge держат O(N) проходы вью (см. замер A3) —
+метрика закрывается вместе с этапом 2 OpenPerformance.
 
 ## Ветка C — по замерам
 
