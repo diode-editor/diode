@@ -13,8 +13,8 @@ import { monokaiTheme } from "./monokai.ts";
  * `scripts/import-vscode-themes.mjs`. Order here is the order shown in the
  * theme picker.
  *
- * Loading themes contributed by installed extensions (`contributes.themes`) is
- * a follow-up — see docs/TODO/Theming.md.
+ * Themes contributed by installed extensions (`contributes.themes`) are
+ * registered by `ExtensionThemeContributor` — see docs/arch/Theme.md.
  */
 export const builtinThemes: readonly IThemeFile[] = [
     dark2026Theme,

@@ -6,7 +6,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Тема из магазина (#84, docs/TODO/Theming.md): расширение-тема проходит тот же
+// Тема из магазина (#84, docs/arch/Theme.md): расширение-тема проходит тот же
 // путь, что любое расширение — Install со страницы магазина → Reload Window →
 // его темы в пикере Color Theme → выбор перекрашивает окно. Кадры: страница
 // после установки, пикер с live preview на `Sample Dark`, окно после Enter.

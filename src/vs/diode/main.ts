@@ -440,8 +440,8 @@ async function runEditor(): Promise<void> {
     // ── Темы: встроенные + из расширений, выбор активной ───────
     // Темы расширений (`contributes.themes`) читаются ЗДЕСЬ, до выбора активной
     // и до первого кадра: если `workbench.colorTheme` называет тему расширения,
-    // первый кадр уже в ней, без промежуточного Dark Modern (Theming.md, решения
-    // 2–3). Файлов немного и они маленькие — это не грамматики.
+    // первый кадр уже в ней, без промежуточного Dark Modern (docs/arch/Theme.md,
+    // «Темы расширений: решения», 2–3). Файлов немного и они маленькие — это не грамматики.
     const themeRegistry = createBuiltinThemeRegistry();
     const themeContributor = new ExtensionThemeContributor(assets, allExtensions, themeRegistry, extensionsLogger);
     await themeContributor.apply();

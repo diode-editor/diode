@@ -9,7 +9,7 @@ import { mergeThemeFiles } from "../../../../platform/theme/common/mergeThemeFil
 import { parseThemeFile } from "../../../../platform/theme/common/themeFileParser.ts";
 import type { ThemeRegistry } from "../../themes/common/themeRegistry.ts";
 
-/** `uiTheme` манифеста → `IThemeFile.type` (решение 7 в Theming.md). */
+/** `uiTheme` манифеста → `IThemeFile.type` (решение 7 в docs/arch/Theme.md, «Темы расширений: решения»). */
 const UI_THEME_TYPES: Partial<Record<string, IThemeFile["type"]>> = {
     vs: "light",
     "vs-dark": "dark",
@@ -33,7 +33,7 @@ interface IThemeEntry {
  * В отличие от грамматик, файлы тем читаются на старте — **все и до первого
  * кадра**: тема — десятки килобайт, а пикеру нужен синхронный `resolve` для
  * live preview, и первый кадр обязан быть уже в теме из `workbench.colorTheme`
- * (решение 2 в Theming.md). Чтение параллельное, регистрация — в порядке
+ * (решение 2 в docs/arch/Theme.md, «Темы расширений: решения»). Чтение параллельное, регистрация — в порядке
  * расширений (встроенные → пользовательские): последняя регистрация одного
  * `label` побеждает, о затенении — warning с обоими id.
  *

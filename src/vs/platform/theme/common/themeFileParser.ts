@@ -18,7 +18,7 @@ import type {
  * можно спасти, спасается с предупреждением через `warn`: невалидные цвета
  * (`WorkbenchTheme` бросил бы на них при `resolve`), правила `tokenColors` без
  * `settings`, `tokenColors` строкой (путь к `.tmTheme`, plist XML — не
- * поддержан: подсветка остаётся дефолтной, решение 8 в Theming.md).
+ * поддержан: подсветка остаётся дефолтной, решение 8 в docs/arch/Theme.md, «Темы расширений: решения»).
  * `name` из файла не читается — ключ темы задаёт манифест (`label`).
  * `semanticHighlighting` берётся, только если это `true`/`false`;
  * `semanticTokenColors` разбирается в {@link IThemeFile.semanticTokenRules}
