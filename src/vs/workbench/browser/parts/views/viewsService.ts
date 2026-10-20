@@ -43,15 +43,13 @@ import type { BooleanContextKey, SidebarService } from "../sidebar/sidebarServic
 import { SidebarServiceDIToken } from "../sidebar/sidebarService.ts";
 
 import { PaneViewElement } from "./paneViewElement.ts";
+import { inlineActions, isSelectionSubmenu, NAVIGATION_GROUP, overflowEntries, runAction } from "./titleMenuEntries.ts";
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 import type { IViewWelcomeBlock } from "./viewWelcomeElement.ts";
 import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
 
 export const ViewsServiceDIToken = token<ViewsService>("ViewsService");
-
-/** Спец-группа VS Code: её пункты рисуются кнопками в заголовке, а не в попапе. */
-const NAVIGATION_GROUP = "navigation";
 
 /** Подменю-переключатель видимости секций (VS Code: «Views»). */
 const VIEWS_SUBMENU_LABEL = "Views";
@@ -1732,66 +1730,6 @@ function containerTitle(entry: ContainerEntry): string {
     // Stryker disable next-line OptionalChaining,StringLiteral: опустевший сгенерированный удаляется сразу (syncPresence) — без видов его название не спрашивают
     if (entry.generated) return entry.views.at(0)?.title ?? "";
     return attached(entry).descriptor.title;
-}
-
-/**
- * Inline-кнопки заголовка: группа `navigation`, у пунктов которой есть иконка.
- * Пункт без иконки кнопкой не нарисовать (в 30 колонок сайдбара не влезет
- * подпись), поэтому он остаётся в «⋯» — как и submenu-записи навигации
- * (кроме submenu-выбора: оно — виджет заголовка, см. {@link overflowEntries}).
- */
-function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAction[] {
-    const navigation = groups.find((group) => group.group === NAVIGATION_GROUP);
-    if (navigation === undefined) return [];
-    return navigation.entries
-        .filter(isInlineItem)
-        .map((entry) => ({ id: entry.id, icon: entry.icon, enabled: entry.enabled }));
-}
-
-/**
- * Пункты попапа «⋯»: всё, что не уехало в inline-кнопки и в виджет заголовка.
- * Submenu-выбор группы `navigation` (`isSelection`) владелец view рисует сам
- * выпадающим списком (`setViewTitleWidget`, селектор каналов Output) — как
- * VS Code рисует его `SelectBox`'ом тулбара. Повторять его пунктом «⋯» значит
- * показать рядом два одинаковых списка, а у вкладки — кнопку, которая только
- * этот дубль и открывает.
- */
-function overflowEntries(groups: readonly IMenuEntryGroup[]): MenuEntry[] {
-    const rest = groups.map((group) =>
-        group.group === NAVIGATION_GROUP
-            ? {
-                  group: group.group,
-                  entries: group.entries.filter((entry) => !isInlineItem(entry) && !isSelectionSubmenu(entry)),
-              }
-            : group,
-    );
-    return joinMenuGroups(rest.filter((group) => group.entries.length > 0));
-}
-
-/** Клик по inline-кнопке исполняет тот же пункт, что нарисовал кнопку. */
-function runAction(groups: readonly IMenuEntryGroup[], actionId: string): void {
-    for (const group of groups) {
-        for (const entry of group.entries) {
-            if (isInlineItem(entry) && entry.id === actionId) {
-                // Погашенная кнопка кликается (зона за ней осталась, иначе клик
-                // свернул бы секцию), но ничего не делает: отказ живёт в самом
-                // резолвнутом пункте (`MenuRegistry.toEntry`), второй проверки
-                // здесь не нужно.
-                // Stryker disable next-line OptionalChaining: onSelect есть у любого пункта, резолвнутого MenuRegistry — защита от чужих реализаций MenuEntry
-                entry.onSelect?.();
-                return;
-            }
-        }
-    }
-}
-
-function isSelectionSubmenu(entry: ResolvedMenuEntry): boolean {
-    // Stryker disable next-line ConditionalExpression: проверка типа — сужение для TS; пометку `isSelection` реестр ставит только submenu-записям, у пункта-команды её не бывает
-    return entry.type === "submenu" && entry.isSelection === true;
-}
-
-function isInlineItem(entry: ResolvedMenuEntry): entry is IResolvedMenuItemEntry & { id: string; icon: string } {
-    return entry.type === undefined && typeof entry.id === "string" && typeof entry.icon === "string";
 }
 
 /**

@@ -5,6 +5,7 @@ import type { GroupId } from "../../services/editor/browser/editorGroupModel.ts"
  * - `MenuId.EditorContext`, меню-бар → `undefined`;
  * - `MenuId.ExplorerContext` → {@link ExplorerMenuContext};
  * - `MenuId.EditorTitleContext` → {@link EditorTitleMenuContext};
+ * - `MenuId.EditorTitle` → {@link EditorTitleBarMenuContext};
  * - `MenuId.ScmContext` → {@link ScmMenuContext};
  * - `MenuId.ScmGraphContext` → {@link ScmGraphMenuContext}.
  *
@@ -133,6 +134,14 @@ export interface EditorTitleMenuContext {
     readonly hasSavedTabs: boolean;
     /** Вкладка под курсором — предпросмотр: видимость Keep Open. */
     readonly isPreview: boolean;
+}
+
+/**
+ * Контекст панели действий группы (`MenuId.EditorTitle`): у каждой группы своя
+ * панель, пункт может узнать, в какой он.
+ */
+export interface EditorTitleBarMenuContext {
+    readonly groupId: GroupId;
 }
 
 /** Аргументы команд вкладки — адрес вкладки под курсором. */

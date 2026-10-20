@@ -1,0 +1,41 @@
+{
+    "name": "editor-title-demo",
+    "displayName": "Editor Title Demo",
+    "description": "Демо-расширение панели действий группы (editor/title) в форме вклада Claude Code: accept/reject предложенного диффа кодиконами под setContext-ключом и пункт с SVG-иконкой под config.*-ключом.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "configuration": {
+            "title": "Editor Title Demo",
+            "properties": {
+                "editorTitleDemo.useTerminal": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show the Open Agent action (config.* when-key)."
+                }
+            }
+        },
+        "commands": [
+            { "command": "editorTitleDemo.propose", "title": "Editor Title Demo: Propose Changes" },
+            { "command": "editorTitleDemo.accept", "title": "Editor Title Demo: Accept", "icon": "$(check)" },
+            { "command": "editorTitleDemo.reject", "title": "Editor Title Demo: Reject", "icon": "$(discard)" },
+            {
+                "command": "editorTitleDemo.open",
+                "title": "Editor Title Demo: Open Agent",
+                "icon": { "light": "resources/logo.svg", "dark": "resources/logo.svg" }
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                { "command": "editorTitleDemo.accept", "when": "editorTitleDemo.viewingProposedDiff", "group": "navigation" },
+                { "command": "editorTitleDemo.reject", "when": "editorTitleDemo.viewingProposedDiff", "group": "navigation" },
+                { "command": "editorTitleDemo.open", "when": "config.editorTitleDemo.useTerminal", "group": "navigation" }
+            ]
+        }
+    }
+}

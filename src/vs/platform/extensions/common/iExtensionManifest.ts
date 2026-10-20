@@ -255,6 +255,11 @@ export interface ICommandContribution {
     readonly title: string;
     /** Группа команды (`"Java"`) — префикс подписи в палитре, но не часть `title`. */
     readonly category?: string;
+    /**
+     * Иконка команды: `"$(имя)"` — codicon (кнопка в заголовке меню), путь или
+     * `{ light, dark }` к SVG — нарисовать нечем, пункт остаётся подписью в «⋯».
+     */
+    readonly icon?: unknown;
     readonly [key: string]: unknown;
 }
 

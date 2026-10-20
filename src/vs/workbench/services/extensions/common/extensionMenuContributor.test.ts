@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -421,5 +422,93 @@ describe("registerExtensionMenus", () => {
 
         expect(labels(menus, MenuId.EditorContext)).toEqual([]);
         expect(lines).toEqual([]);
+    });
+});
+
+describe("registerExtensionMenus — editor/title и иконки команд", () => {
+    /** Иконки пунктов точки по id команды — так их увидит панель действий. */
+    function icons(menus: MenuRegistry, menuId: MenuId): Record<string, string | undefined> {
+        const result: Record<string, string | undefined> = {};
+        for (const entry of menus.getMenuItems(menuId)) {
+            if (entry.type === undefined && typeof entry.id === "string") result[entry.id] = entry.icon;
+        }
+        return result;
+    }
+
+    it("editor/title — панель действий группы; иконка $(codicon) — глиф, SVG и неизвестный codicon — без иконки", () => {
+        const { menus, commands } = makeRegistry();
+        for (const id of ["ext.accept", "ext.open", "ext.ghost", "ext.plain"])
+            commands.register(id, () => undefined, id);
+        const { logger, lines } = collectLog();
+
+        registerExtensionMenus(
+            [
+                extension("pub.claude", {
+                    commands: [
+                        { command: "ext.accept", title: "Accept", icon: "$(check)" },
+                        { command: "ext.open", title: "Open", icon: { light: "a.svg", dark: "a.svg" } },
+                        { command: "ext.ghost", title: "Ghost", icon: "$(no-such-codicon)" },
+                        { command: "ext.plain", title: "Plain", icon: "resources/logo.svg" },
+                    ],
+                    menus: {
+                        "editor/title": [
+                            { command: "ext.accept", group: "navigation" },
+                            { command: "ext.open", group: "navigation" },
+                            { command: "ext.ghost", group: "navigation" },
+                            { command: "ext.plain", group: "navigation" },
+                        ],
+                    },
+                }),
+            ],
+            menus,
+            logger,
+        );
+
+        expect(icons(menus, MenuId.EditorTitle)).toEqual({
+            "ext.accept": "",
+            "ext.open": undefined,
+            "ext.ghost": undefined,
+            "ext.plain": undefined,
+        });
+        expect(lines).toEqual([]);
+    });
+
+    it("иконка — строка ровно `$(имя)` или `$(имя~модификатор)`: с текстом вокруг — не иконка", () => {
+        const { menus, commands } = makeRegistry();
+        const ids = ["ext.spin", "ext.before", "ext.after", "ext.emptyModifier"];
+        for (const id of ids) commands.register(id, () => undefined, id);
+        registerExtensionMenus(
+            [
+                extension("pub.claude", {
+                    commands: [
+                        { command: "ext.spin", title: "Spin", icon: "$(sync~spin)" },
+                        { command: "ext.before", title: "Before", icon: "x $(check)" },
+                        { command: "ext.after", title: "After", icon: "$(check) x" },
+                        { command: "ext.emptyModifier", title: "Empty modifier", icon: "$(check~)" },
+                    ],
+                    menus: { "editor/title": ids.map((command) => ({ command, group: "navigation" })) },
+                }),
+            ],
+            menus,
+        );
+        expect(icons(menus, MenuId.EditorTitle)).toStrictEqual({
+            "ext.spin": CODICON_GLYPHS.sync,
+            "ext.before": undefined,
+            "ext.after": undefined,
+            "ext.emptyModifier": undefined,
+        });
+    });
+
+    it("иконка — у команды: пункт другого расширения и другой точки получает её же", () => {
+        const { menus, commands } = makeRegistry();
+        commands.register("ext.accept", () => undefined, "Accept");
+        registerExtensionMenus(
+            [
+                extension("pub.owner", { commands: [{ command: "ext.accept", title: "Accept", icon: "$(check)" }] }),
+                extension("pub.user", { menus: { "view/title": [{ command: "ext.accept", group: "navigation" }] } }),
+            ],
+            menus,
+        );
+        expect(icons(menus, MenuId.ViewTitle)).toEqual({ "ext.accept": "" });
     });
 });

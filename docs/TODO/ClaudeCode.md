@@ -39,7 +39,9 @@ Open in Terminal`) открывает `claude` **вкладкой редакто
    `claude` открывается вкладкой справа. См. «Раскладка».
 3. ~~**When-ключи `config.*`**~~ — сделано: `Ctrl+Esc`
    (`claude-vscode.terminal.open.keyboard`) жив — в kitty/csi-u, в legacy это Esc.
-4. **Точка меню `editor/title`** — кнопка Claude у вкладок и accept/reject диффа.
+4. ~~**Точка меню `editor/title`**~~ — сделано: панель действий справа от
+   вкладок; accept/reject диффа — кнопки ✓/↺, `Open in Terminal` (SVG-иконка) —
+   в «⋯».
 5. **Предложенный дифф** (пункт 3): запись в ФС провайдера расширения и
    редактируемый документ на чужой схеме, `tabGroups` с `TabInputTextDiff` и
    закрытием дифф-вкладки.
@@ -192,9 +194,9 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 - [ ] `tabGroups` с `TabInputTextDiff` и отслеживанием закрытия дифф-вкладки
       (сейчас снимки без гарантии идентичности); расширение опрашивает
       `tabGroups.all`.
-- [ ] Вклад `editor/title` из `contributes.menus` с `when`
+- [x] Вклад `editor/title` из `contributes.menus` с `when`
       `claude-vscode.viewingProposedDiff` — кнопки accept/reject у вкладки
-      (`setContext` есть). Минимум — команды в палитре.
+      (`setContext` есть) — см. «Раскладка».
 - [ ] Перехват команды `type`/`default:type` расширение делает в try/catch —
       допустимо не поддерживать.
 
@@ -298,10 +300,18 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 - [x] **When-ключи `config.*`** (`ConfigAwareContextValuesContainer` эталона)
       — [WhenContext.md](WhenContext.md); `Ctrl+Esc` жив, и больше не срабатывают
       ветки `!config.claudeCode.useTerminal` (фокус несуществующего webview).
-- [ ] **Точка меню `editor/title`**: панель действий справа от вкладок
-      группы, `MenuId.EditorTitle`, группа `navigation`; SVG-иконку в TUI не
-      нарисовать — фоллбэк на кодикон или заголовок. Тот же вклад нужен
-      пункту 3 (кнопки accept/reject диффа).
+- [x] **Точка меню `editor/title`**: панель действий справа от вкладок
+      группы, `MenuId.EditorTitle` — [Workbench.md](../arch/Workbench.md),
+      «`EditorTitle` — панель действий группы». Иконка `$(codicon)` команды —
+      кнопка (accept/reject диффа: ✓/↺, видны по
+      `claude-vscode.viewingProposedDiff`); SVG-иконку не нарисовать — пункт
+      уходит подписью в «⋯» (правило заголовков view: кнопкой — только пункт с
+      иконкой), так `Claude Code: Open in Terminal` открывается из «⋯».
+- [ ] **SVG-иконки команд** (`icon: { light, dark }` или путь к `.svg`):
+      сейчас такой пункт `navigation` уходит в «⋯» — решение принято как
+      временное, «Open in Terminal» Claude Code должен стать кнопкой. Варианты:
+      свой глиф для известных команд, растр SVG в символ (kitty graphics /
+      sixel — только где терминал умеет), короткая текстовая кнопка.
 - [x] Настоящая правая боковая панель с переносом видов (Terminal) —
       задача [SecondarySideBar](SecondarySideBar.md), стек #649/#654/#660/#661.
       Расширение само её не использует; она — чтобы
@@ -311,8 +321,9 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 ## Порядок
 
 1 + 2 — сделаны; 4 — сделан по ходу живой проверки контекста (был её
-блокером). Дальше раскладка (терминал вкладкой справа → `config.*` →
-`editor/title`), затем 3.
+блокером). Раскладка (терминал вкладкой справа → `config.*` →
+`editor/title`) сделана (#675, #676 и PR панели действий), от неё остались
+SVG-иконки команд. Дальше 3.
 
 ## Устаревшее в VISION.md
 

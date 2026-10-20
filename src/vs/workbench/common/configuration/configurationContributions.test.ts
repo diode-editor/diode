@@ -41,6 +41,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "workbench.colorTheme": "window",
     "workbench.editor.enablePreview": "window",
     "workbench.editor.closeOnFileDelete": "window",
+    "workbench.editor.editorActionsLocation": "window",
     "workbench.tree.expandMode": "window",
     "workbench.secondarySideBar.defaultVisibility": "window",
 

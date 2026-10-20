@@ -23,6 +23,13 @@ export class MenuId {
      */
     public static readonly EditorTitleContext = new MenuId("EditorTitleContext");
     /**
+     * Панель действий справа от вкладок группы редакторов (VS Code
+     * `editor/title`, `MenuId.EditorTitle`): группа `navigation` с иконкой —
+     * кнопки, остальное — попап «⋯». У каждой группы своя панель; контекст
+     * открытия — `EditorTitleBarMenuContext` (id группы).
+     */
+    public static readonly EditorTitle = new MenuId("EditorTitle");
+    /**
      * Контекст-меню вкладки встроенного терминала (VS Code `TerminalTabContext`):
      * правый клик по строке списка терминалов или по имени активного терминала
      * в заголовке. Цель — инстанс под курсором (см. `TerminalTabMenuContext`).
