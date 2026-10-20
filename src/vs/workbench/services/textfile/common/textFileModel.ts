@@ -6,7 +6,7 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
-import { DEFAULT_ENCODING, getEncodingInfo } from "../../../../editor/common/model/encoding.ts";
+import { decodeBufferByBOM, DEFAULT_ENCODING, getEncodingInfo } from "../../../../editor/common/model/encoding.ts";
 import {
     decodeStream,
     decodeStreamByBOM,
