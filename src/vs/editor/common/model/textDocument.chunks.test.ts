@@ -74,7 +74,14 @@ describe("TextDocument.createSnapshot", () => {
         // Все, кроме последнего, — не меньше порога: тысячи однобуквенных кусков
         // правок не доходят до кодировщика по одному.
         for (const chunk of chunks.slice(0, -1)) expect(chunk.length).toBeGreaterThanOrEqual(64 * 1024);
+        expect(chunks.length).toBeGreaterThanOrEqual(2);
         expect(chunks.length).toBeLessThanOrEqual(3);
+    });
+
+    it("кусок, дошедший до порога, уходит сразу; пустого хвоста в конце нет", () => {
+        const piece = 64 * 1024;
+        const doc = new TextDocument(createTextBufferFactoryFromChunks(["x".repeat(piece), "y".repeat(piece)]));
+        expect([...doc.createSnapshot()].map((chunk) => chunk.length)).toEqual([piece, piece]);
     });
 
     it("снимок фиксирует текст на момент вызова", () => {

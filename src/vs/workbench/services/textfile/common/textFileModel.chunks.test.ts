@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import iconv from "iconv-lite";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
@@ -9,6 +10,29 @@ import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { encodeText } from "../../../../editor/common/model/encoding.ts";
 
 import { READ_CHUNK_SIZE } from "./textFileModel.ts";
+
+/** Открытые через `fs.openSync` дескрипторы → путь: чтение кусками обязано их закрывать. */
+const openFds = vi.hoisted(() => new Map<number, string>());
+
+vi.mock("node:fs", async (importActual) => {
+    const actual = await importActual<typeof fs>();
+    return {
+        ...actual,
+        openSync: (...args: Parameters<typeof actual.openSync>) => {
+            const fd = actual.openSync(...args);
+            openFds.set(fd, String(args[0]));
+            return fd;
+        },
+        closeSync: (fd: number) => {
+            openFds.delete(fd);
+            actual.closeSync(fd);
+        },
+    };
+});
+
+function openPaths(): string[] {
+    return [...openFds.values()];
+}
 
 /**
  * Файл читается кусками ({@link READ_CHUNK_SIZE}) и пишется снимком документа (A4,
@@ -77,6 +101,21 @@ describe("TextFileModel — чтение кусками и запись сним
             pane.dispose();
         });
     }
+
+    it("файл закрывается: и после открытия, и после устаревшего reopen", async () => {
+        const filePath = ws.path("fd.txt");
+        fs.writeFileSync(filePath, iconv.encode("текст\n", "windows1251"));
+        const pane = createEditorPane();
+        pane.openFile(Uri.file(filePath));
+        expect(openPaths()).not.toContain(filePath);
+
+        // Reopen ждёт iconv, перечитка его обгоняет: начатое им чтение всё равно закрыто.
+        const pending = pane.reopenWithEncoding("windows1251");
+        pane.revertToDisk();
+        expect(await pending).toBe(false);
+        expect(openPaths()).not.toContain(filePath);
+        pane.dispose();
+    });
 
     it("пустой и отсутствующий файл — пустой документ", () => {
         const empty = ws.path("empty.txt");

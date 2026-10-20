@@ -32,6 +32,8 @@ const SAMPLES = [
     "привет\r\nмир",
     "😀 и 𝄞\n",
     "\ufeffвнутренний BOM",
+    // Двухбайтовый символ utf-8 с наименьшим допустимым ведущим байтом C2.
+    "© 2026",
     // Одинокие суррогаты: utf-8 даёт EF BF BD, UTF-16 — кодовую единицу как есть.
     "x\ud83dy",
     "\udc00z\ud83d",
@@ -98,6 +100,16 @@ describe("decodeStream / decodeStreamByBOM", () => {
         const decoded = decodeStreamByBOM(source());
         // Сниф взял только первый кусок.
         expect(pulled).toEqual([0]);
+        // Ровно три байта — уже хватает на самый длинный BOM, второй кусок не нужен.
+        pulled.length = 0;
+        function* short(): Generator<Buffer> {
+            for (let i = 0; i < 2; i++) {
+                pulled.push(i);
+                yield Buffer.from("abc");
+            }
+        }
+        decodeStreamByBOM(short());
+        expect(pulled).toEqual([0]);
         for (const text of decoded.text) {
             if (text === "chunk1") break;
         }
@@ -121,6 +133,11 @@ describe("encodeChunks", () => {
 
     it("пара, разрезанная границей, — один 4-байтовый символ utf-8, а не два U+FFFD", async () => {
         expect((await encodeChunks(["a\ud83d", "\ude00"], "utf8")).toString("hex")).toBe("61f09f9880");
+    });
+
+    it("крайние старшие суррогаты D800 и DBFF на границе тоже ждут пару", async () => {
+        expect((await encodeChunks(["\ud800", "\udc00"], "utf8")).toString("hex")).toBe("f0908080");
+        expect((await encodeChunks(["\udbff", "\udfff"], "utf8")).toString("hex")).toBe("f48fbfbf");
     });
 
     it("BOM пишется и для пустого снапшота", async () => {
@@ -150,6 +167,11 @@ describe("отказ загрузки iconv-lite", () => {
         }
         await expect(decodeStream(source(), "windows1251")).rejects.toThrow("кусок не загрузился");
         expect(closed).toBe(true);
+    });
+
+    it("decodeStream отказывает и у источника без return (итератор массива)", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
+        await expect(decodeStream([Buffer.from([0xcf])], "windows1251")).rejects.toThrow("кусок не загрузился");
     });
 
     it("encodeChunks отказывает, а не пишет молча utf-8", async () => {

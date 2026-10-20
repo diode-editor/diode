@@ -48,12 +48,14 @@ interface IStreamCodec {
  * would have read as one character.
  */
 function utf8IncompleteTail(bytes: Buffer): number {
+    // Stryker disable next-line MethodExpression: без нижней границы цикл идёт левее, но ведущий байт там отстоит от конца больше чем на 4 — хвост 0, как и после цикла
     const stop = Math.max(0, bytes.length - 3);
     for (let i = bytes.length - 1; i >= stop; i--) {
         const byte = bytes[i];
         // Байт продолжения (10xxxxxx) — ищем ведущий дальше влево.
         if ((byte & 0xc0) === 0x80) continue;
-        const expected = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc0 ? 2 : 1;
+        // C0/C1 никогда не начинают допустимую последовательность — U+FFFD сразу.
+        const expected = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc2 ? 2 : 1;
         const present = bytes.length - i;
         return present < expected ? present : 0;
     }
@@ -67,6 +69,7 @@ function createUtf8Decoder(): IChunkDecoder {
             const bytes = pending === null ? chunk : Buffer.concat([pending, chunk]);
             const cut = bytes.length - utf8IncompleteTail(bytes);
             // Копия хвоста: буфер чтения вызывающий может переиспользовать.
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: пустой хвост буфером вместо null — тот же декод, null лишь экономит копию
             pending = cut < bytes.length ? Buffer.from(bytes.subarray(cut)) : null;
             return bytes.toString("utf8", 0, cut);
         },
@@ -91,6 +94,7 @@ function createUtf16Decoder(bigEndian: boolean): IChunkDecoder {
         write(chunk) {
             const bytes = pending === null ? chunk : Buffer.concat([pending, chunk]);
             const even = bytes.length & ~1;
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: пустой хвост буфером вместо null — тот же декод, null лишь экономит копию
             pending = even < bytes.length ? Buffer.from(bytes.subarray(even)) : null;
             const units = bytes.subarray(0, even);
             return (bigEndian ? Buffer.from(units).swap16() : units).toString("utf16le");
@@ -113,14 +117,13 @@ function createNativeEncoder(encode: (text: string) => Buffer): IChunkEncoder {
         write(text) {
             const joined = pending + text;
             const last = joined.charCodeAt(joined.length - 1);
+            // Stryker disable next-line ConditionalExpression: «придержать любой последний символ» даёт те же байты в сумме — отличие только в разбивке по кускам
             const cut = last >= 0xd800 && last <= 0xdbff ? joined.length - 1 : joined.length;
             pending = joined.slice(cut);
             return encode(joined.slice(0, cut));
         },
         end() {
-            const rest = pending;
-            pending = "";
-            return encode(rest);
+            return encode(pending);
         },
     };
 }
