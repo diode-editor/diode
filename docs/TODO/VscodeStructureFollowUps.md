@@ -115,11 +115,12 @@
 - Состав фичи — путь upstream (всё, что фича регистрирует, лежит в
   `contrib/<f>/`, центр знает фичу одной строкой в агрегаторе
   `workbench.common.main.ts`), механизм наш: явный экспорт фичи вместо
-  `<f>.contribution.ts` с побочным эффектом импорта. Канон и таблица оставшегося
-  долга с адресами задач — [arch/Workbench.md](../arch/Workbench.md#состав-фичи).
+  `<f>.contribution.ts` с побочным эффектом импорта. Канон —
+  [arch/Workbench.md](../arch/Workbench.md#состав-фичи), таблица оставшегося долга
+  с адресами задач — [ниже](#где-канон-состав-фичи-ещё-не-выполнен).
   Необязательные хвосты H6 (узлы конфигурации фич в `contrib/<f>/common/`,
   revision-команды из `diff/compareActions.ts` в scm, DI-дескриптор фичи вместо
-  блоков `workbenchModule.ts`) записаны там же в таблице долга. Разнос
+  блоков `workbenchModule.ts`) записаны там же. Разнос
   `workbenchModule.ts` на модули фич отдельно от этого дескриптора не делаем
   (исследование C5): без него число правок на фичу не уменьшается — те же
   строки переезжают из одного центрального места в другое.
@@ -132,6 +133,22 @@
   первого кадра, а не таймер 2.5 с: это бенч-критично. Общего bootstrap'а
   prod/test нет, как и в upstream: `startWorkbench` гоняют юниты на тестовом
   контейнере, харнесс его не повторяет.
+
+## Где канон «Состав фичи» ещё не выполнен
+
+Канон записан как целевой. Ниже — центральные файлы, где регистрации фич лежат
+сегодня, и задачи кампании рефакторингов, которые их разносят. Задача, закрывшая
+строку, удаляет её отсюда.
+
+| Сегодня в центре | Что там | Куда уходит | Задача |
+|---|---|---|---|
+| `workbench/browser/actions/{layout,editorGroup,input}Actions.ts` | экшены ядра зовут сервисы explorer, markers и поле ввода explorer напрямую | токены сервисов в `common/` фич или экшены — в фичи | E4 |
+| `platform/contextkey/common/contextKeys.ts` | объявления ключей фич | `contrib/<f>/common/<f>ContextKeys.ts` | C7 |
+| `workbench/common/stateKeys.ts` | ключи состояния фич | `<f>StateKeys.ts` у владельцев | E7 |
+| `workbench/browser/workbenchComponent.ts` | корень дерева Explorer и cwd терминала в `setWorkspaceFolder` | подписки explorer и терминала на смену папки, explorer как `IActivatable` — после того как путь папки перестанет терять регистр буквы диска (см. TODO); храповик направления, контейнеры у владельцев, хост оверлеев через `LayoutService`, фаза `blockStartup` и агрегатор `workbench.common.main.ts` уже сделаны | E4 |
+| `workbench/common/configuration/{scm,terminal,explorer,files,search,tasks}Configuration.ts` | узлы настроек фич | `contrib/<f>/common/` вместе с переездом `CONFIGURATION_CONTRIBUTIONS` в агрегатор | H6, необязательно |
+| `src/vs/diode/modules/workbenchModule.ts` | DI-биндинги фич | дескриптор фичи `contrib/<f>/browser/<f>.contribution.ts` | H6/C5, необязательно, после F2, E4 и F3 |
+| `contrib/diff/browser/compareActions.ts` | команды ревизий scm; из-за них цикл diff ↔ scm | `contrib/scm` | H6, необязательно |
 
 ## Опциональные углубления (перенос из upstream, упрощён парностью путей)
 

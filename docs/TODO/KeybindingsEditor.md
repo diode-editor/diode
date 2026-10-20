@@ -10,7 +10,7 @@ Ctrl+K Ctrl+S открывает UI-вкладку со списком всех 
 поведение (открыть keybindings.json) — в новой команде
 `workbench.action.openGlobalKeybindingsFile` (VS Code parity).
 
-Карта кода — [../arch/Workbench.md](../arch/Workbench.md#текущие-обитатели),
+Карта кода — [../arch/workbench/KeybindingsEditor.md](../arch/workbench/KeybindingsEditor.md),
 Preferences-кластер. Ключевое:
 
 - **Ядро** (`platform/keybinding/common/keybindingRegistry.ts`): `listBindings()`

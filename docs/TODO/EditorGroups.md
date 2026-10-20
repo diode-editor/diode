@@ -8,7 +8,7 @@ find-виджет на группу, персист полосы (`workbench.edi
 `onDidChangeVisibleTextEditors`/`vscode.diff` поверх snapshot-протокола
 `editor.layoutChanged`, document sync пер-модель + `editor.didClose`.
 Спека (US-1…50, AS-1…20) и решения планирования — в git; конвенции —
-[arch/Workbench.md](../arch/Workbench.md).
+[arch/workbench/EditorPart.md](../arch/workbench/EditorPart.md#группы-редакторов).
 
 ## Follow-up'ы (осознанные люфты реализации)
 

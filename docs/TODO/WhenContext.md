@@ -4,7 +4,7 @@
 
 Реализовать систему контекстных условий по аналогии с VS Code `when` clause — определяет, когда команда/кейбиндинг/пункт меню активен.
 
-`ContextKeyService` и интеграция с `KeybindingRegistry`/меню уже сделаны (описание — [arch/Workbench.md](../arch/Workbench.md), раздел про систему команд).
+`ContextKeyService` и интеграция с `KeybindingRegistry`/меню уже сделаны (описание — [arch/workbench/Commands.md](../arch/workbench/Commands.md)).
 
 ## Сделано (C7)
 
@@ -43,7 +43,7 @@ Code (`claude-vscode.terminal.open.keyboard`): раньше `config.*` был `u
 в своём `update()` и импортов из `contrib/` не имеет. Ключи с единственной
 точкой перехода пушит владелец (окружение — `TerminalEnvContextKeysContribution`,
 `panelVisible` — `LayoutService`). Смена фокуса — событие `FocusTracker`.
-Правило и список контрибьюторов — [arch/Workbench.md](../arch/Workbench.md).
+Правило и список контрибьюторов — [arch/workbench/Commands.md](../arch/workbench/Commands.md#контекст-ключи).
 
 Сознательно не сделано:
 - **Группы и история на события** (`editorGroupHasEditors`, `activeEditorGroup*`,

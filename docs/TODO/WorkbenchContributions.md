@@ -4,7 +4,7 @@
 реестр `IWorkbenchContribution` (#164), `MenuRegistry`/`MenuId` + меню-бар +
 co-location placement + живой `IMenu` + `enablement` (#166, #168),
 `QuickAccessRegistry` (#169), `ConfigurationRegistry` (#170), `ColorRegistry`
-(#171). Описание — [arch/Workbench.md](../arch/Workbench.md); история — в git.
+(#171). Описание — [arch/workbench/Contributions.md](../arch/workbench/Contributions.md), [arch/workbench/Menus.md](../arch/workbench/Menus.md); история — в git.
 
 Ниже — оставшиеся хвосты. Источник сверки —
 `vscode/src/vs/platform/actions/common/actions.ts` + `menuService.ts`.

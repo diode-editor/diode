@@ -351,7 +351,7 @@ Ctrl+W → `DIFF_REJECTED`; `close_tab`/`closeAllDiffTabs` → вкладка з
       — [WhenContext.md](WhenContext.md); `Ctrl+Esc` жив, и больше не срабатывают
       ветки `!config.claudeCode.useTerminal` (фокус несуществующего webview).
 - [x] **Точка меню `editor/title`**: панель действий справа от вкладок
-      группы, `MenuId.EditorTitle` — [Workbench.md](../arch/Workbench.md),
+      группы, `MenuId.EditorTitle` — [workbench/Menus.md](../arch/workbench/Menus.md),
       «`EditorTitle` — панель действий группы». Иконка `$(codicon)` команды —
       кнопка (accept/reject диффа: ✓/↺, видны по
       `claude-vscode.viewingProposedDiff`); SVG-иконку не нарисовать — пункт
