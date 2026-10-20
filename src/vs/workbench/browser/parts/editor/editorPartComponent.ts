@@ -2,6 +2,12 @@ import type { OverlayHostElement } from "@tuidom/elements/contextview/overlayHos
 import type { EditorPartOrientation } from "@tuidom/elements/editorpart/editorPartElement";
 import { EditorPartElement } from "@tuidom/elements/editorpart/editorPartElement";
 
+import type { MenuService } from "../../../../platform/actions/common/menuService.ts";
+import { MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -30,7 +36,14 @@ export const EditorPartComponentDIToken = token<EditorPartComponent>("EditorPart
  * `focusGroupContentHook` (фокус вкладки либо филлера пустой группы).
  */
 export class EditorPartComponent extends Component {
-    public static dependencies = [EditorServiceDIToken, ContextMenuServiceDIToken, EditorGroupsServiceDIToken] as const;
+    public static dependencies = [
+        EditorServiceDIToken,
+        ContextMenuServiceDIToken,
+        EditorGroupsServiceDIToken,
+        MenuServiceDIToken,
+        ContextKeyServiceDIToken,
+        IConfigurationServiceDIToken,
+    ] as const;
 
     public readonly view: EditorPartElement;
     private readonly groupComponents = new Map<GroupId, EditorGroupComponent>();
@@ -46,6 +59,9 @@ export class EditorPartComponent extends Component {
         private readonly editorService: IEditorService,
         private readonly contextMenuService: ContextMenuService,
         private readonly groups: IEditorGroupsService,
+        private readonly menus: MenuService,
+        private readonly contextKeys: ContextKeyService,
+        private readonly configuration: IConfigurationService,
     ) {
         super();
         this.view = new EditorPartElement();
@@ -163,7 +179,12 @@ export class EditorPartComponent extends Component {
             if (!this.groupComponents.has(group.id)) {
                 this.groupComponents.set(
                     group.id,
-                    new EditorGroupComponent(group, this.editorService, this.contextMenuService, this.groups),
+                    new EditorGroupComponent(group, this.editorService, this.contextMenuService, this.groups, {
+                        menus: this.menus,
+                        configuration: this.configuration,
+                        contextKeys: this.contextKeys,
+                        contextMenu: this.contextMenuService,
+                    }),
                 );
             }
         }

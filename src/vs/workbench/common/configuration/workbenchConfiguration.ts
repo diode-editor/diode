@@ -29,6 +29,20 @@ export const workbenchConfiguration = {
                 "preview mode. Making a change in a preview mode editor will persist it, as will the " +
                 "'Keep Open' option in its tab context menu.",
         },
+        // Где панель действий группы (`editor/title`). Заголовка окна у нас нет,
+        // поэтому `titleBar` прячет её — как эталон без своего title bar.
+        "workbench.editor.editorActionsLocation": {
+            scope: "window",
+            type: "string",
+            default: "default",
+            enum: ["default", "titleBar", "hidden"],
+            enumDescriptions: [
+                "Show editor actions in the window title bar when `#workbench.editor.showTabs#` is set to `none`. Otherwise, editor actions are shown in the editor tab bar.",
+                "Show editor actions in the window title bar. If `#window.customTitleBarVisibility#` is set to `never`, editor actions are hidden.",
+                "Editor actions are not shown.",
+            ],
+            description: "Controls where the editor actions are shown.",
+        },
         // Внешнее удаление файла: по умолчанию вкладка остаётся (зачёркнутой,
         // модель orphaned); `true` — чистая вкладка закрывается. Удаление из
         // самого редактора закрывает чистые вкладки всегда. Читает EditorService.

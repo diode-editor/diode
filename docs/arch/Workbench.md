@@ -310,7 +310,7 @@ VS Code), а не хардкодятся списками в местах отк
 
 **Точки.** `MenuId` — расширяемый класс с id-уникальностью (как в vscode):
 встроенные точки — статические инстансы (`EditorContext`, `ExplorerContext`,
-`EditorTitleContext`, `MenubarMainMenu` + `MenubarFileMenu`/`MenubarEditMenu`/…),
+`EditorTitleContext`, `EditorTitle`, `MenubarMainMenu` + `MenubarFileMenu`/`MenubarEditMenu`/…),
 новая точка —
 `new MenuId("my.menu")`; сравнение — по идентичности инстанса.
 
@@ -364,7 +364,7 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 **Пункты расширений (`contributes.menus`/`submenus`).** Мост
 `registerExtensionMenus` (`services/extensions/common/extensionMenuContributor.ts`,
 аналог upstream `menusExtensionPoint.ts`) переводит строковые id точек VS Code
-(`editor/context`, `explorer/context`, `scm/resourceState/context`,
+(`editor/context`, `editor/title`, `explorer/context`, `scm/resourceState/context`,
 `view/title`, …) в наши `MenuId` и кладёт пункты в реестр через
 `appendMenuItem`. Разбор — как в эталоне: `group@order` → группа и порядок,
 `when` → when-выражение, `title` пункта перебивает титул команды, ключом
@@ -375,7 +375,27 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 не падение: манифест пишет чужой человек. `commandPalette` — не меню, а фильтр
 палитры; пункты оттуда пока не применяются, и про это есть та же строка в логе.
 `when` расширений смотрят на upstream-имена ключей, поэтому рядом с нашими
-выставляются `editorTextFocus` и `editorLangId`.
+выставляются `editorTextFocus` и `editorLangId`. Иконка пункта — иконка его
+команды из `contributes.commands` любого расширения (как `MenuItemAction`
+эталона): строка ровно `"$(имя)"` или `"$(имя~модификатор)"` известного
+codicon'а (`ThemeIcon.fromString`) становится глифом, модификатор не рисуется;
+SVG (путь или `{ light, dark }`) в терминале не нарисовать — у пункта иконки нет.
+
+**`EditorTitle` — панель действий группы** (VS Code `editor/title`,
+`EditorTabsControl.editorActionsToolbar`). У каждой группы своя:
+`EditorTitleActions` (`browser/parts/editor/`) — та же строка, что у полосы
+контролов в таб-строке панели (`ViewContainerHeaderElement` без названия), и то
+же правило разбора, что у заголовков view (`views/titleMenuEntries.ts`): пункт
+`navigation` с иконкой — кнопка справа от вкладок, остальное — попап «⋯».
+Пере-резолв — по `ContextKeyService.onDidChange` и смене состава меню; пустое
+меню места не занимает — ряд вкладок остаётся голым `EditorTabStripElement`.
+Настройка `workbench.editor.editorActionsLocation` (эталонная): `default` — в
+ряду вкладок, `hidden` и `titleBar` — панели нет (заголовка окна у нас нет, как
+у эталона без своего title bar).
+Контекст открытия — `{ groupId }`; аргументов команды пункт не получает
+(у эталона — ресурс активного редактора группы). Встроенных пунктов эталона
+(Split Editor, «⋯» с Close All/Close Saved/…) пока нет — панель наполняют
+расширения (Claude Code: accept/reject предложенного диффа, Open in Terminal).
 
 **`EditorTitleContext` — меню вкладки** (VS Code `editor/title/context`).
 Открывает `EditorGroupComponent` по `EditorTabStripElement.onTabContextMenu`;

@@ -3,6 +3,7 @@ import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElem
 import type { TabInfo } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
@@ -15,13 +16,15 @@ import {} from "../../../services/themes/common/themeTokens.ts";
 import type { EditorTitleMenuContext } from "../../actions/menuContexts.ts";
 import { Component } from "../../component.ts";
 
+import { EditorTitleActions, type IEditorTitleActionsServices } from "./editorTitleActions.ts";
 import { computeTabLabels } from "./tabLabels.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
 /**
  * Компонент одной группы редакторов: собирает группу из примитивов tuidom —
  * {@link OverlayHostElement} (локальный OverlayLayer для find-виджета) поверх
- * VFlex [tab strip (1 ряд), контент-слот (остаток)] — и отражает в ней
+ * VFlex [ряд вкладок (1 ряд: tab strip и панель действий `editor/title`,
+ * если в ней есть пункты), контент-слот (остаток)] — и отражает в ней
  * состояние СВОЕЙ {@link EditorGroup} — по {@link EditorGroup.onDidChangeEditors}
  * вставляет view активной вкладки и перерисовывает табы (метки с разводкой
  * тёзок, иконки, маркер изменённости, активная вкладка). Пустой слот занимает
@@ -40,6 +43,9 @@ export class EditorGroupComponent extends Component {
 
     private readonly vflex = new VFlexElement();
     private readonly tabStrip = new EditorTabStripElement();
+    /** Ряд вкладок с панелью действий справа; пока панель пуста — вместо него голый tab strip. */
+    private readonly titleRow = new HFlexElement();
+    private readonly titleActions: EditorTitleActions | null;
     /** Держит и красит пустую область группы, пока не открыт ни один редактор. */
     private readonly emptyFiller = new FillerElement();
     /** Текущий житель контент-слота: view активной pane либо emptyFiller. */
@@ -50,8 +56,12 @@ export class EditorGroupComponent extends Component {
         private readonly editorService: IEditorService,
         private readonly contextMenuService: ContextMenuService,
         private readonly groups: IEditorGroupsService,
+        titleActions?: IEditorTitleActionsServices,
     ) {
         super();
+        this.titleActions =
+            titleActions === undefined ? null : this.register(new EditorTitleActions(group.id, titleActions));
+        this.titleRow.layoutStyle = { height: vflexFixed(1), width: "fill" };
         this.view = new OverlayHostElement();
         // Стабильный e2e-селектор: editorGroup-<id> (id группы, не ViewColumn —
         // номер колонки пересчитывается при схлопывании).
@@ -88,6 +98,13 @@ export class EditorGroupComponent extends Component {
                 this.syncFromGroup();
             }),
         );
+        if (this.titleActions !== null) {
+            this.register(
+                this.titleActions.onDidChangeVisibility(() => {
+                    this.syncSlot(this.contentSlot);
+                }),
+            );
+        }
         this.syncFromGroup();
     }
 
@@ -134,11 +151,26 @@ export class EditorGroupComponent extends Component {
         });
     }
 
-    /** Вставляет жителя контент-слота: [tabStrip, слот] одним replaceChildren. */
+    /** Вставляет жителя контент-слота: [ряд вкладок, слот] одним replaceChildren. */
     private syncSlot(slot: TUIElement): void {
         slot.layoutStyle = { height: vflexFill(), width: "fill" };
-        this.vflex.replaceChildren([this.tabStrip, slot]);
+        this.vflex.replaceChildren([this.syncTitleRow(), slot]);
         this.contentSlot = slot;
+    }
+
+    /**
+     * Ряд вкладок: с непустой панелью действий — HFlex [tab strip, панель],
+     * иначе tab strip как есть (дерево и кадр — как до панели).
+     */
+    private syncTitleRow(): TUIElement {
+        if (this.titleActions?.isVisible !== true) {
+            this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
+            return this.tabStrip;
+        }
+        this.tabStrip.layoutStyle = { height: 1, width: hflexFill() };
+        this.titleActions.element.layoutStyle = { height: 1, width: hflexFit() };
+        this.titleRow.replaceChildren([this.tabStrip, this.titleActions.element]);
+        return this.titleRow;
     }
 
     /** Приводит контрол к состоянию группы: контент активной вкладки + табы. */
