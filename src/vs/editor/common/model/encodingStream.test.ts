@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { decodeBuffer, decodeStream, decodeStreamByBOM, encodeText } from "./encoding.ts";
+import { setLazyModuleLoader } from "../../../base/common/lazyModule.ts";
+
+import { decodeBuffer, encodeText } from "./encoding.ts";
+import { decodeStream, decodeStreamByBOM, encodeChunks } from "./encodingStream.ts";
 
 /**
  * Чтение и запись по кускам (A4, docs/TODO/VscodeModel.md): файл читается
@@ -103,24 +106,54 @@ describe("decodeStream / decodeStreamByBOM", () => {
     });
 });
 
-describe("encodeText по кускам", () => {
+describe("encodeChunks", () => {
     for (const id of IDS) {
         it(`${id}: любой разрез текста (и посреди суррогатной пары) == разовому кодированию`, async () => {
             for (const sample of SAMPLES) {
                 const whole = await encodeText(sample, id);
                 for (const chunks of textSplits(sample)) {
                     const label = `${id} ${JSON.stringify(chunks)}`;
-                    expect((await encodeText(chunks, id)).toString("hex"), label).toBe(whole.toString("hex"));
+                    expect((await encodeChunks(chunks, id)).toString("hex"), label).toBe(whole.toString("hex"));
                 }
             }
         });
     }
 
     it("пара, разрезанная границей, — один 4-байтовый символ utf-8, а не два U+FFFD", async () => {
-        expect((await encodeText(["a\ud83d", "\ude00"], "utf8")).toString("hex")).toBe("61f09f9880");
+        expect((await encodeChunks(["a\ud83d", "\ude00"], "utf8")).toString("hex")).toBe("61f09f9880");
     });
 
     it("BOM пишется и для пустого снапшота", async () => {
-        expect([...(await encodeText([], "utf16le"))]).toEqual([0xff, 0xfe]);
+        expect([...(await encodeChunks([], "utf16le"))]).toEqual([0xff, 0xfe]);
+    });
+
+    it("неизвестная кодировка — utf-8 без BOM, как у encodeText", async () => {
+        expect((await encodeChunks(["при", "вет"], "martian")).equals(Buffer.from("привет", "utf8"))).toBe(true);
+    });
+});
+
+describe("отказ загрузки iconv-lite", () => {
+    afterEach(() => {
+        setLazyModuleLoader(undefined);
+    });
+
+    it("decodeStream отказывает и закрывает уже начатый источник", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
+        let closed = false;
+        function* source(): Generator<Buffer> {
+            try {
+                yield Buffer.from([0xcf, 0xf0]);
+                yield Buffer.from([0xe8]);
+            } finally {
+                closed = true;
+            }
+        }
+        await expect(decodeStream(source(), "windows1251")).rejects.toThrow("кусок не загрузился");
+        expect(closed).toBe(true);
+    });
+
+    it("encodeChunks отказывает, а не пишет молча utf-8", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
+        await expect(encodeChunks(["П"], "koi8r")).rejects.toThrow("кусок не загрузился");
     });
 });

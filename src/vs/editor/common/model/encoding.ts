@@ -141,7 +141,7 @@ export interface IDecodedText {
     readonly encoding: string;
 }
 
-type IconvLite = typeof IconvLiteModule;
+export type IconvLite = typeof IconvLiteModule;
 
 /**
  * iconv-lite for the charsets the native codecs do not cover. A lazy bundle
@@ -149,25 +149,8 @@ type IconvLite = typeof IconvLiteModule;
  * utf-8 or UTF-16 file never parses. `default` is `module.exports` on every
  * path (node's `import()` of CJS, the packaged chunk loader).
  */
-async function loadIconv(): Promise<IconvLite> {
+export async function loadIconv(): Promise<IconvLite> {
     return (await importLazyModule("iconv-lite", () => import("iconv-lite"))).default;
-}
-
-/**
- * Streaming decoder: disk bytes in, text out, chunk by chunk. Whatever the
- * chunk boundaries, the joined output is the one-shot decode of the joined
- * input — a boundary may cut a multi-byte sequence, the decoder carries the cut
- * part over to the next chunk.
- */
-interface IChunkDecoder {
-    write(chunk: Buffer): string;
-    end(): string;
-}
-
-/** Streaming encoder, the mirror of {@link IChunkDecoder}: a chunk may end mid surrogate pair. */
-interface IChunkEncoder {
-    write(text: string): Buffer;
-    end(): Buffer;
 }
 
 /**
@@ -178,123 +161,32 @@ interface IChunkEncoder {
  * an odd trailing UTF-16 byte dropped. Pinned by the "native == iconv-lite" tests.
  */
 interface INativeCodec {
-    createDecoder(): IChunkDecoder;
-    createEncoder(): IChunkEncoder;
-}
-
-/**
- * How many trailing bytes of `bytes` are a utf-8 sequence still waiting for
- * its continuation bytes (0 — the chunk ends on a sequence boundary). Carrying
- * them over never changes the decode: a lead byte always starts a new maximal
- * subpart, so cutting right before it splits nothing the one-shot decoder
- * would have read as one character.
- */
-function utf8IncompleteTail(bytes: Buffer): number {
-    const stop = Math.max(0, bytes.length - 3);
-    for (let i = bytes.length - 1; i >= stop; i--) {
-        const byte = bytes[i];
-        // Байт продолжения (10xxxxxx) — ищем ведущий дальше влево.
-        if ((byte & 0xc0) === 0x80) continue;
-        const expected = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc0 ? 2 : 1;
-        const present = bytes.length - i;
-        return present < expected ? present : 0;
-    }
-    return 0;
-}
-
-function createUtf8Decoder(): IChunkDecoder {
-    let pending: Buffer | null = null;
-    return {
-        write(chunk) {
-            const bytes = pending === null ? chunk : Buffer.concat([pending, chunk]);
-            const cut = bytes.length - utf8IncompleteTail(bytes);
-            // Копия хвоста: буфер чтения вызывающий может переиспользовать.
-            pending = cut < bytes.length ? Buffer.from(bytes.subarray(cut)) : null;
-            return bytes.toString("utf8", 0, cut);
-        },
-        end() {
-            const rest = pending;
-            pending = null;
-            return rest === null ? "" : rest.toString("utf8");
-        },
-    };
-}
-
-/**
- * UTF-16 by code units: a pair split by the chunk boundary decodes as two lone
- * code units that join back into the pair — only an odd byte needs carrying.
- * BE has no node decoder: swap the bytes of each pair and read as LE (a copy,
- * the caller's buffer stays intact). The odd trailing byte of the whole input
- * is dropped, as iconv-lite does.
- */
-function createUtf16Decoder(bigEndian: boolean): IChunkDecoder {
-    let pending: Buffer | null = null;
-    return {
-        write(chunk) {
-            const bytes = pending === null ? chunk : Buffer.concat([pending, chunk]);
-            const even = bytes.length & ~1;
-            pending = even < bytes.length ? Buffer.from(bytes.subarray(even)) : null;
-            const units = bytes.subarray(0, even);
-            return (bigEndian ? Buffer.from(units).swap16() : units).toString("utf16le");
-        },
-        end() {
-            pending = null;
-            return "";
-        },
-    };
-}
-
-/**
- * Encoder over a one-shot `encode`: a trailing high surrogate waits for the
- * next chunk — encoded alone, its pair would become two replacement sequences
- * in utf-8 instead of one 4-byte character.
- */
-function createNativeEncoder(encode: (text: string) => Buffer): IChunkEncoder {
-    let pending = "";
-    return {
-        write(text) {
-            const joined = pending + text;
-            const last = joined.charCodeAt(joined.length - 1);
-            const cut = last >= 0xd800 && last <= 0xdbff ? joined.length - 1 : joined.length;
-            pending = joined.slice(cut);
-            return encode(joined.slice(0, cut));
-        },
-        end() {
-            const rest = pending;
-            pending = "";
-            return encode(rest);
-        },
-    };
+    decode(body: Buffer): string;
+    encode(text: string): Buffer;
 }
 
 /** Native codecs by iconv name: utf-8 (both table ids) and the two UTF-16s. */
 const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INativeCodec>([
-    [
-        "utf8",
-        {
-            createDecoder: createUtf8Decoder,
-            // Stryker disable next-line StringLiteral: Buffer.from с пустым именем кодировки — тоже utf-8
-            createEncoder: () => createNativeEncoder((text) => Buffer.from(text, "utf8")),
-        },
-    ],
-    [
-        "utf16le",
-        {
-            createDecoder: () => createUtf16Decoder(false),
-            createEncoder: () => createNativeEncoder((text) => Buffer.from(text, "utf16le")),
-        },
-    ],
+    // Stryker disable next-line StringLiteral: Buffer.from с пустым именем кодировки — тоже utf-8
+    ["utf8", { decode: (body) => body.toString("utf8"), encode: (text) => Buffer.from(text, "utf8") }],
+    ["utf16le", { decode: (body) => body.toString("utf16le"), encode: (text) => Buffer.from(text, "utf16le") }],
     [
         "utf16be",
         {
-            createDecoder: () => createUtf16Decoder(true),
-            createEncoder: () => createNativeEncoder((text) => Buffer.from(text, "utf16le").swap16()),
+            // В node нет UTF-16 BE: меняем байты пар местами и читаем как LE. Копия
+            // не портит буфер вызывающего; нечётный хвостовой байт отбрасывается,
+            // как у iconv-lite.
+            decode: (body) =>
+                Buffer.from(body.subarray(0, body.length & ~1))
+                    .swap16()
+                    .toString("utf16le"),
+            encode: (text) => Buffer.from(text, "utf16le").swap16(),
         },
     ],
 ]);
 
 /** The table entry `buffer` is decoded in (rules — {@link decodeBuffer}). */
-function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
+export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
     // По построению id всегда табличный: explicit проверен через has(),
     // значения снифа и DEFAULT_ENCODING — элементы таблицы.
@@ -305,135 +197,29 @@ function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefi
     return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
 }
 
+/** The table entry text is encoded in: unknown ids defensively fall back to utf-8. */
+export function resolveEncodeEncoding(encoding: string): IEncodingInfo {
+    return encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
+}
+
 /** `buffer` without the encoding's BOM, when it starts with one. */
-function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
+export function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
     return info.bom !== undefined && startsWithBytes(buffer, info.bom) ? buffer.subarray(info.bom.length) : buffer;
 }
 
-/** Document text decoded from disk bytes in chunks, plus the encoding id it is read in. */
-export interface IDecodedStream {
-    /** Table id ({@link SUPPORTED_ENCODINGS}), never an iconv name. */
-    readonly encoding: string;
-    /**
-     * The text in chunks, BOM stripped; joined — exactly the one-shot decode.
-     * Lazy and single-pass: iterating it pulls the byte chunks.
-     */
-    readonly text: Iterable<string>;
-}
-
 /**
- * The first chunks of `bytes`, glued until there are enough bytes for the BOM
- * sniff (the longest BOM is 3 bytes) or the input ends.
+ * Decodes raw disk bytes by the BOM sniff alone — opening a file, no explicit
+ * encoding. Synchronous and iconv-free: the sniff only ever yields utf-8 (with
+ * or without BOM) or UTF-16, all decoded natively. The BOM is stripped.
  */
-function readHead(bytes: Iterator<Buffer>): Buffer {
-    const parts: Buffer[] = [];
-    let length = 0;
-    while (length < BOM_UTF8.length) {
-        const next = bytes.next();
-        if (next.done === true) break;
-        parts.push(next.value);
-        length += next.value.length;
-    }
-    return Buffer.concat(parts);
-}
-
-function* decodeChunks(head: Buffer, rest: Iterator<Buffer>, decoder: IChunkDecoder): Generator<string> {
-    try {
-        yield decoder.write(head);
-        for (let next = rest.next(); next.done !== true; next = rest.next()) yield decoder.write(next.value);
-        yield decoder.end();
-    } finally {
-        // Брошенный на полпути проход закрывает и источник байт (файл).
-        rest.return?.();
-    }
-}
-
-function nativeCodec(info: IEncodingInfo): INativeCodec {
+export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
+    const info = resolveDecodeEncoding(buffer, undefined);
     const codec = NATIVE_CODECS.get(info.iconvName);
     /* v8 ignore start -- сниф даёт только utf8/utf8bom/utf16le/utf16be, у всех есть нативный кодек; throw — инвариант-гард */
     // Stryker disable next-line all: недостижимый инвариант-гард, см. v8 ignore выше
     if (codec === undefined) throw new Error(`No native codec for sniffed encoding: ${info.id}`);
     /* v8 ignore stop */
-    return codec;
-}
-
-/**
- * Decodes disk bytes, arriving in chunks, by the BOM sniff alone — opening a
- * file, no explicit encoding. Synchronous and iconv-free: the sniff only ever
- * yields utf-8 (with or without BOM) or UTF-16, all decoded natively. The BOM
- * is stripped. The chunked form of {@link decodeBufferByBOM}: no buffer of the
- * whole file and no string of the whole text (`createTextBufferFactoryFromStream`
- * of the reference reads a file the same way).
- */
-export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
-    const source = bytes[Symbol.iterator]();
-    const head = readHead(source);
-    const info = resolveDecodeEncoding(head, undefined);
-    return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, nativeCodec(info).createDecoder()) };
-}
-
-/**
- * Decodes disk bytes arriving in chunks — the chunked form of
- * {@link decodeBuffer}, same encoding rules. Asynchronous only to load
- * iconv-lite: the bytes are read as {@link IDecodedStream.text} is iterated.
- */
-export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: string): Promise<IDecodedStream> {
-    const source = bytes[Symbol.iterator]();
-    const head = readHead(source);
-    const info = resolveDecodeEncoding(head, explicitEncoding);
-    const codec = NATIVE_CODECS.get(info.iconvName);
-    // Опции BOM iconv-lite не передаём: у не-Unicode кодеков они пустые (BOM
-    // понимают только utf-8/UTF-16/UTF-32, а те идут нативно), BOM снят выше.
-    let decoder: IChunkDecoder;
-    try {
-        decoder = codec !== undefined ? codec.createDecoder() : iconvDecoder(await loadIconv(), info.iconvName);
-    } catch (error) {
-        // Источник уже начат (сниф) — отказ загрузки iconv его закрывает.
-        source.return?.();
-        throw error;
-    }
-    return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, decoder) };
-}
-
-/**
- * iconv-lite one-shot behind the streaming interface: the chunks are gathered
- * and decoded at the end. Its own stream decoder is not chunk-safe — gb18030
- * (iconv-lite 0.7.3) loses characters when a chunk boundary cuts a 4-byte
- * sequence (`encoding.stream.test.ts`). Non-Unicode charsets come only from an
- * explicit «Reopen with Encoding», so the whole buffer here costs nothing on
- * the open path.
- */
-function iconvDecoder(iconv: IconvLite, iconvName: string): IChunkDecoder {
-    const parts: Buffer[] = [];
-    return {
-        write(chunk) {
-            parts.push(chunk);
-            return "";
-        },
-        end: () => iconv.decode(Buffer.concat(parts), iconvName),
-    };
-}
-
-/** iconv-lite one-shot behind the streaming interface — same reason as {@link iconvDecoder}. */
-function iconvEncoder(iconv: IconvLite, iconvName: string): IChunkEncoder {
-    const parts: string[] = [];
-    return {
-        write(text) {
-            parts.push(text);
-            return Buffer.alloc(0);
-        },
-        end: () => iconv.encode(parts.join(""), iconvName),
-    };
-}
-
-/**
- * Decodes raw disk bytes by the BOM sniff alone — opening a file, no explicit
- * encoding. Synchronous and iconv-free (see {@link decodeStreamByBOM}). The
- * BOM is stripped.
- */
-export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
-    const { encoding, text } = decodeStreamByBOM([buffer]);
-    return { text: [...text].join(""), encoding };
+    return { text: codec.decode(stripBOM(buffer, info)), encoding: info.id };
 }
 
 /**
@@ -450,8 +236,13 @@ export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
  * synchronous {@link decodeBufferByBOM} — same result.
  */
 export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): Promise<IDecodedText> {
-    const { encoding, text } = await decodeStream([buffer], explicitEncoding);
-    return { text: [...text].join(""), encoding };
+    const info = resolveDecodeEncoding(buffer, explicitEncoding);
+    const body = stripBOM(buffer, info);
+    const codec = NATIVE_CODECS.get(info.iconvName);
+    // Опции BOM iconv-lite не передаём: у не-Unicode кодеков они пустые (BOM
+    // понимают только utf-8/UTF-16/UTF-32, а те идут нативно), BOM снят выше.
+    const text = codec !== undefined ? codec.decode(body) : (await loadIconv()).decode(body, info.iconvName);
+    return { text, encoding: info.id };
 }
 
 /**
@@ -460,19 +251,12 @@ export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): P
  * other encoding writes none. Unknown ids defensively fall back to utf-8.
  * Characters unrepresentable in the target charset become iconv-lite's
  * replacement ("?"). Asynchronous for the same reason as {@link decodeBuffer}.
- *
- * The text may come in chunks (a document snapshot, `TextDocument.createSnapshot`)
- * — then no string of the whole document is ever built (`toEncodeReadable` of
- * the reference); a chunk may end mid surrogate pair. The chunks are read after
- * iconv-lite is loaded, so a snapshot must already be taken.
  */
-export async function encodeText(text: string | Iterable<string>, encoding: string): Promise<Buffer> {
-    const info = encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
+export async function encodeText(text: string, encoding: string): Promise<Buffer> {
+    const info = resolveEncodeEncoding(encoding);
     const codec = NATIVE_CODECS.get(info.iconvName);
     // addBOM, как и stripBOM в decodeBuffer, у не-Unicode кодеков пустой.
-    const encoder = codec !== undefined ? codec.createEncoder() : iconvEncoder(await loadIconv(), info.iconvName);
-    const parts: Buffer[] = info.bom === undefined ? [] : [Buffer.from(info.bom)];
-    for (const chunk of typeof text === "string" ? [text] : text) parts.push(encoder.write(chunk));
-    parts.push(encoder.end());
-    return Buffer.concat(parts);
+    const body = codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, info.iconvName);
+    if (info.bom === undefined) return body;
+    return Buffer.concat([Buffer.from(info.bom), body]);
 }

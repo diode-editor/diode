@@ -6,14 +6,13 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
+import { DEFAULT_ENCODING, getEncodingInfo } from "../../../../editor/common/model/encoding.ts";
 import {
     decodeStream,
     decodeStreamByBOM,
-    DEFAULT_ENCODING,
-    encodeText,
-    getEncodingInfo,
+    encodeChunks,
     type IDecodedStream,
-} from "../../../../editor/common/model/encoding.ts";
+} from "../../../../editor/common/model/encodingStream.ts";
 import { createTextBufferFactoryFromChunks } from "../../../../editor/common/model/textDocument.ts";
 import {
     etag,
@@ -334,7 +333,7 @@ export class TextFileModel extends BaseTextEditorModel {
         if (participation !== null) await participation;
         let written: IFileStat;
         try {
-            const bytes = await encodeText(this.doc.createSnapshot(), this.encodingValue);
+            const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);
             written = await this.files.writeFile(this.uriValue, bytes, {
                 atomic: true,
                 // Тот же гард, что выше, но в момент записи: пока работали
@@ -428,7 +427,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.uriValue = Uri.file(path.resolve(newPath));
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        const bytes = await encodeText(this.doc.createSnapshot(), this.encodingValue);
+        const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);
         const written = await this.files.writeFile(this.uriValue, bytes, { atomic: true });
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
