@@ -28,9 +28,11 @@ export default defineScenario({
     // команда повешена на F6, как в сценарии searchInFiles.
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
-        // Дерево: `nci` на месте (цепочка `nci/common` сжата), корневого
-        // `common` нет.
-        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("nci/common"));
+        // Дерево: `nci` на месте, корневого `common` нет. Сжатую цепочку
+        // `nci/common` не ждём: у свёрнутой папки она появляется, только когда
+        // подгрузились дети, — на windows-раннере кадр успевает раньше.
+        // Строка дерева — имя, хвост пробелов и, возможно, `│` до соседней части.
+        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("nci") && !/^\s*common\s*(│|$)/mu.test(t));
         await editor.capture("tree");
 
         // Поиск: токен найден в одном файле — вложенном. Корневой отрезан
