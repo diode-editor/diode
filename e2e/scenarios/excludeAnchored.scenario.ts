@@ -36,14 +36,15 @@ export default defineScenario({
         await editor.capture("tree");
 
         // Поиск: токен найден в одном файле — вложенном. Корневой отрезан
-        // шаблоном, вложенный шаблону не подходит.
+        // шаблоном, вложенный шаблону не подходит. Имя файла сайдбар обрезает
+        // («nci/common/TopicStreamConsum…»), поэтому сверяем по префиксу пути.
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("SEARCH"));
         for (const ch of "quietHarborLantern") {
             await editor.sendKey(ch);
         }
         await editor.waitForText(
-            (t) => t.includes("in 1 file") && t.includes("TopicStreamConsumer.java") && !t.includes("RootOnly.java"),
+            (t) => t.includes("in 1 file") && t.includes("nci/common/TopicStream") && !t.includes("RootOnly"),
         );
         await editor.capture("search");
     },
