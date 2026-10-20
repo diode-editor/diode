@@ -165,6 +165,17 @@ d stop                                       # именно stop, не kill: и�
 - Бинарь — `npm run build:sea` под node 26.12 (системный 25.x его ломает).
 - Одна такая сессия за раз: две drive-сессии с tsserver на 13 МБ файле умирали,
   похоже, от памяти.
+- **Профиль старта — совмещать с вехами, а не с `timeOrigin`.** Профайлер запускается
+  на ~55 мс позже `timeOrigin`, поэтому профиль сводят с трассой `DIODE_STARTUP_TRACE`
+  по вехам `frame` (конец сэмплов `TracingNodeTerminalBackend.renderFrame`); числа
+  inclusive.
+- **Компиляция против исполнения.** `--log-function-events` в `NODE_OPTIONS` не пускают,
+  а с `--cpu-prof` V8 его глушит. Тот же `main.cjs` поднимают голым node 26 из снапшота
+  (`node --snapshot-blob snap.blob --build-snapshot main.cjs`, рядом с бандлом — копия
+  `node`: `import.meta.url` в режиме снапшота указывает на бинарь) и сводят с трассой по
+  `first-execution` функции `mark` и вехе `main:start`. Ленивая компиляция в главном
+  потоке — `parse-function` + `interpreter` + `baseline` + `parse`; код, уходящий с пути
+  старта, уносит и свою компиляцию — выигрыш переноса считать по обеим.
 
 Устройство (реестр, маркер процессов, методы `Diode.*`) —
 [docs/arch/DevTooling.md](../../../docs/arch/DevTooling.md#toolsdrive).

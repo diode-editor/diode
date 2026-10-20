@@ -117,7 +117,7 @@ export const LAZY_CHUNKS = [
     // 155 → 156 (решение человека): разбор `sideEditors` в снимке полосы — стороны
     // диффа видны расширению как `visibleTextEditors` (предложенный дифф Claude
     // Code); main шёл в 40 байтах от потолка, ветка дала 155.06 КБ.
-    // Состав и цена — docs/TODO/OpenPerformance.md.
+    // Устройство и цена копии — docs/arch/Common.md, «Ленивые куски бандла».
     {
         id: "roles/extension-host",
         reason: "роль extension host: реализация vscode API",

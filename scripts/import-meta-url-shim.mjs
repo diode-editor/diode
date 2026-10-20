@@ -14,7 +14,7 @@
 // а run-as-node переписывает его на путь чужого скрипта.
 //
 // Геттер, а не константа: значение считается в момент вызова. Константа уровня
-// модуля запеклась бы при сборке V8-снапшота (шаг 6 OpenPerformance.md).
+// модуля запеклась бы при сборке V8-снапшота (docs/arch/Common.md, «Верхний уровень модулей и V8-снапшот»).
 export const __diode_import_meta = {
     get url() {
         const { pathToFileURL } = process.getBuiltinModule("node:url");

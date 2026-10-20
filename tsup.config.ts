@@ -21,7 +21,7 @@ const metaUrlShim = (importMetaUrlShim as (repoRoot: string) => { define: Record
 
 export default defineConfig({
   entry: ["src/vs/diode/main.ts"],
-  // CJS, а не ESM: парс CJS-скрипта дешевле (−12 мс на старте, docs/TODO/OpenPerformance.md),
+  // CJS, а не ESM: парс CJS-скрипта дешевле (docs/arch/Common.md, «Почему снапшот»),
   // и V8-снапшот SEA (`useSnapshot`, `--build-snapshot`) принимает только CJS. Выход —
   // `main.cjs`: в репозитории "type": "module", а у self-extract рядом нет package.json вовсе.
   format: ["cjs"],
