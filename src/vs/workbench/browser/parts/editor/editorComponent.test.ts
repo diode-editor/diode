@@ -24,7 +24,7 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 /** Скоуп первого токена первой строки — чем токенизирован документ прямо сейчас. */
 function firstScope(ctrl: TextEditorPane): string | undefined {
     const tokenStore = ctrl.viewState.tokenStore;
-    tokenStore?.tokenizeUpTo(0);
+    tokenStore?.forceTokenization(0);
     return tokenStore?.getLineTokens(0)?.tokens[0]?.scopes[0];
 }
 
@@ -285,6 +285,23 @@ describe("EditorComponent + TextFileModel (пара)", () => {
                     ctrl.setIndentOptions({ insertSpaces: false });
                 }),
             ).toBe(false);
+        });
+    });
+
+    describe("токены вне кадра", () => {
+        it("строка на экране получила токены из стора (фон, доводка) — редактор перерисован", () => {
+            // Сброс токенизатора мимо компонента кадра не просит — просит событие стора.
+            expect(
+                repaintsEditor((ctrl) => {
+                    ctrl.viewState.tokenStore?.setTokenizationSupport(new PlainTextTokenizer());
+                }),
+            ).toBe(false);
+            expect(
+                repaintsEditor((ctrl) => {
+                    ctrl.viewState.tokenStore?.setTokenizationSupport(new PlainTextTokenizer());
+                    ctrl.viewState.tokenStore?.forceTokenization(0);
+                }),
+            ).toBe(true);
         });
     });
 

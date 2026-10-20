@@ -1,6 +1,6 @@
 # Подсветка синтаксиса
 
-**Статус**: TextMate-движок работает (vscode-textmate + oniguruma), hot-swap токенайзера сделан, грамматики грузятся лениво (по языку открытого документа) + фоновый прогрев остальных, семантические токены LSP — вторым слоем; остались scope-селекторы и background-токенизация.
+**Статус**: TextMate-движок работает (vscode-textmate + oniguruma), hot-swap токенайзера сделан, грамматики грузятся лениво (по языку открытого документа) + фоновый прогрев остальных, семантические токены LSP — вторым слоем; фоновая и вьюпортная токенизация перенесены из эталона ([VscodeModel](VscodeModel.md), B1); остались scope-селекторы.
 
 Архитектура повторяет VS Code:
 
@@ -44,16 +44,9 @@ EditorElement.render() ── ITokenStyleResolver ── (Theme) TokenThemeResol
 (нет и `editor.tokenColorCustomizations`), литеральные дефолты стилей по типу темы в
 `TokenStyleDefaults` (их не задают ни эталон, ни расширения).
 
-### [ ] Background tokenization (chunked)
-Сейчас `tokenizeUpTo(target)` синхронный. На больших файлах блокирует render.
-
-**План:**
-1. В `DocumentTokenStore` метод `scheduleBackgroundTokenization()`. В Node — `setImmediate`.
-2. Каждая итерация — фиксированный budget (5 мс или 200 строк), потом yield. После yield — продолжить с `invalidLineIndex` (если что-то снова инвалидировалось).
-3. **Не дублировать работу с render.** Если `EditorElement.render` уже вызвал `tokenizeUpTo(visibleEnd)` — фоновая задача начинает с `max(visibleEnd, invalidLineIndex)`.
-4. **Сигнал «весь документ затокенизирован»:** event `onDidTokenizeAll`. Полезно для feature вроде «document symbols» из токенов.
-
-**Граничный случай:** end-state convergence уже умеет «пропустить хвост». Если фоновая задача доходит до места, где endState не изменился, она прекращает работу досрочно (текущая логика и так это делает).
+### [x] Background tokenization
+Перенесена из эталона (`model/textModelTokens.ts`) — [VscodeModel](VscodeModel.md), B1;
+устройство — «Editor/Tokenization» в [arch/Editor.md](../arch/Editor.md).
 
 ### [ ] Language detection — остаточные пункты
 `ILanguageService`/`LanguageRegistry` резолвят по `extensions`/`filenames`/`filenamePatterns`. Не хватает:

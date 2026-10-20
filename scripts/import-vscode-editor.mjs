@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 /**
- * Управляет дословной копией алгоритма построчного диффа из upstream
- * `microsoft/vscode` — `src/vs/editor/common/diff/` вместе с примитивами ядра
- * (`src/vs/editor/common/core/`), enum'ом `CharCode` и фикстурным корпусом.
+ * Управляет дословными копиями кода редактора из upstream `microsoft/vscode`:
+ *   - алгоритм построчного диффа — `src/vs/editor/common/diff/` вместе с
+ *     примитивами ядра (`src/vs/editor/common/core/`), enum'ом `CharCode` и
+ *     фикстурным корпусом;
+ *   - токенизация модели — `src/vs/editor/common/model/textModelTokens.ts`
+ *     (хранилище end-state'ов, очередь невалидных строк, фоновый токенизатор,
+ *     эвристика вьюпорта) и её мелкие зависимости. Формат токенов у нас свой
+ *     (скоупы, а не `Uint32Array`): шов — шимы `editor/common/languages.ts`,
+ *     `tokens/lineTokens.ts`, `tokens/contiguousMultilineTokensBuilder.ts`
+ *     (см. docs/TODO/VscodeModel.md, B1/B2).
+ *
+ * Один скрипт на все переносы, а не по скрипту на подсистему: трансформация,
+ * сторож `--check` и пин у них общие, и расходиться им незачем.
  *
  * Философия та же, что у `import-vscode-dts.mjs`: перенесённый код — стадийная
  * копия upstream, а не наш исходник. Он **не правится руками**; единственный
@@ -26,7 +36,10 @@
  * map, strings, …), НЕ переносятся: их полные версии тащат
  * `cancellation → event → lifecycle → observableInternal` (~30 файлов, диффу не
  * нужных). Вместо них — узкие рукописные шимы по тем же путям; парность
- * раскладки делает подмену прозрачной, ни один import править не надо.
+ * раскладки делает подмену прозрачной, ни один import править не надо. Так же
+ * закрыты и зависимости токенизации из `editor/common` (`languages.ts`,
+ * `model.ts`, `tokens/*`): их upstream-версии — сотни строк бинарного формата
+ * токенов, который мы пока не переносим.
  *
  * Режимы:
  *   (без флагов)  — перенести файлы из upstream запинненного тега.
@@ -34,7 +47,7 @@
  *
  * Пин согласован с `extensions/VSCODE_VERSION` — держите теги в лок-степе.
  *
- * Usage: node scripts/import-vscode-diff.mjs [--check] [--keep-clone]
+ * Usage: node scripts/import-vscode-editor.mjs [--check] [--keep-clone]
  */
 
 import { execFileSync } from "node:child_process";
@@ -80,6 +93,12 @@ const FILES = [
 
     // Чистый enum без зависимостей — дешевле перенести целиком, чем шимить.
     "src/vs/base/common/charCode.ts",
+
+    // Токенизация модели: состояние строк, очередь, фон, эвристика вьюпорта.
+    "src/vs/editor/common/model/textModelTokens.ts",
+    "src/vs/editor/common/model/fixedArray.ts",
+    "src/vs/editor/common/core/misc/eolCounter.ts",
+    "src/vs/base/common/stopwatch.ts",
 ];
 
 /** Фикстурный корпус: upstream-путь → наш путь. Файлы копируются как есть. */
@@ -95,6 +114,9 @@ const SPARSE_PATHS = [
     // Ведущий слэш обязателен для одиночного файла в non-cone режиме, иначе git
     // трактует путь как glob по имени и предупреждает (NON-CONE PROBLEMS).
     "/src/vs/base/common/charCode.ts",
+    "/src/vs/base/common/stopwatch.ts",
+    "/src/vs/editor/common/model/textModelTokens.ts",
+    "/src/vs/editor/common/model/fixedArray.ts",
     FIXTURES_FROM,
 ];
 
@@ -115,6 +137,32 @@ const EXCISIONS = {
             to: "EOF",
         },
         { from: "import { IChange } from './legacyLinesDiffComputer.js';", to: "SELF" },
+    ],
+    "src/vs/editor/common/model/textModelTokens.ts": [
+        {
+            // `getTokenTypeIfInsertingCharacter` — вид токена для автозакрытия
+            // скобок. Читает бинарные токены через `LineTokens`
+            // (`getStandardTokenType` из метаданных `Uint32Array`), а наши токены —
+            // скоупы; автозакрытие у нас судит по скоупам само
+            // (`languages/autoClosing.ts`, `standardTokenType.ts`). Вернётся с B2.
+            // Анкер — doc-комментарий метода: он же стоит и над tokenizeLinesAt,
+            // поэтому два одинаковых иссечения подряд снимают оба метода.
+            from: "\t/** assumes state is up to date */",
+            to: "\t}",
+        },
+        {
+            // `tokenizeLinesAt` — токены для вставки строк (indent-on-paste,
+            // `tokenizeLinesAt` в TokenizationTextModelPart). Тоже строит
+            // `LineTokens` из бинарного формата; потребителя у нас нет.
+            from: "\t/** assumes state is up to date */",
+            to: "\t}",
+        },
+        {
+            // Нужен только иссечённому getTokenTypeIfInsertingCharacter;
+            // `encodedTokenAttributes.ts` — раскладка бинарных метаданных (B2).
+            from: "import { StandardTokenType } from '../encodedTokenAttributes.js';",
+            to: "SELF",
+        },
     ],
 };
 
@@ -148,6 +196,16 @@ const TYPE_ONLY = new Set([
     // из наших шимов в base/common
     "Comparator",
     "IEquatable",
+    "IdleDeadline",
+    // из наших шимов токенизации в editor/common
+    "EncodedTokenizationResult",
+    "IBackgroundTokenizationStore",
+    "IBackgroundTokenizer",
+    "ILanguageIdCodec",
+    "IModelContentChange",
+    "IState",
+    "ITextModel",
+    "ITokenizationSupport",
 ]);
 
 /** Последняя строка MIT-шапки upstream — баннер вставляем сразу после неё. */
@@ -156,7 +214,7 @@ const MIT_HEADER_LAST = " *-----------------------------------------------------
 function banner(upstreamPath) {
     return [
         `//@diode:vendored microsoft/vscode@${VSCODE_TAG} ${upstreamPath}`,
-        "// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-diff.mjs (см. AGENTS.md).",
+        "// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).",
     ];
 }
 
@@ -169,11 +227,11 @@ function applyExcisions(lines, upstreamPath) {
     for (const spec of specs) {
         const start = out.findIndex((l) => l === spec.from);
         if (start === -1) {
-            throw new Error(`[diff] иссечение не приложилось в ${upstreamPath}: анкер не найден\n  ${spec.from}`);
+            throw new Error(`[vendor] иссечение не приложилось в ${upstreamPath}: анкер не найден\n  ${spec.from}`);
         }
         const end = spec.to === "EOF" ? out.length - 1 : spec.to === "SELF" ? start : out.findIndex((l, i) => i >= start && l === spec.to);
         if (end === -1) {
-            throw new Error(`[diff] иссечение не приложилось в ${upstreamPath}: конечный анкер не найден\n  ${spec.to}`);
+            throw new Error(`[vendor] иссечение не приложилось в ${upstreamPath}: конечный анкер не найден\n  ${spec.to}`);
         }
         out = [...out.slice(0, start), ...out.slice(end + 1)];
     }
@@ -215,7 +273,7 @@ function splitTypeImports(lines) {
 
 function insertBanner(lines, upstreamPath) {
     const idx = lines.indexOf(MIT_HEADER_LAST);
-    if (idx === -1) throw new Error(`[diff] MIT-шапка не найдена в ${upstreamPath}`);
+    if (idx === -1) throw new Error(`[vendor] MIT-шапка не найдена в ${upstreamPath}`);
     return [...lines.slice(0, idx + 1), ...banner(upstreamPath), ...lines.slice(idx + 1)];
 }
 
@@ -234,11 +292,11 @@ function transform(text, upstreamPath) {
 // ---- upstream fetch --------------------------------------------------------
 
 function withUpstream(fn) {
-    const scratch = mkdtempSync(join(tmpdir(), "vscode-diff-"));
+    const scratch = mkdtempSync(join(tmpdir(), "vscode-editor-"));
     const cloneDir = join(scratch, "vscode");
     const keepClone = process.argv.includes("--keep-clone");
     try {
-        console.error(`[diff] cloning microsoft/vscode@${VSCODE_TAG} (sparse, blobless)`);
+        console.error(`[vendor] cloning microsoft/vscode@${VSCODE_TAG} (sparse, blobless)`);
         execFileSync("git", ["clone", "--depth", "1", "--filter=blob:none", "--sparse", "--branch", VSCODE_TAG, VSCODE_REPO, cloneDir], {
             stdio: ["ignore", "ignore", "inherit"],
         });
@@ -277,7 +335,7 @@ function regen() {
             mkdirSync(dirname(target), { recursive: true });
             writeFileSync(target, transform(source, upstreamPath));
         }
-        console.error(`[diff] перенесено файлов: ${FILES.length}`);
+        console.error(`[vendor] перенесено файлов: ${FILES.length}`);
 
         const fixtureTarget = join(repoRoot, FIXTURES_TO);
         rmSync(fixtureTarget, { recursive: true, force: true });
@@ -287,8 +345,8 @@ function regen() {
             mkdirSync(dirname(to), { recursive: true });
             cpSync(join(cloneDir, FIXTURES_FROM, rel), to);
         }
-        console.error(`[diff] перенесено фикстур: ${fixtures.length} файл(ов) → ${FIXTURES_TO}`);
-        console.error(`[diff] upstream ${VSCODE_TAG} ${sha}`);
+        console.error(`[vendor] перенесено фикстур: ${fixtures.length} файл(ов) → ${FIXTURES_TO}`);
+        console.error(`[vendor] upstream ${VSCODE_TAG} ${sha}`);
     });
 }
 
@@ -326,10 +384,10 @@ function check() {
         }
 
         if (problems.length === 0) {
-            console.error(`[diff] --check OK: ${FILES.length} файл(ов) + ${fixtures.length} фикстур совпадают с upstream @ ${VSCODE_TAG} ${sha}`);
+            console.error(`[vendor] --check OK: ${FILES.length} файл(ов) + ${fixtures.length} фикстур совпадают с upstream @ ${VSCODE_TAG} ${sha}`);
             return;
         }
-        console.error(`[diff] --check FAIL (${problems.length}):`);
+        console.error(`[vendor] --check FAIL (${problems.length}):`);
         for (const p of problems.slice(0, 20)) console.error(`  ${p}`);
         process.exit(1);
     });

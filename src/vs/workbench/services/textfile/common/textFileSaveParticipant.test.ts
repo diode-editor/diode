@@ -134,7 +134,10 @@ describe("TextFileSaveParticipant — композиция save-участник
     });
 
     it("таймер таймаута снимается, когда участник ответил сам (resolve и reject)", async () => {
-        vi.useFakeTimers();
+        // Фейкаем только таймеры, которые проверяем: setImmediate остаётся настоящим —
+        // на нём фоновая токенизация открытого буфера (DocumentTokenStore), и её
+        // кусок, ждущий очереди, — не утечка этого сценария.
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
         try {
             const controller = createEditorPane();
             const fp = ws.writeFile("timers.txt", "x");

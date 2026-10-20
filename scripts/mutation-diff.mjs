@@ -92,9 +92,11 @@ const EXCLUDED = [
     // в тестах это не является — это границы инструмента.
     /^src\/vs\/platform\/contextkey\/common\/contextKeys\.ts$/,
     // Дословный перенос upstream vscode: не наш код, правится только пином
-    // (scripts/import-vscode-diff.mjs). См. AGENTS.md.
+    // (scripts/import-vscode-editor.mjs). См. AGENTS.md.
     /^src\/vs\/editor\/common\/diff\//,
-    /^src\/vs\/base\/common\/charCode\.ts$/,
+    /^src\/vs\/base\/common\/(charCode|stopwatch)\.ts$/,
+    /^src\/vs\/editor\/common\/model\/(textModelTokens|fixedArray)\.ts$/,
+    /^src\/vs\/editor\/common\/core\/misc\/eolCounter\.ts$/,
     // Точка входа расширения. Её путь отдают extension host'у, а тот запускает
     // ОТДЕЛЬНЫЙ процесс — `globalThis.__stryker__` через границу процесса не
     // проходит, поэтому активный мутант в дочернем процессе не включается, а его

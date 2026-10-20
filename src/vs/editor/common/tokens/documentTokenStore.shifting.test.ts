@@ -12,7 +12,7 @@ describe("DocumentTokenStore shifting", () => {
     it("shifts cached tokens down when lines are inserted above", () => {
         const doc = new TextDocument("a\nb\nc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(2);
+        store.forceTokenization(2);
         store.setLineTokens(2, MARKER);
 
         // Insert two new lines at the very top.
@@ -26,7 +26,7 @@ describe("DocumentTokenStore shifting", () => {
     it("shifts cached tokens up when lines are deleted above", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(4);
+        store.forceTokenization(4);
         store.setLineTokens(4, MARKER);
 
         // Delete lines 0 and 1 (i.e. delete from (0,0) to (2,0)).
@@ -39,10 +39,10 @@ describe("DocumentTokenStore shifting", () => {
     it("array length matches document.lineCount after insert", () => {
         const doc = new TextDocument("a\nb");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(1);
+        store.forceTokenization(1);
 
         doc.applyEdits([createInsertEdit(1, 0, "X\nY\n")]);
-        store.tokenizeUpTo(doc.lineCount - 1);
+        store.forceTokenization(doc.lineCount - 1);
 
         for (let i = 0; i < doc.lineCount; i++) {
             expect(store.getLineTokens(i)).toBeDefined();
@@ -52,10 +52,10 @@ describe("DocumentTokenStore shifting", () => {
     it("array length matches document.lineCount after delete", () => {
         const doc = new TextDocument("a\nb\nc\nd");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.tokenizeUpTo(3);
+        store.forceTokenization(3);
 
         doc.applyEdits([createDeleteEdit(1, 0, 3, 0)]);
-        store.tokenizeUpTo(doc.lineCount - 1);
+        store.forceTokenization(doc.lineCount - 1);
 
         for (let i = 0; i < doc.lineCount; i++) {
             expect(store.getLineTokens(i)).toBeDefined();

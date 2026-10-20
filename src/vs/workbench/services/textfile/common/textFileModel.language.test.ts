@@ -32,7 +32,7 @@ const TS_ONLY_LANGUAGE_SERVICE: ILanguageService = {
 
 function firstScope(ctrl: TextEditorPane): string | undefined {
     const tokenStore = ctrl.viewState.tokenStore;
-    tokenStore?.tokenizeUpTo(0);
+    tokenStore?.forceTokenization(0);
     return tokenStore?.getLineTokens(0)?.tokens[0]?.scopes[0];
 }
 

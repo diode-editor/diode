@@ -33,7 +33,7 @@
     "valid-layers-check": "node scripts/check-layers.mjs",
     "lazy-chunks-check": "node scripts/check-lazy-chunks.mjs",
     "snapshot-check": "node scripts/check-snapshot.mjs",
-    "import:vscode-diff": "node scripts/import-vscode-diff.mjs",
+    "import:vscode-editor": "node scripts/import-vscode-editor.mjs",
     "import:codicons": "node scripts/import-codicons.mjs",
     "engine:link": "node scripts/engine-link.mjs link",
     "engine:unlink": "node scripts/engine-link.mjs unlink",

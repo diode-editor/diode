@@ -197,6 +197,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     private occurrenceCache: { versionId: number; line: number; character: number; ranges: IRange[] } | null = null;
     /** Текущая призрачная подсказка; `null` — не показывать. См. {@link setGhostText}. */
     private ghostTextValue: IGhostText | null = null;
+    /** Документные строки последнего кадра — фильтр {@link handleTokensChanged}. */
+    private renderedDocLines: { first: number; last: number } | undefined;
 
     public get ghostText(): IGhostText | null {
         return this.ghostTextValue;
@@ -460,6 +462,18 @@ export class EditorElement extends TUIElement implements IScrollable {
         return this.viewState.readOnly;
     }
 
+    /**
+     * Токены строк `[fromLine .. toLine]` сменились вне кадра (фоновая
+     * токенизация, доводка у каретки). Перерисовываемся, только если строки
+     * были на экране: фон кладёт токены кусками по ~1 мс, и кадр на каждый
+     * кусок за экраном — впустую.
+     */
+    public handleTokensChanged(fromLine: number, toLine: number): void {
+        const rendered = this.renderedDocLines;
+        if (rendered === undefined || toLine < rendered.first || fromLine > rendered.last) return;
+        this.markDirty();
+    }
+
     /** Единственный канал обновления цветов редактора (маппинг темы делает Workbench-мост). */
     public render(context: RenderContext): void {
         const gutterW = this.gutterWidth;
@@ -526,16 +540,18 @@ export class EditorElement extends TUIElement implements IScrollable {
             zoneDecorationByAnchor.set(zone.afterLine, zone);
         }
 
-        // Bring the token cache up to the bottom of the viewport before reading.
+        // Токены вьюпорта к кадру: точные, если фон до него дошёл, иначе —
+        // эвристика (DocumentTokenStore.tokenizeViewport). Нижняя строка
+        // вьюпорта может быть зоной (у неё документной нет) — берём ближайшую
+        // документную, иначе подсветка хвоста вьюпорта молча отстанет.
+        // docLineForViewLine сам зажимает строку вью в границы и всегда
+        // отдаёт валидную документную — гарды не нужны.
         const tokenStore = this.viewState.tokenStore;
         if (tokenStore && visibleLines > 0) {
-            // Нижняя строка вьюпорта может быть зоной (у неё документной нет) —
-            // прогреваем до ближайшей документной, иначе подсветка хвоста
-            // вьюпорта молча отстанет. docLineForViewLine всегда отдаёт
-            // валидную строку — гард не нужен.
-            tokenStore.tokenizeUpTo(
-                this.viewState.docLineForViewLine(Math.min(scrollTop + visibleLines - 1, viewLineCount - 1)),
-            );
+            const firstDocLine = this.viewState.docLineForViewLine(scrollTop);
+            const lastDocLine = this.viewState.docLineForViewLine(scrollTop + visibleLines - 1);
+            this.renderedDocLines = { first: firstDocLine, last: lastDocLine };
+            tokenStore.tokenizeViewport(firstDocLine, lastDocLine);
         }
 
         // Frame-local cache of resolved styles to avoid re-walking the rule list

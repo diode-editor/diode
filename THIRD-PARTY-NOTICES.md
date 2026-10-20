@@ -7,12 +7,15 @@ own licenses, listed here.
 ## microsoft/vscode (MIT)
 
 Pinned to the tag recorded in `extensions/VSCODE_VERSION`. Imported by the scripts in `scripts/`
-(`import-vscode-diff.mjs`, `import-vscode-dts.mjs`, `import-vscode-extensions.mjs`,
+(`import-vscode-editor.mjs`, `import-vscode-dts.mjs`, `import-vscode-extensions.mjs`,
 `import-vscode-themes.mjs`); files carry the `Copyright (c) Microsoft Corporation` header or the
 `//@diode:vendored` marker.
 
 - `src/vs/editor/common/diff/**`, parts of `src/vs/editor/common/core/**`,
   `src/vs/base/common/charCode.ts` — the diff engine.
+- `src/vs/editor/common/model/{textModelTokens,fixedArray}.ts`,
+  `src/vs/editor/common/core/misc/eolCounter.ts`, `src/vs/base/common/stopwatch.ts` — model
+  tokenization (background and viewport tokenizers).
 - `src/vscode-dts/vscode.d.ts` — the extension API surface.
 - `extensions/*` — language-basics extensions (grammars, language configurations, snippets); each
   keeps its `package.json` license field and, where upstream ships one, its own license file

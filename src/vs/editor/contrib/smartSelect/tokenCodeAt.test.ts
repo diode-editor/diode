@@ -33,7 +33,7 @@ describe("tokenCodeAt — скобки не-кода по токенам", () =>
     it("устаревшие токены за грязной строкой не в счёт — код", () => {
         const document = new TextDocument(TEXT);
         const store = new DocumentTokenStore(document, QUOTE_TO_END);
-        store.tokenizeUpTo(2);
+        store.forceTokenization(2);
         // Правка строки 1: кэш строки 2 под ней может врать (правка могла открыть
         // или закрыть литерал) — пока его не пересчитали, он не в счёт.
         document.applyEdits([{ range: createRange(1, 0, 1, 0), text: "w" }]);

@@ -12,6 +12,18 @@
 
 **Слежение за файлом на диске (à la VS Code).** `TextFileModel` (Workbench) хранит снимок `diskStat` и слушает внешние изменения через `IFileWatcher`. Чистый буфер — молча перечитывается (`revertToDisk`); «грязный» — взводит `hasDiskConflict`. `save({ overwrite? })` сверяет текущий stat с `diskStat`: параллельная правка → `SaveOutcome === "conflict"`, пока пользователь не подтвердит перезапись. Собственные записи отсеиваются сверкой stat. **Удалённый файл** — режим orphaned эталона: пропавший файл перепроверяется через `ORPHAN_CHECK_DELAY_MS` (100 мс, атомарная запись чужим редактором — удаление и тут же новый файл), и если его всё ещё нет — `isOrphaned` + `onDidChangeOrphaned` (агрегат — `TextFileModelService.onDidChangeModelOrphaned`). Текст буфера жив, сохранение пересоздаёт файл; вернувшийся файл флаг снимает. Вкладка такой модели зачёркнута, окрашена `list.errorForeground` (`TabInfo.isDeleted` движка) и подписана `(deleted)` — хвост добавлен по решению человека сверх эталона: зачёркивание (SGR 9) рисуют не все терминалы. Закрытие вкладок удалённого файла — у `EditorService` (`docs/arch/Workbench.md`).
 
+## Координаты: ядро 0-based, вендор 1-based
+Ядро diode — **0-based `{ line, character }`** (`core/iPosition.ts`, `core/iRange.ts`): это конвенция
+API расширений VS Code и LSP, к ним — без конверсий. Код эталона, перенесённый дословно
+(`//@diode:vendored`: diff-движок, `core/{position,range}.ts`, `model/textModelTokens.ts`, дальше
+PieceTree), живёт в координатах эталона — строки и колонки **с 1** — и руками не правится. Граница —
+адаптер за нашим интерфейсом, и **±1 только в нём** (пример — `tokens/documentTokenStore.ts`:
+`lineNumber - 1` в узкой `ITextModel`, `line + 1` в вызовах перенесённого). Перевод ядра на
+1-based отвергнут человеком (2026-10-19): месяцы работы ради совпадения с эталоном.
+Ловушка — два `IPosition`/`IRange`: наши (`line`/`character`, `start`/`end`) и эталонные в
+`core/position.ts`/`core/range.ts` (`lineNumber`/`column`, `startLineNumber`…); TS их различает,
+глаз — не всегда.
+
 ## Encoding (кодировка на дисковой границе)
 `Encoding.ts` — сосед EOL-оси (`EndOfLine.ts`): кодировки адресуются строковыми id VS Code (`utf8`, `utf8bom`, `utf16le`, `windows1251`, …) из таблицы `SUPPORTED_ENCODINGS` (`{id, label, statusLabel, iconvName, bom?}`); byte↔text — `decodeBuffer`/`encodeText` (асинхронные) и синхронный `decodeBufferByBOM` (открытие файла без явной кодировки). utf-8 и UTF-16 идут нативно через `Buffer` (байт в байт как iconv-lite, который делегирует их тем же примитивам node; держат тесты «native codecs == iconv-lite»), остальные кодировки — через `iconv-lite`, ленивый кусок бандла (`importLazyModule`, docs/arch/Common.md), поэтому явная кодировка и запись асинхронные; `reopenWithEncoding` возвращает промис и не применяет результат, если буфер за время декода перечитали, перепривязали или закрыли. Детект **только по BOM** (utf8bom/utf16le/utf16be, как VS Code по умолчанию), иначе utf-8; explicit-кодировка («Reopen with Encoding») побеждает сниф, кроме промоушена explicit `utf8`+BOM → `utf8bom`. BOM отрезается до декода и никогда не попадает в текст; на записи utf8bom и оба utf16 всегда пишут свой BOM.
 
@@ -76,7 +88,7 @@ Ctrl+D и родня — состояние плюс чистые функции
 - **`IState`** + `NULL_STATE` — состояние токенайзера на границе строк.
 - **`ITokenizationSupport`** — `tokenizeLine(line, state)`. Sync MVP; async (LSP semantic tokens) — точка расширения.
 - **`TokenizationRegistry`** (`TokenizationRegistryDIToken`) — `register`/`get`/`onDidChange` по languageId.
-- **`DocumentTokenStore`** — per-document кеш токенов, подписан на `onDidChangeContent`, догоняет через `tokenizeUpTo(line)` с end-state оптимизацией.
+- **`DocumentTokenStore`** (`tokens/`) — кеш токенов на вью (его держит `EditorComponent`), подписан на `onDidChangeContent`. Адаптер к перенесённой из эталона токенизации (`model/textModelTokens.ts`, аналог upstream `TokenizerSyntaxTokenBackend`): хранилище end-state'ов с очередью невалидных строк (сходимость по равенству состояний — эталонная), **фон** (`DefaultBackgroundTokenizer`: куски по ~1 мс, уступает через `setTimeout0` = `setImmediate`, токены — событием `onDidChangeTokens`, `EditorElement.handleTokensChanged` перерисовывает, только если строки на экране), **вьюпорт** (`tokenizeViewport(top, bottom)` из рендера каждый кадр: до фронтира фона — точно, за ним — эвристика по отступам `findLikelyRelevantLines`, которую фон потом перекрашивает; тот же вьюпорт той же версии второй раз не угадывается) и **каретка** (`forceTokenization` — явные команды вроде smart select; `tokenizeIfCheap` — автокомплит, как `suggestModel` эталона). Без B2 формат токенов наш (скоупы): шов — шимы `editor/common/languages.ts` и `tokens/*`, план — [TODO/VscodeModel.md](../TODO/VscodeModel.md). Инвариант первого кадра сохранён: вьюпорт в начале файла токенизируется синхронно, `small` открывается сразу с подсветкой.
 - **`ITokenStyleResolver`** — `resolve(scopes) → ResolvedTokenStyle`. **Editor зависит только от этого интерфейса, не от Theme.**
 - **`ILanguageService`** — `languageId` по пути файла + display name. **Editor зависит только от интерфейса, не от Extensions.** Реализацию (`LanguageRegistry`) поставляет слой Extensions.
 - `builtin/` — заглушки (`PlainTextTokenizer`, `WordTokenizer`) как fallback; `textmate/` — адаптер над `vscode-textmate`/`vscode-oniguruma` с защитой от ReDoS. Конкретные грамматики поставляют builtin-расширения.

@@ -137,7 +137,7 @@
 
 - [x] `Emitter`/`event.ts` из `vs/base/common/event.ts` вместо ad-hoc массивов
   колбэков — сделано, свой узкий шим с именами эталона: [Events.md](Events.md).
-- [ ] PieceTree (`pieceTreeTextBuffer`) — см. [PieceTree.md](PieceTree.md).
+- [ ] PieceTree (`pieceTreeTextBuffer`) — см. [VscodeModel.md](VscodeModel.md), ветка A.
 - [ ] Эталонный дефолт событий активации (пусто значит пусто, без неявного
   `*`): механизм готов (`computeActivationEvents`), но дефолт `*` оставлен —
   на нём держатся опубликованные в магазине записи без `activationEvents`

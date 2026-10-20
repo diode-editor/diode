@@ -70,7 +70,7 @@ upstream, где они в `test/`-деревьях; оси на тесты не
 | Каталог | Прежний слой | Что там | Детали |
 |---|---|---|---|
 | `@tuidom/*` (npm: core, elements, terminal-backend, headless-backend, inspector, testing) | TUIDom (+Widgets) + Rendering + Input + Backend + Inspector | «браузер»: DOM-ядро (`dom/`: дерево элементов, события, фокус, стили), **виджеты `ui/<widget>/`** (кнопка = «HTMLElement»; vscode-имена: scrollbar, list, tree, inputbox, menu, contextview, selectbox, editorpart (полоса групп редакторов: веса + саши)…; критерий: виджет живёт там ⇔ его публичный API не упоминает понятий Diode, иначе — компонент в `vs/workbench/browser/parts/*`), `rendering/`, `input/`, `backend/`, `inspector/` (devtools), `common/` (геометрия, `DisplayLine`/Unicode, packed-цвета, `iTerminalSurface`), `testing/` (тест-харнесс). **Вынесен в [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom)**, ставится из npm | [доки tuidom](https://github.com/tuidom/tuidom/tree/main/docs): LAYOUT.md, STYLES.md, arch/ |
-| `vs/base/common/` | Common | примитивы diode: `Uri` (адаптер `vscode-uri`), fuzzy, `fileIcons`, ассеты (`assets/`), жизненный цикл `lifecycle` (`IDisposable`/`Disposable`/`DisposableStore`), события `event` (`Emitter`/`Event`), вехи старта `performance` (`mark` поверх `performance.mark`, no-op без трассы), контракт ленивых кусков бандла `lazyModule` (`importLazyModule`, [распил](arch/Common.md#ленивые-куски-бандла)) и ленивый `semver`; плюс узкие **шимы** upstream-утилит под перенесённый diff-движок (`arrays`, `arraysFind`, `assert`, `errors`, `map`, `strings`, `equals`, `charCode`) | [arch/Common.md](arch/Common.md) |
+| `vs/base/common/` | Common | примитивы diode: `Uri` (адаптер `vscode-uri`), fuzzy, `fileIcons`, ассеты (`assets/`), жизненный цикл `lifecycle` (`IDisposable`/`Disposable`/`DisposableStore`), события `event` (`Emitter`/`Event`), вехи старта `performance` (`mark` поверх `performance.mark`, no-op без трассы), контракт ленивых кусков бандла `lazyModule` (`importLazyModule`, [распил](arch/Common.md#ленивые-куски-бандла)) и ленивый `semver`; плюс узкие **шимы** upstream-утилит под перенесённый код эталона (`arrays`, `arraysFind`, `assert`, `errors`, `map`, `strings`, `equals`, `platform`; дословно перенесены `charCode`, `stopwatch`) | [arch/Common.md](arch/Common.md) |
 | `vs/base/node/` | Common (node-часть) | SEA/`isSea`, fs-доступ к ассетам, загрузчик ленивых кусков бандла (`lazyModule`, [распил](arch/Common.md#ленивые-куски-бандла)), перезапуск процесса (`restartProcess`) и аргументы форка самого себя (`selfSpawnArgs`) | [arch/Common.md](arch/Common.md) |
 | `vs/platform/` | размазан (Common/Configuration/Theme/Editor/Workbench) | сервисы ниже editor: `instantiation` (наш DI), `log`, `configuration` (+`ConfigurationRegistry`), `state`, `markers`, `undoRedo`, `commands`, `contextkey`, `keybinding`, `actions` (`MenuRegistry`/`MenuId`), `progress` (`ProgressService` — модель прогресса и общий такт спиннеров), `layout`/`terminal` (DI-токены к типам `@tuidom/core`: `TuiApplicationDIToken`, `TerminalBackendDIToken`; `terminal/common/terminalStrings` — сообщения редактора в терминал, перенос эталона), `contextview` (`ContextMenuService` — делегаты контекстных меню поверх tuidom-механики), `theme` (определения цветов + мост `defaultStyles`), `clipboard`, `files`, `environment` (`IEnvironmentService` — пути user data активного профиля и флаги CLI одним объектом; node-адаптер над резолвером путей), `userDataProfile` (`IUserDataProfilesService` — реестр профилей и их привязки к воркспейсам поверх application-состояния; активный профиль процесса резолвится в `main.ts`, см. [arch/Configuration.md](arch/Configuration.md#профили-user-data-profiles)), `extensions`, `extensionManagement`, `workspace` (`IWorkspaceContextService` — единственный источник правды о папках воркспейса и его идентичности `WorkspaceId`) | [arch/Theme.md](arch/Theme.md), [arch/Configuration.md](arch/Configuration.md), [arch/State.md](arch/State.md), [TODO/MultiRoot.md](TODO/MultiRoot.md) |
 | `vs/editor/` | Editor | `common/{core,model,viewModel,languages,tokens}` — текстовая модель, view-state, токенизация; `common/languageSelector`+`languageFeatureRegistry` и `common/services/languageFeatures` — реестры языковых провайдеров по селектору документа (аналог upstream `ILanguageFeaturesService`, устройство и рецепт новой фичи — [arch/Extensions.md](arch/Extensions.md)); `common/diff` — **дословно перенесённый** из upstream алгоритм построчного диффа (см. ниже); `browser/` — `editorElement` (виджет-мост; view zones + внешние декорации рисуют и дифф v2); `common/diff/diffV2Layout` — раскладка живого диффа (зоны/фолды/декорации сторон); `contrib/{find,folding}` — модельные части фич | [arch/Editor.md](arch/Editor.md), [TODO/Diff.md](TODO/Diff.md) |
@@ -171,16 +171,24 @@ env-флагом, который выставляет спавнящая сто�
 Алгоритм построчного диффа (`DefaultLinesDiffComputer`) и нужные ему примитивы
 `editor/common/core` — **дословная копия** `microsoft/vscode` запинненного тега, а не наш
 исходник. Ровно ради такого переиспользования и держится парность путей с vscode: upstream
-там — чистые функции без DOM, DI и реактивщины, и ложатся они по тем же путям.
+там — чистые функции без DOM, DI и реактивщины, и ложатся они по тем же путям. Тем же
+механизмом перенесена токенизация модели (`editor/common/model/textModelTokens.ts`: фон,
+эвристика вьюпорта, хранилище состояний) — план дальнейших переносов (PieceTree, бинарные
+токены) в [TODO/VscodeModel.md](TODO/VscodeModel.md). Перенесённый код живёт в координатах
+эталона (строки и колонки с 1), ядро — 0-based; ±1 — только в адаптере
+([arch/Editor.md](arch/Editor.md#координаты-ядро-0-based-вендор-1-based)).
 
-- **Управляется скриптом.** `scripts/import-vscode-diff.mjs` (`npm run import:vscode-diff`);
+- **Управляется скриптом.** `scripts/import-vscode-editor.mjs` (`npm run import:vscode-editor`);
   режим `--check` заново выводит содержимое из upstream и сравнивает побайтно — сторож
   дрейфа. Правки руками запрещены, см. `AGENTS.md`.
 - **Границу задают шимы.** Зависимости из `base/common` не переносятся: полные upstream-файлы
   тянут `cancellation → event → lifecycle → observableInternal` (~30 файлов). Вместо них —
   узкие рукописные модули по тем же путям; парность раскладки делает подмену прозрачной,
   ни один import в перенесённом коде не правится. Шимы — наш код: покрыты тестами и участвуют
-  в храповике покрытия, в отличие от перенесённого.
+  в храповике покрытия, в отличие от перенесённого. Шимы `editor/common/{languages,model}.ts`,
+  `tokens/lineTokens.ts`, `tokens/contiguousMultilineTokens*.ts` — ещё и шов формата: эталон
+  возит бинарные токены (`Uint32Array`), а наши — стеки скоупов; перенесённый алгоритм их только
+  передаёт, поэтому формат подменяется в шиме (замена на upstream — шаг B2).
 - **Виджет не переносим.** `editor/browser/widget/diffEditor/` (24 файла) построен на двух
   monaco-`ICodeEditor`, DOM-оверлеях и `observable` — оттуда берём решения, а не строки.
 - **Ловушка: два `IRange`.** В `editor/common/core/` сосуществуют наш `iRange.ts`

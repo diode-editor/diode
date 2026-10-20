@@ -33,7 +33,7 @@ Monolithic Awareness: Every element is "visibility-aware". If its box is outside
 4. Text Handling
 Editor Core: The text editor is a specialized UIElement that manages its own internal rendering (not using child UIElements for lines) for performance.
 
-Storage: Data must be stored using a Piece Table (or similar) to support massive files and O(1) undo/redo. (Текущее состояние — `string[]` в `src/vs/editor/common/model/textDocument.ts`; план перехода: `docs/TODO/PieceTree.md`.)
+Storage: Data must be stored using a Piece Table (or similar) to support massive files and O(1) undo/redo. (Текущее состояние — `string[]` в `src/vs/editor/common/model/textDocument.ts`; план перехода: `docs/TODO/VscodeModel.md`, ветка A.)
 
 UITextElement: A dedicated element for UI labels with Word Wrap support, where height is calculated based on maxWidth constraints.
 

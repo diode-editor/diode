@@ -169,13 +169,13 @@ describe("EditorComponent: один документ в двух вью", () => 
     it("закрытая вью отписывает свой кеш TM-токенов от документа, живущего дальше", () => {
         const { a, b } = openTwice("leak.txt", "one\ntwo\nthree");
         const store = a.viewState.tokenStore;
-        store?.tokenizeUpTo(2);
-        expect(store?.invalidLineIndex).toBe(3);
+        store?.forceTokenization(2);
+        expect(store?.hasAccurateTokensForLine(0)).toBe(true);
         a.dispose();
         // Правка из живой вью: закрытый кеш её больше не видит.
         typeIn(b, "x");
-        expect(store?.invalidLineIndex).toBe(3);
-        expect(b.viewState.tokenStore?.invalidLineIndex).toBe(0);
+        expect(store?.hasAccurateTokensForLine(0)).toBe(true);
+        expect(b.viewState.tokenStore?.hasAccurateTokensForLine(0)).toBe(false);
         b.dispose();
     });
 });

@@ -316,7 +316,7 @@ interface IWriteFileOptions {
 | **etag** | да, в форме эталона (`mtime`+`size`) | это уже наш `IDiskStat`; гард переезжает из `TextFileModel.hasExternalChange` в `writeFile` и перестаёт быть гонкой «stat → write» в двух разных вызовах |
 | **Атомарная запись** | да, опцией; для save модели — включена по умолчанию | сейчас `writeFileSync` на месте: падение посреди записи оставляет обрезанный файл. Исключения по эталону: симлинк (rename заменил бы ссылку файлом) и файл с жёсткими ссылками/чужим владельцем — там честный откат на запись на месте |
 | **Очередь записи по ресурсу** | да | два save подряд (автосохранение + ручной) не должны переплестись; у vscode это `ResourceQueue`, у нас хватит `Map<string, Promise>` |
-| **Потоковое чтение** | слот в capabilities и `IFileContent`, без реализации | сам по себе стриминг бесполезен, пока `TextDocument` строится из одной строки ([PieceTree](PieceTree.md)); но шов надо спроектировать так, чтобы он встал без смены интерфейса |
+| **Потоковое чтение** | слот в capabilities и `IFileContent`, без реализации | сам по себе стриминг бесполезен, пока `TextDocument` строится из одной строки ([VscodeModel](VscodeModel.md), ветка A); но шов надо спроектировать так, чтобы он встал без смены интерфейса |
 | **`VSBuffer`** | нет, `Uint8Array` | обёртка нужна ради IPC и браузера; у нас один процесс и Node `Buffer` уже `Uint8Array` — возвращаем без копии |
 | **Sync-методы** | нет | вариант B, отвергнут |
 | **`can*`-пары, clone, realpath, unlock, блокировки** | нет | потребителей нет |
@@ -623,7 +623,7 @@ PR 0 независим и идёт первым. PR 2, 3, 4 зависят то
   исключения env-оси»
 - [OpenPerformance](OpenPerformance.md) — этап 4 (стриминг), вехи `textfile:*`
 - [Uri](Uri.md) — `untitled:`-провайдер, кэш содержимого
-- [PieceTree](PieceTree.md) — документ не из одной строки
+- [VscodeModel](VscodeModel.md) — документ не из одной строки (ветка A, PieceTree)
 - [MultiRoot](MultiRoot.md) — N корней для Explorer и watcher'ов
 - [FileTreePerformance](FileTreePerformance.md) — чтение каталогов в дереве
 - [TestRunTime](TestRunTime.md) — in-memory провайдер как побочная выгода

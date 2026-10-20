@@ -44,31 +44,31 @@ describe("DocumentTokenStore end-state optimisation", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const tokenizer = new StatefulTokenizer();
         const store = new DocumentTokenStore(doc, tokenizer);
-        store.tokenizeUpTo(doc.lineCount - 1);
+        store.forceTokenization(doc.lineCount - 1);
 
         // Edit line 0 with another non-`>` line → endState stays { value: 0 }.
         doc.applyEdits([createInsertEdit(0, 0, "X")]);
 
         const spy = vi.spyOn(tokenizer, "tokenizeLine");
-        store.tokenizeUpTo(doc.lineCount - 1);
-        // Line 0 is in the invalidated region (always re-tokenized).
-        // Line 1 is the first line beyond — its newly computed endState matches
-        // the previously cached endState there, so we stop. Total: 2 calls.
-        expect(spy).toHaveBeenCalledTimes(2);
-        expect(store.invalidLineIndex).toBe(doc.lineCount);
+        store.forceTokenization(doc.lineCount - 1);
+        // Line 0 is the invalidated region (always re-tokenized). Its old end
+        // state survives the edit (upstream TokenizationStateStore keeps it), the
+        // new one equals it — so line 1 stays valid and we stop. Total: 1 call.
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(store.hasAccurateTokensForLine(doc.lineCount - 1)).toBe(true);
     });
 
     it("continues tokenizing when the endState changes", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const tokenizer = new StatefulTokenizer();
         const store = new DocumentTokenStore(doc, tokenizer);
-        store.tokenizeUpTo(doc.lineCount - 1);
+        store.forceTokenization(doc.lineCount - 1);
 
         // Edit line 0 to a `>` line → endState changes to { value: 1 }, propagates downstream.
         doc.applyEdits([createInsertEdit(0, 0, ">")]);
 
         const spy = vi.spyOn(tokenizer, "tokenizeLine");
-        store.tokenizeUpTo(doc.lineCount - 1);
+        store.forceTokenization(doc.lineCount - 1);
         // Every line must be re-tokenized.
         expect(spy).toHaveBeenCalledTimes(doc.lineCount);
     });
