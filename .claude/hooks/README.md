@@ -33,6 +33,7 @@ Claude Code. Это не хук из этого каталога, править
 | `cd <tuidom> && git …`, Bash-правки в соседнем checkout'е | `git -C <абсолютный путь> …`; правки там — инструментами Edit/Write; push tuidom — `git -C … push https://github.com/tuidom/tuidom.git <ref>` (`push origin` ловит ssh-предохранитель) |
 | `npm run -s drive -- …` с переменными или функциями-обёртками | каждая команда drive — отдельным простым вызовом |
 | команда с env-префиксом (`PATH=… claude-lease run …`) | короткий `.sh` в scratchpad, вызов `bash <скрипт>` |
+| `gh pr create --body-file - <<EOF …`, если в тексте встречается «git» | тело — файлом в scratchpad (Write), `--body-file <путь>` |
 
 Тесты: `node --test .claude/hooks/hooks.test.mjs`; в CI они идут в составе `npm run test:scripts`
 (job `mutation`, шаг «Gate self-test»).
