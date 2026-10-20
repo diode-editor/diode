@@ -31,9 +31,9 @@ const SAMPLE_SOURCE = resolve(here, "fixtures", "sample-theme");
 
 /** Цвета из e2e/fixtures/sample-theme/themes/*.json. */
 const SAMPLE_DARK = { editorBg: 0x101820, statusBg: 0x0a0f14, keywordFg: 0xff7b72 };
-const SAMPLE_LIGHT = { editorBg: 0xfafaf5, statusBg: 0xdde3e9 };
+const SAMPLE_LIGHT = { editorBg: 0xfafaf5, statusBg: 0xdde3e9, keywordFg: 0xcf222e };
 /** Dark Modern (дефолт при ненайденной теме). */
-const DARK_MODERN = { editorBg: 0x1f1f1f, statusBg: 0x181818 };
+const DARK_MODERN = { editorBg: 0x1f1f1f, statusBg: 0x181818, keywordFg: 0x569cd6 };
 
 const SAMPLE_FILE = "sample.ts";
 const SAMPLE_CONTENT = "const answer = 42;\n// second line\n";
@@ -44,6 +44,12 @@ let sampleVsix: string;
 function statusBarBg(frame: GridSnapshot): number {
     const y = frame.rows - 1;
     return frame.cells[y * frame.cols].bg;
+}
+
+/** Цвет `const` в первой строке образца; текста ещё нет — `undefined`. */
+function keywordFg(frame: GridSnapshot): number | undefined {
+    const keyword = findTextCell(frame, "const answer");
+    return keyword === null ? undefined : frame.cells[keyword.y * frame.cols + keyword.x].fg;
 }
 
 /** Фон ячейки редактора на второй строке документа (первая — под кареткой и occurrence-подсветкой). */
@@ -100,10 +106,6 @@ describe("Extension themes (e2e)", () => {
         // US-8: `const` — правило `storage`/`keyword` темы расширения. Кадр с
         // текстом идёт без подсветки (токенизация — следующим кадром), поэтому
         // ждём кадр, где `const` уже покрашен.
-        const keywordFg = (frame: GridSnapshot): number | undefined => {
-            const keyword = findTextCell(frame, "const answer");
-            return keyword === null ? undefined : frame.cells[keyword.y * frame.cols + keyword.x].fg;
-        };
         await waitUntil(
             () => app.session.captureFrame(),
             (frame) => keywordFg(frame) === SAMPLE_DARK.keywordFg,
@@ -138,7 +140,11 @@ describe("Extension themes (e2e)", () => {
             files: { [SAMPLE_FILE]: SAMPLE_CONTENT },
             open: [".", SAMPLE_FILE],
         });
-        const before = await app.session.waitForText((t) => t.includes("const answer"));
+        const before = await waitUntil(
+            () => app.session.captureFrame(),
+            (frame) => keywordFg(frame) === DARK_MODERN.keywordFg,
+            { describe: "`const` в цвете keyword Dark Modern" },
+        );
         expect(statusBarBg(before)).toBe(DARK_MODERN.statusBg);
 
         writeFileSync(
@@ -153,5 +159,16 @@ describe("Extension themes (e2e)", () => {
         );
         expect(await editorBg(app, after)).toBe(SAMPLE_LIGHT.editorBg);
         expect(frameToText(after)).toContain("const answer");
+        // Синтаксис тоже перекрашен: токены несут индексы colorMap прежней темы,
+        // смена темы перетокенизирует документ (TokenizationRegistry.setColorMap).
+        await waitUntil(
+            () => app.session.captureFrame(),
+            (frame) => keywordFg(frame) === SAMPLE_LIGHT.keywordFg,
+            {
+                describe: "`const` в цвете keyword Sample Light после смены темы",
+                diagnose: (last) =>
+                    `fg=${String(keywordFg(last as GridSnapshot))}\n${frameToText(last as GridSnapshot)}`,
+            },
+        );
     });
 });
