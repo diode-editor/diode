@@ -167,7 +167,8 @@ exports.activate = function activate(context) {
         }
         const [outcome, text] = await Promise.race(race);
         for (const disposable of disposables) disposable.dispose();
-        status.text = outcome === "FILE_SAVED" ? `diff:${outcome}:${text.split("\n")[0].split(" ").at(-1)}` : `diff:${outcome}`;
+        status.text =
+            outcome === "FILE_SAVED" ? `diff:${outcome}:${text.split("\n")[0].split(" ").at(-1)}` : `diff:${outcome}`;
         output.appendLine(`${outcome}\n${text}`);
     }
 

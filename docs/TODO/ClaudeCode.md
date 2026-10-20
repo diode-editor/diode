@@ -56,6 +56,7 @@ Open in Terminal`) открывает `claude` **вкладкой редакто
    пункт 5, его снять (и сказать о вкладке в `works`/readme). Тесты ставят
    расширение по id из магазина: смоук в `e2e/marketplace/checks.ts`, e2e
    `claudeCode.test.ts` (лок, MCP, выделение, `Ctrl+Alt+K`, `getDiagnostics`,
+   `openDiff` — ✓/↺, правка + Ctrl+S, Ctrl+W,
    вкладка `claude` справа, `CLAUDE_CODE_SSE_PORT` в терминале панели),
    сценарий `claude-code`. Вместо CLI — пробный клиент и подставной `claude`
    (docs/TESTING.md, «Claude Code без настоящего CLI»).
@@ -228,8 +229,8 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 - [ ] `comments.createCommentController` (треды на ханках) — у нас инертный
       (#627), диффу не мешает; тредов в диффе нет.
 
-Проверка: e2e-сценарий `proposed-diff` (фикстурное расширение
-`proposed-diff-demo` повторяет `openDiff` 2.1.304: провайдер, гонка исходов,
+Проверка: стоковый кейс `openDiff` в e2e `claudeCode.test.ts`, e2e-сценарий
+`proposed-diff` (фикстурное расширение `proposed-diff-demo` повторяет `openDiff` 2.1.304: провайдер, гонка исходов,
 ключ по видимости) и вживую на стоковом vsix пробным WebSocket-клиентом к
 ide-серверу (как в «Живой проверке контекста»): `openDiff` → правка правой
 стороны + Ctrl+S → `FILE_SAVED` с правленым текстом; ✓ → `FILE_SAVED`; ↺ и
