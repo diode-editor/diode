@@ -471,6 +471,33 @@ npm run drive -- stop                       # ноль процессов, но�
 `Diode.*` (готовность, команды, OUTPUT, контекст-ключи) доступны любому клиенту
 `--inspect-tui`, не только инструменту.
 
+### CPU-профиль правок на живом бинаре
+
+`bench:open` меряет время клавиши, но не говорит, куда оно ушло, а главный процесс
+бенч убивает — профиль не дописывается. Профиль снимают через drive: `NODE_OPTIONS`
+наследуется в бинарь, а вежливый `stop` даёт V8 записать `.cpuprofile`.
+
+```bash
+OUT=/путь/к/prof && mkdir -p "$OUT"
+d() { npm run -s drive -- -s prof "$@"; }
+trap 'd stop' EXIT
+NODE_OPTIONS="--cpu-prof --cpu-prof-interval=100 --cpu-prof-dir=$OUT" \
+  npm run -s drive -- -s prof start --binary-path dist/diode --seed ./seed --open big.ts
+d wait text 'export function' --timeout 60000
+date +%s%3N > "$OUT/mark"                    # окно правок — отрезать открытие в профиле
+for i in $(seq 1 15); do d type 'x'; d wait idle; done
+for i in $(seq 1 15); do d key Enter; d wait idle; done
+d stop                                       # именно stop, не kill: иначе профиля нет
+```
+
+- Профилей несколько — `NODE_OPTIONS` получают все node-процессы (extension host,
+  tsserver). Главный — самый крупный (pid процесса есть в имени файла).
+- Смотреть — DevTools (Performance → Load profile) или self-time по функциям
+  скриптом над `nodes`/`samples`/`timeDeltas`, начиная с отметки `mark`.
+- Бинарь — `npm run build:sea` под node 26.12 (системный 25.x его ломает).
+- Одна такая сессия за раз: две drive-сессии с tsserver на 13 МБ файле умирали,
+  похоже, от памяти.
+
 ---
 
 ## Быстрый цикл по диффу (`check:diff`)
