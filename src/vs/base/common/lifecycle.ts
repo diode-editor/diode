@@ -295,6 +295,15 @@ export abstract class Disposable implements IDisposable {
         if ((o as IDisposable) === this) throw new Error("Cannot register a disposable on itself!");
         return this.store.add(o);
     }
+
+    /**
+     * {@link register} под именем эталона — его зовёт дословно перенесённый
+     * код (`model/pieceTreeTextBuffer/`), который руками не правится. Наш код
+     * зовёт `register`.
+     */
+    protected _register<T extends IDisposable>(o: T): T {
+        return this.register(o);
+    }
 }
 
 /**

@@ -26,7 +26,8 @@
  *   3. `import` → `import type` для символов из TYPE_ONLY: у нас
  *      `verbatimModuleSyntax: true`, при котором значение-импорт типа — ошибка
  *      TS1484. Список объявлен ниже, а не выведен эвристикой.
- *   4. БАННЕР провенанса сразу после MIT-шапки upstream.
+ *   4. БАННЕР провенанса сразу после MIT-шапки upstream, за ним — объявленная
+ *      прелюдия (PRELUDES: импорт mocha-глобалов в upstream-тесты).
  *
  * Шаги 1–4 обратимы в том смысле, что `--check` заново выводит ожидаемое
  * содержимое из upstream и сравнивает побайтно. Если upstream уедет так, что
@@ -99,6 +100,25 @@ const FILES = [
     "src/vs/editor/common/model/fixedArray.ts",
     "src/vs/editor/common/core/misc/eolCounter.ts",
     "src/vs/base/common/stopwatch.ts",
+
+    // Хранение текста: PieceTree (красно-чёрное дерево кусков с кэшем стартов
+    // строк) и его зависимости. Пока никем не используется — подключение к
+    // TextDocument это шаг A3 (docs/TODO/VscodeModel.md).
+    "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeBase.ts",
+    "src/vs/editor/common/model/pieceTreeTextBuffer/rbTreeBase.ts",
+    "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.ts",
+    "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBufferBuilder.ts",
+    "src/vs/editor/common/core/textChange.ts",
+    // Поиск по буферу (`findMatchesLineByLine`): `Searcher` и разбор границ слов.
+    "src/vs/editor/common/model/textModelSearch.ts",
+    "src/vs/editor/common/core/wordCharacterClassifier.ts",
+    "src/vs/editor/common/core/characterClassifier.ts",
+    "src/vs/base/common/uint.ts",
+
+    // Upstream-тесты PieceTree (фаззинг со случайными правками) — главный гейт
+    // переноса дерева. Путь — upstream'овский (`editor/test/...`), а не
+    // колокация: парность раскладки оставляет относительные импорты дословными.
+    "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
 ];
 
 /** Фикстурный корпус: upstream-путь → наш путь. Файлы копируются как есть. */
@@ -117,6 +137,10 @@ const SPARSE_PATHS = [
     "/src/vs/base/common/stopwatch.ts",
     "/src/vs/editor/common/model/textModelTokens.ts",
     "/src/vs/editor/common/model/fixedArray.ts",
+    "src/vs/editor/common/model/pieceTreeTextBuffer",
+    "/src/vs/editor/common/model/textModelSearch.ts",
+    "/src/vs/base/common/uint.ts",
+    "/src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
     FIXTURES_FROM,
 ];
 
@@ -124,7 +148,8 @@ const SPARSE_PATHS = [
 
 /**
  * Иссечения: вырезаем строки от `from` до `to` включительно (`to: "EOF"` — до
- * конца файла). Каждое — с обоснованием; цель списка — оставаться коротким.
+ * конца файла, `"SELF"` — одна строка `from`; `nth` — до `nth`-й строки `to`).
+ * Каждое — с обоснованием; цель списка — оставаться коротким.
  */
 const EXCISIONS = {
     "src/vs/editor/common/diff/rangeMapping.ts": [
@@ -163,6 +188,50 @@ const EXCISIONS = {
             from: "import { StandardTokenType } from '../encodedTokenAttributes.js';",
             to: "SELF",
         },
+    ],
+    "src/vs/editor/common/core/textChange.ts": [
+        {
+            // Бинарная сериализация TextChange (`writeSize`/`write`/`read` и
+            // их помощники — шесть методов подряд) — для сохранения undo-стека
+            // эталона в Uint8Array. Тянет base/common/buffer.ts (lazy, stream)
+            // и core/stringBuilder.ts (platform, TextDecoder). Нам нужен только
+            // сам TextChange как запись обратной правки PieceTree.
+            from: "\tprivate static _writeStringSize(str: string): number {",
+            to: "\t}",
+            nth: 6,
+        },
+        { from: "import * as buffer from '../../../base/common/buffer.js';", to: "SELF" },
+        { from: "import { decodeUTF16LE } from './stringBuilder.js';", to: "SELF" },
+    ],
+    "src/vs/editor/common/model/textModelSearch.ts": [
+        {
+            // Разбор запроса виджета поиска (строка/регэксп/регистр) — тянет
+            // strings.createRegExp и экранирование. PieceTree получает уже
+            // готовый SearchData; виджет поиска у нас пока свой.
+            from: "export class SearchParams {",
+            to: "}",
+        },
+        {
+            // Поиск по TextModel (многострочный, next/previous) — тянет
+            // textModel.ts целиком (весь TextModel эталона мы не переносим,
+            // docs/TODO/VscodeModel.md, ветка C). PieceTree зовёт только
+            // Searcher / createFindMatch / isValidMatch, они остаются.
+            from: "export class TextModelSearch {",
+            to: "}",
+        },
+        { from: "import { TextModel } from './textModel.js';", to: "SELF" },
+    ],
+};
+
+/**
+ * Строки, вставляемые сразу после баннера. Сейчас — только импорт
+ * mocha-глобалов (`suite`/`test`) в upstream-тесты: у эталона они глобальны
+ * (mocha), у нас vitest без глобалов. Адаптер — src/TestUtils/mochaCompat.ts
+ * (он же отдаёт тесту `this.timeout()`, который зовут фаззинг-кейсы).
+ */
+const PRELUDES = {
+    "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts": [
+        "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
     ],
 };
 
@@ -206,6 +275,15 @@ const TYPE_ONLY = new Set([
     "IState",
     "ITextModel",
     "ITokenizationSupport",
+    // PieceTree: из шима model.ts и lifecycle.ts
+    "IDisposable",
+    "IInternalModelContentChange",
+    "ISingleEditOperationIdentifier",
+    "ITextBuffer",
+    "ITextBufferBuilder",
+    "ITextBufferFactory",
+    "ITextSnapshot",
+    "IValidEditOperation",
 ]);
 
 /** Последняя строка MIT-шапки upstream — баннер вставляем сразу после неё. */
@@ -229,13 +307,22 @@ function applyExcisions(lines, upstreamPath) {
         if (start === -1) {
             throw new Error(`[vendor] иссечение не приложилось в ${upstreamPath}: анкер не найден\n  ${spec.from}`);
         }
-        const end = spec.to === "EOF" ? out.length - 1 : spec.to === "SELF" ? start : out.findIndex((l, i) => i >= start && l === spec.to);
+        const end = spec.to === "EOF" ? out.length - 1 : spec.to === "SELF" ? start : nthIndex(out, start, spec.to, spec.nth ?? 1);
         if (end === -1) {
             throw new Error(`[vendor] иссечение не приложилось в ${upstreamPath}: конечный анкер не найден\n  ${spec.to}`);
         }
         out = [...out.slice(0, start), ...out.slice(end + 1)];
     }
     return out;
+}
+
+/** Индекс `nth`-й (с 1) строки, равной `line`, начиная с `from`; -1 — нет. */
+function nthIndex(lines, from, line, nth) {
+    let seen = 0;
+    for (let i = from; i < lines.length; i++) {
+        if (lines[i] === line && ++seen === nth) return i;
+    }
+    return -1;
 }
 
 /** `from './x.js'` → `from './x.ts'` — только в спецификаторах импорта/экспорта. */
@@ -274,7 +361,7 @@ function splitTypeImports(lines) {
 function insertBanner(lines, upstreamPath) {
     const idx = lines.indexOf(MIT_HEADER_LAST);
     if (idx === -1) throw new Error(`[vendor] MIT-шапка не найдена в ${upstreamPath}`);
-    return [...lines.slice(0, idx + 1), ...banner(upstreamPath), ...lines.slice(idx + 1)];
+    return [...lines.slice(0, idx + 1), ...banner(upstreamPath), ...(PRELUDES[upstreamPath] ?? []), ...lines.slice(idx + 1)];
 }
 
 /** Полная объявленная трансформация upstream-текста в наш файл. */

@@ -138,6 +138,18 @@ PR влит `--admin`.
     C.java\n …' to contain 'util.ts'`. Локально на main — 4 из 10. Валит и job
     `test`, и dry run мутаций (`There were failed tests in the initial test run`):
     повторился на #648, #656, #657, а на #663 съел вердикт гейта.
+    Повторился на #678 (2026-10-20) дважды подряд: job `test` и dry run мутаций.
+  - [~] **Dry run мутаций на грани 5 минут, если дифф трогает `base/common/lifecycle.ts`.**
+    Stryker гоняет все тесты, связанные с мутируемыми файлами, а `lifecycle.ts` импортирует
+    почти всё — dry run становится полным сьютом (~9.7k тестов, perTest-покрытие). На #678
+    (алиас `Disposable._register` для вендора PieceTree) из трёх CI-прогонов один уложился,
+    один упал на флаке выше, один — `Initial test run timed out!` (дефолт Stryker
+    `dryRunTimeoutMinutes` = 5); локально на 4 ядрах — тоже таймаут. Вердикта гейта в таком
+    случае нет. Сделано: `dryRunTimeoutMinutes` = 15 (TESTING.md, «Цена прогона»); открыто —
+    сузить dry run (полный сьют ради одного алиаса — ~4 CPU-мин впустую).
+  - [ ] e2e-сценарий `settings-completion` (ubuntu): `waitUntil(screen text predicate) timed out
+    after 4000ms` на ожидании попапа `editor.` — упал дважды (с автоповтором) на #678, диффом
+    не задет; `gh run rerun --failed` зеленит.
   - [ ] `workbench.fileCreate.test.ts` › «create via context menu › New File... entry
     prompts and creates a file»: `expected false to be true`. Уронил dry run мутаций
     на #662 (ран 39231486646) — вердикта нет, PR-диффом не задет.

@@ -15,8 +15,8 @@
 ## Координаты: ядро 0-based, вендор 1-based
 Ядро diode — **0-based `{ line, character }`** (`core/iPosition.ts`, `core/iRange.ts`): это конвенция
 API расширений VS Code и LSP, к ним — без конверсий. Код эталона, перенесённый дословно
-(`//@diode:vendored`: diff-движок, `core/{position,range}.ts`, `model/textModelTokens.ts`, дальше
-PieceTree), живёт в координатах эталона — строки и колонки **с 1** — и руками не правится. Граница —
+(`//@diode:vendored`: diff-движок, `core/{position,range}.ts`, `model/textModelTokens.ts`,
+`model/pieceTreeTextBuffer/`), живёт в координатах эталона — строки и колонки **с 1** — и руками не правится. Граница —
 адаптер за нашим интерфейсом, и **±1 только в нём** (пример — `tokens/documentTokenStore.ts`:
 `lineNumber - 1` в узкой `ITextModel`, `line + 1` в вызовах перенесённого). Перевод ядра на
 1-based отвергнут человеком (2026-10-19): месяцы работы ради совпадения с эталоном.

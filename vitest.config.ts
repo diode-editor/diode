@@ -65,6 +65,12 @@ export default defineConfig({
         "src/vs/base/common/stopwatch.ts",
         "src/vs/editor/common/model/{textModelTokens,fixedArray}.ts",
         "src/vs/editor/common/core/misc/eolCounter.ts",
+        // PieceTree и поиск по буферу: гейт — upstream-тесты PieceTree со
+        // случайными правками (editor/test/common/model/pieceTreeTextBuffer/).
+        "src/vs/editor/common/model/pieceTreeTextBuffer/**",
+        "src/vs/editor/common/model/textModelSearch.ts",
+        "src/vs/editor/common/core/{textChange,wordCharacterClassifier,characterClassifier}.ts",
+        "src/vs/base/common/uint.ts",
         "**/__fixtures__/**", // тестовые ДАННЫЕ (чужие исходники), не исполняемый код
 
         // --- Чистые типы: нечего исполнять ---
