@@ -193,7 +193,7 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
             // ресурса), а исходная вкладка остаётся собой.
             await files.writeFile(
                 Uri.file(resolved),
-                await encodeText(editor.model.document.serialize(), editor.encoding),
+                await encodeText(editor.model.document.createSnapshot(), editor.encoding),
             );
             editorService.openFile(resolved);
         }

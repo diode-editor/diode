@@ -202,13 +202,14 @@ export class ExtHostTextDocument implements vscode.TextDocument {
      */
     public positionAt(offset: number): Position {
         const lines = this.lines();
-        let remaining = Math.min(Math.max(0, offset), this.getText().length);
-        // Шагаем, пока остаток не влезает в строку. Проверки «не вышли за
-        // последнюю строку» тут нет и не нужно: сумма длин строк с
-        // разделителями равна длине текста, а смещение к ней прижато — значит
-        // на последней строке остаток заведомо не больше её длины.
+        let remaining = Math.max(0, offset);
+        // Шагаем, пока остаток не влезает в строку. Остаток, не влезший и в
+        // последнюю, — смещение за концом текста: прижимаем к концу. Длину
+        // текста заранее не берём — после правки это склейка всего зеркала
+        // (на 200k строк — 13 МБ на каждый вызов провайдера).
         let line = 0;
         while (remaining > lines[line].length) {
+            if (line === lines.length - 1) return new Position(line, lines[line].length);
             remaining -= lines[line].length + 1;
             line++;
         }

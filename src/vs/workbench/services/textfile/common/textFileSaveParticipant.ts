@@ -72,13 +72,20 @@ export class TextFileSaveParticipant {
     }
 
     private async run(model: TextFileModel, participants: readonly SaveParticipant[]): Promise<void> {
+        const document = model.document;
         for (const participant of participants) {
             const snapshot: ISaveSnapshot = {
                 uri: model.uri.toString(),
-                languageId: model.document.languageId,
-                versionId: model.document.versionId,
+                languageId: document.languageId,
+                versionId: document.versionId,
                 isDirty: model.isModified,
-                text: model.document.getText(),
+                // Полный текст строится, только если участник его прочёл: им
+                // почти никто не пользуется (will-save расширений читает
+                // зеркало, code actions/формат — панель), а строка всего файла
+                // на каждого участника каждого сохранения — цена размера файла.
+                get text() {
+                    return document.getText();
+                },
                 eol: model.document.eol,
                 encoding: model.encoding,
             };

@@ -245,7 +245,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
     });
 });
 
-/** Фейковая панель участников: текст, версия модели, viewState и журнал правок. */
+/** Фейковая панель участников: строки документа, версия модели, viewState и журнал правок. */
 function fakePane(
     getText: () => string,
     versionId: () => number = () => 1,
@@ -254,11 +254,18 @@ function fakePane(
     applied: { edits: number; label: string }[];
 } {
     const applied: { edits: number; label: string }[] = [];
+    // Диапазон участники считают по строкам документа; полный текст панели
+    // читает только применение правок формата (`applyFormattingEdits`).
     const pane = {
         getText,
         model: {
             get document() {
-                return { versionId: versionId() };
+                const lines = getText().split("\n");
+                return {
+                    versionId: versionId(),
+                    lineCount: lines.length,
+                    getLineLength: (line: number) => lines[line].length,
+                };
             },
         },
         viewState: { tabSize: 4, insertSpaces: true, selections: [] as ISelection[] },
@@ -375,8 +382,7 @@ describe("createFormatOnSaveParticipant", () => {
     it("пустой ответ форматтера (менять нечего) — no-op без правок", async () => {
         let editsApplied = 0;
         const pane = {
-            getText: () => "x",
-            model: { document: { versionId: 1 } },
+            model: { document: { versionId: 1, lineCount: 1, getLineLength: () => 1 } },
             viewState: { tabSize: 4, insertSpaces: true, selections: [] as ISelection[] },
             applyExternalEdits: () => {
                 editsApplied++;
@@ -397,8 +403,7 @@ describe("createFormatOnSaveParticipant", () => {
     it("настройки отступов запроса берутся из viewState панели", async () => {
         const requests: { tabSize: number; insertSpaces: boolean }[] = [];
         const pane = {
-            getText: () => "x",
-            model: { document: { versionId: 1 } },
+            model: { document: { versionId: 1, lineCount: 1, getLineLength: () => 1 } },
             viewState: { tabSize: 3, insertSpaces: false, selections: [] as ISelection[] },
             applyExternalEdits: () => undefined,
         } as unknown as TextEditorPane;

@@ -26,7 +26,7 @@ function fakeEditor(uri: Uri, text: string) {
     let current = text;
     const editor: IQuickDiffEditor = {
         uri,
-        getText: () => current,
+        getLinesContent: () => current.split("\n"),
         onDidChangeContent: (cb) => {
             listeners.push(cb);
             return { dispose: () => listeners.splice(listeners.indexOf(cb), 1) };
