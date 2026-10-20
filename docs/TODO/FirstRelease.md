@@ -80,4 +80,4 @@ watcher и Go в магазине — после поста.
 ## Цена прогона
 
 По CPU-минутам самое дорогое — мутационный гейт и e2e на SEA-бинаре по каждой части распила
-(этап 1), бенчи `bench:open` до и после. См. [TestRunTime.md](TestRunTime.md).
+(этап 1), бенчи `bench:open` до и после. См. [TestFlakes.md](TestFlakes.md).

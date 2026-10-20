@@ -12,7 +12,7 @@ const GiB = 1024 ** 3;
 /**
  * Сколько памяти держит один воркер e2e в худшем случае: форк vitest (~0,15 ГБ) +
  * редактор (~0,33) + субпроцесс расширений + языковой сервер (tsserver 0,36,
- * basedpyright 0,39; у java-lsp — две JVM). Замер — docs/TODO/TestRunTime.md.
+ * basedpyright 0,39; у java-lsp — две JVM). Замер — docs/TESTING.md, «Прогон: сборка, воркеры…».
  */
 export const WORKER_BYTES = 1.5 * GiB;
 /** Что оставить системе, главному процессу vitest и прочим жильцам машины. */
