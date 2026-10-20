@@ -262,6 +262,7 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
 /** Ресурс пишущего провайдера ФС (не `file:`): сторона такого ресурса — живая модель. */
 function isWritableProvided(files: IFileService, uri: Uri): boolean {
     return (
+        // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный по результату — `file:` дошёл бы до `acquireProvided`, `openProvided` его отверг бы, и сторона ушла бы общим путём; гард экономит лишнее чтение файла
         uri.scheme !== "file" &&
         files.hasProvider(uri) &&
         !files.hasCapability(uri, FileSystemProviderCapabilities.Readonly)
