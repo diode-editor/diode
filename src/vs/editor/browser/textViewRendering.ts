@@ -310,6 +310,7 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             // возвращаем его назад, иначе подсветка хвоста уедет.
             const offset = phantom !== null && slot.offset >= phantomEnd ? slot.offset - phantom.length : slot.offset;
             const metadata = tokenIndex?.metadataAt(offset);
+            // Stryker disable next-line ConditionalExpression: без токена резолвер на `undefined` даёт пустой стиль — те же fg/bg/style
             if (metadata !== undefined) {
                 const resolved = resolveStyle(metadata);
                 if (resolved.fg !== undefined) fg = resolved.fg;

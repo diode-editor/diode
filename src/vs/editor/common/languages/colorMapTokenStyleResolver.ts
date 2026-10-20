@@ -20,7 +20,8 @@ const STYLE_MASK =
  */
 export class ColorMapTokenStyleResolver implements ITokenStyleResolver {
     private readonly source: IColorMapSource;
-    private colorMap: readonly string[] | null = null;
+    /** colorMap, по которому разобраны {@link colors}; `undefined` — ещё ни по какому. */
+    private colorMap: readonly string[] | undefined = undefined;
     private colors: (number | undefined)[] = [];
     private readonly cache = new Map<number, ResolvedTokenStyle>();
 
@@ -30,9 +31,10 @@ export class ColorMapTokenStyleResolver implements ITokenStyleResolver {
 
     public resolve(metadata: number): ResolvedTokenStyle {
         const colorMap = this.source.getColorMap();
-        if (colorMap !== this.colorMap) {
+        // Темы ещё нет (null) — цветов нет, остаются пустые.
+        if (colorMap !== null && colorMap !== this.colorMap) {
             this.colorMap = colorMap;
-            this.colors = (colorMap ?? []).map((color) => (color === "" ? undefined : parseHexColor(color)));
+            this.colors = colorMap.map((color) => (color === "" ? undefined : parseHexColor(color)));
             this.cache.clear();
         }
 

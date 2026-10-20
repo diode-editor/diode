@@ -47,11 +47,12 @@ export class TokenIndex {
 
     /** Метаданные токена `[start .. end)`, накрывающего `offset`; за концом строки — `undefined`. */
     public metadataAt(offset: number): number | undefined {
-        if (this.count === 0 || offset >= this.lineLength) return undefined;
+        // Токенов нет (count 0) — getMetadata(0) и так `undefined`.
+        if (offset >= this.lineLength) return undefined;
 
         // Fast path: forward scan.
         let i = this.cursor;
-        // Stryker disable next-line ConditionalExpression: «всегда с нуля» даёт тот же токен, только медленнее
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: «с нуля» чаще даёт тот же токен, только медленнее
         if (this.tokens.getStartOffset(i) > offset) {
             i = 0; // rewind
         }

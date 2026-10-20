@@ -482,6 +482,14 @@ describe("TrackDSL", () => {
         expect(state.tokenStore?.getLineTokens(0)).toBeUndefined();
     });
 
+    it("a tokens track of only spaces is no tokens — the store is not created", () => {
+        const state = parseDSL(editorState`
+            text: hello
+            tokens:   ${""}
+        `);
+        expect(state.tokenStore).toBeUndefined();
+    });
+
     // ─── dedentAndTrim with only blank lines ────────────────
 
     it("editorState of an all-blank template yields an empty string", () => {
