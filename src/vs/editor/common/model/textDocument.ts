@@ -1,24 +1,37 @@
 import { Emitter } from "../../../base/common/event.ts";
-import { detectEndOfLine, EndOfLine, eolToSequence } from "../core/endOfLine.ts";
-import type { IPosition } from "../core/iPosition.ts";
+import { UTF8_BOM_CHARACTER } from "../../../base/common/strings.ts";
+import { EndOfLine, eolToSequence } from "../core/endOfLine.ts";
+import { clampPositionToDocument, comparePositions } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
 import { createRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEdit.ts";
+import { Range } from "../core/range.ts";
+import type { ITextBuffer } from "../model.ts";
+import { DefaultEndOfLine, EndOfLinePreference, ValidAnnotatedEditOperation } from "../model.ts";
 
 import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
 import type { IApplyEditsResult, ITextDocument } from "./iTextDocument.ts";
+import { PieceTreeTextBufferBuilder } from "./pieceTreeTextBuffer/pieceTreeTextBufferBuilder.ts";
 import { type IModelDeltaDecoration, TrackedDecorations } from "./trackedDecorations.ts";
 
 /**
- * Simple array-backed implementation of ITextDocument.
- * Uses string[] for line storage (Piece Table deferred to future iteration).
+ * Документ поверх перенесённого из эталона `PieceTreeTextBuffer` — адаптер
+ * между нашим 0-based контрактом {@link ITextDocument} и 1-based буфером
+ * (±1 живёт только здесь, docs/arch/Editor.md). Правка, строка, длина строки —
+ * O(log n) от размера файла, как в VS Code.
+ *
+ * EOL — как у эталона по умолчанию (`normalizeEOL` билдера): при загрузке
+ * переводы строк приводятся к преобладающему, он и становится {@link eol}
+ * документа и буфера; одиночный `\r` — тоже перевод строки. Наружу строки
+ * отдаются LF-канонично: {@link getText} и правки — с `\n`, {@link serialize} —
+ * с `eol`.
  *
  * Token caches live outside this class — see DocumentTokenStore.
  */
 export class TextDocument implements ITextDocument {
-    private lines: string[];
+    private buffer: ITextBuffer;
     private readonly onDidChangeContentEmitter = new Emitter<IDocumentContentChange>();
     public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;
     private readonly onDidChangeModelContentEmitter = new Emitter<IModelContentChangedEvent>();
@@ -28,13 +41,11 @@ export class TextDocument implements ITextDocument {
     private readonly onDidChangeEolEmitter = new Emitter<void>();
     public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
     private innerVersionId = 0;
-    private eolValue: EndOfLine;
     private languageIdValue: string;
     private readonly decorations = new TrackedDecorations();
 
     public constructor(text: string, languageId = "plaintext") {
-        this.eolValue = detectEndOfLine(text);
-        this.lines = text.split(/\r\n|\n/);
+        this.buffer = createTextBuffer(text);
         this.languageIdValue = languageId;
     }
 
@@ -43,7 +54,7 @@ export class TextDocument implements ITextDocument {
     }
 
     public get eol(): EndOfLine {
-        return this.eolValue;
+        return this.buffer.getEOL() === "\r\n" ? EndOfLine.CRLF : EndOfLine.LF;
     }
 
     public get languageId(): string {
@@ -62,30 +73,38 @@ export class TextDocument implements ITextDocument {
     }
 
     public get lineCount(): number {
-        return this.lines.length;
+        return this.buffer.getLineCount();
     }
 
     public getLineContent(lineIndex: number): string {
         this.assertValidLineIndex(lineIndex);
-        return this.lines[lineIndex];
+        return this.buffer.getLineContent(lineIndex + 1);
     }
 
+    /**
+     * Длина — через содержимое строки, а не `buffer.getLineLength`: тот спускается
+     * по дереву дважды (`getOffsetAt` начала этой и следующей строки) без кэша, а
+     * `getLineContent` идёт через кэш поиска узла и последней строки. Проход
+     * длин по 200k строк после правок — ~20 мс против ~110 мс; `substring` в
+     * V8 — срез без копирования. Длину и содержимое одной строки вью почти
+     * всегда просит парой.
+     */
     public getLineLength(lineIndex: number): number {
-        this.assertValidLineIndex(lineIndex);
-        return this.lines[lineIndex].length;
+        return this.getLineContent(lineIndex).length;
     }
 
     public getText(): string {
-        return this.lines.join("\n");
+        return this.buffer.getValueInRange(this.fullRange(), EndOfLinePreference.LF);
     }
 
     public serialize(): string {
-        return this.lines.join(eolToSequence(this.eolValue));
+        return this.buffer.getValueInRange(this.fullRange(), EndOfLinePreference.TextDefined);
     }
 
+    /** Переписывает переводы строк буфера, как `setEOL` эталона, — O(n), но только по команде. */
     public setEol(eol: EndOfLine): void {
-        if (eol === this.eolValue) return;
-        this.eolValue = eol;
+        if (eol === this.eol) return;
+        this.buffer.setEOL(eolToSequence(eol));
         this.onDidChangeEolEmitter.fire();
     }
 
@@ -96,25 +115,25 @@ export class TextDocument implements ITextDocument {
      * держит документ: view, токены, синхронизация с расширениями.
      */
     public setText(text: string): void {
-        const oldEndLine = this.lines.length - 1;
-        const eolBefore = this.eolValue;
+        const oldEndLine = this.lineCount - 1;
+        const eolBefore = this.eol;
         this.innerVersionId++;
-        this.eolValue = detectEndOfLine(text);
-        this.lines = text.split(/\r\n|\n/);
+        this.buffer.dispose();
+        this.buffer = createTextBuffer(text);
         this.decorations.acceptFlush(this);
         this.fireChange({
             startLine: 0,
             oldEndLine,
-            newEndLine: this.lines.length - 1,
+            newEndLine: this.lineCount - 1,
             isFlush: true,
         });
         this.onDidChangeModelContentEmitter.fire({
             changes: [],
             versionId: this.innerVersionId,
-            eol: this.eolValue,
+            eol: this.eol,
             isFlush: true,
         });
-        if (this.eolValue !== eolBefore) this.onDidChangeEolEmitter.fire();
+        if (this.eol !== eolBefore) this.onDidChangeEolEmitter.fire();
     }
 
     public deltaDecorations(oldIds: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
@@ -126,17 +145,7 @@ export class TextDocument implements ITextDocument {
     }
 
     public getTextInRange(range: IRange): string {
-        const { start, end } = range;
-        if (start.line === end.line) {
-            return this.lines[start.line].substring(start.character, end.character);
-        }
-        const result: string[] = [];
-        result.push(this.lines[start.line].substring(start.character));
-        for (let i = start.line + 1; i < end.line; i++) {
-            result.push(this.lines[i]);
-        }
-        result.push(this.lines[end.line].substring(0, end.character));
-        return result.join("\n");
+        return this.buffer.getValueInRange(toBufferRange(this.validateRange(range)), EndOfLinePreference.LF);
     }
 
     public applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult {
@@ -144,151 +153,111 @@ export class TextDocument implements ITextDocument {
             return { appliedVersion: this.innerVersionId, inverseEdits: [] };
         }
 
+        // Документный порядок — тот же, что `_sortOpsAscending` буфера: для
+        // непересекающихся диапазонов сравнение по началу и по концу совпадает,
+        // а равные диапазоны стабильная сортировка оставляет в порядке батча
+        // (у буфера — по `sortIndex`). Поэтому обратные правки буфера приходят
+        // ровно в этом порядке.
+        const docOrder = edits.map((edit) => this.validateEdit(edit)).sort(compareTextEditsInDocumentOrder);
+        for (let i = 1; i < docOrder.length; i++) {
+            if (comparePositions(docOrder[i].range.start, docOrder[i - 1].range.end) < 0) {
+                // Тот же отказ, что у буфера, но до того, как сдвинулись декорации.
+                throw new Error("Overlapping ranges are not allowed!");
+            }
+        }
+
         this.innerVersionId++;
-
-        // Sort edits in document order (ascending) to collect old texts
-        const docOrder = [...edits].sort(compareTextEditsInDocumentOrder);
-
-        // Collect old texts BEFORE applying any edits
-        const oldTexts = docOrder.map((edit) => this.getTextInRange(edit.range));
 
         // Bottom-up = ровно обратный docOrder, а не отдельная сортировка по
         // убыванию: сортировка стабильна, поэтому правки с СОВПАДАЮЩИМИ
         // диапазонами остались бы в исходном порядке батча и, применённые
         // снизу вверх, склеились бы задом наперёд. Такие правки реальны —
         // обратные правки двух соседних удалений схлопываются в две вставки
-        // нулевой ширины в одну точку.
+        // нулевой ширины в одну точку. Тот же порядок у `_sortOpsDescending`
+        // буфера.
         const reversed = [...docOrder].reverse();
 
-        // Apply edits bottom-up (so coordinates of earlier edits stay valid),
-        // collect changes, then emit them in document order.
-        const changesBottomUp: IDocumentContentChange[] = [];
+        // Декорации двигаются, пока текст ещё старый: смещения внутри
+        // заменяемого диапазона меряются по прежнему тексту (как `acceptReplace`
+        // дерева декораций эталона внутри `applyEdits`). Снизу вверх, как
+        // применяется батч; длины нужны только строк правки до её последней, а
+        // их нижние правки не трогают — поэтому все длины берутся из буфера до
+        // батча.
         for (const edit of reversed) {
-            changesBottomUp.push(this.applySingleEdit(edit));
+            this.decorations.acceptEdit(edit, (line) => this.getLineLength(line));
         }
 
-        // Compute inverse edits in new-document coordinates
-        const inverseEdits = this.computeInverseEdits(docOrder, oldTexts);
+        const result = this.buffer.applyEdits(
+            docOrder.map((edit) => toBufferOperation(toBufferRange(edit.range), edit.text)),
+            // Stryker disable next-line BooleanLiteral: автопробелы буфер считает, но мы их не читаем
+            false,
+            true,
+        );
 
-        // Правки применены снизу вверх, а события летят в документном порядке:
-        // каждое следующее адресует документ, в котором предыдущие УЖЕ применены
-        // (слушатель сдвигает свои позиции по каждому событию последовательно), а
-        // посчитано оно было в координатах, где верхних правок ещё не было.
-        // Поэтому границы сдвигаются на накопленную разницу строк уже
-        // отправленных событий. Без сдвига слушатель получал номера строк
-        // мимо документа: `EditorViewState.remapForDocumentChange` падал на
-        // `getLineLength` за концом документа, а уцелевшие позиции проскакивали
-        // чужую правку и оставались за концом своей строки.
+        // Обратные правки — в координатах УЖЕ ПРИМЕНЁННОГО документа, в
+        // документном порядке; текст буфера — с его EOL, наружу — LF.
+        // Stryker disable next-line ArrayDeclaration: при computeUndoEdits буфер всегда отдаёт массив
+        const reverseEdits = result.reverseEdits ?? [];
+        const inverseEdits = reverseEdits.map((op) => createTextEdit(fromBufferRange(op.range), toLf(op.text)));
+
+        // События летят в документном порядке: каждое следующее адресует
+        // документ, в котором предыдущие УЖЕ применены (слушатель сдвигает свои
+        // позиции по каждому событию последовательно), а границы правки — в
+        // координатах, где верхних правок ещё не было. Поэтому границы
+        // сдвигаются на накопленную разницу строк уже отправленных событий. Без
+        // сдвига слушатель получал номера строк мимо документа:
+        // `EditorViewState.remapForDocumentChange` падал на `getLineLength` за
+        // концом документа, а уцелевшие позиции проскакивали чужую правку и
+        // оставались за концом своей строки.
         let lineShift = 0;
-        for (let i = changesBottomUp.length - 1; i >= 0; i--) {
-            const change = changesBottomUp[i];
+        for (const edit of docOrder) {
+            const startLine = edit.range.start.line;
+            const oldEndLine = edit.range.end.line;
+            const newEndLine = startLine + countLineFeeds(edit.text);
             this.fireChange({
-                startLine: change.startLine + lineShift,
-                oldEndLine: change.oldEndLine + lineShift,
-                newEndLine: change.newEndLine + lineShift,
+                startLine: startLine + lineShift,
+                oldEndLine: oldEndLine + lineShift,
+                newEndLine: newEndLine + lineShift,
             });
-            lineShift += change.newEndLine - change.oldEndLine;
+            lineShift += newEndLine - oldEndLine;
         }
 
         // Батч целиком — уже после построчных событий. `reversed` — ровно
         // порядок применения (по убыванию, в исходных координатах), как у
         // `pieceTreeTextBuffer._sortOpsDescending` эталона: последовательное
-        // применение к копии строк до батча корректно по той же причине, что
-        // и наш цикл `applySingleEdit`.
+        // применение к копии строк до батча даёт текст после него.
         this.onDidChangeModelContentEmitter.fire({
             changes: reversed.map((edit) => ({ range: edit.range, text: edit.text })),
             versionId: this.innerVersionId,
-            eol: this.eolValue,
+            eol: this.eol,
             isFlush: false,
         });
 
         return { appliedVersion: this.innerVersionId, inverseEdits };
     }
 
-    /**
-     * Строит обратные правки в координатах УЖЕ ПРИМЕНЁННОГО документа.
-     *
-     * Правки не пересекаются и отсортированы по возрастанию, поэтому каждая
-     * следующая начинается не раньше конца предыдущей — и её новую позицию
-     * достаточно отмерить ОТ КОНЦА предыдущей правки: `prevOldEnd` в старых
-     * координатах, `prevNewEnd` в новых. Попала позиция на ту же старую
-     * строку, что и `prevOldEnd`, — она уехала на строку `prevNewEnd.line` со
-     * сдвигом колонки (так ловится склейка строк при удалении переводов);
-     * попала ниже — сдвигается только номер строки, на накопленную разницу
-     * `prevNewEnd.line - prevOldEnd.line`. Оба конца `prevNewEnd` абсолютные,
-     * так что разница накопительная и композиция правок получается сама.
-     */
-    private computeInverseEdits(editsInDocOrder: readonly ITextEdit[], oldTexts: string[]): ITextEdit[] {
-        const inverse: ITextEdit[] = [];
-        // Конец предыдущей правки в двух системах координат — точка отсчёта
-        // для следующей. До первой правки координаты совпадают.
-        let prev: { readonly oldEnd: IPosition; readonly newEnd: IPosition } | null = null;
-
-        for (let i = 0; i < editsInDocOrder.length; i++) {
-            const edit = editsInDocOrder[i];
-            const start = edit.range.start;
-
-            let newStartLine: number;
-            let newStartChar: number;
-            if (prev === null) {
-                newStartLine = start.line;
-                newStartChar = start.character;
-            } else if (start.line === prev.oldEnd.line) {
-                newStartLine = prev.newEnd.line;
-                newStartChar = prev.newEnd.character + (start.character - prev.oldEnd.character);
-            } else {
-                newStartLine = start.line + (prev.newEnd.line - prev.oldEnd.line);
-                newStartChar = start.character;
-            }
-
-            // Конец вставленного текста в новых координатах.
-            const insertedLines = edit.text.split("\n");
-            const lastInserted = insertedLines[insertedLines.length - 1];
-            const newEndLine = newStartLine + insertedLines.length - 1;
-            const newEndChar = insertedLines.length === 1 ? newStartChar + lastInserted.length : lastInserted.length;
-
-            // Обратная правка возвращает старый текст на место вставленного.
-            inverse.push(createTextEdit(createRange(newStartLine, newStartChar, newEndLine, newEndChar), oldTexts[i]));
-
-            prev = { oldEnd: edit.range.end, newEnd: { line: newEndLine, character: newEndChar } };
-        }
-
-        return inverse;
-    }
-
     // ─── Private ────────────────────────────────────────────
 
-    private applySingleEdit(edit: ITextEdit): IDocumentContentChange {
-        const { range, text } = edit;
-        const { start, end } = range;
+    /**
+     * Правка, приведённая к документу (upstream `validateRange`): края — в
+     * пределах строк, переводы строк текста — `\n`. Буфер сам считает `\r` и
+     * `\r\n` переводами строк, а события, декорации и зеркало расширений режут
+     * текст по `\n` — без нормализации они разошлись бы с буфером.
+     */
+    private validateEdit(edit: ITextEdit): ITextEdit {
+        return { range: this.validateRange(edit.range), text: toLf(edit.text) };
+    }
 
-        const startLine = start.line;
-        const endLine = end.line;
-        const startChar = start.character;
-        const endChar = end.character;
-
-        // Build the resulting text from prefix + inserted text + suffix
-        const prefix = this.lines[startLine].substring(0, startChar);
-        const suffix = this.lines[endLine].substring(endChar);
-        const insertedText = prefix + text + suffix;
-        const newLines = insertedText.split("\n");
-
-        // Декорации двигаются, пока строки ещё старые: смещения внутри
-        // заменяемого диапазона меряются по прежнему тексту (как `acceptReplace`
-        // дерева декораций эталона внутри `applyEdits`).
-        this.decorations.acceptEdit(edit, (line) => this.lines[line].length);
-
-        // How many lines we delete vs insert
-        const deletedLineCount = endLine - startLine + 1;
-        const insertedLineCount = newLines.length;
-
-        this.lines.splice(startLine, deletedLineCount, ...newLines);
-
+    private validateRange(range: IRange): IRange {
         return {
-            startLine,
-            oldEndLine: endLine,
-            newEndLine: startLine + insertedLineCount - 1,
+            start: clampPositionToDocument(this, range.start),
+            end: clampPositionToDocument(this, range.end),
         };
+    }
+
+    private fullRange(): Range {
+        const lineCount = this.buffer.getLineCount();
+        return new Range(1, 1, lineCount, this.buffer.getLineLength(lineCount) + 1);
     }
 
     private fireChange(change: IDocumentContentChange): void {
@@ -296,10 +265,59 @@ export class TextDocument implements ITextDocument {
     }
 
     private assertValidLineIndex(lineIndex: number): void {
-        if (lineIndex < 0 || lineIndex >= this.lines.length) {
-            throw new RangeError(
-                `Line index ${lineIndex.toString()} out of bounds [0, ${(this.lines.length - 1).toString()}]`,
-            );
+        const lineCount = this.buffer.getLineCount();
+        if (lineIndex < 0 || lineIndex >= lineCount) {
+            throw new RangeError(`Line index ${lineIndex.toString()} out of bounds [0, ${(lineCount - 1).toString()}]`);
         }
     }
+}
+
+/**
+ * Буфер из текста — как `createTextBufferFactory` эталона: билдер с
+ * `normalizeEOL`, EOL по умолчанию — LF (пустой файл и файл в одну строку).
+ */
+function createTextBuffer(text: string): ITextBuffer {
+    const builder = new PieceTreeTextBufferBuilder();
+    builder.acceptChunk(text);
+    const { textBuffer } = builder.finish(true).create(DefaultEndOfLine.LF);
+    // Билдер снимает ведущий BOM в отдельное поле (у эталона его снимает
+    // чтение файла). Наш декодер BOM уже снял (`encoding.ts`), так что здесь
+    // U+FEFF — обычный символ текста: возвращаем его в содержимое.
+    if (textBuffer.getBOM() !== "") {
+        // Stryker disable next-line BooleanLiteral: ни автопробелы, ни обратная правка здесь не читаются
+        textBuffer.applyEdits([toBufferOperation(new Range(1, 1, 1, 1), UTF8_BOM_CHARACTER)], false, false);
+    }
+    return textBuffer;
+}
+
+/**
+ * Правка для буфера. `_isTracked` — чтобы буфер не схлопнул батч от 1000
+ * правок в одну (`_reduceOperations`): обратные правки и события — правка на
+ * правку. `forceMoveMarkers` и `isAutoWhitespaceEdit` буфер только переносит в
+ * результат, который мы не читаем.
+ */
+function toBufferOperation(range: Range, text: string): ValidAnnotatedEditOperation {
+    // Stryker disable next-line BooleanLiteral: буфер лишь переносит флаг в результат
+    const forceMoveMarkers = false;
+    // Stryker disable next-line BooleanLiteral: без recordTrimAutoWhitespace флаг не читается
+    const isAutoWhitespaceEdit = false;
+    return new ValidAnnotatedEditOperation(null, range, text, forceMoveMarkers, isAutoWhitespaceEdit, true);
+}
+
+function toBufferRange(range: IRange): Range {
+    return new Range(range.start.line + 1, range.start.character + 1, range.end.line + 1, range.end.character + 1);
+}
+
+function fromBufferRange(range: Range): IRange {
+    return createRange(range.startLineNumber - 1, range.startColumn - 1, range.endLineNumber - 1, range.endColumn - 1);
+}
+
+function toLf(text: string): string {
+    return text.replace(/\r\n?/g, "\n");
+}
+
+function countLineFeeds(text: string): number {
+    let count = 0;
+    for (let index = text.indexOf("\n"); index !== -1; index = text.indexOf("\n", index + 1)) count++;
+    return count;
 }
