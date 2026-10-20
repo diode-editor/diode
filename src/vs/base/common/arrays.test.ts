@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    arrayInsert,
     compareBy,
     CompareResult,
     equals,
@@ -132,5 +133,15 @@ describe("pushMany / sumBy", () => {
     it("sumBy складывает проекции, на пустом даёт 0", () => {
         expect(sumBy([{ n: 2 }, { n: 3 }], (x) => x.n)).toBe(5);
         expect(sumBy([], (x: { n: number }) => x.n)).toBe(0);
+    });
+});
+
+describe("arrayInsert", () => {
+    it("вставляет массив по индексу, исходный не трогает", () => {
+        const target = [1, 2, 3];
+        expect(arrayInsert(target, 1, [8, 9])).toEqual([1, 8, 9, 2, 3]);
+        expect(arrayInsert(target, 0, [0])).toEqual([0, 1, 2, 3]);
+        expect(arrayInsert(target, 3, [4])).toEqual([1, 2, 3, 4]);
+        expect(target).toEqual([1, 2, 3]);
     });
 });

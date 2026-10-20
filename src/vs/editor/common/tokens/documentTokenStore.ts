@@ -49,10 +49,10 @@ export class DocumentTokenStore extends Disposable {
     private readonly textModel: ITextModel;
 
     private cachedTokens: (ILineTokens | undefined)[] = [];
+    // Все три ставит resetTokenization() из конструктора.
     private tokenizer!: TokenizerWithStateStoreAndTextModel;
-    private backgroundTokenizer: DefaultBackgroundTokenizer | undefined;
-    private backgroundTokenizationCompleted = false;
-    private disposed = false;
+    private backgroundTokenizer!: DefaultBackgroundTokenizer;
+    private backgroundTokenizationCompleted!: boolean;
 
     /**
      * Растёт на каждую правку и смену токенизатора. Ключ памяти эвристического
@@ -73,13 +73,18 @@ export class DocumentTokenStore extends Disposable {
         this.document = document;
         this.support = support;
         this.textModel = {
+            // Язык эталон кладёт только в метаданные бинарных токенов (кодек, nullTokenize), наши его не несут.
+            // Stryker disable next-line ArrowFunction: эквивалентный — значение никуда не доходит
             getLanguageId: () => document.languageId,
             getLineCount: () => document.lineCount,
             getLineContent: (lineNumber) => document.getLineContent(lineNumber - 1),
             getLineLength: (lineNumber) => document.getLineLength(lineNumber - 1),
             getLineFirstNonWhitespaceColumn: (lineNumber) =>
                 firstNonWhitespaceColumn(document.getLineContent(lineNumber - 1)),
-            isAttachedToEditor: () => !this.disposed,
+            // Стор живёт ровно столько, сколько вью (его держит EditorComponent):
+            // пока он есть, он «прикреплён». После dispose фон глушит сам
+            // DefaultBackgroundTokenizer.
+            isAttachedToEditor: () => true,
         };
 
         this.resetTokenization();
@@ -91,8 +96,7 @@ export class DocumentTokenStore extends Disposable {
         );
         this.register({
             dispose: () => {
-                this.disposed = true;
-                this.backgroundTokenizer?.dispose();
+                this.backgroundTokenizer.dispose();
             },
         });
     }
@@ -166,11 +170,11 @@ export class DocumentTokenStore extends Disposable {
             // Because old states might get reused (thus stopping invalidation),
             // we have to explicitly request the tokens for the changed ranges again.
             for (const change of changes) {
-                this.backgroundTokenizer?.requestTokens(change.fromLine + 1, change.toLine + 2);
+                this.backgroundTokenizer.requestTokens(change.fromLine + 1, change.toLine + 2);
             }
         }
 
-        this.backgroundTokenizer?.checkFinished();
+        this.backgroundTokenizer.checkFinished();
     }
 
     /**
@@ -182,7 +186,7 @@ export class DocumentTokenStore extends Disposable {
         const builder = new ContiguousMultilineTokensBuilder();
         this.tokenizer.updateTokensUntilLine(builder, line + 1);
         this.setTokens(builder.finalize(), true);
-        this.backgroundTokenizer?.checkFinished();
+        this.backgroundTokenizer.checkFinished();
     }
 
     /**
@@ -208,8 +212,11 @@ export class DocumentTokenStore extends Disposable {
     private resetTokenization(): void {
         this.cachedTokens = [];
         this.cachedTokens.length = this.document.lineCount;
+        // Stryker disable next-line UpdateOperator: версии важно лишь отличаться — «--» даёт такие же
         this.version++;
         this.backgroundTokenizationCompleted = false;
+        // Undefined только на первом вызове — из конструктора.
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         this.backgroundTokenizer?.dispose();
 
         const support = this.support;
@@ -265,13 +272,12 @@ export class DocumentTokenStore extends Disposable {
         }
         // Правленые строки пусты до пересчёта: старые токены легли бы на чужие
         // смещения. Вьюпорт их пересчитает к кадру, остальное — фон.
-        for (let i = startLine; i <= newEndLine; i++) {
-            this.cachedTokens[i] = undefined;
-        }
+        this.cachedTokens.fill(undefined, startLine, newEndLine + 1);
 
+        // Stryker disable next-line UpdateOperator: версии важно лишь отличаться — «--» даёт такие же
         this.version++;
         this.tokenizer.store.acceptChange(new LineRange(startLine + 1, oldEndLine + 2), newEndLine - startLine + 1);
-        this.backgroundTokenizer?.handleChanges();
+        this.backgroundTokenizer.handleChanges();
     }
 
     /**
@@ -286,9 +292,6 @@ export class DocumentTokenStore extends Disposable {
 
 /** Upstream `getLineFirstNonWhitespaceColumn`: колонка с 1 первого не-пробела и не-таба, 0 — таких нет. */
 function firstNonWhitespaceColumn(text: string): number {
-    for (let i = 0; i < text.length; i++) {
-        const ch = text.charCodeAt(i);
-        if (ch !== 0x20 && ch !== 0x09) return i + 1;
-    }
-    return 0;
+    // Не нашлось — search даёт -1, и колонка выходит 0.
+    return text.search(/[^ \t]/) + 1;
 }

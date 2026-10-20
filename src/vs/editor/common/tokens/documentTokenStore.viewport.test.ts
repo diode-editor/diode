@@ -82,6 +82,61 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         expect(store.getLineTokens(90)?.tokens[0].scopes).toEqual(["s1"]);
     });
 
+    it("пустые строки над вьюпортом угадыванию не мешают, таб — тоже отступ", () => {
+        // Пустая строка не «родитель» (колонка 0) — обход идёт дальше вверх к `>block`.
+        const text = [...lines(50, "a"), ">block", "", ...lines(48, "\tbody")];
+        const { store, tokenizer } = createStore(text);
+
+        store.tokenizeViewport(90, 95);
+
+        expect(tokenizer.tokenized).toEqual([">block", ...lines(6, "\tbody")]);
+        expect(store.getLineTokens(90)?.tokens[0].scopes).toEqual(["s1"]);
+    });
+
+    it("вьюпорт вырос (ресайз) — новые строки угадываются тоже", () => {
+        const { store } = createStore(lines(1000));
+        store.tokenizeViewport(900, 909);
+        expect(store.getLineTokens(915)).toBeUndefined();
+
+        store.tokenizeViewport(900, 919);
+        expect(store.getLineTokens(915)).toBeDefined();
+    });
+
+    it("фон перекрашивает угаданное — ровно строки вьюпорта, даже когда сошёлся раньше", async () => {
+        // Состояние за `>` — 1 до конца файла; фон его уже посчитал.
+        const { doc, store, tokenizer } = createStore([">", ...lines(999)]);
+        store.forceTokenization(doc.lineCount - 1);
+        // Правка строки 0 состояния не меняет: фон сойдётся на ней же.
+        doc.applyEdits([createInsertEdit(0, 1, "x")]);
+
+        // Отступов нет — угадано начальное состояние, то есть неверно (s0 вместо s1).
+        store.tokenizeViewport(900, 909);
+        expect(store.getLineTokens(909)?.tokens[0].scopes).toEqual(["s0"]);
+
+        tokenizer.tokenized.length = 0;
+        const deadline = Date.now() + 2000;
+        // Флаг «закончено» правка не сбрасывает (как у эталона) — ждём саму строку.
+        while (!store.hasAccurateTokensForLine(909)) {
+            if (Date.now() > deadline) throw new Error("фон не дошёл за 2 с");
+            await new Promise<void>((resolve) => setImmediate(resolve));
+        }
+        // Правленая строка плюс десять угаданных — и ничего сверх.
+        expect(tokenizer.tokenized).toHaveLength(11);
+        expect(store.getLineTokens(900)?.tokens[0].scopes).toEqual(["s1"]);
+        expect(store.getLineTokens(909)?.tokens[0].scopes).toEqual(["s1"]);
+        store.dispose();
+    });
+
+    it("синхронная доводка до конца файла сама отмечает токенизацию законченной", () => {
+        const viewport = createStore(lines(10));
+        viewport.store.tokenizeViewport(0, 9);
+        expect(viewport.store.isBackgroundTokenizationCompleted).toBe(true);
+
+        const caret = createStore(lines(10));
+        caret.store.forceTokenization(9);
+        expect(caret.store.isBackgroundTokenizationCompleted).toBe(true);
+    });
+
     it("тот же вьюпорт той же версии второй раз не угадывается", () => {
         const { doc, store, tokenizer } = createStore(lines(1000));
         store.tokenizeViewport(900, 909);

@@ -544,13 +544,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         // эвристика (DocumentTokenStore.tokenizeViewport). Нижняя строка
         // вьюпорта может быть зоной (у неё документной нет) — берём ближайшую
         // документную, иначе подсветка хвоста вьюпорта молча отстанет.
-        // docLineForViewLine всегда отдаёт валидную строку — гард не нужен.
+        // docLineForViewLine сам зажимает строку вью в границы и всегда
+        // отдаёт валидную документную — гарды не нужны.
         const tokenStore = this.viewState.tokenStore;
         if (tokenStore && visibleLines > 0) {
-            const firstDocLine = this.viewState.docLineForViewLine(Math.min(scrollTop, viewLineCount - 1));
-            const lastDocLine = this.viewState.docLineForViewLine(
-                Math.min(scrollTop + visibleLines - 1, viewLineCount - 1),
-            );
+            const firstDocLine = this.viewState.docLineForViewLine(scrollTop);
+            const lastDocLine = this.viewState.docLineForViewLine(scrollTop + visibleLines - 1);
             this.renderedDocLines = { first: firstDocLine, last: lastDocLine };
             tokenStore.tokenizeViewport(firstDocLine, lastDocLine);
         }
