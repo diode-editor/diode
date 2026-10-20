@@ -92,7 +92,7 @@ describe("EditorElement.onDidType", () => {
         });
         neighbour = editor.onDidType((text) => seen.push(text));
         // Сосед, отписанный посреди рассылки и ещё не достигнутый, текущий символ
-        // уже не получает (гарантия Emitter, docs/TODO/Events.md G2).
+        // уже не получает (гарантия Emitter, docs/arch/Common.md#события-eventts, G2).
         press(editor, "a");
         press(editor, "b");
         expect(seen).toEqual([]);

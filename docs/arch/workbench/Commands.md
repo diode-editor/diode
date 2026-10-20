@@ -141,6 +141,19 @@
   конфликт-детекция сравнивает `serializeWhen`, диспетчер считает бинд
   фокус-скоупным по ключам не под отрицанием (`whenPositiveKeys`).
 
+### Коллизии дефолтов
+
+Известные пересечения дефолтных биндов. Они сохранены как были: веса правил
+повторяют прежний порядок регистрации, а развести их — отдельная правка. Тест
+мак-раскладки держит pc-шные коллизии списком `PRE_EXISTING_PC_CONFLICTS`
+(`browser/actions/macKeybindings.test.ts`), чтобы новые не прибавлялись молча.
+
+| Клавиши | Кто выигрывает | Кто проигрывает | Почему так |
+|---|---|---|---|
+| Ctrl+K Ctrl+F | `workbench.action.navigateForward` (безусловный, вес `WorkbenchContrib`) | `editor.action.formatSelection` (эталон) | наш legacy-фолбэк навигации; в редакторе на pc чорд уходит в навигацию, а не в форматирование |
+| Ctrl+K Ctrl+U | `editor.action.showHover` | `editor.action.removeCommentLine` (эталон) | эталонный Ctrl+K Ctrl+I у hover занят legacy-фолбэком (на legacy Ctrl+I приезжает байтом Tab) |
+| Escape при открытых hover и suggest | hover (`EditorContrib + 92`) | suggest (`EditorContrib + 90`) | у эталона наоборот; так было при порядке регистрации |
+
 ## Где живут экшены
 
 Экшен — `CommandAction`/`registerAction`: описание команды + кейбинды, поведение —
@@ -229,6 +242,12 @@ focus/blur листенеры вешает владелец дерева) сбр
 `inputWidgetFocus`/`listFocus`/`terminalFocus`), фокусный редактор
 (`editorReadonly`/`editorHasMultipleSelections`), группы и история;
 импортов из `contrib/` у него нет.
+
+Сознательно не сделано: ключи групп и истории (`editorGroupHasEditors`,
+`activeEditorGroup*`, `canNavigate*`) остаются на pull, а не на событиях
+`EditorService`/`HistoryService` — опрос самоисцеляется, выигрыша кроме чистоты
+нет. Объявлений ключей у фич в форме `RawContextKey` эталона нет, поэтому нет и
+upstream-ключа `activeViewlet`; заводить их вместе.
 
 **Смена фокуса как событие** — `FocusTracker`
 (`services/focus/browser/focusTracker.ts`, `onDidChangeFocus(active)`):

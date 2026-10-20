@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сплиты области редактора (docs/TODO/EditorGroups.md, фаза 3): Ctrl+\ делит
+// Сплиты области редактора (#245, docs/arch/workbench/EditorPart.md): Ctrl+\ делит
 // активную группу пополам с дублем вкладки, полоса групп живёт в EditorPartElement
 // (веса + саш), фокус групп — чордом Ctrl+K 1/2 (работает на любом tier; e2e-порт
 // «клавиатуры» инспектора не проходит через терминальные ограничения, но чорд —

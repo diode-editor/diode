@@ -375,7 +375,7 @@ UI-подтверждения. Ручной прогон после релиза
   фоновый refresh по watcher'у и чужая операция в очереди мутаций спиннера не
   дают (сделан только прогресс операций, запущенных из ядра).
 - [ ] **Серые пункты попапа «⋯» на время операции** — ждёт `disabled` у
-  `MenuItemEntry` в движке (см. [WorkbenchContributions.md](WorkbenchContributions.md));
+  `MenuItemEntry` в движке (см. [arch/workbench/Menus.md](../arch/workbench/Menus.md));
   исполнить недоступный пункт и сейчас нельзя.
 - [ ] **UI-e2e с bare-remote для sync/branch/stash** — сейчас эти потоки покрыты
   юнитами + ручным прогоном по чек-листу.

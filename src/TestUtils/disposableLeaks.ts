@@ -20,7 +20,7 @@ export function throwIfLeaked(tracker: DisposableTracker): void {
  * неосвобождённым. Упавший тест утечки не проверяет — его ошибка важнее.
  * Возвращает `add`: объекты самого теста, освобождаемые после него.
  *
- * Включается храповиком по сьютам, не глобально (docs/TODO/Lifecycle.md, §7).
+ * Включается храповиком по сьютам, не глобально (docs/TESTING.md#учёт-утечек-testutilsdisposableleaksts).
  */
 export function ensureNoDisposablesAreLeakedInTestSuite(): { add<T extends IDisposable>(o: T): T } {
     let tracker = new DisposableTracker();

@@ -4,7 +4,7 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { HoverServiceDIToken } from "./hoverService.ts";
 
-/** Вес hover-попапа: при одновременно открытых hover и suggest Escape закрывает hover. Так было при порядке регистрации; у upstream наоборот (suggest + 90 сильнее hover) — расхождение записано в docs/TODO/KeybindingsEditor.md. */
+/** Вес hover-попапа: при одновременно открытых hover и suggest Escape закрывает hover. Так было при порядке регистрации; у upstream наоборот (suggest + 90 сильнее hover) — расхождение записано в docs/arch/workbench/Commands.md#коллизии-дефолтов. */
 const HOVER_WEIGHT = KeybindingWeight.EditorContrib + 92;
 
 /**

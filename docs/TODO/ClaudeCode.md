@@ -348,7 +348,7 @@ Ctrl+W → `DIFF_REJECTED`; `close_tab`/`closeAllDiffTabs` → вкладка з
       `Ctrl+Tab`). Побочно — эталонные `Terminal: Create New Terminal in Editor
       Area` / `Move Terminal into Editor Area`.
 - [x] **When-ключи `config.*`** (`ConfigAwareContextValuesContainer` эталона)
-      — [WhenContext.md](WhenContext.md); `Ctrl+Esc` жив, и больше не срабатывают
+      — [arch/workbench/Commands.md](../arch/workbench/Commands.md#конвенции-системы-команд); `Ctrl+Esc` жив, и больше не срабатывают
       ветки `!config.claudeCode.useTerminal` (фокус несуществующего webview).
 - [x] **Точка меню `editor/title`**: панель действий справа от вкладок
       группы, `MenuId.EditorTitle` — [workbench/Menus.md](../arch/workbench/Menus.md),

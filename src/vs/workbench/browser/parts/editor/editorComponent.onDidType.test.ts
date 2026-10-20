@@ -79,7 +79,7 @@ describe("TextEditorPane.onDidType", () => {
         press(pane, "a");
         press(pane, "b");
 
-        // Гарантия Emitter (docs/TODO/Events.md G2): снятый — не зовётся.
+        // Гарантия Emitter (docs/arch/Common.md#события-eventts, G2): снятый — не зовётся.
         expect(seen).toEqual([]);
     });
 });

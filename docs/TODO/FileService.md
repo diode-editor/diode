@@ -27,8 +27,8 @@ PR 2 перенесены в PR 5: рестор синхронен по устр
 (26.09.2026). Все счётчики ниже — production-файлы `src/vs` без `*.test.ts`,
 `*.bench.ts` и тест-утилит.
 
-Соседние исследования той же группы: [Events](Events.md) (Emitter/Event),
-[Lifecycle](Lifecycle.md) (Disposable). На стыках — только ссылки, см. раздел 11.
+Соседние темы той же группы (сделаны): Emitter/Event — [arch/Common.md](../arch/Common.md#события-eventts),
+Disposable — [arch/Common.md](../arch/Common.md#жизненный-цикл-lifecyclets). На стыках — только ссылки, см. раздел 11.
 
 ---
 
@@ -306,7 +306,7 @@ interface IWriteFileOptions {
 ```
 
 16 членов против 38 у эталона. Формы событий (`Event<T>` против колбэка) —
-по итогам [Events](Events.md); в наброске оставлен текущий стиль реестра.
+по итогам Emitter ([arch/Common.md](../arch/Common.md#события-eventts)); в наброске оставлен текущий стиль реестра.
 
 ### 5.3. Решения по спорным пунктам
 
@@ -569,8 +569,8 @@ PR 0 независим и идёт первым. PR 2, 3, 4 зависят то
   отдельный рефакторинг, если понадобится.
 - **Переезда state/configuration/keybindings/extensionManagement/поиска** на
   сервис.
-- **Смены формы событий** — это [Events](Events.md); срок жизни подписок и
-  регистраций провайдеров — [Lifecycle](Lifecycle.md).
+- **Смены формы событий** — это Emitter ([arch/Common.md](../arch/Common.md#события-eventts)); срок жизни подписок и
+  регистраций провайдеров — [arch/Common.md](../arch/Common.md#жизненный-цикл-lifecyclets).
 - **Правок в tuidom.** Не требуется: `getChildren` уже принимает `Promise`.
 
 ---
@@ -627,6 +627,6 @@ PR 0 независим и идёт первым. PR 2, 3, 4 зависят то
 - [MultiRoot](MultiRoot.md) — N корней для Explorer и watcher'ов
 - [FileTreePerformance](FileTreePerformance.md) — чтение каталогов в дереве
 - [TestRunTime](TestRunTime.md) — in-memory провайдер как побочная выгода
-- [Events](Events.md), [Lifecycle](Lifecycle.md) — соседние исследования
+- [arch/Common.md](../arch/Common.md#события-eventts) — `Emitter`/`Event`, [arch/Common.md](../arch/Common.md#жизненный-цикл-lifecyclets) — `Disposable`
 - `docs/ARCHITECTURE.md` — «Недисковые ресурсы», «Слежение за файлами», «Роли
   процессов»

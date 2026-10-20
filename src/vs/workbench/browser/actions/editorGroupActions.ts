@@ -256,7 +256,7 @@ export const moveEditorToNextGroupAction: CommandAction = {
     title: "View: Move Editor into Next Group",
     when: "editorGroupHasEditors",
     keybinding: { keys: parseKeybinding("ctrl+alt+right"), when: EXTENDED_TIERS },
-    // Ctrl+K ←/→ заняты word-motion-фолбэками legacy — чорд с Alt (см. EditorGroups.md).
+    // Ctrl+K ←/→ заняты word-motion-фолбэками legacy — чорд с Alt (см. docs/arch/workbench/EditorPart.md).
     keybindings: [parseChord("ctrl+k alt+right")],
     run(accessor) {
         accessor.get(EditorGroupsServiceDIToken).moveActiveEditorToGroup("next");

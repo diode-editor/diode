@@ -163,8 +163,8 @@ claude-lease run -- node scripts/verify-mutants.mjs [<mutation.json>] [--filter 
 находка настоящая, просто выглядит как поломка Stryker'а. Долгий ответ — общий `Emitter`
 с локализацией ошибок слушателя (как `onUnexpectedError` у vscode) — это #275.
 
-**Общий эмиттер есть: `vs/base/common/event.ts`** (план миграции —
-[TODO/Events.md](TODO/Events.md)). Событие на нём ловит синхронное исключение
+**Общий эмиттер есть: `vs/base/common/event.ts`** (гарантии —
+[arch/Common.md](arch/Common.md#события-eventts)). Событие на нём ловит синхронное исключение
 слушателя и отдаёт его в `onUnexpectedError`, остальные слушатели событие
 получают. Чтобы изоляция не превратила «слушатель кинул → тест упал» в «слушатель
 кинул → тишина», общий `setupFiles` vitest'а

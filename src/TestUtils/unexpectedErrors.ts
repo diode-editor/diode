@@ -5,7 +5,7 @@ import { setUnexpectedErrorHandler } from "../vs/base/common/errors.ts";
  * Копит то, что ушло в `onUnexpectedError` за время теста, и роняет тест,
  * если там что-то есть. Без этого изоляция ошибок слушателей (`Emitter` ловит
  * исключение слушателя) превращает «слушатель кинул → тест упал» в «слушатель
- * кинул → тишина», и мутант, ломающий слушателя, выживает (docs/TODO/Events.md).
+ * кинул → тишина», и мутант, ломающий слушателя, выживает (docs/arch/Common.md#события-eventts).
  * Ставится на каждый тест из общего setupFiles (`unexpectedErrors.setup.ts`).
  */
 export class UnexpectedErrorCollector {

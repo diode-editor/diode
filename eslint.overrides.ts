@@ -67,7 +67,7 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
         // Рукописный список слушателей (поле `listeners`/`…Listeners` с массивом
         // или Set) — вместо Emitter из vs/base/common/event.ts: без изоляции
         // ошибок слушателя и с разной семантикой отписки в обходе
-        // (docs/TODO/Events.md). Правило перекрывает no-restricted-syntax выше
+        // (docs/arch/Common.md#события-eventts). Правило перекрывает no-restricted-syntax выше
         // целиком, поэтому селектор inline import() повторён.
         files: ["src/vs/**/*.ts"],
         ignores: [
@@ -93,7 +93,7 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
                 ...["listeners", "/Listeners$/"].map((name) => ({
                     selector: `PropertyDefinition[key.name=${name}][value.type=/^(ArrayExpression|NewExpression)$/]`,
                     message:
-                        "Рукописный список слушателей: заведи `Emitter` из vs/base/common/event.ts (docs/TODO/Events.md).",
+                        "Рукописный список слушателей: заведи `Emitter` из vs/base/common/event.ts (docs/arch/Common.md#события-eventts).",
                 })),
             ],
         },

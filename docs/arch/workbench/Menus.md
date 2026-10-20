@@ -136,18 +136,19 @@ view) пере-резолвится по `ContextKeyService.onDidChange` — с�
 меню, inline-кнопку, кейбинд, палитру и программный `execute`; `enablement`
 дополнительно складывается в `when` биндинга, иначе диспетчер проглотил бы
 клавишу впустую. Резолвнутый пункт несёт `enabled` (`IResolvedMenuItemEntry`) —
-его читает заголовок view и рисует кнопку токеном `disabledForeground`. Серые
-пункты попапа «⋯» пока невозможны: у `MenuItemEntry` в `@tuidom/elements` нет
-поля `disabled` — это задача в репозиторий tuidom, см.
-[TODO](../../TODO/WorkbenchContributions.md).
+его читает заголовок view и рисует кнопку токеном `disabledForeground`, а попап
+«⋯» — серым пунктом (`MenuItemEntry.disabled` движка): стрелки его пропускают,
+клик и Enter ничего не делают. Палитра команд недоступную команду не показывает
+вовсе — по `enablement`; фильтра палитры по `when` пока нет (трекер —
+[TODO/README.md](../../TODO/README.md#workbench)).
 
 **Границы vs contribution/Action.** Menu-placement — *где показывать команду*
 (данные, co-located на экшене). Command+keybinding — экшен (поведение, [Commands.md](Commands.md)).
 Event-проводка — contribution ([Contributions.md](Contributions.md)).
 
-Осознанно не перенесено из vscode: `alt`-пункты (альтернатива по Alt) и user
-hide-toggle (`isHiddenByDefault`). См.
-[TODO](../../TODO/WorkbenchContributions.md).
+Не перенесено из vscode: `alt`-пункты (альтернатива по Alt) и user hide-toggle
+(`isHiddenByDefault`) — нужна поддержка в `PopupMenuElement` и персист
+([TODO/README.md](../../TODO/README.md#workbench)).
 
 **Группы и вложенность.** `MenuRegistry.getMenuItemGroups` отдаёт пункты
 разложенными по группам (склейка сепараторами — `joinMenuGroups`): это нужно

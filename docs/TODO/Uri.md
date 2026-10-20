@@ -10,7 +10,7 @@ git-версии (`git:`), output-каналы (`output:`), diff, webview, remot
 Сделано (описание — [arch/Common.md](../arch/Common.md#uri)): `Uri` — адаптер над
 `vscode-uri`; ext-host на общем типе; гейт `workspace.fs` для не-file схем;
 идентичность ядра по `Uri`; `untitled:` — настоящая схема; undo на модель документа
-(в [EditorGroups](EditorGroups.md)); `ExtHostTextDocument` по спецификации; реестр
+(в сплитах редактора, #245); `ExtHostTextDocument` по спецификации; реестр
 провайдеров ФС (`IFileSystemProviderRegistry`, появился в [Diff](Diff.md) этап 1).
 
 ## Виртуальные read-only документы (сделано)

@@ -25,6 +25,6 @@ Hunk»; «Compare New Untitled Text Files»; автопересчёт снимк
 - Снимочная сторона «(on disk)» (Compare with Saved) не освежается сама —
   `file:` событий не даёт; освежает повторный вызов команды.
 - Сплит дифф-вкладки дублем не делится — новая группа открывается пустой
-  (см. follow-up'ы [EditorGroups.md](EditorGroups.md)).
+  (см. люфты групп в [arch/workbench/EditorPart.md](../arch/workbench/EditorPart.md)).
 - `DiffViewModel.rows` остался без потребителя (покрыт своими юнитами) —
   чистка отдельно.

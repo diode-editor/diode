@@ -18,7 +18,7 @@
  *     `@tuidom/testing` — только тесты. `base/common` значений из движка не
  *     берёт вовсе. `@tuidom/core/common/disposable` запрещён во всём `src/`
  *     (и `import type` тоже): примитив жизненного цикла — наш
- *     `vs/base/common/lifecycle.ts` (docs/TODO/Lifecycle.md).
+ *     `vs/base/common/lifecycle.ts` (docs/arch/Common.md#жизненный-цикл-lifecyclets).
  *  4. common/browser не импортируют модули ОС — `node:*` и голые имена
  *     встроенных модулей (кроме `node:path`: чистые строковые функции), а также
  *     node-only npm-пакеты (NODE_ONLY_PACKAGES); `import type` тоже считается —

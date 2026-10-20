@@ -131,7 +131,7 @@
     без extended keys не передаёт, объявлен под `tier != 'legacy'` — чтобы
     подсказка в палитре и меню не обещала нерабочее. Правило и его гейт сборки —
     в [arch/workbench/Commands.md](../arch/workbench/Commands.md#конвенции-системы-команд)
-    (узел M5 в [ParityBacklog.md](ParityBacklog.md)).
+    (#376).
 
 - **Что подкрутить (пользователю).**
   - **tmux 3.5+** для самого Ctrl+Tab. В `~/.tmux.conf`:
