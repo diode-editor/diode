@@ -127,21 +127,14 @@ describe("ExplorerComponent — декорации всплывают к пап�
         expect(badgeOf("README.md")).toBe("");
 
         // Раскрыли: промежуточная папка тоже с «●», сам файл — со своей буквой.
+        // Раскрываем через reveal, а не стрелками от «первой строки»: курсора до первого
+        // нажатия может не быть, и тогда стрелки раскрывали pkg вместо src (флак CI).
         service.focus();
-        // Курсор стоит на первой строке («old»).
-        app.sendKey("ArrowDown"); // pkg
-        app.sendKey("ArrowDown"); // src
-        app.sendKey("ArrowRight");
-        await vi.waitFor(() => {
-            expect(rows().join("\n")).toContain("lib");
-        });
-        app.sendKey("ArrowDown");
-        app.sendKey("ArrowRight");
+        await service.revealPath(ws.path("src/lib/util.ts"));
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("util.ts");
         });
-        // Строку под курсором красит выделение — цвет смотрим у соседних.
-        app.sendKey("ArrowDown"); // util.ts
+        // Строку под курсором (util.ts) красит выделение — цвет смотрим у соседних.
         expect(badgeOf("lib")).toBe("●");
         expect(labelFg("lib")).toBe(MODIFIED);
         app.sendKey("ArrowDown"); // main.ts
