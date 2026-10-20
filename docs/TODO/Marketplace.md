@@ -309,6 +309,20 @@ registry/v1/meta/<id>.json
   gopls в GOBIN (в CI — `.github/actions/go-tools`) и ждёт undercurl на `main.go`,
   без Go кейс пропускается (`requires` у чека). Сьюты `extensionHost.goLsp*`, e2e
   `goLsp.test.ts` и сценарий `go-lsp` берут расширение ИЗ МАГАЗИНА.
+- [x] **Кандидат: `Anthropic.claude-code` 2.1.304** — запись в сайт#20
+  ([ClaudeCode.md](ClaudeCode.md), пункт 7): `proxy-openvsx`, шесть платформенных
+  vsix (linux/darwin/win32 × x64/arm64, 125–138 МБ — внутри бинарь CLI; universal
+  на Open VSX нет, alpine клиент не детектит). Гейт `engines.diode: ">=0.9.5"` —
+  терминал вкладкой справа (#675), `config.*` в when (#676) и `editor/title` (#677)
+  вошли после 0.9.4 (решение человека: публикуем до релиза, у 0.9.4 запись
+  «несовместима», dev-сборки ставят). Лицензия проприетарная — в `license` дословная
+  строка манифеста, байты не хостим. `support: partial`: webview-чат, предложенный
+  дифф вкладкой (отдельный пункт `limits` — снимается вместе с пунктом 5
+  ClaudeCode.md), `Ctrl+Esc` только с kitty-протоколом; нужен `claude` CLI в PATH —
+  терминальный режим набирает голое `claude`, вшитый бинарь не использует. Смоук
+  магазина — пункт статус-бара, лок с `ideName: "Diode"` и MCP `initialize` пробным
+  клиентом; e2e `claudeCode.test.ts` и сценарий `claude-code` ставят расширение ИЗ
+  МАГАЗИНА (настоящий CLI не запускается — docs/TESTING.md).
 - [ ] **id без учёта регистра в `--install-extension` и в поиске меты.** Open VSX
   пишет `golang/Go`, а id в манифесте — `golang.go`; реестр хранит id манифеста
   (сверка при установке побайтная), поэтому `--install-extension golang.Go`

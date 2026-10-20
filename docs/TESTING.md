@@ -396,6 +396,16 @@ expect(ed?.state?.hasSelection).toBe(true);
 (`e2e/marketplace/checks.ts`) уважает то же правило: у чека есть поле `requires`, и без Go его
 поведенческая половина пропускается с причиной после проверенной установки.
 
+**Claude Code без настоящего CLI.** `Anthropic.claude-code` (e2e `claudeCode.test.ts`,
+сценарий `claude-code`, смоук магазина) проверяется без `claude`: тому нужны подписка и
+сеть. Его место занимают пробный клиент ide-сервера расширения (`IdeProbe` из
+`e2e/helpers/claudeIde.ts`: порт и `authToken` из лока `~/.claude/ide/<port>.lock`, заголовок
+`x-claude-code-ide-authorization`, MCP `initialize`, уведомления `selection_changed`/
+`at_mentioned`, `tools/call`) и подставной `claude` из `e2e/fixtures/fakeClaude/bin` первым в
+PATH — терминальный режим набирает голое `claude`, а на машине разработчика настоящий CLI в
+PATH есть. `claudeCodeSessionEnv()` ещё и обнуляет `CLAUDE_CONFIG_DIR`, чтобы лок лёг в
+изолированный HOME, а не в каталог хоста.
+
 ### Extensions view (герметичный сьют)
 
 `e2e/extensionsView.functional.test.ts` — сам магазин в UI: вьюлет `EXTENSIONS`, поиск, бейджи,
