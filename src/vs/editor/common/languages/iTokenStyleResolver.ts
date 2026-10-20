@@ -24,12 +24,13 @@ export const EMPTY_RESOLVED_TOKEN_STYLE: ResolvedTokenStyle = {
 };
 
 /**
- * Maps a TextMate scope stack to a resolved style.
- *
- * `scopes` is the stack from most general (root) to most specific (top).
+ * Стиль токена по его метаданным (`encodedTokenAttributes.ts`): начертание —
+ * из битов `FontStyle`, цвета — индексы colorMap темы. Цвета по умолчанию
+ * (`ColorId.DefaultForeground`/`DefaultBackground`) — `undefined`: ячейка
+ * берёт цвета редактора.
  */
 export interface ITokenStyleResolver {
-    resolve(scopes: readonly string[]): ResolvedTokenStyle;
+    resolve(metadata: number): ResolvedTokenStyle;
 }
 
 /** Resolver that returns the empty style for everything (no highlighting). */

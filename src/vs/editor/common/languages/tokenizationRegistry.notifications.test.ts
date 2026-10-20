@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { encodedResult, tokenMetadata } from "../../../../TestUtils/encodedTokens.ts";
+import type { ITokenizationSupport } from "../languages.ts";
+
 import { NULL_STATE } from "./iState.ts";
-import type { ITokenizationSupport } from "./iTokenizationSupport.ts";
 import { TokenizationRegistry } from "./tokenizationRegistry.ts";
 
 function makeStubSupport(): ITokenizationSupport {
     return {
         getInitialState: () => NULL_STATE,
-        tokenizeLine: () => ({ tokens: { tokens: [] }, endState: NULL_STATE }),
+        tokenizeEncoded: () => encodedResult([[0, tokenMetadata()]], NULL_STATE),
     };
 }
 
@@ -97,5 +99,39 @@ describe("TokenizationRegistry — change notifications", () => {
         handle1.dispose();
         reg.register("html", makeStubSupport());
         expect(calls).toBe(3);
+    });
+});
+
+// colorMap темы: токены держат индексы цветов, поэтому смена темы — событие
+// по каждому языку с support'ом (владельцы токенов перетокенизируют документы).
+describe("TokenizationRegistry — colorMap", () => {
+    it("getColorMap() — null, пока тему не ставили", () => {
+        expect(new TokenizationRegistry().getColorMap()).toBeNull();
+    });
+
+    it("setColorMap() хранит colorMap и фаерит onDidChange по разу на язык с support'ом", async () => {
+        const reg = new TokenizationRegistry();
+        reg.register("css", makeStubSupport());
+        reg.registerLazy("typescript", () => Promise.resolve(makeStubSupport()));
+        reg.registerLazy("rust", () => Promise.resolve(makeStubSupport()));
+        await reg.load("typescript");
+        const seen: string[] = [];
+        reg.onDidChange((id) => seen.push(id));
+
+        const colorMap = ["", "#000000", "#ffffff", "#ff0000"];
+        reg.setColorMap(colorMap);
+
+        expect(reg.getColorMap()).toBe(colorMap);
+        // Незагруженный ленивый язык (rust) токенов не держит — молчим про него.
+        expect([...seen].sort()).toEqual(["css", "typescript"]);
+    });
+
+    it("setColorMap() без языков — молча меняет colorMap", () => {
+        const reg = new TokenizationRegistry();
+        const seen: string[] = [];
+        reg.onDidChange((id) => seen.push(id));
+        reg.setColorMap(["", "#000000"]);
+        expect(seen).toEqual([]);
+        expect(reg.getColorMap()).toEqual(["", "#000000"]);
     });
 });

@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { encodedResult, tokenMetadata } from "../../../../TestUtils/encodedTokens.ts";
+import type { ITokenizationSupport } from "../languages.ts";
+
 import { NULL_STATE } from "./iState.ts";
-import type { ITokenizationSupport } from "./iTokenizationSupport.ts";
 import { TokenizationRegistry } from "./tokenizationRegistry.ts";
 
 function makeStubSupport(): ITokenizationSupport {
     return {
         getInitialState: () => NULL_STATE,
-        tokenizeLine: () => ({ tokens: { tokens: [] }, endState: NULL_STATE }),
+        tokenizeEncoded: () => encodedResult([[0, tokenMetadata()]], NULL_STATE),
     };
 }
 

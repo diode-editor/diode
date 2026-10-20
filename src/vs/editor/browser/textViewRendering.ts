@@ -190,7 +190,7 @@ export interface IPaintTextLineParams {
     displayLine: DisplayLine;
     /** Токены строки; `null` — рисуем без подсветки. */
     tokenIndex: TokenIndex | null;
-    resolveStyle: (scopes: readonly string[]) => ResolvedTokenStyle;
+    resolveStyle: (metadata: number) => ResolvedTokenStyle;
     /**
      * Семантические токены строки — второй слой поверх TextMate: перекрывают
      * только заданные темой атрибуты (цвет, начертание). `null` — слоя нет.
@@ -309,9 +309,10 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             // Правее фантома композитный offset забегает вперёд документного —
             // возвращаем его назад, иначе подсветка хвоста уедет.
             const offset = phantom !== null && slot.offset >= phantomEnd ? slot.offset - phantom.length : slot.offset;
-            const token = tokenIndex?.tokenAt(offset);
-            if (token) {
-                const resolved = resolveStyle(token.scopes);
+            const metadata = tokenIndex?.metadataAt(offset);
+            // Stryker disable next-line ConditionalExpression: без токена резолвер на `undefined` даёт пустой стиль — те же fg/bg/style
+            if (metadata !== undefined) {
+                const resolved = resolveStyle(metadata);
                 if (resolved.fg !== undefined) fg = resolved.fg;
                 if (params.allowTokenBg && resolved.bg !== undefined) bg = resolved.bg;
                 style = packStyleFlags(resolved);

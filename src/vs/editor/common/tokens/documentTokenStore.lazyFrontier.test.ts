@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { encodedResult, markedMetadata } from "../../../../TestUtils/encodedTokens.ts";
 import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
+import type { EncodedTokenizationResult, ITokenizationSupport } from "../languages.ts";
 import type { IState } from "../languages/iState.ts";
-import type { ITokenizationResult, ITokenizationSupport } from "../languages/iTokenizationSupport.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
+
+/** Цвет токена, которым токенизатор метит входящее состояние `counter` (смещение от цветов по умолчанию). */
+const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
     public readonly value: number;
@@ -20,18 +24,15 @@ class CounterState implements IState {
     }
 }
 
-/** Lines starting with `>` bump the counter; the token scope records the incoming state. */
+/** Lines starting with `>` bump the counter; the token's foreground records the incoming state. */
 class StatefulTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return new CounterState(0);
     }
-    public tokenizeLine(line: string, state: IState): ITokenizationResult {
+    public tokenizeEncoded(line: string, _hasEOL: boolean, state: IState): EncodedTokenizationResult {
         const counter = (state as CounterState).value;
         const next = line.startsWith(">") ? new CounterState(counter + 1) : new CounterState(counter);
-        return {
-            tokens: { tokens: [{ startIndex: 0, scopes: [`s${String(counter)}`] }] },
-            endState: next,
-        };
+        return encodedResult([[0, markedMetadata(stateMark(counter))]], next);
     }
 }
 
@@ -64,7 +65,7 @@ describe("DocumentTokenStore — виден только вьюпорт", () => 
     });
 
     it("правка в нетокенизированном хвосте не оставляет дыру выше курсора", () => {
-        // Строка 1 переводит состояние в 1 — всё ниже неё обязано нести `s1`.
+        // Строка 1 переводит состояние в 1 — всё ниже неё обязано нести метку состояния 1.
         const doc = new TextDocument("a\n>b\nc\nd\ne\nf\ng\nh\ni\nj");
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
 
@@ -82,7 +83,7 @@ describe("DocumentTokenStore — виден только вьюпорт", () => 
         }
         // Строки ниже `>` обязаны нести состояние 1, а не начальное 0 — иначе
         // хвост подсвечивается «с чистого листа».
-        expect(store.getLineTokens(9)?.tokens[0].scopes).toEqual(["s1"]);
+        expect(store.getLineTokens(9)?.getForeground(0)).toBe(stateMark(1));
     });
 
     it("правка, перешагнувшая фронтир, опускает его на своё начало", () => {

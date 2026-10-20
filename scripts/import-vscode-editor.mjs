@@ -6,10 +6,9 @@
  *     фикстурным корпусом;
  *   - токенизация модели — `src/vs/editor/common/model/textModelTokens.ts`
  *     (хранилище end-state'ов, очередь невалидных строк, фоновый токенизатор,
- *     эвристика вьюпорта) и её мелкие зависимости. Формат токенов у нас свой
- *     (скоупы, а не `Uint32Array`): шов — шимы `editor/common/languages.ts`,
- *     `tokens/lineTokens.ts`, `tokens/contiguousMultilineTokensBuilder.ts`
- *     (см. docs/TODO/VscodeModel.md, B1/B2).
+ *     эвристика вьюпорта) и её мелкие зависимости, бинарный формат токенов
+ *     (`encodedTokenAttributes.ts`, `tokens/lineTokens.ts`,
+ *     `tokens/contiguousMultilineTokens*.ts`) — docs/TODO/VscodeModel.md, B1/B2.
  *
  * Один скрипт на все переносы, а не по скрипту на подсистему: трансформация,
  * сторож `--check` и пин у них общие, и расходиться им незачем.
@@ -39,8 +38,8 @@
  * нужных). Вместо них — узкие рукописные шимы по тем же путям; парность
  * раскладки делает подмену прозрачной, ни один import править не надо. Так же
  * закрыты и зависимости токенизации из `editor/common` (`languages.ts`,
- * `model.ts`, `tokens/*`): их upstream-версии — сотни строк бинарного формата
- * токенов, который мы пока не переносим.
+ * `model.ts`): их upstream-версии — тысячи строк провайдеров языковых фич и
+ * `TextModel` эталона, из которых перенесённому коду нужны десятки.
  *
  * Режимы:
  *   (без флагов)  — перенести файлы из upstream запинненного тега.
@@ -100,6 +99,15 @@ const FILES = [
     "src/vs/editor/common/model/fixedArray.ts",
     "src/vs/editor/common/core/misc/eolCounter.ts",
     "src/vs/base/common/stopwatch.ts",
+    // Бинарный формат токенов (B2): раскладка метаданных, токены строки,
+    // токены подряд идущих строк (их и отдаёт фон) с правкой и (де)сериализацией
+    // (последняя — для воркера, B3), результат «токенизатор упал».
+    "src/vs/editor/common/encodedTokenAttributes.ts",
+    "src/vs/editor/common/tokens/lineTokens.ts",
+    "src/vs/editor/common/tokens/contiguousMultilineTokens.ts",
+    "src/vs/editor/common/tokens/contiguousMultilineTokensBuilder.ts",
+    "src/vs/editor/common/tokens/contiguousTokensEditing.ts",
+    "src/vs/editor/common/languages/nullTokenize.ts",
 
     // Хранение текста: PieceTree (красно-чёрное дерево кусков с кэшем стартов
     // строк) и его зависимости. Пока никем не используется — подключение к
@@ -137,6 +145,12 @@ const SPARSE_PATHS = [
     "/src/vs/base/common/stopwatch.ts",
     "/src/vs/editor/common/model/textModelTokens.ts",
     "/src/vs/editor/common/model/fixedArray.ts",
+    "/src/vs/editor/common/encodedTokenAttributes.ts",
+    "/src/vs/editor/common/tokens/lineTokens.ts",
+    "/src/vs/editor/common/tokens/contiguousMultilineTokens.ts",
+    "/src/vs/editor/common/tokens/contiguousMultilineTokensBuilder.ts",
+    "/src/vs/editor/common/tokens/contiguousTokensEditing.ts",
+    "/src/vs/editor/common/languages/nullTokenize.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer",
     "/src/vs/editor/common/model/textModelSearch.ts",
     "/src/vs/base/common/uint.ts",
@@ -163,31 +177,17 @@ const EXCISIONS = {
         },
         { from: "import { IChange } from './legacyLinesDiffComputer.js';", to: "SELF" },
     ],
-    "src/vs/editor/common/model/textModelTokens.ts": [
+    "src/vs/editor/common/tokens/lineTokens.ts": [
         {
-            // `getTokenTypeIfInsertingCharacter` — вид токена для автозакрытия
-            // скобок. Читает бинарные токены через `LineTokens`
-            // (`getStandardTokenType` из метаданных `Uint32Array`), а наши токены —
-            // скоупы; автозакрытие у нас судит по скоупам само
-            // (`languages/autoClosing.ts`, `standardTokenType.ts`). Вернётся с B2.
-            // Анкер — doc-комментарий метода: он же стоит и над tokenizeLinesAt,
-            // поэтому два одинаковых иссечения подряд снимают оба метода.
-            from: "\t/** assumes state is up to date */",
-            to: "\t}",
+            // Вид токена в позиции модели — читает `model.tokenization`
+            // (`TokenizationTextModelPart` эталона), а модель у нас своя
+            // (`ITextDocument` + `DocumentTokenStore`); то же у нас делает
+            // `languages/standardTokenType.ts` поверх `LineTokens`.
+            from: "export function getStandardTokenTypeAtPosition(model: ITextModel, position: IPosition): StandardTokenType | undefined {",
+            to: "}",
         },
-        {
-            // `tokenizeLinesAt` — токены для вставки строк (indent-on-paste,
-            // `tokenizeLinesAt` в TokenizationTextModelPart). Тоже строит
-            // `LineTokens` из бинарного формата; потребителя у нас нет.
-            from: "\t/** assumes state is up to date */",
-            to: "\t}",
-        },
-        {
-            // Нужен только иссечённому getTokenTypeIfInsertingCharacter;
-            // `encodedTokenAttributes.ts` — раскладка бинарных метаданных (B2).
-            from: "import { StandardTokenType } from '../encodedTokenAttributes.js';",
-            to: "SELF",
-        },
+        { from: "import { IPosition } from '../core/position.js';", to: "SELF" },
+        { from: "import { ITextModel } from '../model.js';", to: "SELF" },
     ],
     "src/vs/editor/common/core/textChange.ts": [
         {
@@ -262,12 +262,13 @@ const TYPE_ONLY = new Set([
     "ITimeout",
     "SerializedLineEdit",
     "SerializedLineReplacement",
+    "ITokenPresentation",
+    "IViewLineTokens",
     // из наших шимов в base/common
     "Comparator",
     "IEquatable",
     "IdleDeadline",
     // из наших шимов токенизации в editor/common
-    "EncodedTokenizationResult",
     "IBackgroundTokenizationStore",
     "IBackgroundTokenizer",
     "ILanguageIdCodec",

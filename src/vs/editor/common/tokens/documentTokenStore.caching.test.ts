@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { markedMetadata, storedTokens } from "../../../../TestUtils/encodedTokens.ts";
 import { PlainTextTokenizer } from "../languages/builtin/plainTextTokenizer.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
@@ -25,7 +26,7 @@ describe("DocumentTokenStore caching", () => {
     it("does not call the tokenizer twice for the same line", () => {
         const doc = new TextDocument("hello\nworld");
         const tokenizer = new PlainTextTokenizer();
-        const spy = vi.spyOn(tokenizer, "tokenizeLine");
+        const spy = vi.spyOn(tokenizer, "tokenizeEncoded");
         const store = new DocumentTokenStore(doc, tokenizer);
         store.forceTokenization(1);
         const callsAfterFirst = spy.mock.calls.length;
@@ -37,8 +38,8 @@ describe("DocumentTokenStore caching", () => {
         const doc = new TextDocument("a\nb");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
         store.forceTokenization(0);
-        store.setLineTokens(0, { tokens: [{ startIndex: 0, scopes: ["custom"] }] });
-        expect(store.getLineTokens(0)?.tokens[0].scopes).toEqual(["custom"]);
+        store.setLineTokens(0, storedTokens([[0, markedMetadata(42)]], 1));
+        expect(store.getLineTokens(0)?.getForeground(0)).toBe(42);
     });
 
     it("getLineTokens returns undefined for out-of-range indices", () => {

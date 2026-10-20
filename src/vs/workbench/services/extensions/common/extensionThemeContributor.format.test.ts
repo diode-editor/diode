@@ -1,9 +1,9 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
+import { resolveScopesStyle } from "../../../../../TestUtils/textMateThemeProbe.ts";
 import { createLoggerSpy, extensionWithThemes, MemoryAssets } from "../../../../../TestUtils/themeExtensionFixture.ts";
 import { ThemeRegistry } from "../../themes/common/themeRegistry.ts";
-import { TokenThemeResolver } from "../../themes/common/tokenThemeResolver.ts";
 
 import { ExtensionThemeContributor } from "./extensionThemeContributor.ts";
 
@@ -46,7 +46,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         const dimmed = registry.resolve("Sample Dimmed");
         expect(dimmed?.getRequiredColor("editor.background")).toBe(packRgb(0x0b, 0x10, 0x15));
         expect(dimmed?.getRequiredColor("statusBar.background")).toBe(packRgb(0x0a, 0x0f, 0x14));
-        expect(new TokenThemeResolver(dimmed!.tokenTheme).resolve(["keyword"]).fg).toBe(packRgb(0xff, 0x00, 0xff));
+        expect((await resolveScopesStyle(dimmed!, ["source.probe", "keyword"])).fg).toBe(packRgb(0xff, 0x00, 0xff));
         // База осталась самостоятельной темой со своим фоном.
         expect(registry.resolve("Sample Dark")?.getRequiredColor("editor.background")).toBe(packRgb(0x10, 0x18, 0x20));
     });

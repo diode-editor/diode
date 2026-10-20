@@ -1,28 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { encodedResult, markedMetadata } from "../../../../../TestUtils/encodedTokens.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { EncodedTokenizationResult, ITokenizationSupport } from "../../../../editor/common/languages.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
-import { createLineTokens, createToken } from "../../../../editor/common/languages/iLineTokens.ts";
 import { NULL_STATE } from "../../../../editor/common/languages/iState.ts";
-import type {
-    ITokenizationResult,
-    ITokenizationSupport,
-} from "../../../../editor/common/languages/iTokenizationSupport.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 
-/** Токенизатор-маркер: помечает всю строку одним заданным scope. */
-function markerTokenizer(scope: string): ITokenizationSupport {
+/** Токенизатор-маркер: помечает всю строку одним токеном с заданным индексом цвета. */
+function markerTokenizer(marker: number): ITokenizationSupport {
     return {
         getInitialState: () => NULL_STATE,
-        tokenizeLine(): ITokenizationResult {
-            return { tokens: createLineTokens([createToken(0, [scope])]), endState: NULL_STATE };
+        tokenizeEncoded(): EncodedTokenizationResult {
+            return encodedResult([[0, markedMetadata(marker)]], NULL_STATE);
         },
     };
 }
+
+// Метки токенизаторов: цвета, которых у plain text (ColorId.DefaultForeground) не бывает.
+const MARKDOWN = 10;
+const TYPESCRIPT = 11;
+const PYTHON = 12;
 
 const TS_ONLY_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
@@ -30,10 +32,11 @@ const TS_ONLY_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
 };
 
-function firstScope(ctrl: TextEditorPane): string | undefined {
+/** Метка первого токена первой строки — чем токенизирован документ прямо сейчас. */
+function firstMarker(ctrl: TextEditorPane): number | undefined {
     const tokenStore = ctrl.viewState.tokenStore;
     tokenStore?.forceTokenization(0);
-    return tokenStore?.getLineTokens(0)?.tokens[0]?.scopes[0];
+    return tokenStore?.getLineTokens(0)?.getForeground(0);
 }
 
 describe("TextFileModel — language", () => {
@@ -100,32 +103,32 @@ describe("TextFileModel — language", () => {
     });
 
     it("setLanguage пересаживает токенизатор на язык назначения", () => {
-        registry.register("markdown", markerTokenizer("markup.markdown"));
+        registry.register("markdown", markerTokenizer(MARKDOWN));
         ctrl.openFile(Uri.file(writeFile("a.ts", "# header")));
-        expect(firstScope(ctrl)).not.toBe("markup.markdown");
+        expect(firstMarker(ctrl)).not.toBe(MARKDOWN);
 
         ctrl.setLanguage("markdown");
 
-        expect(firstScope(ctrl)).toBe("markup.markdown");
+        expect(firstMarker(ctrl)).toBe(MARKDOWN);
     });
 
     it("hot-swap: грамматика, зарегистрированная после openFile, подхватывается", () => {
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
         // Файл открыт до регистрации — работает fallback PlainTextTokenizer.
-        expect(firstScope(ctrl)).not.toBe("source.ts");
+        expect(firstMarker(ctrl)).not.toBe(TYPESCRIPT);
 
-        registry.register("typescript", markerTokenizer("source.ts"));
+        registry.register("typescript", markerTokenizer(TYPESCRIPT));
 
-        expect(firstScope(ctrl)).toBe("source.ts");
+        expect(firstMarker(ctrl)).toBe(TYPESCRIPT);
     });
 
     it("регистрация грамматики чужого языка не инвалидирует токены", () => {
-        registry.register("typescript", markerTokenizer("source.ts"));
+        registry.register("typescript", markerTokenizer(TYPESCRIPT));
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
-        expect(firstScope(ctrl)).toBe("source.ts");
+        expect(firstMarker(ctrl)).toBe(TYPESCRIPT);
 
-        registry.register("python", markerTokenizer("source.python"));
+        registry.register("python", markerTokenizer(PYTHON));
 
-        expect(firstScope(ctrl)).toBe("source.ts");
+        expect(firstMarker(ctrl)).toBe(TYPESCRIPT);
     });
 });

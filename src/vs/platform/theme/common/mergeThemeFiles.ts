@@ -8,7 +8,7 @@ import type { IThemeFile } from "./iThemeFile.ts";
  *
  * - `colors` — object-merge, ключ `child` перекрывает ключ базы;
  * - `tokenColors` — конкатенация base-first: правило, объявленное позже,
- *   побеждает при равной специфичности (так устроен `TokenThemeResolver`);
+ *   побеждает при равной специфичности (так матчит тему vscode-textmate);
  * - `semanticTokenRules` — тоже конкатенация base-first (поздний побеждает на
  *   равном весе селектора — `getTokenStyle` эталона);
  * - `semanticHighlighting` — OR по цепочке (`_loadColorTheme` эталона).

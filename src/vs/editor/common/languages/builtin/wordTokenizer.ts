@@ -1,8 +1,8 @@
-import type { IToken } from "../iLineTokens.ts";
-import { createLineTokens, createToken } from "../iLineTokens.ts";
+import { ColorId, FontStyle, LanguageId, MetadataConsts, StandardTokenType } from "../../encodedTokenAttributes.ts";
+import type { ITokenizationSupport } from "../../languages.ts";
+import { EncodedTokenizationResult } from "../../languages.ts";
 import type { IState } from "../iState.ts";
 import { NULL_STATE } from "../iState.ts";
-import type { ITokenizationResult, ITokenizationSupport } from "../iTokenizationSupport.ts";
 
 const KEYWORDS = new Set([
     "if",
@@ -55,12 +55,34 @@ const KEYWORDS = new Set([
     "enum",
 ]);
 
-const SCOPE_KEYWORD = Object.freeze(["source", "keyword.control"]);
-const SCOPE_NUMBER = Object.freeze(["source", "constant.numeric"]);
-const SCOPE_STRING = Object.freeze(["source", "string.quoted"]);
-const SCOPE_COMMENT = Object.freeze(["source", "comment.line"]);
-const SCOPE_IDENTIFIER = Object.freeze(["source", "identifier"]);
-const SCOPE_TEXT = Object.freeze(["source"]);
+/**
+ * Цвета классов слов — id в colorMap темы (`ColorId`): у демо-токенизатора
+ * темы нет, тест ставит резолверу colorMap, где по этим индексам свои цвета.
+ * Идентификаторы и прочий текст — цвет по умолчанию.
+ */
+export const WordTokenColor = {
+    keyword: 3,
+    number: 4,
+    string: 5,
+    comment: 6,
+} as const;
+
+function metadata(foreground: number, tokenType: StandardTokenType): number {
+    return (
+        ((LanguageId.Null << MetadataConsts.LANGUAGEID_OFFSET) |
+            (tokenType << MetadataConsts.TOKEN_TYPE_OFFSET) |
+            (FontStyle.None << MetadataConsts.FONT_STYLE_OFFSET) |
+            (foreground << MetadataConsts.FOREGROUND_OFFSET) |
+            (ColorId.DefaultBackground << MetadataConsts.BACKGROUND_OFFSET)) >>>
+        0
+    );
+}
+
+const KEYWORD = metadata(WordTokenColor.keyword, StandardTokenType.Other);
+const NUMBER = metadata(WordTokenColor.number, StandardTokenType.Other);
+const STRING = metadata(WordTokenColor.string, StandardTokenType.String);
+const COMMENT = metadata(WordTokenColor.comment, StandardTokenType.Comment);
+const TEXT = metadata(ColorId.DefaultForeground, StandardTokenType.Other);
 
 function isIdentStart(ch: string): boolean {
     return (ch >= "A" && ch <= "Z") || (ch >= "a" && ch <= "z") || ch === "_" || ch === "$";
@@ -77,35 +99,36 @@ function isDigit(ch: string): boolean {
 /**
  * Tiny stateless tokenizer for demos and tests.
  * Recognises keywords, numbers, double-/single-quoted strings, line comments
- * (`//`), and identifiers. Anything else is emitted as a generic `source`
- * token. Multi-line constructs are not supported.
+ * (`//`), and identifiers. Anything else is emitted as default text. Соседние
+ * токены одного вида склеиваются (как у `tokenizeLine2`). Multi-line
+ * constructs are not supported.
  */
 export class WordTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return NULL_STATE;
     }
 
-    public tokenizeLine(line: string, _state: IState): ITokenizationResult {
-        const tokens: IToken[] = [];
+    public tokenizeEncoded(line: string, _hasEOL: boolean, _state: IState): EncodedTokenizationResult {
+        const tokens: number[] = [];
         const length = line.length;
         let i = 0;
 
-        const push = (start: number, scope: readonly string[]): void => {
-            if (tokens.length > 0 && tokens[tokens.length - 1].scopes === scope) return;
-            tokens.push(createToken(start, scope));
+        const push = (start: number, kind: number): void => {
+            if (tokens.at(-1) === kind) return;
+            tokens.push(start, kind);
         };
 
         while (i < length) {
             const ch = line[i];
 
             if (ch === "/" && line[i + 1] === "/") {
-                push(i, SCOPE_COMMENT);
+                push(i, COMMENT);
                 i = length;
                 continue;
             }
 
             if (ch === '"' || ch === "'") {
-                push(i, SCOPE_STRING);
+                push(i, STRING);
                 const quote = ch;
                 i++;
                 while (i < length) {
@@ -121,7 +144,7 @@ export class WordTokenizer implements ITokenizationSupport {
             }
 
             if (isDigit(ch)) {
-                push(i, SCOPE_NUMBER);
+                push(i, NUMBER);
                 while (i < length && (isDigit(line[i]) || line[i] === ".")) i++;
                 continue;
             }
@@ -130,18 +153,19 @@ export class WordTokenizer implements ITokenizationSupport {
                 const start = i;
                 while (i < length && isIdentPart(line[i])) i++;
                 const word = line.substring(start, i);
-                push(start, KEYWORDS.has(word) ? SCOPE_KEYWORD : SCOPE_IDENTIFIER);
+                push(start, KEYWORDS.has(word) ? KEYWORD : TEXT);
                 continue;
             }
 
-            push(i, SCOPE_TEXT);
+            push(i, TEXT);
             i++;
         }
 
         if (tokens.length === 0) {
-            tokens.push(createToken(0, SCOPE_TEXT));
+            tokens.push(0, TEXT);
         }
 
-        return { tokens: createLineTokens(tokens), endState: NULL_STATE };
+        // Stryker disable next-line ArrayDeclaration: шрифтов у токенов нет, массив никто не читает
+        return new EncodedTokenizationResult(new Uint32Array(tokens), [], NULL_STATE);
     }
 }

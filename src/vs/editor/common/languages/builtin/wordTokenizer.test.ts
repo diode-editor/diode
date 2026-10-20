@@ -1,59 +1,97 @@
 import { describe, expect, it } from "vitest";
 
-import { WordTokenizer } from "./wordTokenizer.ts";
+import { ColorId, StandardTokenType, TokenMetadata } from "../../encodedTokenAttributes.ts";
 
-function tokenize(src: string): { startIndex: number; scopes: readonly string[] }[] {
+import { WordTokenColor, WordTokenizer } from "./wordTokenizer.ts";
+
+interface IDecodedToken {
+    readonly startIndex: number;
+    readonly foreground: number;
+    readonly tokenType: StandardTokenType;
+}
+
+function tokenize(src: string): IDecodedToken[] {
     const t = new WordTokenizer();
-    const result = t.tokenizeLine(src, t.getInitialState());
-    return result.tokens.tokens.map((tok) => ({ startIndex: tok.startIndex, scopes: tok.scopes }));
+    const { tokens } = t.tokenizeEncoded(src, false, t.getInitialState());
+    const result: IDecodedToken[] = [];
+    for (let i = 0; i < tokens.length; i += 2) {
+        result.push({
+            startIndex: tokens[i],
+            foreground: TokenMetadata.getForeground(tokens[i + 1]),
+            tokenType: TokenMetadata.getTokenType(tokens[i + 1]),
+        });
+    }
+    return result;
 }
 
-function lastScope(scopes: readonly string[]): string {
-    return scopes[scopes.length - 1] ?? "";
-}
+const TEXT = ColorId.DefaultForeground;
 
 describe("WordTokenizer", () => {
-    it("emits a single empty-scope token for an empty line", () => {
-        const tokens = tokenize("");
-        expect(tokens).toEqual([{ startIndex: 0, scopes: ["source"] }]);
+    it("emits a single default-text token for an empty line", () => {
+        expect(tokenize("")).toEqual([{ startIndex: 0, foreground: TEXT, tokenType: StandardTokenType.Other }]);
     });
 
-    it("classifies known JS keywords as keyword.control", () => {
+    it("colors known JS keywords with the keyword color", () => {
         const tokens = tokenize("if return const");
-        expect(lastScope(tokens[0].scopes)).toBe("keyword.control");
+        expect(tokens[0]).toEqual({
+            startIndex: 0,
+            foreground: WordTokenColor.keyword,
+            tokenType: StandardTokenType.Other,
+        });
     });
 
-    it("classifies identifiers separately from keywords", () => {
-        const tokens = tokenize("foo");
-        expect(lastScope(tokens[0].scopes)).toBe("identifier");
+    it("identifiers get the default color, unlike keywords", () => {
+        expect(tokenize("foo")).toEqual([{ startIndex: 0, foreground: TEXT, tokenType: StandardTokenType.Other }]);
+        expect(tokenize("if")[0].foreground).toBe(WordTokenColor.keyword);
     });
 
     it("recognises numeric literals", () => {
-        const tokens = tokenize("123");
-        expect(lastScope(tokens[0].scopes)).toBe("constant.numeric");
+        expect(tokenize("123")).toEqual([
+            { startIndex: 0, foreground: WordTokenColor.number, tokenType: StandardTokenType.Other },
+        ]);
     });
 
-    it("recognises double-quoted strings", () => {
-        const tokens = tokenize('"hello"');
-        expect(lastScope(tokens[0].scopes)).toBe("string.quoted");
+    it("recognises double-quoted strings: string color and String token type", () => {
+        expect(tokenize('"hello"')).toEqual([
+            { startIndex: 0, foreground: WordTokenColor.string, tokenType: StandardTokenType.String },
+        ]);
     });
 
     it("recognises single-quoted strings", () => {
-        const tokens = tokenize("'hi'");
-        expect(lastScope(tokens[0].scopes)).toBe("string.quoted");
+        expect(tokenize("'hi'")[0]).toEqual({
+            startIndex: 0,
+            foreground: WordTokenColor.string,
+            tokenType: StandardTokenType.String,
+        });
     });
 
-    it("treats `// ...` as a comment to end of line", () => {
-        const tokens = tokenize("x // comment");
-        const commentToken = tokens.find((t) => lastScope(t.scopes) === "comment.line");
-        expect(commentToken).toBeDefined();
-        expect(commentToken!.startIndex).toBe(2);
+    it("treats `// ...` as a comment to end of line: comment color and Comment token type", () => {
+        expect(tokenize("x // comment")).toEqual([
+            { startIndex: 0, foreground: TEXT, tokenType: StandardTokenType.Other },
+            { startIndex: 2, foreground: WordTokenColor.comment, tokenType: StandardTokenType.Comment },
+        ]);
     });
 
-    it("emits tokens with strictly increasing startIndex", () => {
+    it("merges adjacent tokens with equal metadata", () => {
+        // Identifiers, spaces and punctuation are all default text — one token.
+        expect(tokenize("foo bar (baz)")).toEqual([
+            { startIndex: 0, foreground: TEXT, tokenType: StandardTokenType.Other },
+        ]);
+        // Two keywords separated by a space are not adjacent — the space splits them.
+        expect(tokenize("if return").map((t) => [t.startIndex, t.foreground])).toEqual([
+            [0, WordTokenColor.keyword],
+            [2, TEXT],
+            [3, WordTokenColor.keyword],
+        ]);
+        // Adjacent strings merge too.
+        expect(tokenize("'a''b'")).toHaveLength(1);
+    });
+
+    it("emits tokens with strictly increasing startIndex and alternating metadata", () => {
         const tokens = tokenize("if (x === 1) return null");
         for (let i = 1; i < tokens.length; i++) {
             expect(tokens[i].startIndex).toBeGreaterThan(tokens[i - 1].startIndex);
+            expect(tokens[i]).not.toEqual({ ...tokens[i - 1], startIndex: tokens[i].startIndex });
         }
     });
 
@@ -64,34 +102,35 @@ describe("WordTokenizer", () => {
 
     it("treats an escaped quote inside a string as part of the string token", () => {
         // The backslash escapes the inner quote, so the string does not terminate
-        // until the final quote — the whole literal is one string.quoted token.
+        // until the final quote — the whole literal is one string token.
         const tokens = tokenize('"a\\"b" x');
-        expect(lastScope(tokens[0].scopes)).toBe("string.quoted");
+        expect(tokens[0].foreground).toBe(WordTokenColor.string);
 
-        // The identifier `x` only appears after the string closes; if the escape
-        // were mishandled the string would have ended early and `x` would shift.
-        const ident = tokens.find((t) => lastScope(t.scopes) === "identifier");
-        expect(ident).toBeDefined();
-        expect(ident!.startIndex).toBe(7);
+        // The text after the string only starts once it closes; if the escape
+        // were mishandled the string would have ended early and the text would shift.
+        expect(tokens[1]).toEqual({ startIndex: 6, foreground: TEXT, tokenType: StandardTokenType.Other });
     });
 
     it("skips an escaped backslash without ending the string early", () => {
         const tokens = tokenize("'a\\\\' 1");
-        expect(lastScope(tokens[0].scopes)).toBe("string.quoted");
+        expect(tokens[0].foreground).toBe(WordTokenColor.string);
 
-        const num = tokens.find((t) => lastScope(t.scopes) === "constant.numeric");
+        const num = tokens.find((t) => t.foreground === WordTokenColor.number);
         expect(num).toBeDefined();
         expect(num!.startIndex).toBe(6);
     });
 
     it("treats digits inside an identifier as identifier parts, not numbers", () => {
         // The trailing/embedded digits are consumed by isIdentPart, so `foo2` and
-        // `bar3baz` are single identifier tokens — no numeric token is emitted.
-        const tokens = tokenize("foo2 bar3baz");
-        expect(tokens[0]).toEqual({ startIndex: 0, scopes: ["source", "identifier"] });
-        const ident = tokens.find((t) => t.startIndex === 5);
-        expect(ident).toBeDefined();
-        expect(lastScope(ident!.scopes)).toBe("identifier");
-        expect(tokens.some((t) => lastScope(t.scopes) === "constant.numeric")).toBe(false);
+        // `bar3baz` are identifiers — no number token is emitted.
+        expect(tokenize("foo2 bar3baz")).toEqual([
+            { startIndex: 0, foreground: TEXT, tokenType: StandardTokenType.Other },
+        ]);
+    });
+
+    it("returns a fresh token array on every call (the pipeline converts it in place)", () => {
+        const t = new WordTokenizer();
+        const first = t.tokenizeEncoded("", false, t.getInitialState()).tokens;
+        expect(t.tokenizeEncoded("", false, t.getInitialState()).tokens).not.toBe(first);
     });
 });

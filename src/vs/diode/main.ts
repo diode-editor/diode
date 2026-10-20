@@ -24,6 +24,7 @@ import { isPackagedRuntime } from "../base/node/assets/packagedRuntime.ts";
 import { isSeaBinary } from "../base/node/isSea.ts";
 import { loadLazyModule } from "../base/node/lazyModule.ts";
 import { currentProcessSnapshot, realRestartHooks, restartProcess } from "../base/node/restartProcess.ts";
+import { ColorMapTokenStyleResolver } from "../editor/common/languages/colorMapTokenStyleResolver.ts";
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
 import { OscClipboard } from "../platform/clipboard/common/oscClipboard.ts";
@@ -101,10 +102,10 @@ import { LanguageRegistry } from "../workbench/services/language/common/language
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
 import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
+import { createTextMateTheme } from "../workbench/services/themes/common/textMateTheme.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
 import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/builtinThemes.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
-import { TokenThemeResolver } from "../workbench/services/themes/common/tokenThemeResolver.ts";
 
 import { curatedConfigInjection } from "./curatedConfigInjection.ts";
 import { registerDiodeInspectorMethods } from "./diodeInspectorMethods.ts";
@@ -475,9 +476,12 @@ async function runEditor(): Promise<void> {
     );
     // Только регистрация ленивых фабрик — грамматики парсятся по требованию.
     tokenizationContributor.apply();
+    // Тема подсветки — до первой токенизации: цвета токенов — индексы её colorMap.
+    tokenizationContributor.setTheme(createTextMateTheme(initialTheme));
 
     // ── Bootstrap через DI-контейнер ────────────────────────────
-    const tokenStyleResolver = new TokenThemeResolver(initialTheme.tokenTheme);
+    // Стиль токена — по colorMap темы из реестра токенизации (его ставит setTheme выше).
+    const tokenStyleResolver = new ColorMapTokenStyleResolver(tokenizationRegistry);
     // Семантические токены: стандартная классификация эталона + вклад
     // расширений (`semanticTokenTypes`/`Modifiers`/`Scopes`), стиль — из той же темы.
     const tokenClassificationRegistry = createDefaultTokenClassificationRegistry();
@@ -599,12 +603,13 @@ async function runEditor(): Promise<void> {
         }
     });
 
-    // Смена цветовой темы должна перекрашивать и синтаксис: пересаживаем token-тему
-    // в резолвер скоупов. Редакторы сами перерисовываются по своему
-    // `ThemeService.onThemeChange` (deferred render), поэтому достаточно синхронно
-    // обновить резолвер в этом же broadcast'е.
+    // Смена цветовой темы должна перекрашивать и синтаксис. Токены несут индексы
+    // colorMap прежней темы, поэтому, как у эталона, документы перетокенизируются:
+    // новая тема уходит в грамматики, colorMap — в реестр, а его событие
+    // пересаживает редакторы на токенизатор заново. Семантический резолвер
+    // читает правила темы сам.
     container.get(ThemeServiceDIToken).onThemeChange((theme) => {
-        tokenStyleResolver.setTheme(theme.tokenTheme);
+        tokenizationContributor.setTheme(createTextMateTheme(theme));
         semanticTokenStyleResolver.setTheme(theme.tokenTheme);
     });
 

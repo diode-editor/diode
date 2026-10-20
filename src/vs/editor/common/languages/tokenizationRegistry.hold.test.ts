@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { encodedResult, tokenMetadata } from "../../../../TestUtils/encodedTokens.ts";
+import type { ITokenizationSupport } from "../languages.ts";
+
 import { NULL_STATE } from "./iState.ts";
-import type { ITokenizationSupport } from "./iTokenizationSupport.ts";
 import { TokenizationRegistry } from "./tokenizationRegistry.ts";
 
 function makeStubSupport(): ITokenizationSupport {
     return {
         getInitialState: () => NULL_STATE,
-        tokenizeLine: () => ({ tokens: { tokens: [] }, endState: NULL_STATE }),
+        tokenizeEncoded: () => encodedResult([[0, tokenMetadata()]], NULL_STATE),
     };
 }
 
@@ -55,6 +57,23 @@ describe("TokenizationRegistry — hold", () => {
 
         expect(seen).toEqual(["css"]);
         expect(reg.get("css")).toBeUndefined();
+    });
+
+    it("смена colorMap под придержкой молчит, отпуск фаерит по разу на язык", () => {
+        const reg = new TokenizationRegistry();
+        reg.register("css", makeStubSupport());
+        reg.register("html", makeStubSupport());
+        const seen: string[] = [];
+        reg.onDidChange((id) => seen.push(id));
+
+        const held = reg.hold();
+        reg.setColorMap(["", "#000000"]);
+        reg.setColorMap(["", "#111111"]);
+        expect(seen).toEqual([]);
+        expect(reg.getColorMap()).toEqual(["", "#111111"]);
+
+        held.dispose();
+        expect(seen).toEqual(["css", "html"]);
     });
 
     it("повторный отпуск — no-op, вторая придержка при живой первой — ошибка", () => {

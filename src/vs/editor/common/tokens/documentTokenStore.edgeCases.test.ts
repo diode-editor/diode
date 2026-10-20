@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { markedMetadata, storedTokens } from "../../../../TestUtils/encodedTokens.ts";
+import { setUnexpectedErrorHandler } from "../../../base/common/errors.ts";
 import { createDeleteEdit } from "../core/iTextEdit.ts";
+import { ColorId, StandardTokenType } from "../encodedTokenAttributes.ts";
+import type { ITokenizationSupport } from "../languages.ts";
 import { PlainTextTokenizer } from "../languages/builtin/plainTextTokenizer.ts";
+import { NULL_STATE } from "../languages/iState.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
@@ -59,7 +64,7 @@ describe("DocumentTokenStore.setLineTokens — out-of-range guard", () => {
     it("ignores line indices below 0 and at/above lineCount", () => {
         const doc = new TextDocument("a\nb");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        const custom = { tokens: [{ startIndex: 0, scopes: ["custom"] }] };
+        const custom = storedTokens([[0, markedMetadata(42)]], 1);
 
         // lineCount is 2 → indices -1 and 2 are out of range and must be ignored.
         store.setLineTokens(-1, custom);
@@ -90,13 +95,30 @@ describe("DocumentTokenStore.forceTokenization — resume from a middle line", (
     });
 });
 
-describe("DocumentTokenStore.emptyLineTokens", () => {
-    it("returns a single whole-line token with empty scopes", () => {
-        const empty = DocumentTokenStore.emptyLineTokens();
-        expect(empty.tokens).toEqual([{ startIndex: 0, scopes: [] }]);
+describe("DocumentTokenStore — кодек языка", () => {
+    it("язык токена — язык документа (в метаданных языки не кодируются)", () => {
+        const doc = new TextDocument("abc", "typescript");
+        const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
+        store.forceTokenization(0);
+        expect(store.getLineTokens(0)?.getLanguageId(0)).toBe("typescript");
     });
 
-    it("returns the same shared singleton on every call", () => {
-        expect(DocumentTokenStore.emptyLineTokens()).toBe(DocumentTokenStore.emptyLineTokens());
+    it("токенизатор упал — строка получает токен по умолчанию (upstream nullTokenizeEncoded), ошибка — в onUnexpectedError", () => {
+        const errors: unknown[] = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+        const failing: ITokenizationSupport = {
+            getInitialState: () => NULL_STATE,
+            tokenizeEncoded: () => {
+                throw new Error("boom");
+            },
+        };
+        const store = new DocumentTokenStore(new TextDocument("abc"), failing);
+        store.forceTokenization(0);
+
+        const tokens = store.getLineTokens(0);
+        expect(tokens?.getCount()).toBe(1);
+        expect(tokens?.getForeground(0)).toBe(ColorId.DefaultForeground);
+        expect(tokens?.getStandardTokenType(0)).toBe(StandardTokenType.Other);
+        expect(errors).toHaveLength(1);
     });
 });

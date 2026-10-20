@@ -14,7 +14,9 @@ import { countEOL } from '../core/misc/eolCounter.ts';
 import { LineRange } from '../core/ranges/lineRange.ts';
 import { OffsetRange } from '../core/ranges/offsetRange.ts';
 import { Position } from '../core/position.ts';
-import type { EncodedTokenizationResult, IBackgroundTokenizationStore, IBackgroundTokenizer, ILanguageIdCodec, IState, ITokenizationSupport } from '../languages.ts';
+import { StandardTokenType } from '../encodedTokenAttributes.ts';
+import { EncodedTokenizationResult } from '../languages.ts';
+import type { IBackgroundTokenizationStore, IBackgroundTokenizer, ILanguageIdCodec, IState, ITokenizationSupport } from '../languages.ts';
 import { nullTokenizeEncoded } from '../languages/nullTokenize.ts';
 import type { ITextModel } from '../model.ts';
 import { FixedArray } from './fixedArray.ts';
@@ -75,7 +77,53 @@ export class TokenizerWithStateStoreAndTextModel<TState extends IState = IState>
 		}
 	}
 
+	/** assumes state is up to date */
+	public getTokenTypeIfInsertingCharacter(position: Position, character: string): StandardTokenType {
+		// TODO@hediet: use tokenizeLineWithEdit
+		const lineStartState = this.getStartState(position.lineNumber);
+		if (!lineStartState) {
+			return StandardTokenType.Other;
+		}
 
+		const languageId = this._textModel.getLanguageId();
+		const lineContent = this._textModel.getLineContent(position.lineNumber);
+
+		// Create the text as if `character` was inserted
+		const text = (
+			lineContent.substring(0, position.column - 1)
+			+ character
+			+ lineContent.substring(position.column - 1)
+		);
+
+		const r = safeTokenize(this._languageIdCodec, languageId, this.tokenizationSupport, text, true, lineStartState);
+		const lineTokens = new LineTokens(r.tokens, text, this._languageIdCodec);
+		if (lineTokens.getCount() === 0) {
+			return StandardTokenType.Other;
+		}
+
+		const tokenIndex = lineTokens.findTokenIndexAtOffset(position.column - 1);
+		return lineTokens.getStandardTokenType(tokenIndex);
+	}
+
+	/** assumes state is up to date */
+	public tokenizeLinesAt(lineNumber: number, lines: string[]): LineTokens[] | null {
+		const lineStartState: IState | null = this.getStartState(lineNumber);
+		if (!lineStartState) {
+			return null;
+		}
+
+		const languageId = this._textModel.getLanguageId();
+		const result: LineTokens[] = [];
+
+		let state = lineStartState;
+		for (const line of lines) {
+			const r = safeTokenize(this._languageIdCodec, languageId, this.tokenizationSupport, line, true, state);
+			result.push(new LineTokens(r.tokens, line, this._languageIdCodec));
+			state = r.endState;
+		}
+
+		return result;
+	}
 
 	public hasAccurateTokensForLine(lineNumber: number): boolean {
 		const firstInvalidLineNumber = this.store.getFirstInvalidEndStateLineNumberOrMax();

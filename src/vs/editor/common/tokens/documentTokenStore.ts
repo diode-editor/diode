@@ -2,11 +2,9 @@ import type { Event } from "../../../base/common/event.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
 import { LineRange } from "../core/ranges/lineRange.ts";
-import type { ITokenizationSupport as IVendoredTokenizationSupport } from "../languages.ts";
-import type { ILineTokens } from "../languages/iLineTokens.ts";
-import { createLineTokens, createToken } from "../languages/iLineTokens.ts";
+import { LanguageId } from "../encodedTokenAttributes.ts";
+import type { ILanguageIdCodec, ITokenizationSupport } from "../languages.ts";
 import type { IState } from "../languages/iState.ts";
-import type { ITokenizationSupport } from "../languages/iTokenizationSupport.ts";
 import type { ITextModel } from "../model.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
@@ -14,11 +12,8 @@ import { DefaultBackgroundTokenizer, TokenizerWithStateStoreAndTextModel } from 
 
 import type { ContiguousMultilineTokens } from "./contiguousMultilineTokens.ts";
 import { ContiguousMultilineTokensBuilder } from "./contiguousMultilineTokensBuilder.ts";
-
-const EMPTY_LINE_TOKENS: ILineTokens = createLineTokens([createToken(0, [])]);
-
-/** Наши токены языкового id в метаданных не несут — кодек перенесённому коду для проформы. */
-const LANGUAGE_ID_CODEC = { encodeLanguageId: (): number => 0 };
+import { toUint32Array } from "./contiguousTokensEditing.ts";
+import { LineTokens } from "./lineTokens.ts";
 
 /** Строки документа, чьи токены сменились; 0-based, `toLine` включительно. */
 export interface ITokensChangedEvent {
@@ -48,7 +43,18 @@ export class DocumentTokenStore extends Disposable {
     private support: ITokenizationSupport;
     private readonly textModel: ITextModel;
 
-    private cachedTokens: (ILineTokens | undefined)[] = [];
+    /**
+     * Бинарные токены строк, как их хранит эталон (`ContiguousTokensStore`):
+     * по два числа на токен — смещение КОНЦА токена и метаданные
+     * (`encodedTokenAttributes.ts`). `undefined` — строка не токенизирована
+     * или правлена после токенизации.
+     */
+    private cachedTokens!: (Uint32Array | undefined)[];
+    /**
+     * Языки по id мы не кодируем (`languages.ts`): в метаданных всегда 0, а
+     * обратно — язык документа.
+     */
+    private readonly languageIdCodec: ILanguageIdCodec;
     // Все три ставит resetTokenization() из конструктора.
     private tokenizer!: TokenizerWithStateStoreAndTextModel;
     private backgroundTokenizer!: DefaultBackgroundTokenizer;
@@ -72,8 +78,13 @@ export class DocumentTokenStore extends Disposable {
         super();
         this.document = document;
         this.support = support;
+        this.languageIdCodec = {
+            // Stryker disable next-line ArrowFunction: `undefined` в метаданных сдвигом даёт тот же 0
+            encodeLanguageId: () => LanguageId.Null,
+            decodeLanguageId: () => document.languageId,
+        };
         this.textModel = {
-            // Язык эталон кладёт только в метаданные бинарных токенов (кодек, nullTokenize), наши его не несут.
+            // Язык эталон кладёт только в метаданные токенов через кодек, а наш кодек отдаёт 0 на любой язык.
             // Stryker disable next-line ArrowFunction: эквивалентный — значение никуда не доходит
             getLanguageId: () => document.languageId,
             getLineCount: () => document.lineCount,
@@ -118,18 +129,20 @@ export class DocumentTokenStore extends Disposable {
         this.resetTokenization();
     }
 
-    /** Returns cached tokens for `line`, or `undefined` if not yet tokenized. */
-    public getLineTokens(line: number): ILineTokens | undefined {
+    /** Токены строки `line` (upstream `LineTokens`), `undefined` — ещё не токенизирована. */
+    public getLineTokens(line: number): LineTokens | undefined {
         if (line < 0 || line >= this.document.lineCount) return undefined;
-        return this.cachedTokens[line];
+        const tokens = this.cachedTokens[line];
+        if (tokens === undefined) return undefined;
+        return new LineTokens(tokens, this.document.getLineContent(line), this.languageIdCodec);
     }
 
     /**
-     * Externally-supplied tokens (tests). Bypasses the registered
-     * ITokenizationSupport for that line; the next tokenization of the line
-     * overwrites it.
+     * Externally-supplied tokens (tests): бинарные, концы токенов, последний
+     * конец — длина строки. Bypasses the registered ITokenizationSupport for
+     * that line; the next tokenization of the line overwrites it.
      */
-    public setLineTokens(line: number, tokens: ILineTokens): void {
+    public setLineTokens(line: number, tokens: Uint32Array): void {
         if (line < 0 || line >= this.document.lineCount) return;
         this.cachedTokens[line] = tokens;
     }
@@ -219,16 +232,11 @@ export class DocumentTokenStore extends Disposable {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         this.backgroundTokenizer?.dispose();
 
-        const support = this.support;
-        const vendoredSupport: IVendoredTokenizationSupport = {
-            getInitialState: () => support.getInitialState(),
-            tokenizeEncoded: (line, _hasEOL, state) => support.tokenizeLine(line, state),
-        };
         this.tokenizer = new TokenizerWithStateStoreAndTextModel(
             this.document.lineCount,
-            vendoredSupport,
+            this.support,
             this.textModel,
-            LANGUAGE_ID_CODEC,
+            this.languageIdCodec,
         );
         this.backgroundTokenizer = new DefaultBackgroundTokenizer(this.tokenizer, {
             setTokens: (tokens) => {
@@ -245,7 +253,11 @@ export class DocumentTokenStore extends Disposable {
         const changes: ITokensChangedEvent[] = [];
         for (const block of tokens) {
             for (let lineNumber = block.startLineNumber; lineNumber <= block.endLineNumber; lineNumber++) {
-                this.cachedTokens[lineNumber - 1] = block.getLineTokens(lineNumber);
+                // Блоки от builder'а держат строки `Uint32Array` (ArrayBuffer и
+                // null у эталона бывают только после правки внутри блока).
+                const tokens = block.getLineTokens(lineNumber);
+                // Stryker disable next-line ConditionalExpression: null из builder'а не приходит (см. выше)
+                this.cachedTokens[lineNumber - 1] = tokens === null ? undefined : toUint32Array(tokens);
             }
             changes.push({ fromLine: block.startLineNumber - 1, toLine: block.endLineNumber - 1 });
         }
@@ -264,7 +276,7 @@ export class DocumentTokenStore extends Disposable {
             this.cachedTokens.splice(
                 oldEndLine + 1,
                 0,
-                ...new Array<ILineTokens | undefined>(lineDelta).fill(undefined),
+                ...new Array<Uint32Array | undefined>(lineDelta).fill(undefined),
             );
         } else if (lineDelta < 0) {
             // Remove `-lineDelta` slots from the end of the changed region.
@@ -278,15 +290,6 @@ export class DocumentTokenStore extends Disposable {
         this.version++;
         this.tokenizer.store.acceptChange(new LineRange(startLine + 1, oldEndLine + 2), newEndLine - startLine + 1);
         this.backgroundTokenizer.handleChanges();
-    }
-
-    /**
-     * Returns a single token spanning the whole line with empty scopes.
-     * Useful as a typed fallback when a renderer asks for tokens before
-     * the line is tokenized.
-     */
-    public static emptyLineTokens(): ILineTokens {
-        return EMPTY_LINE_TOKENS;
     }
 }
 

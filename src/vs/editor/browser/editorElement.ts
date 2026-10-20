@@ -554,16 +554,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             tokenStore.tokenizeViewport(firstDocLine, lastDocLine);
         }
 
-        // Frame-local cache of resolved styles to avoid re-walking the rule list
-        // for repeated scopes within a single render pass.
-        const styleCache = new Map<readonly string[], ResolvedTokenStyle>();
-        const resolveStyle = (scopes: readonly string[]): ResolvedTokenStyle => {
-            const cached = styleCache.get(scopes);
-            if (cached) return cached;
-            const result = this.tokenStyleResolver.resolve(scopes);
-            styleCache.set(scopes, result);
-            return result;
-        };
+        // Стиль по метаданным токена; кэш стилей — у самого резолвера.
+        const tokenStyleResolver = this.tokenStyleResolver;
+        const resolveStyle = (metadata: number): ResolvedTokenStyle => tokenStyleResolver.resolve(metadata);
         // То же для семантических токенов: стиль по (легенда, тип, модификаторы).
         const semanticLanguageId = this.viewState.document.languageId;
         const semanticStyleCache = new Map<ISemanticTokensLegend, Map<number, SemanticTokenStyle | null>>();

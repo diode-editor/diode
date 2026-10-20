@@ -6,6 +6,8 @@ import type { IExtension } from "../../../../platform/extensions/common/iExtensi
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { IGrammarRecord } from "../../textMate/common/textMateGrammarLoader.ts";
 import { TextMateGrammarLoader } from "../../textMate/common/textMateGrammarLoader.ts";
+import type { ITextMateTheme } from "../../themes/common/textMateTheme.ts";
+import { equalsTextMateTheme } from "../../themes/common/textMateTheme.ts";
 
 /**
  * Применяет вклад расширений в подсветку синтаксиса:
@@ -33,6 +35,7 @@ export class ExtensionTokenizationContributor implements IDisposable {
     private readonly tokenizationRegistry: TokenizationRegistry;
     private readonly logger: ILogger | undefined;
     private loader: TextMateGrammarLoader | undefined;
+    private theme: ITextMateTheme | undefined;
     private registrationDisposables: IDisposable[] = [];
     private disposed = false;
 
@@ -59,6 +62,7 @@ export class ExtensionTokenizationContributor implements IDisposable {
 
         const loader = new TextMateGrammarLoader(this.assets, records);
         this.loader = loader;
+        if (this.theme !== undefined) loader.setTheme(this.theme);
 
         for (const grammar of this.iterAllGrammars()) {
             if (grammar.language === undefined) continue;
@@ -87,6 +91,22 @@ export class ExtensionTokenizationContributor implements IDisposable {
                 }),
             );
         }
+    }
+
+    /**
+     * Тема подсветки — upstream `TextMateTokenizationFeature._updateTheme`:
+     * правила и colorMap уходят в грамматики (`TextMateGrammarLoader.setTheme`),
+     * colorMap — в реестр токенизации (`setColorMap`), а его событие
+     * перетокенизирует документы: в их токенах индексы прежнего colorMap. Та же
+     * тема (те же правила и цвета) — ничего не делаем: перетокенизация большого
+     * файла не бесплатна. Можно и до {@link apply}: loader получит тему при
+     * создании.
+     */
+    public setTheme(theme: ITextMateTheme): void {
+        if (equalsTextMateTheme(this.theme, theme)) return;
+        this.theme = theme;
+        this.loader?.setTheme(theme);
+        this.tokenizationRegistry.setColorMap(theme.colorMap);
     }
 
     /**

@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { encodedResult, markedMetadata } from "../../../../TestUtils/encodedTokens.ts";
 import { setUnexpectedErrorHandler } from "../../../base/common/errors.ts";
 import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
+import type { EncodedTokenizationResult, ITokenizationSupport } from "../languages.ts";
 import type { IState } from "../languages/iState.ts";
-import type { ITokenizationResult, ITokenizationSupport } from "../languages/iTokenizationSupport.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import type { ITokensChangedEvent } from "./documentTokenStore.ts";
 import { DocumentTokenStore } from "./documentTokenStore.ts";
+
+/** Цвет токена, которым токенизатор метит входящее состояние `counter` (смещение от цветов по умолчанию). */
+const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
     public readonly value: number;
@@ -22,20 +26,17 @@ class CounterState implements IState {
     }
 }
 
-/** Lines starting with `>` bump the counter; the token scope records the incoming state. */
+/** Lines starting with `>` bump the counter; the token's foreground records the incoming state. */
 class StatefulTokenizer implements ITokenizationSupport {
     public constructor(private readonly onLine: () => void = () => undefined) {}
     public getInitialState(): IState {
         return new CounterState(0);
     }
-    public tokenizeLine(line: string, state: IState): ITokenizationResult {
+    public tokenizeEncoded(line: string, _hasEOL: boolean, state: IState): EncodedTokenizationResult {
         this.onLine();
         const counter = (state as CounterState).value;
         const next = line.startsWith(">") ? new CounterState(counter + 1) : new CounterState(counter);
-        return {
-            tokens: { tokens: [{ startIndex: 0, scopes: [`s${String(counter)}`] }] },
-            endState: next,
-        };
+        return encodedResult([[0, markedMetadata(stateMark(counter))]], next);
     }
 }
 
@@ -108,12 +109,12 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
         const doc = lines(50);
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
         await untilBackgroundCompleted(store);
-        expect(store.getLineTokens(49)?.tokens[0].scopes).toEqual(["s0"]);
+        expect(store.getLineTokens(49)?.getForeground(0)).toBe(stateMark(0));
 
         doc.applyEdits([createInsertEdit(0, 0, ">")]);
         expect(store.hasAccurateTokensForLine(49)).toBe(false);
         await until(() => store.hasAccurateTokensForLine(49));
-        expect(store.getLineTokens(49)?.tokens[0].scopes).toEqual(["s1"]);
+        expect(store.getLineTokens(49)?.getForeground(0)).toBe(stateMark(1));
         store.dispose();
     });
 

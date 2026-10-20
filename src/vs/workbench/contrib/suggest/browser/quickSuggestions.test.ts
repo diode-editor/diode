@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { createLineTokens, createToken } from "../../../../editor/common/languages/iLineTokens.ts";
-
 import { QUICK_SUGGESTIONS_DEFAULT, readQuickSuggestions, shouldAutoTrigger, valueFor } from "./quickSuggestions.ts";
 
 describe("readQuickSuggestions — validate эталона", () => {

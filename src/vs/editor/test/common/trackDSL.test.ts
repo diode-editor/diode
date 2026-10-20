@@ -1,14 +1,32 @@
 import { describe, expect, it } from "vitest";
 
+import { storedTokens } from "../../../../TestUtils/encodedTokens.ts";
 import { createCursorSelection, createSelection } from "../../common/core/iSelection.ts";
+import { ColorId, MetadataConsts, TokenMetadata } from "../../common/encodedTokenAttributes.ts";
 import { PlainTextTokenizer } from "../../common/languages/builtin/plainTextTokenizer.ts";
-import { createLineTokens, createToken } from "../../common/languages/iLineTokens.ts";
 import { TextDocument } from "../../common/model/textDocument.ts";
 import { DocumentTokenStore } from "../../common/tokens/documentTokenStore.ts";
+import type { LineTokens } from "../../common/tokens/lineTokens.ts";
 import { EditorViewState } from "../../common/viewModel/editorViewState.ts";
 import { createFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 
 import { editorState, expectEditorState, parseDSL, renderToDSL } from "./trackDSL.ts";
+
+/** Метаданные токена символа трека: цвет текста — код символа, пробел («нет токена») — цвет 0. */
+function trackToken(ch: string): number {
+    return ((ch === " " ? 0 : ch.charCodeAt(0)) << MetadataConsts.FOREGROUND_OFFSET) >>> 0;
+}
+
+/** Токены строки → пары «начало, символ трека». */
+function trackTokens(tokens: LineTokens | undefined): [number, string][] | undefined {
+    if (tokens === undefined) return undefined;
+    const result: [number, string][] = [];
+    for (let i = 0; i < tokens.getCount(); i++) {
+        const foreground = TokenMetadata.getForeground(tokens.getMetadata(i));
+        result.push([tokens.getStartOffset(i), foreground === ColorId.None ? " " : String.fromCharCode(foreground)]);
+    }
+    return result;
+}
 
 // ─── Roundtrip ──────────────────────────────────────────────
 
@@ -122,17 +140,17 @@ describe("TrackDSL", () => {
         const state = parseDSL(dsl);
         const tokens = state.tokenStore?.getLineTokens(0);
         expect(tokens).toBeDefined();
-        expect(tokens?.tokens).toEqual([
-            { startIndex: 0, scopes: ["k"] },
-            { startIndex: 3, scopes: ["b"] },
-            { startIndex: 7, scopes: ["n"] },
+        expect(trackTokens(tokens)).toEqual([
+            [0, "k"],
+            [3, "b"],
+            [7, "n"],
         ]);
 
         const rendered = renderToDSL(state);
         expect(rendered).toBe(dsl);
     });
 
-    it("parses tokens with spaces (no token)", () => {
+    it("parses tokens with spaces (no token → token with foreground 0)", () => {
         const dsl = editorState`
             text: ab cd
             tokens: kk nn
@@ -140,9 +158,11 @@ describe("TrackDSL", () => {
         const state = parseDSL(dsl);
         const tokens = state.tokenStore?.getLineTokens(0);
         expect(tokens).toBeDefined();
-        expect(tokens?.tokens).toEqual([
-            { startIndex: 0, scopes: ["k"] },
-            { startIndex: 3, scopes: ["n"] },
+        // Binary tokens have no gaps: the space becomes its own token with foreground 0.
+        expect(trackTokens(tokens)).toEqual([
+            [0, "k"],
+            [2, " "],
+            [3, "n"],
         ]);
     });
 
@@ -453,13 +473,21 @@ describe("TrackDSL", () => {
     // ─── Empty token track ──────────────────────────────────
 
     it("parses an empty tokens track as no tokens", () => {
-        // The tokens track is present but empty after the prefix → createLineTokens([]).
+        // The tokens track is present but empty after the prefix → no tokens.
         const state = parseDSL(editorState`
             text: hello
             tokens:${""}
         `);
         // Empty token list → store not created, so no tokens for line 0.
-        expect(state.tokenStore?.getLineTokens(0)?.tokens ?? []).toEqual([]);
+        expect(state.tokenStore?.getLineTokens(0)).toBeUndefined();
+    });
+
+    it("a tokens track of only spaces is no tokens — the store is not created", () => {
+        const state = parseDSL(editorState`
+            text: hello
+            tokens:   ${""}
+        `);
+        expect(state.tokenStore).toBeUndefined();
     });
 
     // ─── dedentAndTrim with only blank lines ────────────────
@@ -483,7 +511,7 @@ describe("TrackDSL", () => {
         const state = parseDSL(dsl);
         expect(state.document.getLineContent(0)).toBe("ab");
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
-        expect(state.tokenStore?.getLineTokens(0)?.tokens).toEqual([{ startIndex: 0, scopes: ["k"] }]);
+        expect(trackTokens(state.tokenStore?.getLineTokens(0))).toEqual([[0, "k"]]);
         expect(state.foldedRegions).toHaveLength(1);
         expect(state.foldedRegions[0]).toEqual({ startLine: 0, endLine: 1, isCollapsed: false });
     });
@@ -501,10 +529,13 @@ describe("TrackDSL", () => {
 
     it("parses a tokens track whose first column is empty (leading space = no token)", () => {
         // Two leading spaces: one is the separator, the second makes track[0] === " ",
-        // so the very first column carries no token (parseTokenTrack's `currentType === ' '`).
+        // so the very first column carries no token (a foreground-0 token).
         const dsl = ["text: abc", "tokens:  nn"].join("\n");
         const state = parseDSL(dsl);
-        expect(state.tokenStore?.getLineTokens(0)?.tokens).toEqual([{ startIndex: 1, scopes: ["n"] }]);
+        expect(trackTokens(state.tokenStore?.getLineTokens(0))).toEqual([
+            [0, " "],
+            [1, "n"],
+        ]);
     });
 
     // ─── Folding: unmatched end + render before region ──────────
@@ -535,26 +566,32 @@ describe("TrackDSL", () => {
     // ─── Tokens render: last token + token past line content ────
 
     it("renders a tokens track whose last token runs to the end of the line", () => {
-        // Three tokens; the final one has no following token, so its end is the line length
-        // (the `i + 1 < tokens.length` false branch of renderTokensTrack).
+        // Three tokens; the final one has no following token, so its end is the line length.
         const doc = new TextDocument("abcdef");
         const state = new EditorViewState(doc);
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.setLineTokens(0, createLineTokens([createToken(0, ["k"]), createToken(2, ["b"]), createToken(4, ["n"])]));
+        store.setLineTokens(
+            0,
+            storedTokens(
+                [
+                    [0, trackToken("k")],
+                    [2, trackToken("b")],
+                    [4, trackToken("n")],
+                ],
+                6,
+            ),
+        );
         state.tokenStore = store;
 
         const rendered = renderToDSL(state);
         expect(rendered).toContain("tokens: kkbbnn");
     });
 
-    it("clips a token whose start runs past the line content length", () => {
-        // The token starts at column 10 but the line only has 3 characters, so the
-        // `c < chars.length` guard fails for every position and nothing is written.
-        const doc = new TextDocument("abc");
-        const state = new EditorViewState(doc);
-        const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.setLineTokens(0, createLineTokens([createToken(0, ["k"]), createToken(10, ["n"])]));
-        state.tokenStore = store;
+    it("clips a tokens track that runs past the line content length", () => {
+        // The `n` tokens start at column 3 but the line only has 3 characters: the
+        // parser clips the track to the line, so only the `k` token survives.
+        const state = parseDSL(["text: abc", "tokens: kkknn"].join("\n"));
+        expect(trackTokens(state.tokenStore?.getLineTokens(0))).toEqual([[0, "k"]]);
 
         const rendered = renderToDSL(state);
         const tokensLine = rendered.split("\n").find((l) => l.startsWith("tokens:"));
@@ -587,21 +624,41 @@ describe("TrackDSL", () => {
         expect(state.document.getLineContent(1)).toBe("world");
     });
 
-    // ─── Token with empty scopes renders as a space ─────────────
+    // ─── Token with foreground 0 renders as a space ──────────────
 
-    it("renders a token whose scopes array is empty as a blank column", () => {
-        // scopes[0] is undefined → the `?? \" \"` fallback chooses a space for that token.
+    it("renders a token with foreground 0 as a blank column", () => {
         const doc = new TextDocument("abc");
         const state = new EditorViewState(doc);
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        store.setLineTokens(0, createLineTokens([createToken(0, [])]));
+        store.setLineTokens(
+            0,
+            storedTokens(
+                [
+                    [0, trackToken("k")],
+                    [1, trackToken(" ")],
+                    [2, trackToken("n")],
+                ],
+                3,
+            ),
+        );
         state.tokenStore = store;
 
-        const rendered = renderToDSL(state);
-        // The whole line is a single empty-scope token → all spaces → trimmed track,
-        // leaving just the prefix and its separator space.
-        const tokensLine = rendered.split("\n").find((l) => l.startsWith("tokens:"));
-        expect(tokensLine).toBe("tokens: ");
+        const tokensLine = renderToDSL(state)
+            .split("\n")
+            .find((l) => l.startsWith("tokens:"));
+        expect(tokensLine).toBe("tokens: k n");
+    });
+
+    it("renders no tokens track when the whole line is a single foreground-0 token", () => {
+        // All spaces → trimmed to nothing → the track is omitted, matching the parser,
+        // which reads a blank track as "no tokens".
+        const doc = new TextDocument("abc");
+        const state = new EditorViewState(doc);
+        const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
+        store.setLineTokens(0, storedTokens([[0, trackToken(" ")]], 3));
+        state.tokenStore = store;
+
+        expect(renderToDSL(state)).not.toContain("tokens:");
     });
 
     // ─── dedent with an internal blank line ─────────────────────

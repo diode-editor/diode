@@ -2,7 +2,8 @@ import type { IGrammar, IRawGrammar, Registry } from "vscode-textmate";
 import vsctm from "vscode-textmate";
 
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
-import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
+import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
+import type { ITextMateTheme } from "../../themes/common/textMateTheme.ts";
 
 import { getOnigLib } from "./onigLib.ts";
 import { TextMateTokenizationSupport } from "./textMateTokenizationSupport.ts";
@@ -64,7 +65,21 @@ export class TextMateGrammarLoader {
         /* v8 ignore start -- defensive: для зарегистрированного scope Registry либо бросает «No grammar provided», либо отдаёт грамматику; null здесь недостижим */
         if (grammar === null) return null;
         /* v8 ignore stop */
-        return new TextMateTokenizationSupport(grammar, scopeName);
+        return new TextMateTokenizationSupport(grammar);
+    }
+
+    /**
+     * Тема подсветки (upstream `TextMateTokenizationFeature._updateTheme` →
+     * `Registry.setTheme`): с ней `tokenizeLine2` кладёт в метаданные индексы
+     * colorMap темы. Уже загруженные грамматики подхватывают новую тему сами;
+     * токены, посчитанные по прежней, перетокенизирует владелец
+     * (`TokenizationRegistry.setColorMap`).
+     */
+    public setTheme(theme: ITextMateTheme): void {
+        this.registry.setTheme(
+            { settings: theme.settings.map((rule) => ({ ...rule, scope: copyScope(rule.scope) })) },
+            [...theme.colorMap],
+        );
     }
 
     public dispose(): void {
@@ -86,4 +101,9 @@ export class TextMateGrammarLoader {
         const content = await this.assets.readText(rec.path);
         return vsctm.parseRawGrammar(content, rec.path);
     }
+}
+
+/** vscode-textmate ждёт изменяемый массив скоупов — отдаём копию. */
+function copyScope(scope: string | readonly string[] | undefined): string | string[] | undefined {
+    return typeof scope === "object" ? [...scope] : scope;
 }
