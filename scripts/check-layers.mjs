@@ -24,7 +24,7 @@
  *     node-only npm-пакеты (NODE_ONLY_PACKAGES); `import type` тоже считается —
  *     тип `fs.Dirent` в сигнатуре так же привязывает к Node. Сложившийся долг —
  *     храповик NODE_IMPORT_DEBT: новый импорт вне списка и запись списка, которой
- *     больше нет в коде, — оба нарушение (docs/TODO/FileService.md, §9).
+ *     больше нет в коде, — оба нарушение (docs/ARCHITECTURE.md, ось окружений).
  *
  * Не считаются зависимостями: jsdoc-ссылки в комментариях и `import type`
  * (типы стираются при компиляции — как в upstream layersChecker).
@@ -127,8 +127,8 @@ const ALLOWED_NODE_BUILTINS = new Set(["node:path"]);
 /**
  * Храповик: сложившиеся импорты ОС-модулей из common/browser — [файл, модуль,
  * кто снимает]. Цель — пустой список; записи убираются вместе с импортом
- * (гейт падает и на устаревшую запись). Номера PR — по плану
- * docs/TODO/FileService.md, §8.
+ * (гейт падает и на устаревшую запись). Остаток — PR 5 в
+ * docs/TODO/FileService.md.
  */
 const NODE_IMPORT_DEBT = [
     // Идентичность воркспейса — sha256 пути; вне файлового сервиса.
@@ -137,12 +137,12 @@ const NODE_IMPORT_DEBT = [
     ["src/vs/workbench/api/common/vscodeNamespace.ts", "node:crypto"],
     // Рестор вкладок и история навигации проверяют существование файла синхронно:
     // рестор синхронен по устройству (бутстрапу нужны пути до первого кадра), и
-    // асинхронным он станет вместе с загрузкой модели (PR 5, §7.2); история —
-    // открытый вопрос §12.3, до решения поведение не меняем.
+    // асинхронным он станет вместе с загрузкой модели (PR 5); история —
+    // открытый вопрос в docs/TODO/FileService.md, до решения поведение не меняем.
     ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
     ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
     // Модель пишет через IFileService (PR 4); загрузка с диска пока синхронная —
-    // переезжает вместе с асинхронным открытием (PR 5, §7.2).
+    // переезжает вместе с асинхронным открытием (PR 5).
     ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
 ];
 
