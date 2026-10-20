@@ -122,10 +122,11 @@ export function validateRegex(pattern: string): string | null {
  * - список через запятую, запятая внутри `{…}`/`[…]` не делит;
  * - `foo` — на любой глубине: `**\/foo` и всё под ним `**\/foo/**`;
  * - `.js` — сокращение `*.js`; хвостовой `/` срезается;
- * - `./src` — путь от корня: `src` и `src/**`; `.` — вся папка.
+ * - `./src` — путь от корня: `src` и `src/**`.
  *
- * Пути вне корня (`../x`) и абсолютные пути эталон превращает в другие корни
- * поиска; у нас корень один, и такие сегменты пропускаются.
+ * `.` (сам корень), пути вне корня (`../x`) и абсолютные пути эталон
+ * превращает в корни поиска; у нас корень один, и такие сегменты шаблонов не
+ * дают.
  */
 export function parseSearchFieldGlobs(value: string): string[] {
     const globs: string[] = [];
@@ -136,9 +137,10 @@ export function parseSearchFieldGlobs(value: string): string[] {
                 .replace(/\\/gu, "/")
                 .replace(/^\.(\/|$)/u, "")
                 .replace(/\/+$/u, "");
-            if (relative.startsWith("..")) continue;
-            if (relative === "") globs.push("**");
-            else globs.push(relative, `${relative}/**`);
+            // `.` — сам корень: у эталона это корень поиска без шаблона. Шаблон
+            // `**` был бы не тем же самым — `--glob` у rg перебивает `.gitignore`.
+            if (relative === "" || relative.startsWith("..")) continue;
+            globs.push(relative, `${relative}/**`);
             continue;
         }
         let glob = segment.replace(/[/\\]+$/u, "");
