@@ -71,10 +71,10 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
 
     /** IContextKeyContributor: `terminalEditorFocus`, `terminalEditorActive`. */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
-        const focusPath = active?.getAncestorPath() ?? [];
+        const focusPath = active?.getAncestorPath();
         contextKeys.set(
             "terminalEditorFocus",
-            [...this.panes.values()].some((pane) => focusPath.includes(pane.view)),
+            [...this.panes.values()].some((pane) => focusPath?.includes(pane.view) === true),
         );
         contextKeys.set("terminalEditorActive", this.editors.getActiveTabPane() instanceof TerminalEditorPane);
     }
@@ -128,8 +128,8 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
             return;
         }
         // Вкладка из `panes` всегда стоит в группе: закрытая уходит из `panes` раньше.
-        // Stryker disable next-line OptionalChaining: недостижимо — см. выше
         const group = this.editors.editorGroups.groupOf(pane);
+        // Stryker disable next-line OptionalChaining: недостижимо — см. выше
         group?.activateTab(group.getPanes().indexOf(pane), { focus: false });
     }
 
@@ -159,8 +159,9 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         const focus = location.preserveFocus !== true;
         const pane = new TerminalEditorPane(instance, this.colors.colors);
         this.panes.set(instance.id, pane);
+        // Из `panes` вкладку снимает `closePane` — по снятию инстанса, которое
+        // закрытие и вызывает.
         pane.onDidClose(() => {
-            this.panes.delete(instance.id);
             this.terminals.closeInstance(instance.id, "user");
         });
         groups.focusGroup(group.id, { focus: false });
