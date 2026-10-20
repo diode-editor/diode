@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { markedMetadata, storedTokens } from "../../../../TestUtils/encodedTokens.ts";
+import { setUnexpectedErrorHandler } from "../../../base/common/errors.ts";
 import { createDeleteEdit } from "../core/iTextEdit.ts";
+import { ColorId, StandardTokenType } from "../encodedTokenAttributes.ts";
+import type { ITokenizationSupport } from "../languages.ts";
 import { PlainTextTokenizer } from "../languages/builtin/plainTextTokenizer.ts";
+import { NULL_STATE } from "../languages/iState.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
@@ -88,5 +92,33 @@ describe("DocumentTokenStore.forceTokenization — resume from a middle line", (
         expect(store.getLineTokens(3)).toBeDefined();
         expect(store.hasAccurateTokensForLine(3)).toBe(true);
         expect(store.hasAccurateTokensForLine(4)).toBe(false);
+    });
+});
+
+describe("DocumentTokenStore — кодек языка", () => {
+    it("язык токена — язык документа (в метаданных языки не кодируются)", () => {
+        const doc = new TextDocument("abc", "typescript");
+        const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
+        store.forceTokenization(0);
+        expect(store.getLineTokens(0)?.getLanguageId(0)).toBe("typescript");
+    });
+
+    it("токенизатор упал — строка получает токен по умолчанию (upstream nullTokenizeEncoded), ошибка — в onUnexpectedError", () => {
+        const errors: unknown[] = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+        const failing: ITokenizationSupport = {
+            getInitialState: () => NULL_STATE,
+            tokenizeEncoded: () => {
+                throw new Error("boom");
+            },
+        };
+        const store = new DocumentTokenStore(new TextDocument("abc"), failing);
+        store.forceTokenization(0);
+
+        const tokens = store.getLineTokens(0);
+        expect(tokens?.getCount()).toBe(1);
+        expect(tokens?.getForeground(0)).toBe(ColorId.DefaultForeground);
+        expect(tokens?.getStandardTokenType(0)).toBe(StandardTokenType.Other);
+        expect(errors).toHaveLength(1);
     });
 });

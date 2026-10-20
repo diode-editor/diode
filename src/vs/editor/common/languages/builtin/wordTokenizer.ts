@@ -114,7 +114,7 @@ export class WordTokenizer implements ITokenizationSupport {
         let i = 0;
 
         const push = (start: number, kind: number): void => {
-            if (tokens.length > 0 && tokens[tokens.length - 1] === kind) return;
+            if (tokens.at(-1) === kind) return;
             tokens.push(start, kind);
         };
 
@@ -165,6 +165,7 @@ export class WordTokenizer implements ITokenizationSupport {
             tokens.push(0, TEXT);
         }
 
+        // Stryker disable next-line ArrayDeclaration: шрифтов у токенов нет, массив никто не читает
         return new EncodedTokenizationResult(new Uint32Array(tokens), [], NULL_STATE);
     }
 }

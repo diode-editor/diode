@@ -1,6 +1,7 @@
 import { reject } from "@tuidom/core/common/typingUtils";
 import { expect } from "vitest";
 
+import { storedTokens } from "../../../../TestUtils/encodedTokens.ts";
 import { comparePositions } from "../../common/core/iPosition.ts";
 import type { ISelection } from "../../common/core/iSelection.ts";
 import {
@@ -273,22 +274,17 @@ function parseSelections(
  * единого не-пробела — токенов нет.
  */
 function parseTokenTrack(track: string, lineLength: number): Uint32Array | undefined {
-    if (track.trim().length === 0) return undefined;
-
-    const tokens: number[] = [];
+    const starts: [number, number][] = [];
     for (let i = 0; i < Math.min(track.length, lineLength); i++) {
-        const ch = track[i];
-        if (i > 0 && ch === track[i - 1]) continue;
-        // Конец прошлого токена — начало этого.
-        if (tokens.length > 0) tokens[tokens.length - 2] = i;
-        tokens.push(lineLength, trackCharMetadata(ch));
+        if (track[i] !== track[i - 1]) starts.push([i, trackCharMetadata(track[i])]);
     }
-    return tokens.length === 0 ? undefined : new Uint32Array(tokens);
+    if (starts.every(([, metadata]) => metadata === trackCharMetadata(" "))) return undefined;
+    return storedTokens(starts, lineLength);
 }
 
+/** Символ трека → метаданные с цветом = код символа (пробел — 32, рендер вернёт пробел). */
 function trackCharMetadata(ch: string): number {
-    const foreground = ch === " " ? 0 : ch.charCodeAt(0);
-    return (foreground << MetadataConsts.FOREGROUND_OFFSET) >>> 0;
+    return (ch.charCodeAt(0) << MetadataConsts.FOREGROUND_OFFSET) >>> 0;
 }
 
 // ─── Private: Rendering Helpers ─────────────────────────────
@@ -348,11 +344,12 @@ function renderSelectTrack(selections: readonly ISelection[], lineIdx: number, l
 
 function renderTokensTrack(tokens: LineTokens): string {
     const chars: string[] = [];
-    for (let i = 0; i < tokens.getCount(); i++) {
+    tokens.forEach((i) => {
         const foreground: number = TokenMetadata.getForeground(tokens.getMetadata(i));
+        // Цвет 0 — токен без цвета (не из трека): пробел.
         const ch = foreground === 0 ? " " : String.fromCharCode(foreground);
         for (let c = tokens.getStartOffset(i); c < tokens.getEndOffset(i); c++) chars.push(ch);
-    }
+    });
     return trimTrailingSpaces(chars.join(""));
 }
 

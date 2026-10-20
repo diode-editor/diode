@@ -108,6 +108,10 @@ describe("equalsTextMateTheme", () => {
         );
     });
 
+    it("темы ещё не было — не равны", () => {
+        expect(equalsTextMateTheme(undefined, createTextMateTheme(themeWith([])))).toBe(false);
+    });
+
     it("другой цвет — не равны", () => {
         const a = createTextMateTheme(themeWith([{ scope: "a", settings: { foreground: "#ff0000" } }]));
         const b = createTextMateTheme(themeWith([{ scope: "a", settings: { foreground: "#ff0001" } }]));

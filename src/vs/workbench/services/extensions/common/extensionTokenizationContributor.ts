@@ -103,7 +103,7 @@ export class ExtensionTokenizationContributor implements IDisposable {
      * создании.
      */
     public setTheme(theme: ITextMateTheme): void {
-        if (this.theme !== undefined && equalsTextMateTheme(this.theme, theme)) return;
+        if (equalsTextMateTheme(this.theme, theme)) return;
         this.theme = theme;
         this.loader?.setTheme(theme);
         this.tokenizationRegistry.setColorMap(theme.colorMap);

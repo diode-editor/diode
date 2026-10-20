@@ -51,9 +51,12 @@ export class TokenIndex {
 
         // Fast path: forward scan.
         let i = this.cursor;
+        // Stryker disable next-line ConditionalExpression: «всегда с нуля» даёт тот же токен, только медленнее
         if (this.tokens.getStartOffset(i) > offset) {
             i = 0; // rewind
         }
+        // Граница — страховка: конец последнего токена — длина строки, а offset меньше неё, и цикл встаёт раньше.
+        // Stryker disable next-line ArithmeticOperator,EqualityOperator,ConditionalExpression: см. выше
         while (i + 1 < this.count && this.tokens.getEndOffset(i) <= offset) {
             i++;
         }

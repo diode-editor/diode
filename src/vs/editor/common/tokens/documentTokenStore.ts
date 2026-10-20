@@ -49,7 +49,7 @@ export class DocumentTokenStore extends Disposable {
      * (`encodedTokenAttributes.ts`). `undefined` — строка не токенизирована
      * или правлена после токенизации.
      */
-    private cachedTokens: (Uint32Array | undefined)[] = [];
+    private cachedTokens!: (Uint32Array | undefined)[];
     /**
      * Языки по id мы не кодируем (`languages.ts`): в метаданных всегда 0, а
      * обратно — язык документа.
@@ -79,6 +79,7 @@ export class DocumentTokenStore extends Disposable {
         this.document = document;
         this.support = support;
         this.languageIdCodec = {
+            // Stryker disable next-line ArrowFunction: `undefined` в метаданных сдвигом даёт тот же 0
             encodeLanguageId: () => LanguageId.Null,
             decodeLanguageId: () => document.languageId,
         };
@@ -255,6 +256,7 @@ export class DocumentTokenStore extends Disposable {
                 // Блоки от builder'а держат строки `Uint32Array` (ArrayBuffer и
                 // null у эталона бывают только после правки внутри блока).
                 const tokens = block.getLineTokens(lineNumber);
+                // Stryker disable next-line ConditionalExpression: null из builder'а не приходит (см. выше)
                 this.cachedTokens[lineNumber - 1] = tokens === null ? undefined : toUint32Array(tokens);
             }
             changes.push({ fromLine: block.startLineNumber - 1, toLine: block.endLineNumber - 1 });

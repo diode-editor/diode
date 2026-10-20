@@ -72,8 +72,8 @@ export function createTextMateTheme(theme: WorkbenchTheme): ITextMateTheme {
     return { settings, colorMap };
 }
 
-/** Те же правила и тот же colorMap (upstream `equalsTokenRules` + `equalArray`). */
-export function equalsTextMateTheme(a: ITextMateTheme, b: ITextMateTheme): boolean {
+/** Те же правила и тот же colorMap (upstream `equalsTokenRules` + `equalArray`); `undefined` — темы ещё не было. */
+export function equalsTextMateTheme(a: ITextMateTheme | undefined, b: ITextMateTheme): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 

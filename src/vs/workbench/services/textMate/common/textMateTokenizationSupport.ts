@@ -48,10 +48,12 @@ export class TextMateTokenizationSupport implements ITokenizationSupport {
         const result = this.grammar.tokenizeLine2(line, state.stack, TIME_LIMIT_MS);
         if (result.stoppedEarly) {
             // Как у эталона: токены, что успели, и состояние начала строки.
+            // Stryker disable next-line ArrayDeclaration: шрифтов у токенов нет, массив никто не читает
             return new EncodedTokenizationResult(result.tokens, [], state);
         }
         // Неизменное состояние — тот же объект: экономим аллокацию на строку.
         const endState = state.stack.equals(result.ruleStack) ? state : new TextMateState(result.ruleStack);
+        // Stryker disable next-line ArrayDeclaration: см. выше
         return new EncodedTokenizationResult(result.tokens, [], endState);
     }
 }
