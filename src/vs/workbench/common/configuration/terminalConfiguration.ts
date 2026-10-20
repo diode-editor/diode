@@ -44,7 +44,7 @@ export const terminalConfiguration = {
         // Встроенный терминал: вкладки терминалов — ключи, дефолты, enum и
         // описания дословно из `terminalConfiguration.ts` эталона (узел
         // `terminal.integrated`). Не поддержанные ключи названы в
-        // docs/TODO/IntegratedTerminal.md.
+        // docs/arch/workbench/Terminal.md.
         "terminal.integrated.tabs.enabled": {
             scope: "window",
             type: "boolean",

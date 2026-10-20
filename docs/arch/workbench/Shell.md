@@ -261,7 +261,7 @@
   в области редакторов (`TerminalLocation.Editor`): инстанс `target: "editor"`
   плюс вкладка `TerminalEditorPane` (`vscode-terminal:/<id>`), колонка —
   `columnToEditorGroup` (`services/editor/common/editorGroupColumn.ts`, общий
-  с `showTextDocument`). Устройство — [IntegratedTerminal.md](../../TODO/IntegratedTerminal.md),
+  с `showTextDocument`). Устройство — [Terminal.md](Terminal.md),
   «Терминал в области редакторов».
 - `contrib/markers/browser/diagnosticsService.ts` — headless-проводник диагностик
   поверх `MarkerService`: поставщик — валидатор активного settings.json,

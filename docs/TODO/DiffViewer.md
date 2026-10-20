@@ -250,7 +250,7 @@ merge-конфликтов, word wrap внутри диффа.
   US-20, US-25, US-27. (US-22 Toggle Inline View сделан в DiffEditable PR-6.)
 - [x] **Фаза 3. Пара источников** (`openDiffPair`; US-32, US-33, US-11, US-10).
 - [x] **Фаза 4. Семейство команд** (US-3…US-7, US-9, US-12). US-8 (дифф файла из
-  коммита в GRAPH) — остаётся follow-up'ом [SourceControlGraph](SourceControlGraph.md).
+  коммита в GRAPH) — остаётся follow-up'ом [SourceControl](SourceControl.md#graph).
 - [x] **Фаза 5. Живой дифф** — сделан «сильнее спеки» в DiffEditable PR-4…6:
   общие модели буферов, редактируемые стороны, Compare New Untitled Text Files,
   автопересчёт по сдвигу HEAD, подписи колонок, Revert Hunk, авто-inline + тумблер.

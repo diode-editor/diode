@@ -11,7 +11,7 @@
 //
 // Запуск: npm run demo:terminal   (Ctrl+Q — выйти из демо; Ctrl+C уходит в шелл)
 //
-// См. docs/TODO/IntegratedTerminal.md.
+// См. docs/arch/workbench/Terminal.md.
 
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";

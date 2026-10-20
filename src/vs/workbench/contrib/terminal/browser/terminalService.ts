@@ -6,7 +6,7 @@
 //
 // Связка с PTY/эмулятором спрятана за `TerminalSessionFactory` (DI-шов): в тестах
 // фабрика возвращает FakeTerminalSurface, в проде — EmbeddedTerminalSession.
-// См. docs/TODO/IntegratedTerminal.md.
+// См. docs/arch/workbench/Terminal.md.
 
 import { basename } from "node:path";
 

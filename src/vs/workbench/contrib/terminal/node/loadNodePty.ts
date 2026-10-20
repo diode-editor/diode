@@ -3,7 +3,7 @@
 //   - упакованная сборка: нативные файлы node-pty вшиты ассетом
 //     `node-pty.bundle`; на первом запуске распаковываем их в пользовательский
 //     кэш и грузим оттуда через createRequire (нативный `.node` нельзя вшить в
-//     JS-blob — `process.dlopen` требует файл на диске). См. docs/TODO/IntegratedTerminal.md.
+//     JS-blob — `process.dlopen` требует файл на диске). См. docs/arch/workbench/Terminal.md.
 // Чтение ассета и безопасная распаковка — общие (base/node/assets).
 
 import { createRequire } from "node:module";

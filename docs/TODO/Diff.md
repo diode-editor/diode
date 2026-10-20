@@ -91,4 +91,4 @@ upstream'овский.
 - **Парсер тел ханков.** `extensions/git/lib/diff.ts` удалён (парсил только
   заголовки); для диффа коммитов из GRAPH понадобится парсер с телами ханков —
   либо чтение обеих сторон через `git:`-провайдер (см. follow-up'ы
-  [SourceControlGraph.md](SourceControlGraph.md)).
+  [SourceControl.md](SourceControl.md#graph)).

@@ -4,7 +4,7 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 // Скролбэк встроенного терминала: вывод длиннее экрана уезжает в историю, и её видно.
 // Колесо мыши в инспектор-протоколе пока не инъецируется (enabler `TUIDom.sendMouse`,
-// см. docs/TODO/TerminalPanelBugs.md), поэтому демо крутит вьюпорт клавиатурой —
+// см. docs/TODO/IntegratedTerminal.md), поэтому демо крутит вьюпорт клавиатурой —
 // Shift+PageUp/PageDown ходят по тому же `surface.scrollLines`, что и колесо.
 //
 // Терминал открывается тем же тир-независимым путём, что и в terminal.scenario.ts:
