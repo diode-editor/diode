@@ -242,7 +242,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         const associations = this.state.get(PROFILE_ASSOCIATIONS_STATE);
         const workspaces = { ...associations.workspaces };
         // Привязка к Default — отсутствие записи (эталон пишет id Default'а;
-        // резолв одинаковый, файл короче — Profiles.md, таблица отступлений).
+        // резолв одинаковый, файл короче — docs/arch/Configuration.md, отступления профилей).
         if (profile.isDefault) Reflect.deleteProperty(workspaces, workspace);
         else workspaces[workspace] = profile.id;
         this.saveAssociations({ ...associations, workspaces });

@@ -15,7 +15,7 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Темы от расширений (`contributes.themes`, docs/TODO/Theming.md) на настоящем
+ * Темы от расширений (`contributes.themes`, docs/arch/Theme.md) на настоящем
  * бинаре: расширение-тема ставится тем же CLI-путём, что у пользователя
  * (`--install-extension <vsix>` из файлового реестра-фикстуры, упакованного
  * продовым `scripts/pack-vsix.mjs`), а проверяется кадр — цвет ячейки фона

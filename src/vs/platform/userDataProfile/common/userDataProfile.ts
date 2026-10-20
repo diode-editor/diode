@@ -16,7 +16,7 @@ import type { IWorkspace } from "../../workspace/common/iWorkspaceContextService
  * Отступление от эталона: `id` — не случайный hex, а slug имени
  * ({@link profileIdFromName}), и он же — имя каталога в `User/profiles/`.
  * Переименование каталог не двигает, поэтому после него id перестаёт совпадать
- * с именем (решение человека, таблица отступлений в Profiles.md).
+ * с именем (решение человека, отступления — docs/arch/Configuration.md, «Профили»).
  */
 export interface IUserDataProfile {
     readonly id: string;

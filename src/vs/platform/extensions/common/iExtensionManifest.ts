@@ -138,7 +138,7 @@ export interface IExtensionContributions {
     /**
      * Цветовые темы расширения. Файлы тем читаются на старте — все, до первого
      * кадра — и регистрируются в `ThemeRegistry` по `label`
-     * (`ExtensionThemeContributor`, см. docs/TODO/Theming.md).
+     * (`ExtensionThemeContributor`, см. docs/arch/Theme.md).
      */
     readonly themes?: readonly IThemeContribution[];
 
