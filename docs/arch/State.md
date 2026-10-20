@@ -74,7 +74,7 @@
 ## Дескрипторы (свойства состояния)
 
 Каждое сохраняемое значение объявляется дескриптором `IStateDescriptor<T>`
-(`Configuration/IStateService.ts`) — это «инструкция», какие у него свойства:
+(`platform/state/common/iStateService.ts`) — это «инструкция», какие у него свойства:
 
 | Поле | Смысл |
 | --- | --- |
@@ -94,12 +94,12 @@
 пишет сервис сеттерами. Реестр дескрипторов — `workbench/common/stateKeys.ts`
 (параллель `ContextKeys.ts`).
 
-## Движок (`Configuration/StateService.ts`)
+## Движок (`platform/state/node/stateService.ts`)
 
 - **Слои:** движок key/value поверх plain-JSON файлов, зависит только от Common +
-  fs. Живёт в `Configuration/` (сосед `ConfigurationService`);
+  fs. Живёт в `platform/state/` (сосед `platform/configuration/`);
   `StateServiceDIToken` объявлен рядом с типом в `platform/state/common/iStateService.ts`
-  (потребители-сервисы — в Workbench), биндинг — модуль `Workbench/Modules/StateModule.ts`.
+  (потребители-сервисы — в Workbench), биндинг — модуль `src/vs/diode/modules/stateModule.ts`.
 - **Один файл — один `StateFileStore`:** класс одного plain-JSON файла (чтение,
   версии ключей, собственный debounce и `flushSync`); `StateService` — роутер по
   scope над тремя такими сторами плюс переключение стора воркспейса.
@@ -250,13 +250,13 @@ main.ts: build container ─► lifecycle.onShutdownSync(flushSync) + страх
 
 ## Тестирование
 
-- `NULL_STATE_SERVICE` (`Configuration/NullStateService.ts`) + `stateModuleDefault`
+- `NULL_STATE_SERVICE` (`platform/state/common/nullStateService.ts`) + `stateModuleDefault`
   — no-op для тестов/demo, которым персистентность не нужна (`get` отдаёт дефолт).
-- Юниты: `StateService.test.ts` (round-trip, tolerant-load, unknown-key
+- Юниты: `platform/state/node/stateService.test.ts` (round-trip, tolerant-load, unknown-key
   preservation, стор пустого окна и переключение на проект, версии),
-  `Workbench/Services/WorkbenchStateService.test.ts` (открытые редакторы),
-  `Workbench/Services/LayoutService.test.ts` (restore/capture layout, сайдбар/панель).
-- Integration: `Workbench.StatePersistence.test.ts` — реальный `StateService`
+  `workbench/browser/workbenchStateService.test.ts` (открытые редакторы),
+  `workbench/services/layout/browser/layoutService.test.ts` (restore/capture layout, сайдбар/панель).
+- Integration: `workbench/browser/workbench.statePersistence.test.ts` — реальный `StateService`
   через `createAppTestHarness({ stateService })`, round-trip restore на двух
   «запусках».
 - Демо: `e2e/scenarios/sessionLayout.scenario.ts` (видимая раскладка, которая
