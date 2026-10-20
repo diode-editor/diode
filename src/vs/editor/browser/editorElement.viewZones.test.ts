@@ -11,7 +11,7 @@ import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 import { EditorElement } from "./editorElement.ts";
 
 /**
- * Рендер и hit-test view zones (docs/TODO/DiffEditable.md, PR-2): виртуальная
+ * Рендер и hit-test view zones (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): виртуальная
  * строка рисуется пустой (пустой гуттер без номера, пустой контент), клики по
  * ней падают на ближайшую документную строку, скролл и высота контента зоны
  * учитывают.

@@ -16,7 +16,7 @@ import { RangeMapping as RangeMappingClass } from "./rangeMapping.ts";
 
 /**
  * Фикстурный корпус upstream — главный гейт качества вендоринга
- * `vs/editor/common/diff` (см. AGENTS.md и docs/TODO/Diff.md).
+ * `vs/editor/common/diff` (см. AGENTS.md и docs/ARCHITECTURE.md).
  *
  * Каждый кейс — папка в `__fixtures__/` с парой файлов `1.*`/`2.*` и эталоном
  * `advanced.expected.diff.json`, где лежит и содержимое обоих файлов, и

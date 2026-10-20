@@ -14,7 +14,7 @@ import type { IUnchangedRegion } from "./diffViewModel.ts";
 import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
 /**
- * Раскладка диффа v2 (docs/TODO/DiffEditable.md, PR-3): из результата движка
+ * Раскладка диффа v2 (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): из результата движка
  * (`changes` + свёртка unchanged + intra-line) собрать для КАЖДОЙ стороны —
  * настоящего редактора — зоны-филлеры, фолд-регионы и внешние декорации.
  * Чистая логика без TUI: тестируется как DiffViewModel.

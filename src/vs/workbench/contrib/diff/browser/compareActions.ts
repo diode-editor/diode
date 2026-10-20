@@ -29,10 +29,9 @@ import { queryRefs } from "../../scm/browser/syncActions.ts";
 import { compareLabelOf, openDiffPair, showCompareNotice } from "./openDiffPair.ts";
 
 /**
- * Семейство команд сравнения файлов (спека — docs/TODO/DiffViewer.md, «Спека
- * команд сравнения»). Каждая команда — тонкая обёртка над {@link openDiffPair}:
- * она лишь решает, чем заполнить две стороны. Все команды дают снимок; живой
- * пересчёт — фаза 5.
+ * Семейство команд сравнения файлов (таблица — docs/arch/workbench/EditorPart.md,
+ * «Сравнение — пара сторон»). Каждая команда — тонкая обёртка над {@link openDiffPair}:
+ * она лишь решает, чем заполнить две стороны.
  */
 
 /** Активный текстовый редактор, иначе — `null`; команды сравнения гейтятся им. */
@@ -219,7 +218,7 @@ async function compareWithRevision(accessor: ServiceAccessor): Promise<void> {
  * Открывает файл на выбранной ревизии обычной **read-only текстовой вкладкой**
  * (`a.ts (ref)` с замком): контент читается `git:`-провайдером, вкладка-снимок
  * живёт мимо диска и персиста сессии. Первая видимая ступень editable-диффа
- * (docs/TODO/DiffEditable.md, PR-1) и давний хвост задачи из Uri.md.
+ * (docs/arch/workbench/EditorPart.md, «Дифф-вкладка») и давний хвост задачи из Uri.md.
  */
 async function openFileAtRevision(accessor: ServiceAccessor): Promise<void> {
     const editors = accessor.get(EditorServiceDIToken);
