@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { markedMetadata, storedTokens } from "../../../../TestUtils/encodedTokens.ts";
 import { createDeleteEdit } from "../core/iTextEdit.ts";
 import { PlainTextTokenizer } from "../languages/builtin/plainTextTokenizer.ts";
 import { TextDocument } from "../model/textDocument.ts";
@@ -59,7 +60,7 @@ describe("DocumentTokenStore.setLineTokens — out-of-range guard", () => {
     it("ignores line indices below 0 and at/above lineCount", () => {
         const doc = new TextDocument("a\nb");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
-        const custom = { tokens: [{ startIndex: 0, scopes: ["custom"] }] };
+        const custom = storedTokens([[0, markedMetadata(42)]], 1);
 
         // lineCount is 2 → indices -1 and 2 are out of range and must be ignored.
         store.setLineTokens(-1, custom);
@@ -87,16 +88,5 @@ describe("DocumentTokenStore.forceTokenization — resume from a middle line", (
         expect(store.getLineTokens(3)).toBeDefined();
         expect(store.hasAccurateTokensForLine(3)).toBe(true);
         expect(store.hasAccurateTokensForLine(4)).toBe(false);
-    });
-});
-
-describe("DocumentTokenStore.emptyLineTokens", () => {
-    it("returns a single whole-line token with empty scopes", () => {
-        const empty = DocumentTokenStore.emptyLineTokens();
-        expect(empty.tokens).toEqual([{ startIndex: 0, scopes: [] }]);
-    });
-
-    it("returns the same shared singleton on every call", () => {
-        expect(DocumentTokenStore.emptyLineTokens()).toBe(DocumentTokenStore.emptyLineTokens());
     });
 });

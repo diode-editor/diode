@@ -1,12 +1,12 @@
 import { packRgb, packRgba } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it, vi } from "vitest";
 
+import { resolveScopesStyle } from "../../../../../TestUtils/textMateThemeProbe.ts";
 import { createLoggerSpy, extensionWithThemes, MemoryAssets } from "../../../../../TestUtils/themeExtensionFixture.ts";
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import { createBuiltinThemeRegistry, ThemeRegistry } from "../../themes/common/themeRegistry.ts";
 import { builtinThemes } from "../../themes/common/themes/builtinThemes.ts";
-import { TokenThemeResolver } from "../../themes/common/tokenThemeResolver.ts";
 
 import { ExtensionThemeContributor } from "./extensionThemeContributor.ts";
 
@@ -67,8 +67,9 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(theme?.getRequiredColor("statusBar.background")).toBe(packRgb(0x0a, 0x0f, 0x14));
         expect(theme?.getRequiredColor("editor.selectionBackground")).toBe(packRgba(0x93, 0x99, 0xb2, 0x40));
         // Правило `keyword` из файла темы доходит до резолвера подсветки (US-8).
-        const resolver = new TokenThemeResolver(theme!.tokenTheme);
-        expect(resolver.resolve(["source.ts", "keyword.control.ts"]).fg).toBe(packRgb(0xff, 0x00, 0xff));
+        expect((await resolveScopesStyle(theme!, ["source.ts", "keyword.control.ts"])).fg).toBe(
+            packRgb(0xff, 0x00, 0xff),
+        );
     });
 
     it("все файлы читаются в apply(), до первого кадра — resolve синхронный и без I/O", async () => {

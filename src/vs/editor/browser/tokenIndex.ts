@@ -1,12 +1,12 @@
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
-import type { ILineTokens, IToken } from "../common/languages/iLineTokens.ts";
 import type { ISemanticTokensLegend } from "../common/languages/iSemanticTokensSource.ts";
 import type {
     ISemanticTokenStyleResolver,
     SemanticTokenStyle,
 } from "../common/languages/iSemanticTokenStyleResolver.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
+import type { LineTokens } from "../common/tokens/lineTokens.ts";
 import type { ISemanticLineTokens } from "../common/tokens/semanticTokensLines.ts";
 
 /**
@@ -26,37 +26,39 @@ export function packStyleFlags(style: ResolvedTokenStyle): number {
 }
 
 /**
- * Linear cursor over a sorted token array, optimised for left-to-right
- * scans (which is how the renderer walks columns). Falls back to binary
- * search when the offset rewinds.
+ * Linear cursor over the line's binary tokens (`LineTokens`), optimised for
+ * left-to-right scans (which is how the renderer walks columns). Rewinds to
+ * the first token when the offset goes back.
  *
  * Exported for unit testing: the renderer only ever scans forward, so the
  * rewind path is unreachable through rendering alone.
  */
 export class TokenIndex {
-    private readonly tokens: readonly IToken[];
+    private readonly tokens: LineTokens;
+    private readonly count: number;
     private readonly lineLength: number;
     private cursor = 0;
 
-    public constructor(lineTokens: ILineTokens, lineLength: number) {
-        this.tokens = lineTokens.tokens;
+    public constructor(lineTokens: LineTokens, lineLength: number) {
+        this.tokens = lineTokens;
+        this.count = lineTokens.getCount();
         this.lineLength = lineLength;
     }
 
-    /** Token covering `[token.startIndex .. nextToken.startIndex)` for `offset`. */
-    public tokenAt(offset: number): IToken | undefined {
-        if (this.tokens.length === 0 || offset >= this.lineLength) return undefined;
+    /** Метаданные токена `[start .. end)`, накрывающего `offset`; за концом строки — `undefined`. */
+    public metadataAt(offset: number): number | undefined {
+        if (this.count === 0 || offset >= this.lineLength) return undefined;
 
         // Fast path: forward scan.
         let i = this.cursor;
-        if (i >= this.tokens.length || this.tokens[i].startIndex > offset) {
+        if (this.tokens.getStartOffset(i) > offset) {
             i = 0; // rewind
         }
-        while (i + 1 < this.tokens.length && this.tokens[i + 1].startIndex <= offset) {
+        while (i + 1 < this.count && this.tokens.getEndOffset(i) <= offset) {
             i++;
         }
         this.cursor = i;
-        return this.tokens[i];
+        return this.tokens.getMetadata(i);
     }
 }
 

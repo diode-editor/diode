@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { encodedResult, tokenMetadata } from "../../../../TestUtils/encodedTokens.ts";
 import { createPosition } from "../../common/core/iPosition.ts";
 import { createRange } from "../../common/core/iRange.ts";
-import { createLineTokens, createToken } from "../../common/languages/iLineTokens.ts";
+import { StandardTokenType } from "../../common/encodedTokenAttributes.ts";
+import type { ITokenizationSupport } from "../../common/languages.ts";
 import { NULL_STATE } from "../../common/languages/iState.ts";
-import type { ITokenizationSupport } from "../../common/languages/iTokenizationSupport.ts";
 import { TextDocument } from "../../common/model/textDocument.ts";
 import { DocumentTokenStore } from "../../common/tokens/documentTokenStore.ts";
 
@@ -13,11 +14,11 @@ import { tokenCodeAt } from "./tokenCodeAt.ts";
 /** Всё от первой `"` до конца строки — строка-литерал. */
 const QUOTE_TO_END: ITokenizationSupport = {
     getInitialState: () => NULL_STATE,
-    tokenizeLine: (line) => {
+    tokenizeEncoded: (line) => {
         const quote = line.indexOf('"');
-        const tokens = [createToken(0, ["source"])];
-        if (quote !== -1) tokens.push(createToken(quote, ["source", "string.quoted"]));
-        return { tokens: createLineTokens(tokens), endState: NULL_STATE };
+        const tokens: [number, number][] = [[0, tokenMetadata()]];
+        if (quote !== -1) tokens.push([quote, tokenMetadata({ tokenType: StandardTokenType.String })]);
+        return encodedResult(tokens, NULL_STATE);
     },
 };
 

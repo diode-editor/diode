@@ -6,9 +6,8 @@ import { TerminalScreen } from "@tuidom/core/rendering/terminalScreen";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
-import { WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
-import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
-import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
+import { WordTokenColor, WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
+import { ColorMapTokenStyleResolver } from "../common/languages/colorMapTokenStyleResolver.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { DocumentTokenStore } from "../common/tokens/documentTokenStore.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
@@ -18,14 +17,17 @@ import { EditorElement } from "./editorElement.ts";
 const KEYWORD_FG = packRgb(255, 0, 0);
 const NUMBER_FG = packRgb(0, 255, 0);
 
-class StubResolver implements ITokenStyleResolver {
-    public resolve(scopes: readonly string[]): ResolvedTokenStyle {
-        for (let i = scopes.length - 1; i >= 0; i--) {
-            if (scopes[i] === "keyword.control") return { ...EMPTY_RESOLVED_TOKEN_STYLE, fg: KEYWORD_FG };
-            if (scopes[i] === "constant.numeric") return { ...EMPTY_RESOLVED_TOKEN_STYLE, fg: NUMBER_FG };
-        }
-        return EMPTY_RESOLVED_TOKEN_STYLE;
-    }
+/**
+ * colorMap «темы»: ключевые слова и числа WordTokenizer — свои цвета; индексы
+ * цветов по умолчанию (1, 2) нарочно чёрные — ячейка должна брать цвета
+ * редактора, а не colorMap.
+ */
+const COLOR_MAP: string[] = ["", "#000000", "#000000"];
+COLOR_MAP[WordTokenColor.keyword] = "#ff0000";
+COLOR_MAP[WordTokenColor.number] = "#00ff00";
+
+function createResolver(): ColorMapTokenStyleResolver {
+    return new ColorMapTokenStyleResolver({ getColorMap: () => COLOR_MAP });
 }
 
 function createHighlightedEditor(
@@ -43,7 +45,7 @@ function createHighlightedEditor(
     const store = new DocumentTokenStore(doc, new WordTokenizer());
     viewState.tokenStore = store;
     const editor = new EditorElement(viewState);
-    editor.tokenStyleResolver = new StubResolver();
+    editor.tokenStyleResolver = createResolver();
     const app = TestApp.createWithContent(editor, new Size(width, height));
     return { app, editor, doc, gw: editor.gutterWidth };
 }
@@ -65,7 +67,7 @@ describe("EditorElement syntax highlighting", () => {
         expect(app.backend.getFgAt(new Point(gw + 2, 0))).toBe(NUMBER_FG);
     });
 
-    it("falls back to the editor foreground for tokens with no rule", () => {
+    it("falls back to the editor foreground for default-coloured tokens, not colorMap[1]", () => {
         const { app, editor, gw } = createHighlightedEditor("foo");
         app.render();
         expect(app.backend.getFgAt(new Point(gw, 0))).toBe(editor.resolvedStyle.fg);
@@ -87,7 +89,7 @@ describe("EditorElement tokenization — вырожденный вьюпорт",
         const store = new DocumentTokenStore(doc, new WordTokenizer());
         viewState.tokenStore = store;
         const editor = new EditorElement(viewState);
-        editor.tokenStyleResolver = new StubResolver();
+        editor.tokenStyleResolver = createResolver();
 
         const size = new Size(20, 0);
         const backendScreen = new TerminalScreen(new Size(20, 1));

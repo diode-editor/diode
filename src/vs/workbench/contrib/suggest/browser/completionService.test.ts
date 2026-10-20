@@ -3,6 +3,7 @@ import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it, vi } from "vitest";
 
+import { storedTokens, tokenMetadata } from "../../../../../TestUtils/encodedTokens.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
@@ -10,6 +11,8 @@ import { Emitter, Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import { StandardTokenType } from "../../../../editor/common/encodedTokenAttributes.ts";
+import type { ILanguageIdCodec } from "../../../../editor/common/languages.ts";
 import type {
     CompletionItemProvider,
     ICompletionRequest,
@@ -18,10 +21,9 @@ import type {
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
-import type { ILineTokens } from "../../../../editor/common/languages/iLineTokens.ts";
-import { createLineTokens, createToken } from "../../../../editor/common/languages/iLineTokens.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
+import { LineTokens } from "../../../../editor/common/tokens/lineTokens.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -59,9 +61,23 @@ interface FakeEditor {
     /** Мультикурсор: сколько кареток отдаёт `viewState.selections`. */
     setCursorCount: (count: number) => void;
     setAnchorNull: (value: boolean) => void;
-    /** Токены строки каретки (как их отдаёт `viewState.tokenStore`); `undefined` — стора нет. */
-    setTokens: (tokens: ILineTokens | undefined) => void;
+    /**
+     * Токены строки каретки — пары `[начало, метаданные]`; стор отдаёт их
+     * `LineTokens` на текущий текст строки. `undefined` — стора нет.
+     */
+    setTokens: (tokens: TokenPairs | undefined) => void;
 }
+
+type TokenPairs = readonly (readonly [startIndex: number, metadata: number])[];
+
+const LANGUAGE_ID_CODEC: ILanguageIdCodec = {
+    encodeLanguageId: () => 0,
+    decodeLanguageId: () => "editorconfig",
+};
+
+const STRING_TOKEN = tokenMetadata({ tokenType: StandardTokenType.String });
+const COMMENT_TOKEN = tokenMetadata({ tokenType: StandardTokenType.Comment });
+const CODE_TOKEN = tokenMetadata();
 
 function makeEditor(lineContent: string, character: number, docText = lineContent, anchorChar = character): FakeEditor {
     const state: {
@@ -69,7 +85,7 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
         lineNo: number;
         anchorChar: number;
         activeChar: number;
-        tokens: ILineTokens | undefined;
+        tokens: TokenPairs | undefined;
     } = { line: lineContent, lineNo: 0, anchorChar, activeChar: character, tokens: undefined };
     // Версия модели: запрос к провайдеру несёт её вместо текста; печать её поднимает.
     const document = { versionId: 1 };
@@ -91,7 +107,17 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
                 tokenStore:
                     state.tokens === undefined
                         ? undefined
-                        : { tokenizeIfCheap: () => undefined, getLineTokens: () => state.tokens },
+                        : {
+                              tokenizeIfCheap: () => undefined,
+                              getLineTokens: () =>
+                                  state.tokens === undefined
+                                      ? undefined
+                                      : new LineTokens(
+                                            storedTokens(state.tokens, state.line.length),
+                                            state.line,
+                                            LANGUAGE_ID_CODEC,
+                                        ),
+                          },
             };
         },
         getText: () => docText,
@@ -1903,19 +1929,18 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
 
     it("режим берётся для вида токена перед кареткой: строки и комментарии по умолчанию off", async () => {
         const { service, fake, source } = quickSetup({ line: '"ind', character: 4 });
-        const stringTokens = createLineTokens([createToken(0, ["source.json", "string.quoted.double.json"])]);
-        fake.setTokens(stringTokens);
+        fake.setTokens([[0, STRING_TOKEN]]);
         fake.type('"inde', 5);
         await flushTimers();
         expect(source).not.toHaveBeenCalled();
 
-        fake.setTokens(createLineTokens([createToken(0, ["source.ts", "comment.line.ts"])]));
+        fake.setTokens([[0, COMMENT_TOKEN]]);
         fake.type('"inden', 6);
         await flushTimers();
         expect(source).not.toHaveBeenCalled();
 
         // Код — открывается.
-        fake.setTokens(createLineTokens([createToken(0, ["source.ts"])]));
+        fake.setTokens([[0, CODE_TOKEN]]);
         fake.type('"indent', 7);
         await flushTimers();
         expect(service.isOpen()).toBe(true);
@@ -1924,13 +1949,11 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
     it("вид токена — у символа СЛЕВА от каретки, а не под ней", async () => {
         // `"ind"`: кавычки — строка, `ind` — код; каретка между `d` и закрывающей кавычкой.
         const { service, fake } = quickSetup({ line: '"in"', character: 3 });
-        fake.setTokens(
-            createLineTokens([
-                createToken(0, ["source.json", "string.quoted.double.json"]),
-                createToken(1, ["source.json"]),
-                createToken(4, ["source.json", "string.quoted.double.json"]),
-            ]),
-        );
+        fake.setTokens([
+            [0, STRING_TOKEN],
+            [1, CODE_TOKEN],
+            [4, STRING_TOKEN],
+        ]);
         fake.type('"ind"', 4);
         await flushTimers();
         expect(service.isOpen()).toBe(true);
@@ -1941,7 +1964,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             line: '"ind',
             settings: { "[editorconfig]": { "editor.quickSuggestions": { strings: true } } },
         });
-        fake.setTokens(createLineTokens([createToken(0, ["source.json", "string.quoted.double.json"])]));
+        fake.setTokens([[0, STRING_TOKEN]]);
         fake.type('"inde', 5);
         await flushTimers();
         expect(service.isOpen()).toBe(true);

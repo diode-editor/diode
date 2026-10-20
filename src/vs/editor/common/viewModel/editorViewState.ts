@@ -16,13 +16,13 @@ import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEd
 import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { computeNewLinePlan } from "../languages/autoIndent.ts";
-import type { ILineTokens } from "../languages/iLineTokens.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import { detectIndentation } from "../model/indentationDetector.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 import type { IUndoElement } from "../model/iUndoElement.ts";
 import { TrackedRangeStickiness } from "../model/trackedDecorations.ts";
 import type { DocumentTokenStore } from "../tokens/documentTokenStore.ts";
+import type { LineTokens } from "../tokens/lineTokens.ts";
 import type { ISemanticLineTokens } from "../tokens/semanticTokensLines.ts";
 import type { SemanticTokensStore } from "../tokens/semanticTokensStore.ts";
 
@@ -829,7 +829,7 @@ export class EditorViewState {
      * Does NOT trigger lazy tokenization — the renderer must call
      * `tokenStore.tokenizeViewport(...)` first.
      */
-    public getViewLineTokens(visualLineNumber: number): ILineTokens | undefined {
+    public getViewLineTokens(visualLineNumber: number): LineTokens | undefined {
         if (!this.tokenStore) return undefined;
         const logicalLine = this.visualToLogicalLine(visualLineNumber);
         if (logicalLine < 0 || logicalLine >= this.document.lineCount) {

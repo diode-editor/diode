@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
+import { LanguageId } from "../../../../editor/common/encodedTokenAttributes.ts";
+import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
 import { NULL_STATE } from "../../../../editor/common/languages/iState.ts";
-import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
+import { nullTokenizeEncoded } from "../../../../editor/common/languages/nullTokenize.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import { TextMateGrammarLoader } from "../../textMate/common/textMateGrammarLoader.ts";
@@ -24,7 +26,7 @@ const MockedLoader = vi.mocked(TextMateGrammarLoader);
 function makeStubSupport(): ITokenizationSupport {
     return {
         getInitialState: () => NULL_STATE,
-        tokenizeLine: () => ({ tokens: { tokens: [] }, endState: NULL_STATE }),
+        tokenizeEncoded: () => nullTokenizeEncoded(LanguageId.Null, NULL_STATE),
     };
 }
 

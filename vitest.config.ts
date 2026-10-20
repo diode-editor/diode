@@ -65,6 +65,10 @@ export default defineConfig({
         "src/vs/base/common/stopwatch.ts",
         "src/vs/editor/common/model/{textModelTokens,fixedArray}.ts",
         "src/vs/editor/common/core/misc/eolCounter.ts",
+        // Бинарный формат токенов (B2): гейт — те же тесты адаптера и рендера.
+        "src/vs/editor/common/encodedTokenAttributes.ts",
+        "src/vs/editor/common/tokens/{lineTokens,contiguousMultilineTokens,contiguousMultilineTokensBuilder,contiguousTokensEditing}.ts",
+        "src/vs/editor/common/languages/nullTokenize.ts",
         // PieceTree и поиск по буферу: гейт — upstream-тесты PieceTree со
         // случайными правками (editor/test/common/model/pieceTreeTextBuffer/).
         "src/vs/editor/common/model/pieceTreeTextBuffer/**",

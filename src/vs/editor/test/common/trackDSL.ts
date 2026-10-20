@@ -9,11 +9,11 @@ import {
     isSelectionCollapsed,
     selectionToRange,
 } from "../../common/core/iSelection.ts";
+import { MetadataConsts, TokenMetadata } from "../../common/encodedTokenAttributes.ts";
 import { PlainTextTokenizer } from "../../common/languages/builtin/plainTextTokenizer.ts";
-import type { ILineTokens } from "../../common/languages/iLineTokens.ts";
-import { createLineTokens, createToken } from "../../common/languages/iLineTokens.ts";
 import { TextDocument } from "../../common/model/textDocument.ts";
 import { DocumentTokenStore } from "../../common/tokens/documentTokenStore.ts";
+import type { LineTokens } from "../../common/tokens/lineTokens.ts";
 import { EditorViewState } from "../../common/viewModel/editorViewState.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import { createFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
@@ -120,8 +120,8 @@ export function parseDSL(dsl: string): EditorViewState {
     // as a placeholder support; tokens are pushed externally via setLineTokens.
     let tokenStore: DocumentTokenStore | undefined;
     for (const [lineIdx, track] of tokensTrackByLine) {
-        const tokens = parseTokenTrack(track);
-        if (tokens.tokens.length > 0) {
+        const tokens = parseTokenTrack(track, doc.getLineContent(lineIdx).length);
+        if (tokens !== undefined) {
             tokenStore ??= new DocumentTokenStore(doc, new PlainTextTokenizer());
             tokenStore.setLineTokens(lineIdx, tokens);
         }
@@ -170,8 +170,8 @@ export function renderToDSL(state: EditorViewState): string {
 
         // Render tokens track
         const tokens = state.tokenStore?.getLineTokens(lineIdx);
-        if (tokens && tokens.tokens.length > 0) {
-            const tokensTrack = renderTokensTrack(tokens, textContent.length);
+        const tokensTrack = tokens === undefined ? "" : renderTokensTrack(tokens);
+        if (tokensTrack !== "") {
             lines.push(`${TRACK_PREFIX_TOKENS} ${tokensTrack}`);
         }
 
@@ -265,32 +265,30 @@ function parseSelections(
     }
 }
 
-function parseTokenTrack(track: string): ILineTokens {
-    if (track.length === 0) {
-        return createLineTokens([]);
-    }
+/**
+ * Трек токенов → бинарные токены строки (концы токенов + метаданные). Символ
+ * трека кодируется в метаданные индексом цвета (`foreground` = код символа):
+ * у бинарных токенов нет «дыр», поэтому пробел («нет токена») — токен с
+ * цветом 0. Последний токен тянется до конца строки, как и раньше. Трек без
+ * единого не-пробела — токенов нет.
+ */
+function parseTokenTrack(track: string, lineLength: number): Uint32Array | undefined {
+    if (track.trim().length === 0) return undefined;
 
-    const tokens: { startIndex: number; type: string }[] = [];
-    let currentType = track[0];
-
-    // Skip spaces — they mean "no token"
-    if (currentType !== " ") {
-        tokens.push({ startIndex: 0, type: currentType });
-    }
-
-    for (let i = 1; i < track.length; i++) {
+    const tokens: number[] = [];
+    for (let i = 0; i < Math.min(track.length, lineLength); i++) {
         const ch = track[i];
-        if (ch !== currentType) {
-            if (ch !== " ") {
-                tokens.push({ startIndex: i, type: ch });
-            }
-            currentType = ch;
-        }
+        if (i > 0 && ch === track[i - 1]) continue;
+        // Конец прошлого токена — начало этого.
+        if (tokens.length > 0) tokens[tokens.length - 2] = i;
+        tokens.push(lineLength, trackCharMetadata(ch));
     }
+    return tokens.length === 0 ? undefined : new Uint32Array(tokens);
+}
 
-    // Encode `type` as a single-element scope so the legacy single-character
-    // DSL keeps working with the new IToken shape.
-    return createLineTokens(tokens.map((t) => createToken(t.startIndex, [t.type])));
+function trackCharMetadata(ch: string): number {
+    const foreground = ch === " " ? 0 : ch.charCodeAt(0);
+    return (foreground << MetadataConsts.FOREGROUND_OFFSET) >>> 0;
 }
 
 // ─── Private: Rendering Helpers ─────────────────────────────
@@ -348,21 +346,13 @@ function renderSelectTrack(selections: readonly ISelection[], lineIdx: number, l
     return trimTrailingSpaces(chars.join(""));
 }
 
-function renderTokensTrack(tokens: ILineTokens, lineLength: number): string {
-    const chars = new Array(lineLength).fill(" ");
-
-    for (let i = 0; i < tokens.tokens.length; i++) {
-        const token = tokens.tokens[i];
-        const end = i + 1 < tokens.tokens.length ? tokens.tokens[i + 1].startIndex : lineLength;
-        const ch = token.scopes[0] ?? " ";
-
-        for (let c = token.startIndex; c < end; c++) {
-            if (c < chars.length) {
-                chars[c] = ch;
-            }
-        }
+function renderTokensTrack(tokens: LineTokens): string {
+    const chars: string[] = [];
+    for (let i = 0; i < tokens.getCount(); i++) {
+        const foreground: number = TokenMetadata.getForeground(tokens.getMetadata(i));
+        const ch = foreground === 0 ? " " : String.fromCharCode(foreground);
+        for (let c = tokens.getStartOffset(i); c < tokens.getEndOffset(i); c++) chars.push(ch);
     }
-
     return trimTrailingSpaces(chars.join(""));
 }
 

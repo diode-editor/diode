@@ -6,9 +6,8 @@ import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { createRange } from "../common/core/iRange.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
-import { WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
-import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
-import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
+import { WordTokenColor, WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
+import { ColorMapTokenStyleResolver } from "../common/languages/colorMapTokenStyleResolver.ts";
 import type { IGhostText } from "../common/model/iGhostText.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { DocumentTokenStore } from "../common/tokens/documentTokenStore.ts";
@@ -33,13 +32,9 @@ const KEYWORD_FG = packRgb(0xff, 0x00, 0x00);
 const NUMBER_FG = packRgb(0x00, 0xff, 0x00);
 
 /** Раскрашивает только ключевые слова и числа — как в highlighting-тестах. */
-class StubResolver implements ITokenStyleResolver {
-    public resolve(scopes: readonly string[]): ResolvedTokenStyle {
-        if (scopes.includes("keyword.control")) return { ...EMPTY_RESOLVED_TOKEN_STYLE, fg: KEYWORD_FG };
-        if (scopes.includes("constant.numeric")) return { ...EMPTY_RESOLVED_TOKEN_STYLE, fg: NUMBER_FG };
-        return EMPTY_RESOLVED_TOKEN_STYLE;
-    }
-}
+const COLOR_MAP: string[] = ["", "#000000", "#000000"];
+COLOR_MAP[WordTokenColor.keyword] = "#ff0000";
+COLOR_MAP[WordTokenColor.number] = "#00ff00";
 
 const STYLE_VARS = {
     "editor.background": BG,
@@ -155,7 +150,7 @@ describe("EditorElement — подсветка токенов вокруг фа�
         const editor = new EditorElement(viewState);
         editor.setStyleVars(STYLE_VARS);
         editor.style = { fg: "editor.foreground", bg: "editor.background" };
-        editor.tokenStyleResolver = new StubResolver();
+        editor.tokenStyleResolver = new ColorMapTokenStyleResolver({ getColorMap: () => COLOR_MAP });
         editor.setGhostText(ghost);
         const app = TestApp.createWithContent(editor, new Size(30, 3));
         app.render();

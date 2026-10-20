@@ -3,7 +3,8 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
-import { WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
+import { TokenMetadata } from "../common/encodedTokenAttributes.ts";
+import { WordTokenColor, WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import { EMPTY_RESOLVED_TOKEN_STYLE } from "../common/languages/iTokenStyleResolver.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
@@ -15,8 +16,9 @@ import { EditorElement } from "./editorElement.ts";
 const KEYWORD_FG = packRgb(255, 0, 0);
 
 class StubResolver implements ITokenStyleResolver {
-    public resolve(scopes: readonly string[]): ResolvedTokenStyle {
-        return scopes.includes("keyword.control")
+    public resolve(metadata: number): ResolvedTokenStyle {
+        const foreground: number = TokenMetadata.getForeground(metadata);
+        return foreground === WordTokenColor.keyword
             ? { ...EMPTY_RESOLVED_TOKEN_STYLE, fg: KEYWORD_FG }
             : EMPTY_RESOLVED_TOKEN_STYLE;
     }
@@ -42,7 +44,7 @@ function createEditor(lineCount: number): {
 describe("EditorElement — токены вне кадра", () => {
     it("вьюпорт в конце большого файла красится сразу, токенизируя только его строки", () => {
         const { app, editor, tokenizer } = createEditor(50_000);
-        const spy = vi.spyOn(tokenizer, "tokenizeLine");
+        const spy = vi.spyOn(tokenizer, "tokenizeEncoded");
         editor.viewState.scrollTop = 50_000 - 5;
 
         app.render();

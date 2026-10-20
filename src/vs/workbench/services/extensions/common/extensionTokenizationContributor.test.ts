@@ -1,12 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createDevAssetAccess } from "../../../../base/node/assets/createDefaultAssetAccess.ts";
+import { TokenMetadata } from "../../../../editor/common/encodedTokenAttributes.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { scanBuiltinExtensions } from "../../../../platform/extensions/common/extensionScanner.ts";
+import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { createTextMateTheme } from "../../themes/common/textMateTheme.ts";
+import { createBuiltinThemeRegistry } from "../../themes/common/themeRegistry.ts";
 
 import { ExtensionTokenizationContributor } from "./extensionTokenizationContributor.ts";
 
 const ROOT_PREFIX = "Extensions/builtin/";
+
+function builtinTheme(label: string): WorkbenchTheme {
+    const theme = createBuiltinThemeRegistry().resolve(label);
+    if (theme === undefined) throw new Error(`${label} missing`);
+    return theme;
+}
 
 describe("ExtensionTokenizationContributor", () => {
     it("регистрирует tokenization support для всех языков из builtin-расширений", async () => {
@@ -24,19 +34,62 @@ describe("ExtensionTokenizationContributor", () => {
         contributor.dispose();
     });
 
-    it("loaded TypeScript support tokenizes 'const x = 1;' с scope storage.type.ts", async () => {
+    it("тема до apply(): TypeScript красит `const` цветом storage.type темы", async () => {
+        const assets = createDevAssetAccess();
+        const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
+        const registry = new TokenizationRegistry();
+        const contributor = new ExtensionTokenizationContributor(assets, exts, registry);
+        const theme = createTextMateTheme(builtinTheme("Dark Modern"));
+        contributor.setTheme(theme);
+        contributor.apply();
+
+        const ts = await registry.load("typescript");
+        expect(ts).toBeDefined();
+        const result = ts!.tokenizeEncoded("const x = 1;", true, ts!.getInitialState());
+        expect(result.tokens[0]).toBe(0);
+        expect(theme.colorMap[TokenMetadata.getForeground(result.tokens[1])]).toBe("#569CD6");
+        expect(registry.getColorMap()).toBe(theme.colorMap);
+
+        contributor.dispose();
+    });
+
+    it("смена темы: грамматики перекрашиваются, реестр получает colorMap и перетокенизирует языки", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();
         const contributor = new ExtensionTokenizationContributor(assets, exts, registry);
         contributor.apply();
-
+        contributor.setTheme(createTextMateTheme(builtinTheme("Dark Modern")));
         const ts = await registry.load("typescript");
-        expect(ts).toBeDefined();
-        const result = ts!.tokenizeLine("const x = 1;", ts!.getInitialState());
-        const constTok = result.tokens.tokens.find((t) => t.startIndex === 0);
-        expect(constTok?.scopes).toContain("storage.type.ts");
+        const changed: string[] = [];
+        registry.onDidChange((languageId) => changed.push(languageId));
 
+        const light = createTextMateTheme(builtinTheme("Light Modern"));
+        contributor.setTheme(light);
+
+        expect(changed).toEqual(["typescript"]);
+        expect(registry.getColorMap()).toBe(light.colorMap);
+        const result = ts!.tokenizeEncoded("const x", true, ts!.getInitialState());
+        expect(light.colorMap[TokenMetadata.getForeground(result.tokens[1])]).toBe("#0000FF");
+
+        contributor.dispose();
+    });
+
+    it("та же тема повторно — без перетокенизации", async () => {
+        const assets = createDevAssetAccess();
+        const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
+        const registry = new TokenizationRegistry();
+        const contributor = new ExtensionTokenizationContributor(assets, exts, registry);
+        contributor.apply();
+        contributor.setTheme(createTextMateTheme(builtinTheme("Dark Modern")));
+        await registry.load("typescript");
+        const changed: string[] = [];
+        registry.onDidChange((languageId) => changed.push(languageId));
+
+        // Новый объект с теми же правилами и цветами — как повторный onThemeChange.
+        contributor.setTheme(createTextMateTheme(builtinTheme("Dark Modern")));
+
+        expect(changed).toEqual([]);
         contributor.dispose();
     });
 

@@ -21,6 +21,7 @@ import {
     JAVA_LANGUAGE_SERVICE,
 } from "../../../../../TestUtils/javaFixture.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
+import { resolveScopesStyle } from "../../../../../TestUtils/textMateThemeProbe.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreDefinitionLocation } from "../../../../editor/common/languages/iDefinitionSource.ts";
@@ -35,7 +36,6 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import type { IWireStatusBarItem } from "../../../api/common/wireTypes.ts";
 import { SemanticTokenStyleResolver } from "../../themes/common/semanticTokenStyleResolver.ts";
 import { darkModernTheme } from "../../themes/common/themes/darkModern.ts";
-import { TokenThemeResolver } from "../../themes/common/tokenThemeResolver.ts";
 import { registerExtensionSemanticTokens } from "../common/extensionSemanticTokensContributor.ts";
 
 // Фич-матрица Java на НАСТОЯЩЕМ jdt.ls: hover, автодополнение, definition внутри
@@ -274,12 +274,13 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 [{ id, manifest: manifest as IExtensionManifest, location: "", isBuiltin: false }],
                 theme,
             );
-            const tokenTheme = WorkbenchTheme.fromThemeFile(darkModernTheme).tokenTheme;
-            const styles = new SemanticTokenStyleResolver(theme, tokenTheme);
+            const darkModern = WorkbenchTheme.fromThemeFile(darkModernTheme);
+            const styles = new SemanticTokenStyleResolver(theme, darkModern.tokenTheme);
             expect(styles.resolve("parameter", [], "java")?.fg).toBe(parseHexColor("#9CDCFE"));
             // Java-тип из contributes.semanticTokenTypes/Scopes расширения:
             // annotation красится как TextMate-скоуп `storage.type.annotation.java`.
-            const annotationFg = new TokenThemeResolver(tokenTheme).resolve(["storage.type.annotation.java"]).fg;
+            const annotationFg = (await resolveScopesStyle(darkModern, ["source.java", "storage.type.annotation.java"]))
+                .fg;
             expect(annotationFg).toBeDefined();
             expect(styles.resolve("annotation", [], "java")?.fg).toBe(annotationFg);
         },

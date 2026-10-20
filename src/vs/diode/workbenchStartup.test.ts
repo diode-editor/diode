@@ -2,12 +2,12 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness } from "../../TestUtils/AppTestHarness.ts";
+import { encodedResult, tokenMetadata } from "../../TestUtils/encodedTokens.ts";
 import type { ITempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { createTempWorkspace } from "../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../TestUtils/TestApp.ts";
 import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../base/common/performance.ts";
 import { LanguageServiceDIToken, NULL_LANGUAGE_SERVICE } from "../editor/common/languages/iLanguageService.ts";
-import { createLineTokens, createToken } from "../editor/common/languages/iLineTokens.ts";
 import { NULL_STATE } from "../editor/common/languages/iState.ts";
 import { TokenizationRegistryDIToken } from "../editor/common/languages/tokenizationRegistry.ts";
 import { MenuId } from "../platform/actions/common/menuId.ts";
@@ -338,9 +338,9 @@ describe("startWorkbench", () => {
         registry.registerLazy("typescript", () =>
             Promise.resolve({
                 getInitialState: () => NULL_STATE,
-                tokenizeLine: (line: string) => {
+                tokenizeEncoded: (line: string) => {
                     tokenized.push(line);
-                    return { tokens: createLineTokens([createToken(0, ["source.ts"])]), endState: NULL_STATE };
+                    return encodedResult([[0, tokenMetadata()]], NULL_STATE);
                 },
             }),
         );

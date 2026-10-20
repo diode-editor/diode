@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { encodedResult, markedMetadata } from "../../../../TestUtils/encodedTokens.ts";
 import { createInsertEdit } from "../core/iTextEdit.ts";
+import type { EncodedTokenizationResult, ITokenizationSupport } from "../languages.ts";
 import type { IState } from "../languages/iState.ts";
-import type { ITokenizationResult, ITokenizationSupport } from "../languages/iTokenizationSupport.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
+
+/** Цвет токена, которым токенизатор метит входящее состояние `counter` (смещение от цветов по умолчанию). */
+const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
     public readonly value: number;
@@ -29,13 +33,10 @@ class StatefulTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return new CounterState(0);
     }
-    public tokenizeLine(line: string, state: IState): ITokenizationResult {
+    public tokenizeEncoded(line: string, _hasEOL: boolean, state: IState): EncodedTokenizationResult {
         const counter = (state as CounterState).value;
         const next = line.startsWith(">") ? new CounterState(counter + 1) : new CounterState(counter);
-        return {
-            tokens: { tokens: [{ startIndex: 0, scopes: [`s${String(counter)}`] }] },
-            endState: next,
-        };
+        return encodedResult([[0, markedMetadata(stateMark(counter))]], next);
     }
 }
 
@@ -49,7 +50,7 @@ describe("DocumentTokenStore end-state optimisation", () => {
         // Edit line 0 with another non-`>` line → endState stays { value: 0 }.
         doc.applyEdits([createInsertEdit(0, 0, "X")]);
 
-        const spy = vi.spyOn(tokenizer, "tokenizeLine");
+        const spy = vi.spyOn(tokenizer, "tokenizeEncoded");
         store.forceTokenization(doc.lineCount - 1);
         // Line 0 is the invalidated region (always re-tokenized). Its old end
         // state survives the edit (upstream TokenizationStateStore keeps it), the
@@ -67,7 +68,7 @@ describe("DocumentTokenStore end-state optimisation", () => {
         // Edit line 0 to a `>` line → endState changes to { value: 1 }, propagates downstream.
         doc.applyEdits([createInsertEdit(0, 0, ">")]);
 
-        const spy = vi.spyOn(tokenizer, "tokenizeLine");
+        const spy = vi.spyOn(tokenizer, "tokenizeEncoded");
         store.forceTokenization(doc.lineCount - 1);
         // Every line must be re-tokenized.
         expect(spy).toHaveBeenCalledTimes(doc.lineCount);

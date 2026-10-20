@@ -2,15 +2,36 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-//@diode:shim microsoft/vscode@1.127.0 src/vs/editor/common/languages/nullTokenize.ts
-// Узкое извлечение под перенесённый model/textModelTokens.ts (см. шапку
-// src/vs/base/common/arrays.ts и шов формата в ../languages.ts): результат
-// «токенизатор упал» — один токен без скоупов на всю строку, состояние то же.
+//@diode:vendored microsoft/vscode@1.127.0 src/vs/editor/common/languages/nullTokenize.ts
+// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).
 
-import type { EncodedTokenizationResult, IState } from "../languages.ts";
+import { Token, TokenizationResult, EncodedTokenizationResult } from '../languages.ts';
+import type { IState } from '../languages.ts';
+import { LanguageId, FontStyle, ColorId, StandardTokenType, MetadataConsts } from '../encodedTokenAttributes.ts';
 
-import { createLineTokens, createToken } from "./iLineTokens.ts";
+export const NullState: IState = new class implements IState {
+	public clone(): IState {
+		return this;
+	}
+	public equals(other: IState): boolean {
+		return (this === other);
+	}
+};
 
-export function nullTokenizeEncoded(_languageId: number, state: IState): EncodedTokenizationResult {
-    return { tokens: createLineTokens([createToken(0, [])]), endState: state };
+export function nullTokenize(languageId: string, state: IState): TokenizationResult {
+	return new TokenizationResult([new Token(0, '', languageId)], state);
+}
+
+export function nullTokenizeEncoded(languageId: LanguageId, state: IState | null): EncodedTokenizationResult {
+	const tokens = new Uint32Array(2);
+	tokens[0] = 0;
+	tokens[1] = (
+		(languageId << MetadataConsts.LANGUAGEID_OFFSET)
+		| (StandardTokenType.Other << MetadataConsts.TOKEN_TYPE_OFFSET)
+		| (FontStyle.None << MetadataConsts.FONT_STYLE_OFFSET)
+		| (ColorId.DefaultForeground << MetadataConsts.FOREGROUND_OFFSET)
+		| (ColorId.DefaultBackground << MetadataConsts.BACKGROUND_OFFSET)
+	) >>> 0;
+
+	return new EncodedTokenizationResult(tokens, [], state === null ? NullState : state);
 }

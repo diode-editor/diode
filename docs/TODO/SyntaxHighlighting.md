@@ -1,6 +1,6 @@
 # Подсветка синтаксиса
 
-**Статус**: TextMate-движок работает (vscode-textmate + oniguruma), hot-swap токенайзера сделан, грамматики грузятся лениво (по языку открытого документа) + фоновый прогрев остальных, семантические токены LSP — вторым слоем; фоновая и вьюпортная токенизация перенесены из эталона ([VscodeModel](VscodeModel.md), B1); остались scope-селекторы.
+**Статус**: TextMate-движок работает (vscode-textmate + oniguruma), hot-swap токенайзера сделан, грамматики грузятся лениво (по языку открытого документа) + фоновый прогрев остальных, семантические токены LSP — вторым слоем; фоновая и вьюпортная токенизация перенесены из эталона ([VscodeModel](VscodeModel.md), B1); бинарные токены и тема в vscode-textmate (B2).
 
 Архитектура повторяет VS Code:
 
@@ -11,28 +11,19 @@ ITokenizationSupport ── ┐
 DocumentTokenStore   TokenizationRegistry (DI)
        │
        ▼
-EditorElement.render() ── ITokenStyleResolver ── (Theme) TokenThemeResolver
+EditorElement.render() ── ITokenStyleResolver ── ColorMapTokenStyleResolver (colorMap темы)
 ```
 
-Готовое (интерфейсы, `TokenizationRegistry`, `DocumentTokenStore`, полный TextMate-движок, `TokenThemeResolver`, language detection, hot-swap, перекраска на смене темы, ленивая загрузка грамматик) — см. секцию **Editor/Tokenization/** в [docs/arch/Editor.md](../arch/Editor.md) и «Активация» в [docs/arch/Extensions.md](../arch/Extensions.md). Ниже — только открытое.
+Готовое (интерфейсы, `TokenizationRegistry`, `DocumentTokenStore`, полный TextMate-движок с бинарными токенами и темой в vscode-textmate (`createTextMateTheme`), language detection, hot-swap, перекраска на смене темы, ленивая загрузка грамматик) — см. секцию **Editor/Tokenization/** в [docs/arch/Editor.md](../arch/Editor.md) и «Активация» в [docs/arch/Extensions.md](../arch/Extensions.md). Ниже — только открытое.
 
 ## Осталось
 
-### [ ] Полный TextMate scope selector matcher
-Сейчас `TokenThemeResolver` поддерживает только longest-prefix scope match по dot-сегментам. Добавить:
-
-- **Parent selectors** (`meta.foo bar` — match если в скоуп-стеке есть `meta.foo`, и текущий — `bar.*`).
-- **Exclusion** (`-bar`, `text -comment`).
-- **Множественные селекторы через запятую** уже работают (`compileRules` разворачивает).
-- **Weighted scoring**: TextMate-спека считает вес селектора как `(specificity, depth)` — важно когда два правила одинаково подходят.
-
-**План:**
-1. Заменить `scopeMatches(rule, scope)` на парсер селектора → структура `{ scopes: string[], excludes: string[] }`.
-2. `resolve(scopeStack)` уже принимает массив (top-down). Перейти на bottom-up для матчинга parent-селекторов: для каждого правила проверить «совпадает ли паттерн с подпоследовательностью стека».
-3. Скоринг: сейчас сортируем по `segments` desc + `order` desc. Добавить третий ключ — `parentDepth` (длина совпавшей подпоследовательности).
-4. **Тесты:** `TokenThemeResolver.ScopeSelectors.test.ts` (parent), `TokenThemeResolver.Exclusion.test.ts`. Кейсы из VS Code (`vs/editor/test/common/modes/supports/tokenization.test.ts`) — хорошая база.
-
-**Что не делать:** полный TM scope selector grammar (group, `|` внутри селектора) — этого нет даже у VS Code. Достаточно того, что использует Dark+/Light+.
+### [x] Полный TextMate scope selector matcher
+Закрыто B2 ([VscodeModel](VscodeModel.md)): тему матчит vscode-textmate (`Registry.setTheme`,
+как у эталона) — родительские селекторы (`meta.foo bar`), специфичность и порядок правил;
+собственный резолвер скоупов удалён. Видимые изменения против прежнего резолвера — только там,
+где он расходился с VS Code: Monokai (безскоупное правило темы перекрывало цвет строк и
+комментариев у их пунктуации), Dark 2026 (`markup.heading entity.name`).
 
 ### [x] Семантические токены LSP поверх TextMate
 
@@ -60,13 +51,12 @@ EditorElement.render() ── ITokenStyleResolver ── (Theme) TokenThemeResol
 ### [ ] Bracket pair colorization (низкий приоритет)
 VS Code держит отдельный bracket pair index поверх токенов. Можно отложить до полного TM. Точка интеграции — `TokenIndex` в `EditorElement.render` мог бы дополнительно отдавать bracket-level для оверрайда цвета.
 
-### Открытый вопрос
-- Бинарный API `tokenizeLine2` (быстрее, но требует переделки рендера на работу с metadata) — пока не используется.
 
 ## Связанные файлы
 
 - `src/vs/editor/Tokenization/` — все интерфейсы и реализации
-- `src/vs/workbench/services/themes/common/tokenThemeResolver.ts` — резолвер скоупов
+- `src/vs/workbench/services/themes/common/textMateTheme.ts` — тема для vscode-textmate и colorMap
+- `src/vs/editor/common/languages/colorMapTokenStyleResolver.ts` — стиль токена по метаданным
 - `src/vs/editor/browser/editorElement.ts` — `TokenIndex`, `packStyleFlags`, рендеринг с цветами
 - `src/vs/workbench/browser/parts/editor/editorComponent.ts` — wiring per-document store
 - `src/vs/diode/main.ts` — регистрация встроенных токенайзеров

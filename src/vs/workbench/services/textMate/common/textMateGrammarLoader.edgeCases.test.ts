@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { IAssetAccess, IAssetEntry } from "../../../../base/common/assets/iAssetAccess.ts";
 import { createDevAssetAccess } from "../../../../base/node/assets/createDefaultAssetAccess.ts";
+import { TokenMetadata } from "../../../../editor/common/encodedTokenAttributes.ts";
+import type { ITextMateTheme } from "../../themes/common/textMateTheme.ts";
 
 import type { IGrammarRecord } from "./textMateGrammarLoader.ts";
 import { TextMateGrammarLoader } from "./textMateGrammarLoader.ts";
@@ -38,6 +40,28 @@ class MemoryGrammarAssets implements IAssetAccess {
     }
 }
 
+/**
+ * Тема, красящая скоупы фикстур своими цветами: токены бинарные, и скоуп
+ * виден в них только цветом (индексом colorMap).
+ */
+const MARKER_THEME: ITextMateTheme = {
+    settings: [
+        { settings: { foreground: "#000000", background: "#FFFFFF" } },
+        { scope: "marker.a", settings: { foreground: "#AA0000" } },
+        { scope: "marker.b", settings: { foreground: "#00BB00" } },
+        { scope: "word.outer", settings: { foreground: "#0000CC" } },
+    ],
+    colorMap: ["", "#000000", "#FFFFFF", "#AA0000", "#00BB00", "#0000CC"],
+};
+
+/** Цвета всех токенов строки (по метаданным пар [начало, метаданные]). */
+function colorsOf(tokens: Uint32Array): string[] {
+    const colors: string[] = [];
+    for (let i = 1; i < tokens.length; i += 2)
+        colors.push(MARKER_THEME.colorMap[TokenMetadata.getForeground(tokens[i])]);
+    return colors;
+}
+
 describe("TextMateGrammarLoader — injection registration", () => {
     it("appends to an existing host injection list when two grammars inject into the same host", async () => {
         const assets = new MemoryGrammarAssets({
@@ -65,16 +89,17 @@ describe("TextMateGrammarLoader — injection registration", () => {
             { scopeName: "inj.b", path: "injb.json", injections: ["source.host"] },
         ];
         const loader = new TextMateGrammarLoader(assets, records);
+        loader.setTheme(MARKER_THEME);
 
         const support = await loader.loadSupport("source.host");
         expect(support).not.toBeNull();
 
-        const result = support!.tokenizeLine("AAA BBB ccc", support!.getInitialState());
-        const scopes = result.tokens.tokens.flatMap((t) => t.scopes);
+        const result = support!.tokenizeEncoded("AAA BBB ccc", true, support!.getInitialState());
+        const colors = colorsOf(result.tokens);
         // Both injected grammars must contribute their markers, proving both ended
         // up in the host's injection list.
-        expect(scopes).toContain("marker.a");
-        expect(scopes).toContain("marker.b");
+        expect(colors).toContain("#AA0000");
+        expect(colors).toContain("#00BB00");
         loader.dispose();
     });
 });
@@ -88,15 +113,15 @@ describe("TextMateGrammarLoader — unregistered external include", () => {
             }),
         });
         const loader = new TextMateGrammarLoader(assets, [{ scopeName: "source.outer", path: "outer.json" }]);
+        loader.setTheme(MARKER_THEME);
 
         const support = await loader.loadSupport("source.outer");
         expect(support).not.toBeNull();
 
         // `source.absent` has no record, so loadRawGrammar returns null for it; the
         // tokenizer must skip the dangling include and still classify the word.
-        const result = support!.tokenizeLine("hello", support!.getInitialState());
-        const scopes = result.tokens.tokens.flatMap((t) => t.scopes);
-        expect(scopes).toContain("word.outer");
+        const result = support!.tokenizeEncoded("hello", true, support!.getInitialState());
+        expect(colorsOf(result.tokens)).toContain("#0000CC");
         loader.dispose();
     });
 });

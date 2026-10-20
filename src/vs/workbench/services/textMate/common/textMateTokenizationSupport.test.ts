@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
+import type { IGrammar } from "vscode-textmate";
 
 import { joinVirtualPath } from "../../../../base/common/assets/assetBundleFormat.ts";
 import { createDevAssetAccess } from "../../../../base/node/assets/createDefaultAssetAccess.ts";
+import { ColorId, StandardTokenType, TokenMetadata } from "../../../../editor/common/encodedTokenAttributes.ts";
 import { NULL_STATE } from "../../../../editor/common/languages/iState.ts";
 import { scanBuiltinExtensions } from "../../../../platform/extensions/common/extensionScanner.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
+import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { createTextMateTheme } from "../../themes/common/textMateTheme.ts";
+import { createBuiltinThemeRegistry } from "../../themes/common/themeRegistry.ts";
 
 import type { IGrammarRecord } from "./textMateGrammarLoader.ts";
 import { TextMateGrammarLoader } from "./textMateGrammarLoader.ts";
 import { TextMateState } from "./textMateState.ts";
+import { TextMateTokenizationSupport } from "./textMateTokenizationSupport.ts";
 
 const assets = createDevAssetAccess();
 
@@ -26,6 +32,12 @@ function collectGrammarRecords(extensions: readonly IExtension[]): IGrammarRecor
         }
     }
     return records;
+}
+
+function darkModern(): WorkbenchTheme {
+    const theme = createBuiltinThemeRegistry().resolve("Dark Modern");
+    if (theme === undefined) throw new Error("Dark Modern missing");
+    return theme;
 }
 
 const extensionsPromise = scanBuiltinExtensions(assets, "Extensions/builtin/");
@@ -46,62 +58,116 @@ describe("TextMateTokenizationSupport", () => {
         expect(state.equals(state)).toBe(true);
     });
 
-    it("конвертирует вывод vscode-textmate в наш ILineTokens", async () => {
+    it("отдаёт бинарные токены tokenizeLine2: первый токен с нуля, цвет — индекс colorMap темы", async () => {
         const loader = await createLoader();
-        const support = await loader.loadSupport("source.js");
-        if (!support) throw new Error("source.js not loaded");
-
-        const result = support.tokenizeLine("const x = 1;", support.getInitialState());
-        const tokens = result.tokens.tokens;
-
-        expect(tokens.length).toBeGreaterThan(0);
-        expect(tokens[0].startIndex).toBe(0);
-        expect(tokens[0].scopes[0]).toBe("source.js");
-    });
-
-    it("`const` получает scope `storage.type.js`", async () => {
-        const loader = await createLoader();
+        const theme = createTextMateTheme(darkModern());
+        loader.setTheme(theme);
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
 
         const line = "const x = 1;";
-        const result = support.tokenizeLine(line, support.getInitialState());
-        const constTok = result.tokens.tokens.find((t) => t.startIndex === 0);
-        expect(constTok?.scopes).toContain("storage.type.js");
+        const tokens = support.tokenizeEncoded(line, true, support.getInitialState()).tokens;
+
+        // Пары [начало, метаданные]; `const` — storage.type, в Dark Modern синий.
+        expect(tokens[0]).toBe(0);
+        expect(theme.colorMap[TokenMetadata.getForeground(tokens[1])]).toBe("#569CD6");
+        // `1` — constant.numeric: свой цвет, другой токен.
+        const numberIndex = line.indexOf("1");
+        const pairs = [...tokens].flatMap((value, i) => (i % 2 === 0 ? [[value, tokens[i + 1]] as const] : []));
+        const numberToken = pairs.findLast(([start]) => start <= numberIndex);
+        expect(numberToken).toBeDefined();
+        expect(theme.colorMap[TokenMetadata.getForeground(numberToken?.[1] ?? 0)]).toBe("#B5CEA8");
     });
 
-    it("endState между строками внутри блока комментария стабилизируется (equals=true)", async () => {
+    it("вид токена — из метаданных: комментарий и строка", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
 
-        const r1 = support.tokenizeLine("/* line1", support.getInitialState());
-        const r2 = support.tokenizeLine("line2", r1.endState);
-        const r3 = support.tokenizeLine("line3", r2.endState);
-
-        expect(r1.endState.equals(r2.endState)).toBe(true);
-        expect(r2.endState.equals(r3.endState)).toBe(true);
+        const comment = support.tokenizeEncoded("// hi", true, support.getInitialState()).tokens;
+        expect(TokenMetadata.getTokenType(comment[comment.length - 1])).toBe(StandardTokenType.Comment);
+        const string = support.tokenizeEncoded('"s"', true, support.getInitialState()).tokens;
+        expect(TokenMetadata.getTokenType(string[1])).toBe(StandardTokenType.String);
     });
 
-    it("на сверхдлинной строке возвращает один root-scope токен и тот же endState", async () => {
+    it("endState между строками внутри блока комментария стабилизируется — тот же объект", async () => {
+        const loader = await createLoader();
+        const support = await loader.loadSupport("source.js");
+        if (!support) throw new Error("source.js not loaded");
+
+        const r1 = support.tokenizeEncoded("/* line1", true, support.getInitialState());
+        const r2 = support.tokenizeEncoded("line2", true, r1.endState);
+        const r3 = support.tokenizeEncoded("line3", true, r2.endState);
+
+        expect(r1.endState.equals(r2.endState)).toBe(true);
+        // Состояние не сменилось — объект переиспользуется (экономия аллокации, как у эталона).
+        expect(r2.endState).toBe(r1.endState);
+        expect(r3.endState).toBe(r1.endState);
+    });
+
+    it("сменившееся состояние — новый TextMateState", async () => {
+        const loader = await createLoader();
+        const support = await loader.loadSupport("source.js");
+        if (!support) throw new Error("source.js not loaded");
+
+        const initial = support.getInitialState();
+        const r1 = support.tokenizeEncoded("/* open", true, initial);
+        expect(r1.endState).not.toBe(initial);
+        expect(r1.endState.equals(initial)).toBe(false);
+    });
+
+    it("на сверхдлинной строке — один токен цвета по умолчанию и тот же endState", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
 
         const line = "x".repeat(20_001);
         const initial = support.getInitialState();
-        const result = support.tokenizeLine(line, initial);
+        const result = support.tokenizeEncoded(line, true, initial);
 
-        expect(result.tokens.tokens).toEqual([{ startIndex: 0, scopes: ["source.js"] }]);
+        expect(result.tokens.length).toBe(2);
+        expect(result.tokens[0]).toBe(0);
+        expect(TokenMetadata.getForeground(result.tokens[1])).toBe(ColorId.DefaultForeground);
         expect(result.endState).toBe(initial);
     });
 
-    it("бросает при несовместимом IState (не TextMateState) — line 40", async () => {
+    it("строка ровно на пределе длины токенизируется грамматикой", async () => {
+        const loader = await createLoader();
+        // С темой `const` и `x…` разного цвета — два токена; без неё склеились бы в один.
+        loader.setTheme(createTextMateTheme(darkModern()));
+        const support = await loader.loadSupport("source.js");
+        if (!support) throw new Error("source.js not loaded");
+
+        const line = "const " + "x".repeat(20_000 - "const ".length);
+        const tokens = support.tokenizeEncoded(line, true, support.getInitialState()).tokens;
+        expect(tokens.length).toBeGreaterThan(2);
+    });
+
+    it("грамматика не уложилась во время — токены что успели и состояние начала строки", () => {
+        const ruleStack = { equals: () => false, clone: () => ruleStack };
+        let timeLimit: number | undefined;
+        const grammar = {
+            tokenizeLine2: (_line: string, _state: unknown, limit?: number) => {
+                timeLimit = limit;
+                return { tokens: new Uint32Array([0, 7]), ruleStack, stoppedEarly: true };
+            },
+        } as unknown as IGrammar;
+        const support = new TextMateTokenizationSupport(grammar);
+        const initial = support.getInitialState();
+
+        const result = support.tokenizeEncoded("slow", true, initial);
+
+        expect(timeLimit).toBe(500);
+        expect([...result.tokens]).toEqual([0, 7]);
+        expect(result.endState).toBe(initial);
+    });
+
+    it("бросает при несовместимом IState (не TextMateState)", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
 
-        expect(() => support.tokenizeLine("const x = 1;", NULL_STATE)).toThrow(/incompatible IState/);
+        expect(() => support.tokenizeEncoded("const x = 1;", true, NULL_STATE)).toThrow(/incompatible IState/);
     });
 
     it("loader.loadSupport для неизвестного scope возвращает null", async () => {

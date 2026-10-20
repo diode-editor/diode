@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { encodedResult, markedMetadata } from "../../../../TestUtils/encodedTokens.ts";
 import { createInsertEdit } from "../core/iTextEdit.ts";
+import type { EncodedTokenizationResult, ITokenizationSupport } from "../languages.ts";
 import type { IState } from "../languages/iState.ts";
-import type { ITokenizationResult, ITokenizationSupport } from "../languages/iTokenizationSupport.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
+
+/** Цвет токена, которым токенизатор метит входящее состояние `counter` (смещение от цветов по умолчанию). */
+const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
     public readonly value: number;
@@ -20,20 +24,17 @@ class CounterState implements IState {
     }
 }
 
-/** Lines starting with `>` (after indentation) bump the counter; the scope records the incoming state. */
+/** Lines starting with `>` (after indentation) bump the counter; the token's foreground records the incoming state. */
 class StatefulTokenizer implements ITokenizationSupport {
     public readonly tokenized: string[] = [];
     public getInitialState(): IState {
         return new CounterState(0);
     }
-    public tokenizeLine(line: string, state: IState): ITokenizationResult {
+    public tokenizeEncoded(line: string, _hasEOL: boolean, state: IState): EncodedTokenizationResult {
         this.tokenized.push(line);
         const counter = (state as CounterState).value;
         const next = line.trimStart().startsWith(">") ? new CounterState(counter + 1) : new CounterState(counter);
-        return {
-            tokens: { tokens: [{ startIndex: 0, scopes: [`s${String(counter)}`] }] },
-            endState: next,
-        };
+        return encodedResult([[0, markedMetadata(stateMark(counter))]], next);
     }
 }
 
@@ -79,7 +80,7 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
 
         // Кроме вьюпорта токенизирована только строка-«родитель» по отступу.
         expect(tokenizer.tokenized).toEqual([">block", ...lines(6, "  body")]);
-        expect(store.getLineTokens(90)?.tokens[0].scopes).toEqual(["s1"]);
+        expect(store.getLineTokens(90)?.getForeground(0)).toBe(stateMark(1));
     });
 
     it("пустые строки над вьюпортом угадыванию не мешают, таб — тоже отступ", () => {
@@ -90,7 +91,7 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         store.tokenizeViewport(90, 95);
 
         expect(tokenizer.tokenized).toEqual([">block", ...lines(6, "\tbody")]);
-        expect(store.getLineTokens(90)?.tokens[0].scopes).toEqual(["s1"]);
+        expect(store.getLineTokens(90)?.getForeground(0)).toBe(stateMark(1));
     });
 
     it("вьюпорт вырос (ресайз) — новые строки угадываются тоже", () => {
@@ -109,9 +110,9 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         // Правка строки 0 состояния не меняет: фон сойдётся на ней же.
         doc.applyEdits([createInsertEdit(0, 1, "x")]);
 
-        // Отступов нет — угадано начальное состояние, то есть неверно (s0 вместо s1).
+        // Отступов нет — угадано начальное состояние, то есть неверно (метка состояния 0 вместо 1).
         store.tokenizeViewport(900, 909);
-        expect(store.getLineTokens(909)?.tokens[0].scopes).toEqual(["s0"]);
+        expect(store.getLineTokens(909)?.getForeground(0)).toBe(stateMark(0));
 
         tokenizer.tokenized.length = 0;
         const deadline = Date.now() + 2000;
@@ -122,8 +123,8 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         }
         // Правленая строка плюс десять угаданных — и ничего сверх.
         expect(tokenizer.tokenized).toHaveLength(11);
-        expect(store.getLineTokens(900)?.tokens[0].scopes).toEqual(["s1"]);
-        expect(store.getLineTokens(909)?.tokens[0].scopes).toEqual(["s1"]);
+        expect(store.getLineTokens(900)?.getForeground(0)).toBe(stateMark(1));
+        expect(store.getLineTokens(909)?.getForeground(0)).toBe(stateMark(1));
         store.dispose();
     });
 

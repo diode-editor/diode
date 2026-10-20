@@ -4,29 +4,33 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { encodedResult, markedMetadata } from "../../../../../TestUtils/encodedTokens.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
+import { ColorId } from "../../../../editor/common/encodedTokenAttributes.ts";
+import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
-import { createLineTokens, createToken } from "../../../../editor/common/languages/iLineTokens.ts";
 import { NULL_STATE } from "../../../../editor/common/languages/iState.ts";
-import type { ITokenizationSupport } from "../../../../editor/common/languages/iTokenizationSupport.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-/** Скоуп первого токена первой строки — чем токенизирован документ прямо сейчас. */
-function firstScope(ctrl: TextEditorPane): string | undefined {
+/** Цвет первого токена первой строки — чем токенизирован документ прямо сейчас. */
+function firstForeground(ctrl: TextEditorPane): number | undefined {
     const tokenStore = ctrl.viewState.tokenStore;
     tokenStore?.forceTokenization(0);
-    return tokenStore?.getLineTokens(0)?.tokens[0]?.scopes[0];
+    return tokenStore?.getLineTokens(0)?.getForeground(0);
 }
+
+/** Метка токенов ленивого токенайзера: цвет, которого у plain text не бывает. */
+const LAZY_FOREGROUND = 7;
 
 describe("EditorComponent + TextFileModel (пара)", () => {
     let ws: ITempWorkspace;
@@ -557,10 +561,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const registry = new TokenizationRegistry();
             const lazySupport: ITokenizationSupport = {
                 getInitialState: () => NULL_STATE,
-                tokenizeLine: () => ({
-                    tokens: createLineTokens([createToken(0, ["source.ts.lazy"])]),
-                    endState: NULL_STATE,
-                }),
+                tokenizeEncoded: () => encodedResult([[0, markedMetadata(LAZY_FOREGROUND)]], NULL_STATE),
             };
             let factoryCalls = 0;
             registry.registerLazy("typescript", async () => {
@@ -579,11 +580,11 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             // Файл уже открыт и читается, грамматика ещё едет — работаем на fallback'е.
             expect(ctrl.getText()).toBe("const x = 1;");
             expect(factoryCalls).toBe(1);
-            expect(firstScope(ctrl)).toBe("text.plain");
+            expect(firstForeground(ctrl)).toBe(ColorId.DefaultForeground);
 
             await registry.load("typescript");
 
-            expect(firstScope(ctrl)).toBe("source.ts.lazy");
+            expect(firstForeground(ctrl)).toBe(LAZY_FOREGROUND);
         });
     });
 

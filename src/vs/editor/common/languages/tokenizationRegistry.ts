@@ -1,8 +1,7 @@
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
-
-import type { ITokenizationSupport } from "./iTokenizationSupport.ts";
+import type { ITokenizationSupport } from "../languages.ts";
 
 /** Ленивая регистрация: фабрика + кеш её запуска и итоговой регистрации. */
 interface ILazyEntry {
@@ -33,6 +32,7 @@ export class TokenizationRegistry {
     public readonly onDidChange = this.onDidChangeEmitter.event;
     /** Языки, чей support менялся под {@link hold}; `undefined` — не держим. */
     private heldChanges: Set<string> | undefined;
+    private colorMap: readonly string[] | null = null;
 
     public register(languageId: string, support: ITokenizationSupport): IDisposable {
         this.supports.set(languageId, support);
@@ -86,6 +86,23 @@ export class TokenizationRegistry {
         // тогда ре-ентрантный load() из onDidChange-слушателя увидит кеш.
         entry.loading ??= this.runFactory(languageId, entry);
         return entry.loading;
+    }
+
+    /**
+     * colorMap темы подсветки (upstream `setColorMap`): цвета по индексам,
+     * которые токенизаторы кладут в метаданные токенов (`ColorId`). Токены,
+     * посчитанные по прежней теме, держат прежние индексы, поэтому, как у
+     * эталона, событие уходит по каждому зарегистрированному языку — владельцы
+     * токенов перетокенизируют документы.
+     */
+    public setColorMap(colorMap: readonly string[]): void {
+        this.colorMap = colorMap;
+        for (const languageId of this.supports.keys()) this.fireChange(languageId);
+    }
+
+    /** colorMap темы ({@link setColorMap}); `null` — тему ещё не ставили. */
+    public getColorMap(): readonly string[] | null {
+        return this.colorMap;
     }
 
     /** Языки с ленивой регистрацией — для фонового прогрева. */

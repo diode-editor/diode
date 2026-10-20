@@ -7,7 +7,8 @@ import { TerminalScreen } from "@tuidom/core/rendering/terminalScreen";
 import { describe, expect, it } from "vitest";
 
 import { Event } from "../../base/common/event.ts";
-import { WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
+import { TokenMetadata } from "../common/encodedTokenAttributes.ts";
+import { WordTokenColor, WordTokenizer } from "../common/languages/builtin/wordTokenizer.ts";
 import type { ISemanticTokensLegend } from "../common/languages/iSemanticTokensSource.ts";
 import type {
     ISemanticTokenStyleResolver,
@@ -29,8 +30,9 @@ const VAR_FG = packRgb(10, 20, 30);
 
 /** TextMate: `if` — красный курсивом, остальное — без правила. */
 class TmResolver implements ITokenStyleResolver {
-    public resolve(scopes: readonly string[]): ResolvedTokenStyle {
-        return scopes.includes("keyword.control")
+    public resolve(metadata: number): ResolvedTokenStyle {
+        const foreground: number = TokenMetadata.getForeground(metadata);
+        return foreground === WordTokenColor.keyword
             ? { ...EMPTY_RESOLVED_TOKEN_STYLE, fg: KEYWORD_FG, italic: true }
             : EMPTY_RESOLVED_TOKEN_STYLE;
     }
