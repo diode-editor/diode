@@ -4,7 +4,7 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { CancellationTokenSource, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * `vscode.tests` как заглушка до view Testing (волна C, docs/TODO/GoLSP.md).
+ * `vscode.tests` как заглушка до view Testing (docs/arch/StockExtensions.md, golang.go).
  * Тот же принцип, что у комментариев (commentsNoop.ts): контроллер, профили,
  * элементы и прогоны — настоящие объекты эталонной формы, присваивания полей
  * проходят, но ничего не рисуется и обработчики (`runHandler`,

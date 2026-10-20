@@ -2,7 +2,7 @@
 /**
  * Упаковка typescript-language-server + минимального TypeScript в ассет
  * `ts-server.bundle` — «батарейки вшиты»: LSP работает из коробки без
- * node_modules в проекте и без node в PATH (контекст — docs/TODO/LSP.md).
+ * node_modules в проекте и без node в PATH (контекст — docs/arch/Extensions.md, «Builtin LSP-клиент»).
  *
  * Состав (фиксированные списки, никаких «взять всё»):
  *  - `typescript-language-server/lib/cli.mjs` — готовый однофайловый

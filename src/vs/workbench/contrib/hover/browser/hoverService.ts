@@ -22,7 +22,7 @@ export const HoverServiceDIToken = token<HoverService>("HoverService");
 /**
  * Стрип подмножества markdown в плоский текст для TUI-попапа: fenced-ограждения
  * снимаются (содержимое остаётся), инлайн-`код`, **жирный**, *курсив*, _курсив_ и ссылки
- * разворачиваются в текст. Рендерера markdown нет (docs/TODO/LSP.md) — это
+ * разворачиваются в текст. Рендерера markdown нет (docs/arch/Extensions.md, «LSP и стоковые клиенты») — это
  * осознанный v1; мини-рендерер со StyleFlags — отдельной задачей.
  */
 export function stripMarkdown(value: string): string {

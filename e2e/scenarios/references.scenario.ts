@@ -21,7 +21,7 @@ export default defineScenario({
     name: "references",
     title: "Find All References: ссылки из двух файлов в сайдбаре, F4 по ним",
     open: [sampleDir, mainFile],
-    // Сервер живёт в devDeps репозитория (в SEA не пакуется — см. docs/TODO/LSP.md).
+    // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»).
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),

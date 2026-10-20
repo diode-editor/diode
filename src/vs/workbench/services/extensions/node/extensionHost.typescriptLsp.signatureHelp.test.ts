@@ -123,7 +123,7 @@ describe("ExtensionHost — подсказка параметров от сто�
 
             // Каретка сразу за `greet(` — текста с вызовом НА ДИСКЕ нет: его
             // набирают в редакторе, и сервер видит его только через didChange
-            // (правило docs/TODO/LSP.md).
+            // (правило из docs/arch/Extensions.md, «LSP и стоковые клиенты»).
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits(
                 [createTextEdit(createRange(1, 0, 1, 0), MAIN_TYPING.slice(MAIN_SAVED.length))],

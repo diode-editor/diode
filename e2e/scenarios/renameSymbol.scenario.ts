@@ -29,7 +29,7 @@ export default defineScenario({
     title: "Rename Symbol (F2): стоковый tsserver правит открытый И закрытый файл",
     // Открыт только объявляющий файл; потребитель остаётся закрытым.
     open: [sampleDir, defsFile],
-    // Сервер живёт в devDeps репозитория (в SEA не пакуется — см. docs/TODO/LSP.md),
+    // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»),
     // путь передаётся настройками; tsserver.js — для песочниц без своего TypeScript.
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),

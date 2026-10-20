@@ -22,7 +22,7 @@ export default defineScenario({
     name: "goto-definition",
     title: "Stock typescript-language-server: diagnostics + Go to Definition (F12)",
     open: [sampleDir, mainFile],
-    // Сервер живёт в devDeps репозитория (в SEA не пакуется — см. docs/TODO/LSP.md),
+    // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»),
     // путь передаётся настройками; tsserver.js — для песочниц без своего TypeScript.
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
