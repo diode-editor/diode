@@ -8,7 +8,7 @@
 
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { packRgb } from "@tuidom/core/common/colorUtils";
@@ -87,13 +87,14 @@ export function firstSatisfiedAt(
 
 // ── Результат прогона ────────────────────────────────────────────────────────
 
-export type WorkloadStepKey = "insert" | "enter" | "undoEnter" | "undoInsert" | "ctrlEnd" | "search";
+export type WorkloadStepKey = "insert" | "enter" | "undoEnter" | "undoInsert" | "save" | "ctrlEnd" | "search";
 
 export const WORKLOAD_STEPS: readonly { key: WorkloadStepKey; label: string }[] = [
     { key: "insert", label: "вставка символа" },
     { key: "enter", label: "Enter" },
     { key: "undoEnter", label: "undo (Enter)" },
     { key: "undoInsert", label: "undo (символ)" },
+    { key: "save", label: "сохранение" },
     { key: "ctrlEnd", label: "Ctrl+End" },
     { key: "search", label: "поиск по слову" },
 ];
@@ -167,6 +168,7 @@ async function waitForTrace(path: string, deadline: number): Promise<string | nu
 const KEY_CTRL_G = "\x07";
 const KEY_CTRL_F = "\x06";
 const KEY_CTRL_Z = "\x1a";
+const KEY_CTRL_S = "\x13";
 const KEY_ENTER = "\r";
 const KEY_CTRL_END = "\x1b[1;5F";
 /** Символ вставки: в фикстурах не встречается, на экране виден только после правки. */
@@ -266,6 +268,11 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
     results.push(await measureStep(ctx, "enter", KEY_ENTER, lineSplitBelowChar));
     results.push(await measureStep(ctx, "undoEnter", KEY_CTRL_Z, lineJoinedAfterChar));
     results.push(await measureStep(ctx, "undoInsert", KEY_CTRL_Z, (s) => !insertVisible(s)));
+    // После двух undo текст совпадает с диском, но документ «грязный» (версия
+    // ушла вперёд): сохранение пишет файл тем же содержимым — фикстура цела.
+    // Видимый итог — маркер вкладки `●` сменился на `×`.
+    const cleanTab = `${basename(fixture.path)} ×`;
+    results.push(await measureStep(ctx, "save", KEY_CTRL_S, (s) => s.findText(cleanTab) !== null));
     results.push(
         await measureStep(
             ctx,

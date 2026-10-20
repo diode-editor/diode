@@ -6,14 +6,14 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
+import { DEFAULT_ENCODING, getEncodingInfo } from "../../../../editor/common/model/encoding.ts";
 import {
-    decodeBuffer,
-    decodeBufferByBOM,
-    DEFAULT_ENCODING,
-    encodeText,
-    getEncodingInfo,
-    type IDecodedText,
-} from "../../../../editor/common/model/encoding.ts";
+    decodeStream,
+    decodeStreamByBOM,
+    encodeChunks,
+    type IDecodedStream,
+} from "../../../../editor/common/model/encodingStream.ts";
+import { createTextBufferFactoryFromChunks } from "../../../../editor/common/model/textDocument.ts";
 import {
     etag,
     FileOperationResult,
@@ -273,32 +273,46 @@ export class TextFileModel extends BaseTextEditorModel {
      * iconv. Явная кодировка — {@link reopenWithEncoding}.
      */
     private loadDocumentFromDisk(filePath: string): void {
-        this.applyDecoded(filePath, decodeBufferByBOM(this.readDiskBytes(filePath)));
-    }
-
-    /** Байты файла для перечитки; каждая перечитка начинает новое поколение загрузки. */
-    private readDiskBytes(filePath: string): Buffer {
-        // Stryker disable next-line UpdateOperator: поколение сверяется только на равенство — «--» тоже новое значение
-        this.loadGeneration++;
-        const buffer = fs.existsSync(filePath) ? fs.readFileSync(filePath) : Buffer.alloc(0);
-        // Вехи лестницы старта (docs/TODO/OpenPerformance.md): без трассы — no-op.
-        mark("textfile:read", { bytes: buffer.length });
-        return buffer;
+        this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
     }
 
     /**
-     * Кладёт декодированный файл в документ. Обновляет снимок `diskStat` и
-     * снимает флаг конфликта.
+     * Байты файла для перечитки — кусками по мере прохода, без буфера всего
+     * файла; каждая перечитка начинает новое поколение загрузки. Нет файла —
+     * ни одного куска.
      */
-    private applyDecoded(filePath: string, { text: content, encoding }: IDecodedText): void {
-        mark("textfile:decoded", { chars: content.length });
+    private readDiskChunks(filePath: string): Iterable<Buffer> {
+        // Stryker disable next-line UpdateOperator: поколение сверяется только на равенство — «--» тоже новое значение
+        this.loadGeneration++;
+        return readFileChunks(filePath);
+    }
+
+    /**
+     * Кладёт декодированный файл в документ: буфер собирается прямо из кусков
+     * декодера (A4, docs/TODO/VscodeModel.md) — строки всего файла не бывает.
+     * Обновляет снимок `diskStat` и снимает флаг конфликта.
+     */
+    private applyDecoded(filePath: string, { text, encoding }: IDecodedStream): void {
+        let chars = 0;
+        const factory = createTextBufferFactoryFromChunks(
+            (function* () {
+                for (const chunk of text) {
+                    chars += chunk.length;
+                    yield chunk;
+                }
+            })(),
+        );
+        // Вехи лестницы старта (docs/TODO/OpenPerformance.md): без трассы — no-op.
+        // Чтение и декод идут одним проходом по кускам, «декодирован» — буфер
+        // из кусков собран.
+        mark("textfile:decoded", { chars });
         this.applyEncoding(encoding);
         this.diskStat = this.readDiskStat(filePath);
         this.diskConflictValue = false;
         // Файл прочитан с диска — он есть (вернулся, а watcher промолчал).
         // Пропавший файл перечитка не воскрешает: байтов нет, флаг остаётся.
         if (this.diskStat !== null) this.setOrphaned(false);
-        this.replaceText(content);
+        this.replaceText(factory);
         mark("textfile:document-built", { lines: this.doc.lineCount });
         // Язык — после текста: у перечитки того же файла он прежний (no-op), а
         // у первого открытия смена языка пересаживает токенизатор уже готовым
@@ -319,7 +333,7 @@ export class TextFileModel extends BaseTextEditorModel {
         if (participation !== null) await participation;
         let written: IFileStat;
         try {
-            const bytes = await encodeText(this.doc.serialize(), this.encodingValue);
+            const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);
             written = await this.files.writeFile(this.uriValue, bytes, {
                 atomic: true,
                 // Тот же гард, что выше, но в момент записи: пока работали
@@ -383,12 +397,16 @@ export class TextFileModel extends BaseTextEditorModel {
     public async reopenWithEncoding(encoding: string): Promise<boolean> {
         const filePath = this.filePath;
         if (filePath === null) return false;
-        const buffer = this.readDiskBytes(filePath);
+        const chunks = this.readDiskChunks(filePath);
         const generation = this.loadGeneration;
-        const decoded = await decodeBuffer(buffer, encoding);
+        const decoded = await decodeStream(chunks, encoding);
         // Декодер мог ждать iconv: за это время буфер перечитали (revert, новый
         // reopen), перепривязали к другому пути или закрыли — результат устарел.
-        if (generation !== this.loadGeneration || filePath !== this.filePath) return false;
+        // Начатое чтение дочитывается и устаревшим: проход закрывает файл.
+        if (generation !== this.loadGeneration || filePath !== this.filePath) {
+            Array.from(decoded.text);
+            return false;
+        }
         this.applyDecoded(filePath, decoded);
         return true;
     }
@@ -409,7 +427,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.uriValue = Uri.file(path.resolve(newPath));
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        const bytes = await encodeText(this.doc.serialize(), this.encodingValue);
+        const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);
         const written = await this.files.writeFile(this.uriValue, bytes, { atomic: true });
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
@@ -523,4 +541,40 @@ export class TextFileModel extends BaseTextEditorModel {
     private resolveLanguageId(filePath: string): string {
         return this.languageService.getLanguageIdForResource(filePath) ?? "plaintext";
     }
+}
+
+/**
+ * Кусок чтения файла. Не 64 КБ эталона (`readFileIntoStream`): декод куска
+ * больше ~1 МБ (`EXTERN_APEX` node) node отдаёт внешней строкой — память вне
+ * кучи V8, как у прежней одной строки файла. Куски по 64 КБ — обычные строки
+ * кучи: она росла с запасом, и peak RSS на 13 МБ файле был +40 МБ к прежнему
+ * (`bench:open`, A4 в docs/TODO/VscodeModel.md). 4 МБ — с запасом и для текста
+ * в 2–3 байта на символ.
+ */
+export const READ_CHUNK_SIZE = 4 * 1024 * 1024;
+
+/**
+ * Файл кусками по {@link READ_CHUNK_SIZE}: открывается на первом куске,
+ * закрывается в конце прохода или когда проход бросили. Нет файла — ни одного
+ * куска (как прежнее «пустой буфер»). Веха `textfile:read` — когда прочитан
+ * последний кусок.
+ */
+function* readFileChunks(filePath: string): Generator<Buffer> {
+    let bytes = 0;
+    if (fs.existsSync(filePath)) {
+        const fd = fs.openSync(filePath, "r");
+        try {
+            for (;;) {
+                // Новый буфер на кусок: декодер может держать хвост куска до следующего.
+                const chunk = Buffer.allocUnsafe(READ_CHUNK_SIZE);
+                const read = fs.readSync(fd, chunk, 0, READ_CHUNK_SIZE, null);
+                if (read === 0) break;
+                bytes += read;
+                yield chunk.subarray(0, read);
+            }
+        } finally {
+            fs.closeSync(fd);
+        }
+    }
+    mark("textfile:read", { bytes });
 }

@@ -7,7 +7,7 @@ import { createRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEdit.ts";
 import { Range } from "../core/range.ts";
-import type { ITextBuffer } from "../model.ts";
+import type { ITextBuffer, ITextBufferFactory, ITextSnapshot } from "../model.ts";
 import { DefaultEndOfLine, EndOfLinePreference, ValidAnnotatedEditOperation } from "../model.ts";
 
 import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
@@ -28,6 +28,11 @@ import { type IModelDeltaDecoration, TrackedDecorations } from "./trackedDecorat
  * отдаются LF-канонично: {@link getText} и правки — с `\n`, {@link serialize} —
  * с `eol`.
  *
+ * Текст приходит строкой или фабрикой буфера, собранной по кускам чтения файла
+ * ({@link createTextBufferFactoryFromChunks}) — тогда строки всего файла не
+ * бывает вовсе. Наружу целиком — {@link getText}/{@link serialize} для тех, кому
+ * правда нужен весь текст; запись на диск — по кускам ({@link createSnapshot}).
+ *
  * Token caches live outside this class — see DocumentTokenStore.
  */
 export class TextDocument implements ITextDocument {
@@ -44,7 +49,7 @@ export class TextDocument implements ITextDocument {
     private languageIdValue: string;
     private readonly decorations = new TrackedDecorations();
 
-    public constructor(text: string, languageId = "plaintext") {
+    public constructor(text: TextSource, languageId = "plaintext") {
         this.buffer = createTextBuffer(text);
         this.languageIdValue = languageId;
     }
@@ -101,6 +106,23 @@ export class TextDocument implements ITextDocument {
         return this.buffer.getValueInRange(this.fullRange(), EndOfLinePreference.TextDefined);
     }
 
+    /**
+     * Текст для записи на диск по кускам — то же, что {@link serialize}, без
+     * строки всего документа (`createSnapshot(false)` у `TextModel` эталона).
+     * Куски буфера уже с EOL документа: правки он приводит к нему сам. Мелкие
+     * куски (по одному на набранный символ) склеиваются до ~64 КБ, как у
+     * `TextModelSnapshot` эталона. Снимок фиксирует содержимое на момент вызова
+     * — правки после него в выдачу не попадут.
+     */
+    public createSnapshot(): Iterable<string> {
+        return readSnapshot(this.buffer.createSnapshot(false));
+    }
+
+    /** Строки документа без переводов строк — один проход по кускам, без строки всего текста. */
+    public getLinesContent(): string[] {
+        return this.buffer.getLinesContent();
+    }
+
     /** Переписывает переводы строк буфера, как `setEOL` эталона, — O(n), но только по команде. */
     public setEol(eol: EndOfLine): void {
         if (eol === this.eol) return;
@@ -114,7 +136,7 @@ export class TextDocument implements ITextDocument {
      * объявляется, если сменился). Так перечитка — обычная правка для всех, кто
      * держит документ: view, токены, синхронизация с расширениями.
      */
-    public setText(text: string): void {
+    public setText(text: TextSource): void {
         const oldEndLine = this.lineCount - 1;
         const eolBefore = this.eol;
         this.innerVersionId++;
@@ -273,15 +295,29 @@ export class TextDocument implements ITextDocument {
     }
 }
 
+/** Текст документа: строка или фабрика буфера из кусков ({@link createTextBufferFactoryFromChunks}). */
+export type TextSource = string | ITextBufferFactory;
+
 /**
- * Буфер из текста — как `createTextBufferFactory` эталона: билдер с
- * `normalizeEOL`, EOL по умолчанию — LF (пустой файл и файл в одну строку).
+ * Фабрика буфера из кусков текста — `createTextBufferFactoryFromStream` эталона
+ * без стрима: билдер принимает куски как есть (граница может резать `\r\n` и
+ * суррогатную пару — билдер держит хвост до следующего куска) и хранит их без
+ * склейки в одну строку. EOL нормализуется к преобладающему (`normalizeEOL`).
  */
-function createTextBuffer(text: string): ITextBuffer {
+export function createTextBufferFactoryFromChunks(chunks: Iterable<string>): ITextBufferFactory {
     const builder = new PieceTreeTextBufferBuilder();
-    builder.acceptChunk(text);
+    for (const chunk of chunks) builder.acceptChunk(chunk);
     // Stryker disable next-line BooleanLiteral: без нормализации буфер приводит EOL на каждом чтении (регэксп по тексту) — та же семантика, другая цена
-    const { textBuffer } = builder.finish(true).create(DefaultEndOfLine.LF);
+    return builder.finish(true);
+}
+
+/**
+ * Буфер из текста — как `createTextBuffer` эталона, EOL по умолчанию — LF
+ * (пустой файл и файл в одну строку).
+ */
+function createTextBuffer(text: TextSource): ITextBuffer {
+    const factory = typeof text === "string" ? createTextBufferFactoryFromChunks([text]) : text;
+    const { textBuffer } = factory.create(DefaultEndOfLine.LF);
     // Билдер снимает ведущий BOM в отдельное поле (у эталона его снимает
     // чтение файла). Наш декодер BOM уже снял (`encoding.ts`), так что здесь
     // U+FEFF — обычный символ текста: возвращаем его в содержимое.
@@ -290,6 +326,24 @@ function createTextBuffer(text: string): ITextBuffer {
         textBuffer.applyEdits([toBufferOperation(new Range(1, 1, 1, 1), UTF8_BOM_CHARACTER)], false, false);
     }
     return textBuffer;
+}
+
+/** Порог склейки кусков снимка — как у `TextModelSnapshot` эталона. */
+const SNAPSHOT_CHUNK_LENGTH = 64 * 1024;
+
+function* readSnapshot(snapshot: ITextSnapshot): Generator<string> {
+    let parts: string[] = [];
+    let length = 0;
+    for (let piece = snapshot.read(); piece !== null; piece = snapshot.read()) {
+        parts.push(piece);
+        length += piece.length;
+        if (length >= SNAPSHOT_CHUNK_LENGTH) {
+            yield parts.join("");
+            parts = [];
+            length = 0;
+        }
+    }
+    if (parts.length > 0) yield parts.join("");
 }
 
 /**

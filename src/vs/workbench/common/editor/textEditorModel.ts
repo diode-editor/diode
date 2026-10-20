@@ -7,7 +7,7 @@ import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { ILanguageService } from "../../../editor/common/languages/iLanguageService.ts";
 import type { IDocumentLanguageChange } from "../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IUndoElement } from "../../../editor/common/model/iUndoElement.ts";
-import { TextDocument } from "../../../editor/common/model/textDocument.ts";
+import { TextDocument, type TextSource } from "../../../editor/common/model/textDocument.ts";
 import type { IUndoViewBinding, UndoStepToken } from "../../../editor/common/model/undoManager.ts";
 import { UndoManager } from "../../../editor/common/model/undoManager.ts";
 import type { ICursorStateComputer } from "../../../editor/common/viewModel/trackedSelections.ts";
@@ -267,7 +267,7 @@ export abstract class BaseTextEditorModel extends Disposable {
      * перенесённым файлом): история так же сбрасывается, но «сохранённой»
      * остаётся прежняя версия, и буфер изменён против диска.
      */
-    protected replaceText(text: string, { unsaved = false }: { unsaved?: boolean } = {}): void {
+    protected replaceText(text: TextSource, { unsaved = false }: { unsaved?: boolean } = {}): void {
         const eolBefore = this.doc.eol;
         this.replacingText = true;
         try {

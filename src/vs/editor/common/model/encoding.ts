@@ -141,7 +141,7 @@ export interface IDecodedText {
     readonly encoding: string;
 }
 
-type IconvLite = typeof IconvLiteModule;
+export type IconvLite = typeof IconvLiteModule;
 
 /**
  * iconv-lite for the charsets the native codecs do not cover. A lazy bundle
@@ -149,7 +149,7 @@ type IconvLite = typeof IconvLiteModule;
  * utf-8 or UTF-16 file never parses. `default` is `module.exports` on every
  * path (node's `import()` of CJS, the packaged chunk loader).
  */
-async function loadIconv(): Promise<IconvLite> {
+export async function loadIconv(): Promise<IconvLite> {
     return (await importLazyModule("iconv-lite", () => import("iconv-lite"))).default;
 }
 
@@ -186,7 +186,7 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
 ]);
 
 /** The table entry `buffer` is decoded in (rules — {@link decodeBuffer}). */
-function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
+export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
     // По построению id всегда табличный: explicit проверен через has(),
     // значения снифа и DEFAULT_ENCODING — элементы таблицы.
@@ -197,8 +197,13 @@ function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefi
     return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
 }
 
+/** The table entry text is encoded in: unknown ids defensively fall back to utf-8. */
+export function resolveEncodeEncoding(encoding: string): IEncodingInfo {
+    return encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
+}
+
 /** `buffer` without the encoding's BOM, when it starts with one. */
-function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
+export function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
     return info.bom !== undefined && startsWithBytes(buffer, info.bom) ? buffer.subarray(info.bom.length) : buffer;
 }
 
@@ -248,7 +253,7 @@ export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): P
  * replacement ("?"). Asynchronous for the same reason as {@link decodeBuffer}.
  */
 export async function encodeText(text: string, encoding: string): Promise<Buffer> {
-    const info = encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
+    const info = resolveEncodeEncoding(encoding);
     const codec = NATIVE_CODECS.get(info.iconvName);
     // addBOM, как и stripBOM в decodeBuffer, у не-Unicode кодеков пустой.
     const body = codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, info.iconvName);

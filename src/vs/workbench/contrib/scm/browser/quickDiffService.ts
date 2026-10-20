@@ -27,7 +27,8 @@ const DEFAULT_DEBOUNCE_MS = 200;
  */
 export interface IQuickDiffEditor {
     readonly uri: Uri;
-    getText(): string;
+    /** Строки буфера без переводов строк — без строки всего текста (пересчёт на каждую правку). */
+    getLinesContent(): string[];
     onDidChangeContent(listener: () => void): IDisposable;
     setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void;
 }
@@ -80,12 +81,13 @@ export class QuickDiffService extends Disposable {
 
     private readonly computer = new DefaultLinesDiffComputer();
     /**
-     * Текст оригинала по ресурсу редактора. Кэшируются ТОЛЬКО удачные чтения:
+     * Строки оригинала по ресурсу редактора (разбиты один раз, а не на каждый
+     * пересчёт). Кэшируются ТОЛЬКО удачные чтения:
      * «оригинала нет» может означать и «SCM-расширение ещё не активировалось»,
      * а закэшировав такой ответ, мы бы навсегда остались без баров. Цена —
      * один дешёвый запрос к расширению на каждый пересчёт файла без оригинала.
      */
-    private readonly originals = new Map<string, string>();
+    private readonly originals = new Map<string, string[]>();
     private activeContentSubscription: IDisposable | null = null;
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
     /** Последний пересчёт: устаревший асинхронный ответ не применяется. */
@@ -175,7 +177,7 @@ export class QuickDiffService extends Disposable {
             return;
         }
 
-        const original = await this.originalText(editor.uri);
+        const original = await this.originalLines(editor.uri);
         // Пока ходили за оригиналом, мог смениться редактор или прийти новая
         // правка — устаревший ответ не применяем.
         if (ticket.isStale()) return;
@@ -184,7 +186,7 @@ export class QuickDiffService extends Disposable {
             return;
         }
 
-        const diff = this.computer.computeDiff(original.split("\n"), editor.getText().split("\n"), {
+        const diff = this.computer.computeDiff(original, editor.getLinesContent(), {
             ignoreTrimWhitespace: false,
             maxComputationTimeMs: MAX_DIFF_COMPUTATION_MS,
             computeMoves: false,
@@ -192,15 +194,17 @@ export class QuickDiffService extends Disposable {
         editor.setGutterChangeDecorations(toGutterDecorations(diff.changes, this.colors()));
     }
 
-    /** Текст оригинала с кэшированием удачных чтений; `null` — сравнивать не с чем. */
-    private async originalText(uri: Uri): Promise<string | null> {
+    /** Строки оригинала с кэшированием удачных чтений; `null` — сравнивать не с чем. */
+    private async originalLines(uri: Uri): Promise<string[] | null> {
         const key = uri.toString();
         const cached = this.originals.get(key);
         if (cached !== undefined) return cached;
 
         const text = await this.loadOriginal(uri);
-        if (text !== null) this.originals.set(key, text);
-        return text;
+        if (text === null) return null;
+        const lines = text.split("\n");
+        this.originals.set(key, lines);
+        return lines;
     }
 
     private async loadOriginal(uri: Uri): Promise<string | null> {

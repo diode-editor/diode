@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Uri } from "../../../../base/common/uri.ts";
-import { encodeText } from "../../../../editor/common/model/encoding.ts";
+import { encodeChunks } from "../../../../editor/common/model/encodingStream.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -193,7 +193,7 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
             // ресурса), а исходная вкладка остаётся собой.
             await files.writeFile(
                 Uri.file(resolved),
-                await encodeText(editor.model.document.serialize(), editor.encoding),
+                await encodeChunks(editor.model.document.createSnapshot(), editor.encoding),
             );
             editorService.openFile(resolved);
         }

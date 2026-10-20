@@ -1,9 +1,10 @@
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { getCodeActions } from "../../../../editor/contrib/codeAction/codeAction.ts";
-import { documentRange, formatDocument } from "../../../../editor/contrib/format/format.ts";
+import { formatDocument } from "../../../../editor/contrib/format/format.ts";
+import { documentRange } from "../../../../editor/contrib/smartSelect/lineText.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormattingEdits.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
@@ -62,11 +63,10 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
         // Провайдеров для документа нет — и настройку читать незачем.
         if (!host.languageFeatures.codeActionProvider.has(target)) return [];
         for (const kind of enabledCodeActionKindsOnSave(host.configuration, snapshot.languageId)) {
-            // Свежие текст и версия — из панели: действия прошлого вида могли
-            // уже править буфер.
+            // Свежие границы и версия — из панели: действия прошлого вида
+            // могли уже править буфер. Диапазон — по строкам документа, без
+            // его полного текста.
             const pane = host.paneForUri(snapshot.uri);
-            const text = pane?.getText() ?? snapshot.text;
-            const lines = text.split("\n");
             const items = await getCodeActions(
                 host.languageFeatures.codeActionProvider,
                 target,
@@ -76,7 +76,7 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
                     versionId: pane?.model.document.versionId ?? snapshot.versionId,
                     // Source-действия применяются к целому файлу — диапазон всегда
                     // полный, как у команд organizeImports/fixAll.
-                    range: createRange(0, 0, lines.length - 1, lines[lines.length - 1].length),
+                    range: pane !== null ? documentRange(pane.model.document) : textRange(snapshot.text),
                     only: kind,
                 },
                 // Конвейер сохранения отмены не знает: участник дожидается ответа.
@@ -117,7 +117,7 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
                 tabSize: pane.viewState.tabSize,
                 insertSpaces: pane.viewState.insertSpaces,
             },
-            documentRange(pane.getText()),
+            documentRange(pane.model.document),
             // Устаревший ответ отбрасывает сверка версии ниже; конвейер
             // сохранения своей отмены не знает.
             CancellationTokenNone,
@@ -127,4 +127,10 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
         applyFormattingEdits(pane, edits, "Format on Save");
         return [];
     };
+}
+
+/** Весь текст снапшота — когда панели документа нет (сохранение без вкладки). */
+function textRange(text: string): IRange {
+    const lines = text.split("\n");
+    return createRange(0, 0, lines.length - 1, lines[lines.length - 1].length);
 }

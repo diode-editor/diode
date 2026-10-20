@@ -16,7 +16,11 @@ export interface ISaveSnapshot {
     readonly languageId: string;
     readonly versionId: number;
     readonly isDirty: boolean;
-    /** Полный текст документа (LF-канонический). */
+    /**
+     * Полный текст документа (LF-канонический). Ленивый: строится при чтении,
+     * из документа на этот момент — участник, которому он не нужен, за него не
+     * платит.
+     */
     readonly text: string;
     /**
      * Текущий EOL документа (детектированный при загрузке / изменённый ранее).

@@ -228,6 +228,11 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.getText();
     }
 
+    /** Строки буфера без переводов строк — дешевле, чем `getText().split("\n")`. */
+    public getLinesContent(): string[] {
+        return this.model.document.getLinesContent();
+    }
+
     /**
      * Программный батч одним шагом истории. Выделения после него назначает
      * `computeCursorState` (обратные правки — в порядке `edits`), без него они

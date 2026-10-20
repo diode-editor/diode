@@ -26,7 +26,7 @@ function fakeEditor(uri: Uri, text: string) {
     let current = text;
     const editor: IQuickDiffEditor = {
         uri,
-        getText: () => current,
+        getLinesContent: () => current.split("\n"),
         onDidChangeContent: (cb) => {
             listeners.push(cb);
             return { dispose: () => listeners.splice(listeners.indexOf(cb), 1) };
@@ -396,6 +396,30 @@ describe("QuickDiffService", () => {
 
         expect(ed.last).toHaveLength(1);
     });
+    it("прочитанный оригинал кэшируется — правка его не перечитывает", async () => {
+        const ed = fakeEditor(FILE, "a\nb\nc");
+        const src = fakeSource(ed.editor);
+        const registry = new FileService();
+        registry.registerProvider("git", fakeProvider("a\nb\nc").provider);
+        const cfg = fakeConfig({ "git.refreshDebounce": 0 });
+        const theme = fakeTheme({ "editorGutter.modifiedBackground": MODIFIED });
+        let asked = 0;
+        const originals: IOriginalResourceProvider = {
+            provideOriginalResource: () => {
+                asked++;
+                return Promise.resolve(ORIGINAL);
+            },
+        };
+
+        new QuickDiffService(src.source, originals, registry, cfg.service, theme.service);
+        await settle();
+        ed.type("a\nY\nc");
+        await settle();
+
+        expect(ed.last).toHaveLength(1);
+        expect(asked).toBe(1);
+    });
+
     it("dispose снимает подписки и таймер", async () => {
         const { ed, service } = setup({ config: { "git.refreshDebounce": 50 } });
         await settle();
