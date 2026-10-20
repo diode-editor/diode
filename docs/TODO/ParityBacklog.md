@@ -444,7 +444,7 @@ actions / `onClose` у контейнера. **Публикацию версии
 
 **Решение по activity bar: НЕ делаем** (решение пользователя; «активити бар не
 надо — пропускай»). Переключение вьюлетов остаётся командным, как и записано в
-[arch/Workbench.md](../arch/Workbench.md).
+[arch/workbench/Shell.md](../arch/workbench/Shell.md#layout-и-сайдбар).
 
 **Что остаётся.**
 

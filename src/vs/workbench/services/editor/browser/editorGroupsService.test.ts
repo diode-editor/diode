@@ -19,7 +19,7 @@ import { EditorService } from "./editorService.ts";
 
 /**
  * Граница двух сервисов: полоса групп (`IEditorGroupsService`) и «редакторы»
- * (`EditorService`). Порядок событий — контракт (`docs/arch/Workbench.md`):
+ * (`EditorService`). Порядок событий — контракт (`docs/arch/workbench/EditorPart.md`):
  * вкладки → активный редактор → активная группа; ни одно не стреляет дважды.
  */
 describe("IEditorGroupsService — события на границе с EditorService", () => {

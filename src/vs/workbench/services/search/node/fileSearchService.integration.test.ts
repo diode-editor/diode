@@ -54,8 +54,9 @@ describe("FileSearchService — integration against real project", () => {
         });
 
         it("indexes WorkbenchComponent.ts", () => {
-            // pass large maxResults — default 50 may not cover all files
-            const paths = relativePaths(service.search("", 2000));
+            // Ищем по имени: пустой запрос отдаёт первые N путей репозитория, и
+            // файл выпадает за порог, как только каталогов перед src/ становится больше.
+            const paths = relativePaths(service.search("workbenchComponent", 50));
             expect(paths.some((p) => p.includes("workbenchComponent.ts"))).toBe(true);
         });
 

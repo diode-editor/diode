@@ -2,7 +2,7 @@
 
 Аналог задач VS Code: ядро редактора (`contrib/tasks/`, Run Task и соседи) и API
 расширений `vscode.tasks`. Первая итерация — **только запуск**: problem matchers не
-делаем. Устройство и отступления от эталона — [docs/arch/Workbench.md](../arch/Workbench.md#задачи-tasks),
+делаем. Устройство и отступления от эталона — [docs/arch/workbench/Tasks.md](../arch/workbench/Tasks.md),
 провод — [docs/arch/Extensions.md](../arch/Extensions.md).
 
 Эталон — `src/vs/workbench/contrib/tasks/` и `api/{common,browser,node}/*Task*.ts`

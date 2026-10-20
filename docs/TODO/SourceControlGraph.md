@@ -58,7 +58,7 @@ ref'ов «auto», номенклатура команд контекстног�
   `ScmGraphService.setActive` сказано не запускать `git log` вовсе — иначе он уходил бы
   подпроцессом на каждое событие watcher'а рабочего дерева (debounce 200 мс), то есть
   на каждое сохранение файла. Опора — `ViewsService.isViewExpanded` /
-  `onDidChangeViewExpanded` (см. [Workbench.md](../arch/Workbench.md)).
+  `onDidChangeViewExpanded` (см. [workbench/Views.md](../arch/workbench/Views.md)).
   Канал в расширение — операция `logSetEnabled` диспетчера `diode.git.op`; плюс
   pull-команда ядра `diode.scm.graphEnabled`, которую расширение спрашивает при
   активации. Pull нужен из-за гонки: в момент, когда ядро объявляет своё состояние,

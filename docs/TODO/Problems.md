@@ -9,7 +9,7 @@
 
 Готовое (реестр `MarkerService`, squiggle в редакторе, валидатор `settings.json`, нижняя
 Panel + дерево Problems) — см. [arch/Editor.md](../arch/Editor.md) (Editor/Markers) и
-[arch/Workbench.md](../arch/Workbench.md) (Panel-кластер: `DiagnosticsService`,
+[arch/workbench/Shell.md](../arch/workbench/Shell.md#нижняя-панель) (Panel-кластер: `DiagnosticsService`,
 `PanelService`+`PanelComponent`, `ProblemsComponent`). Ниже — модель и открытые этапы.
 
 ## Модель маркера (как в VS Code)

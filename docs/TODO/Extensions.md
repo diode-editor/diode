@@ -88,15 +88,14 @@
       дверь к экрану его регистрации, команды в палитре для этого выбора у него нет).
       Все четыре перегрузки `show*Message` + `MessageOptions.modal`/`detail`; заодно
       настоящие `env.clipboard` и `env.openExternal` (путь платной подписки идёт
-      ссылкой в браузер). Поверхность и провод — [arch/Workbench.md](../arch/Workbench.md)
+      ссылкой в браузер). Поверхность и провод — [arch/workbench/Notifications.md](../arch/workbench/Notifications.md)
       и [arch/Extensions.md](../arch/Extensions.md).
 
 ## Phase 8b — UI-вклады: `contributes.viewsContainers` / `contributes.views`
 
 Ядро под это готово: `ViewsService` — общая модель container↔view с местами
 (`location: "sidebar" | "panel"`), заголовками, «⋯»-меню и переключателем
-видимости секций (см. [docs/arch/Workbench.md](../arch/Workbench.md), раздел
-`browser/parts/views/`). Ей уже подчиняются все встроенные панели, так что
+видимости секций (см. [docs/arch/workbench/Views.md](../arch/workbench/Views.md)). Ей уже подчиняются все встроенные панели, так что
 контрибьютор расширений ложится на готовый контракт
 (`registerContainer`/`registerView`/`setViewBody`) без переделки модели.
 

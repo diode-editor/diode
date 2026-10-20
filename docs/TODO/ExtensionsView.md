@@ -12,8 +12,8 @@
 
 Связанные документы: [Marketplace.md](Marketplace.md) (реестр, формат, источники —
 шаги 1–3 сделаны), [Extensions.md](Extensions.md) (рантайм расширений; Phase 7 —
-lifecycle и reload, Phase 8b — вклады `views`), [docs/arch/Workbench.md](../arch/Workbench.md)
-(ViewsService/SidebarService, шов `IEditorPane`), [docs/arch/Extensions.md](../arch/Extensions.md).
+lifecycle и reload, Phase 8b — вклады `views`), [docs/arch/workbench/Views.md](../arch/workbench/Views.md)
+(ViewsService/SidebarService), [EditorPart.md](../arch/workbench/EditorPart.md) (шов `IEditorPane`), [docs/arch/Extensions.md](../arch/Extensions.md).
 
 ---
 
@@ -106,7 +106,7 @@ lifecycle и reload, Phase 8b — вклады `views`), [docs/arch/Workbench.md
 - Перезагрузка окна — `base/node/restartProcess.ts`: процесс поднимается заново с теми же
   аргументами, состояние сессии пишется на диск до старта нового окна. Первый reload делает
   текущий процесс супервизором (`spawnSync` со `stdio: "inherit"`), дальнейшие обслуживает он —
-  терминал не отбирается, процессы не копятся (см. [docs/arch/Workbench.md](../arch/Workbench.md)).
+  терминал не отбирается, процессы не копятся (см. [docs/arch/workbench/Shell.md](../arch/workbench/Shell.md#жизненный-цикл)).
 - Ошибка установки (несовместимость, битый sha256, недоступный реестр) — значение, а не
   исключение: текст приезжает в шапку страницы, кнопка снова доступна, на диске пусто.
 - Тесты: юниты рядом с кодом (сервис на фейковом источнике и tmp-каталоге, чистые функции разметки
