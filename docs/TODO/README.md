@@ -35,13 +35,6 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 
 ## Крупные задачи
 
-- [x] [LanguageFeaturesRegistry](LanguageFeaturesRegistry.md) — реестр языковых провайдеров в ядре (G2, аналог `ILanguageFeaturesService`): селекторы и score в ядре, прокси провайдеров субпроцесса по handle вместо полей-швов `*Source` на `EditorService` и флагов `languages.updateSubscriptions`; фичи переезжают по одной
-- [x] [ExtensionHostCustomers](ExtensionHostCustomers.md) — нарезка `ExtensionHost` (G1): состояние спавна субпроцесса и customers по поверхностям вместо ручного `resetSubprocessState`; фасад с прежним API
-- [x] [DocumentSyncDeltas](DocumentSyncDeltas.md) — синхронизация документов с extension host'ом (G3): один дельтовый канал с versionId модели вместо полного текста на каждую правку и в каждом запросе провайдера
-- [x] [ExtensionHostRpc](ExtensionHostRpc.md) — RPC extension host'а (G4): ошибка через провод целиком, таймаут как отмена, токены отмены в субпроцессе, типизированная карта методов
-- [x] [WireLayer](WireLayer.md) — wire-слой языковых запросов extension host'а (G5): одна декларация параметров, типизированный ответ вместо `parseWire*` на хосте, core-`IRange` на проводе, конвертеры субпроцесса в одном модуле, host-only код из `api/common`; необязательный E (общая проводка группы редактора) — в документе
-- [~] [ExtensionIdentity](ExtensionIdentity.md) — идентичность расширения в extension host'е (G7): своё `vscode` у каждого расширения тонким оверлеем поверх общего API и «окружающий владелец» на создающих вызовах (PR1 сделан); дальше — составные id output/status bar, имя расширения в логах провайдеров
-- [ ] [ParityBacklog](ParityBacklog.md) — заход по списку шероховатостей от пользователя (15 пунктов, живой ssh+tmux): диагноз по каждому снят до работы (часть — живым прогоном редактора), разбивка на три волны. Волна 1 — общие механизмы: bulk workspace edit (из-за него «Code action failed»), NLS манифестов (`%java.*%` в палитре), fuzzy+сплит запроса по пробелам (палитра вообще на `includes`), `files.exclude`/`search.exclude`, достижимость биндов (F1 под `tier == 'legacy'` — в tmux редактор остаётся без палитры вовсе)
 - [ ] [Formatting](Formatting.md) — prettier и выбор форматтера (пункт 5 ParityBacklog, охват сужен: сначала prettier). Замерено: TS/JS форматирует tsserver, markdown/json не покрыты никем; провайдер выбирается первым матчащим, `editor.defaultFormatter` нет — отсюда риск конфликта prettier×tsserver
 - [~] [PreviewEditors](PreviewEditors.md) — режим предпросмотра вкладок (пункт 14 ParityBacklog): фаза 1 сделана (preview-флаг + замещение + прикалывание правкой/Ctrl+K Enter/сплитом, настройка `workbench.editor.enablePreview`). Осталось движковое: курсив метки в табе и активация по ОДИНОЧНОМУ клику (сейчас `onActivate` дерева стреляет по Enter и двойному клику)
 - [~] [Profiles](Profiles.md) — профили пользователя: итерации 1–2 сделаны (#601, #602: реестр в `User/globalStorage/storage.json`, привязка профиля к воркспейсу, `Profiles: Switch/New/Delete Profile...` с перезагрузкой окна, эталонная семантика настроек именованного профиля, свой `extensions.json` у профиля над общим каталогом). Открыто: хвосты 1–2 (два окна на одном user-data-dir затирают `storage.json`, подсказки в settings.json профиля, заголовок в tmux, одна версия расширения на все профили), итерация 3 (`useDefaultFlags`, `applyToAllProfiles`, пустое окно), итерация 4 (Profiles editor, Export/Import, горячее переключение)
@@ -49,7 +42,6 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Terraform](Terraform.md) — стоковое `hashicorp.terraform`: PR1 сделан — активация целиком (`env.createTelemetryLogger`, `vscode.authentication` как null-объект), работают hover, автодополнение по схеме AWS, F12, диагностики; дальше — деревья Providers/Module Calls (фаза 8b) и HCP Terraform с настоящим `authentication`
 - [~] [SecondarySideBar](SecondarySideBar.md) — вторичная боковая панель (auxiliary bar эталона) и перенос в неё видов и контейнеров из сайдбара и нижней панели; приёмка — TERMINAL справа с живым шеллом. Стек: PR0 (перенос `WorkbenchLayoutElement`) сделан, PR1 (часть) в работе, дальше модель расположения и живые виды
 - [~] [ClaudeCode](ClaudeCode.md) — интеграция с Claude Code: стоковое `Anthropic.claude-code` в режиме `useTerminal` в нашем магазине (v0.9.7) — `claude` вкладкой справа, контекст редактора, `getDiagnostics`, предложенный дифф с ✓/↺; открыты хвосты — уведомление на webview-команды, стоковые тесты терминала, `claude` во вторичной панели
-- [x] [Cancellation](Cancellation.md) — отмена и устаревание асинхронных запросов (H2): общий `LatestRequest` вместо счётчиков `requestSeq`, Go to Definition больше не прыгает задним числом, токен ядра доезжает до провайдера расширения
 - [~] [WorkbenchContributions](WorkbenchContributions.md) — перенос vscode contribution points; основное сделано, остались хвосты MenuRegistry (серые пункты попапа, `when`-фильтр палитры, `alt`/hide-toggle/вложенные подменю)
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, terminal, menuBar; `panel` и `workbenchlayout` переехали): по критерию «публичный API не упоминает понятий Diode» им место у нас
@@ -82,9 +74,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [ReadonlyEditor](ReadonlyEditor.md) — read-only редактор готов; далее — конфиг-слой `files.readonly*`, сообщение при попытке правки
 - [~] [Logging](Logging.md) — ILogService + Output UI и CLI-флаги уровней (`--log`, `--verbose`) готовы; далее — inner tracing extension host, `--log-file`, фильтры/Clear в Output
 - [~] [Startup](Startup.md) — параметры запуска: `diode` без аргументов поднимает пустое окно (cwd не трогаем), добавлены `-g/--goto`, `-d/--diff`, `--disable-extensions`, `--extensions-dir`, `--log`/`--verbose`; далее — welcome page и список недавних папок
-- [x] [Lifecycle](Lifecycle.md) — примитив жизненного цикла забран из `@tuidom/core` в свой `vs/base/common/lifecycle.ts` (`Disposable`, `DisposableStore`, `MutableDisposable`, `DisposableMap`, `toDisposable`, учёт утечек `DisposableTracker` + `ensureNoDisposablesAreLeakedInTestSuite`); все импорты переведены, гейт слоёв размечает подпути `@tuidom/*` окружениями и запрещает движковый `disposable` (#386, #402, #406, #407). Хвост — замена самодельных мест (`{ dispose }`, слоты, карты) по владельцам, после Emitter
 - [ ] [MultiRoot](MultiRoot.md) — **исследование цены** мульти-рут-воркспейсов и файлов `.code-workspace`: инвентаризация единственного корня (10 потребителей), чего нет как класса (workspace-слой конфигурации, `scope` у ключей, идентичность воркспейса), разбивка на 8 PR (крупные — конфигурация и SCM) и список предохранителей (4 из 6 поставлены, см. раздел 7); сделаны однопапочный слой `.diode/settings.json` и файл `.code-workspace` с одной папкой (несколько закоммиченных наборов настроек над одним каталогом)
-- [x] [Events](Events.md) — единый `Emitter`/`Event` (`base/common/event.ts`) вместо рукописных списков слушателей во всех слоях; ошибки слушателей изолированы (`onUnexpectedError`: в проде — лог, в тестах — падение теста), одиночные слоты на сервисах стали событиями, lint запрещает новые рукописные списки (#420 и далее, см. документ). `Event.debounce` оставлен задаче async-примитивов.
 - [~] [FileService](FileService.md) — **выполнено, кроме PR 5** (PR 0–4 и 6 — #459, #462, #467, #470, #475, #480, #482, #483; асинхронная загрузка модели отложена до этапа 4 OpenPerformance): `IFileService` вместо прямого `node:fs` в UI-слоях — инвентаризация (13 файлов / 26 sync-вызовов в browser+common, горячих 7), минимальный сервис на 16 членов поверх существующего реестра провайдеров, цена async-открытия (~570 тестовых вызовов без `await`), разбивка на гейт-храповик + 6 PR; из шести записей `EXCEPTIONS` сервис снимает одну
 - [~] [OpenPerformance](OpenPerformance.md) — красивые бенчи открытия: линейка сделана (321 мс наших на `small`: 115 парс бандла + 206 кухня); исследован парс — V8-снапшот даёт 111 → 45 наших, помехи в tuidom сняты (0.9.1, заодно −40 мс undici на старте); механика распила бандла сделана (пилот yauzl, semver — первый кусок в common-коде), вынесены xterm, iconv (utf-8 и UTF-16 нативно) и роли процесса (extension host, watcher — куски из нашего кода с бюджетом общих модулей), ядро — CJS-бандл, V8-снапшот ядра в SEA (`useSnapshot`: наших 342 → 252 на `small`; node 26.12, linux снова SEA), далее кухня воркбенча, жадные O(N)-проходы (13 МБ — 3 с), piece tree, стриминг гигантских файлов
 - [~] [LongLinePerformance](LongLinePerformance.md) — фриз длинных строк снят порогом рендера, межредакторная связь — damage-tracking'ом; открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
@@ -100,6 +90,22 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), сплиты/rename терминалов, minimumContrastRatio и прочая цветовая механика xterm.js, commandsToSkipShell
 - [x] [EditorGroups](EditorGroups.md) — сплиты области редактора сделаны (включая API расширений); в документе остались follow-up'ы (Quick Open Ctrl+Enter, read-only на документ, сплит untitled/дифф-вкладок)
 - [x] [SourceControlGraph](SourceControlGraph.md) — панель GRAPH сделана; в документе остались follow-up'ы (пикер ref'ов, compare/diff коммита, действия на бейджах)
+
+---
+
+## Extension host
+
+### [ ] Атрибуция сбоев расширения по стеку (G7, необязательно)
+
+Идентичность расширения сделана ([arch/Extensions.md](../arch/Extensions.md), «Идентичность
+расширения»): владелец известен на создающих вызовах. Не покрыто то, что идёт мимо них:
+`unhandledRejection`/`setUnexpectedErrorHandler` и `console.*` расширения. Решение — тем же
+индексом корней расширений по стеку ошибки, вывод — в канал `extensions.host.<id>`.
+
+### [ ] Одна проводка extension host'а к группе редактора (G5, необязательно)
+
+`bindExtensionHostToEditorGroup` в `api/browser` — одна проводка вместо двух копий в
+`extensionHostModule.ts` и `TestUtils/ExtensionTestHarness.ts`.
 
 ---
 

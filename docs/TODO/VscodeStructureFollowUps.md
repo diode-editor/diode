@@ -85,7 +85,7 @@
 - [ ] **`fileIcons.ts` в `base/common` на движковом `packRgb`** — единственное
   значение из `@tuidom` в `base/common` (`EXCEPTIONS` в
   `scripts/check-layers.mjs`): цветовую часть иконок поднять выше либо
-  хранить цвет в `base/common` своим типом. Разбор — [Lifecycle.md](Lifecycle.md) §8.
+  хранить цвет в `base/common` своим типом. Разметка подпутей `@tuidom/*` по окружениям — шапка `scripts/check-layers.mjs`.
 - [ ] **`MenuEntry` в `platform/actions`** — type-only импорт из
   `base/browser/ui/menu`; завести собственный тип entry в platform.
 
@@ -153,7 +153,7 @@
 ## Опциональные углубления (перенос из upstream, упрощён парностью путей)
 
 - [x] `Emitter`/`event.ts` из `vs/base/common/event.ts` вместо ad-hoc массивов
-  колбэков — сделано, свой узкий шим с именами эталона: [Events.md](Events.md).
+  колбэков — сделано, свой узкий шим с именами эталона: [arch/Common.md](../arch/Common.md#события-eventts).
 - [ ] PieceTree (`pieceTreeTextBuffer`) — см. [VscodeModel.md](VscodeModel.md), ветка A.
 - [ ] Эталонный дефолт событий активации (пусто значит пусто, без неявного
   `*`): механизм готов (`computeActivationEvents`), но дефолт `*` оставлен —
@@ -175,7 +175,7 @@
   только camelCase): `geometryPromitives.ts`→`geometry.ts`,
   `iRange.ts`→`range.ts` и т.п. (`disposable.ts`→`lifecycle.ts` закрыт:
   примитив переехал из движка в свой `vs/base/common/lifecycle.ts` —
-  [Lifecycle.md](Lifecycle.md).)
+  [arch/Common.md](../arch/Common.md#жизненный-цикл-lifecyclets).)
 
 ## Документация
 

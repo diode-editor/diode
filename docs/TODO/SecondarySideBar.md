@@ -57,8 +57,8 @@
 - [ ] `workbench.secondarySideBar.showLabels` — у нас вкладки всегда подписями.
 - [ ] Перетаскивание видов мышью (`CompositeDragAndDropObserver` эталона).
 - [ ] Ранжирование палитры: точное «View: Move View» стоит ниже «View: Move
-  Editor…» (fuzzy-оценка, смежно с пунктом палитры в
-  [ParityBacklog](ParityBacklog.md)); сценарий `view-locations` поэтому зовёт
+  Editor…» (fuzzy-оценка, смежно с fuzzy-палитрой
+  #374); сценарий `view-locations` поэтому зовёт
   команду пользовательским биндом.
 - [ ] Разделители в выборе из списка (`QuickPickItemKind.Separator`): сейчас
   подпись группы стоит справа у каждого пункта.

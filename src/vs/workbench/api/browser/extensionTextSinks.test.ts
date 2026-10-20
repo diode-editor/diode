@@ -74,8 +74,7 @@ import { QuickInputExtensionAdapter } from "./quickInputExtensionAdapter.ts";
 // ЧЕГО В ПЕРЕЧНЕ НЕТ (проверено, раковин пока не существует):
 //  - `window.setStatusBarMessage` — в `vscode.d.ts` ещё закомментирован;
 //  - `languages.createLanguageStatusItem` — заглушка, в интерфейс не проецируется;
-//  - заголовки view/контейнеров и `contributes.menus` — не реализованы
-//    (ParityBacklog, пункт 6);
+//  - заголовки view/контейнеров и `contributes.menus` — не реализованы;
 //  - SCM: placeholder инпута и заголовки групп — НАШ текст, у расширений
 //    SCM-API нет вовсе (в `vscode`-пространстве нет `scm`);
 //  - `QuickPickItem.detail` у `showQuickPick` — поля нет на проводе: наш ряд

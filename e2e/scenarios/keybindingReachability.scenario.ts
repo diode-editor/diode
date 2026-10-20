@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Достижимость биндов на терминале без extended keys (ssh + tmux — окружение,
-// в котором пункт M5 ParityBacklog и завёлся).
+// в котором дыра и завелась, #376).
 //
 // Кадры показывают три вещи:
 //  1. у Explorer есть безусловный лидер-аккорд Ctrl+K E — канонический
