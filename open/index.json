@@ -712,5 +712,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-20-df1f26b859e0.json",
+    "generatedAt": "2026-10-20T06:13:10.571Z",
+    "commit": "df1f26b859e0",
+    "binaryVersion": "nightly-df1f26b",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
