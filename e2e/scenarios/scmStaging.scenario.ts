@@ -7,7 +7,7 @@ import { frameToText } from "../helpers/frame.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Стейджинг в Source Control (спека docs/TODO/SourceControl.md): группы
+// Стейджинг в Source Control (устройство — docs/arch/workbench/SourceControl.md): группы
 // ресурсов Staged/Changes/Untracked со счётчиками, commit input box над
 // секциями, контекстное меню строки со Stage/Discard, стейдж из меню.
 

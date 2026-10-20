@@ -242,6 +242,9 @@
   `IMarkerRevealTarget` (`openUri` + `getActiveEditor` с
   `goToPosition`/`revealRange`); `EditorService` соответствует
   структурно, биндинг `MarkerRevealTargetDIToken` — в `src/vs/diode/modules/workbenchModule.ts`.
+  Большие наборы (jdtls на монорепе — ~24k маркеров по ~1.7k файлам вешали UI-поток на минуты):
+  изменения сводятся в окно 64 мс (как `MarkersView` эталона), пересчёт — не больше одного за раз,
+  файлы раскрываются одним `TreeViewElement.expandElements`.
 - `contrib/terminal/browser/terminalService.ts` — headless-оркестратор терминала:
   инстансы (id/title/session), lazy spawn через `TerminalSessionFactory`,
   регистрация контейнера/view TERMINAL (`TERMINAL_VIEW_ID`, `location: "panel"`
@@ -261,7 +264,7 @@
   в области редакторов (`TerminalLocation.Editor`): инстанс `target: "editor"`
   плюс вкладка `TerminalEditorPane` (`vscode-terminal:/<id>`), колонка —
   `columnToEditorGroup` (`services/editor/common/editorGroupColumn.ts`, общий
-  с `showTextDocument`). Устройство — [IntegratedTerminal.md](../../TODO/IntegratedTerminal.md),
+  с `showTextDocument`). Устройство — [Terminal.md](Terminal.md),
   «Терминал в области редакторов».
 - `contrib/markers/browser/diagnosticsService.ts` — headless-проводник диагностик
   поверх `MarkerService`: поставщик — валидатор активного settings.json,

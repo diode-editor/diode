@@ -25,6 +25,8 @@ DI-модули и профили — `src/vs/diode/modules/` (см. [../DI.md](
 | [ExtensionsView.md](workbench/ExtensionsView.md) | магазин расширений в UI |
 | [KeybindingsEditor.md](workbench/KeybindingsEditor.md) | редактор Keyboard Shortcuts и user-слой биндингов |
 | [Tasks.md](workbench/Tasks.md) | задачи (`contrib/tasks`) |
+| [Terminal.md](workbench/Terminal.md) | встроенный терминал: PTY + эмулятор, упаковка node-pty, вкладки, терминал в редакторе, цвета |
+| [SourceControl.md](workbench/SourceControl.md) | Source Control: мосты к расширению git, группы ресурсов, граф коммитов |
 
 ## Модель Service ↔ Component
 
@@ -236,7 +238,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 (component → element). Эталоны: `EditorGroupComponent` ↔ `EditorTabStripElement`,
 `InputWidgetService` ↔ `InputElement` + `InputState`. «Контроллеры под видом
 элемента» (напр. `MenuBarElement`, `ContextMenuLayer`) сводим к этому паттерну —
-см. [../TODO/Inspector.md](../TODO/Inspector.md).
+см. [../TODO/EngineWidgetRepatriation.md](../TODO/EngineWidgetRepatriation.md).
 
 **Где живёт Element.** Элемент общего назначения (его публичный API не упоминает
 понятий Diode) — в `@tuidom/elements`. Diode-специфичному элементу в tuidom не

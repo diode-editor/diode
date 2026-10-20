@@ -10,7 +10,7 @@
 //
 // Это Workbench-слой (выше TUIDom), поэтому импорт node-pty здесь допустим: слои
 // TUIDom и ниже остаются чистыми, а виджет `TerminalViewElement` видит только
-// `ITerminalSurface`. См. docs/TODO/IntegratedTerminal.md.
+// `ITerminalSurface`. См. docs/arch/workbench/Terminal.md.
 
 import type { IPty } from "node-pty";
 

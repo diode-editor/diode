@@ -339,6 +339,6 @@ e2e-сценарий на каждую видимую часть) в оценк�
 - [Extensions](Extensions.md), [docs/arch/Extensions.md](../arch/Extensions.md) — поверхность API расширений
 - [docs/arch/Configuration.md](../arch/Configuration.md) — слои настроек
 - [docs/arch/State.md](../arch/State.md) — per-workspace стор
-- [SourceControl](SourceControl.md) — слой SCM
+- [arch/workbench/SourceControl](../arch/workbench/SourceControl.md) — слой SCM
 - [LSP](LSP.md) — таблица стабов, в т.ч. `showQuickPick`/`pickFolder`
 - [API-COVERAGE](../public/API-COVERAGE.md) — матрица готовности

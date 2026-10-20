@@ -3,7 +3,7 @@
 Единственный источник бинарей — GitHub Releases (`build.yml` → `release.yml`). Всё, что лежит
 здесь, либо заворачивает эти бинари в формат канала, либо рендерит манифест, указывающий на них.
 Публичное описание каналов для пользователя — [docs/public/INSTALL.md](../docs/public/INSTALL.md);
-что сделано, что осталось и какие секреты нужны — [docs/TODO/Distribution.md](../docs/TODO/Distribution.md).
+открытое — [docs/TODO/Distribution.md](../docs/TODO/Distribution.md).
 
 | Канал | Где | Кто дёргает |
 |---|---|---|
@@ -36,6 +36,22 @@ npm install -g --prefix /tmp/npm-global ./diode-editor-diode-0.3.0.tgz && /tmp/n
 node packaging/render.mjs --version 0.3.0 --from-github
 ```
 
+## Секреты
+
+Каждая джоба `release.yml` без своего секрета молча пропускается — кроме `site`, она горит красным.
+
+| Секрет | Джоба | Что это |
+|---|---|---|
+| `APT_GPG_PRIVATE_KEY`, `APT_GPG_PASSPHRASE` | `packages` | ключ подписи apt-репозитория (см. «Ключ apt-репозитория») |
+| — | `npm` | секрета нет: Trusted Publishing (OIDC), у версий SLSA-provenance |
+| `REPOSITORY_PAT` | `brew` | push в `diode-editor/homebrew-tap`. Classic со scope `repo` покрывает все репозитории организации, fine-grained — только перечисленные в «Repository access» с Contents: read and write |
+| `WINGET_TOKEN` | `winget` | PAT с `public_repo`, заводится после мержа первой подачи |
+| `SITE_PAT` | `site` | fine-grained PAT на `diode-editor.github.io` (см. «Сайт») |
+
+Homebrew — **cask** со стансами `os`/`arch`, один на macOS и Linux: формулу без бутылки Homebrew
+считает сборкой из исходников и на macOS требует свежие Command Line Tools — на этом упала первая
+живая установка v0.4.0 на macOS 14.
+
 ## npm: первая публикация и Trusted Publisher
 
 `release.yml` публикует через npm Trusted Publishing (OIDC): секрета нет, provenance ставится
@@ -62,6 +78,8 @@ organization `diode-editor`, repository `diode`, workflow filename `release.yml`
 1. `node packaging/render.mjs --version X.Y.Z --from-github --release-date YYYY-MM-DD`
 2. В форке `microsoft/winget-pkgs` положить `packaging/out/winget/DiodeEditor.Diode/X.Y.Z/*.yaml`
    в `manifests/d/DiodeEditor/Diode/X.Y.Z/`, проверить `winget validate <папка>`, открыть PR.
+   Коммит в форк удобнее через Git Data API: частичный клон (`--filter=tree:0`) при push
+   дотягивает всё дерево огромного репозитория.
 3. После мержа — секрет `WINGET_TOKEN` (PAT с `public_repo`), и следующие версии подаёт `release.yml`.
 
 ## Сайт: версия на лендинге

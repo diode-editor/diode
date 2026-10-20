@@ -335,7 +335,7 @@ Ctrl+W → `DIFF_REJECTED`; `close_tab`/`closeAllDiffTabs` → вкладка з
 План, по убыванию пользы:
 - [x] **Терминал вкладкой в области редакторов** (`TerminalLocation.Editor`,
       `{ viewColumn }`, `{ parentTerminal }`) — устройство в
-      [IntegratedTerminal.md](IntegratedTerminal.md#терминал-в-области-редакторов-terminallocationeditor);
+      [arch/workbench/Terminal.md](../arch/workbench/Terminal.md#терминал-в-области-редакторов-terminallocationeditor);
       вживую: «✻ Claude Code» → `claude` вкладкой справа, `Ctrl+W` закрывает
       вкладку с процессом. Исходный план: `location` по проводу на хост;
       у инстанса `TerminalService` место «панель/редактор» (в

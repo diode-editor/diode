@@ -5,34 +5,7 @@
 дорогой `search` на каждое нажатие) уже устранены — см. «Сделано». Остаток —
 точечные фиксы в «Будущих фиксах».
 
-## Как запускать бенчи
-
-```
-npm run test:perf
-```
-
-Конфиг — `vitest.perf.config.ts` (отдельный от обычного `npm test`, не влияет на
-coverage). Бенчи: `src/**/*.bench.ts`, общие фикстуры — `src/TestUtils/perfFixtures.ts`.
-
-| Бенч | Что меряет |
-| --- | --- |
-| `FileSearchService.bench.ts` → `activate / index N files` | время фонового обхода до готовности индекса (с уступками event loop) |
-| `FileSearchService.bench.ts` → `search …` | стоимость одного запроса в Quick Open |
-| `FileTreeDataProvider.bench.ts` → `getChildren …` | раскрытие одного большого каталога |
-| `TreeViewElement.bench.ts` → `refresh / toggleExpand / render` | flatten + O(N) сканы + рендер кадра |
-
-## Baseline (для отслеживания регрессов; абсолют зависит от машины)
-
-| Бенч | mean |
-| --- | --- |
-| `activate / index 1000 files` | ~5 мс |
-| `activate / index 10000 files` | ~66 мс фонового обхода (event loop **не** блокируется) |
-| `search` basename-фрагмент (10k индекс) | ~1.9 мс на нажатие |
-| `search` path-фрагмент (10k индекс) | ~5.4 мс на нажатие |
-| `search` непроходной запрос (10k) | ~0.03 мс (отсев по bitmask) |
-| `getChildren` 5000 записей | ~7.9 мс |
-| `refresh()` дерева на 2000 раскрытых узлов | ~35 мс |
-| `render viewport` (40 строк) | ~0.85 мс/кадр (норм) |
+Бенчи — [TESTING.md](../TESTING.md#микробенчи-npm-run-testperf).
 
 ## Сделано
 
@@ -98,9 +71,8 @@ TreeView оставлен как есть: загрузка ленивая (од
       он про **суммарную** цену: сейчас обход стоит ~14 с CPU на дереве с ~55k
       каталогов (`readdirp` + `stat` на каждый вход + JS-глоб на каждый путь), в
       C++-реализации это кратно дешевле, а батарея и время до «слежение живо» —
-      единственное, что от этого выигрывает. Лимит inotify нативный бэкенд **не**
-      поднимает: у `@parcel/watcher` на Linux под капотом тот же inotify, и VS Code
-      ловит там тот же ENOSPC.
+      единственное, что от этого выигрывает. ENOSPC он не лечит — см.
+      [EnvironmentTuning](EnvironmentTuning.md#--linux-исчерпан-лимит-inotify-enospcemfile--сказать-это-пользователю-как-vs-code).
       Цена входа — нативный модуль под SEA-упаковку: рецепт есть (`node-pty` →
       `dist/node-pty.bundle` + `loadNodePty.ts`: распаковка `.node` в кэш + `dlopen`,
       сборка — `scripts/build-sea.mjs`), но `@parcel/watcher` приезжает отдельным

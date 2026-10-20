@@ -10,8 +10,8 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональные e2e стейджинга (спека docs/TODO/SourceControl.md, US-1…US-9,
-// US-12): группы ресурсов, stage/unstage из контекстного меню (строка, заголовок
+// Функциональные e2e стейджинга (устройство — docs/arch/workbench/SourceControl.md;
+// бывшие US-1…US-9, US-12): группы ресурсов, stage/unstage из контекстного меню (строка, заголовок
 // группы, палитро-команды stageAll/unstageAll), multi-select. Git-ассерты —
 // строго после того, как UI-предикат подтвердил завершение операции.
 
