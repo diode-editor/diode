@@ -118,6 +118,7 @@ export class TextDocument implements ITextDocument {
         const oldEndLine = this.lineCount - 1;
         const eolBefore = this.eol;
         this.innerVersionId++;
+        // Stryker disable next-line CallExpression: у буфера только свой эмиттер без подписчиков — наблюдаемого эффекта нет
         this.buffer.dispose();
         this.buffer = createTextBuffer(text);
         this.decorations.acceptFlush(this);
@@ -279,6 +280,7 @@ export class TextDocument implements ITextDocument {
 function createTextBuffer(text: string): ITextBuffer {
     const builder = new PieceTreeTextBufferBuilder();
     builder.acceptChunk(text);
+    // Stryker disable next-line BooleanLiteral: без нормализации буфер приводит EOL на каждом чтении (регэксп по тексту) — та же семантика, другая цена
     const { textBuffer } = builder.finish(true).create(DefaultEndOfLine.LF);
     // Билдер снимает ведущий BOM в отдельное поле (у эталона его снимает
     // чтение файла). Наш декодер BOM уже снял (`encoding.ts`), так что здесь
