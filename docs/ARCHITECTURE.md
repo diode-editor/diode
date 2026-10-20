@@ -174,9 +174,8 @@ env-флагом, который выставляет спавнящая сто�
 там — чистые функции без DOM, DI и реактивщины, и ложатся они по тем же путям. Тем же
 механизмом перенесена токенизация модели (`editor/common/model/textModelTokens.ts`: фон,
 эвристика вьюпорта, хранилище состояний) и хранение текста — PieceTree
-(`editor/common/model/pieceTreeTextBuffer/`, пока без потребителя) с поиском по буферу
-(`model/textModelSearch.ts`); план дальнейших переносов (подключение PieceTree, бинарные
-токены) — в [TODO/VscodeModel.md](TODO/VscodeModel.md). Перенесённый код живёт в координатах
+(`editor/common/model/pieceTreeTextBuffer/`, на нём стоит `TextDocument`) с поиском по буферу
+(`model/textModelSearch.ts`); план дальнейших переносов (бинарные токены и др.) — в [TODO/VscodeModel.md](TODO/VscodeModel.md). Перенесённый код живёт в координатах
 эталона (строки и колонки с 1), ядро — 0-based; ±1 — только в адаптере
 ([arch/Editor.md](arch/Editor.md#координаты-ядро-0-based-вендор-1-based)).
 
